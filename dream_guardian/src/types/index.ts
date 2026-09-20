@@ -126,3 +126,94 @@ export interface SessionRecord {
   squats: number;
   calories: number;
 }
+
+// ─── Pose Landmark ───
+export interface NormalizedLandmark {
+  x: number; // 0~1 (정규화 좌표)
+  y: number;
+  z: number;
+  visibility: number; // 0~1 (신뢰도)
+}
+
+/** MediaPipe Pose 33개 랜드마크 인덱스 */
+export const POSE_LANDMARKS = {
+  NOSE: 0,
+  LEFT_EYE_INNER: 1,
+  LEFT_EYE: 2,
+  LEFT_EYE_OUTER: 3,
+  RIGHT_EYE_INNER: 4,
+  RIGHT_EYE: 5,
+  RIGHT_EYE_OUTER: 6,
+  LEFT_EAR: 7,
+  RIGHT_EAR: 8,
+  MOUTH_LEFT: 9,
+  MOUTH_RIGHT: 10,
+  LEFT_SHOULDER: 11,
+  RIGHT_SHOULDER: 12,
+  LEFT_ELBOW: 13,
+  RIGHT_ELBOW: 14,
+  LEFT_WRIST: 15,
+  RIGHT_WRIST: 16,
+  LEFT_PINKY: 17,
+  RIGHT_PINKY: 18,
+  LEFT_INDEX: 19,
+  RIGHT_INDEX: 20,
+  LEFT_THUMB: 21,
+  RIGHT_THUMB: 22,
+  LEFT_HIP: 23,
+  RIGHT_HIP: 24,
+  LEFT_KNEE: 25,
+  RIGHT_KNEE: 26,
+  LEFT_ANKLE: 27,
+  RIGHT_ANKLE: 28,
+  LEFT_HEEL: 29,
+  RIGHT_HEEL: 30,
+  LEFT_FOOT_INDEX: 31,
+  RIGHT_FOOT_INDEX: 32,
+} as const;
+
+/** 스켈레톤 뼈대 연결 정의 (쌍 배열) */
+export const SKELETON_CONNECTIONS: readonly [number, number][] = [
+  // 몸통
+  [POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.RIGHT_SHOULDER],
+  [POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.LEFT_HIP],
+  [POSE_LANDMARKS.RIGHT_SHOULDER, POSE_LANDMARKS.RIGHT_HIP],
+  [POSE_LANDMARKS.LEFT_HIP, POSE_LANDMARKS.RIGHT_HIP],
+  // 왼팔
+  [POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.LEFT_ELBOW],
+  [POSE_LANDMARKS.LEFT_ELBOW, POSE_LANDMARKS.LEFT_WRIST],
+  // 오른팔
+  [POSE_LANDMARKS.RIGHT_SHOULDER, POSE_LANDMARKS.RIGHT_ELBOW],
+  [POSE_LANDMARKS.RIGHT_ELBOW, POSE_LANDMARKS.RIGHT_WRIST],
+  // 왼다리
+  [POSE_LANDMARKS.LEFT_HIP, POSE_LANDMARKS.LEFT_KNEE],
+  [POSE_LANDMARKS.LEFT_KNEE, POSE_LANDMARKS.LEFT_ANKLE],
+  // 오른다리
+  [POSE_LANDMARKS.RIGHT_HIP, POSE_LANDMARKS.RIGHT_KNEE],
+  [POSE_LANDMARKS.RIGHT_KNEE, POSE_LANDMARKS.RIGHT_ANKLE],
+];
+
+/** 관절 마커 스타일 */
+export interface JointStyle {
+  color: string;
+  size: number;
+  shape: 'circle' | 'diamond' | 'square';
+}
+
+/** 스켈레톤 설정 */
+export interface SkeletonConfig {
+  /** 신뢰도 임계값 (이하면 무시) */
+  visibilityThreshold: number;
+  /** 보간(lerp) 계수 (0~1, 1이면 즉시) */
+  lerpFactor: number;
+  /** 호흡 펄스 주기 (초) */
+  breathCycle: number;
+  /** 호흡 진폭 (스케일 배수) */
+  breathAmplitude: number;
+  /** 뼈대 라인 두께 */
+  boneWidth: number;
+  /** 뼈대 색상 */
+  boneColor: string;
+  /** 관절별 스타일 맵 */
+  joints: Record<string, JointStyle>;
+}
