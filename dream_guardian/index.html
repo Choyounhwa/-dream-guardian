@@ -1,0 +1,2650 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>꿈의 수호신 (Dream Guardian)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #050308; overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Gowun Batang', serif;
+            color: #e0f0ff;
+            user-select: none;
+        }
+        #container {
+            position: relative;
+            width: min(100vw, calc(100vh * (9 / 18)));
+            height: min(100vh, calc(100vw * (18 / 9)));
+            background: #000;
+            box-shadow: 0 0 30px rgba(0,229,255,0.1);
+            overflow: hidden;
+            touch-action: auto;
+        }
+        @media (max-width: 500px) and (aspect-ratio: 9/18) {
+            #container { width: 100vw; height: 100vh; box-shadow: none; border-radius: 0; }
+        }
+        canvas { display: block; width: 100%; height: 100%; position: absolute; top:0; left:0; z-index: 5; touch-action: none; }
+        #webcam { position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; }
+        #camera_status { position: absolute; bottom: 0; left: 0; width: 100%; z-index: 26; padding: 5px; background: #10172eee; font: 12px sans-serif; pointer-events: none; }
+        #camera_status[hidden] { display: none; }
+        
+        #loading {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(180deg, #0a0e1a 0%, #12061f 100%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 24px; color: #a8e6f0; z-index: 20; text-align: center;
+            text-shadow: 0 0 10px rgba(168,230,240,0.8);
+            transition: opacity 1s ease;
+        }
+        .hidden { opacity: 0; pointer-events: none; }
+        
+        @keyframes hitShake {
+            0% { transform: translate(0, 0); }
+            20% { transform: translate(-15px, 12px); }
+            40% { transform: translate(15px, -12px); }
+            60% { transform: translate(-12px, 8px); }
+            80% { transform: translate(12px, -8px); }
+            100% { transform: translate(0, 0); }
+        }
+        .shake { animation: hitShake 0.4s ease-out; }
+
+        /* Floating Top Controls for Mobile */
+        #top_controls {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 25;
+            display: flex;
+            gap: 8px;
+        }
+        .ctrl-btn {
+            background: rgba(15, 20, 35, 0.75);
+            border: 1.5px solid #a8e6f0;
+            color: #a8e6f0;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(6px);
+            transition: background 0.2s, transform 0.1s;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+        }
+        .ctrl-btn:active {
+            transform: scale(0.92);
+            background: rgba(0, 229, 255, 0.35);
+        }
+
+        /* Workout Records Modal */
+        #records_modal {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(6, 8, 18, 0.94);
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            padding: 24px 18px;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+            color: #e0f0ff;
+            transition: opacity 0.3s ease;
+        }
+        #records_modal.hidden { display: none; }
+        .records-header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1.5px solid #a8e6f0; padding-bottom: 12px; margin-bottom: 16px;
+        }
+        .records-stat-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;
+        }
+        .stat-card {
+            background: rgba(25, 30, 55, 0.8);
+            border: 1px solid rgba(168, 230, 240, 0.3);
+            border-radius: 10px; padding: 12px 10px; text-align: center;
+        }
+        .stat-val { font-size: 20px; font-weight: bold; color: #ffd700; margin-top: 4px; }
+        .stat-lbl { font-size: 12px; color: #a8e6f0; }
+        .records-list {
+            flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+        }
+        .record-item {
+            background: rgba(20, 25, 45, 0.7);
+            border: 1px solid rgba(168, 230, 240, 0.2);
+            border-radius: 8px; padding: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 13px;
+        }
+        #question_panel { position: absolute; z-index: 10; top: 30%; left: 4%; width: 92%; height: 10%; padding: 7px 10px; border: 2px solid #a8e6f0; border-radius: 12px; background: rgba(8,14,37,.9); display: flex; pointer-events:none; }
+        #question_panel[hidden] { display: none; }
+        #question_text { min-height: 0; width:100%; overflow-y: auto; overflow-x: hidden; touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; font: 700 clamp(24px, 7vw, 40px)/1.25 sans-serif; text-align: center; user-select: text; }
+        #game_controls { position:absolute; z-index:27; left:3%; right:3%; bottom:max(10px, env(safe-area-inset-bottom)); height:64px; display:none; align-items:stretch; gap:8px; pointer-events:auto; }
+        #game_controls.visible { display:flex; }
+        .nav-btn, #control_hud, .pause-card { border:2px solid #a8e6f0; background:linear-gradient(180deg,#1c2a55,#090d25); color:#fff; box-shadow:inset 0 0 0 2px rgba(255,255,255,.08),0 0 10px rgba(146,195,255,.3); border-radius:14px; font-family:'Gowun Batang',serif; }
+        .nav-btn { width:74px; font-size:15px; font-weight:bold; cursor:pointer; touch-action:manipulation; }
+        .nav-btn:active { transform:scale(.96); border-color:#ffe17b; }
+        #control_hud { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; font:700 15px/1.35 sans-serif; text-shadow:0 1px 2px #000; }
+        #pause_menu { position:absolute; z-index:29; bottom:84px; left:9%; width:82%; padding:14px; display:none; grid-template-columns:1fr 1fr; gap:10px; background:rgba(8,13,35,.95); border:2px solid #a8e6f0; border-radius:18px; box-shadow:0 0 25px rgba(115,185,255,.45); }
+        #pause_menu.visible { display:grid; }
+        #pause_menu h2 { grid-column:1/-1; margin:0; text-align:center; font-size:20px; }
+        #pause_menu button { min-height:48px; border:2px solid #a8e6f0; background:#1c2a55; border-radius:12px; color:white; font:700 16px 'Gowun Batang',serif; cursor:pointer; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="motion-input.js"></script>
+    <script src="zone-input.js"></script>
+    <script src="menu-input.js"></script>
+    <script src="answer-selection.js"></script>
+    <script src="question-speech.js"></script>
+</head>
+<body>
+    <div id="container">
+        <div id="loading">
+            <div>수호신의 꿈 속으로...</div>
+            <div style="font-size:14px; margin-top:20px; color:#88b">마법진(카메라)과 마도서(CSV)를 연결 중입니다</div>
+        </div>
+
+        <div id="top_controls"><button id="btn_fullscreen" class="ctrl-btn" title="전체화면">⛶</button></div>
+        <div id="camera_status" role="status" aria-live="polite" hidden></div>
+
+        <div id="records_modal" class="hidden">
+            <div class="records-header">
+                <span style="font-size:20px; font-weight:bold; color:#a8e6f0;">🏆 운동 기록 & 명예의 전당</span>
+                <button id="btn_close_records" class="ctrl-btn" style="width:32px; height:32px; font-size:16px;">✕</button>
+            </div>
+            <div class="records-stat-grid">
+                <div class="stat-card"><div class="stat-lbl">🔥 총 소모 칼로리</div><div id="stat_total_cal" class="stat-val">0 kcal</div></div>
+                <div class="stat-card"><div class="stat-lbl">🏃 총 달린 걸음</div><div id="stat_total_steps" class="stat-val">0보</div></div>
+                <div class="stat-card"><div class="stat-lbl">🏋️ 총 스쿼트 회피</div><div id="stat_total_squats" class="stat-val">0회</div></div>
+                <div class="stat-card"><div class="stat-lbl">🌟 획득 별빛(★)</div><div id="stat_total_stars" class="stat-val">0 / 15</div></div>
+            </div>
+            <div style="font-size:14px; font-weight:bold; margin-bottom:8px; color:#a8e6f0;">최근 수호 임무 기록</div>
+            <div id="records_list" class="records-list"></div>
+        </div>
+
+        <div id="pause_menu" aria-label="일시 정지 메뉴">
+            <h2>꿈의 쉼터</h2>
+            <button id="btn_resume" type="button">계속하기</button>
+            <button id="btn_pause_records" type="button">기록 보기</button>
+            <button id="btn_pause_menu" type="button">메뉴 보기</button>
+            <button id="btn_pause_home" type="button">홈으로 가기</button>
+        </div>
+        <div id="game_controls" aria-label="게임 직접 조작 메뉴">
+            <button id="btn_home" class="nav-btn" type="button">홈으로</button>
+            <div id="control_hud">마나 0/100</div>
+            <button id="btn_pause" class="nav-btn" type="button">멈추기</button>
+        </div>
+
+        <video id="webcam" autoplay muted playsinline webkit-playsinline></video>
+        <canvas id="output_canvas"></canvas>
+        <section id="question_panel" hidden aria-label="수학 문제">
+            <div id="question_text" tabindex="0" aria-label="문제 내용"></div>
+        </section>
+    </div>
+    
+    <div style="display:none;">
+        <img id="img_guardian" src="img/guardian.png" alt="Guardian">
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. Audio System (Web Audio API)
+        // ==========================================
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.1);
+                osc.frequency.setValueAtTime(783.99, now + 0.2);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now); osc.stop(now + 0.5);
+            } else if (type === 'wrong') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(150, now);
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.start(now); osc.stop(now + 0.4);
+            } else if (type === 'hover') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            } else if (type === 'start') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.6);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+                osc.start(now); osc.stop(now + 0.8);
+            } else if (type === 'monster_hit') {
+                const bufferSize = audioCtx.sampleRate * 0.5;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(800, now);
+                filter.frequency.exponentialRampToValueAtTime(50, now + 0.5);
+                const nGain = audioCtx.createGain();
+                nGain.gain.setValueAtTime(1.0, now);
+                nGain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                noise.connect(filter); filter.connect(nGain); nGain.connect(audioCtx.destination);
+                noise.start(now); noise.stop(now + 0.5);
+                
+                // Add glass shatter sound for boss
+                const osc2 = audioCtx.createOscillator();
+                osc2.type = 'square';
+                osc2.frequency.setValueAtTime(1200, now);
+                osc2.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+                const gain2 = audioCtx.createGain();
+                gain2.gain.setValueAtTime(0.2, now);
+                gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc2.connect(gain2); gain2.connect(audioCtx.destination);
+                osc2.start(now); osc2.stop(now + 0.3);
+
+            } else if (type === 'player_hurt') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, now);
+                osc.frequency.exponentialRampToValueAtTime(50, now + 0.4);
+                gain.gain.setValueAtTime(0.6, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.start(now); osc.stop(now + 0.4);
+            } else if (type === 'shatter') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(1200, now);
+                osc.frequency.setValueAtTime(2000, now + 0.1);
+                osc.frequency.setValueAtTime(800, now + 0.2);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            } else if (type === 'shield_deflect') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, now);
+                osc.frequency.setValueAtTime(1320, now + 0.08);
+                osc.frequency.setValueAtTime(1760, now + 0.16);
+                gain.gain.setValueAtTime(0.35, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now); osc.stop(now + 0.5);
+            } else if (type === 'jump_whoosh') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(320, now);
+                osc.frequency.exponentialRampToValueAtTime(960, now + 0.22);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now); osc.stop(now + 0.25);
+            } else if (type === 'crystal_pickup') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(1046.5, now);
+                osc.frequency.setValueAtTime(1318.5, now + 0.08);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now); osc.stop(now + 0.25);
+            } else if (type === 'warning') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.setValueAtTime(370, now + 0.15);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            } else if (type === 'step_beat') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            }
+        }
+
+        // BGM System
+        let bgmInterval = null;
+        let bgmStep = 0;
+        const bgmNotes = [440.00, 523.25, 587.33, 659.25, 783.99]; // Am pentatonic: A4, C5, D5, E5, G5
+        let isBgmPlaying = false;
+
+        function startBGM() {
+            if (isBgmPlaying) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            isBgmPlaying = true;
+            bgmStep = 0;
+            bgmInterval = setInterval(() => {
+                if(audioCtx.state === 'suspended') return;
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(bgmNotes[bgmStep % bgmNotes.length], now);
+                bgmStep++;
+                
+                // Slow dreamy attack/release
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(0.05, now + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.6);
+            }, 300); // 300ms per note
+        }
+
+        function stopBGM() {
+            if (bgmInterval) clearInterval(bgmInterval);
+            bgmInterval = null;
+            isBgmPlaying = false;
+        }
+
+        // ==========================================
+        // 2. Data & CSV Parsing
+        // ==========================================
+        let questionDB = [];
+        let dynamicLevels = [];
+        let csvLoaded = false;
+        let cameraReady = false;
+
+        function ensureFallbackLevels() {
+            if (dynamicLevels.length === 0) {
+                dynamicLevels = [
+                    { id: 1, title: "숫자의 숲 (덧뺄셈)", subLevels: [{ id: 1, title: "기초 덧셈과 뺄셈" }] },
+                    { id: 2, title: "곱셈의 성 (곱나눗셈)", subLevels: [{ id: 1, title: "기초 곱셈과 나눗셈" }] },
+                    { id: 3, title: "나눗셈의 미궁 (분수)", subLevels: [{ id: 1, title: "분수의 기본 연산" }] },
+                    { id: 4, title: "소수의 사막 (소수)", subLevels: [{ id: 1, title: "소수의 덧셈과 뺄셈" }] },
+                    { id: 5, title: "★ 나이트메어", subLevels: [{ id: 1, title: "악몽의 종합 연산" }] }
+                ];
+            }
+            if (questionDB.length === 0) {
+                questionDB = [
+                    { level: 1, subLevel: 1, lvlTitle: "숫자의 숲", subTitle: "덧뺄셈", qTemp: "{A} + {B} = ?", cTemp: "A+B", wTemp: "A+B+1", va: "rand(2,9)", vb: "rand(1,9)", vc: "0", vd: "0" },
+                    { level: 1, subLevel: 1, lvlTitle: "숫자의 숲", subTitle: "덧뺄셈", qTemp: "{A} - {B} = ?", cTemp: "A-B", wTemp: "A-B+1", va: "rand(6,15)", vb: "rand(1,5)", vc: "0", vd: "0" },
+                    { level: 2, subLevel: 1, lvlTitle: "곱셈의 성", subTitle: "곱나눗셈", qTemp: "{A} × {B} = ?", cTemp: "A*B", wTemp: "A*B+2", va: "rand(2,9)", vb: "rand(2,9)", vc: "0", vd: "0" },
+                    { level: 2, subLevel: 1, lvlTitle: "곱셈의 성", subTitle: "곱나눗셈", qTemp: "{A*B} ÷ {A} = ?", cTemp: "B", wTemp: "B+1", va: "rand(2,8)", vb: "rand(2,9)", vc: "0", vd: "0" },
+                    { level: 3, subLevel: 1, lvlTitle: "나눗셈의 미궁", subTitle: "분수", qTemp: "1/{A} + 1/{A} = ?", cTemp: "'2/'+A", wTemp: "'1/'+A", va: "pick(3,4,5,7,9)", vb: "0", vc: "0", vd: "0" },
+                    { level: 4, subLevel: 1, lvlTitle: "소수의 사막", subTitle: "소수", qTemp: "0.{A} + 0.{B} = ?", cTemp: "((A+B)/10).toFixed(1)", wTemp: "((A+B+1)/10).toFixed(1)", va: "rand(1,4)", vb: "rand(1,4)", vc: "0", vd: "0" }
+                ];
+            }
+        }
+
+        function checkReady() {
+            if (csvLoaded) {
+                ensureFallbackLevels();
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) loadingEl.classList.add('hidden');
+                if (gameState === 'loading') {
+                    changeState('menu_main');
+                }
+            }
+        }
+
+        // Failsafe timer: Force entry to menu_main within 1.5s so user is never blocked
+        setTimeout(() => {
+            csvLoaded = true;
+            checkReady();
+        }, 1500);
+
+        function parseCsvLine(line) {
+            const row = [];
+            let inQuotes = false;
+            let token = "";
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    if (inQuotes && line[i+1] === '"') { token += '"'; i++; } 
+                    else { inQuotes = !inQuotes; }
+                } else if (char === ',' && !inQuotes) {
+                    row.push(token.trim()); token = "";
+                } else { token += char; }
+            }
+            row.push(token.trim());
+            return row;
+        }
+
+        function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+        function pick(...args) { 
+           if (Array.isArray(args[0])) return args[0][rand(0, args[0].length - 1)];
+           return args[rand(0, args.length - 1)]; 
+        }
+        function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+        function factorial(n) { return n <= 1 ? 1 : n * factorial(n - 1); }
+        function sup(n) {
+          const sups = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻'};
+          return String(n).split('').map(d => sups[d] || d).join('');
+        }
+        function repeatMul(num, count) { return Array(Math.max(1, count)).fill(num).join(' × '); }
+        function repeatAdd(num, count) { return Array(Math.max(1, count)).fill(num).join(' + '); }
+
+        // Fetch CSV from multiple candidate locations
+        const csvCandidates = ['../questions.csv', 'questions.csv'];
+        function tryLoadCsv(index = 0) {
+            if (index >= csvCandidates.length) {
+                console.warn("CSV not found, using built-in arithmetic DB.");
+                ensureFallbackLevels();
+                csvLoaded = true;
+                checkReady();
+                return;
+            }
+            fetch(csvCandidates[index] + '?t=' + new Date().getTime())
+                .then(res => {
+                    if (!res.ok) throw new Error("Status " + res.status);
+                    return res.text();
+                })
+                .then(text => {
+                    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+                    const lines = text.split(/\r?\n/);
+                    const lvlMap = new Map();
+                    for (let i = 1; i < lines.length; i++) {
+                        if (!lines[i].trim()) continue;
+                        const cols = parseCsvLine(lines[i]);
+                        if (cols.length < 5) continue;
+                        
+                        const lvl = parseInt(cols[0]);
+                        if (lvl > 4) continue; 
+                        const sub = parseInt(cols[1]);
+                        
+                        questionDB.push({
+                            level: lvl, subLevel: sub,
+                            lvlTitle: cols[2], subTitle: cols[3],
+                            qTemp: cols[4], cTemp: cols[5], wTemp: cols[6],
+                            va: cols[7], vb: cols[8], vc: cols[9], vd: cols[10] || "0"
+                        });
+                        
+                        if (!lvlMap.has(lvl)) lvlMap.set(lvl, { id: lvl, title: cols[2], subLevels: [] });
+                        const lObj = lvlMap.get(lvl);
+                        if (!lObj.subLevels.some(s => s.id === sub)) {
+                            lObj.subLevels.push({ id: sub, title: cols[3] });
+                        }
+                    }
+                    dynamicLevels = Array.from(lvlMap.values()).sort((a,b)=>a.id-b.id);
+                    ensureFallbackLevels();
+                    csvLoaded = true;
+                    checkReady();
+                })
+                .catch(err => {
+                    tryLoadCsv(index + 1);
+                });
+        }
+        tryLoadCsv(0);
+
+        function createRawQuestion() {
+            let candidates;
+            if (currentLevel === 5) {
+                // Nightmare: random mix from all levels 1-4
+                candidates = questionDB;
+            } else {
+                candidates = questionDB.filter(q => q.level === currentLevel && q.subLevel === currentSubLevel);
+            }
+            if (candidates.length === 0) return { q: "2 + 3 = ?", c: "5", w: "6", template: "" };
+            
+            let t, A, B, C, D, q, c, w;
+            let evalAttempts = 0;
+            do {
+                t = pick(candidates);
+                A = 0; B = 0; C = 0; D = 0;
+                try { A = eval(t.va); } catch(e){}
+                try { B = eval(t.vb); } catch(e){}
+                try { C = eval(t.vc); } catch(e){}
+                try { D = eval(t.vd); } catch(e){}
+                
+                q = t.qTemp.replace(/\{A\}/g, A).replace(/\{B\}/g, B).replace(/\{C\}/g, C).replace(/\{D\}/g, D);
+                q = q.replace(/\{([^}]+)\}/g, (m, expr) => { try { return eval(expr); } catch(e) { return m; } });
+                
+                c = ""; w = "";
+                try { c = eval(t.cTemp); } catch(e){ c = "err"; }
+                try { w = eval(t.wTemp); } catch(e){ w = "err"; }
+                evalAttempts++;
+            } while (c.toString() === w.toString() && evalAttempts < 10);
+            
+            if (c.toString() === w.toString()) {
+                if (!isNaN(Number(c))) w = (Number(c) + 1).toString();
+                else w = c.toString() + "'";
+            }
+            return { q: q.toString(), c: c.toString(), w: w.toString(), template: t.qTemp };
+        }
+
+        // ==========================================
+        // 3. Game Variables & State Machine
+        // ==========================================
+        const canvas = document.getElementById('output_canvas');
+        const ctx = canvas.getContext('2d');
+        const videoElement = document.getElementById('webcam');
+        let width = 0, height = 0;
+        
+        let gameState = 'loading'; // loading, menu_main, menu_sub, story_intro, ready_position, running, playing, correct, wrong, result, gameover, ending_cutscene
+        let currentLevel = 1;
+        let currentSubLevel = 1;
+        let unlockedChapter = parseInt(localStorage.getItem('dream_guardian_progress') || '1');
+        
+        // Player & Gameplay stats
+        let playerHp = 100;
+        let bossHp = 10;
+        let bossMaxHp = 10;
+        const MANA_PER_ANSWER = 25;
+        const SPELL_COST = 100;
+        const SPELL_DAMAGE = 4;
+        let guardianMana = 0;
+        let totalManaDelivered = 0;
+        let spellsCast = 0;
+        let spellImpactDone = false;
+        let score = 0;
+        let questionCount = 0;
+        let correctCount = 0;
+        let currentCombo = 0;
+        let maxCombo = 0;
+        let gameStartTime = 0;
+        let clearTimeMs = 0;
+        
+        // Ring-Fit Style Fitness & Motion Mechanics
+        let runGauge = 0;
+        let leftArmDwell = 0;
+        let rightArmDwell = 0;
+        let baseShoulderY = 0;
+        let questionData = null;
+        let correctSide = 'left';
+        let targetOptions = [];
+        let videoScaleInfo = { dw: 0, dh: 0, cx: 0, cy: 0 };
+        let questionReadinessTimer = 0; // Freeze delay for question reading (no instant accidental trigger)
+        let questionSpeaking = false;
+        let gamePaused = false;
+        let questionSpeechPending = false;
+        let questionSpeechRequest = 0;
+        let questionPanelDirty = false;
+        const questionReader = new QuestionSpeech.Reader(window.speechSynthesis, window.SpeechSynthesisUtterance, (message, speaking) => {
+            questionSpeaking = speaking;
+        });
+
+        function speakQuestion() {
+            if (gameState === 'playing' && questionData) {
+                try { questionReader.read(questionData.q); }
+                catch (e) { console.warn('Question speech error:', e); questionSpeaking = false; }
+            }
+        }
+
+        function syncQuestionPanel() {
+            const panel = document.getElementById('question_panel');
+            const visible = gameState === 'playing' && !!questionData;
+            panel.hidden = !visible;
+            if (!visible) return;
+            if (questionPanelDirty) {
+                questionPanelDirty = false;
+                const text = document.getElementById('question_text');
+                text.textContent = questionData.q;
+                text.scrollTop = 0;
+            }
+            if (questionSpeechPending) {
+                questionSpeechPending = false;
+                const request = ++questionSpeechRequest;
+                const questionAtRequest = questionData;
+                // Never invoke platform speech while the game render is on the stack.
+                // Safari may reject a non-gesture speech request; rejection must not halt rendering.
+                setTimeout(() => {
+                    if (request === questionSpeechRequest && gameState === 'playing' && questionData === questionAtRequest) speakQuestion();
+                }, 0);
+            }
+        }
+        const answerGate = new AnswerSelection.Gate();
+        let poseFeedback = '답 색상과 같은 신체 부위를 움직여 유지하세요';
+        let lastValidPoseTime = 0;
+        let palmPoints = { leftHand: null, rightHand: null };
+
+        let totalSteps = 0;
+        let totalSquats = 0;
+        let totalJumps = 0;
+        let caloriesBurned = 0;
+        let isSquatting = false;
+        let wasSquatting = false;
+        let isJumping = false;
+        let wasJumping = false;
+        let jumpCooldown = 0;
+        let runStepTimer = 0;
+
+        // Boss Hazard (Squat Dodge)
+        let bossAttackActive = false;
+        let bossAttackTimer = 0;
+        let bossAttackDeflected = false;
+
+        // Visual Pose & Track Items
+        let currentSkeletonLandmarks = null;
+        let trackOrbs = [];
+        let trackOrbSpawnTimer = 0;
+
+        
+        // Timers & FX
+        let stateTimer = 0;
+        let bossHurtTimer = 0;
+        let playerHurtTimer = 0;
+        let particles = [];
+        let storyTexts = [];
+        let resultPopupTimer = 0;
+        const markerTrail = {};
+        let gridCurrent = [255, 50, 22];
+        
+        const STORY_DATA = {
+            1: "포겟이 숫자의 숲을 뒤덮었어... 문제를 풀어 내게 마나를 보내줘!",
+            2: "후다닥이 곱셈의 성에 나타났어... 천천히 생각해. 네 정답이 나의 마나야!",
+            3: "뒤죽박죽이 꿈의 길을 섞어 놓았어... 분수를 풀어 사고의 빛을 모아줘!",
+            4: "에라가 포기하라고 속삭이고 있어... 함께 모은 마나로 어둠을 밀어내자!",
+            5: "나이트메어가 꿈을 삼키고 있어... 네가 생각하고, 내가 지킬게!"
+        };
+
+        const CHAPTER_NAMES = {
+            1: "숫자의 숲 (덧뺄셈)",
+            2: "곱셈의 성 (곱나눗셈)",
+            3: "나눗셈의 미궁 (분수)",
+            4: "소수의 사막 (소수)",
+            5: "★ 나이트메어"
+        };
+
+        // ==========================================
+        // 4. Guardian & Particles Setup
+        // ==========================================
+        let guardianImg = document.getElementById('img_guardian');
+        let processedGuardianCanvas = null;
+
+        guardianImg.onload = () => {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = guardianImg.width;
+            tempCanvas.height = guardianImg.height;
+            const tCtx = tempCanvas.getContext('2d');
+            tCtx.drawImage(guardianImg, 0, 0);
+            const imgData = tCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const data = imgData.data;
+            for(let i=0; i<data.length; i+=4) {
+                const r=data[i], g=data[i+1], b=data[i+2];
+                if(r > 150 && g > 150 && b > 160 && (b-r < 50)) {
+                    data[i+3] = 0; // Transparent
+                }
+            }
+            tCtx.putImageData(imgData, 0, 0);
+            processedGuardianCanvas = tempCanvas;
+        };
+
+        class Particle {
+            constructor(x, y, vx, vy, color, life, size) {
+                this.x = x; this.y = y;
+                this.vx = vx; this.vy = vy;
+                this.color = color;
+                this.life = life;
+                this.maxLife = life;
+                this.size = size;
+            }
+            update(dt) {
+                this.x += this.vx * dt * 60;
+                this.y += this.vy * dt * 60;
+                this.life -= dt;
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createShatterParticles(x, y) {
+            playSound('shatter');
+            for(let i=0; i<30; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 8 + 2;
+                particles.push(new Particle(
+                    x, y, 
+                    Math.cos(angle)*speed, Math.sin(angle)*speed, 
+                    '#ffd700', 1.0 + Math.random(), Math.random()*4 + 2
+                ));
+            }
+        }
+
+        function drawGuardian(ctx, timeMs) {
+            if (!processedGuardianCanvas) return;
+            ctx.save();
+            const gW = width*0.35;
+            const gH = gW * (processedGuardianCanvas.height / processedGuardianCanvas.width);
+            const floatY = Math.sin(timeMs/500)*10;
+            const gx = width/2;
+            const gy = height*0.82 + floatY;
+            
+            ctx.translate(gx, gy);
+            
+            // Guardian Growth Level based on unlocked chapters
+            const growth = Math.min(4, unlockedChapter);
+            
+            // Level 4: Wing Aura
+            if (growth >= 4) {
+                ctx.fillStyle = 'rgba(168, 230, 240, 0.1)';
+                ctx.beginPath();
+                ctx.ellipse(0, -gH/2, gW, gH, 0, 0, Math.PI*2);
+                ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 40; ctx.fill();
+            }
+
+            // Hurt Flash
+            if (playerHurtTimer > 0) {
+                ctx.filter = 'brightness(2) sepia(1) hue-rotate(-50deg) saturate(3)';
+            } else {
+                ctx.shadowColor = '#a8e6f0';
+                ctx.shadowBlur = 20 * growth; // Glow scales with growth
+            }
+
+            ctx.drawImage(processedGuardianCanvas, -gW/2, -gH, gW, gH);
+
+            // Level 2 & 3: Floating orbs around guardian
+            if (growth >= 2 && playerHurtTimer <= 0) {
+                const numOrbs = growth >= 3 ? 4 : 2;
+                for(let i=0; i<numOrbs; i++) {
+                    const angle = (timeMs/1000) + (i * Math.PI*2 / numOrbs);
+                    const ox = Math.cos(angle) * (gW*0.6);
+                    const oy = -gH/2 + Math.sin(angle*1.5) * 30;
+                    ctx.beginPath();
+                    ctx.arc(ox, oy, 5, 0, Math.PI*2);
+                    ctx.fillStyle = '#fff';
+                    ctx.shadowColor = '#a8e6f0'; ctx.shadowBlur = 15;
+                    ctx.fill();
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function drawBoss(ctx, timeMs) {
+            const cx = width/2;
+            let cy = height*0.25;
+            const size = width*0.4;
+            
+            // Float animation
+            cy += Math.sin(timeMs/800) * 15;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            
+            // Summoning Circle
+            ctx.save();
+            ctx.rotate(timeMs/2000);
+            ctx.strokeStyle = bossHurtTimer > 0 ? 'rgba(255,0,0,0.5)' : 'rgba(168,230,240,0.3)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([15, 10]);
+            ctx.beginPath();
+            ctx.arc(0, 0, size*0.7, 0, Math.PI*2);
+            ctx.stroke();
+            ctx.restore();
+
+            // Hurt shake
+            if (bossHurtTimer > 0) {
+                ctx.translate(Math.random()*20-10, Math.random()*20-10);
+                ctx.scale(1.05, 1.05);
+                ctx.filter = 'brightness(1.5) drop-shadow(0 0 20px red)';
+            }
+
+            if (currentLevel === 1) {
+                // Smoky cloud "Forget"
+                ctx.fillStyle = bossHurtTimer > 0 ? '#ff4444' : '#2a0845';
+                ctx.shadowColor = '#800080'; ctx.shadowBlur = 30;
+                ctx.beginPath();
+                for(let i=0; i<8; i++) {
+                    const angle = (i/8) * Math.PI * 2 + timeMs/2000;
+                    const r = size/2 + Math.sin(timeMs/300 + i)*20;
+                    ctx.arc(Math.cos(angle)*r, Math.sin(angle)*r, size/3, 0, Math.PI*2);
+                }
+                ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = `bold ${size/3}px serif`;
+                ctx.textAlign = 'center'; ctx.textBaseline='middle';
+                ctx.fillText('?', 0, 0);
+            } else if (currentLevel === 2) {
+                // Lightning "Hurry"
+                ctx.fillStyle = bossHurtTimer > 0 ? '#fff' : '#ffaa00';
+                ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 20;
+                ctx.beginPath();
+                ctx.moveTo(0, -size); ctx.lineTo(size/2, 0); ctx.lineTo(size/4, 0);
+                ctx.lineTo(size/2, size); ctx.lineTo(-size/2, 0); ctx.lineTo(-size/4, 0);
+                ctx.closePath(); ctx.fill();
+            } else if (currentLevel === 3) {
+                // Kaleidoscope "Jumble"
+                ctx.fillStyle = bossHurtTimer > 0 ? '#ff0000' : '#00e5ff';
+                for(let i=0; i<6; i++) {
+                    ctx.rotate(timeMs/3000 + Math.PI/3);
+                    ctx.fillRect(0, -size/2, size/3, size);
+                }
+            } else if (currentLevel === 4) {
+                // Shadow "Give up"
+                ctx.fillStyle = bossHurtTimer > 0 ? '#ff0000' : '#111';
+                ctx.shadowColor = '#000'; ctx.shadowBlur = 40;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, size/2, size, 0, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'rgba(255,0,0,0.5)'; ctx.font = `${size/4}px serif`;
+                ctx.textAlign = 'center'; ctx.textBaseline='middle';
+                ctx.fillText('포기해', 0, 0);
+            } else {
+                // Nightmare
+                ctx.fillStyle = '#000';
+                ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 50 + Math.sin(timeMs/200)*20;
+                ctx.fillRect(-size/2, -size/2, size, size);
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(-size/4, -size/4, size/8, 0, Math.PI*2);
+                ctx.arc(size/4, -size/4, size/8, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // ==========================================
+        // 5. MediaPipe Detection & Motion Engine
+        // ==========================================
+        function updateVideoScale() {
+            if (!videoElement || videoElement.videoWidth === 0) {
+                videoScaleInfo = { dw: width, dh: height, cx: width / 2, cy: height / 2 };
+                return;
+            }
+            const vW = videoElement.videoWidth;
+            const vH = videoElement.videoHeight;
+            // Restore the full-canvas mirrored camera background.
+            const scale = Math.max(width / vW, height / vH);
+            videoScaleInfo = { dw: vW * scale, dh: vH * scale, cx: width / 2, cy: height / 2 };
+        }
+
+        function landmarkToScreen(lm) {
+            if (!lm) return { x: 0, y: 0, vis: 0 };
+            if (!videoScaleInfo.dw) updateVideoScale();
+            const { dw, dh, cx, cy } = videoScaleInfo;
+            // Mirrored horizontally:
+            const sx = cx + (0.5 - lm.x) * dw;
+            const sy = cy + (lm.y - 0.5) * dh;
+            // A display crop must not invalidate joints still visible to the camera.
+            const inFrame = Number.isFinite(sx) && Number.isFinite(sy) && lm.x >= 0 && lm.x <= 1 && lm.y >= 0 && lm.y <= 1;
+            return { x: sx, y: sy, vis: inFrame ? (lm.visibility ?? 0) : 0 };
+        }
+
+        const pose = typeof Pose === 'function' ? new Pose({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` }) : null;
+        if (pose) pose.setOptions({
+            // Lite model remains practical on phone-class hardware; lower thresholds improve
+            // recovery in a dim room without making stale landmarks actionable.
+            modelComplexity: 0,
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            minDetectionConfidence: 0.35,
+            minTrackingConfidence: 0.35
+        });
+        
+        let lastPoseTimestamp = performance.now();
+        let poseMissCount = 0;
+        let poseLastSuccessAt = 0;
+        let poseFramesReceived = 0;
+        let poseFramesWithBody = 0;
+        let poseLastSentAt = 0;
+        function resetTracking() {
+            currentSkeletonLandmarks = null;
+            answerGate.interrupt();
+            targetOptions.forEach(o => { o.dwell = 0; o.isFullBody = false; });
+            prevMotionData = null;
+            isSquatting = wasSquatting = isJumping = false;
+            poseFeedback = '인식이 끊겼어요 · 전신을 보이고 바로 서세요';
+            menuHoverIdx = subMenuHoverIdx = -1;
+            menuHoverDwell = subMenuHoverDwell = 0;
+        }
+        function poseDiagnosticText() {
+            if (!pose) return '자세 인식 라이브러리를 불러오지 못했습니다.';
+            if (!cameraReady) return '카메라 연결을 기다리는 중입니다.';
+            if (poseFramesReceived === 0) return '카메라 영상 프레임을 기다리는 중입니다.';
+            if (poseFramesWithBody === 0) return '사람을 찾는 중 · 밝은 곳에서 1~2m 떨어져 전신을 보여주세요.';
+            return '자세가 잠시 끊겼습니다 · 몸이 화면 안에 들어오도록 조정하세요.';
+        }
+        function normalizePoseLandmarks(landmarks) {
+            return landmarks.map(point => ({
+                x: point.x,
+                y: point.y,
+                z: point.z || 0,
+                // Some MediaPipe builds omit visibility on otherwise valid points.
+                visibility: Number.isFinite(point.visibility) ? point.visibility : 1
+            }));
+        }
+
+        if (pose) pose.onResults(results => {
+            if (cameraStarting || !cameraReady || document.hidden) return;
+            poseFramesReceived++;
+            if (results.poseLandmarks) {
+                const now = performance.now();
+                const dt = (now - lastPoseTimestamp) / 1000.0;
+                if (dt > 2) resetTracking();
+                lastPoseTimestamp = now;
+                lastValidPoseTime = now;
+                poseLastSuccessAt = now;
+                poseMissCount = 0;
+                poseFramesWithBody++;
+                currentSkeletonLandmarks = normalizePoseLandmarks(results.poseLandmarks);
+                setCameraStatus('', true);
+                updateVideoScale();
+                processMotion(currentSkeletonLandmarks, Math.min(.2, Math.max(.001, dt)));
+            } else {
+                poseMissCount++;
+                // Do not erase a correctly rendered skeleton because a single inference frame
+                // missed the person. Low-end cameras frequently alternate valid/empty frames.
+                if (poseMissCount >= 12 && performance.now() - poseLastSuccessAt > 1500) {
+                    resetTracking();
+                    setCameraStatus(poseDiagnosticText(), false);
+                }
+            }
+        });
+
+        const hands = typeof Hands === 'function' ? new Hands({ locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` }) : null;
+        if (hands) hands.setOptions({ maxNumHands:2, modelComplexity:0, minDetectionConfidence:.55, minTrackingConfidence:.5 });
+        if (hands) hands.onResults(results => {
+            const next={leftHand:null,rightHand:null};
+            (results.multiHandLandmarks||[]).forEach((landmarks,index)=>{
+                const handed=(results.multiHandedness?.[index]?.label||'').toLowerCase();
+                // The displayed camera is mirrored, so MediaPipe labels must be swapped for player-side cursors.
+                const key=handed==='left'?'rightHand':handed==='right'?'leftHand':null;
+                const palm=landmarks?.[9]||landmarks?.[0];
+                if(key&&palm)next[key]=landmarkToScreen({x:palm.x,y:palm.y,visibility:1});
+            });
+            palmPoints=next;
+        });
+
+        let currentStream = null;
+        let isPoseSending = false;
+        let isHandsSending = false;
+        let cameraStarting = false;
+        let poseFailed = false;
+        let lastVideoTime = -1;
+        let lastHandsVideoTime = -1;
+        let lastHandsSendAt = 0;
+
+        function setCameraStatus(text, compact = false) {
+            document.getElementById('camera_status').textContent = text;
+            document.getElementById('camera_status').hidden = compact;
+        }
+
+        async function initCamera() {
+            if (cameraStarting) return;
+            if (!window.isSecureContext) {
+                setCameraStatus('카메라는 localhost 또는 HTTPS에서 사용하세요. 키보드·클릭 테스트는 가능합니다.');
+                return;
+            }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                setCameraStatus('카메라를 사용할 수 없습니다. Space와 방향키로 테스트할 수 있습니다.');
+                return;
+            }
+            if (!pose) {
+                setCameraStatus('자세 인식 파일을 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침하세요.');
+                return;
+            }
+            cameraStarting = true;
+            cameraReady = false;
+            resetTracking();
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+                currentStream = null;
+            }
+
+            videoElement.srcObject = null;
+            setCameraStatus('카메라 권한 요청 중 · 허용을 눌러주세요');
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ audio: false,
+                    video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30, max: 30 } } });
+                videoElement.muted = true;
+                videoElement.playsInline = true;
+                videoElement.srcObject = currentStream;
+                const haveMetadata = typeof HTMLMediaElement !== 'undefined' ? HTMLMediaElement.HAVE_METADATA : 1;
+                if (videoElement.readyState < haveMetadata) await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('Camera metadata timeout')), 5000);
+                    videoElement.onloadedmetadata = () => { clearTimeout(timeout); resolve(); };
+                    videoElement.onerror = () => { clearTimeout(timeout); reject(new Error('Video element error')); };
+                });
+                await videoElement.play();
+                cameraReady = true;
+                poseFailed = false;
+                lastVideoTime = -1;
+                lastHandsVideoTime = -1;
+                poseMissCount = 0;
+                poseFramesReceived = 0;
+                poseFramesWithBody = 0;
+                poseLastSentAt = 0;
+                lastPoseTimestamp = performance.now();
+                setCameraStatus('카메라 연결됨 · 몸을 화면에 맞춰주세요', false);
+            } catch (e) {
+                if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+                currentStream = null;
+                videoElement.srcObject = null;
+                const reason = e.name === 'NotAllowedError' ? '브라우저에서 카메라를 허용한 뒤 새로고침하세요. 키보드 테스트는 가능합니다.' :
+                    e.name === 'NotFoundError' ? '사용할 수 있는 카메라를 찾지 못했습니다.' :
+                    '카메라를 시작하지 못했습니다. 다른 카메라 앱을 닫고 다시 시작하세요.';
+                setCameraStatus(reason);
+            } finally {
+                cameraStarting = false;
+            }
+        }
+
+        let prevMotionData = null;
+
+        function processMotion(landmarks, dt) {
+            if (!['ready_position', 'running', 'playing'].includes(gameState)) return;
+            if (![11,12].every(i => landmarks[i] && landmarks[i].visibility >= 0.6)) {
+                resetTracking(); return;
+            }
+            const shoulderL = landmarks[11];
+            const shoulderR = landmarks[12];
+            const wristL = landmarks[15];
+            const wristR = landmarks[16];
+            
+            const currentShoulderY = (shoulderL.y + shoulderR.y) / 2;
+            const shoulderMidX = (shoulderL.x + shoulderR.x) / 2;
+
+            if (gameState === 'playing') {
+                const points = landmarks.map(landmarkToScreen);
+                const result = answerGate.update(points, dt, questionReadinessTimer > 0, targetOptions,palmPoints);
+                poseFeedback = result.hint;
+                if (result.choice) handleAnswer(result.choice, 'pose');
+                return;
+            }
+
+            // Adaptive baseline shoulder height when standing neutral
+            if (gameState !== 'ready_position' && Math.abs(currentShoulderY - baseShoulderY) < 0.04) {
+                baseShoulderY = baseShoulderY * 0.98 + currentShoulderY * 0.02;
+            }
+
+            // 1. Squat Detection (Ring-Fit Style Defense)
+            const squatDepth = currentShoulderY - baseShoulderY;
+            if (squatDepth > 0.065) {
+                isSquatting = true;
+                if (!wasSquatting) {
+                    wasSquatting = true;
+                    totalSquats++;
+                    playSound('shield_deflect');
+                    if (bossAttackActive) {
+                        bossAttackDeflected = true;
+                        bossAttackActive = false;
+                        score += 150;
+                        createShatterParticles(width / 2, height * 0.45);
+                    }
+                }
+            } else if (squatDepth < 0.035) {
+                isSquatting = false;
+                wasSquatting = false;
+            }
+
+            // 2. Jump Detection (Ring-Fit Style Power Leap)
+            if (jumpCooldown > 0) jumpCooldown -= dt;
+            const jumpDelta = baseShoulderY - currentShoulderY;
+            if (jumpDelta > 0.065 && jumpCooldown <= 0 && prevMotionData && (prevMotionData.shoulderMidY - currentShoulderY) / dt > 0.22) {
+                isJumping = true;
+                wasJumping = true;
+                jumpCooldown = 0.8;
+                totalJumps++;
+                playSound('jump_whoosh');
+                if (gameState === 'running') runGauge = Math.min(100, runGauge + 25);
+                if (gameState === 'playing') score += 100;
+            } else if (jumpDelta < 0.03) {
+                isJumping = false;
+                wasJumping = false;
+            }
+
+            // 3. Ready Position Calibration
+            if (gameState === 'ready_position') {
+                const noseP = landmarkToScreen(landmarks[0]);
+                const bx = width * 0.15;
+                const by = height * 0.18;
+                const bw = width * 0.7;
+                const bh = height * 0.55;
+                const inBox = (noseP.vis > 0.3 && noseP.x > bx && noseP.x < bx + bw && noseP.y > by && noseP.y < by + bh);
+                if (inBox) {
+                    baseShoulderY = currentShoulderY;
+                    runGauge += dt * 1.6;
+                    if (runGauge > 2.0) {
+                        playSound('start');
+                        changeState('running');
+                    }
+                } else {
+                    runGauge = Math.max(0, runGauge - dt);
+                }
+                return;
+            }
+
+            // 4. Running Motion
+            if (gameState === 'running') {
+                runStepTimer += dt;
+                if (prevMotionData) {
+                    const dS_LR = Math.abs(shoulderMidX - prevMotionData.shoulderMidX);
+                    const dS_UD = Math.abs(currentShoulderY - prevMotionData.shoulderMidY);
+                    const crossDist = wristL.x - wristR.x;
+                    const dCross = Math.abs(crossDist - prevMotionData.crossDist);
+
+                    // Running step cycle count
+                    if (dS_UD > 0.012 && runStepTimer > 0.2) {
+                        totalSteps++;
+                        runStepTimer = 0;
+                        playSound('step_beat');
+                    }
+                    
+                    let rawMotion = 0;
+                    if (dS_LR > 0.010) rawMotion += dS_LR;
+                    if (dS_UD > 0.010) rawMotion += dS_UD;
+                    if (dCross > 0.015) rawMotion += dCross * 0.5;
+                    
+                    const filtered = Math.max(0, rawMotion - 0.007);
+                    runGauge += Math.min(1.5, filtered * 100);
+                }
+                
+            }
+
+            prevMotionData = {
+                shoulderMidX, 
+                shoulderMidY: currentShoulderY, 
+                crossDist: wristL.x - wristR.x
+            };
+        }
+
+        function generateNewQuestion() {
+            questionPanelDirty = true;
+            questionReader.cancel();
+            questionSpeaking = false;
+            questionSpeechPending = true;
+            answerGate.reset();
+            poseFeedback = '문제를 읽고 · 두 팔 내리고 · 바로 서세요';
+            questionData = createRawQuestion();
+            questionReadinessTimer = 2.0;
+            playSound('start');
+            const isFirstCorrect = Math.random() > 0.5;
+
+            targetOptions = AnswerSelection.choices(questionData);
+
+            // A defensive squat must not accidentally select the squat answer.
+            bossAttackActive = false;
+        }
+
+        function handleAnswer(choice, source = 'manual') {
+            if (gameState !== 'playing' || questionPanelDirty || questionReadinessTimer > 0 || !targetOptions.includes(choice)) return;
+            if (source === 'pose' && (!choice.isFullBody || choice.dwell < 1 || performance.now() - lastValidPoseTime > MotionInput.MAX_FRAME_GAP * 1000)) return;
+            questionCount++;
+            bossAttackActive = false; // clear attack on question answer
+
+            const isCorrect = (typeof choice === 'object') ? choice.isCorrect : (choice === correctSide);
+            const isFullBody = source === 'pose' && !!choice.isFullBody;
+
+            if (isCorrect) {
+                playSound('correct');
+                guardianMana = Math.min(SPELL_COST, guardianMana + MANA_PER_ANSWER);
+                totalManaDelivered += MANA_PER_ANSWER;
+                correctCount++;
+                currentCombo++;
+                maxCombo = Math.max(maxCombo, currentCombo);
+                const fullBodyBonus = isFullBody ? 100 : 0;
+                score += (100 * currentCombo) + fullBodyBonus;
+                changeState('correct');
+            } else {
+                playSound('wrong');
+                playSound('player_hurt');
+                currentCombo = 0;
+                playerHp -= 25;
+                playerHurtTimer = 0.5;
+                document.getElementById('container').classList.add('shake');
+                setTimeout(()=>document.getElementById('container').classList.remove('shake'), 400);
+                changeState('wrong');
+                
+            }
+        }
+
+        function updateRunningProgress(dt) {
+            if (gameState !== 'running') return;
+            // Check BEFORE decay, independently of camera callbacks and input source.
+            if (runGauge >= 100) {
+                runGauge = 0;
+                generateNewQuestion();
+                changeState('playing');
+                return;
+            }
+            runGauge = Math.max(0, runGauge - 15 * dt);
+        }
+
+        function updateGuardianBattle() {
+            if (gameState === 'correct' && stateTimer >= 1.5) {
+                if (guardianMana >= SPELL_COST) {
+                    guardianMana -= SPELL_COST;
+                    spellsCast++;
+                    spellImpactDone = false;
+                    playSound('start');
+                    changeState('guardian_cast');
+                } else changeState('running');
+            } else if (gameState === 'wrong' && stateTimer >= 1.5) {
+                changeState(playerHp <= 0 ? 'gameover' : 'running');
+            } else if (gameState === 'guardian_cast') {
+                if (!spellImpactDone && stateTimer >= 0.8) {
+                    spellImpactDone = true;
+                    bossHp = Math.max(0, bossHp - SPELL_DAMAGE);
+                    bossHurtTimer = 0.6;
+                    playSound('monster_hit');
+                    createShatterParticles(width/2, height*0.25);
+                }
+                if (stateTimer >= 1.8) {
+                    if (bossHp <= 0) {
+                        clearTimeMs = Date.now() - gameStartTime;
+                        changeState(currentLevel === 5 ? 'ending_cutscene' : 'result');
+                    } else changeState('running');
+                }
+            }
+        }
+
+        function changeState(newState) {
+            if (newState !== 'playing') {
+                questionSpeechRequest++;
+                questionReader.cancel();
+                questionSpeaking = false;
+                questionSpeechPending = false;
+            }
+            gameState = newState;
+            stateTimer = 0;
+            if (newState === 'running') runGauge = 0;
+            if (newState === 'result') {
+                unlockedChapter = Math.max(unlockedChapter, Math.min(5, currentLevel + 1));
+                try { localStorage.setItem('dream_guardian_progress', String(unlockedChapter)); } catch (_) {}
+                resultPopupTimer = 3;
+            }
+            if (newState === 'story_intro') {
+                storyTexts = STORY_DATA[currentLevel].split('...');
+            }
+            if (newState === 'result' || newState === 'gameover' || newState === 'ending_cutscene') {
+                stopBGM();
+            }
+        }
+
+        // ==========================================
+        // 6. Game Loop & Main Rendering
+        // ==========================================
+        let lastTimestamp = 0;
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+                width = Math.round(rect.width);
+                height = Math.round(rect.height);
+                if (canvas.width !== width || canvas.height !== height) {
+                    canvas.width = width;
+                    canvas.height = height;
+                    updateVideoScale();
+                    answerGate.reset();
+                    if (gameState === 'playing') questionPanelDirty = true;
+                }
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {
+            if (gameState === 'playing') questionPanelDirty = true;
+        });
+
+        let renderFailureCount = 0;
+
+        function reportRenderFailure(error) {
+            renderFailureCount++;
+            console.error('Dream Guardian frame recovered:', error);
+            const status = document.getElementById('camera_status');
+            if (status) {
+                status.textContent = `화면 오류를 복구 중입니다 (${renderFailureCount})`;
+                status.hidden = false;
+            }
+        }
+
+        function gameLoop(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const dt = Math.min(0.1, (timestamp - lastTimestamp) / 1000.0);
+            lastTimestamp = timestamp;
+            const timeMs = Date.now();
+
+            // Schedule first: an isolated draw/audio exception can never stop the game loop.
+            requestAnimationFrame(gameLoop);
+
+            try {
+            if (gamePaused) {
+                drawScene(timeMs, 0);
+                return;
+            }
+
+            stateTimer += dt;
+            if (resultPopupTimer > 0) {
+                resultPopupTimer -= dt;
+                if (resultPopupTimer <= 0) { showRecordsModal(); resultPopupTimer = 0; }
+            }
+            updateGuardianBattle();
+            if (bossHurtTimer > 0) bossHurtTimer -= dt;
+            if (playerHurtTimer > 0) playerHurtTimer -= dt;
+
+            // Question Reading Freeze Timer
+            if (gameState === 'playing' && questionReadinessTimer > 0) {
+                questionReadinessTimer -= dt;
+            }
+
+            updateRunningProgress(dt);
+
+            // Boss Attack Hazard Timer
+            if (bossAttackActive) {
+                bossAttackTimer -= dt;
+                if (bossAttackTimer <= 0) {
+                    bossAttackActive = false;
+                    if (!bossAttackDeflected) {
+                        playerHp -= 15;
+                        currentCombo = 0;
+                        playSound('player_hurt');
+                        document.getElementById('container').classList.add('shake');
+                        setTimeout(() => document.getElementById('container').classList.remove('shake'), 400);
+                        if (playerHp <= 0) {
+                            setTimeout(() => changeState('gameover'), 800);
+                        }
+                    }
+                }
+            }
+
+            // Calorie burn tracking
+            caloriesBurned = (totalSteps * 0.04) + (totalSquats * 0.35) + (totalJumps * 0.15);
+
+            // Particles Update
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update(dt);
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            // Continuously stream video frames to MediaPipe Pose
+            if (currentSkeletonLandmarks && performance.now() - lastValidPoseTime > 3000) resetTracking();
+            if (pose && cameraReady && !cameraStarting && !poseFailed && !document.hidden && videoElement.readyState >= 2 && !isPoseSending && videoElement.currentTime !== lastVideoTime && performance.now()-poseLastSentAt>33) {
+                lastVideoTime = videoElement.currentTime;
+                poseLastSentAt = performance.now();
+                isPoseSending = true;
+                pose.send({ image: videoElement }).catch(e => {
+                    console.warn(e);
+                    poseMissCount++;
+                    setCameraStatus('자세 모델 오류 · 인터넷 연결과 카메라 권한을 확인하세요.', false);
+                }).finally(() => {
+                    isPoseSending = false;
+                });
+            }
+            if (hands && cameraReady && !cameraStarting && !document.hidden && videoElement.readyState >= 2 && !isHandsSending && videoElement.currentTime !== lastHandsVideoTime && performance.now()-lastHandsSendAt>33) {
+                lastHandsVideoTime=videoElement.currentTime;
+                lastHandsSendAt=performance.now();
+                isHandsSending=true;
+                hands.send({image:videoElement}).catch(e=>console.warn('Hand tracking error:',e)).finally(()=>{isHandsSending=false;});
+            }
+
+            drawScene(timeMs, dt);
+            } catch (error) {
+                reportRenderFailure(error);
+            }
+        }
+
+        function drawScene(timeMs, dt) {
+            syncQuestionPanel();
+            ctx.clearRect(0, 0, width, height);
+
+            // Menus need the same live camera coordinate system as gameplay.
+            drawCameraViewport();
+
+            // Always draw skeleton when available so player sees tracking in menus and gameplay!
+            if (currentSkeletonLandmarks && ['menu_main','menu_sub'].includes(gameState)) {
+                drawPoseSkeleton(ctx, currentSkeletonLandmarks, timeMs);
+            }
+
+            if (gameState === 'menu_main') {
+                document.getElementById('game_controls').classList.remove('visible');
+                drawMenuMain(timeMs, dt);
+                drawMenuHandCursor();
+                return;
+            } else if (gameState === 'menu_sub') {
+                document.getElementById('game_controls').classList.remove('visible');
+                drawMenuSub(timeMs, dt);
+                drawMenuHandCursor();
+                return;
+            } else if (gameState === 'story_intro') {
+                document.getElementById('game_controls').classList.remove('visible');
+                drawStoryIntro();
+                if (stateTimer >= 3.0) startGameplay();
+                return;
+            } else if (gameState === 'result') {
+                document.getElementById('game_controls').classList.remove('visible');
+                drawResult();
+                return;
+            } else if (gameState === 'gameover') {
+                document.getElementById('game_controls').classList.remove('visible');
+                drawGameover();
+                return;
+            } else if (gameState === 'ending_cutscene') {
+                document.getElementById('game_controls').classList.remove('visible');
+                drawEndingCutscene(ctx, timeMs);
+                return;
+            }
+
+            document.getElementById('game_controls').classList.add('visible');
+            document.getElementById('control_hud').textContent = `마나 ${guardianMana}/100 · HP ${playerHp} · 적 ${bossHp}/${bossMaxHp} · ${score}점`;
+
+            // Gameplay State Background Grid
+            drawDreamGrid(timeMs);
+
+            // Running track orbs & light spirits
+            if (gameState === 'running') {
+                updateAndDrawTrackOrbs(ctx, dt, timeMs);
+                drawSpirits(ctx, timeMs);
+            }
+            
+            // Draw Street Fighter Style Top Duel HUD (Player Left, Boss Right, VS Center)
+            if (['ready_position', 'running', 'playing', 'correct', 'wrong', 'guardian_cast'].includes(gameState)) {
+                drawBoss(ctx, timeMs);
+                drawStreetFighterHUD();
+            }
+
+            // Draw Guardian
+            drawGuardian(ctx, timeMs);
+
+            // Draw Aegis Shield if player is squatting
+            if (isSquatting) {
+                drawShield(ctx, timeMs);
+            }
+
+            // Draw Skeleton & Wrist Magic Rings for Pose Feedback
+            drawPoseSkeleton(ctx, currentSkeletonLandmarks, timeMs);
+
+            // UI Overlays
+            if (gameState === 'ready_position') {
+                drawCalibrationGuide(ctx);
+                drawText("몸을 화면 중앙에 맞추고 자세를 유지하세요", width/2, height*0.13, '#a8e6f0', 18);
+                drawManaFlask(width/2, height*0.62, runGauge / 2.0);
+            } else if (gameState === 'running') {
+                let encourage = "달려서 다음 사고의 빛을 찾아요!";
+                if (runGauge > 70) encourage = "수호신과 함께 앞으로!";
+                else if (runGauge > 40) encourage = "수호신과 함께 앞으로!";
+                drawText(encourage, width/2, height*0.4, '#e0f0ff', 20);
+                drawText('다음 사고의 빛을 찾는 중', width/2, height*0.58, '#fff', 18);
+            } else if (gameState === 'playing' && questionData && targetOptions && targetOptions.length >= 2) {
+                // Boss hazard sweep warning if active
+                if (bossAttackActive) {
+                    drawBossAttackWave(ctx, timeMs);
+                }
+
+                drawZoneAnswers();
+            } else if (gameState === 'correct') {
+                drawText('정답! 마나 +25', width/2, height*0.45, '#a8e6f0', 32);
+                drawText('수호신에게 사고의 빛을 전달했어요', width/2, height*0.51, '#fff', 18);
+                const progress = Math.min(1, stateTimer / 1.2);
+                ctx.save();
+                ctx.fillStyle = '#a8e6f0'; ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 20;
+                for (let i=0; i<5; i++) {
+                    ctx.beginPath();
+                    ctx.arc(width/2 + Math.sin(progress*Math.PI*2+i)*width*0.1*(1-progress), height*(0.53+progress*0.24), 5, 0, Math.PI*2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            } else if (gameState === 'guardian_cast') {
+                drawText('수호신 마법 · 사고의 별!', width/2, height*0.49, '#ffd700', 27);
+                const progress = Math.min(1, stateTimer / 0.8);
+                ctx.save();
+                ctx.fillStyle = '#fff'; ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 25;
+                ctx.beginPath(); ctx.arc(width/2, height*(0.78-progress*0.53), 14, 0, Math.PI*2); ctx.fill();
+                ctx.restore();
+            } else if (gameState === 'wrong') {
+                drawText('수호신이 공격을 막았어요', width/2, height*0.46, '#ff88aa', 25);
+                drawText('마나는 그대로! 다음 문제에서 다시 모아요', width/2, height*0.52, '#fff', 17);
+            }
+
+            if (gameState === 'playing') {
+                ctx.fillStyle = '#080d23';
+                ctx.fillRect(0, height * 0.855, width, height * 0.045);
+                drawText(cameraReady && !poseFailed ? poseFeedback : 'PC 테스트: Space 달리기 · 1/2 또는 답 구역 클릭', width/2, height * 0.878, '#fff', Math.min(18, width/22));
+            }
+            const gaugeX=width*.22,gaugeY=height*.825,gaugeW=width*.56;
+            if (gameState==='running') {
+                ctx.fillStyle='rgba(7,12,30,.9)';ctx.fillRect(gaugeX,gaugeY,gaugeW,12);
+                ctx.strokeStyle=runGauge>=75?'#339cff':'#ff8a24';ctx.lineWidth=2;ctx.strokeRect(gaugeX,gaugeY,gaugeW,12);
+                ctx.fillStyle=runGauge>=75?'#339cff':'#ff8a24';ctx.fillRect(gaugeX,gaugeY,gaugeW*runGauge/100,12);
+                drawText(`달리기 ${Math.floor(runGauge)}%`,width/2,gaugeY-12,'#fff',14);
+            } else {
+                ctx.fillStyle = '#080d23'; ctx.fillRect(gaugeX,gaugeY,gaugeW,12);
+                ctx.fillStyle = '#00e5ff'; ctx.fillRect(gaugeX,gaugeY,gaugeW*guardianMana/SPELL_COST,12);
+                drawText(`수호신 마나 ${guardianMana}/100 · 정답 4개 → 마법`,width/2,gaugeY-12,'#fff',13);
+            }
+
+            // Draw Particles
+            particles.forEach(p => p.draw(ctx));
+        }
+
+        function drawCameraViewport() {
+            if (!cameraReady || videoElement.videoWidth <= 0) return;
+            updateVideoScale();
+            const {dw,dh,cx,cy} = videoScaleInfo;
+            ctx.save();ctx.translate(cx,cy);ctx.scale(-1,1);
+            ctx.drawImage(videoElement,-dw/2,-dh/2,dw,dh);
+            ctx.fillStyle='rgba(10,14,26,.35)';ctx.fillRect(-dw/2,-dh/2,dw,dh);
+            ctx.restore();
+        }
+
+        function drawPartMarker(part, x, y, size, label = '') {
+            const style = AnswerSelection.CURSORS[part] || ZoneInput.PARTS[part];
+            // `size` is the historical base radius. All active cursor icons deliberately use
+            // twice that base size here; no other renderer draws the same icon during gameplay.
+            const r = size * 2;
+            const now = Date.now();
+            const breath = 1 + Math.sin(now / 170) * 0.22;
+            const blow = 1 + ((now % 1150) / 1150) * 1.35;
+            const previous = markerTrail[part];
+
+            ctx.save();
+            ctx.globalAlpha = part === 'face' ? .5 : 1;
+            ctx.shadowColor=style.color;
+            ctx.shadowBlur=20;
+            ctx.strokeStyle = style.color;
+
+            // Strong expanding breathing ring: each outer ring grows and fades.
+            ctx.save();
+            ctx.globalAlpha *= Math.max(0, .65 * (2.15 - blow));
+            ctx.lineWidth = 3;
+            ctx.beginPath();ctx.arc(x,y,r*blow,0,Math.PI*2);ctx.stroke();
+            ctx.restore();
+
+            // Three fading trails use the same silhouette family as the cursor itself.
+            if (previous) {
+                const dx=x-previous.x,dy=y-previous.y;
+                for(let i=3;i>=1;i--) {
+                    ctx.save();ctx.globalAlpha*=.13*i;ctx.lineWidth=2;
+                    drawMarkerPath(ctx,style,x-dx*i*.17,y-dy*i*.17,r*breath*(1-i*.12));
+                    ctx.stroke();ctx.restore();
+                }
+            }
+            markerTrail[part]={x,y};
+
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            drawMarkerPath(ctx,style,x,y,r*breath);
+            ctx.stroke();
+            if(part==='leftHand'||part==='rightHand') {
+                ctx.save();ctx.globalAlpha*=.55;ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,r*1.42,0,Math.PI*2);ctx.stroke();ctx.restore();
+            }
+            if (label) drawText(label,x,y,style.color,14);
+            ctx.restore();
+        }
+
+        function drawMarkerPath(context, style, x, y, r) {
+            if (style.shape === 'ellipse') {
+                context.ellipse(x,y,r*.82,r*1.08,0,0,Math.PI*2);
+            } else if (style.shape === 'diamond') {
+                context.moveTo(x,y-r);context.lineTo(x+r,y);context.lineTo(x,y+r);context.lineTo(x-r,y);context.closePath();
+            } else if (style.shape === 'rect') {
+                if (context.roundRect) context.roundRect(x-r,y-r*.72,r*2,r*1.44,r*.34);
+                else context.rect(x-r,y-r*.72,r*2,r*1.44);
+            } else {
+                context.arc(x,y,r,0,Math.PI*2);
+            }
+        }
+
+        function palmOrWrist(part, fallback) {
+            const palm=palmPoints[part];
+            return palm && palm.vis>=.55 ? palm : fallback;
+        }
+
+        function drawZoneAnswers() {
+            if(!targetOptions.length)return;
+            const b=AnswerSelection.board(width,height);
+            const requiredParts=[...new Set(targetOptions.flatMap(option=>option.requirements.map(req=>req.part)))];
+            ctx.save();
+            AnswerSelection.ZONES.forEach(z=>{
+                const r=AnswerSelection.rect(z.id,width,height);
+                const owners=targetOptions.flatMap((option,index)=>option.requirements.filter(req=>req.zoneId===z.id).map(req=>({option,index,req})));
+                ctx.fillStyle=owners.length?'#101d32e8':'#09122150';
+                ctx.strokeStyle=owners.length?AnswerSelection.CURSORS[owners[0].req.part].color:'#72829b55';
+                ctx.lineWidth=owners.length?3:1;
+                ctx.fillRect(r.x+2,r.y+2,r.w-4,r.h-4);ctx.strokeRect(r.x+2,r.y+2,r.w-4,r.h-4);
+                if(owners.length){
+                    const partOwners=[...new Map(owners.map(owner=>[owner.req.part,owner])).values()];
+                    partOwners.forEach((owner,i)=>{
+                        const color=AnswerSelection.CURSORS[owner.req.part].color;
+                        const segmentW=(r.w-8)/partOwners.length;
+                        ctx.fillStyle=color;ctx.globalAlpha=.22;ctx.fillRect(r.x+4+i*segmentW,r.y+4,segmentW,r.h-8);ctx.globalAlpha=1;
+                        drawText(AnswerSelection.CURSORS[owner.req.part].label,r.x+4+(i+.5)*segmentW,r.y+r.h/2,color,12);
+                    });
+                    drawZonePulse(r,owners[0].req.part);
+                } else drawText(z.label,r.x+r.w/2,r.y+r.h/2,'#9aa6ba',11);
+            });
+            targetOptions.forEach((option,index)=>{
+                const x=index===0?width*.18:width*.82,y=height*.445,r=width*.13;
+                ctx.save();ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.clip();
+                option.requirements.forEach((req,i)=>{ctx.fillStyle=AnswerSelection.CURSORS[req.part].color;ctx.fillRect(x-r+i*(2*r/option.requirements.length),y-r,2*r/option.requirements.length,2*r);});
+                ctx.restore();ctx.strokeStyle='#d9f8ff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();
+                drawText(option.text,x,y,'#fff',32);
+                drawText(`${index+1} · ${option.requirements.map(r=>AnswerSelection.CURSORS[r.part].label).join('+')}`,x,y+r+15,'#fff',12);
+            });
+            const controls=answerGate.controls||{};
+            // One virtual cursor per required body part. It remains one cursor even when that
+            // color appears in both answer choices; all unrelated body cursors stay hidden.
+            requiredParts.forEach(part=>{
+                const p=controls[part];
+                if(!p||p.vis<.55)return;
+                drawPartMarker(part,b.x+p.x*b.w,b.y+p.y*b.h,part==='hip'?14:10);
+            });
+            drawText(questionReadinessTimer>0?'문제 확인':answerGate.baseline?'색상 커서를 해당 칸에 유지':'가운데 준비',width/2,b.y+b.h*.42,'#fff',16);
+            drawText('1초 유지',width/2,b.y+b.h*.52,'#fff',14);
+            ctx.restore();
+        }
+
+        function drawZonePulse(rect, part) {
+            const color=AnswerSelection.CURSORS[part].color;
+            const cx=rect.x+rect.w/2,cy=rect.y+rect.h/2;
+            const max=Math.min(rect.w,rect.h)*.48;
+            const phase=(Date.now()%1200)/1200;
+            const engaged=(answerGate.engagedZoneIds||[]).includes(AnswerSelection.ZONES.find(z=>AnswerSelection.rect(z.id,width,height).x===rect.x&&AnswerSelection.rect(z.id,width,height).y===rect.y)?.id);
+            ctx.save();ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=engaged?18:10;ctx.lineWidth=engaged?5:3;
+            // Inner humming rings and an outer expanding/fading ring.
+            for(let i=0;i<2;i++){
+                const p=(phase+i*.5)%1;
+                ctx.globalAlpha=(1-p)*(engaged?1:.7);
+                ctx.beginPath();ctx.arc(cx,cy,max*(.25+p*.9),0,Math.PI*2);ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function interactionCursor() {
+            if (!currentSkeletonLandmarks) return null;
+            const points=currentSkeletonLandmarks.map(landmarkToScreen);
+            return MenuInput.joinedCursor(points);
+        }
+
+        function drawMenuHandCursor() {
+            if (!['menu_main','menu_sub'].includes(gameState)) return;
+            const p=interactionCursor();
+            if (!p || p.vis<0.65) return;
+            // Draw after the menu cards: the joined-hands menu cursor is always on top.
+            ctx.save();ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
+            ctx.shadowColor='#28E6FF';ctx.shadowBlur=16;ctx.fillStyle='#071025';ctx.strokeStyle='#28E6FF';ctx.lineWidth=4;
+            ctx.beginPath();ctx.arc(p.x,p.y,27,0,Math.PI*2);ctx.fill();ctx.stroke();
+            ctx.globalAlpha=.35;ctx.beginPath();ctx.arc(p.x,p.y,36+Math.sin(Date.now()/120)*3,0,Math.PI*2);ctx.stroke();
+            ctx.globalAlpha=1;ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('손 모으기',p.x,p.y);
+            ctx.restore();
+        }
+
+        // ==========================================
+        // 7. Visual Feedback & Exercise Rendering
+        // ==========================================
+        function drawPoseSkeleton(ctx, landmarks, timeMs) {
+            if (!landmarks || landmarks.length < 17) return;
+
+            const sL = landmarkToScreen(landmarks[11]), sR = landmarkToScreen(landmarks[12]);
+            const eL = landmarkToScreen(landmarks[13]), eR = landmarkToScreen(landmarks[14]);
+            const wL = landmarkToScreen(landmarks[15]), wR = landmarkToScreen(landmarks[16]);
+            const hL = landmarkToScreen(landmarks[23]), hR = landmarkToScreen(landmarks[24]);
+
+            ctx.save();
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Bone lines with glow
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = isSquatting ? 'rgba(0, 255, 180, 0.1)' : 'rgba(0, 229, 255, 0.1)';
+            ctx.lineWidth = 3.5;
+            ctx.shadowBlur = 0;
+
+            const drawLine = (p1, p2) => {
+                if (p1.vis > 0.4 && p2.vis > 0.4) {
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.stroke();
+                }
+            };
+
+            // Upper body skeleton
+            drawLine(sL, sR);
+            drawLine(sL, eL); drawLine(eL, wL);
+            drawLine(sR, eR); drawLine(eR, wR);
+            drawLine(sL, hL); drawLine(sR, hR); drawLine(hL, hR);
+            const head = landmarkToScreen(landmarks[0]);
+            const neck = {x:(sL.x+sR.x)/2,y:(sL.y+sR.y)/2,vis:Math.min(sL.vis,sR.vis)};
+            drawLine(head, neck);
+
+            // Legs if in frame
+            if (landmarks.length > 28) {
+                const kL = landmarkToScreen(landmarks[25]), kR = landmarkToScreen(landmarks[26]);
+                const aL = landmarkToScreen(landmarks[27]), aR = landmarkToScreen(landmarks[28]);
+                drawLine(hL, kL); drawLine(kL, aL);
+                drawLine(hR, kR); drawLine(kR, aR);
+            }
+
+            // Neutral joints are deliberately subtle. During an answer, color cursors are
+            // rendered only once in the fitness-zone board, never again on the body video.
+            const joints = [eL, eR, ...[25,26,27,28].map(i => landmarkToScreen(landmarks[i]))];
+            ctx.fillStyle = '#e0f0ff';
+            joints.forEach(j => {
+                if (j.vis > 0.4) {
+                    ctx.beginPath();
+                    ctx.arc(j.x, j.y, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+            if (gameState !== 'playing') {
+                if (head.vis >= 0.6) drawPartMarker('face',head.x,head.y,Math.max(14,Math.min(42,Math.abs(sL.x-sR.x)*0.42)));
+                [sL,sR].forEach(p=>{if(p.vis>=.6)drawPartMarker('shoulder',p.x,p.y,12);});
+                if(hL.vis>=.6&&hR.vis>=.6)drawPartMarker('hip',(hL.x+hR.x)/2,(hL.y+hR.y)/2,Math.max(10,Math.hypot(hL.x-hR.x,hL.y-hR.y)*.6));
+                const leftPalm=palmOrWrist('leftHand',wL),rightPalm=palmOrWrist('rightHand',wR);
+                if(leftPalm.vis>=.6)drawPartMarker('leftHand',leftPalm.x,leftPalm.y,14);
+                if(rightPalm.vis>=.6)drawPartMarker('rightHand',rightPalm.x,rightPalm.y,14);
+            }
+
+            ctx.restore();
+        }
+
+        function drawShield(ctx, timeMs) {
+            ctx.save();
+            const cx = width / 2;
+            const cy = height * 0.78;
+            const r = width * 0.44;
+
+            // Outer glow dome
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, Math.PI * 0.85, Math.PI * 2.15);
+            ctx.strokeStyle = 'rgba(0, 255, 220, 0.85)';
+            ctx.lineWidth = 4;
+            ctx.shadowColor = '#00ffd0';
+            ctx.shadowBlur = 20;
+            ctx.stroke();
+
+            // Translucent dome fill
+            const grad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r);
+            grad.addColorStop(0, 'rgba(0, 229, 255, 0.05)');
+            grad.addColorStop(1, 'rgba(0, 255, 200, 0.22)');
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Rotating hexagon rune
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(timeMs / 800);
+            ctx.strokeStyle = 'rgba(168, 255, 240, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2;
+                const hx = Math.cos(angle) * (r * 0.6);
+                const hy = Math.sin(angle) * (r * 0.6);
+                if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy);
+            }
+            ctx.closePath(); ctx.stroke();
+            ctx.restore();
+
+            drawText("🛡️ 수호 결계 전개! (SQUAT DEFENSE)", cx, cy - r - 15, '#00ffd0', 16);
+            ctx.restore();
+        }
+
+        function drawCalibrationGuide(ctx) {
+            const bx = width * 0.15;
+            const by = height * 0.18;
+            const bw = width * 0.7;
+            const bh = height * 0.55;
+
+            ctx.save();
+            const isAligned = runGauge > 0.3;
+            ctx.strokeStyle = isAligned ? 'rgba(0, 255, 180, 0.8)' : 'rgba(0, 229, 255, 0.5)';
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([14, 10]);
+            ctx.shadowColor = isAligned ? '#00ffb4' : '#00e5ff';
+            ctx.shadowBlur = 12;
+            ctx.strokeRect(bx, by, bw, bh);
+            ctx.setLineDash([]);
+
+            const cLen = 22;
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(bx, by + cLen); ctx.lineTo(bx, by); ctx.lineTo(bx + cLen, by); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(bx + bw - cLen, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + cLen); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(bx, by + bh - cLen); ctx.lineTo(bx, by + bh); ctx.lineTo(bx + cLen, by + bh); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(bx + bw - cLen, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw, by + bh - cLen); ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawSpirits(ctx, timeMs) {
+            ctx.save();
+            const s1x = width * 0.28 + Math.sin(timeMs / 300) * 16;
+            const s1y = height * 0.82 + Math.cos(timeMs / 250) * 10;
+            const s2x = width * 0.72 + Math.cos(timeMs / 300) * 16;
+            const s2y = height * 0.82 + Math.sin(timeMs / 250) * 10;
+
+            const drawWisp = (x, y, color) => {
+                ctx.fillStyle = color;
+                ctx.shadowColor = color; ctx.shadowBlur = 12;
+                ctx.beginPath();
+                ctx.arc(x, y, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x - 5, y); ctx.lineTo(x - 12, y - 6);
+                ctx.moveTo(x + 5, y); ctx.lineTo(x + 12, y - 6);
+                ctx.stroke();
+            };
+
+            drawWisp(s1x, s1y, '#00e5ff');
+            drawWisp(s2x, s2y, '#ffd700');
+            ctx.restore();
+        }
+
+        function updateAndDrawTrackOrbs(ctx, dt, timeMs) {
+            trackOrbSpawnTimer += dt;
+            if (trackOrbSpawnTimer > 1.2) {
+                trackOrbSpawnTimer = 0;
+                trackOrbs.push({
+                    lane: (Math.random() - 0.5) * 0.65,
+                    z: 1.0,
+                    val: rand(1, 9)
+                });
+            }
+
+            const speed = 0.55 + (runGauge / 100) * 1.3;
+            const vanishingY = height * 0.35;
+
+            for (let i = trackOrbs.length - 1; i >= 0; i--) {
+                const orb = trackOrbs[i];
+                orb.z -= dt * speed;
+
+                if (orb.z <= 0.12 && orb.z >= -0.05) {
+                    playSound('crystal_pickup');
+                    score += 20;
+                    runGauge = Math.min(100, runGauge + 6);
+                    createShatterParticles(width / 2 + orb.lane * width, height * 0.75);
+                    trackOrbs.splice(i, 1);
+                    continue;
+                } else if (orb.z < -0.05) {
+                    trackOrbs.splice(i, 1);
+                    continue;
+                }
+
+                const sy = vanishingY + (height - vanishingY) * Math.pow(orb.z, 2.5);
+                const sx = width / 2 + orb.lane * width * (sy / height);
+                const r = (1.0 - orb.z) * 14 + 5;
+
+                ctx.save();
+                ctx.fillStyle = '#ffd700';
+                ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(sx, sy, r, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#050308';
+                ctx.font = `bold ${Math.max(9, Math.floor(r * 0.9))}px 'Gowun Batang', serif`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(orb.val, sx, sy);
+                ctx.restore();
+            }
+        }
+
+        function drawBossAttackWave(ctx, timeMs) {
+            if (!bossAttackActive) return;
+            const cy = height * 0.45;
+
+            ctx.save();
+            ctx.fillStyle = 'rgba(200, 0, 40, 0.85)';
+            ctx.strokeStyle = '#ff3366'; ctx.lineWidth = 2;
+            ctx.fillRect(width * 0.05, cy - 45, width * 0.9, 32);
+            ctx.strokeRect(width * 0.05, cy - 45, width * 0.9, 32);
+            drawText(`⚠️ [보스의 암흑 참격] 앉아서(스쿼트) 피하세요! ${bossAttackTimer.toFixed(1)}s`, width / 2, cy - 29, '#fff', 15);
+
+            ctx.strokeStyle = 'rgba(255, 0, 50, 0.9)';
+            ctx.lineWidth = 5 + Math.sin(timeMs / 100) * 2;
+            ctx.shadowColor = '#ff0033'; ctx.shadowBlur = 18;
+            ctx.beginPath();
+            ctx.moveTo(0, cy);
+            ctx.lineTo(width, cy);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawEndingCutscene(ctx, timeMs) {
+            ctx.save();
+            const dawnGrad = ctx.createLinearGradient(0, 0, 0, height);
+            dawnGrad.addColorStop(0, '#0a0d24');
+            dawnGrad.addColorStop(0.5, '#1e1b4b');
+            dawnGrad.addColorStop(1, '#3b2554');
+            ctx.fillStyle = dawnGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            particles.forEach(p => p.draw(ctx));
+
+            if (processedGuardianCanvas) {
+                ctx.save();
+                const gW = width * 0.48;
+                const gH = gW * (processedGuardianCanvas.height / processedGuardianCanvas.width);
+                const gx = width / 2;
+                const gy = height * 0.44 + Math.sin(timeMs / 600) * 8;
+                ctx.translate(gx, gy);
+
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2 + Math.sin(timeMs / 1000) * 0.2;
+                    ctx.fillStyle = 'rgba(168, 230, 240, 0.18)';
+                    ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 30;
+                    ctx.beginPath();
+                    ctx.ellipse(Math.cos(angle) * (gW * 0.5), Math.sin(angle) * (gH * 0.4) - gH * 0.3, gW * 0.45, gH * 0.25, angle, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 25;
+                ctx.drawImage(processedGuardianCanvas, -gW / 2, -gH, gW, gH);
+                ctx.restore();
+            }
+
+            ctx.textAlign = 'center';
+            if (stateTimer < 3.5) {
+                drawText("모든 악몽의 근원... 나이트메어의 균열이 무너진다.", width / 2, height * 0.72, '#ff8888', 17);
+                drawText("\"어째서냐... 나는 아이의 실수와 포기에서 태어났는데...\"", width / 2, height * 0.78, '#ccc', 15);
+            } else if (stateTimer < 7.5) {
+                drawText("수호신의 몸에서 눈부신 사고의 빛이 터져 나온다.", width / 2, height * 0.70, '#a8e6f0', 17);
+                drawText("\"틀리는 건 약함이 아니야.\"", width / 2, height * 0.76, '#fff', 20);
+                drawText("\"실패는 너의 힘이 아니야.\"", width / 2, height * 0.82, '#ffd700', 22);
+            } else if (stateTimer < 12.0) {
+                drawText("\"다시 해보는 순간, 그것은 나의 힘이니까!\"", width / 2, height * 0.74, '#00ffea', 23);
+                drawText("최후의 비의 — 「사고의 별(Thought Star)」", width / 2, height * 0.81, '#ffd700', 19);
+            } else if (stateTimer < 16.5) {
+                drawText("\"오늘도 한 걸음.\"", width / 2, height * 0.70, '#fff', 20);
+                drawText("\"나는 아직 작지만...\"", width / 2, height * 0.76, '#a8e6f0', 19);
+                drawText("\"우리는 함께 점점 강해지고 있어.\"", width / 2, height * 0.82, '#ffd700', 22);
+            } else {
+                drawText("《꿈의 수호신》 전설 완수!", width / 2, height * 0.72, '#ffd700', 30);
+                drawBtn(width * 0.2, height * 0.80, width * 0.6, 50, "최종 결과 확인", '#00ffea');
+            }
+
+            ctx.restore();
+        }
+
+        // ==========================================
+        // 8. UI Component Draw Functions
+        // ==========================================
+        let hasSavedRecord = false;
+
+        function saveWorkoutResult(ch, finalScore, grade, timeSec, starsCount) {
+            const stats = JSON.parse(localStorage.getItem('dream_guardian_stats') || '{"totalSteps":0,"totalSquats":0,"totalJumps":0,"totalCalories":0,"totalClears":0}');
+            stats.totalSteps = (stats.totalSteps || 0) + totalSteps;
+            stats.totalSquats = (stats.totalSquats || 0) + totalSquats;
+            stats.totalJumps = (stats.totalJumps || 0) + totalJumps;
+            stats.totalCalories = (stats.totalCalories || 0) + caloriesBurned;
+            stats.totalClears = (stats.totalClears || 0) + 1;
+            localStorage.setItem('dream_guardian_stats', JSON.stringify(stats));
+
+            const stars = JSON.parse(localStorage.getItem('dream_guardian_stars') || '{}');
+            stars[ch] = Math.max(stars[ch] || 0, starsCount);
+            localStorage.setItem('dream_guardian_stars', JSON.stringify(stars));
+
+            const history = JSON.parse(localStorage.getItem('dream_guardian_history') || '[]');
+            const today = new Date();
+            const dateStr = `${today.getMonth() + 1}/${today.getDate()}`;
+            history.unshift({
+                date: dateStr,
+                chapter: ch,
+                score: Math.floor(finalScore),
+                manaDelivered: totalManaDelivered,
+                spellsCast,
+                grade: grade,
+                time: timeSec,
+                steps: totalSteps,
+                squats: totalSquats,
+                cal: caloriesBurned.toFixed(1)
+            });
+            if (history.length > 8) history.pop();
+            localStorage.setItem('dream_guardian_history', JSON.stringify(history));
+        }
+
+        function showRecordsModal() {
+            const stats = JSON.parse(localStorage.getItem('dream_guardian_stats') || '{"totalSteps":0,"totalSquats":0,"totalJumps":0,"totalCalories":0}');
+            const stars = JSON.parse(localStorage.getItem('dream_guardian_stars') || '{}');
+            const history = JSON.parse(localStorage.getItem('dream_guardian_history') || '[]');
+
+            let starCount = 0;
+            for (let ch = 1; ch <= 5; ch++) { starCount += (stars[ch] || 0); }
+
+            document.getElementById('stat_total_cal').textContent = stats.totalCalories.toFixed(1) + " kcal";
+            document.getElementById('stat_total_steps').textContent = stats.totalSteps + "보";
+            document.getElementById('stat_total_squats').textContent = stats.totalSquats + "회";
+            document.getElementById('stat_total_stars').textContent = `${starCount} / 15`;
+
+            const listEl = document.getElementById('records_list');
+            listEl.innerHTML = '';
+            if (history.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">아직 완료된 임무 기록이 없습니다.</div>';
+            } else {
+                history.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'record-item';
+                    div.innerHTML = `
+                        <div>
+                            <div style="font-weight:bold; color:#ffd700;">${CHAPTER_NAMES[item.chapter] || '임무'} [${item.grade}]</div>
+                            <div style="color:#88b; font-size:11px;">${item.date} | ⏱️ ${item.time}초</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="color:#a8e6f0; font-weight:bold;">${item.score}점</div>
+                            <div style="color:#ff88aa; font-size:11px;">🔥 ${item.cal} kcal (${item.steps}보)</div>
+                        </div>
+                    `;
+                    listEl.appendChild(div);
+                });
+            }
+            document.getElementById('records_modal').classList.remove('hidden');
+        }
+
+        let menuHoverIdx = -1;
+        let menuHoverDwell = 0;
+
+        function drawMenuMain(timeMs, dt) {
+            drawText("꿈의 수호신", width/2, height*0.13, '#a8e6f0', 40);
+            drawText("네가 문제를 풀면, 수호신이 강해진다.", width/2, height*0.19, '#fff', 17);
+
+            const stars = JSON.parse(localStorage.getItem('dream_guardian_stars') || '{}');
+            const stats = JSON.parse(localStorage.getItem('dream_guardian_stats') || '{"totalSteps":0,"totalSquats":0,"totalJumps":0,"totalCalories":0}');
+
+            // Hand hover selection for menu buttons
+            let hoveredBtn = -1;
+            if (currentSkeletonLandmarks) {
+                const menuCursor = document.getElementById('records_modal').classList.contains('hidden') ? interactionCursor() : null;
+                const hands = menuCursor && menuCursor.vis >= 0.65 ? [menuCursor] : [];
+
+                for (let i = 1; i <= 5; i++) {
+                    const y = height * 0.28 + (i - 1) * height * 0.10;
+                    for (const h of hands) {
+                        if (h.x > width * 0.08 && h.x < width * 0.92 && h.y > y - 28 && h.y < y + 28) {
+                            hoveredBtn = i;
+                            break;
+                        }
+                    }
+                    if (hoveredBtn !== -1) break;
+                }
+
+                // Records button hover
+                const recY = height * 0.85;
+                for (const h of hands) {
+                    if (h.x > width * 0.08 && h.x < width * 0.92 && h.y > recY && h.y < recY + 48) {
+                        hoveredBtn = 99;
+                        break;
+                    }
+                }
+            }
+
+            if (hoveredBtn !== -1) {
+                if (menuHoverIdx === hoveredBtn) {
+                    menuHoverDwell += dt;
+                } else {
+                    menuHoverIdx = hoveredBtn;
+                    menuHoverDwell = 0;
+                }
+                if (menuHoverDwell + 1e-9 >= 0.8) {
+                    menuHoverDwell = 0;
+                    const selected = menuHoverIdx;
+                    menuHoverIdx = -1;
+                    playSound('start');
+                    if (selected === 99) {
+                        showRecordsModal();
+                    } else {
+                        const isUnlocked = selected <= unlockedChapter;
+                        if (isUnlocked) {
+                            currentLevel = selected;
+                            if (selected === 5) {
+                                currentSubLevel = 1;
+                                changeState('story_intro');
+                            } else {
+                                changeState('menu_sub');
+                            }
+                        }
+                    }
+                }
+            } else {
+                menuHoverIdx = -1;
+                menuHoverDwell = 0;
+            }
+            
+            for(let i=1; i<=5; i++) {
+                const y = height * 0.28 + (i-1) * height * 0.10;
+                const isUnlocked = i <= unlockedChapter;
+                const isHovered = (menuHoverIdx === i);
+
+                ctx.fillStyle = isHovered ? 'rgba(80, 40, 130, 0.95)' : (isUnlocked ? 'rgba(40, 20, 70, 0.9)' : 'rgba(20, 20, 20, 0.9)');
+                ctx.strokeStyle = isHovered ? '#00ffd0' : (isUnlocked ? '#a8e6f0' : '#444');
+                ctx.lineWidth = isHovered ? 3.5 : 2;
+                ctx.fillRect(width*0.1, y-26, width*0.8, 54);
+                ctx.strokeRect(width*0.1, y-26, width*0.8, 54);
+
+                if (isHovered && menuHoverDwell > 0) {
+                    const prog = Math.min(1.0, menuHoverDwell / 0.8);
+                    ctx.fillStyle = 'rgba(0, 255, 208, 0.25)';
+                    ctx.fillRect(width * 0.1, y - 26, width * 0.8 * prog, 54);
+                }
+                
+                const chName = isUnlocked ? CHAPTER_NAMES[i] : "???";
+                const chStars = isUnlocked && stars[i] ? " " + "★".repeat(stars[i]) : "";
+                drawText(chName + chStars, width/2, y, isUnlocked ? '#fff' : '#666', 20);
+            }
+
+            drawText(`🔥 누적: ${stats.totalCalories.toFixed(0)} kcal | 🏃 ${stats.totalSteps}보 | 🏋️ ${stats.totalSquats}회`, width/2, height * 0.81, '#a8e6f0', 13);
+            
+            const isRecHover = (menuHoverIdx === 99);
+            drawBtn(width*0.1, height * 0.85, width*0.8, 48, "🏆 운동 기록 & 명예의 전당", isRecHover ? '#00ffd0' : '#ffd700');
+            if (isRecHover && menuHoverDwell > 0) {
+                const prog = Math.min(1.0, menuHoverDwell / 0.8);
+                ctx.fillStyle = 'rgba(0, 255, 208, 0.25)';
+                ctx.fillRect(width * 0.1, height * 0.85, width * 0.8 * prog, 48);
+            }
+
+            drawText("💡 손을 올려 버튼을 가리키거나 직접 터치하세요", width/2, height * 0.95, '#88b', 12);
+        }
+
+        let subMenuHoverIdx = -1;
+        let subMenuHoverDwell = 0;
+
+        function drawMenuSub(timeMs, dt) {
+            drawText(CHAPTER_NAMES[currentLevel], width/2, height*0.15, '#a8e6f0', 30);
+            const levelData = dynamicLevels.find(l=>l.id === currentLevel);
+
+            let hoveredItem = -1;
+            if (currentSkeletonLandmarks) {
+                const menuCursor=interactionCursor();
+                const hands=menuCursor && menuCursor.vis>=0.65?[menuCursor]:[];
+
+                if (levelData && levelData.subLevels) {
+                    levelData.subLevels.forEach((sub, idx) => {
+                        const y = height * 0.32 + idx * height * 0.09;
+                        for (const h of hands) {
+                            if (h.x > width * 0.08 && h.x < width * 0.92 && h.y > y - 26 && h.y < y + 26) {
+                                hoveredItem = sub.id;
+                                break;
+                            }
+                        }
+                    });
+                }
+                for (const h of hands) {
+                    if (h.x > width * 0.08 && h.x < width * 0.92 && h.y > height * 0.75 - 25 && h.y < height * 0.75 + 25) {
+                        hoveredItem = -99;
+                        break;
+                    }
+                }
+            }
+
+            if (hoveredItem !== -1) {
+                if (subMenuHoverIdx === hoveredItem) {
+                    subMenuHoverDwell += dt;
+                } else {
+                    subMenuHoverIdx = hoveredItem;
+                    subMenuHoverDwell = 0;
+                }
+                if (subMenuHoverDwell + 1e-9 >= 0.8) {
+                    subMenuHoverDwell = 0;
+                    const chosen = subMenuHoverIdx;
+                    subMenuHoverIdx = -1;
+                    playSound('start');
+                    if (chosen === -99) {
+                        changeState('menu_main');
+                    } else {
+                        currentSubLevel = chosen;
+                        changeState('story_intro');
+                    }
+                }
+            } else {
+                subMenuHoverIdx = -1;
+                subMenuHoverDwell = 0;
+            }
+
+            if(levelData && levelData.subLevels.length > 0) {
+                levelData.subLevels.forEach((sub, idx) => {
+                    const y = height * 0.32 + idx * height * 0.09;
+                    const isHovered = (subMenuHoverIdx === sub.id);
+                    ctx.fillStyle = isHovered ? 'rgba(80, 40, 130, 0.95)' : 'rgba(40, 20, 70, 0.9)';
+                    ctx.strokeStyle = isHovered ? '#00ffd0' : '#a8e6f0';
+                    ctx.lineWidth = isHovered ? 3.5 : 2;
+                    ctx.fillRect(width*0.1, y-25, width*0.8, 52);
+                    ctx.strokeRect(width*0.1, y-25, width*0.8, 52);
+                    if (isHovered && subMenuHoverDwell > 0) {
+                        ctx.fillStyle = 'rgba(0, 255, 208, 0.25)';
+                        ctx.fillRect(width * 0.1, y - 25, width * 0.8 * Math.min(1.0, subMenuHoverDwell / 0.8), 52);
+                    }
+                    drawText(`⚔️ ${currentLevel}-${sub.id} ${sub.title}`, width/2, y, '#fff', 20);
+                });
+            } else {
+                // Fallback direct start
+                const y = height * 0.40;
+                drawBtn(width*0.1, y-25, width*0.8, 52, "⚔️ 임무 시작 (START)", '#00ffd0');
+            }
+
+            // Prominent Back button
+            drawBtn(width*0.2, height * 0.75, width*0.6, 50, "◀ 메인 메뉴로 (BACK)", subMenuHoverIdx === -99 ? '#00ffd0' : '#fff');
+            drawText("💡 손을 올려 선택하거나 직접 터치하세요", width/2, height * 0.85, '#88b', 12);
+        }
+
+        function drawStoryIntro() {
+            ctx.fillStyle = `rgba(0,0,0,${Math.min(1, stateTimer)})`;
+            ctx.fillRect(0,0,width,height);
+            
+            if (storyTexts.length > 0) {
+                drawText(storyTexts[0] + (storyTexts.length > 1 ? "..." : ""), width/2, height*0.4, '#fff', 20);
+            }
+            if (stateTimer > 1.5 && storyTexts.length > 1) {
+                drawText(storyTexts[1], width/2, height*0.5, '#ffd700', 22);
+            }
+            
+            drawText("(화면을 터치하면 건너뜁니다)", width/2, height*0.8, '#888', 14);
+        }
+
+        function drawResult() {
+            drawText("임무 완료!", width/2, height*0.11, '#ffd700', 36);
+            
+            const timeSec = (clearTimeMs / 1000).toFixed(1);
+            drawText(`클리어 타임: ${timeSec}초`, width/2, height*0.21, '#fff', 20);
+            drawText(`정답: ${correctCount} / ${questionCount} (최대 콤보: ${maxCombo})`, width/2, height*0.27, '#fff', 19);
+            
+            // Fitness Workout Metrics
+            drawText(`🏃 달린 걸음: ${totalSteps}보 | 🏋️ 스쿼트: ${totalSquats}회`, width/2, height*0.34, '#a8e6f0', 17);
+            drawText(`전달한 마나 ${totalManaDelivered} · 수호 마법 ${spellsCast}회`, width/2, height*0.40, '#ffd700', 18);
+            
+            // Formula Score
+            const finalScore = score + (playerHp * 10) + Math.max(0, 5000 - timeSec*10);
+            drawText(`최종 점수: ${Math.floor(finalScore)}`, width/2, height*0.47, '#a8e6f0', 25);
+            
+            let grade = 'D'; let gName = '수련 수호신'; let gColor = '#aaa';
+            const accuracy = questionCount ? correctCount / questionCount : 0;
+            if (accuracy >= 0.95) { grade = 'S'; gName = '꿈의 대수호신'; gColor = '#ffd700'; }
+            else if (accuracy >= 0.8) { grade = 'A'; gName = '별빛 수호신'; gColor = '#ff88ff'; }
+            else if (accuracy >= 0.6) { grade = 'B'; gName = '빛의 수호신'; gColor = '#a8e6f0'; }
+            else if (accuracy >= 0.4) { grade = 'C'; gName = '꼬마 수호신'; gColor = '#88ff88'; }
+
+            let starCount = 1;
+            if (playerHp >= 50) starCount++;
+            if (maxCombo >= 5 && totalSquats >= 1) starCount++;
+            let starStr = "★".repeat(starCount) + "☆".repeat(3 - starCount);
+
+            if (!hasSavedRecord) {
+                hasSavedRecord = true;
+                saveWorkoutResult(currentLevel, finalScore, grade, timeSec, starCount);
+            }
+
+            drawText(`랭크: [ ${grade} ] ${gName}`, width/2, height*0.55, gColor, 26);
+            drawText(`별점: ${starStr}`, width/2, height*0.62, '#ffd700', 28);
+
+            // Buttons
+            drawBtn(width*0.2, height*0.73, width*0.6, 48, "다시 도전", '#a8e6f0');
+            drawBtn(width*0.2, height*0.83, width*0.6, 48, "메뉴로", '#fff');
+        }
+
+        function drawGameover() {
+            drawText("꿈이 흔들리고 있어...", width/2, height*0.34, '#ff4444', 30);
+            drawText(`🏃 ${totalSteps}보 | 🏋️ ${totalSquats}회 | 🔥 ${caloriesBurned.toFixed(1)} kcal`, width/2, height*0.42, '#a8e6f0', 16);
+            drawBtn(width*0.2, height*0.6, width*0.6, 50, "다시 도전", '#a8e6f0');
+            drawBtn(width*0.2, height*0.7, width*0.6, 50, "메뉴로", '#fff');
+        }
+
+        function drawBtn(x, y, w, h, text, color) {
+            ctx.fillStyle = 'rgba(40, 20, 70, 0.9)';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.fillRect(x, y, w, h);
+            ctx.strokeRect(x, y, w, h);
+            drawText(text, x + w/2, y + h/2, color, 20);
+        }
+
+        function drawHUD() {
+            // Player HP
+            ctx.fillStyle = '#ff0055';
+            ctx.fillRect(10, 10, 100 * (playerHp/100), 10);
+            ctx.strokeStyle = '#fff'; ctx.strokeRect(10, 10, 100, 10);
+            drawText("HP", 120, 15, '#fff', 12);
+            
+            // Score & Combo
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#fff';
+            ctx.font = "16px sans-serif";
+            ctx.fillText(`SCORE: ${score}`, width - 10, 20);
+            if (currentCombo > 1) {
+                ctx.fillStyle = '#ffd700';
+                ctx.fillText(`${currentCombo} COMBO!`, width - 10, 40);
+            }
+            
+            // Timer & Squat/Step Counter in HUD
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#a8e6f0';
+            const elapsed = Math.floor((Date.now() - gameStartTime)/1000);
+            ctx.fillText(`${elapsed}s | 🏃${totalSteps} | 🏋️${totalSquats}`, width/2, 20);
+        }
+
+        function drawDreamGrid(timeMs) {
+            ctx.save();
+            const t = timeMs / 1000;
+            const horizon = height * 0.52;
+            const target = gameState === 'running' ? (runGauge >= 75 ? [35,148,255] : [255,135,25]) : [255,50,22];
+            const glow = 0.72 + Math.sin(t * 2.1) * 0.12;
+            const color = `rgba(${Math.round(target[0]*glow)},${Math.round(target[1]*glow)},${Math.round(target[2]*glow)},.85)`;
+            const speed = gameState === 'running' ? 1.5 + runGauge / 35 : 0.65;
+            ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(0,0,width,height);
+            ctx.strokeStyle = color; ctx.lineWidth = 2.2; ctx.shadowColor = color; ctx.shadowBlur = 8;
+            const vanishingX=width/2,vanishingY=height*.25;
+            const floorTop=height*.53;
+            const floorCols=Math.max(7,Math.round(width/75));
+            for (let x=-width;x<=width*2;x+=width/floorCols) {
+                ctx.beginPath();ctx.moveTo(width/2,0);ctx.lineTo(x,height*.16);ctx.stroke();
+                ctx.beginPath();ctx.moveTo(vanishingX,vanishingY);ctx.lineTo(x,height);ctx.stroke();
+            }
+            for(let i=0;i<6;i++) { const y=((t*speed*.04+i/6)%1)*height*.16;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y);ctx.stroke(); }
+            for(let i=0;i<14;i++) { const z=(t*speed*.18+i/14)%1;const y=floorTop+(height-floorTop)*Math.pow(z,2.15);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y);ctx.stroke(); }
+            ctx.restore();
+        }
+
+        function drawStreetFighterHUD() {
+            const barH = 18;
+            const barW = width * 0.38;
+            const topY = 16;
+
+            ctx.save();
+
+            function medallion(x, y, color, guardian) {
+                ctx.save(); ctx.fillStyle='#0a1026';ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.shadowColor=color;ctx.shadowBlur=8;
+                ctx.beginPath();ctx.arc(x,y,17,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle=color;
+                if(guardian){ctx.beginPath();ctx.arc(x-3,y,7,0,Math.PI*2);ctx.fill();ctx.fillStyle='#0a1026';ctx.beginPath();ctx.arc(x+3,y-5,7,0,Math.PI*2);ctx.fill();}
+                else {ctx.beginPath();ctx.arc(x-6,y-2,3,0,Math.PI*2);ctx.arc(x+6,y-2,3,0,Math.PI*2);ctx.fill();ctx.fillStyle='#0a1026';ctx.fillRect(x-9,y+7,18,3);}
+                ctx.restore();
+            }
+
+            // 1. LEFT - Guardian energy
+            const pX = width * 0.05;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+            ctx.strokeStyle = '#a8e6ff'; ctx.lineWidth = 2;
+            ctx.fillRect(pX, topY, barW, barH);
+            ctx.strokeRect(pX, topY, barW, barH);
+
+            const pRatio = Math.max(0, playerHp / 100);
+            const pGrad = ctx.createLinearGradient(pX, 0, pX + barW, 0);
+            pGrad.addColorStop(0, '#b9eeff');
+            pGrad.addColorStop(1, '#7985f4');
+            ctx.fillStyle = pGrad;
+            ctx.fillRect(pX, topY, barW * pRatio, barH);
+
+            medallion(pX-24,topY+barH/2,'#b9eeff',true);
+            ctx.fillStyle='#081127';ctx.font='bold 14px sans-serif';ctx.textAlign='left';ctx.fillText(`${playerHp}/100`,pX+7,topY+14);
+
+            // 2. RIGHT - Monster energy
+            const bX = width * 0.57;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+            ctx.strokeStyle = '#ff3366'; ctx.lineWidth = 2;
+            ctx.fillRect(bX, topY, barW, barH);
+            ctx.strokeRect(bX, topY, barW, barH);
+
+            const bRatio = Math.max(0, bossHp / bossMaxHp);
+            const bGrad = ctx.createLinearGradient(bX, 0, bX + barW, 0);
+            bGrad.addColorStop(0, '#ff2440');
+            bGrad.addColorStop(1, '#9b0c20');
+            ctx.fillStyle = bGrad;
+            ctx.fillRect(bX + barW * (1 - bRatio), topY, barW * bRatio, barH);
+
+            medallion(bX+barW+24,topY+barH/2,'#ff3d50',false);
+            ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';ctx.textAlign='right';ctx.fillText(`${bossHp}/${bossMaxHp}`,bX+barW-7,topY+14);
+
+            ctx.restore();
+        }
+
+        function drawManaFlask(cx, cy, ratio) {
+            const w = 40;
+            const h = 120;
+            ctx.save();
+            ctx.translate(cx, cy);
+            
+            // Flask BG
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.strokeStyle = '#a8e6f0';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-w/2, 0);
+            ctx.lineTo(w/2, 0);
+            ctx.lineTo(w/2, h);
+            ctx.lineTo(-w/2, h);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+            
+            // Fill
+            const fillH = h * ratio;
+            ctx.fillStyle = 'rgba(0, 229, 255, 0.8)';
+            ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 10;
+            ctx.fillRect(-w/2, h - fillH, w, fillH);
+            
+            ctx.restore();
+        }
+
+        function drawText(text, x, y, color, size=20) {
+            ctx.fillStyle = color;
+            ctx.font = `bold ${size}px 'Gowun Batang', serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
+            ctx.fillText(text, x, y);
+            ctx.shadowBlur = 0;
+        }
+
+        // ==========================================
+        // 9. Input Handling & Mobile Controls
+        // ==========================================
+        // Keyboard controls for testing
+        window.addEventListener('keydown', (e) => {
+            if (['Space','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)) e.preventDefault();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (e.code === 'Space') {
+                if (gameState === 'ready_position') {
+                    runGauge = 100;
+                    playSound('start');
+                    changeState('running');
+                } else if (gameState === 'running') {
+                    runGauge += 15;
+                    totalSteps += 2;
+                } else if (gameState === 'story_intro') {
+                    startGameplay();
+                } else if (gameState === 'ending_cutscene') {
+                    changeState('result');
+                }
+            } else if (gameState === 'playing' && targetOptions && targetOptions.length >= 2) {
+                if (e.code === 'Digit1') handleAnswer(targetOptions[0]);
+                else if (e.code === 'Digit2') handleAnswer(targetOptions[1]);
+            } else if (e.code === 'ArrowDown') {
+                // Test Squat
+                isSquatting = true; totalSquats++; playSound('shield_deflect');
+                if (bossAttackActive) { bossAttackDeflected = true; bossAttackActive = false; score += 150; }
+                setTimeout(() => { isSquatting = false; }, 1000);
+            } else if (e.code === 'ArrowUp') {
+                // Test Jump
+                totalJumps++; playSound('jump_whoosh');
+                if (gameState === 'running') runGauge = Math.min(100, runGauge + 25);
+            }
+        });
+
+        document.getElementById('question_panel').addEventListener('pointerdown', e => e.stopPropagation());
+        function closePauseMenu() {
+            gamePaused = false;
+            document.getElementById('pause_menu').classList.remove('visible');
+            document.getElementById('btn_pause').textContent = '멈추기';
+        }
+        document.getElementById('btn_pause').addEventListener('click', e => {
+            e.stopPropagation();
+            gamePaused = !gamePaused;
+            if (gamePaused) { questionReader.cancel(); questionSpeaking=false; }
+            document.getElementById('pause_menu').classList.toggle('visible', gamePaused);
+            document.getElementById('btn_pause').textContent = gamePaused ? '계속' : '멈추기';
+        });
+        document.getElementById('btn_resume').addEventListener('click', closePauseMenu);
+        document.getElementById('btn_home').addEventListener('click', () => { closePauseMenu(); questionReader.cancel(); changeState('menu_main'); });
+        document.getElementById('btn_pause_home').addEventListener('click', () => { closePauseMenu(); questionReader.cancel(); changeState('menu_main'); });
+        document.getElementById('btn_pause_menu').addEventListener('click', () => { closePauseMenu(); changeState('menu_main'); });
+        document.getElementById('btn_pause_records').addEventListener('click', () => { showRecordsModal(); });
+        document.addEventListener('visibilitychange', () => {
+            resetTracking();
+            if (document.hidden) {
+                questionReader.cancel(); questionSpeaking = false;
+                questionReadinessTimer = Math.max(1, questionReadinessTimer);
+            }
+            if (!document.hidden && currentStream) {
+                videoElement.play().catch(() => setCameraStatus('카메라 재생이 멈췄습니다. 새로고침하세요.'));
+            }
+        });
+
+        document.getElementById('btn_fullscreen').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            playSound('hover');
+            const el = document.getElementById('container');
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (el.requestFullscreen) el.requestFullscreen();
+                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            }
+        });
+
+        document.getElementById('btn_close_records').addEventListener('click', (e) => {
+            e.stopPropagation();
+            playSound('hover');
+            document.getElementById('records_modal').classList.add('hidden');
+        });
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (gamePaused) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const px = (e.clientX - rect.left) * scaleX;
+            const py = (e.clientY - rect.top) * scaleY;
+            playSound('hover');
+
+            if (gameState === 'menu_main') {
+                // Check Chapter buttons
+                for(let i=1; i<=5; i++) {
+                    const y = height * 0.28 + (i-1) * height * 0.10;
+                    if (px > width * 0.08 && px < width * 0.92 && py > y-28 && py < y+28) {
+                        const isUnlocked = i <= unlockedChapter;
+                        if (isUnlocked) {
+                            currentLevel = i;
+                            if (i === 5) {
+                                currentSubLevel = 1;
+                                changeState('story_intro');
+                            } else {
+                                changeState('menu_sub');
+                            }
+                            return;
+                        }
+                    }
+                }
+                // Check Records Modal button
+                if (px > width * 0.08 && px < width * 0.92 && py > height * 0.85 - 10 && py < height * 0.85 + 55) {
+                    showRecordsModal();
+                    return;
+                }
+            } else if (gameState === 'menu_sub') {
+                const levelData = dynamicLevels.find(l=>l.id === currentLevel);
+                if(levelData && levelData.subLevels) {
+                    levelData.subLevels.forEach((sub, idx) => {
+                        const y = height * 0.32 + idx * height * 0.09;
+                        if (px > width * 0.08 && px < width * 0.92 && py > y-26 && py < y+26) {
+                            currentSubLevel = sub.id;
+                            changeState('story_intro');
+                        }
+                    });
+                }
+                if (!levelData || !levelData.subLevels || levelData.subLevels.length === 0) {
+                    if (py > height * 0.40 - 28 && py < height * 0.40 + 28) {
+                        currentSubLevel = 1;
+                        changeState('story_intro');
+                    }
+                }
+                // Back button
+                if (py > height * 0.75 - 25 && py < height * 0.75 + 50) {
+                    changeState('menu_main');
+                }
+            } else if (gameState === 'story_intro') {
+                startGameplay();
+            } else if (gameState === 'ending_cutscene') {
+                if (stateTimer > 3.0) {
+                    changeState('result');
+                } else {
+                    stateTimer = 16.5;
+                }
+            } else if (gameState === 'result' || gameState === 'gameover') {
+                if (py > height*0.73 && py < height*0.73+48) {
+                    // Retry
+                    changeState('story_intro');
+                } else if (py > height*0.83 && py < height*0.83+48) {
+                    // Menu
+                    if (gameState === 'result' && currentLevel < 4 && correctCount >= 7) {
+                        unlockedChapter = Math.max(unlockedChapter, currentLevel + 1);
+                        localStorage.setItem('dream_guardian_progress', unlockedChapter.toString());
+                    }
+                    changeState('menu_main');
+                }
+            } else if (gameState === 'playing') {
+                const b=AnswerSelection.board(width,height);
+                const p={x:(px-b.x)/b.w,y:(py-b.y)/b.h,vis:1};
+                const choice=targetOptions.find(o=>o.requirements.some(req=>AnswerSelection.contains(AnswerSelection.ZONES.find(z=>z.id===req.zoneId),p)));
+                if(choice) handleAnswer(choice);
+            } else if (gameState === 'running') {
+                // Touch Fallback Run
+                runGauge += 15;
+                totalSteps += 2;
+            } else if (gameState === 'ready_position') {
+                runGauge += 1.0;
+                if (runGauge > 2.0) { playSound('start'); changeState('running'); }
+            }
+        });
+
+        function startGameplay() {
+            guardianMana = 0;
+            totalManaDelivered = 0;
+            spellsCast = 0;
+            spellImpactDone = false;
+            answerGate.reset();
+            targetOptions = [];
+            prevMotionData = null;
+            bossMaxHp = currentLevel === 5 ? 20 : 10;
+            bossHp = bossMaxHp;
+            playerHp = 100;
+            score = 0;
+            questionCount = 0;
+            correctCount = 0;
+            maxCombo = 0;
+            currentCombo = 0;
+            runGauge = 0;
+            particles = [];
+            totalSteps = 0;
+            totalSquats = 0;
+            totalJumps = 0;
+            caloriesBurned = 0;
+            isSquatting = false;
+            wasSquatting = false;
+            isJumping = false;
+            wasJumping = false;
+            jumpCooldown = 0;
+            runStepTimer = 0;
+            bossAttackActive = false;
+            bossAttackTimer = 0;
+            bossAttackDeflected = false;
+            trackOrbs = [];
+            hasSavedRecord = false;
+            gameStartTime = Date.now();
+            startBGM();
+            changeState('ready_position');
+        }
+
+        // Start Loop
+        initCamera();
+        requestAnimationFrame(gameLoop);
+
+    </script>
+</body>
+</html>

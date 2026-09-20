@@ -1,0 +1,25 @@
+const assert = require('node:assert/strict');
+const {Reader, spokenMath} = require('./question-speech.js');
+assert.equal(spokenMath('1/2 + 3 × 4 = ?'), '2 분의 1 더하기 3 곱하기 4 는 얼마일까요?');
+const messages = [], spoken = [];
+let timeout;
+const synth = {cancel(){},resume(){},getVoices:()=>[{lang:'ko-KR'}],speak:u=>spoken.push(u)};
+const reader = new Reader(synth, class {constructor(text){this.text=text;}}, (...v)=>messages.push(v),
+    {setTimeout:fn=>{timeout=fn;return 1;},clearTimeout(){}});
+reader.read('2 + 3 = ?');
+assert.equal(messages.at(-1)[1],true);
+assert.equal(spoken[0].lang,'ko-KR');
+reader.read('새 문제');
+spoken[0].onend();
+assert.equal(messages.at(-1)[1],true,'old end cannot unlock new question');
+spoken[1].onend();
+assert.equal(messages.at(-1)[1],false);
+reader.read('오류'); spoken.at(-1).onerror();
+assert.equal(messages.at(-1)[1],false);
+reader.read('멈춤'); timeout();
+assert.equal(messages.at(-1)[1],false);
+reader.read('취소'); reader.cancel();
+const count = messages.length; spoken.at(-1).onend();
+assert.equal(messages.length,count);
+new Reader(null,null,(message,active)=>assert.equal(active,false)).read('미지원');
+console.log('PASS: Korean math text, speech lifecycle, stale callbacks, error, timeout, cancellation, unsupported fallback');
