@@ -1,0 +1,35 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    "docs/Dream_Guardian_개발_규칙.md"
+  ],
+  "references": {
+    "gdd": {
+      "path": "docs/01_GAME_DESIGN_DOCUMENT.md",
+      "description": "Dream Guardian 게임 기획서(GDD) - 게임 루프, 챕터/보스, 전투/모션/문제/UI 스펙"
+    },
+    "rules": {
+      "path": "docs/Dream_Guardian_개발_규칙.md",
+      "description": "Dream Guardian 안정적인 신규 개발 규칙 - 단일 기능, TDD, 수정 경계"
+    },
+    "issues": {
+      "path": "docs/03_GITHUB_ISSUES.md",
+      "description": "GitHub 이슈 및 세부 작업 카드 목록"
+    },
+    "wbs": {
+      "path": "docs/02_WORK_BREAKDOWN_STRUCTURE.md",
+      "description": "WBS 작업 분할 구조 및 단계별 마일스톤"
+    }
+  },
+  "permission": {
+    "bash": {
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "npm test*": "allow",
+      "npm run*": "allow",
+      "*": "ask"
+    }
+  }
+}

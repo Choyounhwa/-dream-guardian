@@ -441,7 +441,7 @@
         function repeatAdd(num, count) { return Array(Math.max(1, count)).fill(num).join(' + '); }
 
         // Fetch CSV from multiple candidate locations
-        const csvCandidates = ['../questions.csv', 'questions.csv'];
+        const csvCandidates = ['questions.csv', 'public/questions.csv', '../questions.csv'];
         function tryLoadCsv(index = 0) {
             if (index >= csvCandidates.length) {
                 console.warn("CSV not found, using built-in arithmetic DB.");
