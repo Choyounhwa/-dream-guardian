@@ -22,6 +22,8 @@ import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
 import { ResultRenderer, calcStars } from './ui/ResultRenderer.js';
 import type { ResultData } from './ui/ResultRenderer.js';
+import { BossRenderer, DreamGrid } from './render/index.js';
+import { EffectManager } from './effects/index.js';
 
 if (typeof document === 'undefined') {
   throw new Error('브라우저 환경에서만 실행 가능합니다.');
@@ -72,6 +74,9 @@ const guardian = new GuardianSystem();
 const hudLayer = new HUDLayer();
 const menuRenderer = new MenuRenderer();
 const resultRenderer = new ResultRenderer();
+const bossRenderer = new BossRenderer();
+const dreamGrid = new DreamGrid({ speed: 1.2, hasCeiling: true });
+const effectManager = new EffectManager(15);
 
 // ─── 게임 상태 (FSM 대신 단순 변수 관리) ───
 type ScreenMode = 'menu' | 'game' | 'result';
@@ -85,7 +90,6 @@ let answerLocked = false; // 답 연속 입력 방지
 let resultData: ResultData | null = null;
 let unlockedChapter = 5;
 let starsMap: Record<number, number> = {};
-let gridOffset = 0;
 let castingFlash = 0;
 
 const CHAPTER_COLORS = ['', '#4DFFAA', '#28E6FF', '#FFCB4D', '#C889FF', '#FF4444'];
@@ -157,12 +161,25 @@ function handleAnswer(idx: number): void {
 
   console.log(`[DG] 답: ${idx} (${correct ? '정답' : '오답'})`);
 
+  const w = canvas.width;
+  const h = canvas.height;
+  const cx = w / 2;
+  const cy = h * 0.38 + 80;
+  const btnW = Math.min(200, w * 0.16);
+  const btnH = btnW * 0.55;
+  const gap = 50;
+  const bx = cx + (idx === 0 ? -(btnW + gap / 2) : gap / 2) + btnW / 2;
+  const by = cy + btnH / 2;
+
   if (correct) {
+    effectManager.playPreset('correct', bx, by);
     battle.onCorrect();
 
     if (battle.trySpendMana()) {
       const dmg = guardian.cast();
       boss.takeDamage(dmg);
+      bossRenderer.triggerHit();
+      effectManager.playPreset('cast', w * 0.5, h * 0.24);
       castingFlash = 0.6;
       console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);
 
@@ -174,6 +191,7 @@ function handleAnswer(idx: number): void {
       }
     }
   } else {
+    effectManager.playPreset('wrong', bx, by);
     battle.onWrong();
     console.log(`[DG] HP: ${battle.hp}/${battle.maxHp}`);
 
@@ -203,32 +221,6 @@ function showResult(victory: boolean): void {
 function goToMenu(): void {
   console.log('[DG] 메뉴 복귀');
   screenMode = 'menu';
-}
-
-// ─── 드림 그리드 ───
-function renderDreamGrid(ctx: CanvasRenderingContext2D, w: number, h: number, dt: number): void {
-  gridOffset = (gridOffset + dt * 60) % 80;
-  const color = CHAPTER_COLORS[currentChapter] || '#28E6FF';
-  ctx.strokeStyle = color;
-  ctx.globalAlpha = 0.15;
-  ctx.lineWidth = 1;
-  const vanishY = h * 0.38;
-  for (let i = 0; i <= 12; i++) {
-    const t = i / 12;
-    const y = vanishY + (h - vanishY) * t;
-    const sp = t * 0.6;
-    ctx.beginPath();
-    ctx.moveTo(w * (0.5 - sp), y);
-    ctx.lineTo(w * (0.5 + sp), y);
-    ctx.stroke();
-  }
-  for (let i = -6; i <= 6; i++) {
-    ctx.beginPath();
-    ctx.moveTo(w * 0.5, vanishY);
-    ctx.lineTo(w * 0.5 + i * 80, h);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
 }
 
 // ─── 문제 렌더링 ───
@@ -332,14 +324,22 @@ const engine = new GameEngine({
       skeletonAnimation.reset();
     }
 
-    if (screenMode !== 'game') return;
+    if (screenMode !== 'game') {
+      effectManager.update(dt);
+      return;
+    }
 
     if (feedbackTimer > 0) feedbackTimer -= dt;
     if (castingFlash > 0) castingFlash -= dt;
     guardian.update(dt);
+    dreamGrid.update(dt);
+    bossRenderer.update(dt);
+    effectManager.update(dt);
 
     const attacked = boss.update(dt);
     if (attacked) {
+      bossRenderer.triggerAttack();
+      effectManager.playPreset('wrong', canvas.width / 2, canvas.height * 0.5);
       const dmg = boss.resolveAttack(false);
       if (dmg > 0) battle.onBossAttack();
     }
@@ -376,6 +376,7 @@ const engine = new GameEngine({
     }
 
     if (screenMode === 'menu') {
+      dreamGrid.render(ctx, w, h, { alpha: 0.08, color: '#28E6FF' });
       menuRenderer.render(ctx, w, h, {
         unlockedChapter,
         stars: starsMap,
@@ -394,13 +395,25 @@ const engine = new GameEngine({
         ctx.textAlign = 'center';
         ctx.fillText('⚠️ 카메라 권한 차단됨 (1~5번 키 또는 화면 클릭으로 플레이 가능)', w / 2, h * 0.88);
       }
+      effectManager.render(ctx);
     } else if (screenMode === 'game') {
-      renderDreamGrid(ctx, w, h, 0.016);
+      const bossX = w * 0.5;
+      const bossY = h * 0.24;
+      const bossRadius = Math.min(85, w * 0.08);
+
+      dreamGrid.render(ctx, w, h, {
+        vanishingX: bossX,
+        vanishingY: bossY,
+        color: CHAPTER_COLORS[currentChapter] || '#28E6FF',
+      });
+      bossRenderer.render(ctx, currentChapter, bossX, bossY, bossRadius, boss.phase);
       hudLayer.render(ctx, w, h, getHUDData());
       renderQuestion(ctx, w, h);
       renderFeedback(ctx, w, h);
+      effectManager.render(ctx);
     } else if (screenMode === 'result' && resultData) {
       resultRenderer.render(ctx, w, h, resultData);
+      effectManager.render(ctx);
     }
   },
 });
