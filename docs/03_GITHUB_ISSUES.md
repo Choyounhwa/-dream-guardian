@@ -880,7 +880,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/114
 - **Labels**: `feature`, `P1-high`, `phase-4`
 - **작업 ID**: `[RENDER-MATH-001]`
-- **상태**: 🟡 **진행 중 (In Progress)**
+- **상태**: ✅ **완료 (Closed)**
 - **목적**:
   - 기존 한 줄 텍스트(`ctx.fillText`) 렌더링으로 인해 사선(`/`)으로 뭉개지던 분수를 **중앙 가로 분수선($\frac{A}{B}$)**으로 표기하고, 거듭제곱(지수), 근호(루트 상단선), 빈칸 박스($\boxed{\ ?\ }$)를 교과서처럼 직관적으로 시각화하는 독립적인 수학 수식 렌더러(`MathRenderer`)를 구현한다.
 - **수정 대상**:
