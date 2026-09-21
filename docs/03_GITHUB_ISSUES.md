@@ -380,19 +380,19 @@
 ## [Step 12] 이펙트/비주얼 구축
 
 ### Issue #24: EffectManager 및 7종 시각 효과 객체 풀링
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/89
 - **Labels**: `step-12`, `feature`, `P1-high`
 - **Milestone**: `v0.6-visuals-content`
+- **상태**: ✅ **완료 (Closed)**
 - **목적**: 게임 로직과 분리된 독립적 시각 효과 파티클 풀 관리
-- **구현 사양**:
-  - 7종 효과: Glow, Pulse, Expand, Fade, Burst, Radial, Trail
-  - 객체 풀링(Object Pooling)을 통한 가비지 컬렉션 스파이크 방지
-- **완료 조건**:
-  - 이펙트 수백 개 발생 시에도 프레임 드랍 없음
-  - 단위 테스트: 이펙트 풀 재사용 및 소멸 주기 검증
+
+---
 
 ### Issue #25: 5종 보스 Canvas 2D 프로시저럴 드로잉
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/90
 - **Labels**: `step-12`, `feature`, `P1-high`
 - **Milestone**: `v0.6-visuals-content`
+- **상태**: ✅ **완료 (Closed)**
 - **목적**: 무거운 이미지 대신 순수 캔버스 코드로 5종 보스 개성 구현
 - **구현 사양**:
   - Ch.1 포겟(안개 구름), Ch.2 후다닥(번개 구체), Ch.3 뒤죽박죽(기하학 만화경), Ch.4 에라(그림자 거인), Ch.5 나이트메어(검은 다각형)
