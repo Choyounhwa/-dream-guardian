@@ -149,19 +149,19 @@ E:\AIAIAIAI\Arithmetic Game\
 
 ## 🚀 4. 테스트 및 실행 방법
 
-### 방법 A: Node.js (npx http-server)
+### 권장: Vite 로컬 개발 서버 (HMR 핫 리로딩 지원)
 ```powershell
-cd "E:\AIAIAIAI\Arithmetic Game"
-npx http-server -p 8080
+cd "E:\AIAIAIAI\Arithmetic Game\dream_guardian"
+npm run dev
 ```
-브라우저에서 `http://localhost:8080/dream_guardian/` 접속
+브라우저에서 `http://localhost:3000/` 접속
 
-### 방법 B: Python 내장 서버
+### 프로덕션 빌드 & 테스트
 ```powershell
-cd "E:\AIAIAIAI\Arithmetic Game"
-python -m http.server 8080
+cd "E:\AIAIAIAI\Arithmetic Game\dream_guardian"
+npm run build
+npm test
 ```
-브라우저에서 `http://localhost:8080/dream_guardian/` 접속
 
 > ⚠️ **스마트폰(모바일 브라우저) 카메라 연결 팁**:
 > 1. 브라우저의 웹캠 보안 정책(HTTPS 필수)으로 인해, PC와 스마트폰이 같은 Wi-Fi에 있을 때 PC IP로 접속하면 브라우저가 카메라를 차단할 수 있습니다.

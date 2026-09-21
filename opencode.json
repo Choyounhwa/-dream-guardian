@@ -23,13 +23,6 @@
     }
   },
   "permission": {
-    "bash": {
-      "git status*": "allow",
-      "git diff*": "allow",
-      "git log*": "allow",
-      "npm test*": "allow",
-      "npm run*": "allow",
-      "*": "ask"
-    }
+    "bash": "ask"
   }
 }
