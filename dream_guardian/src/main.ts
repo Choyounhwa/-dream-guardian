@@ -22,9 +22,10 @@ import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
 import { ResultRenderer, calcStars } from './ui/ResultRenderer.js';
 import type { ResultData } from './ui/ResultRenderer.js';
-import { BossRenderer, DreamGrid, renderMath } from './render/index.js';
+import { BossRenderer, DreamGrid, renderMath, AnswerSelectionRenderer } from './render/index.js';
 import { EffectManager } from './effects/index.js';
 import { RunDetector } from './motion/RunDetector.js';
+import { AnswerSelector } from './input/AnswerSelector.js';
 
 if (typeof document === 'undefined') {
   throw new Error('브라우저 환경에서만 실행 가능합니다.');
@@ -79,6 +80,8 @@ const bossRenderer = new BossRenderer();
 const dreamGrid = new DreamGrid({ speed: 1.2, hasCeiling: true });
 const effectManager = new EffectManager(15);
 const runDetector = new RunDetector();
+const answerSelector = new AnswerSelector();
+const answerSelectionRenderer = new AnswerSelectionRenderer();
 
 // ─── 게임 상태 (FSM 대신 단순 변수 관리) ───
 type ScreenMode = 'menu' | 'game' | 'result';
@@ -161,6 +164,7 @@ function nextQuestion(): void {
   }
   questionVisible = true;
   answerLocked = false;
+  answerSelector.startQuestion(battle.totalQuestions + 1);
   console.log(`[DG] 문제: ${currentQuestion.questionText}`);
   speech.speak(currentQuestion.questionText);
 }
@@ -464,6 +468,19 @@ const engine = new GameEngine({
         gamePhase = 'question';
         nextQuestion();
       }
+    } else if (gamePhase === 'question' && questionVisible && !answerLocked) {
+      answerSelectionRenderer.update(dt);
+      if (poseManager.hasPose && poseManager.rawLandmarks.length >= 25) {
+        const confirmed = answerSelector.updateFromPose(
+          poseManager.rawLandmarks,
+          undefined,
+          dt,
+          true,
+        );
+        if (confirmed) {
+          handleAnswer(confirmed.confirmedIndex);
+        }
+      }
     }
 
     if (feedbackTimer > 0) feedbackTimer -= dt;
@@ -554,6 +571,17 @@ const engine = new GameEngine({
       if (gamePhase === 'running') {
         renderRunningPhase(ctx, vw, vh);
       } else {
+        const plan = answerSelector.currentPlan;
+        if (plan && questionVisible) {
+          answerSelectionRenderer.render(
+            ctx,
+            vw,
+            vh,
+            plan.activeZones,
+            answerSelector.cursorTracker.cursors,
+            answerSelector.choiceProgress,
+          );
+        }
         renderQuestion(ctx, vw, vh);
         renderFeedback(ctx, vw, vh);
       }

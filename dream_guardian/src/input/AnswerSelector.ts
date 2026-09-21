@@ -14,6 +14,9 @@
  */
 
 import { DEFAULT_CONFIG } from '../core/Config.js';
+import { CursorTracker, type PalmPositions } from './CursorTracker.js';
+import { RecipeGenerator, type QuestionRecipePlan } from './RecipeGenerator.js';
+import type { NormalizedLandmark } from '../types/index.js';
 
 /** 피트니스 존 정의 */
 export interface FitnessZone {
@@ -125,6 +128,10 @@ export class AnswerSelector {
   private _isComplexQuestion = false;
   private _currentTierInfo: TierInfo;
   private _progress = new Map<string, number>(); // "zoneId-cursorType" → progress
+  private _cursorTracker = new CursorTracker();
+  private _recipeGenerator = new RecipeGenerator();
+  private _currentPlan: QuestionRecipePlan | null = null;
+  private _choiceProgress: [number, number] = [0, 0];
 
   constructor(
     dwellTime = DEFAULT_CONFIG.input.dwellTime,
@@ -135,6 +142,7 @@ export class AnswerSelector {
     this._centerWeight = centerWeight;
     this._edgeWeight = edgeWeight;
     this._currentTierInfo = getTierInfo(1);
+    this._currentPlan = this._recipeGenerator.generatePlan(this._currentTierInfo);
   }
 
   /** 전체 존 목록 */
@@ -150,6 +158,127 @@ export class AnswerSelector {
   /** 현재 난이도 티어 정보 */
   get tierInfo(): TierInfo {
     return this._currentTierInfo;
+  }
+
+  /** 커서 트래커 인스턴스 */
+  get cursorTracker(): CursorTracker {
+    return this._cursorTracker;
+  }
+
+  /** 현재 문제의 4색 커서 및 활성 존 레시피 계획 */
+  get currentPlan(): QuestionRecipePlan | null {
+    return this._currentPlan;
+  }
+
+  /** 좌/우 선택지 체류 진행도 (0~1) */
+  get choiceProgress(): [number, number] {
+    return [this._choiceProgress[0], this._choiceProgress[1]];
+  }
+
+  /**
+   * 새 문제 시작 시 레시피 계획 및 진행도 초기화
+   */
+  startQuestion(questionNumber: number, isComplexQuestion = false): QuestionRecipePlan {
+    this.setQuestion(questionNumber, isComplexQuestion);
+    this._currentPlan = this._recipeGenerator.generatePlan(this._currentTierInfo);
+    this._choiceProgress = [0, 0];
+    this.reset();
+    return this._currentPlan;
+  }
+
+  /**
+   * 포즈 및 손 랜드마크로부터 4색 커서 기반 답안 선택 평가
+   * - Deadlock Guard: 양쪽 답안 동시 충족 시 양쪽 모두 리셋
+   * - 중심 가중치 (1.5배) 및 체류 시간 충족 시 확정
+   */
+  updateFromPose(
+    landmarks: readonly NormalizedLandmark[] | null | undefined,
+    palms?: PalmPositions,
+    dt = 0.016,
+    isMirrored = false,
+  ): { confirmedIndex: number } | null {
+    if (!this._currentPlan) {
+      this.startQuestion(this._currentQuestionNumber, this._isComplexQuestion);
+    }
+    const plan = this._currentPlan!;
+    const cursors = this._cursorTracker.update(landmarks, palms, isMirrored);
+
+    // 각 선택지(0: 좌, 1: 우)의 요구조건 충족 여부 확인
+    const checkChoiceMet = (recipeIdx: number): { met: boolean; avgWeight: number } => {
+      const recipe = plan.choices[recipeIdx];
+      let totalWeight = 0;
+
+      for (let i = 0; i < recipe.requiredCursors.length; i++) {
+        const cType = recipe.requiredCursors[i];
+        const targetZoneId = recipe.targetZoneIds[i];
+        const cPos = cursors.get(cType);
+        if (!cPos) return { met: false, avgWeight: 0 };
+
+        const zone = FITNESS_ZONES.find((z) => z.id === targetZoneId);
+        if (!zone) return { met: false, avgWeight: 0 };
+
+        // 커서가 타겟 존 영역 내에 있는지 검사
+        if (
+          cPos.x >= zone.x &&
+          cPos.x <= zone.x + zone.width &&
+          cPos.y >= zone.y &&
+          cPos.y <= zone.y + zone.height
+        ) {
+          const cx = zone.x + zone.width / 2;
+          const cy = zone.y + zone.height / 2;
+          const dx = Math.abs(cPos.x - cx) / (zone.width / 2);
+          const dy = Math.abs(cPos.y - cy) / (zone.height / 2);
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          totalWeight += dist < 0.5 ? this._centerWeight : this._edgeWeight;
+        } else {
+          return { met: false, avgWeight: 0 };
+        }
+      }
+
+      return {
+        met: true,
+        avgWeight: totalWeight / Math.max(1, recipe.requiredCursors.length),
+      };
+    };
+
+    const choice0 = checkChoiceMet(0);
+    const choice1 = checkChoiceMet(1);
+
+    // ── Deadlock Guard: 양쪽 답안 동시 충족 시 양쪽 모두 리셋 ──
+    if (choice0.met && choice1.met) {
+      this._choiceProgress[0] = Math.max(0, this._choiceProgress[0] - dt * 3);
+      this._choiceProgress[1] = Math.max(0, this._choiceProgress[1] - dt * 3);
+      return null;
+    }
+
+    // 0번 선택지만 충족
+    if (choice0.met) {
+      this._choiceProgress[0] = Math.min(1, this._choiceProgress[0] + (dt / this._dwellTime) * choice0.avgWeight);
+      this._choiceProgress[1] = Math.max(0, this._choiceProgress[1] - dt * 2);
+
+      if (this._choiceProgress[0] >= 1.0) {
+        this._choiceProgress[0] = 0;
+        return { confirmedIndex: 0 };
+      }
+      return null;
+    }
+
+    // 1번 선택지만 충족
+    if (choice1.met) {
+      this._choiceProgress[1] = Math.min(1, this._choiceProgress[1] + (dt / this._dwellTime) * choice1.avgWeight);
+      this._choiceProgress[0] = Math.max(0, this._choiceProgress[0] - dt * 2);
+
+      if (this._choiceProgress[1] >= 1.0) {
+        this._choiceProgress[1] = 0;
+        return { confirmedIndex: 1 };
+      }
+      return null;
+    }
+
+    // 둘 다 충족 안 됨 -> 자연 감쇠
+    this._choiceProgress[0] = Math.max(0, this._choiceProgress[0] - dt * 2);
+    this._choiceProgress[1] = Math.max(0, this._choiceProgress[1] - dt * 2);
+    return null;
   }
 
   /** 현재 충전 진행도 조회 */
