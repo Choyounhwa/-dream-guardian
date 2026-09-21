@@ -85,8 +85,12 @@ const answerSelectionRenderer = new AnswerSelectionRenderer();
 
 // ─── 게임 상태 (FSM 대신 단순 변수 관리) ───
 type ScreenMode = 'menu' | 'game' | 'result';
+type MenuMode = 'main' | 'sub';
 type GamePhase = 'running' | 'question';
 let screenMode: ScreenMode = 'menu';
+let menuMode: MenuMode = 'main';
+let selectedChapter = 1;
+let selectedSubLevel: number | undefined = undefined;
 let gamePhase: GamePhase = 'running';
 let runGauge = 0;
 let totalSteps = 0;
@@ -136,15 +140,16 @@ function startRunningPhase(): void {
   console.log('[DG] 달리기 페이즈 시작 (게이지 100% 도달 시 문제 출제)');
 }
 
-function startChapter(ch: number): void {
+function startChapter(ch: number, subLevel?: number): void {
   if (ch < 1 || ch > 5) return;
-  console.log(`[DG] Ch.${ch} 시작`);
+  console.log(`[DG] Ch.${ch} SubLevel ${subLevel ?? 'ALL'} 시작`);
   currentChapter = ch;
+  selectedSubLevel = subLevel;
   battle.reset();
   boss.reset(ch);
   guardian.reset();
   hudLayer.reset();
-  questionBank.setLevel(ch);
+  questionBank.setLevel(ch, subLevel);
   feedbackTimer = 0;
   questionVisible = false;
   answerLocked = true;
@@ -241,6 +246,7 @@ function showResult(victory: boolean): void {
 function goToMenu(): void {
   console.log('[DG] 메뉴 복귀');
   screenMode = 'menu';
+  menuMode = 'main';
 }
 
 // ─── 문제 렌더링 ───
@@ -531,11 +537,16 @@ const engine = new GameEngine({
     // 5. 메뉴 / 인게임 / 결과 렌더링 (모두 vw, vh 가상 좌표계 기준으로 일관 드로잉)
     if (screenMode === 'menu') {
       dreamGrid.render(ctx, vw, vh, { alpha: 0.08, color: '#28E6FF' });
-      menuRenderer.render(ctx, vw, vh, {
-        unlockedChapter,
-        stars: starsMap,
-        selectedChapter: 0,
-      });
+      if (menuMode === 'main') {
+        menuRenderer.render(ctx, vw, vh, {
+          unlockedChapter,
+          stars: starsMap,
+          selectedChapter: 0,
+        });
+      } else {
+        const subLevels = questionBank.getSubLevels(selectedChapter);
+        menuRenderer.renderSubMenu(ctx, vw, vh, selectedChapter, subLevels, selectedSubLevel);
+      }
 
       // 카메라 상태 안내 오버레이 (대기 중 또는 권한 거부 시 안내)
       if (cameraLayer.status === 'requesting') {
@@ -614,8 +625,23 @@ canvas.addEventListener('click', (e) => {
   const vh = canvasManager.virtualHeight;
 
   if (screenMode === 'menu') {
-    const ch = menuRenderer.hitTest(x, y, vw, vh);
-    if (ch > 0 && ch <= unlockedChapter) startChapter(ch);
+    if (menuMode === 'main') {
+      const ch = menuRenderer.hitTest(x, y, vw, vh);
+      if (ch > 0 && ch <= unlockedChapter) {
+        selectedChapter = ch;
+        menuMode = 'sub';
+      }
+    } else {
+      const subLevels = questionBank.getSubLevels(selectedChapter);
+      const chosen = menuRenderer.hitTestSub(x, y, vw, vh, selectedChapter, subLevels);
+      if (chosen === -1) {
+        menuMode = 'main';
+      } else if (chosen === 0) {
+        startChapter(selectedChapter, undefined);
+      } else if (chosen !== null) {
+        startChapter(selectedChapter, chosen);
+      }
+    }
   } else if (screenMode === 'game') {
     if (gamePhase === 'running') {
       runGauge += 15;
@@ -725,8 +751,25 @@ document.addEventListener('keydown', (e) => {
     if (e.key === '1') handleAnswer(0);
     if (e.key === '2') handleAnswer(1);
   } else if (screenMode === 'menu') {
-    const n = parseInt(e.key, 10);
-    if (n >= 1 && n <= 5 && n <= unlockedChapter) startChapter(n);
+    if (menuMode === 'main') {
+      const n = parseInt(e.key, 10);
+      if (n >= 1 && n <= 5 && n <= unlockedChapter) {
+        selectedChapter = n;
+        menuMode = 'sub';
+      }
+    } else {
+      if (e.key === 'Escape' || e.key === 'Backspace' || e.key === '0' || e.key.toLowerCase() === 'b') {
+        menuMode = 'main';
+      } else if (e.key.toLowerCase() === 'a') {
+        startChapter(selectedChapter, undefined);
+      } else {
+        const n = parseInt(e.key, 10);
+        const subLevels = questionBank.getSubLevels(selectedChapter);
+        if (n >= 1 && n <= subLevels.length) {
+          startChapter(selectedChapter, n);
+        }
+      }
+    }
   } else if (screenMode === 'result') {
     if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') goToMenu();
   }

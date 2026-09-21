@@ -37,6 +37,61 @@ describe('MenuRenderer', () => {
     // 밖
     expect(menu.hitTest(0, 0, w, h)).toBe(0);
   });
+
+  it('getSubMenuLayouts 및 hitTestSub가 서브레벨 및 뒤로가기 버튼을 올바르게 판정한다', () => {
+    const menu = new MenuRenderer();
+    const subLevels = [
+      { subLevel: 1, title: '1단계: 1자리 덧셈', count: 10 },
+      { subLevel: 2, title: '2단계: 2자리 덧셈', count: 12 },
+    ];
+    const w = 1920;
+    const h = 1080;
+
+    const layouts = menu.getSubMenuLayouts(w, h, 1, subLevels);
+    expect(layouts.length).toBe(4); // 뒤로가기(-1) + 서브레벨 2개(1, 2) + 전체종합(0)
+
+    // 1. 뒤로가기 버튼 클릭 (-1)
+    const backBtn = layouts.find((l) => l.subLevel === -1)!;
+    expect(menu.hitTestSub(backBtn.x + backBtn.w / 2, backBtn.y + backBtn.h / 2, w, h, 1, subLevels)).toBe(-1);
+
+    // 2. 1단계 카드 클릭 (1)
+    const card1 = layouts.find((l) => l.subLevel === 1)!;
+    expect(menu.hitTestSub(card1.x + card1.w / 2, card1.y + card1.h / 2, w, h, 1, subLevels)).toBe(1);
+
+    // 3. 전체 종합 카드 클릭 (0)
+    const cardAll = layouts.find((l) => l.subLevel === 0)!;
+    expect(menu.hitTestSub(cardAll.x + cardAll.w / 2, cardAll.y + cardAll.h / 2, w, h, 1, subLevels)).toBe(0);
+
+    // 4. 영역 밖 클릭 (null)
+    expect(menu.hitTestSub(0, 0, w, h, 1, subLevels)).toBeNull();
+  });
+
+  it('renderSubMenu가 예외 없이 렌더링된다', () => {
+    const menu = new MenuRenderer();
+    const mockCtx = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      beginPath: vi.fn(),
+      roundRect: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      fillText: vi.fn(),
+      textAlign: '',
+      textBaseline: '',
+      font: '',
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+    } as unknown as CanvasRenderingContext2D;
+
+    const subLevels = [
+      { subLevel: 1, title: '1단계', count: 10 },
+      { subLevel: 2, title: '2단계', count: 15 },
+    ];
+
+    expect(() => menu.renderSubMenu(mockCtx, 1920, 1080, 1, subLevels, 1)).not.toThrow();
+    expect(mockCtx.fillText).toHaveBeenCalled();
+  });
 });
 
 describe('ResultRenderer - calcCalories', () => {

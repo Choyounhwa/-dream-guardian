@@ -936,10 +936,31 @@
   - `dream_guardian/src/main.ts` (문제 및 답안 수식 렌더링 연동)
   - `dream_guardian/tests/unit/math-renderer.test.ts` (신규 단위 테스트)
 - **완료 조건**:
-  - [ ] `1/2 + 3/4` 문제 및 선택지가 사선이 아닌 상하 가로 분수선으로 렌더링
-  - [ ] 거듭제곱(`5²`, `10⁴`) 및 루트(`√16`) 기호가 교과서 표기법으로 깔끔하게 렌더링
-  - [ ] `[ ? ]` 빈칸이 둥근 네온 사각 박스로 렌더링
-  - [ ] 기존 222개 테스트 포함 `npm test` 100% Pass
+  - [x] `1/2 + 3/4` 문제 및 선택지가 사선이 아닌 상하 가로 분수선으로 렌더링
+  - [x] 거듭제곱(`5²`, `10⁴`) 및 루트(`√16`) 기호가 교과서 표기법으로 깔끔하게 렌더링
+  - [x] `[ ? ]` 빈칸이 둥근 네온 사각 박스로 렌더링
+  - [x] 기존 222개 테스트 포함 `npm test` 100% Pass
+
+---
+
+### Issue #115 (Card #103-B): [FEAT-001-B] 챕터별 세부 난이도(SubLevel) 선택 메뉴 UI 및 게임 진입 플로우 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/115
+- **Labels**: `feature`, `P1-high`, `phase-6`
+- **작업 ID**: `[FEAT-001-B]`
+- **상태**: ✅ **완료 (Closed)**
+- **목적**:
+  - Issue #103에서 QuestionBank에 구축된 SubLevel 필터링 데이터 시스템을 기반으로, 챕터 선택 후 세부 난이도(SubLevel)를 시각적으로 선택할 수 있는 서브레벨 선택 메뉴 UI(`MENU_SUB`) 및 게임 진입 플로우를 구현한다.
+- **수정 대상**:
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+  - `dream_guardian/src/ui/index.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+- **완료 조건**:
+  - [x] 챕터 선택 시 세부 난이도(SubLevel) 목록 카드가 화면에 정상 렌더링
+  - [x] 특정 서브레벨 선택 시 해당 난이도 문제만 출제되며 게임 시작
+  - [x] '전체 종합 (ALL)' 선택 시 해당 챕터 전체 문제 풀로 출제
+  - [x] '뒤로가기' 클릭 및 Esc/0/Backspace 키 입력 시 메인 챕터 선택 메뉴로 복귀
+  - [x] Vitest 20개 파일 255개 테스트 100% Pass 및 번들 빌드 정상 완료
 
 
 
