@@ -102,6 +102,13 @@ export interface QuestionRecord {
   shapeCode: string;
 }
 
+/** 세부 단계 정보 */
+export interface SubLevelInfo {
+  subLevel: number;
+  title: string;
+  count: number;
+}
+
 /** 생성된 문제 데이터 */
 export interface GeneratedQuestion {
   questionText: string;

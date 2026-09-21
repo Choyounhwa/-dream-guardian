@@ -66,7 +66,85 @@ describe('QuestionBank', () => {
     expect(bank.poolSize).toBe(1);
   });
 
-  it('레벨 5(나이트메어)는 전체 풀을 사용한다', () => {
+  it('Ch.1~4에서 subLevel을 지정하면 해당 세부 단계만 필터링한다', () => {
+    const bank = new QuestionBank();
+    bank.loadRecords(makeRecords());
+    bank.setLevel(1, 1);
+    expect(bank.poolSize).toBe(1);
+    expect(bank.currentSubLevel).toBe(1);
+    expect(bank.next().subLevel).toBe(1);
+
+    bank.setLevel(1, 2);
+    expect(bank.poolSize).toBe(1);
+    expect(bank.currentSubLevel).toBe(2);
+    expect(bank.next().subLevel).toBe(2);
+  });
+
+  it('Ch.5(나이트메어)에서 subLevel 1~5는 Level 5~9로 매핑된다', () => {
+    const bank = new QuestionBank();
+    const extendedRecords: QuestionRecord[] = [
+      { level: 1, subLevel: 1, levelTitle: '덧셈', subLevelTitle: '', questionTemplate: 'Q1', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 5, subLevel: 1, levelTitle: '제곱', subLevelTitle: '', questionTemplate: 'Q5', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 6, subLevel: 1, levelTitle: '2진수', subLevelTitle: '', questionTemplate: 'Q6', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 7, subLevel: 1, levelTitle: '도형', subLevelTitle: '', questionTemplate: 'Q7', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 8, subLevel: 1, levelTitle: '비율', subLevelTitle: '', questionTemplate: 'Q8', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 9, subLevel: 1, levelTitle: '기타', subLevelTitle: '', questionTemplate: 'Q9', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+    ];
+    bank.loadRecords(extendedRecords);
+
+    // subLevel 1 -> Level 5 (거듭제곱)
+    bank.setLevel(5, 1);
+    expect(bank.poolSize).toBe(1);
+    expect(bank.next().level).toBe(5);
+
+    // subLevel 2 -> Level 6 (2진수)
+    bank.setLevel(5, 2);
+    expect(bank.poolSize).toBe(1);
+    expect(bank.next().level).toBe(6);
+
+    // subLevel 3 -> Level 7 (도형)
+    bank.setLevel(5, 3);
+    expect(bank.poolSize).toBe(1);
+    expect(bank.next().level).toBe(7);
+
+    // subLevel 4 -> Level 8 (비율)
+    bank.setLevel(5, 4);
+    expect(bank.poolSize).toBe(1);
+    expect(bank.next().level).toBe(8);
+
+    // subLevel 5 -> Level 9 (기타)
+    bank.setLevel(5, 5);
+    expect(bank.poolSize).toBe(1);
+    expect(bank.next().level).toBe(9);
+
+    // subLevel 6 또는 미지정 -> 전 영역 종합 풀
+    bank.setLevel(5, 6);
+    expect(bank.poolSize).toBe(6);
+    bank.setLevel(5);
+    expect(bank.poolSize).toBe(6);
+  });
+
+  it('getSubLevels가 챕터별 세부 단계 목록을 올바르게 반환한다', () => {
+    const bank = new QuestionBank();
+    const records: QuestionRecord[] = [
+      { level: 1, subLevel: 1, levelTitle: '덧셈', subLevelTitle: '한자리', questionTemplate: 'Q1', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 1, subLevel: 1, levelTitle: '덧셈', subLevelTitle: '한자리', questionTemplate: 'Q1-2', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 1, subLevel: 2, levelTitle: '덧셈', subLevelTitle: '두자리', questionTemplate: 'Q2', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+    ];
+    bank.loadRecords(records);
+
+    const subsCh1 = bank.getSubLevels(1);
+    expect(subsCh1.length).toBe(2);
+    expect(subsCh1[0]).toEqual({ subLevel: 1, title: '한자리', count: 2 });
+    expect(subsCh1[1]).toEqual({ subLevel: 2, title: '두자리', count: 1 });
+
+    const subsCh5 = bank.getSubLevels(5);
+    expect(subsCh5.length).toBe(6);
+    expect(subsCh5[0].title).toBe('거듭제곱');
+    expect(subsCh5[5].title).toBe('전 영역 종합');
+  });
+
+  it('레벨 5(나이트메어)는 미지정 시 전체 풀을 사용한다', () => {
     const bank = new QuestionBank();
     bank.loadRecords(makeRecords());
     bank.setLevel(5);
