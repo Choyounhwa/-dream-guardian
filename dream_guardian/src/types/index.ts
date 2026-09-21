@@ -102,6 +102,15 @@ export interface QuestionRecord {
   shapeCode: string;
 }
 
+/** 생성된 문제 데이터 */
+export interface GeneratedQuestion {
+  questionText: string;
+  correctAnswer: number | string;
+  wrongAnswer: number | string;
+  choices: [number | string, number | string];
+  correctIndex: number;
+}
+
 // ─── Save Data ───
 export interface SaveData {
   progress: number;

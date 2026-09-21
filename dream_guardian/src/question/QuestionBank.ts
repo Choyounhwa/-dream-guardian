@@ -35,6 +35,7 @@ export class QuestionBank {
   private _pool: QuestionRecord[] = [];
   private _queue: QuestionRecord[] = [];
   private _currentLevel = 1;
+  private _lastServed: QuestionRecord[] = [];
 
   /**
    * 전체 문제 데이터 로드
@@ -63,7 +64,13 @@ export class QuestionBank {
     }
 
     this._queue = [];
+    this._lastServed = [];
     this._shuffle();
+  }
+
+  /** 최근 제공된 문제 (최대 3개) */
+  get lastServed(): readonly QuestionRecord[] {
+    return this._lastServed;
   }
 
   /** 현재 레벨 */
@@ -94,7 +101,27 @@ export class QuestionBank {
     if (this._queue.length === 0) {
       this._shuffle();
     }
-    return this._queue.pop()!;
+
+    // 사이클 경계 및 연속 출제 방지 가드: 직전 문제와 동일 템플릿이면 큐 내부 다른 문제와 교체
+    if (this._queue.length > 1 && this._lastServed.length > 0) {
+      const lastTemplate = this._lastServed[this._lastServed.length - 1].questionTemplate;
+      const topIdx = this._queue.length - 1;
+      if (this._queue[topIdx].questionTemplate === lastTemplate) {
+        for (let i = topIdx - 1; i >= 0; i--) {
+          if (this._queue[i].questionTemplate !== lastTemplate) {
+            [this._queue[topIdx], this._queue[i]] = [this._queue[i], this._queue[topIdx]];
+            break;
+          }
+        }
+      }
+    }
+
+    const item = this._queue.pop()!;
+    this._lastServed.push(item);
+    if (this._lastServed.length > 3) {
+      this._lastServed.shift();
+    }
+    return item;
   }
 
   /** 셔플 큐 리셋 */
@@ -104,6 +131,23 @@ export class QuestionBank {
     for (let i = this._queue.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [this._queue[i], this._queue[j]] = [this._queue[j], this._queue[i]];
+    }
+
+    // 사이클 경계 anti-repeat 가드: 직전 사이클 최근 2문제와 새 사이클 시작 문제 겹침 방지
+    if (this._pool.length > 2 && this._lastServed.length > 0) {
+      const recentTemplates = this._lastServed.slice(-2).map((r) => r.questionTemplate);
+      const topPositions = [this._queue.length - 1, this._queue.length - 2].filter((idx) => idx >= 0);
+
+      for (const pos of topPositions) {
+        if (recentTemplates.includes(this._queue[pos].questionTemplate)) {
+          for (let i = 0; i < this._queue.length - topPositions.length; i++) {
+            if (!recentTemplates.includes(this._queue[i].questionTemplate)) {
+              [this._queue[pos], this._queue[i]] = [this._queue[i], this._queue[pos]];
+              break;
+            }
+          }
+        }
+      }
     }
   }
 }

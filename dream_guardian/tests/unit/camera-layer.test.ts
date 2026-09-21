@@ -102,4 +102,29 @@ describe('CameraLayer', () => {
       writable: true,
     });
   });
+
+  it('getVideoTransform()이 중앙 정렬 Cover 스케일을 반환한다', () => {
+    const camera = new CameraLayer({ width: 1280, height: 720, mirror: true });
+    const t = camera.getVideoTransform(360, 720);
+
+    // 1280x720 비디오를 360x720 캔버스에 맞춤 (scale = max(360/1280, 720/720) = 1)
+    expect(t.scale).toBeCloseTo(1);
+    expect(t.dw).toBeCloseTo(1280);
+    expect(t.dh).toBeCloseTo(720);
+    expect(t.cx).toBeCloseTo(180);
+    expect(t.cy).toBeCloseTo(360);
+  });
+
+  it('landmarkToCanvas()가 미러 모드에서 좌표를 정확히 변환한다', () => {
+    const camera = new CameraLayer({ width: 1280, height: 720, mirror: true });
+    // 중앙 랜드마크 (0.5, 0.5)
+    const center = camera.landmarkToCanvas({ x: 0.5, y: 0.5 }, 360, 720);
+    expect(center.x).toBeCloseTo(180);
+    expect(center.y).toBeCloseTo(360);
+
+    // 카메라 원본의 x=0.4 (미러 시 오른쪽으로 이동)
+    // cx + (0.5 - 0.4) * dw = 180 + 0.1 * 1280 = 308
+    const mirrored = camera.landmarkToCanvas({ x: 0.4, y: 0.5 }, 360, 720);
+    expect(mirrored.x).toBeCloseTo(308);
+  });
 });

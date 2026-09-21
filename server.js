@@ -3,7 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const PORT = 8080;
+const PORT = Number(process.env.PORT) || 8080;
+const HOST = process.env.HOST || '127.0.0.1';
 const ROOT_DIR = __dirname;
 
 const MIME_TYPES = {
@@ -22,22 +23,26 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-
-    if (req.method === 'OPTIONS') {
-        res.writeHead(204);
-        res.end();
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.writeHead(405, { 'Content-Type': 'text/plain; charset=UTF-8', 'Allow': 'GET, HEAD' });
+        res.end('Method Not Allowed');
         return;
     }
 
-    let reqUrl = decodeURI(req.url.split('?')[0]);
+    let reqUrl;
+    try {
+        reqUrl = decodeURI(req.url.split('?')[0]);
+    } catch (_) {
+        res.writeHead(400, { 'Content-Type': 'text/plain; charset=UTF-8' });
+        res.end('Bad Request');
+        return;
+    }
     if (reqUrl === '/') reqUrl = '/dream_guardian/index.html';
     else if (reqUrl.endsWith('/')) reqUrl += 'index.html';
 
-    let safePath = path.normalize(path.join(ROOT_DIR, reqUrl));
-    if (!safePath.startsWith(ROOT_DIR)) {
+    let safePath = path.resolve(ROOT_DIR, `.${reqUrl}`);
+    const relativePath = path.relative(ROOT_DIR, safePath);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
         res.writeHead(403, { 'Content-Type': 'text/plain' });
         res.end('Forbidden');
         return;
@@ -64,21 +69,23 @@ const server = http.createServer((req, res) => {
                 return;
             }
             res.writeHead(200, { 'Content-Type': contentType });
-            res.end(content);
+            res.end(req.method === 'HEAD' ? undefined : content);
         });
     });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, HOST, () => {
     console.log(`\n==============================================`);
     console.log(`✨ 《꿈의 수호신》 웹 서버 구동 성공!`);
     console.log(`- PC 브라우저 접속: http://localhost:${PORT}/dream_guardian/`);
 
-    const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces)) {
-        for (const iface of interfaces[name]) {
-            if (iface.family === 'IPv4' && !iface.internal) {
-                console.log(`- 스마트폰(모바일) 접속: http://${iface.address}:${PORT}/dream_guardian/`);
+    if (HOST === '0.0.0.0' || HOST === '::') {
+        const interfaces = os.networkInterfaces();
+        for (const name of Object.keys(interfaces)) {
+            for (const iface of interfaces[name]) {
+                if (iface.family === 'IPv4' && !iface.internal) {
+                    console.log(`- 스마트폰(모바일) 접속: http://${iface.address}:${PORT}/dream_guardian/`);
+                }
             }
         }
     }

@@ -23,6 +23,10 @@ export interface PoseManagerOptions {
   virtualWidth?: number;
   /** 가상 뷰포트 높이 */
   virtualHeight?: number;
+  /** 좌우 반전(미러 모드) 여부 (기본 false) */
+  mirror?: boolean;
+  /** 비디오 비율 보존 변환 함수 (선택 사항) */
+  projectFn?: (lm: { x: number; y: number }, vw: number, vh: number) => { x: number; y: number };
 }
 
 export type PoseStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -35,6 +39,8 @@ export class PoseManager {
   private _visibilityThreshold: number;
   private _virtualWidth: number;
   private _virtualHeight: number;
+  private _mirror: boolean;
+  private _projectFn?: (lm: { x: number; y: number }, vw: number, vh: number) => { x: number; y: number };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _pose: any = null;
@@ -43,6 +49,8 @@ export class PoseManager {
     this._visibilityThreshold = options?.visibilityThreshold ?? DEFAULT_VISIBILITY_THRESHOLD;
     this._virtualWidth = options?.virtualWidth ?? 1920;
     this._virtualHeight = options?.virtualHeight ?? 1080;
+    this._mirror = options?.mirror ?? false;
+    this._projectFn = options?.projectFn;
   }
 
   /** 현재 상태 */
@@ -182,13 +190,25 @@ export class PoseManager {
 
   /**
    * 정규화 좌표(0~1) → 가상 해상도 좌표 변환
+   * projectFn 제공 시 커스텀 뷰포트 프로젝션 적용, 미제공 시 mirror 설정 적용
    */
   private _toVirtual(landmarks: NormalizedLandmark[]): NormalizedLandmark[] {
-    return landmarks.map((lm) => ({
-      x: lm.x * this._virtualWidth,
-      y: lm.y * this._virtualHeight,
-      z: lm.z,
-      visibility: lm.visibility,
-    }));
+    return landmarks.map((lm) => {
+      if (this._projectFn) {
+        const pt = this._projectFn(lm, this._virtualWidth, this._virtualHeight);
+        return {
+          x: pt.x,
+          y: pt.y,
+          z: lm.z,
+          visibility: lm.visibility,
+        };
+      }
+      return {
+        x: (this._mirror ? 1 - lm.x : lm.x) * this._virtualWidth,
+        y: lm.y * this._virtualHeight,
+        z: lm.z,
+        visibility: lm.visibility,
+      };
+    });
   }
 }

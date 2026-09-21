@@ -66,37 +66,40 @@ function createResizableMockCanvas(initialW: number, initialH: number) {
 }
 
 describe('CanvasManager', () => {
-  it('DPR=1에서 가상좌표 → 물리좌표 변환이 정확하다', () => {
-    const canvas = createMockCanvas(1920, 1080);
+  it('DPR=1에서 18:9 가상좌표 → 물리좌표 변환이 정확하다', () => {
+    const canvas = createMockCanvas(1080, 2160);
     const cm = new CanvasManager(canvas, { getDevicePixelRatio: () => 1 });
 
-    // DPR=1, clientSize=1920x1080, virtual=1920x1080 → scale=1:1
-    const p = cm.toPhysical(960, 540);
-    expect(p.x).toBeCloseTo(960);
-    expect(p.y).toBeCloseTo(540);
+    // DPR=1, clientSize=1080x2160, virtual=1080x2160 → scale=1:1
+    const p = cm.toPhysical(540, 1080);
+    expect(p.x).toBeCloseTo(540);
+    expect(p.y).toBeCloseTo(1080);
+    expect(cm.aspectRatio).toBeCloseTo(0.5);
   });
 
   it('DPR=2에서 물리 캔버스 크기가 2배가 된다', () => {
-    const canvas = createMockCanvas(1920, 1080);
+    const canvas = createMockCanvas(1080, 2160);
     const cm = new CanvasManager(canvas, { getDevicePixelRatio: () => 2 });
 
-    expect(canvas.width).toBe(3840);
-    expect(canvas.height).toBe(2160);
+    expect(canvas.width).toBe(2160);
+    expect(canvas.height).toBe(4320);
     expect(cm.dpr).toBe(2);
+    expect(cm.scaleX).toBeCloseTo(2);
+    expect(cm.scaleY).toBeCloseTo(2);
   });
 
   it('DPR=2에서 좌표 변환이 정확하다', () => {
-    const canvas = createMockCanvas(1920, 1080);
+    const canvas = createMockCanvas(1080, 2160);
     const cm = new CanvasManager(canvas, { getDevicePixelRatio: () => 2 });
 
-    // canvas.width=3840, virtualWidth=1920 → scaleX=2
+    // canvas.width=2160, virtualWidth=1080 → scaleX=2, scaleY=2
     const p = cm.toPhysical(100, 200);
     expect(p.x).toBeCloseTo(200);
     expect(p.y).toBeCloseTo(400);
   });
 
   it('물리좌표 → 가상좌표 역변환이 정확하다', () => {
-    const canvas = createMockCanvas(1920, 1080);
+    const canvas = createMockCanvas(1080, 2160);
     const cm = new CanvasManager(canvas, { getDevicePixelRatio: () => 2 });
 
     const v = cm.toVirtual(200, 400);
@@ -105,14 +108,14 @@ describe('CanvasManager', () => {
   });
 
   it('toPhysical ↔ toVirtual 왕복 변환이 일치한다', () => {
-    const canvas = createMockCanvas(800, 600);
+    const canvas = createMockCanvas(360, 720);
     const cm = new CanvasManager(canvas, {
-      virtualWidth: 1920,
-      virtualHeight: 1080,
+      virtualWidth: 1080,
+      virtualHeight: 2160,
       getDevicePixelRatio: () => 1.5,
     });
 
-    const original = { x: 500, y: 300 };
+    const original = { x: 500, y: 1200 };
     const physical = cm.toPhysical(original.x, original.y);
     const back = cm.toVirtual(physical.x, physical.y);
 
@@ -121,44 +124,76 @@ describe('CanvasManager', () => {
   });
 
   it('resize() 호출 시 새 크기에 맞게 재계산된다', () => {
-    const canvas = createResizableMockCanvas(1920, 1080);
+    const canvas = createResizableMockCanvas(1080, 2160);
     const cm = new CanvasManager(canvas, { getDevicePixelRatio: () => 1 });
 
     expect(cm.scaleX).toBeCloseTo(1);
 
-    // 화면 크기 변경
-    canvas.setClientSize(960, 540);
+    // 화면 크기 변경 (540x1080)
+    canvas.setClientSize(540, 1080);
     cm.resize();
 
-    // 새 스케일: 960/1920 = 0.5
+    // 새 스케일: 540/1080 = 0.5
     expect(cm.scaleX).toBeCloseTo(0.5);
     expect(cm.scaleY).toBeCloseTo(0.5);
-    expect(canvas.width).toBe(960);
-    expect(canvas.height).toBe(540);
+    expect(canvas.width).toBe(540);
+    expect(canvas.height).toBe(1080);
   });
 
-  it('가상 해상도 기본값은 1920x1080이다', () => {
-    const canvas = createMockCanvas(1920, 1080);
+  it('가상 해상도 기본값은 18:9 (세로 1080x2160)이다', () => {
+    const canvas = createMockCanvas(1080, 2160);
     const cm = new CanvasManager(canvas, { getDevicePixelRatio: () => 1 });
 
-    expect(cm.virtualWidth).toBe(1920);
-    expect(cm.virtualHeight).toBe(1080);
+    expect(cm.virtualWidth).toBe(1080);
+    expect(cm.virtualHeight).toBe(2160);
+    expect(cm.aspectRatio).toBeCloseTo(9 / 18, 5);
   });
 
-  it('커스텀 가상 해상도를 설정할 수 있다', () => {
-    const canvas = createMockCanvas(800, 600);
+  it('가로 18:9 (2160x1080) 커스텀 해상도를 설정할 수 있다', () => {
+    const canvas = createMockCanvas(2160, 1080);
     const cm = new CanvasManager(canvas, {
-      virtualWidth: 800,
-      virtualHeight: 600,
+      virtualWidth: 2160,
+      virtualHeight: 1080,
       getDevicePixelRatio: () => 1,
     });
 
-    expect(cm.virtualWidth).toBe(800);
-    expect(cm.virtualHeight).toBe(600);
+    expect(cm.virtualWidth).toBe(2160);
+    expect(cm.virtualHeight).toBe(1080);
+    expect(cm.aspectRatio).toBeCloseTo(18 / 9, 5);
 
-    // scale은 1:1
-    const p = cm.toPhysical(400, 300);
-    expect(p.x).toBeCloseTo(400);
-    expect(p.y).toBeCloseTo(300);
+    const p = cm.toPhysical(1080, 540);
+    expect(p.x).toBeCloseTo(1080);
+    expect(p.y).toBeCloseTo(540);
+  });
+
+  it('setVirtualResolution()으로 런타임에 해상도를 변경할 수 있다', () => {
+    const canvas = createMockCanvas(1080, 2160);
+    const cm = new CanvasManager(canvas, { getDevicePixelRatio: () => 1 });
+
+    expect(cm.virtualWidth).toBe(1080);
+    expect(cm.virtualHeight).toBe(2160);
+
+    // 가로 모드로 전환
+    cm.setVirtualResolution(2160, 1080);
+    expect(cm.virtualWidth).toBe(2160);
+    expect(cm.virtualHeight).toBe(1080);
+    expect(cm.aspectRatio).toBeCloseTo(2, 5);
+  });
+
+  it('화면 비율이 가상 해상도와 다를 때 왜곡 없이 균일 스케일(Uniform scale)이 적용된다', () => {
+    // 800x600 (4:3) 환경에 1080x2160 (1:2) 가상 캔버스 배치
+    const canvas = createMockCanvas(800, 600);
+    const cm = new CanvasManager(canvas, {
+      virtualWidth: 1080,
+      virtualHeight: 2160,
+      getDevicePixelRatio: () => 1,
+      uniformScale: true,
+    });
+
+    // scaleX = 800/1080 ≈ 0.7407, scaleY = 600/2160 ≈ 0.2777
+    // uniformScale = min(0.7407, 0.2777) ≈ 0.2777
+    expect(cm.scaleX).toBeCloseTo(cm.scaleY);
+    expect(cm.scaleX).toBeCloseTo(600 / 2160);
+    expect(cm.uniformScale).toBeCloseTo(600 / 2160);
   });
 });

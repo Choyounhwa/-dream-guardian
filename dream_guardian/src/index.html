@@ -6,7 +6,24 @@
   <title>꿈의 수호신 (Dream Guardian)</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a1a; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #050308;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #container {
+      position: relative;
+      width: min(100vw, calc(100vh * (9 / 18)));
+      height: min(100vh, calc(100vw * (18 / 9)));
+      aspect-ratio: 9 / 18;
+      background: #0a0a1a;
+      box-shadow: 0 0 30px rgba(0, 229, 255, 0.1);
+      overflow: hidden;
+    }
     #game-canvas {
       display: block;
       width: 100%;
@@ -14,9 +31,12 @@
       cursor: pointer;
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js" crossorigin="anonymous"></script>
 </head>
 <body>
-  <canvas id="game-canvas"></canvas>
+  <div id="container">
+    <canvas id="game-canvas"></canvas>
+  </div>
   <script type="module" src="./main.ts"></script>
 </body>
 </html>

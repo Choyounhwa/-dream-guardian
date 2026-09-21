@@ -19,6 +19,7 @@
             position: relative;
             width: min(100vw, calc(100vh * (9 / 18)));
             height: min(100vh, calc(100vw * (18 / 9)));
+            aspect-ratio: 9 / 18;
             background: #000;
             box-shadow: 0 0 30px rgba(0,229,255,0.1);
             overflow: hidden;
@@ -135,15 +136,16 @@
         #pause_menu h2 { grid-column:1/-1; margin:0; text-align:center; font-size:20px; }
         #pause_menu button { min-height:48px; border:2px solid #a8e6f0; background:#1c2a55; border-radius:12px; color:white; font:700 16px 'Gowun Batang',serif; cursor:pointer; }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1629159505/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
     <script src="motion-input.js"></script>
     <script src="zone-input.js"></script>
     <script src="menu-input.js"></script>
     <script src="answer-selection.js"></script>
+    <script src="question-evaluator.js"></script>
     <script src="question-speech.js"></script>
 </head>
 <body>
@@ -200,10 +202,12 @@
         // 1. Audio System (Web Audio API)
         // ==========================================
         const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioCtx = new AudioContext();
+        let audioCtx = null;
+        try { if (AudioContext) audioCtx = new AudioContext(); } catch (_) {}
 
         function playSound(type) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (!audioCtx) return;
+            if (audioCtx?.state === 'suspended') audioCtx.resume();
             const now = audioCtx.currentTime;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -326,7 +330,7 @@
         let isBgmPlaying = false;
 
         function startBGM() {
-            if (isBgmPlaying) return;
+            if (!audioCtx || isBgmPlaying) return;
             if (audioCtx.state === 'suspended') audioCtx.resume();
             isBgmPlaying = true;
             bgmStep = 0;
@@ -503,17 +507,18 @@
             do {
                 t = pick(candidates);
                 A = 0; B = 0; C = 0; D = 0;
-                try { A = eval(t.va); } catch(e){}
-                try { B = eval(t.vb); } catch(e){}
-                try { C = eval(t.vc); } catch(e){}
-                try { D = eval(t.vd); } catch(e){}
+                const values = { A, B, C, D };
+                try { A = QuestionEvaluator.evaluate(t.va, values); values.A = A; } catch(e){}
+                try { B = QuestionEvaluator.evaluate(t.vb, values); values.B = B; } catch(e){}
+                try { C = QuestionEvaluator.evaluate(t.vc, values); values.C = C; } catch(e){}
+                try { D = QuestionEvaluator.evaluate(t.vd, values); values.D = D; } catch(e){}
                 
                 q = t.qTemp.replace(/\{A\}/g, A).replace(/\{B\}/g, B).replace(/\{C\}/g, C).replace(/\{D\}/g, D);
-                q = q.replace(/\{([^}]+)\}/g, (m, expr) => { try { return eval(expr); } catch(e) { return m; } });
+                q = q.replace(/\{([^}]+)\}/g, (m, expr) => { try { return QuestionEvaluator.evaluate(expr, values); } catch(e) { return m; } });
                 
                 c = ""; w = "";
-                try { c = eval(t.cTemp); } catch(e){ c = "err"; }
-                try { w = eval(t.wTemp); } catch(e){ w = "err"; }
+                try { c = QuestionEvaluator.evaluate(t.cTemp, values); } catch(e){ c = "err"; }
+                try { w = QuestionEvaluator.evaluate(t.wTemp, values); } catch(e){ w = "err"; }
                 evalAttempts++;
             } while (c.toString() === w.toString() && evalAttempts < 10);
             
@@ -535,7 +540,14 @@
         let gameState = 'loading'; // loading, menu_main, menu_sub, story_intro, ready_position, running, playing, correct, wrong, result, gameover, ending_cutscene
         let currentLevel = 1;
         let currentSubLevel = 1;
-        let unlockedChapter = parseInt(localStorage.getItem('dream_guardian_progress') || '1');
+        function loadStoredJson(key, fallback) {
+            try {
+                const value = JSON.parse(localStorage.getItem(key) || '');
+                return value && typeof value === 'object' ? value : fallback;
+            } catch (_) { return fallback; }
+        }
+        const savedProgress = Number.parseInt(localStorage.getItem('dream_guardian_progress') || '1', 10);
+        let unlockedChapter = Number.isInteger(savedProgress) ? Math.max(1, Math.min(5, savedProgress)) : 1;
         
         // Player & Gameplay stats
         let playerHp = 100;
@@ -608,6 +620,7 @@
         let poseFeedback = '답 색상과 같은 신체 부위를 움직여 유지하세요';
         let lastValidPoseTime = 0;
         let palmPoints = { leftHand: null, rightHand: null };
+        const PALM_MAX_AGE_MS = 180;
 
         let totalSteps = 0;
         let totalSquats = 0;
@@ -624,6 +637,7 @@
         let bossAttackActive = false;
         let bossAttackTimer = 0;
         let bossAttackDeflected = false;
+        let bossAttackCooldown = 0;
 
         // Visual Pose & Track Items
         let currentSkeletonLandmarks = null;
@@ -959,7 +973,7 @@
                 // The displayed camera is mirrored, so MediaPipe labels must be swapped for player-side cursors.
                 const key=handed==='left'?'rightHand':handed==='right'?'leftHand':null;
                 const palm=landmarks?.[9]||landmarks?.[0];
-                if(key&&palm)next[key]=landmarkToScreen({x:palm.x,y:palm.y,visibility:1});
+                if(key&&palm)next[key]={...landmarkToScreen({x:palm.x,y:palm.y,visibility:1}),receivedAt:performance.now()};
             });
             palmPoints=next;
         });
@@ -976,6 +990,17 @@
         function setCameraStatus(text, compact = false) {
             document.getElementById('camera_status').textContent = text;
             document.getElementById('camera_status').hidden = compact;
+        }
+
+        function stopCamera() {
+            if (!currentStream) return;
+            currentStream.getTracks().forEach(track => track.stop());
+            currentStream = null;
+            cameraReady = false;
+            videoElement.srcObject = null;
+            currentSkeletonLandmarks = null;
+            palmPoints = { leftHand: null, rightHand: null };
+            answerGate.interrupt();
         }
 
         async function initCamera() {
@@ -995,10 +1020,7 @@
             cameraStarting = true;
             cameraReady = false;
             resetTracking();
-            if (currentStream) {
-                currentStream.getTracks().forEach(t => t.stop());
-                currentStream = null;
-            }
+            if (currentStream) stopCamera();
 
             videoElement.srcObject = null;
             setCameraStatus('카메라 권한 요청 중 · 허용을 눌러주세요');
@@ -1026,9 +1048,7 @@
                 lastPoseTimestamp = performance.now();
                 setCameraStatus('카메라 연결됨 · 몸을 화면에 맞춰주세요', false);
             } catch (e) {
-                if (currentStream) currentStream.getTracks().forEach(t => t.stop());
-                currentStream = null;
-                videoElement.srcObject = null;
+                stopCamera();
                 const reason = e.name === 'NotAllowedError' ? '브라우저에서 카메라를 허용한 뒤 새로고침하세요. 키보드 테스트는 가능합니다.' :
                     e.name === 'NotFoundError' ? '사용할 수 있는 카메라를 찾지 못했습니다.' :
                     '카메라를 시작하지 못했습니다. 다른 카메라 앱을 닫고 다시 시작하세요.';
@@ -1055,7 +1075,7 @@
 
             if (gameState === 'playing') {
                 const points = landmarks.map(landmarkToScreen);
-                const result = answerGate.update(points, dt, questionReadinessTimer > 0, targetOptions,palmPoints);
+                const result = answerGate.update(points, dt, questionReadinessTimer > 0, targetOptions,getFreshPalmPoints());
                 poseFeedback = result.hint;
                 if (result.choice) handleAnswer(result.choice, 'pose');
                 return;
@@ -1247,6 +1267,18 @@
             }
         }
 
+        function updateBossAttack(dt) {
+            if (!['running', 'ready_position'].includes(gameState) || bossAttackActive) return;
+            bossAttackCooldown -= dt;
+            if (bossAttackCooldown <= 0) {
+                bossAttackActive = true;
+                bossAttackDeflected = false;
+                bossAttackTimer = 2.5;
+                bossAttackCooldown = 9 + Math.random() * 4;
+                playSound('warning');
+            }
+        }
+
         function changeState(newState) {
             if (newState !== 'playing') {
                 questionSpeechRequest++;
@@ -1268,6 +1300,7 @@
             if (newState === 'result' || newState === 'gameover' || newState === 'ending_cutscene') {
                 stopBGM();
             }
+            if (newState === 'menu_main' || newState === 'result' || newState === 'gameover' || newState === 'ending_cutscene') stopCamera();
         }
 
         // ==========================================
@@ -1328,6 +1361,7 @@
                 if (resultPopupTimer <= 0) { showRecordsModal(); resultPopupTimer = 0; }
             }
             updateGuardianBattle();
+            updateBossAttack(dt);
             if (bossHurtTimer > 0) bossHurtTimer -= dt;
             if (playerHurtTimer > 0) playerHurtTimer -= dt;
 
@@ -1537,37 +1571,43 @@
 
         function drawPartMarker(part, x, y, size, label = '') {
             const style = AnswerSelection.CURSORS[part] || ZoneInput.PARTS[part];
-            // `size` is the historical base radius. All active cursor icons deliberately use
-            // twice that base size here; no other renderer draws the same icon during gameplay.
-            const r = size * 2;
+            // Active cursor icons are enlarged relative to the old 1x renderer, then tuned
+            // down 30% from the previous 2x pass.
+            const r = size * 1.4;
             const now = Date.now();
-            const breath = 1 + Math.sin(now / 170) * 0.22;
-            const blow = 1 + ((now % 1150) / 1150) * 1.35;
-            const previous = markerTrail[part];
+            // Only the pelvis restores the original stronger breathing setting.
+            const breath = part === 'hip'
+                ? 1 + Math.sin(now / 170) * 0.22
+                : 1 + Math.sin(now / 250) * 0.08;
+            // Keep the existing timing, but reduce the visual blow strength by half.
+            const blow = 1 + ((now % 1450) / 1450) * 0.325;
+            const trail = markerTrail[part] || [];
 
             ctx.save();
             ctx.globalAlpha = part === 'face' ? .5 : 1;
             ctx.shadowColor=style.color;
-            ctx.shadowBlur=20;
+            ctx.shadowBlur=10;
             ctx.strokeStyle = style.color;
 
             // Strong expanding breathing ring: each outer ring grows and fades.
             ctx.save();
-            ctx.globalAlpha *= Math.max(0, .65 * (2.15 - blow));
-            ctx.lineWidth = 3;
+            ctx.globalAlpha *= Math.max(0, .14 * (1.8 - blow));
+            ctx.lineWidth = 2;
             ctx.beginPath();ctx.arc(x,y,r*blow,0,Math.PI*2);ctx.stroke();
             ctx.restore();
 
-            // Three fading trails use the same silhouette family as the cursor itself.
-            if (previous) {
-                const dx=x-previous.x,dy=y-previous.y;
-                for(let i=3;i>=1;i--) {
-                    ctx.save();ctx.globalAlpha*=.13*i;ctx.lineWidth=2;
-                    drawMarkerPath(ctx,style,x-dx*i*.17,y-dy*i*.17,r*breath*(1-i*.12));
-                    ctx.stroke();ctx.restore();
-                }
-            }
-            markerTrail[part]={x,y};
+            // Draw actual recent positions. The former single-point extrapolation was often
+            // hidden under the cursor; retaining three samples makes the intended trail visible.
+            trail.slice(0, 3).forEach((point, index) => {
+                ctx.save();
+                ctx.globalAlpha *= [0.42, 0.26, 0.14][index];
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                drawMarkerPath(ctx, style, point.x, point.y, r * breath * (1 - (index + 1) * 0.13));
+                ctx.stroke();
+                ctx.restore();
+            });
+            markerTrail[part] = [{ x, y }, ...trail].slice(0, 3);
 
             ctx.lineWidth = 5;
             ctx.beginPath();
@@ -1584,7 +1624,10 @@
             if (style.shape === 'ellipse') {
                 context.ellipse(x,y,r*.82,r*1.08,0,0,Math.PI*2);
             } else if (style.shape === 'diamond') {
-                context.moveTo(x,y-r);context.lineTo(x+r,y);context.lineTo(x,y+r);context.lineTo(x-r,y);context.closePath();
+                // Current diamond -> half its height -> whole result at 70%.
+                // Width: .70 * .70r = .49r. Height: .50 * .70 * .35r = .1225r.
+                const rx=r*.49,ry=r*.1225;
+                context.moveTo(x,y-ry);context.lineTo(x+rx,y);context.lineTo(x,y+ry);context.lineTo(x-rx,y);context.closePath();
             } else if (style.shape === 'rect') {
                 if (context.roundRect) context.roundRect(x-r,y-r*.72,r*2,r*1.44,r*.34);
                 else context.rect(x-r,y-r*.72,r*2,r*1.44);
@@ -1595,7 +1638,15 @@
 
         function palmOrWrist(part, fallback) {
             const palm=palmPoints[part];
-            return palm && palm.vis>=.55 ? palm : fallback;
+            return palm && palm.vis>=.55 && performance.now()-palm.receivedAt<=PALM_MAX_AGE_MS ? palm : fallback;
+        }
+
+        function getFreshPalmPoints() {
+            const now=performance.now();
+            return {
+                leftHand:palmPoints.leftHand && now-palmPoints.leftHand.receivedAt<=PALM_MAX_AGE_MS ? palmPoints.leftHand : null,
+                rightHand:palmPoints.rightHand && now-palmPoints.rightHand.receivedAt<=PALM_MAX_AGE_MS ? palmPoints.rightHand : null
+            };
         }
 
         function drawZoneAnswers() {
@@ -1605,7 +1656,8 @@
             ctx.save();
             AnswerSelection.ZONES.forEach(z=>{
                 const r=AnswerSelection.rect(z.id,width,height);
-                const owners=targetOptions.flatMap((option,index)=>option.requirements.filter(req=>req.zoneId===z.id).map(req=>({option,index,req})));
+                const owners=targetOptions.flatMap((option,index)=>option.activeZoneIds.includes(z.id)
+                    ? option.requirements.filter(req=>AnswerSelection.canPartUseZone(req.part,z.id)).map(req=>({option,index,req})) : []);
                 ctx.fillStyle=owners.length?'#101d32e8':'#09122150';
                 ctx.strokeStyle=owners.length?AnswerSelection.CURSORS[owners[0].req.part].color:'#72829b55';
                 ctx.lineWidth=owners.length?3:1;
@@ -1637,7 +1689,7 @@
                 if(!p||p.vis<.55)return;
                 drawPartMarker(part,b.x+p.x*b.w,b.y+p.y*b.h,part==='hip'?14:10);
             });
-            drawText(questionReadinessTimer>0?'문제 확인':answerGate.baseline?'색상 커서를 해당 칸에 유지':'가운데 준비',width/2,b.y+b.h*.42,'#fff',16);
+            drawText(questionReadinessTimer>0?'문제 확인':answerGate.baseline?'가상 이동 커서를 해당 칸에 유지':'가운데에서 기준 자세 준비',width/2,b.y+b.h*.42,'#fff',16);
             drawText('1초 유지',width/2,b.y+b.h*.52,'#fff',14);
             ctx.restore();
         }
@@ -1972,7 +2024,7 @@
         let hasSavedRecord = false;
 
         function saveWorkoutResult(ch, finalScore, grade, timeSec, starsCount) {
-            const stats = JSON.parse(localStorage.getItem('dream_guardian_stats') || '{"totalSteps":0,"totalSquats":0,"totalJumps":0,"totalCalories":0,"totalClears":0}');
+            const stats = loadStoredJson('dream_guardian_stats', {totalSteps:0,totalSquats:0,totalJumps:0,totalCalories:0,totalClears:0});
             stats.totalSteps = (stats.totalSteps || 0) + totalSteps;
             stats.totalSquats = (stats.totalSquats || 0) + totalSquats;
             stats.totalJumps = (stats.totalJumps || 0) + totalJumps;
@@ -1980,11 +2032,11 @@
             stats.totalClears = (stats.totalClears || 0) + 1;
             localStorage.setItem('dream_guardian_stats', JSON.stringify(stats));
 
-            const stars = JSON.parse(localStorage.getItem('dream_guardian_stars') || '{}');
+            const stars = loadStoredJson('dream_guardian_stars', {});
             stars[ch] = Math.max(stars[ch] || 0, starsCount);
             localStorage.setItem('dream_guardian_stars', JSON.stringify(stars));
 
-            const history = JSON.parse(localStorage.getItem('dream_guardian_history') || '[]');
+            const history = loadStoredJson('dream_guardian_history', []);
             const today = new Date();
             const dateStr = `${today.getMonth() + 1}/${today.getDate()}`;
             history.unshift({
@@ -2004,9 +2056,9 @@
         }
 
         function showRecordsModal() {
-            const stats = JSON.parse(localStorage.getItem('dream_guardian_stats') || '{"totalSteps":0,"totalSquats":0,"totalJumps":0,"totalCalories":0}');
-            const stars = JSON.parse(localStorage.getItem('dream_guardian_stars') || '{}');
-            const history = JSON.parse(localStorage.getItem('dream_guardian_history') || '[]');
+            const stats = loadStoredJson('dream_guardian_stats', {totalSteps:0,totalSquats:0,totalJumps:0,totalCalories:0});
+            const stars = loadStoredJson('dream_guardian_stars', {});
+            const history = loadStoredJson('dream_guardian_history', []);
 
             let starCount = 0;
             for (let ch = 1; ch <= 5; ch++) { starCount += (stars[ch] || 0); }
@@ -2017,23 +2069,34 @@
             document.getElementById('stat_total_stars').textContent = `${starCount} / 15`;
 
             const listEl = document.getElementById('records_list');
-            listEl.innerHTML = '';
+            listEl.textContent = '';
             if (history.length === 0) {
-                listEl.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">아직 완료된 임무 기록이 없습니다.</div>';
+                const empty = document.createElement('div');
+                empty.style.cssText = 'text-align:center; color:#888; padding:20px;';
+                empty.textContent = '아직 완료된 임무 기록이 없습니다.';
+                listEl.appendChild(empty);
             } else {
                 history.forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'record-item';
-                    div.innerHTML = `
-                        <div>
-                            <div style="font-weight:bold; color:#ffd700;">${CHAPTER_NAMES[item.chapter] || '임무'} [${item.grade}]</div>
-                            <div style="color:#88b; font-size:11px;">${item.date} | ⏱️ ${item.time}초</div>
-                        </div>
-                        <div style="text-align:right;">
-                            <div style="color:#a8e6f0; font-weight:bold;">${item.score}점</div>
-                            <div style="color:#ff88aa; font-size:11px;">🔥 ${item.cal} kcal (${item.steps}보)</div>
-                        </div>
-                    `;
+                    const left = document.createElement('div');
+                    const title = document.createElement('div');
+                    title.style.cssText = 'font-weight:bold; color:#ffd700;';
+                    title.textContent = `${CHAPTER_NAMES[item.chapter] || '임무'} [${item.grade}]`;
+                    const detail = document.createElement('div');
+                    detail.style.cssText = 'color:#88b; font-size:11px;';
+                    detail.textContent = `${item.date} | ${item.time}초`;
+                    left.append(title, detail);
+                    const right = document.createElement('div');
+                    right.style.textAlign = 'right';
+                    const points = document.createElement('div');
+                    points.style.cssText = 'color:#a8e6f0; font-weight:bold;';
+                    points.textContent = `${item.score}점`;
+                    const activity = document.createElement('div');
+                    activity.style.cssText = 'color:#ff88aa; font-size:11px;';
+                    activity.textContent = `${item.cal} kcal (${item.steps}보)`;
+                    right.append(points, activity);
+                    div.append(left, right);
                     listEl.appendChild(div);
                 });
             }
@@ -2047,8 +2110,8 @@
             drawText("꿈의 수호신", width/2, height*0.13, '#a8e6f0', 40);
             drawText("네가 문제를 풀면, 수호신이 강해진다.", width/2, height*0.19, '#fff', 17);
 
-            const stars = JSON.parse(localStorage.getItem('dream_guardian_stars') || '{}');
-            const stats = JSON.parse(localStorage.getItem('dream_guardian_stats') || '{"totalSteps":0,"totalSquats":0,"totalJumps":0,"totalCalories":0}');
+            const stars = loadStoredJson('dream_guardian_stars', {});
+            const stats = loadStoredJson('dream_guardian_stats', {totalSteps:0,totalSquats:0,totalJumps:0,totalCalories:0});
 
             // Hand hover selection for menu buttons
             let hoveredBtn = -1;
@@ -2322,22 +2385,102 @@
         function drawDreamGrid(timeMs) {
             ctx.save();
             const t = timeMs / 1000;
-            const horizon = height * 0.52;
+            const horizon = height * 0.38;
             const target = gameState === 'running' ? (runGauge >= 75 ? [35,148,255] : [255,135,25]) : [255,50,22];
             const glow = 0.72 + Math.sin(t * 2.1) * 0.12;
-            const color = `rgba(${Math.round(target[0]*glow)},${Math.round(target[1]*glow)},${Math.round(target[2]*glow)},.85)`;
+            const r = Math.round(target[0] * glow);
+            const g = Math.round(target[1] * glow);
+            const b = Math.round(target[2] * glow);
             const speed = gameState === 'running' ? 1.5 + runGauge / 35 : 0.65;
+
             ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(0,0,width,height);
-            ctx.strokeStyle = color; ctx.lineWidth = 2.2; ctx.shadowColor = color; ctx.shadowBlur = 8;
-            const vanishingX=width/2,vanishingY=height*.25;
-            const floorTop=height*.53;
-            const floorCols=Math.max(7,Math.round(width/75));
-            for (let x=-width;x<=width*2;x+=width/floorCols) {
-                ctx.beginPath();ctx.moveTo(width/2,0);ctx.lineTo(x,height*.16);ctx.stroke();
-                ctx.beginPath();ctx.moveTo(vanishingX,vanishingY);ctx.lineTo(x,height);ctx.stroke();
+
+            const floorH = height - horizon;
+            const ceilH = horizon;
+
+            // 세로선: 수평선(horizon)에서 세로선들이 한 점에 뭉치지 않도록 소실 폭(vanishRatio)을 둠
+            const numCols = Math.max(8, Math.round(width / 60));
+            const spacingBottom = (width / numCols) * 1.55;
+            const spacingTop = (width / numCols) * 1.55;
+            const vanishRatio = 0.16;
+            const spacingHorizon = spacingBottom * vanishRatio;
+
+            // 심도 표현: 소실점(horizon) 부근에서 바깥(위/아래)으로 멀어질수록 점차 흐려지는 그라데이션
+            const gradFloor = ctx.createLinearGradient(0, horizon, 0, height);
+            gradFloor.addColorStop(0, `rgba(${r},${g},${b},0.85)`);
+            gradFloor.addColorStop(0.35, `rgba(${r},${g},${b},0.55)`);
+            gradFloor.addColorStop(0.7, `rgba(${r},${g},${b},0.24)`);
+            gradFloor.addColorStop(1, `rgba(${r},${g},${b},0.05)`);
+
+            const gradCeil = ctx.createLinearGradient(0, horizon, 0, 0);
+            gradCeil.addColorStop(0, `rgba(${r},${g},${b},0.80)`);
+            gradCeil.addColorStop(0.35, `rgba(${r},${g},${b},0.50)`);
+            gradCeil.addColorStop(0.7, `rgba(${r},${g},${b},0.22)`);
+            gradCeil.addColorStop(1, `rgba(${r},${g},${b},0.04)`);
+
+            ctx.lineWidth = 1.8;
+            ctx.shadowBlur = 6;
+            ctx.shadowColor = `rgba(${r},${g},${b},0.6)`;
+
+            // 세로선 그리기: 상단과 하단이 horizon의 xHorizon에서 완벽하게 맞닿아 연결됨
+            const maxIdx = Math.ceil((width * 1.4) / spacingBottom);
+            for (let i = -maxIdx; i <= maxIdx; i++) {
+                const xBottom = width / 2 + i * spacingBottom;
+                const xHorizon = width / 2 + i * spacingHorizon;
+                const xTop = width / 2 + i * spacingTop;
+
+                // 바닥 세로선
+                ctx.strokeStyle = gradFloor;
+                ctx.beginPath();
+                ctx.moveTo(xHorizon, horizon);
+                ctx.lineTo(xBottom, height);
+                ctx.stroke();
+
+                // 천장 세로선 (수평선에서 상하단이 1:1로 맞닿음)
+                ctx.strokeStyle = gradCeil;
+                ctx.beginPath();
+                ctx.moveTo(xHorizon, horizon);
+                ctx.lineTo(xTop, 0);
+                ctx.stroke();
             }
-            for(let i=0;i<6;i++) { const y=((t*speed*.04+i/6)%1)*height*.16;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y);ctx.stroke(); }
-            for(let i=0;i<14;i++) { const z=(t*speed*.18+i/14)%1;const y=floorTop+(height-floorTop)*Math.pow(z,2.15);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y);ctx.stroke(); }
+
+            // 가로선 그리기: 소실점에서 멀어질수록 원근 투영 및 점진적 심도 페이드
+            const numHorizFloor = 13;
+            for (let i = 0; i < numHorizFloor; i++) {
+                const z = (t * speed * 0.20 + i / numHorizFloor) % 1;
+                const y = horizon + floorH * Math.pow(z, 2.15);
+                const alpha = Math.max(0.04, (1 - Math.pow(z, 1.25) * 0.90) * 0.85);
+                ctx.strokeStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            const numHorizCeil = 8;
+            for (let i = 0; i < numHorizCeil; i++) {
+                const z = (t * speed * 0.16 + i / numHorizCeil) % 1;
+                const y = horizon - ceilH * Math.pow(z, 2.15);
+                const alpha = Math.max(0.03, (1 - Math.pow(z, 1.25) * 0.92) * 0.80);
+                ctx.strokeStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+                ctx.lineWidth = 1.4;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            // 상하단이 맞닿는 중앙 수평선 (Horizon 빛 라인)
+            ctx.strokeStyle = `rgba(${r},${g},${b},0.9)`;
+            ctx.lineWidth = 2.2;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = `rgba(${r},${g},${b},0.9)`;
+            ctx.beginPath();
+            ctx.moveTo(0, horizon);
+            ctx.lineTo(width, horizon);
+            ctx.stroke();
+
             ctx.restore();
         }
 
@@ -2436,7 +2579,7 @@
         // Keyboard controls for testing
         window.addEventListener('keydown', (e) => {
             if (['Space','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)) e.preventDefault();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (audioCtx?.state === 'suspended') audioCtx.resume();
             if (e.code === 'Space') {
                 if (gameState === 'ready_position') {
                     runGauge = 100;
@@ -2496,7 +2639,7 @@
 
         document.getElementById('btn_fullscreen').addEventListener('click', (e) => {
             e.stopPropagation();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (audioCtx?.state === 'suspended') audioCtx.resume();
             playSound('hover');
             const el = document.getElementById('container');
             if (!document.fullscreenElement && !document.webkitFullscreenElement) {
@@ -2515,7 +2658,7 @@
         });
 
         canvas.addEventListener('pointerdown', (e) => {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (audioCtx?.state === 'suspended') audioCtx.resume();
             if (gamePaused) return;
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -2591,7 +2734,15 @@
             } else if (gameState === 'playing') {
                 const b=AnswerSelection.board(width,height);
                 const p={x:(px-b.x)/b.w,y:(py-b.y)/b.h,vis:1};
-                const choice=targetOptions.find(o=>o.requirements.some(req=>AnswerSelection.contains(AnswerSelection.ZONES.find(z=>z.id===req.zoneId),p)));
+                const choice=targetOptions.find((option,index)=>{
+                    const x=index===0?width*.18:width*.82,y=height*.445,r=width*.13;
+                    if(Math.hypot(px-x,py-y)<=r)return true;
+                    return option.activeZoneIds.some(zoneId=>{
+                        const zone=AnswerSelection.ZONES.find(z=>z.id===zoneId);
+                        const candidates=targetOptions.filter(other=>other.requirements.some(req=>AnswerSelection.canPartUseZone(req.part,zoneId)));
+                        return candidates.length===1&&candidates[0]===option&&AnswerSelection.contains(zone,p);
+                    });
+                });
                 if(choice) handleAnswer(choice);
             } else if (gameState === 'running') {
                 // Touch Fallback Run
@@ -2634,6 +2785,7 @@
             bossAttackActive = false;
             bossAttackTimer = 0;
             bossAttackDeflected = false;
+            bossAttackCooldown = 8;
             trackOrbs = [];
             hasSavedRecord = false;
             gameStartTime = Date.now();

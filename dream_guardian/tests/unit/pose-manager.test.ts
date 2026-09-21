@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { PoseManager } from '../../src/motion/PoseManager.js';
 import type { NormalizedLandmark } from '../../src/types/index.js';
 import { POSE_LANDMARKS } from '../../src/types/index.js';
@@ -137,5 +137,39 @@ describe('PoseManager', () => {
     const pm = new PoseManager();
     pm.setLandmarks([]);
     expect(pm.hasPose).toBe(false);
+  });
+
+  it('mirror=true 설정 시 X 좌표가 좌우 반전된다', () => {
+    const pm = new PoseManager({ virtualWidth: 1000, virtualHeight: 1000, mirror: true });
+    const landmarks = createDummyLandmarks({
+      [POSE_LANDMARKS.RIGHT_WRIST]: { x: 0.2, y: 0.5 },
+    });
+    pm.setLandmarks(landmarks);
+    const wrist = pm.getLandmark(POSE_LANDMARKS.RIGHT_WRIST);
+    expect(wrist).not.toBeNull();
+    expect(wrist!.x).toBeCloseTo(800); // (1 - 0.2) * 1000
+    expect(wrist!.y).toBeCloseTo(500);
+  });
+
+  it('projectFn이 주어지면 커스텀 뷰포트 프로젝션 함수가 사용된다', () => {
+    const mockProject = vi.fn((lm, vw, vh) => ({
+      x: lm.x * vw + 50,
+      y: lm.y * vh + 50,
+    }));
+    const pm = new PoseManager({
+      virtualWidth: 1000,
+      virtualHeight: 1000,
+      projectFn: mockProject,
+    });
+    const landmarks = createDummyLandmarks({
+      [POSE_LANDMARKS.NOSE]: { x: 0.5, y: 0.5 },
+    });
+    pm.setLandmarks(landmarks);
+
+    expect(mockProject).toHaveBeenCalled();
+    const nose = pm.getLandmark(POSE_LANDMARKS.NOSE);
+    expect(nose).not.toBeNull();
+    expect(nose!.x).toBeCloseTo(550);
+    expect(nose!.y).toBeCloseTo(550);
   });
 });

@@ -6,6 +6,11 @@
 import { DEFAULT_CONFIG } from './core/Config.js';
 import { GameEngine } from './core/GameEngine.js';
 import { CanvasManager } from './render/CanvasManager.js';
+import { CameraLayer } from './render/CameraLayer.js';
+import { PoseManager } from './motion/PoseManager.js';
+import { BoneRenderer } from './skeleton/BoneRenderer.js';
+import { JointRenderer } from './skeleton/JointRenderer.js';
+import { SkeletonAnimation } from './skeleton/SkeletonAnimation.js';
 import { QuestionBank } from './question/QuestionBank.js';
 import { parseCSV } from './question/CSVLoader.js';
 import { generateQuestion, type GeneratedQuestion } from './question/QuestionEvaluator.js';
@@ -47,6 +52,18 @@ const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
 // ─── 시스템 ───
 const canvasManager = new CanvasManager(canvas);
+const cameraLayer = new CameraLayer({ width: 1280, height: 720, dimAlpha: 0.35, mirror: true });
+const poseManager = new PoseManager({
+  virtualWidth: canvasManager.virtualWidth,
+  virtualHeight: canvasManager.virtualHeight,
+  visibilityThreshold: 0.5,
+  mirror: true,
+  projectFn: (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
+});
+const boneRenderer = new BoneRenderer();
+const jointRenderer = new JointRenderer();
+const skeletonAnimation = new SkeletonAnimation({ lerpFactor: 0.3, breathCycle: 3.0, breathAmplitude: 0.02 });
+
 const questionBank = new QuestionBank();
 const speech = new QuestionSpeech();
 const battle = new BattleState();
@@ -86,6 +103,16 @@ async function loadQuestions(): Promise<void> {
   } catch { questionBank.loadRecords([]); }
 }
 
+// ─── 카메라 및 포즈 파이프라인 ───
+async function ensureCameraStarted(): Promise<void> {
+  if (!cameraLayer.isActive && cameraLayer.status !== 'requesting') {
+    const started = await cameraLayer.start();
+    if (started && poseManager.status === 'idle') {
+      await poseManager.init();
+    }
+  }
+}
+
 // ─── 게임 플로우 ───
 function startChapter(ch: number): void {
   if (ch < 1 || ch > 5) return;
@@ -101,6 +128,7 @@ function startChapter(ch: number): void {
   answerLocked = false;
   castingFlash = 0;
   screenMode = 'game';
+  ensureCameraStarted().catch(() => {});
   nextQuestion();
 }
 
@@ -294,6 +322,16 @@ function getHUDData() {
 // ─── 게임 엔진 ───
 const engine = new GameEngine({
   update(dt: number): void {
+    // 웹캠 비디오 프레임 추출 및 스켈레톤 보간 파이프라인
+    if (cameraLayer.isActive && cameraLayer.videoElement) {
+      poseManager.send(cameraLayer.videoElement, performance.now()).catch(() => {});
+    }
+    if (poseManager.hasPose) {
+      skeletonAnimation.update(dt, poseManager.virtualLandmarks);
+    } else {
+      skeletonAnimation.reset();
+    }
+
     if (screenMode !== 'game') return;
 
     if (feedbackTimer > 0) feedbackTimer -= dt;
@@ -321,12 +359,41 @@ const engine = new GameEngine({
     ctx.fillStyle = '#0a0a1a';
     ctx.fillRect(0, 0, w, h);
 
+    // 카메라 미러 피드 렌더링 (활성화 시 35% 디밍 포함)
+    if (cameraLayer.isActive) {
+      cameraLayer.render(ctx, w, h);
+    }
+
+    // 스켈레톤 시각화 (포즈 인식 시 메뉴 및 인게임 전체에서 렌더링)
+    if (poseManager.hasPose && skeletonAnimation.smoothedLandmarks.length > 0) {
+      const scaleX = w / canvasManager.virtualWidth;
+      const scaleY = h / canvasManager.virtualHeight;
+      ctx.save();
+      ctx.scale(scaleX, scaleY);
+      boneRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, 1);
+      jointRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, skeletonAnimation.breathScale);
+      ctx.restore();
+    }
+
     if (screenMode === 'menu') {
       menuRenderer.render(ctx, w, h, {
         unlockedChapter,
         stars: starsMap,
         selectedChapter: 0,
       });
+
+      // 카메라 상태 안내 오버레이 (대기 중 또는 권한 거부 시 안내)
+      if (cameraLayer.status === 'requesting') {
+        ctx.fillStyle = '#28E6FF';
+        ctx.font = `bold ${Math.min(16, w * 0.028)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('📷 카메라 권한 요청 중... 브라우저에서 허용을 눌러주세요', w / 2, h * 0.88);
+      } else if (cameraLayer.status === 'denied') {
+        ctx.fillStyle = '#FF8844';
+        ctx.font = `bold ${Math.min(15, w * 0.026)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠️ 카메라 권한 차단됨 (1~5번 키 또는 화면 클릭으로 플레이 가능)', w / 2, h * 0.88);
+      }
     } else if (screenMode === 'game') {
       renderDreamGrid(ctx, w, h, 0.016);
       hudLayer.render(ctx, w, h, getHUDData());
@@ -340,6 +407,11 @@ const engine = new GameEngine({
 
 // ─── 이벤트 ───
 canvas.addEventListener('click', (e) => {
+  // 브라우저 사용자 제스처 시 카메라 미시작 상태면 자동 재요청
+  if (!cameraLayer.isActive && cameraLayer.status !== 'requesting') {
+    ensureCameraStarted().catch(() => {});
+  }
+
   const rect = canvas.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) return;
   const x = (e.clientX - rect.left) / rect.width * canvas.width;
@@ -370,6 +442,14 @@ canvas.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() === 'c') {
+    if (cameraLayer.isActive) {
+      cameraLayer.stop();
+    } else {
+      ensureCameraStarted().catch(() => {});
+    }
+  }
+
   if (screenMode === 'game') {
     if (e.key === '1') handleAnswer(0);
     if (e.key === '2') handleAnswer(1);
@@ -390,6 +470,8 @@ async function bootstrap(): Promise<void> {
   console.log(`[DG] Canvas: ${canvas.width}x${canvas.height}`);
   await loadQuestions();
   engine.start();
+  // 첫 메뉴 화면부터 웹캠 피드 및 포즈 추적 즉시 시작
+  ensureCameraStarted().catch(() => {});
   console.log('[DG] Ready! 챕터를 클릭하거나 1~5 키를 눌러 시작');
 }
 

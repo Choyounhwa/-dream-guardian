@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_CONFIG } from '../../src/core/Config.js';
+import { DEFAULT_CONFIG, RESOLUTION_18_9 } from '../../src/core/Config.js';
 import type { GameState, GameConfig, ISystem, IStateHandler, EventMap } from '../../src/types/index.js';
 
 describe('Architecture Test', () => {
@@ -37,8 +37,12 @@ describe('Architecture Test', () => {
     expect(DEFAULT_CONFIG.input.edgeWeight).toBe(0.75);
   });
 
-  it('DEFAULT_CONFIG 가상 해상도가 정의되어 있다', () => {
-    expect(DEFAULT_CONFIG.render.virtualWidth).toBe(1920);
-    expect(DEFAULT_CONFIG.render.virtualHeight).toBe(1080);
+  it('DEFAULT_CONFIG 18:9 가상 해상도가 정의되어 있다', () => {
+    expect(DEFAULT_CONFIG.render.virtualWidth).toBe(1080);
+    expect(DEFAULT_CONFIG.render.virtualHeight).toBe(2160);
+    expect(RESOLUTION_18_9.portrait.virtualWidth).toBe(1080);
+    expect(RESOLUTION_18_9.portrait.virtualHeight).toBe(2160);
+    expect(RESOLUTION_18_9.landscape.virtualWidth).toBe(2160);
+    expect(RESOLUTION_18_9.landscape.virtualHeight).toBe(1080);
   });
 });

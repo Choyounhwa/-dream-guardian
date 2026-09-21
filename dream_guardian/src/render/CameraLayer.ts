@@ -65,19 +65,52 @@ export class CameraLayer {
     this._status = 'requesting';
 
     try {
-      this._stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'user',
-          width: { ideal: this._width },
-          height: { ideal: this._height },
-        },
-        audio: false,
-      });
+      try {
+        this._stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width: { ideal: this._width },
+            height: { ideal: this._height },
+          },
+          audio: false,
+        });
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'NotAllowedError') throw e;
+        // 해상도 제약 조건 실패 시 기본 비디오 스트림으로 fallback
+        this._stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
 
       this._video = document.createElement('video');
       this._video.srcObject = this._stream;
       this._video.setAttribute('playsinline', '');
+      this._video.setAttribute('webkit-playsinline', '');
       this._video.muted = true;
+      this._video.autoplay = true;
+
+      // DOM에 미부착 시 브라우저가 프레임을 공급하지 않거나 일시정지하는 현상 방지
+      if (typeof document !== 'undefined' && document.body) {
+        this._video.style.position = 'fixed';
+        this._video.style.top = '-9999px';
+        this._video.style.left = '-9999px';
+        this._video.style.width = '1px';
+        this._video.style.height = '1px';
+        this._video.style.opacity = '0.001';
+        this._video.style.pointerEvents = 'none';
+        document.body.appendChild(this._video);
+      }
+
+      if (this._video.readyState < 2) {
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, 2000);
+          this._video!.onloadedmetadata = () => {
+            clearTimeout(timeout);
+            resolve();
+          };
+        });
+      }
 
       await this._video.play();
       this._status = 'active';
@@ -104,29 +137,72 @@ export class CameraLayer {
     }
     if (this._video) {
       this._video.srcObject = null;
+      if (this._video.parentElement) {
+        this._video.parentElement.removeChild(this._video);
+      }
       this._video = null;
     }
     this._status = 'idle';
   }
 
   /**
+   * 비디오의 캔버스 렌더링 스케일 및 오프셋 정보 반환 (Cover 모드)
+   */
+  getVideoTransform(canvasWidth: number, canvasHeight: number): {
+    dw: number;
+    dh: number;
+    cx: number;
+    cy: number;
+    scale: number;
+  } {
+    const vW = this._video?.videoWidth || this._width;
+    const vH = this._video?.videoHeight || this._height;
+    const scale = Math.max(canvasWidth / vW, canvasHeight / vH);
+    return {
+      dw: vW * scale,
+      dh: vH * scale,
+      cx: canvasWidth / 2,
+      cy: canvasHeight / 2,
+      scale,
+    };
+  }
+
+  /**
+   * 정규화 랜드마크(0~1)를 카메라 뷰포트(Cover + 미러) 캔버스 좌표로 1:1 변환
+   */
+  landmarkToCanvas(
+    lm: { x: number; y: number },
+    canvasWidth: number,
+    canvasHeight: number
+  ): { x: number; y: number } {
+    const { dw, dh, cx, cy } = this.getVideoTransform(canvasWidth, canvasHeight);
+    return {
+      x: this._mirror ? cx + (0.5 - lm.x) * dw : cx + (lm.x - 0.5) * dw,
+      y: cy + (lm.y - 0.5) * dh,
+    };
+  }
+
+  /**
    * 캔버스에 미러 웹캠 피드 + 디밍 렌더링
+   * 비디오 원본 비율을 유지하는 중앙 정렬 Cover 스케일 적용
    * 카메라가 꺼져 있으면 아무것도 그리지 않음
    */
   render(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number): void {
     if (!this._video || this._status !== 'active') return;
     if (!this._video.readyState || this._video.readyState < 2) return;
 
+    const { dw, dh, cx, cy } = this.getVideoTransform(canvasWidth, canvasHeight);
+
     ctx.save();
+    ctx.translate(cx, cy);
 
     if (this._mirror) {
       // 좌우 반전 (미러)
-      ctx.translate(canvasWidth, 0);
       ctx.scale(-1, 1);
     }
 
-    // 비디오를 캔버스에 꽉 채워 그리기
-    ctx.drawImage(this._video, 0, 0, canvasWidth, canvasHeight);
+    // 중앙 기준 Cover 드로잉
+    ctx.drawImage(this._video, -dw / 2, -dh / 2, dw, dh);
 
     ctx.restore();
 

@@ -16,7 +16,7 @@ function element(id) {
 }
 class FakePose { constructor(){this.cb=null;} setOptions(){} onResults(cb){this.cb=cb;} send(){return Promise.resolve();} }
 class FakeHands { constructor(){this.cb=null;} setOptions(){} onResults(cb){this.cb=cb;} send(){return Promise.resolve();} }
-const sandbox = {console, Pose:FakePose, Hands:FakeHands, HTMLMediaElement:{HAVE_METADATA:1}, MotionInput:require('./motion-input.js'), ZoneInput:require('./zone-input.js'), AnswerSelection:require('./answer-selection.js'), MenuInput:require('./menu-input.js'), QuestionSpeech:require('./question-speech.js'), performance:{now:()=>1000},
+const sandbox = {console, Pose:FakePose, Hands:FakeHands, HTMLMediaElement:{HAVE_METADATA:1}, MotionInput:require('./motion-input.js'), ZoneInput:require('./zone-input.js'), AnswerSelection:require('./answer-selection.js'), MenuInput:require('./menu-input.js'), QuestionEvaluator:require('./question-evaluator.js'), QuestionSpeech:require('./question-speech.js'), performance:{now:()=>1000},
     document:{getElementById:element,addEventListener:noop,hidden:false},
     window:{AudioContext:class {},addEventListener:(type,fn)=>{events['window:'+type]=fn;},isSecureContext:false},
     navigator:{}, localStorage:{getItem:()=>null,setItem:noop},
@@ -96,6 +96,8 @@ vm.runInContext(`
     stateTimer = 0.8; updateGuardianBattle();
     stateTimer = 1.8; updateGuardianBattle();
     if (gameState !== 'ending_cutscene' || bossHp !== 0) throw Error('final spell must trigger ending');
+    gameState='running'; bossAttackCooldown=0; bossAttackActive=false; updateBossAttack(.1);
+    if (!bossAttackActive || bossAttackTimer !== 2.5) throw Error('boss dodge attack did not start');
 `,sandbox);
 // Exercise the actual input listeners without a camera or pose callback.
 for (const input of ['space','click','jump']) {
@@ -120,7 +122,7 @@ vm.runInContext(`
 assert.doesNotMatch(html,/id="(?:btn_camera|camera_panel|btn_start_camera|btn_touch_mode)"/);
 assert.doesNotMatch(html,/drawMotionGuidePictogram|drawAnswerOrb|questionMode/);
 assert.doesNotMatch(html,/btn_speak_question|btn_toggle_speech|question_hint|fillText\("VS"/);
-assert.match(html,/hands\/hands\.js/,'hand tracker loaded separately from Pose');
+assert.match(html,/hands@[^"/]+\/hands\.js/,'hand tracker loaded separately from Pose');
 assert.match(html,/normalizePoseLandmarks/,'Pose visibility normalization enabled');
 assert.match(html,/poseMissCount >= 12/,'single empty Pose frame cannot erase skeleton');
 assert.match(html,/lastVideoTime = videoElement\.currentTime/,'Pose receives each new video frame');

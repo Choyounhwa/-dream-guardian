@@ -108,6 +108,30 @@ describe('QuestionBank', () => {
     bank.setLevel(99);
     expect(bank.poolSize).toBeGreaterThan(0);
   });
+
+  it('풀 크기 5인 상태에서 20회 next() 호출 시 연속 동일 템플릿 0회', () => {
+    const bank = new QuestionBank();
+    const records: QuestionRecord[] = [
+      { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T1', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T2', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T3', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T4', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T5', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+    ];
+    bank.loadRecords(records);
+    bank.setLevel(1);
+
+    let consecutiveDuplicates = 0;
+    let prevTemplate = '';
+    for (let i = 0; i < 20; i++) {
+      const q = bank.next();
+      if (q.questionTemplate === prevTemplate) {
+        consecutiveDuplicates++;
+      }
+      prevTemplate = q.questionTemplate;
+    }
+    expect(consecutiveDuplicates).toBe(0);
+  });
 });
 
 // ═══════════════════════════════════
@@ -215,6 +239,96 @@ describe('QuestionEvaluator - generateQuestion', () => {
     const q = generateQuestion(record);
     expect(q).not.toBeNull();
     expect(q!.correctAnswer).not.toBe(q!.wrongAnswer);
+  });
+
+  it('문자열 정답 문제(비교, 분수, 이진법)를 올바르게 생성한다', () => {
+    // 비교 연산자 문제
+    const qCompare: QuestionRecord = {
+      level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '',
+      questionTemplate: '{A} + {B} [ ? ] {C}',
+      answerEval: "(A+B)>C?'>':((A+B)<C?'<':'=')",
+      wrongEval: "(A+B)>C?'<':'>'",
+      varA: '5', varB: '3', varC: '6', varD: '0', shapeCode: '',
+    };
+    const resCompare = generateQuestion(qCompare);
+    expect(resCompare).not.toBeNull();
+    expect(resCompare!.correctAnswer).toBe('>');
+    expect(resCompare!.wrongAnswer).toBe('<');
+    expect(resCompare!.choices).toContain('>');
+    expect(resCompare!.choices).toContain('<');
+
+    // 분수 문제
+    const qFraction: QuestionRecord = {
+      level: 3, subLevel: 1, levelTitle: '', subLevelTitle: '',
+      questionTemplate: '{A}/{C} 와 {B}/{C} 중 큰 수는?',
+      answerEval: "A>B? A+'/'+C : B+'/'+C",
+      wrongEval: "A<B? A+'/'+C : B+'/'+C",
+      varA: '3', varB: '2', varC: '5', varD: '0', shapeCode: '',
+    };
+    const resFraction = generateQuestion(qFraction);
+    expect(resFraction).not.toBeNull();
+    expect(resFraction!.correctAnswer).toBe('3/5');
+    expect(resFraction!.wrongAnswer).toBe('2/5');
+
+    // 이진법 문제
+    const qBinary: QuestionRecord = {
+      level: 6, subLevel: 1, levelTitle: '', subLevelTitle: '',
+      questionTemplate: '10진수 {B}를 2진수로 나타내면?',
+      answerEval: "Number(B).toString(2) + '₍₂₎'",
+      wrongEval: "Number(B+1).toString(2) + '₍₂₎'",
+      varA: '0', varB: '5', varC: '0', varD: '0', shapeCode: '',
+    };
+    const resBinary = generateQuestion(qBinary);
+    expect(resBinary).not.toBeNull();
+    expect(resBinary!.correctAnswer).toBe('101₍₂₎');
+    expect(resBinary!.wrongAnswer).toBe('110₍₂₎');
+  });
+
+  it('VarC, VarD 종속 변수를 순차적으로 평가한다', () => {
+    const qDependent: QuestionRecord = {
+      level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '',
+      questionTemplate: '{A} + [ ? ] = {C}',
+      answerEval: 'C - A',
+      wrongEval: 'C - A + 1',
+      varA: '7', varB: '3', varC: 'A + B', varD: '0', shapeCode: '',
+    };
+    const res = generateQuestion(qDependent);
+    expect(res).not.toBeNull();
+    expect(res!.questionText).toBe('7 + [ ? ] = 10');
+    expect(res!.correctAnswer).toBe(3);
+  });
+
+  it('복합 템플릿 표현식({A*B}, {repeatAdd}, {sup})을 평가하여 치환한다', () => {
+    const qComplex: QuestionRecord = {
+      level: 2, subLevel: 1, levelTitle: '', subLevelTitle: '',
+      questionTemplate: '{A*B} ÷ {A} = ?',
+      answerEval: 'B', wrongEval: 'B+1',
+      varA: '4', varB: '6', varC: '0', varD: '0', shapeCode: '',
+    };
+    const res = generateQuestion(qComplex);
+    expect(res).not.toBeNull();
+    expect(res!.questionText).toBe('24 ÷ 4 = ?');
+    expect(res!.correctAnswer).toBe(6);
+
+    const qRepeatAdd: QuestionRecord = {
+      level: 2, subLevel: 1, levelTitle: '', subLevelTitle: '',
+      questionTemplate: '{repeatAdd(A, B)} = ?',
+      answerEval: 'A*B', wrongEval: 'A*B+A',
+      varA: '3', varB: '4', varC: '0', varD: '0', shapeCode: '',
+    };
+    const resRepeat = generateQuestion(qRepeatAdd);
+    expect(resRepeat).not.toBeNull();
+    expect(resRepeat!.questionText).toBe('3 + 3 + 3 + 3 = ?');
+
+    const qSup: QuestionRecord = {
+      level: 5, subLevel: 1, levelTitle: '', subLevelTitle: '',
+      questionTemplate: '{A}{sup(B)} = ?',
+      answerEval: 'Math.pow(A, B)', wrongEval: 'A*B',
+      varA: '2', varB: '3', varC: '0', varD: '0', shapeCode: '',
+    };
+    const resSup = generateQuestion(qSup);
+    expect(resSup).not.toBeNull();
+    expect(resSup!.questionText).toBe('2³ = ?');
   });
 });
 

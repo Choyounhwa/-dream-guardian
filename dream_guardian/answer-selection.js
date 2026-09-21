@@ -2,6 +2,8 @@
 (function(root){
   const HOLD_SECONDS=1;
   const CONFIDENCE=.55;
+  const NEUTRAL={x:.5,y:.5};
+  const CALIBRATION_SECONDS=.4;
   const CURSORS={
     leftHand:{label:'왼손',color:'#28E6FF',shape:'circle'},
     rightHand:{label:'오른손',color:'#FFCB4D',shape:'circle'},
@@ -32,11 +34,18 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const valid=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&(p.vis??1)>=CONFIDENCE;
   const mid=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2,vis:Math.min(a.vis,b.vis)});
-  function markers(points,palms={}){
-    if(!valid(points?.[15])||!valid(points?.[16])||!valid(points?.[11])||!valid(points?.[12])||!valid(points?.[23])||!valid(points?.[24]))return null;
-    return {leftHand:valid(palms.leftHand)?palms.leftHand:points[15],rightHand:valid(palms.rightHand)?palms.rightHand:points[16],shoulder:mid(points[11],points[12]),hip:mid(points[23],points[24])};
+  function sourcePoint(part,points,palms,sources){
+    const palm=palms[part];
+    if(sources?.[part]==='palm')return valid(palm)?palm:null;
+    return points[part==='leftHand'?15:16];
   }
-  function torso(points,palms){const m=markers(points,palms);if(!m)return 0;return Math.hypot(m.shoulder.x-m.hip.x,m.shoulder.y-m.hip.y);}
+  function markers(points,palms={},sources){
+    if(!valid(points?.[15])||!valid(points?.[16])||!valid(points?.[11])||!valid(points?.[12])||!valid(points?.[23])||!valid(points?.[24]))return null;
+    const leftHand=sourcePoint('leftHand',points,palms,sources),rightHand=sourcePoint('rightHand',points,palms,sources);
+    if(!valid(leftHand)||!valid(rightHand))return null;
+    return {leftHand,rightHand,shoulder:mid(points[11],points[12]),hip:mid(points[23],points[24])};
+  }
+  function torso(points,palms,sources){const m=markers(points,palms,sources);if(!m)return 0;return Math.hypot(m.shoulder.x-m.hip.x,m.shoulder.y-m.hip.y);}
   function board(width,height){return{x:0,y:0,w:width,h:height};}
   function rect(id,width,height){const b=board(width,height),z=ZONES.find(z=>z.id===id);return{x:b.x+z.x*b.w,y:b.y+z.y*b.h,w:z.w*b.w,h:z.h*b.h};}
   function contains(z,p,inset=.025){return p&&p.x>=z.x+inset&&p.x<z.x+z.w-inset&&p.y>=z.y+inset&&p.y<z.y+z.h-inset;}
@@ -69,8 +78,8 @@
       if(!activeZoneIds)continue;
       const leftCorrect=random()>.5;
       return [
-        {side:'left',text:leftCorrect?question.c:question.w,isCorrect:leftCorrect,requirements:a.map(part=>({part})),activeZoneIds,dwell:0},
-        {side:'right',text:leftCorrect?question.w:question.c,isCorrect:!leftCorrect,requirements:b.map(part=>({part})),activeZoneIds,dwell:0}
+        {side:'left',text:leftCorrect?question.c:question.w,isCorrect:leftCorrect,isFullBody:true,requirements:a.map(part=>({part})),activeZoneIds,dwell:0},
+        {side:'right',text:leftCorrect?question.w:question.c,isCorrect:!leftCorrect,isFullBody:true,requirements:b.map(part=>({part})),activeZoneIds,dwell:0}
       ];
     }
     throw new Error('Unable to allocate unique answer zones');
@@ -94,12 +103,12 @@
     return count===1?[7]:[4,7];
   }
   function controlMarkers(points,baseline,palms){
-    const now=markers(points,palms),start=markers(baseline.points,baseline.palms);if(!now||!start||!baseline.torso)return null;
+    const now=markers(points,palms,baseline.sources),start=markers(baseline.points,baseline.palms,baseline.sources);if(!now||!start||!baseline.torso)return null;
     const gain={leftHand:[.72,.72],rightHand:[.72,.72],shoulder:[.32,.28],hip:[.34,.34]};
     const result={};
     for(const key of Object.keys(CURSORS)){
       const g=gain[key],p=now[key],s=start[key];
-      result[key]={x:clamp(.5+(p.x-s.x)/(baseline.torso*g[0]*2),0,1),y:clamp(.62+(p.y-s.y)/(baseline.torso*g[1]*2),0,1),vis:p.vis};
+      result[key]={x:clamp(NEUTRAL.x+(p.x-s.x)/(baseline.torso*g[0]*2),0,1),y:clamp(NEUTRAL.y+(p.y-s.y)/(baseline.torso*g[1]*2),0,1),vis:p.vis};
     }
     // Shoulder recipes can be answered with either shoulder. Use the shoulder that moved
     // farther from its own baseline while retaining one purple cursor and one input value.
@@ -108,15 +117,15 @@
     const side=distances[0]>=distances[1]?0:1;
     const sg=gain.shoulder;
     result.shoulder={
-      x:clamp(.5+(currentShoulders[side].x-startShoulders[side].x)/(baseline.torso*sg[0]*2),0,1),
-      y:clamp(.62+(currentShoulders[side].y-startShoulders[side].y)/(baseline.torso*sg[1]*2),0,1),
+      x:clamp(NEUTRAL.x+(currentShoulders[side].x-startShoulders[side].x)/(baseline.torso*sg[0]*2),0,1),
+      y:clamp(NEUTRAL.y+(currentShoulders[side].y-startShoulders[side].y)/(baseline.torso*sg[1]*2),0,1),
       vis:currentShoulders[side].vis,shoulderIndex:side===0?11:12
     };
     return result;
   }
   class Gate{
     constructor(){this.reset();}
-    reset(){this.baseline=null;this.previous=null;this.selected=null;this.held=0;this.controls=null;}
+    reset(){this.baseline=null;this.previous=null;this.selected=null;this.held=0;this.controls=null;this.calibration=null;}
     interrupt(){this.reset();}
     update(points,dt,locked,options,palms={}){
       options.forEach(o=>o.dwell=0);
@@ -124,12 +133,18 @@
       const m=markers(points,palms),t=torso(points,palms);
       if(!m||t<10){this.reset();return{hint:'손·어깨·골반이 보이도록 서세요',choice:null};}
       if(!this.baseline){
-        // The first reliable frame after the question lock is the neutral calibration.
-        // No separate ready pose is required.
-        this.baseline={points:points.map(p=>p&&({...p})),palms:{...palms},torso:t};
-        return{hint:'색상과 같은 커서를 피트니스존으로 이동',choice:null};
+        const sources={leftHand:valid(palms.leftHand)?'palm':'wrist',rightHand:valid(palms.rightHand)?'palm':'wrist'};
+        const current=markers(points,palms,sources);
+        if(!this.calibration){this.calibration={points:points.map(p=>p&&({...p})),palms:{...palms},torso:t,sources,markers:current,held:0};return{hint:'가운데에서 잠시 멈춰 기준 자세를 잡으세요',choice:null};}
+        const movement=Math.max(...Object.keys(current).map(key=>Math.hypot(current[key].x-this.calibration.markers[key].x,current[key].y-this.calibration.markers[key].y)));
+        if(movement>this.calibration.torso*.08){this.calibration={points:points.map(p=>p&&({...p})),palms:{...palms},torso:t,sources,markers:current,held:0};return{hint:'가운데에서 잠시 멈춰 기준 자세를 잡으세요',choice:null};}
+        this.calibration.held+=Math.min(dt,.15);
+        if(this.calibration.held<CALIBRATION_SECONDS)return{hint:'가운데에서 잠시 멈춰 기준 자세를 잡으세요',choice:null};
+        this.baseline=this.calibration;
+        return{hint:'가상 이동 커서를 피트니스존으로 이동',choice:null};
       }
       this.controls=controlMarkers(points,this.baseline,palms);
+      if(!this.controls){this.selected=null;this.held=0;this.engagedZoneIds=[];return{hint:'손 인식을 다시 기다리는 중입니다',choice:null};}
       const active=[];
       for(const option of options){
         const mapping=findRequirementMapping(option.requirements.map(req=>req.part),option.activeZoneIds,this.controls);
@@ -174,6 +189,6 @@
     return [...out];
   }
   function requiredParts(options){return [...new Set(options.flatMap(o=>o.requirements.map(r=>r.part)))];}
-  const api={CURSORS,ZONES,RECIPES,HOLD_SECONDS,Gate,board,rect,contains,choices,controlMarkers,markers,zoneCenter,requiredParts,HIP_ZONES,SHOULDER_ZONES,buildActiveZones,findRequirementMapping,engagedZones};
+  const api={CURSORS,ZONES,RECIPES,HOLD_SECONDS,NEUTRAL,CALIBRATION_SECONDS,Gate,board,rect,contains,choices,controlMarkers,markers,zoneCenter,requiredParts,HIP_ZONES,SHOULDER_ZONES,canPartUseZone,buildActiveZones,findRequirementMapping,engagedZones};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.AnswerSelection=api;
 })(typeof globalThis!=='undefined'?globalThis:window);

@@ -1,6 +1,6 @@
 /* The menu cursor is the midpoint of two joined existing hand markers. */
 (function(root) {
-    function valid(p){return p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&(p.visibility??1)>=.5;}
+    function valid(p){return p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&(p.vis??p.visibility??1)>=.5;}
     function joinedCursor(screenPoints){
         const sl=screenPoints?.[11],sr=screenPoints?.[12],wl=screenPoints?.[15],wr=screenPoints?.[16];
         if(!valid(sl)||!valid(sr)||!valid(wl)||!valid(wr))return null;

@@ -14,6 +14,7 @@ for(let n=0;n<100;n++){
   assert.equal(new Set(a.activeZoneIds).size,a.activeZoneIds.length,'active zones are unique');
   assert.equal(new Set(A.requiredParts([a,b])).size,A.requiredParts([a,b]).length,'required cursor list is unique');
   for(const option of [a,b]){
+    assert.equal(option.isFullBody,true,'pose-selected options are accepted by the game input guard');
     assert.ok(A.findRequirementMapping(option.requirements.map(r=>r.part),option.activeZoneIds,
       Object.fromEntries(option.requirements.map((r,i)=>[r.part,{x:A.zoneCenter(option.activeZoneIds[i]).x,y:A.zoneCenter(option.activeZoneIds[i]).y,vis:1}])))!==null,'answer fits shared zones');
     for(const r of option.requirements){
@@ -24,12 +25,17 @@ for(let n=0;n<100;n++){
   const required=A.requiredParts([a,b]);
   assert.equal(required.length,new Set(required).size,'fitness board renders each required cursor once');
 }
+const [renderLeft,renderRight]=A.choices({c:'7',w:'9'},rng());
+for(const option of [renderLeft,renderRight])for(const zoneId of option.activeZoneIds){
+  assert.ok(option.requirements.some(req=>A.canPartUseZone(req.part,zoneId)),'every active zone has a compatible rendered cursor');
+}
 const options=[{side:'left',requirements:[{part:'leftHand'}],activeZoneIds:[1],dwell:0},{side:'right',requirements:[{part:'rightHand'}],activeZoneIds:[3],dwell:0}];
 const gate=new A.Gate();
 for(let i=0;i<8;i++)gate.update(base(),.1,false,options);
 assert.ok(gate.baseline,'neutral calibration');
+assert.deepEqual(A.NEUTRAL,{x:.5,y:.5},'virtual cursors start at the visual center');
 const moved=base();
-// leftHand's control starts at x=.5,y=.62. Move up-left to zone 1.
+// leftHand's virtual control starts at the board center. Move up-left to zone 1.
 moved[15]={x:160,y:110,vis:1};
 for(let i=0;i<9;i++)gate.update(moved,.1,false,options);
 assert.equal(options[0].dwell,0,'wrong cursor movements do not fill required zone');
@@ -38,6 +44,13 @@ const z=A.ZONES.find(z=>z.id===1),center=A.zoneCenter(1),t=A.torso?A.torso:120;
 // Direct control-mapping test covers exact cursor geometry independently.
 const control=A.controlMarkers(base(),{points:base(),torso:120});
 assert.ok(control.leftHand&&control.rightHand&&control.shoulder&&control.hip);
+assert.equal(control.leftHand.y,.5,'neutral hand cursor starts at the board center');
 assert.equal(A.contains(z,{x:center.x,y:center.y,vis:1}),true);
 assert.equal(A.contains(z,{x:z.x+z.w,y:center.y,vis:1}),false,'half-open border cannot overlap');
+const palmBase=base(),palms={leftHand:{x:250,y:290,vis:1},rightHand:{x:350,y:290,vis:1}};
+const palmGate=new A.Gate();
+for(let i=0;i<6;i++)palmGate.update(palmBase,.1,false,options,palms);
+assert.equal(palmGate.baseline.sources.leftHand,'palm','baseline fixes the available hand source');
+const missingPalm=palmGate.update(palmBase,.1,false,options,{});
+assert.match(missingPalm.hint,/손 인식/,'missing fixed palm does not fall back to a shifted wrist cursor');
 console.log('PASS: equal color counts, disjoint 1-10 requirements, hip lower constraints, calibration, control geometry');
