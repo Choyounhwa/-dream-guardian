@@ -633,7 +633,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/111
 - **Labels**: `enhancement`, `phase-7`, `P2-medium`
 - **작업 ID**: `[GRID-DEPTH-001]`
-- **상태**: 🟡 **진행 중 (In Progress)**
+- **상태**: ✅ **완료 (Closed)**
 - **목적**:
   - 소실점 중심의 직선 집중으로 인한 시각적 어색함을 해소하고, 화면 중앙부 이후로 자연스럽게 사라지는 원근 심도 감쇠(Depth Fog Fadeout)를 구현한다.
   - 그리드 기본 투명도를 30% 수준으로 상향하여 네온 와이어프레임의 시인성을 확보한다.
