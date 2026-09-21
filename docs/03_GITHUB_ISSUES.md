@@ -627,4 +627,82 @@
   - `dream_guardian/src/main.ts`
   - `dream_guardian/tests/unit/pose-manager.test.ts`
 
+---
+
+### Issue #111 (Card #38): [GRID-DEPTH-001] 3D 드림 그리드 소실점 심도 페이드아웃 및 투명도(30%) 가시성 개선
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/111
+- **Labels**: `enhancement`, `phase-7`, `P2-medium`
+- **작업 ID**: `[GRID-DEPTH-001]`
+- **상태**: 🟡 **진행 중 (In Progress)**
+- **목적**:
+  - 소실점 중심의 직선 집중으로 인한 시각적 어색함을 해소하고, 화면 중앙부 이후로 자연스럽게 사라지는 원근 심도 감쇠(Depth Fog Fadeout)를 구현한다.
+  - 그리드 기본 투명도를 30% 수준으로 상향하여 네온 와이어프레임의 시인성을 확보한다.
+- **수정 대상**:
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
+- **구현 내용**:
+  1. 소실점 심도 감쇠 (Depth Fog Fadeout):
+     - 소실점 `(vx, vy)` 반경 일정 거리(화면 중앙부 기준) 이내의 선들이 자연스럽게 투명해지는 소프트 감쇠 마스크/알파 계산 적용
+     - 세로선이 날카로운 단일 점으로 뭉치지 않고 지평선 안개처럼 자연스럽게 소멸하도록 드로잉 범위 보정
+  2. 투명도 및 선명도 개선:
+     - 기본 alpha를 0.30(30%)으로 상향 조정
+     - 챕터별 테마 네온 컬러가 선명하게 돋보이도록 바닥/천장 알파 및 선명도 튜닝
+  3. 단위 테스트 보강:
+     - 투명도 30% 설정 및 심도 페이드 계산 무결성 검증
+- **유지 사항**:
+  - 가로/세로 정방형(Square Proportion) 격자 간격 계산 공식
+  - 기존 18개 테스트 파일 221개 테스트 100% Pass 유지
+- **변경 금지**:
+  - 전투 시스템 및 보스 프로시저럴 드로잉 로직
+  - 문제 출제 및 TTS 로직
+- **완료 조건**:
+  - [ ] 그리드 소실점 부근이 날카롭게 모이지 않고 화면 중앙부 너머로 부드럽게 사라짐
+  - [ ] 그리드 색상이 30% 투명도로 뚜렷하게 관찰됨
+  - [ ] `npm test` 100% 통과 및 `npm run build` 정상 완료
+- **테스트 방법**:
+  - `npm test` Vitest 단위 테스트 통과
+  - `http://localhost:3000/` 에서 인게임 진입 시 배경 그리드 심도 및 선명도 육안 확인
+- **관련 파일**:
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
+
+---
+
+### Issue #112 (Card #39): [RUN-LOOP-001] 제자리 달리기 페이즈 인게임 루프 연동 및 드림 그리드 동적 반응 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/112
+- **Labels**: `feature`, `phase-3`, `P1-high`
+- **작업 ID**: `[RUN-LOOP-001]`
+- **상태**: ⚪ **대기 (Ready)**
+- **목적**:
+  - 제자리 달리기 감지기(RunDetector) 및 키보드 Space 입력을 인게임 루프에 연결하여, 달리기 진행도에 따라 다음 문제로 이동하는 게임 사이클을 확립한다.
+  - 달리기 속도에 맞춰 그리드 스크롤 가속 및 피버(75% 이상) 시 파란색 보간 전환 연출을 완성한다.
+- **수정 대상**:
+  - `dream_guardian/src/motion/RunDetector.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/motion-detectors.test.ts`
+- **구현 내용**:
+  1. 달리기 게이지 및 전환 루프:
+     - 문제 풀이 전 달리기 페이즈 실행 (게이지 0 -> 100 충전 시 문제 출제)
+     - 웹캠 어깨 바운스 감지 및 PC 디버깅용 Space 연타로 게이지 충전 지원
+  2. 드림 그리드 동적 연출:
+     - 달리기 속도에 따른 DreamGrid 스크롤 속도 비례 증가
+     - 기본 테마 색상 → 달리기 중 주황색 → 게이지 75% 이상 피버 시 파란색 동적 그라데이션 보간
+  3. 단위 테스트 검증:
+     - 게이지 충전 및 상태 전환, 속도 가속 배율 검증
+- **유지 사항**:
+  - 기존 포즈 인식 및 스켈레톤 렌더 파이프라인
+  - 보스 체력 및 마나 시스템
+- **완료 조건**:
+  - [ ] 제자리 달리기(또는 Space)로 게이지가 차오르고 100% 도달 시 문제 출제
+  - [ ] 달리기 시 그리드 스크롤이 빨라지고 색상이 주황/파랑으로 자연스럽게 전환
+  - [ ] `npm test` 100% 통과 및 `npm run build` 정상 완료
+- **테스트 방법**:
+  - `http://localhost:3000/` 에서 제자리 달리기 동작 및 그리드 색상 전환 확인
+- **관련 파일**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/src/motion/RunDetector.ts`
+
+
 
