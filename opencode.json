@@ -20,9 +20,23 @@
     "wbs": {
       "path": "docs/02_WORK_BREAKDOWN_STRUCTURE.md",
       "description": "WBS 작업 분할 구조 및 단계별 마일스톤"
+    },
+    "questions": {
+      "path": "E:/AIAIAIAIAI/Arithmetic Game/questions.csv",
+      "description": "전체 수학 문제 원본 CSV 데이터 (685문항, Level 1~9)"
     }
   },
   "permission": {
-    "bash": "ask"
+    "bash": {
+      "*": "ask",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git branch*": "allow",
+      "git show*": "allow",
+      "gh issue list*": "allow",
+      "gh issue view*": "allow",
+      "gh issue status*": "allow"
+    }
   }
 }

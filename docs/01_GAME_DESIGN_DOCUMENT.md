@@ -139,7 +139,7 @@
 
 ### 3.4 문제 출제 시스템
 
-**데이터 소스**: `questions.csv` 
+**데이터 소스**: `questions.csv` (원본: `E:\AIAIAIAIAI\Arithmetic Game\questions.csv`)
 - 12컬럼 CSV: Level, SubLevel, LevelTitle, SubLevelTitle, QuestionTemplate, AnswerEval, WrongEval, VarA~VarD, ShapeCode
 - Ch.1~4: 해당 레벨 필터링
 - Ch.5 (나이트메어): 전 레벨 랜덤 혼합

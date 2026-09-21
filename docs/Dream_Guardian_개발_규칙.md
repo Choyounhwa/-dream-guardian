@@ -264,7 +264,7 @@ exit()
 
 ```text
 data/
-├─ questions.csv
+├─ questions.csv (원본 위치: E:\AIAIAIAIAI\Arithmetic Game\questions.csv)
 ├─ bossData.ts
 └─ levelData.ts
 ```

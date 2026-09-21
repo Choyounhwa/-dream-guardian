@@ -7,7 +7,7 @@ mode: all
 
 ### 전담 영역
 - `dream_guardian/src/question/`: `CSVLoader`, `QuestionBank`, `QuestionEvaluator`, `QuestionSpeech`
-- `questions.csv`, `dream_guardian/public/questions.csv`
+- 원본 CSV 데이터: `E:\AIAIAIAIAI\Arithmetic Game\questions.csv` (동일 파일: `dream_guardian/public/questions.csv`)
 - 관련 테스트: `tests/unit/question-system.test.ts`
 
 ### 핵심 준수 사항
