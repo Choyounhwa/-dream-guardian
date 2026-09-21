@@ -17,7 +17,67 @@ describe('AnswerSelector', () => {
     expect(CURSOR_COLORS.leftHand).toBe('#28E6FF');
     expect(CURSOR_COLORS.rightHand).toBe('#FFCB4D');
     expect(CURSOR_COLORS.shoulder).toBe('#C889FF');
+    expect(CURSOR_COLORS.head).toBe('#C889FF');
     expect(CURSOR_COLORS.hip).toBe('#FF865E');
+  });
+
+  it('머리/얼굴(head) 커서는 상단/측면 존(1,2,3,4,5,7)에서 동작하고 하단존(8,9,10)에서는 제한된다', () => {
+    const as = new AnswerSelector();
+    // 상단 존(id=2)에 머리 커서 → 유효
+    const topResult = as.update('head', 0.5, 0.15, 0.5);
+    expect(topResult).not.toBeNull();
+    expect(topResult!.zoneId).toBe(2);
+
+    // 하단 존(id=10)에 머리 커서 → null
+    const bottomResult = as.update('head', 0.5, 0.85, 0.5);
+    expect(bottomResult).toBeNull();
+  });
+
+  it('점증적 난이도 티어(Tier 1~4) 및 체류시간이 문제 번호에 따라 올바르게 전이된다', () => {
+    const as = new AnswerSelector();
+
+    // 문제 1~3: Tier 1 (웜업, 0.7초)
+    as.setQuestion(1);
+    expect(as.tierInfo.tier).toBe(1);
+    expect(as.dwellTime).toBeCloseTo(0.7);
+
+    as.setQuestion(3);
+    expect(as.tierInfo.tier).toBe(1);
+    expect(as.dwellTime).toBeCloseTo(0.7);
+
+    // 문제 4~7: Tier 2 (체간 스트레칭, 0.8초)
+    as.setQuestion(4);
+    expect(as.tierInfo.tier).toBe(2);
+    expect(as.dwellTime).toBeCloseTo(0.8);
+
+    // 문제 8~11: Tier 3 (전신 협응, 1.0초)
+    as.setQuestion(8);
+    expect(as.tierInfo.tier).toBe(3);
+    expect(as.dwellTime).toBeCloseTo(1.0);
+
+    // 문제 12+: Tier 4 (보스 피니시, 1.2초)
+    as.setQuestion(12);
+    expect(as.tierInfo.tier).toBe(4);
+    expect(as.dwellTime).toBeCloseTo(1.2);
+  });
+
+  it('두뇌 피로도 완충 룰: 긴 복합 문제일 경우 Tier 3/4가 Tier 2로 완화된다', () => {
+    const as = new AnswerSelector();
+    // 문제 10(기본 Tier 3)에서 isComplexQuestion=true
+    as.setQuestion(10, true);
+    expect(as.tierInfo.tier).toBe(2);
+    expect(as.dwellTime).toBeCloseTo(0.8);
+  });
+
+  it('Tier 1(0.7초) 설정 시 0.7초 체류로 확정된다', () => {
+    const as = new AnswerSelector();
+    as.setQuestion(1); // 0.7초
+    // 0.35초 체류
+    const r1 = as.update('leftHand', 0.2, 0.15, 0.35);
+    expect(r1!.confirmed).toBe(false);
+    // 추가 0.36초 체류 (합계 > 0.7초)
+    const r2 = as.update('leftHand', 0.2, 0.15, 0.36);
+    expect(r2!.confirmed).toBe(true);
   });
 
   it('커서가 존 안에 있으면 progress가 증가한다', () => {
