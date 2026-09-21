@@ -521,6 +521,23 @@
 
 ## 🚀 추가 작업 이슈 (Enhancements & Follow-up Issues)
 
+### Issue #107: [BUG-004] MediaPipe CDN 누락 및 CameraLayer 웹캠 피드 인게임 렌더 파이프라인 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/107
+- **Labels**: `step-6`, `bug`, `P1-high`
+- **Milestone**: `v0.3-vision-motion`
+- **작업 ID**: `[BUG-004]`
+- **상태**: ✅ **완료 (Closed)**
+- **목적**: MediaPipe CDN 확인, 상단 카메라 토글 UI 컨트롤 연동 및 렌더 파이프라인 안전성 확보
+- **수정 대상**: `dream_guardian/src/index.html`, `dream_guardian/src/main.ts`
+- **완료 조건**:
+  - [x] `src/index.html`에 MediaPipe Pose 0.5 CDN 정상 로드 및 Favicon 오류 방어
+  - [x] 상단 플로팅 컨트롤(`#top_controls`)에 `📷` 카메라 토글 및 `⛶` 전체화면 버튼 연동
+  - [x] 카메라 버튼 클릭 시 웹캠 정지/재생 및 아이콘 실시간 전환 확인
+  - [x] 카메라 미인가/차단 상태에서도 드림 그리드 및 메뉴/전투 정상 플레이 유지
+  - [x] `npm test` 단위 테스트 100% 통과 (222개 통과) 및 프로덕션 빌드 0 에러
+
+---
+
 ### Issue #108: [BUG-005] PoseManager 프레임 전송 및 스켈레톤 시각화 엔진(관절, 뼈대, 호흡) 인게임 렌더 파이프라인 연동
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/108
 - **Labels**: `step-6`, `bug`, `P1-high`
@@ -836,6 +853,48 @@
   - [ ] 카메라 ON 환경에서 4색 커서로 답안 선택 및 보스전 진행 정상 동작
   - [ ] 카메라 OFF 환경에서 키보드(1/2) 및 클릭 선택 100% 정상 동작
   - [ ] `npm test` 100% 통과
+
+---
+
+### Issue #112: [RUN-LOOP-001] 제자리 달리기 페이즈 인게임 루프 연동 및 드림 그리드 동적 반응 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/112
+- **Labels**: `feature`, `P1-high`, `phase-3`
+- **작업 ID**: `[RUN-LOOP-001]`
+- **상태**: ✅ **완료 (Closed)**
+- **목적**: 제자리 달리기 감지기(RunDetector) 및 키보드 Space/클릭 입력을 인게임 루프에 연결하여, 달리기 진행도에 따라 다음 문제로 이동하는 게임 사이클을 확립하고, 달리기 속도에 맞춰 그리드 스크롤 가속 및 피버(75% 이상) 시 파란색 보간 전환 연출을 완성
+- **수정 대상**:
+  - `dream_guardian/src/motion/RunDetector.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/motion-detectors.test.ts`
+- **완료 조건**:
+  - [x] 제자리 달리기(또는 Space/클릭)로 게이지가 차오르고 100% 도달 시 문제 출제
+  - [x] 달리기 시 그리드 스크롤이 빨라지고 색상이 주황/파랑으로 자연스럽게 전환
+  - [x] `npm test` 100% 통과 및 빌드 정상 완료 (224개 통과)
+
+---
+
+---
+
+### Issue #114 (Card #44): [RENDER-MATH-001] Canvas 2D 기반 직관적 수학 수식(가로 분수선, 지수, 루트, 빈칸 박스) 렌더러 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/114
+- **Labels**: `feature`, `P1-high`, `phase-4`
+- **작업 ID**: `[RENDER-MATH-001]`
+- **상태**: 🟡 **진행 중 (In Progress)**
+- **목적**:
+  - 기존 한 줄 텍스트(`ctx.fillText`) 렌더링으로 인해 사선(`/`)으로 뭉개지던 분수를 **중앙 가로 분수선($\frac{A}{B}$)**으로 표기하고, 거듭제곱(지수), 근호(루트 상단선), 빈칸 박스($\boxed{\ ?\ }$)를 교과서처럼 직관적으로 시각화하는 독립적인 수학 수식 렌더러(`MathRenderer`)를 구현한다.
+- **수정 대상**:
+  - `dream_guardian/src/types/index.ts` (MathToken 등 수식 타입 정의)
+  - `dream_guardian/src/render/MathRenderer.ts` (신규 수식 렌더러 모듈)
+  - `dream_guardian/src/main.ts` (문제 및 답안 수식 렌더링 연동)
+  - `dream_guardian/tests/unit/math-renderer.test.ts` (신규 단위 테스트)
+- **완료 조건**:
+  - [ ] `1/2 + 3/4` 문제 및 선택지가 사선이 아닌 상하 가로 분수선으로 렌더링
+  - [ ] 거듭제곱(`5²`, `10⁴`) 및 루트(`√16`) 기호가 교과서 표기법으로 깔끔하게 렌더링
+  - [ ] `[ ? ]` 빈칸이 둥근 네온 사각 박스로 렌더링
+  - [ ] 기존 222개 테스트 포함 `npm test` 100% Pass
+
+
 
 
 

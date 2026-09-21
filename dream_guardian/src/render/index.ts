@@ -6,5 +6,7 @@ export { BossRenderer } from './BossRenderer.js';
 export type { BossRenderOptions } from './BossRenderer.js';
 export { DreamGrid } from './DreamGrid.js';
 export type { DreamGridConfig } from './DreamGrid.js';
+export { parseMath, measureToken, measureMath, renderMath } from './MathRenderer.js';
+
 
 

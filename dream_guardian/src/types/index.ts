@@ -226,3 +226,25 @@ export interface SkeletonConfig {
   /** 관절별 스타일 맵 */
   joints: Record<string, JointStyle>;
 }
+
+// ─── Math Rendering Types ───
+export type MathToken =
+  | { type: 'text'; text: string }
+  | { type: 'fraction'; whole?: string; num: string; den: string }
+  | { type: 'power'; base: string; exp: string }
+  | { type: 'sqrt'; radicand: string }
+  | { type: 'subscript'; base: string; sub: string }
+  | { type: 'placeholder'; label: string }
+  | { type: 'operator'; op: string };
+
+export interface MathRenderOptions {
+  fontSize: number;
+  fontFamily?: string;
+  color?: string;
+  fractionLineColor?: string;
+  placeholderColor?: string;
+  placeholderBgColor?: string;
+  align?: 'left' | 'center' | 'right';
+  baseline?: 'top' | 'middle' | 'bottom';
+}
+

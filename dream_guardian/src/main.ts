@@ -22,8 +22,9 @@ import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
 import { ResultRenderer, calcStars } from './ui/ResultRenderer.js';
 import type { ResultData } from './ui/ResultRenderer.js';
-import { BossRenderer, DreamGrid } from './render/index.js';
+import { BossRenderer, DreamGrid, renderMath } from './render/index.js';
 import { EffectManager } from './effects/index.js';
+import { RunDetector } from './motion/RunDetector.js';
 
 if (typeof document === 'undefined') {
   throw new Error('브라우저 환경에서만 실행 가능합니다.');
@@ -77,10 +78,15 @@ const resultRenderer = new ResultRenderer();
 const bossRenderer = new BossRenderer();
 const dreamGrid = new DreamGrid({ speed: 1.2, hasCeiling: true });
 const effectManager = new EffectManager(15);
+const runDetector = new RunDetector();
 
 // ─── 게임 상태 (FSM 대신 단순 변수 관리) ───
 type ScreenMode = 'menu' | 'game' | 'result';
+type GamePhase = 'running' | 'question';
 let screenMode: ScreenMode = 'menu';
+let gamePhase: GamePhase = 'running';
+let runGauge = 0;
+let totalSteps = 0;
 let currentChapter = 1;
 let currentQuestion: GeneratedQuestion | null = null;
 let feedbackTimer = 0;
@@ -118,6 +124,15 @@ async function ensureCameraStarted(): Promise<void> {
 }
 
 // ─── 게임 플로우 ───
+function startRunningPhase(): void {
+  gamePhase = 'running';
+  runGauge = 0;
+  questionVisible = false;
+  answerLocked = true;
+  runDetector.reset();
+  console.log('[DG] 달리기 페이즈 시작 (게이지 100% 도달 시 문제 출제)');
+}
+
 function startChapter(ch: number): void {
   if (ch < 1 || ch > 5) return;
   console.log(`[DG] Ch.${ch} 시작`);
@@ -129,11 +144,12 @@ function startChapter(ch: number): void {
   questionBank.setLevel(ch);
   feedbackTimer = 0;
   questionVisible = false;
-  answerLocked = false;
+  answerLocked = true;
   castingFlash = 0;
+  totalSteps = 0;
   screenMode = 'game';
   ensureCameraStarted().catch(() => {});
-  nextQuestion();
+  startRunningPhase();
 }
 
 function nextQuestion(): void {
@@ -201,7 +217,7 @@ function handleAnswer(idx: number): void {
     }
   }
 
-  setTimeout(() => nextQuestion(), 800);
+  setTimeout(() => startRunningPhase(), 800);
 }
 
 function showResult(victory: boolean): void {
@@ -213,7 +229,7 @@ function showResult(victory: boolean): void {
     correctCount: battle.correctCount,
     totalQuestions: battle.totalQuestions,
     maxCombo: battle.maxCombo,
-    steps: 0, squats: 0, jumps: 0,
+    steps: totalSteps, squats: 0, jumps: 0,
     elapsedTime: 60,
   };
 }
@@ -230,14 +246,18 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
   const cx = w / 2;
   const cy = h * 0.38;
 
-  // 문제 텍스트
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `bold ${Math.min(48, w * 0.04)}px sans-serif`;
-  ctx.fillStyle = '#fff';
+  // 문제 텍스트 (직관적 수식 렌더러 적용: 가로 분수선, 지수, 루트, 빈칸 박스)
   ctx.shadowColor = 'rgba(40,230,255,0.5)';
   ctx.shadowBlur = 20;
-  ctx.fillText(currentQuestion.questionText, cx, cy);
+  const qFontSize = Math.min(48, w * 0.04);
+  renderMath(ctx, currentQuestion.questionText, cx, cy, {
+    fontSize: qFontSize,
+    color: '#ffffff',
+    align: 'center',
+    placeholderColor: '#28E6FF',
+    placeholderBgColor: 'rgba(40,230,255,0.18)',
+    fractionLineColor: '#ffffff',
+  });
   ctx.shadowBlur = 0;
 
   // 선택지
@@ -257,12 +277,19 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
     ctx.fillStyle = 'rgba(255,203,77,0.08)';
     ctx.fill();
 
-    ctx.fillStyle = '#FFCB4D';
-    ctx.font = `bold ${Math.min(40, w * 0.035)}px sans-serif`;
-    ctx.fillText(String(currentQuestion.choices[i]), bx + btnW / 2, btnY + btnH / 2);
+    const choiceFontSize = Math.min(36, w * 0.032);
+    renderMath(ctx, String(currentQuestion.choices[i]), bx + btnW / 2, btnY + btnH / 2, {
+      fontSize: choiceFontSize,
+      color: '#FFCB4D',
+      align: 'center',
+      fractionLineColor: '#FFCB4D',
+      placeholderColor: '#FFCB4D',
+    });
 
     ctx.font = `${Math.min(14, w * 0.012)}px sans-serif`;
     ctx.fillStyle = '#888';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText(`키보드 [${i + 1}]`, bx + btnW / 2, btnY + btnH + 20);
   }
 }
@@ -295,6 +322,75 @@ function renderFeedback(ctx: CanvasRenderingContext2D, w: number, h: number): vo
   ctx.restore();
 }
 
+// ─── 달리기 페이즈 렌더링 ───
+function renderRunningPhase(ctx: CanvasRenderingContext2D, vw: number, vh: number): void {
+  const cx = vw / 2;
+  const cy = vh * 0.52;
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const isFever = runGauge >= 75;
+  const feverTitle = isFever ? '✨ FEVER! 수호신과 함께 질주!' : '제자리에서 달려 다음 문제로!';
+  ctx.font = 'bold 44px sans-serif';
+  ctx.fillStyle = isFever ? '#28E6FF' : '#FFCB4D';
+  ctx.shadowColor = isFever ? '#28E6FF' : '#FFCB4D';
+  ctx.shadowBlur = 24;
+  ctx.fillText(feverTitle, cx, cy - 70);
+  ctx.shadowBlur = 0;
+
+  ctx.font = '24px sans-serif';
+  ctx.fillStyle = '#bbb';
+  ctx.fillText('발을 구르거나 [Space] / 화면을 탭하세요', cx, cy - 15);
+
+  // 게이지 바 외곽
+  const barW = Math.min(540, vw * 0.72);
+  const barH = 34;
+  const barX = cx - barW / 2;
+  const barY = cy + 30;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+  ctx.beginPath();
+  ctx.roundRect(barX, barY, barW, barH, 17);
+  ctx.fill();
+
+  // 게이지 채우기
+  const fillW = Math.max(0, barW * (runGauge / 100));
+  if (fillW > 0) {
+    const grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+    if (isFever) {
+      grad.addColorStop(0, '#28E6FF');
+      grad.addColorStop(1, '#4DFFAA');
+    } else {
+      grad.addColorStop(0, '#FF8844');
+      grad.addColorStop(1, '#FFCB4D');
+    }
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, fillW, barH, 17);
+    ctx.fill();
+  }
+
+  ctx.strokeStyle = isFever ? '#28E6FF' : 'rgba(255, 255, 255, 0.4)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.roundRect(barX, barY, barW, barH, 17);
+  ctx.stroke();
+
+  // 게이지 수치 텍스트
+  ctx.font = 'bold 22px sans-serif';
+  ctx.fillStyle = '#fff';
+  ctx.fillText(`${Math.round(runGauge)}%`, cx, barY + barH / 2);
+
+  // 걸음 수 표시
+  ctx.font = 'bold 26px sans-serif';
+  ctx.fillStyle = '#4DFFAA';
+  ctx.fillText(`🏃 걸음 수: ${totalSteps}보`, cx, barY + barH + 50);
+
+  ctx.restore();
+}
+
 // ─── HUD 데이터 헬퍼 ───
 function getHUDData() {
   return {
@@ -320,26 +416,66 @@ const engine = new GameEngine({
     }
     if (poseManager.hasPose) {
       skeletonAnimation.update(dt, poseManager.virtualLandmarks);
+      const time = performance.now() / 1000;
+      const stepped = runDetector.update(
+        poseManager.virtualLandmarks,
+        canvasManager.virtualHeight * 0.28,
+        time,
+        canvasManager.virtualHeight,
+      );
+      if (stepped && screenMode === 'game' && gamePhase === 'running') {
+        runGauge += 20;
+        totalSteps++;
+        effectManager.playBurst({
+          x: canvasManager.virtualWidth * 0.5,
+          y: canvasManager.virtualHeight * 0.65,
+          count: 8,
+          colors: ['#28E6FF', '#4DFFAA'],
+          duration: 0.3,
+        });
+      }
     } else {
       skeletonAnimation.reset();
+      runDetector.reset();
     }
 
     if (screenMode !== 'game') {
+      dreamGrid.update(dt, 0.8);
       effectManager.update(dt);
       return;
+    }
+
+    // 드림 그리드 속도 및 달리기 게이지 업데이트
+    const isRunning = gamePhase === 'running';
+    const speedMult = isRunning ? 1.5 + (runGauge / 100) * 2.5 : 0.8;
+    dreamGrid.update(dt, speedMult);
+
+    if (isRunning) {
+      // 제자리 달리기 유지 시 완만 지속 충전
+      if (runDetector.isRunning) {
+        runGauge += dt * 15;
+      } else if (runGauge > 0) {
+        // 정지 시 초당 4% 자연 감쇠
+        runGauge = Math.max(0, runGauge - dt * 4);
+      }
+
+      if (runGauge >= 100) {
+        runGauge = 100;
+        gamePhase = 'question';
+        nextQuestion();
+      }
     }
 
     if (feedbackTimer > 0) feedbackTimer -= dt;
     if (castingFlash > 0) castingFlash -= dt;
     guardian.update(dt);
-    dreamGrid.update(dt);
     bossRenderer.update(dt);
     effectManager.update(dt);
 
     const attacked = boss.update(dt);
     if (attacked) {
       bossRenderer.triggerAttack();
-      effectManager.playPreset('wrong', canvas.width / 2, canvas.height * 0.5);
+      effectManager.playPreset('wrong', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.5);
       const dmg = boss.resolveAttack(false);
       if (dmg > 0) battle.onBossAttack();
     }
@@ -353,31 +489,32 @@ const engine = new GameEngine({
 
   render(): void {
     const ctx = canvasManager.ctx;
-    const w = canvas.width;
-    const h = canvas.height;
+    const vw = canvasManager.virtualWidth;
+    const vh = canvasManager.virtualHeight;
 
+    // 1. 전체 화면 배경 클리어 (물리 캔버스 기준)
+    canvasManager.resetTransform();
     ctx.fillStyle = '#0a0a1a';
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 카메라 미러 피드 렌더링 (활성화 시 35% 디밍 포함)
+    // 2. 가상 좌표계 (1080 x 2160) 통일 적용
+    canvasManager.applyVirtualTransform();
+
+    // 3. 카메라 미러 피드 렌더링 (가상 해상도 기준 Cover 드로잉)
     if (cameraLayer.isActive) {
-      cameraLayer.render(ctx, w, h);
+      cameraLayer.render(ctx, vw, vh);
     }
 
-    // 스켈레톤 시각화 (포즈 인식 시 메뉴 및 인게임 전체에서 렌더링)
+    // 4. 스켈레톤 시각화 (수동 scale 불일치 제거 - 가상 좌표계 1:1 드로잉)
     if (poseManager.hasPose && skeletonAnimation.smoothedLandmarks.length > 0) {
-      const scaleX = w / canvasManager.virtualWidth;
-      const scaleY = h / canvasManager.virtualHeight;
-      ctx.save();
-      ctx.scale(scaleX, scaleY);
       boneRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, 1);
       jointRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, skeletonAnimation.breathScale);
-      ctx.restore();
     }
 
+    // 5. 메뉴 / 인게임 / 결과 렌더링 (모두 vw, vh 가상 좌표계 기준으로 일관 드로잉)
     if (screenMode === 'menu') {
-      dreamGrid.render(ctx, w, h, { alpha: 0.08, color: '#28E6FF' });
-      menuRenderer.render(ctx, w, h, {
+      dreamGrid.render(ctx, vw, vh, { alpha: 0.08, color: '#28E6FF' });
+      menuRenderer.render(ctx, vw, vh, {
         unlockedChapter,
         stars: starsMap,
         selectedChapter: 0,
@@ -386,35 +523,49 @@ const engine = new GameEngine({
       // 카메라 상태 안내 오버레이 (대기 중 또는 권한 거부 시 안내)
       if (cameraLayer.status === 'requesting') {
         ctx.fillStyle = '#28E6FF';
-        ctx.font = `bold ${Math.min(16, w * 0.028)}px sans-serif`;
+        ctx.font = `bold 28px sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText('📷 카메라 권한 요청 중... 브라우저에서 허용을 눌러주세요', w / 2, h * 0.88);
+        ctx.fillText('📷 카메라 권한 요청 중... 브라우저에서 허용을 눌러주세요', vw / 2, vh * 0.88);
       } else if (cameraLayer.status === 'denied') {
         ctx.fillStyle = '#FF8844';
-        ctx.font = `bold ${Math.min(15, w * 0.026)}px sans-serif`;
+        ctx.font = `bold 26px sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText('⚠️ 카메라 권한 차단됨 (1~5번 키 또는 화면 클릭으로 플레이 가능)', w / 2, h * 0.88);
+        ctx.fillText('⚠️ 카메라 권한 차단됨 (1~5번 키 또는 화면 클릭으로 플레이 가능)', vw / 2, vh * 0.88);
       }
       effectManager.render(ctx);
     } else if (screenMode === 'game') {
-      const bossX = w * 0.5;
-      const bossY = h * 0.24;
-      const bossRadius = Math.min(85, w * 0.08);
+      const bossX = vw * 0.5;
+      const bossY = vh * 0.24;
+      const bossRadius = Math.min(180, vw * 0.12);
 
-      dreamGrid.render(ctx, w, h, {
+      let gridColor = CHAPTER_COLORS[currentChapter] || '#28E6FF';
+      if (gamePhase === 'running') {
+        gridColor = runGauge >= 75 ? '#28E6FF' : '#FF8844';
+      }
+
+      dreamGrid.render(ctx, vw, vh, {
         vanishingX: bossX,
         vanishingY: bossY,
-        color: CHAPTER_COLORS[currentChapter] || '#28E6FF',
+        color: gridColor,
       });
       bossRenderer.render(ctx, currentChapter, bossX, bossY, bossRadius, boss.phase);
-      hudLayer.render(ctx, w, h, getHUDData());
-      renderQuestion(ctx, w, h);
-      renderFeedback(ctx, w, h);
+      hudLayer.render(ctx, vw, vh, getHUDData());
+
+      if (gamePhase === 'running') {
+        renderRunningPhase(ctx, vw, vh);
+      } else {
+        renderQuestion(ctx, vw, vh);
+        renderFeedback(ctx, vw, vh);
+      }
+
       effectManager.render(ctx);
     } else if (screenMode === 'result' && resultData) {
-      resultRenderer.render(ctx, w, h, resultData);
+      resultRenderer.render(ctx, vw, vh, resultData);
       effectManager.render(ctx);
     }
+
+    // 6. 가상 좌표계 복원
+    canvasManager.resetTransform();
   },
 });
 
@@ -427,26 +578,47 @@ canvas.addEventListener('click', (e) => {
 
   const rect = canvas.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) return;
-  const x = (e.clientX - rect.left) / rect.width * canvas.width;
-  const y = (e.clientY - rect.top) / rect.height * canvas.height;
+  const px = (e.clientX - rect.left) / rect.width * canvas.width;
+  const py = (e.clientY - rect.top) / rect.height * canvas.height;
+  const { x, y } = canvasManager.toVirtual(px, py);
+
+  const vw = canvasManager.virtualWidth;
+  const vh = canvasManager.virtualHeight;
 
   if (screenMode === 'menu') {
-    const ch = menuRenderer.hitTest(x, y, canvas.width, canvas.height);
+    const ch = menuRenderer.hitTest(x, y, vw, vh);
     if (ch > 0 && ch <= unlockedChapter) startChapter(ch);
-  } else if (screenMode === 'game' && questionVisible && currentQuestion && !answerLocked) {
-    const w = canvas.width;
-    const h = canvas.height;
-    const cx = w / 2;
-    const cy = h * 0.38 + 80;
-    const btnW = Math.min(200, w * 0.16);
-    const btnH = btnW * 0.55;
-    const gap = 50;
+  } else if (screenMode === 'game') {
+    if (gamePhase === 'running') {
+      runGauge += 15;
+      totalSteps++;
+      effectManager.playBurst({
+        x: vw * 0.5,
+        y: vh * 0.65,
+        count: 8,
+        colors: ['#28E6FF', '#FFCB4D'],
+        duration: 0.3,
+      });
+      if (runGauge >= 100) {
+        runGauge = 100;
+        gamePhase = 'question';
+        nextQuestion();
+      }
+      return;
+    }
+    if (questionVisible && currentQuestion && !answerLocked) {
+      const cx = vw / 2;
+      const cy = vh * 0.38 + 80;
+      const btnW = Math.min(200, vw * 0.16);
+      const btnH = btnW * 0.55;
+      const gap = 50;
 
-    for (let i = 0; i < 2; i++) {
-      const bx = cx + (i === 0 ? -(btnW + gap / 2) : gap / 2);
-      if (x >= bx && x <= bx + btnW && y >= cy && y <= cy + btnH) {
-        handleAnswer(i);
-        break;
+      for (let i = 0; i < 2; i++) {
+        const bx = cx + (i === 0 ? -(btnW + gap / 2) : gap / 2);
+        if (x >= bx && x <= bx + btnW && y >= cy && y <= cy + btnH) {
+          handleAnswer(i);
+          break;
+        }
       }
     }
   } else if (screenMode === 'result') {
@@ -454,12 +626,70 @@ canvas.addEventListener('click', (e) => {
   }
 });
 
+// ─── 상단 컨트롤 버튼 ───
+const btnCam = document.getElementById('btn_cam');
+if (btnCam) {
+  btnCam.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (cameraLayer.isActive) {
+      cameraLayer.stop();
+      btnCam.textContent = '🚫';
+      btnCam.title = '카메라 켜기 (단축키: C)';
+    } else {
+      ensureCameraStarted().catch(() => {});
+      btnCam.textContent = '📷';
+      btnCam.title = '카메라 끄기 (단축키: C)';
+    }
+  });
+}
+
+const btnFullscreen = document.getElementById('btn_fullscreen');
+if (btnFullscreen) {
+  btnFullscreen.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const container = document.getElementById('container') || canvas;
+    if (!document.fullscreenElement) {
+      container.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  });
+}
+
 document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    if (screenMode === 'game' && gamePhase === 'running') {
+      runGauge += 15;
+      totalSteps++;
+      effectManager.playBurst({
+        x: canvasManager.virtualWidth * 0.5,
+        y: canvasManager.virtualHeight * 0.65,
+        count: 8,
+        colors: ['#28E6FF', '#FFCB4D'],
+        duration: 0.3,
+      });
+      if (runGauge >= 100) {
+        runGauge = 100;
+        gamePhase = 'question';
+        nextQuestion();
+      }
+      return;
+    }
+  }
+
   if (e.key.toLowerCase() === 'c') {
     if (cameraLayer.isActive) {
       cameraLayer.stop();
+      if (btnCam) {
+        btnCam.textContent = '🚫';
+        btnCam.title = '카메라 켜기 (단축키: C)';
+      }
     } else {
       ensureCameraStarted().catch(() => {});
+      if (btnCam) {
+        btnCam.textContent = '📷';
+        btnCam.title = '카메라 끄기 (단축키: C)';
+      }
     }
   }
 
