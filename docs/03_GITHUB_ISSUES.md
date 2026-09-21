@@ -798,10 +798,45 @@
   - `dream_guardian/src/input/AnswerSelector.ts`
   - `dream_guardian/src/types/index.ts`
   - `dream_guardian/tests/unit/input-system.test.ts`
+---
+
+### Issue #104 (Card #43): [PLAN-001] 카메라 트래킹 기반 4색 커서(머리 반영) 답안 선택 시스템 통합 구현 계획
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/104
+- **Labels**: `feature`, `P0-critical`, `step-10`
+- **작업 ID**: `[PLAN-001]`
+- **상태**: ⚪ **대기 (Ready)**
+- **목적**:
+  - `ANSWER_SELECTION_DESIGN.md` 및 최신 피트니스 사양에 따른 카메라 기반 4색 신체 커서 답안 선택 시스템의 통합 아키텍처 및 구현 계획 수립.
+  - 카메라 인식 안정성을 극대화하기 위해 어깨 커서를 머리/얼굴(head) 커서로 개선하고, 스테이지 진행도에 맞춘 점증적 난이도 곡선(Tier 1~4)을 반영한다.
+- **핵심 사양**:
+  1. 4색 신체 커서 체계:
+     - 왼손(시안 `#28E6FF`): 손바닥 중심 (Hands #9 / Pose #15)
+     - 오른손(노랑 `#FFCB4D`): 손바닥 중심 (Hands #9 / Pose #16)
+     - 머리/얼굴(보라 `#C889FF`): 코 중심/얼굴 중점 (Pose #0, 어깨 대체)
+     - 골반(주황 `#FF865E`): 양 골반 중점 (Pose #23, 24, 하단존 6~10 전용)
+  2. 10존 선택 메커니즘:
+     - 공용 활성 피트니스 존 공유 (좌/우 색상 비공유)
+     - 단일 색상 원칙, 중심 가중 충전 (중심 1.5배, 경계 0.75배)
+     - 동시 충족 교착 방지 (Deadlock Guard)
+  3. 스테이지 점증 난이도 곡선:
+     - Tier 1(문제 1~3): 단일 손, 0.7초
+     - Tier 2(문제 4~7): 머리/양손, 0.8초
+     - Tier 3(문제 8~11): 손+골반, 1.0초
+     - Tier 4(문제 12+): 양손 상단 만세, 1.2초
+- **구현 분리 계획 (6개 서브 태스크)**:
+  1. CursorTracker: PoseManager/HandsManager 연동 4색 커서 좌표 추출
+  2. ZoneManager & AnswerSelector: 10존 레이아웃 및 동적 체류 판정
+  3. RecipeGenerator: 문제 번호별 점증 난이도 레시피 생성
+  4. DeadlockGuard: 양쪽 동시 충족 방지 및 즉시 리셋
+  5. AnswerSelectionRenderer: 활성 존 테두리/펄스 및 커서 HUD 시각화
+  6. Integrator: main.ts 게임 루프 연동 (키보드 1/2 및 클릭 fallback 완벽 유지)
 - **완료 조건**:
-  - [ ] 4색 커서 체계(왼손, 오른손, 머리, 골반) 정상 동작 및 10존 매핑 준수
-  - [ ] 문제 번호 1~3번은 단일 손(0.7초), 4~7번은 머리/양손(0.8초), 8~11번은 전신(1.0초), 12+번은 만세(1.2초) 적용
+  - [ ] 머리/얼굴(head) 및 손바닥 커서 트래킹 무결성 검증
+  - [ ] 스테이지 문제 번호에 따른 점증 난이도 및 체류시간 전환 검증
+  - [ ] 카메라 ON 환경에서 4색 커서로 답안 선택 및 보스전 진행 정상 동작
+  - [ ] 카메라 OFF 환경에서 키보드(1/2) 및 클릭 선택 100% 정상 동작
   - [ ] `npm test` 100% 통과
+
 
 
 
