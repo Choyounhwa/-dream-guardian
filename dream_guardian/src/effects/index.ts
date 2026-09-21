@@ -1,1 +1,9 @@
-// Effects module
+export * from './EffectTypes.js';
+export * from './GlowEffect.js';
+export * from './PulseEffect.js';
+export * from './ExpandEffect.js';
+export * from './FadeEffect.js';
+export * from './BurstEffect.js';
+export * from './RadialEffect.js';
+export * from './TrailEffect.js';
+export * from './EffectManager.js';
