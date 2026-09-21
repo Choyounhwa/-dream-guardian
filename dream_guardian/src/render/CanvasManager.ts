@@ -78,8 +78,8 @@ export class CanvasManager {
     this._dpr = this._getDevicePixelRatio();
 
     // CSS 표시 크기 (논리 픽셀)
-    const displayWidth = this._canvas.clientWidth;
-    const displayHeight = this._canvas.clientHeight;
+    const displayWidth = this._canvas.clientWidth || window.innerWidth || 1920;
+    const displayHeight = this._canvas.clientHeight || window.innerHeight || 1080;
 
     // 실제 캔버스 해상도 (물리 픽셀)
     this._canvas.width = Math.round(displayWidth * this._dpr);

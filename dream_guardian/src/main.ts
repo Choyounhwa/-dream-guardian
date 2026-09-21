@@ -5,7 +5,6 @@
 
 import { DEFAULT_CONFIG } from './core/Config.js';
 import { GameEngine } from './core/GameEngine.js';
-import { StateMachine } from './core/StateMachine.js';
 import { CanvasManager } from './render/CanvasManager.js';
 import { QuestionBank } from './question/QuestionBank.js';
 import { parseCSV } from './question/CSVLoader.js';
@@ -23,12 +22,31 @@ if (typeof document === 'undefined') {
   throw new Error('브라우저 환경에서만 실행 가능합니다.');
 }
 
+// ─── roundRect 폴리필 ───
+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function (
+    x: number, y: number, w: number, h: number, r: number | number[],
+  ) {
+    const radius = typeof r === 'number' ? r : (r[0] ?? 0);
+    this.moveTo(x + radius, y);
+    this.lineTo(x + w - radius, y);
+    this.arcTo(x + w, y, x + w, y + radius, radius);
+    this.lineTo(x + w, y + h - radius);
+    this.arcTo(x + w, y + h, x + w - radius, y + h, radius);
+    this.lineTo(x + radius, y + h);
+    this.arcTo(x, y + h, x, y + h - radius, radius);
+    this.lineTo(x, y + radius);
+    this.arcTo(x, y, x + radius, y, radius);
+    this.closePath();
+    return this;
+  };
+}
+
 // ─── DOM ───
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
 // ─── 시스템 ───
 const canvasManager = new CanvasManager(canvas);
-const stateMachine = new StateMachine('MENU_MAIN');
 const questionBank = new QuestionBank();
 const speech = new QuestionSpeech();
 const battle = new BattleState();
@@ -38,7 +56,7 @@ const hudLayer = new HUDLayer();
 const menuRenderer = new MenuRenderer();
 const resultRenderer = new ResultRenderer();
 
-// ─── 게임 상태 ───
+// ─── 게임 상태 (FSM 대신 단순 변수 관리) ───
 type ScreenMode = 'menu' | 'game' | 'result';
 let screenMode: ScreenMode = 'menu';
 let currentChapter = 1;
@@ -46,8 +64,9 @@ let currentQuestion: GeneratedQuestion | null = null;
 let feedbackTimer = 0;
 let feedbackCorrect = false;
 let questionVisible = false;
+let answerLocked = false; // 답 연속 입력 방지
 let resultData: ResultData | null = null;
-let unlockedChapter = 5; // 데모에서는 전부 해금
+let unlockedChapter = 5;
 let starsMap: Record<number, number> = {};
 let gridOffset = 0;
 let castingFlash = 0;
@@ -62,7 +81,7 @@ async function loadQuestions(): Promise<void> {
       const text = await resp.text();
       const records = parseCSV(text);
       questionBank.loadRecords(records);
-      console.log(`[DreamGuardian] ${records.length}개 문제 로드`);
+      console.log(`[DG] ${records.length}개 문제 로드`);
     } else { questionBank.loadRecords([]); }
   } catch { questionBank.loadRecords([]); }
 }
@@ -70,6 +89,7 @@ async function loadQuestions(): Promise<void> {
 // ─── 게임 플로우 ───
 function startChapter(ch: number): void {
   if (ch < 1 || ch > 5) return;
+  console.log(`[DG] Ch.${ch} 시작`);
   currentChapter = ch;
   battle.reset();
   boss.reset(ch);
@@ -78,16 +98,9 @@ function startChapter(ch: number): void {
   questionBank.setLevel(ch);
   feedbackTimer = 0;
   questionVisible = false;
+  answerLocked = false;
   castingFlash = 0;
   screenMode = 'game';
-
-  stateMachine.changeState('MENU_MAIN');
-  stateMachine.changeState('MENU_SUB');
-  stateMachine.changeState('STORY_INTRO');
-  stateMachine.changeState('READY_POSITION');
-  stateMachine.changeState('RUNNING');
-  stateMachine.changeState('PLAYING');
-
   nextQuestion();
 }
 
@@ -99,27 +112,31 @@ function nextQuestion(): void {
     currentQuestion = { questionText: '3 + 5 = ?', correctAnswer: 8, wrongAnswer: 9, choices: [8, 9], correctIndex: 0 };
   }
   questionVisible = true;
+  answerLocked = false;
+  console.log(`[DG] 문제: ${currentQuestion.questionText}`);
   speech.speak(currentQuestion.questionText);
 }
 
 function handleAnswer(idx: number): void {
-  if (!currentQuestion || !questionVisible) return;
-  if (stateMachine.currentState !== 'PLAYING') return;
+  if (screenMode !== 'game') return;
+  if (!currentQuestion || !questionVisible || answerLocked) return;
 
+  answerLocked = true; // 연속 입력 방지
   const correct = idx === currentQuestion.correctIndex;
   feedbackCorrect = correct;
   feedbackTimer = 0.8;
   questionVisible = false;
 
+  console.log(`[DG] 답: ${idx} (${correct ? '정답' : '오답'})`);
+
   if (correct) {
     battle.onCorrect();
-    stateMachine.changeState('CORRECT');
 
     if (battle.trySpendMana()) {
       const dmg = guardian.cast();
       boss.takeDamage(dmg);
       castingFlash = 0.6;
-      stateMachine.changeState('GUARDIAN_CAST');
+      console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);
 
       if (boss.isDefeated) {
         const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
@@ -127,30 +144,23 @@ function handleAnswer(idx: number): void {
         setTimeout(() => showResult(true), 600);
         return;
       }
-      stateMachine.changeState('RUNNING');
-      stateMachine.changeState('PLAYING');
-    } else {
-      stateMachine.changeState('RUNNING');
-      stateMachine.changeState('PLAYING');
     }
   } else {
     battle.onWrong();
-    stateMachine.changeState('WRONG');
+    console.log(`[DG] HP: ${battle.hp}/${battle.maxHp}`);
 
     if (!battle.isAlive) {
       setTimeout(() => showResult(false), 600);
       return;
     }
-    stateMachine.changeState('RUNNING');
-    stateMachine.changeState('PLAYING');
   }
 
-  setTimeout(() => nextQuestion(), 700);
+  setTimeout(() => nextQuestion(), 800);
 }
 
 function showResult(victory: boolean): void {
+  console.log(`[DG] ${victory ? '승리' : '패배'}`);
   screenMode = 'result';
-  stateMachine.changeState(victory ? 'RESULT' : 'GAMEOVER');
   resultData = {
     victory,
     chapter: currentChapter,
@@ -163,8 +173,8 @@ function showResult(victory: boolean): void {
 }
 
 function goToMenu(): void {
+  console.log('[DG] 메뉴 복귀');
   screenMode = 'menu';
-  stateMachine.changeState('MENU_MAIN');
 }
 
 // ─── 드림 그리드 ───
@@ -172,7 +182,7 @@ function renderDreamGrid(ctx: CanvasRenderingContext2D, w: number, h: number, dt
   gridOffset = (gridOffset + dt * 60) % 80;
   const color = CHAPTER_COLORS[currentChapter] || '#28E6FF';
   ctx.strokeStyle = color;
-  ctx.globalAlpha = 0.12;
+  ctx.globalAlpha = 0.15;
   ctx.lineWidth = 1;
   const vanishY = h * 0.38;
   for (let i = 0; i <= 12; i++) {
@@ -198,7 +208,7 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
   if (!currentQuestion || !questionVisible) return;
 
   const cx = w / 2;
-  const cy = h * 0.4;
+  const cy = h * 0.38;
 
   // 문제 텍스트
   ctx.textAlign = 'center';
@@ -210,10 +220,10 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
   ctx.fillText(currentQuestion.questionText, cx, cy);
   ctx.shadowBlur = 0;
 
-  // 선택지 버튼
-  const btnW = Math.min(180, w * 0.14);
-  const btnH = btnW * 0.6;
-  const gap = 40;
+  // 선택지
+  const btnW = Math.min(200, w * 0.16);
+  const btnH = btnW * 0.55;
+  const gap = 50;
   const btnY = cy + 80;
 
   for (let i = 0; i < 2; i++) {
@@ -224,17 +234,16 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
     ctx.beginPath();
     ctx.roundRect(bx, btnY, btnW, btnH, 14);
     ctx.stroke();
-    ctx.fillStyle = 'rgba(255,203,77,0.06)';
+    ctx.fillStyle = 'rgba(255,203,77,0.08)';
     ctx.fill();
 
     ctx.fillStyle = '#FFCB4D';
-    ctx.font = `bold ${Math.min(36, w * 0.03)}px sans-serif`;
+    ctx.font = `bold ${Math.min(40, w * 0.035)}px sans-serif`;
     ctx.fillText(String(currentQuestion.choices[i]), bx + btnW / 2, btnY + btnH / 2);
 
-    // 번호 힌트
-    ctx.font = `${Math.min(14, w * 0.011)}px sans-serif`;
+    ctx.font = `${Math.min(14, w * 0.012)}px sans-serif`;
     ctx.fillStyle = '#888';
-    ctx.fillText(`[${i + 1}]`, bx + btnW / 2, btnY + btnH + 18);
+    ctx.fillText(`키보드 [${i + 1}]`, bx + btnW / 2, btnY + btnH + 20);
   }
 }
 
@@ -246,25 +255,40 @@ function renderFeedback(ctx: CanvasRenderingContext2D, w: number, h: number): vo
   ctx.globalAlpha = alpha;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `bold ${Math.min(64, w * 0.05)}px sans-serif`;
+  ctx.font = `bold ${Math.min(64, w * 0.055)}px sans-serif`;
   ctx.fillStyle = feedbackCorrect ? '#4DFFAA' : '#FF4444';
   ctx.shadowColor = feedbackCorrect ? '#4DFFAA' : '#FF4444';
   ctx.shadowBlur = 30;
-  ctx.fillText(feedbackCorrect ? '정답!' : '오답...', w / 2, h * 0.3);
+  ctx.fillText(feedbackCorrect ? '정답!' : '오답...', w / 2, h * 0.22);
   ctx.shadowBlur = 0;
 
-  // 캐스팅 플래시
   if (castingFlash > 0) {
-    ctx.globalAlpha = castingFlash * 0.3;
+    ctx.globalAlpha = castingFlash * 0.25;
     ctx.fillStyle = '#C889FF';
     ctx.fillRect(0, 0, w, h);
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.min(28, w * 0.022)}px sans-serif`;
+    ctx.font = `bold ${Math.min(28, w * 0.024)}px sans-serif`;
     ctx.fillText(`수호신 캐스팅! (${guardian.stageName})`, w / 2, h * 0.55);
   }
 
   ctx.restore();
+}
+
+// ─── HUD 데이터 헬퍼 ───
+function getHUDData() {
+  return {
+    playerHp: battle.hp,
+    playerMaxHp: battle.maxHp,
+    bossHp: boss.hp,
+    bossMaxHp: boss.maxHp,
+    mana: battle.mana,
+    manaMax: DEFAULT_CONFIG.mana.spellCost,
+    combo: battle.combo,
+    chapter: currentChapter,
+    shieldActive: false,
+    guardianStage: guardian.stage,
+  };
 }
 
 // ─── 게임 엔진 ───
@@ -276,29 +300,15 @@ const engine = new GameEngine({
     if (castingFlash > 0) castingFlash -= dt;
     guardian.update(dt);
 
-    // 보스 공격 타이머
     const attacked = boss.update(dt);
     if (attacked) {
-      const dmg = boss.resolveAttack(false); // TODO: 스쿼트 감지 연동
+      const dmg = boss.resolveAttack(false);
       if (dmg > 0) battle.onBossAttack();
     }
 
-    // HUD 보간
-    hudLayer.update(dt, {
-      playerHp: battle.hp,
-      playerMaxHp: battle.maxHp,
-      bossHp: boss.hp,
-      bossMaxHp: boss.maxHp,
-      mana: battle.mana,
-      manaMax: DEFAULT_CONFIG.mana.spellCost,
-      combo: battle.combo,
-      chapter: currentChapter,
-      shieldActive: false,
-      guardianStage: guardian.stage,
-    });
+    hudLayer.update(dt, getHUDData());
 
-    // 게임오버 체크
-    if (!battle.isAlive && stateMachine.currentState === 'PLAYING') {
+    if (!battle.isAlive && screenMode === 'game') {
       showResult(false);
     }
   },
@@ -319,18 +329,7 @@ const engine = new GameEngine({
       });
     } else if (screenMode === 'game') {
       renderDreamGrid(ctx, w, h, 0.016);
-      hudLayer.render(ctx, w, h, {
-        playerHp: battle.hp,
-        playerMaxHp: battle.maxHp,
-        bossHp: boss.hp,
-        bossMaxHp: boss.maxHp,
-        mana: battle.mana,
-        manaMax: DEFAULT_CONFIG.mana.spellCost,
-        combo: battle.combo,
-        chapter: currentChapter,
-        shieldActive: false,
-        guardianStage: guardian.stage,
-      });
+      hudLayer.render(ctx, w, h, getHUDData());
       renderQuestion(ctx, w, h);
       renderFeedback(ctx, w, h);
     } else if (screenMode === 'result' && resultData) {
@@ -342,21 +341,21 @@ const engine = new GameEngine({
 // ─── 이벤트 ───
 canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
   const x = (e.clientX - rect.left) / rect.width * canvas.width;
   const y = (e.clientY - rect.top) / rect.height * canvas.height;
 
   if (screenMode === 'menu') {
     const ch = menuRenderer.hitTest(x, y, canvas.width, canvas.height);
     if (ch > 0 && ch <= unlockedChapter) startChapter(ch);
-  } else if (screenMode === 'game' && questionVisible && currentQuestion) {
-    // 답 클릭 판정
+  } else if (screenMode === 'game' && questionVisible && currentQuestion && !answerLocked) {
     const w = canvas.width;
     const h = canvas.height;
     const cx = w / 2;
-    const cy = h * 0.4 + 80;
-    const btnW = Math.min(180, w * 0.14);
-    const btnH = btnW * 0.6;
-    const gap = 40;
+    const cy = h * 0.38 + 80;
+    const btnW = Math.min(200, w * 0.16);
+    const btnH = btnW * 0.55;
+    const gap = 50;
 
     for (let i = 0; i < 2; i++) {
       const bx = cx + (i === 0 ? -(btnW + gap / 2) : gap / 2);
@@ -378,7 +377,7 @@ document.addEventListener('keydown', (e) => {
     const n = parseInt(e.key, 10);
     if (n >= 1 && n <= 5 && n <= unlockedChapter) startChapter(n);
   } else if (screenMode === 'result') {
-    if (e.key === 'Escape' || e.key === 'Enter') goToMenu();
+    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') goToMenu();
   }
 });
 
@@ -386,11 +385,12 @@ window.addEventListener('resize', () => canvasManager.resize());
 
 // ─── 부트스트랩 ───
 async function bootstrap(): Promise<void> {
-  console.log('[DreamGuardian] v0.3 starting...');
+  console.log('[DG] v0.4 starting...');
   canvasManager.resize();
+  console.log(`[DG] Canvas: ${canvas.width}x${canvas.height}`);
   await loadQuestions();
   engine.start();
-  console.log('[DreamGuardian] Ready!');
+  console.log('[DG] Ready! 챕터를 클릭하거나 1~5 키를 눌러 시작');
 }
 
 if (document.readyState === 'loading') {
