@@ -93,6 +93,13 @@ export class QuestionBank {
     return this._allRecords.length;
   }
 
+  /** 고유한 템플릿이 2개 이상 존재하는지 확인 */
+  private _hasDistinctTemplates(): boolean {
+    if (this._pool.length < 2) return false;
+    const first = this._pool[0].questionTemplate;
+    return this._pool.some((r) => r.questionTemplate !== first);
+  }
+
   /**
    * 다음 문제 뽑기 (중복 방지 셔플 큐)
    * 큐가 비면 자동으로 다시 셔플
@@ -102,15 +109,37 @@ export class QuestionBank {
       this._shuffle();
     }
 
+    const lastTemplate = this._lastServed.length > 0
+      ? this._lastServed[this._lastServed.length - 1].questionTemplate
+      : null;
+
     // 사이클 경계 및 연속 출제 방지 가드: 직전 문제와 동일 템플릿이면 큐 내부 다른 문제와 교체
-    if (this._queue.length > 1 && this._lastServed.length > 0) {
-      const lastTemplate = this._lastServed[this._lastServed.length - 1].questionTemplate;
-      const topIdx = this._queue.length - 1;
+    if (lastTemplate && this._hasDistinctTemplates()) {
+      let topIdx = this._queue.length - 1;
+
       if (this._queue[topIdx].questionTemplate === lastTemplate) {
+        let found = -1;
         for (let i = topIdx - 1; i >= 0; i--) {
           if (this._queue[i].questionTemplate !== lastTemplate) {
-            [this._queue[topIdx], this._queue[i]] = [this._queue[i], this._queue[topIdx]];
+            found = i;
             break;
+          }
+        }
+
+        if (found >= 0) {
+          [this._queue[topIdx], this._queue[found]] = [this._queue[found], this._queue[topIdx]];
+        } else {
+          // 큐에 남은 항목이 1개이거나 남은 항목들이 모두 직전 템플릿과 동일한 경우
+          // 조기 재셔플로 새 사이클을 시작하고 직전 템플릿이 아닌 문제로 교체
+          this._shuffle();
+          topIdx = this._queue.length - 1;
+          if (this._queue[topIdx].questionTemplate === lastTemplate) {
+            for (let i = topIdx - 1; i >= 0; i--) {
+              if (this._queue[i].questionTemplate !== lastTemplate) {
+                [this._queue[topIdx], this._queue[i]] = [this._queue[i], this._queue[topIdx]];
+                break;
+              }
+            }
           }
         }
       }
@@ -133,18 +162,15 @@ export class QuestionBank {
       [this._queue[i], this._queue[j]] = [this._queue[j], this._queue[i]];
     }
 
-    // 사이클 경계 anti-repeat 가드: 직전 사이클 최근 2문제와 새 사이클 시작 문제 겹침 방지
-    if (this._pool.length > 2 && this._lastServed.length > 0) {
-      const recentTemplates = this._lastServed.slice(-2).map((r) => r.questionTemplate);
-      const topPositions = [this._queue.length - 1, this._queue.length - 2].filter((idx) => idx >= 0);
-
-      for (const pos of topPositions) {
-        if (recentTemplates.includes(this._queue[pos].questionTemplate)) {
-          for (let i = 0; i < this._queue.length - topPositions.length; i++) {
-            if (!recentTemplates.includes(this._queue[i].questionTemplate)) {
-              [this._queue[pos], this._queue[i]] = [this._queue[i], this._queue[pos]];
-              break;
-            }
+    // 사이클 경계 anti-repeat 가드: 직전 사이클 마지막 문제와 새 사이클 시작 문제 겹침 방지
+    if (this._lastServed.length > 0 && this._hasDistinctTemplates()) {
+      const lastTemplate = this._lastServed[this._lastServed.length - 1].questionTemplate;
+      const topIdx = this._queue.length - 1;
+      if (this._queue[topIdx].questionTemplate === lastTemplate) {
+        for (let i = topIdx - 1; i >= 0; i--) {
+          if (this._queue[i].questionTemplate !== lastTemplate) {
+            [this._queue[topIdx], this._queue[i]] = [this._queue[i], this._queue[topIdx]];
+            break;
           }
         }
       }

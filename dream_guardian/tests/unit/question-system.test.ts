@@ -109,8 +109,7 @@ describe('QuestionBank', () => {
     expect(bank.poolSize).toBeGreaterThan(0);
   });
 
-  it('풀 크기 5인 상태에서 20회 next() 호출 시 연속 동일 템플릿 0회', () => {
-    const bank = new QuestionBank();
+  it('풀 크기 5인 상태에서 100회 시행(각 20회 next()) 시 연속 동일 템플릿 0회', () => {
     const records: QuestionRecord[] = [
       { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T1', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
       { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T2', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
@@ -118,19 +117,48 @@ describe('QuestionBank', () => {
       { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T4', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
       { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T5', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
     ];
-    bank.loadRecords(records);
-    bank.setLevel(1);
 
-    let consecutiveDuplicates = 0;
-    let prevTemplate = '';
-    for (let i = 0; i < 20; i++) {
-      const q = bank.next();
-      if (q.questionTemplate === prevTemplate) {
-        consecutiveDuplicates++;
+    let totalDuplicates = 0;
+    for (let t = 0; t < 100; t++) {
+      const bank = new QuestionBank();
+      bank.loadRecords(records);
+      bank.setLevel(1);
+      let prevTemplate = '';
+      for (let i = 0; i < 20; i++) {
+        const q = bank.next();
+        if (q.questionTemplate === prevTemplate) {
+          totalDuplicates++;
+        }
+        prevTemplate = q.questionTemplate;
       }
-      prevTemplate = q.questionTemplate;
     }
-    expect(consecutiveDuplicates).toBe(0);
+    expect(totalDuplicates).toBe(0);
+  });
+
+  it('동일 템플릿이 중복 포함된 풀(T1, T1, T2, T3, T4)에서도 100회 시행 시 연속 동일 템플릿 0회', () => {
+    const records: QuestionRecord[] = [
+      { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T1', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T1', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T2', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T3', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+      { level: 1, subLevel: 1, levelTitle: '', subLevelTitle: '', questionTemplate: 'T4', answerEval: '1', wrongEval: '2', varA: '0', varB: '0', varC: '0', varD: '0', shapeCode: '' },
+    ];
+
+    let totalDuplicates = 0;
+    for (let t = 0; t < 100; t++) {
+      const bank = new QuestionBank();
+      bank.loadRecords(records);
+      bank.setLevel(1);
+      let prevTemplate = '';
+      for (let i = 0; i < 20; i++) {
+        const q = bank.next();
+        if (q.questionTemplate === prevTemplate) {
+          totalDuplicates++;
+        }
+        prevTemplate = q.questionTemplate;
+      }
+    }
+    expect(totalDuplicates).toBe(0);
   });
 });
 
