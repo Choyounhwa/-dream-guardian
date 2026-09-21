@@ -704,5 +704,105 @@
   - `dream_guardian/src/render/DreamGrid.ts`
   - `dream_guardian/src/motion/RunDetector.ts`
 
+---
+
+### Issue #103 (Card #40): [FEAT-001] 각 단계별 세부 난이도(SubLevel) 필터링 시스템 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/103
+- **Labels**: `feature`, `P1-high`, `step-8`
+- **작업 ID**: `[FEAT-001]`
+- **상태**: ⚪ **대기 (Ready)**
+- **목적**:
+  - `questions.csv`에 정의된 SubLevel(1~7)을 활용하여 각 챕터별 세부 난이도 필터링을 지원하고, Ch.5(나이트메어)에서 5~9단계(거듭제곱, 2진수, 도형, 비율, 기타)를 세부 단계(SubLevel)로 선택하여 집중 학습할 수 있도록 시스템을 확장한다. (Issue #106과 통합 연계)
+- **수정 대상**:
+  - `dream_guardian/src/question/QuestionBank.ts`
+  - `dream_guardian/src/types/index.ts`
+  - `dream_guardian/tests/unit/question-system.test.ts`
+- **구현 내용**:
+  1. `QuestionBank.ts` 기능 확장:
+     - `setLevel(level: number, subLevel?: number): void`
+       - Ch.1~4: `subLevel` 지정 시 해당 세부 단계만 필터링, 미지정 시 해당 챕터 전체 풀 유지 (하위 호환 100%)
+       - Ch.5 (나이트메어):
+         - `subLevel` 1: Level 5 (거듭제곱) 문제 풀
+         - `subLevel` 2: Level 6 (2진수) 문제 풀
+         - `subLevel` 3: Level 7 (도형) 문제 풀
+         - `subLevel` 4: Level 8 (비율) 문제 풀
+         - `subLevel` 5: Level 9 (기타) 문제 풀
+         - `subLevel` 6 (또는 미지정): Level 1~9 전 영역 종합 풀
+     - `getSubLevels(chapter: number): SubLevelInfo[]` 메서드 추가 (각 서브레벨 메타데이터 반환)
+     - `currentSubLevel` getter 제공
+  2. 단위 테스트 보강 (`tests/unit/question-system.test.ts`):
+     - Ch.1~4의 특정 subLevel 필터링 동작 검증
+     - Ch.5에서 5~9단계 서브레벨 분기 및 전 영역 종합 풀 검증
+     - subLevel 미지정 시 기존 동작 100% 하위 호환 검증
+- **유지 사항 & 변경 금지**:
+  - 유지: 기존 `setLevel(level)` 단독 호출 시 기존 동작 100% 보존, Fisher-Yates 셔플 및 중복 출제 방지 가드 유지
+  - 변경 금지: UI/렌더/전투 시스템 파일 및 questions.csv 원본 파일 변경 금지
+- **완료 조건**:
+  - [ ] `setLevel(1, 2)` 호출 시 Ch.1 두자리 덧뺄셈(Level 1, SubLevel 2) 문제만 반환
+  - [ ] `setLevel(5, 1~5)` 호출 시 Level 5~9의 문제가 정상 반환
+  - [ ] `setLevel(5)` 호출 시 Level 1~9 전 영역 풀 반환
+  - [ ] `getSubLevels(chapter)`가 각 챕터의 세부 단계 메타데이터를 올바르게 반환
+  - [ ] `npm test` 100% 통과 (Pass)
+- **관련 파일**:
+  - `dream_guardian/src/question/QuestionBank.ts`
+  - `dream_guardian/src/types/index.ts`
+  - `dream_guardian/tests/unit/question-system.test.ts`
+
+---
+
+### Issue #106 (Card #41): [BUG-003] CSV 9개 Level과 게임 챕터 간 매핑 확장 및 정합성 보장
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/106
+- **Labels**: `bug`, `P2-medium`, `step-8`
+- **작업 ID**: `[BUG-003]`
+- **상태**: ⚪ **대기 (Ready)**
+- **목적**:
+  - `questions.csv`에 존재하는 Level 1~9(총 685문항) 중 Level 5~9(371문항)를 Ch.5 나이트메어의 세부 서브레벨로 정식 매핑하여 접근성을 확보한다.
+- **수정 대상**:
+  - `dream_guardian/src/question/QuestionBank.ts`
+  - `dream_guardian/tests/unit/question-system.test.ts`
+- **구현 내용**:
+  - Ch.5 나이트메어에 Level 5~9를 서브레벨(SubLevel 1~5)로 매핑하여 원하는 수학 영역을 선택할 수 있도록 개선
+  - SubLevel 6(또는 미지정) 선택 시 기존의 전 영역 종합 혼합 풀로 동작 (완전한 하위 호환)
+  - Issue #103과 통합 구현
+- **완료 조건**:
+  - [ ] Ch.5 나이트메어에서 Level 5~9 세부 문제 풀 선택 가능
+  - [ ] SubLevel 미지정 시 전 영역 혼합 풀 유지
+  - [ ] `npm test` 100% 통과
+
+---
+
+### Issue #105 (Card #42): [FEAT-002] 10개 피트니스 존 4색 커서(머리 반영) 및 스테이지 점증 난이도(Tier 1~4) 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/105
+- **Labels**: `feature`, `P1-high`, `step-10`
+- **작업 ID**: `[FEAT-002]`
+- **상태**: ⚪ **대기 (Ready)**
+- **목적**:
+  - 국민체조 기반 10개 피트니스 존 및 4색 신체 커서 체계를 확립하고, 한 스테이지(10~15문제) 동안 플레이어의 신체 피로도와 두뇌 집중도를 최적화하는 점증적 난이도 곡선(Progressive Difficulty Curve)을 구현한다.
+  - 카메라 인식 안정성과 직관적 조작을 위해 어깨 커서를 머리/얼굴(head) 커서로 수정 반영한다.
+- **핵심 사양**:
+  1. 4색 신체 커서 (머리/얼굴 반영):
+     - 왼손(시안 `#28E6FF`): 왼쪽 손바닥 (원 + 동심 링)
+     - 오른손(노랑 `#FFCB4D`): 오른쪽 손바닥 (원 + 동심 링)
+     - 머리/얼굴(보라 `#C889FF`): 코 중심/얼굴 중점 (둥근 타원)
+     - 골반(주황 `#FF865E`): 양 골반 중점 (라운드 역삼각형, 하단존 6~10 전용)
+  2. 스테이지 점증 난이도 (Tier 1 ~ Tier 4):
+     - Tier 1 (문제 1~3 / 웜업): 단일 손, 체류 0.7초 (가벼운 팔 뻗기)
+     - Tier 2 (문제 4~7 / 체간 스트레칭): 머리 기울이기 또는 양손 벌리기, 체류 0.8초
+     - Tier 3 (문제 8~11 / 전신 협응): 손 + 골반(미니 스쿼트) 또는 머리 + 골반, 체류 1.0초
+     - Tier 4 (문제 12+ / 보스 피니시): 양손 상단 만세 포즈, 체류 1.2초
+  3. 두뇌 피로도 완충 밸런스 룰:
+     - 복합 계산/긴 문제는 Tier 1~2로 자동 완화
+     - 단순 계산 문제는 Tier 3로 신체 활동성 강화
+     - 3연속 하체(골반) 금지 쿨다운 룰
+- **수정 대상**:
+  - `dream_guardian/src/input/AnswerSelector.ts`
+  - `dream_guardian/src/types/index.ts`
+  - `dream_guardian/tests/unit/input-system.test.ts`
+- **완료 조건**:
+  - [ ] 4색 커서 체계(왼손, 오른손, 머리, 골반) 정상 동작 및 10존 매핑 준수
+  - [ ] 문제 번호 1~3번은 단일 손(0.7초), 4~7번은 머리/양손(0.8초), 8~11번은 전신(1.0초), 12+번은 만세(1.2초) 적용
+  - [ ] `npm test` 100% 통과
+
+
 
 
