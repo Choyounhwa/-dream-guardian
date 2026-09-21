@@ -137,6 +137,37 @@ describe('RunDetector', () => {
     expect(rd.stepCount).toBe(0);
     expect(rd.isRunning).toBe(false);
   });
+
+  it('바운스가 멈추고 0.5초 경과 시 isRunning이 false로 정상 복귀한다', () => {
+    const rd = new RunDetector(5, 0.1, 0.5); // stopTimeout = 0.5s
+    const baseY = 400;
+
+    // 달리기 진행
+    rd.update(makeLM({ [POSE_LANDMARKS.LEFT_SHOULDER]: { y: 400 }, [POSE_LANDMARKS.RIGHT_SHOULDER]: { y: 400 } }), baseY, 0);
+    rd.update(makeLM({ [POSE_LANDMARKS.LEFT_SHOULDER]: { y: 420 }, [POSE_LANDMARKS.RIGHT_SHOULDER]: { y: 420 } }), baseY, 0.1);
+    expect(rd.isRunning).toBe(true);
+
+    // 0.2초 후 미세 움직임 (바운스 미달) -> 아직 타임아웃 전
+    rd.update(makeLM({ [POSE_LANDMARKS.LEFT_SHOULDER]: { y: 421 }, [POSE_LANDMARKS.RIGHT_SHOULDER]: { y: 421 } }), baseY, 0.3);
+    expect(rd.isRunning).toBe(true);
+
+    // 0.7초 시점 (마지막 바운스 0.1초 기준 0.6초 경과, stopTimeout 0.5초 초과) -> isRunning = false 복귀
+    rd.update(makeLM({ [POSE_LANDMARKS.LEFT_SHOULDER]: { y: 421 }, [POSE_LANDMARKS.RIGHT_SHOULDER]: { y: 421 } }), baseY, 0.7);
+    expect(rd.isRunning).toBe(false);
+  });
+
+  it('어깨가 baselineY 대비 과도하게 하강(스쿼트)하면 달리기 스텝이 차단된다', () => {
+    const rd = new RunDetector(5, 0.1);
+    const baseY = 400;
+    const deepSquatY = 550; // 기준선 대비 150px 하강 (스쿼트 상태)
+
+    rd.update(makeLM({ [POSE_LANDMARKS.LEFT_SHOULDER]: { y: deepSquatY }, [POSE_LANDMARKS.RIGHT_SHOULDER]: { y: deepSquatY } }), baseY, 0, 1080);
+    const stepped = rd.update(makeLM({ [POSE_LANDMARKS.LEFT_SHOULDER]: { y: deepSquatY + 20 }, [POSE_LANDMARKS.RIGHT_SHOULDER]: { y: deepSquatY + 20 } }), baseY, 0.1, 1080);
+
+    expect(stepped).toBe(false);
+    expect(rd.isRunning).toBe(false);
+    expect(rd.stepCount).toBe(0);
+  });
 });
 
 // ═══════════════════════════════════
