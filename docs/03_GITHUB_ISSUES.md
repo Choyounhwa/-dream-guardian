@@ -723,11 +723,45 @@
 
 ---
 
+---
+
+### Issue #101 (Card #45): [BUG-001] 같은 문제 템플릿 연속 출제 방지 및 셔플 큐 anti-repeat 가드 강화
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/101
+- **Labels**: `bug`, `P0-critical`, `step-8`
+- **작업 ID**: `[BUG-001]`
+- **상태**: ✅ **완료 (Closed)**
+- **목적**: 큐에 남은 항목이 1개이거나 풀 내에 동일 템플릿이 중복될 때 발생하는 연속 출제 버그를 조기 재셔플 및 가드 강화로 해결
+- **수정 대상**:
+  - `dream_guardian/src/question/QuestionBank.ts`
+  - `dream_guardian/tests/unit/question-system.test.ts`
+- **완료 조건**:
+  - [x] 풀 크기 5인 상태에서 100회 시행(각 20회) 시 연속 동일 템플릿 0회
+  - [x] 중복 템플릿 풀(T1, T1, T2, T3, T4)에서 100회 시행 시 연속 동일 템플릿 0회
+  - [x] `npm test` 100% 통과
+
+---
+
+### Issue #102 (Card #46): [BUG-002] 문자열 정답, 종속 변수 및 복합 템플릿 평가 무결성 검증
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/102
+- **Labels**: `bug`, `P0-critical`, `step-8`
+- **작업 ID**: `[BUG-002]`
+- **상태**: ✅ **완료 (Closed)**
+- **목적**: 685문항 전수 검사를 통해 문자열 정답(`>`, `<`, `3/5`, `101₍₂₎`), 종속 변수(VarC, VarD), 복합 수식 템플릿 치환 검증
+- **수정 대상**:
+  - `dream_guardian/src/question/QuestionEvaluator.ts`
+  - `dream_guardian/tests/unit/question-system.test.ts`
+- **완료 조건**:
+  - [x] 3회 반복 전수 검사(2,055문항) 100% 생성 성공
+  - [x] 미치환 템플릿 노출 0건, 정답==오답 중복 0건
+  - [x] `npm test` 100% 통과
+
+---
+
 ### Issue #103 (Card #40): [FEAT-001] 각 단계별 세부 난이도(SubLevel) 필터링 시스템 구현
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/103
 - **Labels**: `feature`, `P1-high`, `step-8`
 - **작업 ID**: `[FEAT-001]`
-- **상태**: ⚪ **대기 (Ready)**
+- **상태**: ✅ **완료 (Closed)**
 - **목적**:
   - `questions.csv`에 정의된 SubLevel(1~7)을 활용하여 각 챕터별 세부 난이도 필터링을 지원하고, Ch.5(나이트메어)에서 5~9단계(거듭제곱, 2진수, 도형, 비율, 기타)를 세부 단계(SubLevel)로 선택하여 집중 학습할 수 있도록 시스템을 확장한다. (Issue #106과 통합 연계)
 - **수정 대상**:
@@ -755,11 +789,11 @@
   - 유지: 기존 `setLevel(level)` 단독 호출 시 기존 동작 100% 보존, Fisher-Yates 셔플 및 중복 출제 방지 가드 유지
   - 변경 금지: UI/렌더/전투 시스템 파일 및 questions.csv 원본 파일 변경 금지
 - **완료 조건**:
-  - [ ] `setLevel(1, 2)` 호출 시 Ch.1 두자리 덧뺄셈(Level 1, SubLevel 2) 문제만 반환
-  - [ ] `setLevel(5, 1~5)` 호출 시 Level 5~9의 문제가 정상 반환
-  - [ ] `setLevel(5)` 호출 시 Level 1~9 전 영역 풀 반환
-  - [ ] `getSubLevels(chapter)`가 각 챕터의 세부 단계 메타데이터를 올바르게 반환
-  - [ ] `npm test` 100% 통과 (Pass)
+  - [x] `setLevel(1, 2)` 호출 시 Ch.1 두자리 덧뺄셈(Level 1, SubLevel 2) 문제만 반환
+  - [x] `setLevel(5, 1~5)` 호출 시 Level 5~9의 문제가 정상 반환
+  - [x] `setLevel(5)` 호출 시 Level 1~9 전 영역 풀 반환
+  - [x] `getSubLevels(chapter)`가 각 챕터의 세부 단계 메타데이터를 올바르게 반환
+  - [x] `npm test` 100% 통과 (Pass)
 - **관련 파일**:
   - `dream_guardian/src/question/QuestionBank.ts`
   - `dream_guardian/src/types/index.ts`
@@ -771,7 +805,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/106
 - **Labels**: `bug`, `P2-medium`, `step-8`
 - **작업 ID**: `[BUG-003]`
-- **상태**: ⚪ **대기 (Ready)**
+- **상태**: ✅ **완료 (Closed)**
 - **목적**:
   - `questions.csv`에 존재하는 Level 1~9(총 685문항) 중 Level 5~9(371문항)를 Ch.5 나이트메어의 세부 서브레벨로 정식 매핑하여 접근성을 확보한다.
 - **수정 대상**:
@@ -782,9 +816,9 @@
   - SubLevel 6(또는 미지정) 선택 시 기존의 전 영역 종합 혼합 풀로 동작 (완전한 하위 호환)
   - Issue #103과 통합 구현
 - **완료 조건**:
-  - [ ] Ch.5 나이트메어에서 Level 5~9 세부 문제 풀 선택 가능
-  - [ ] SubLevel 미지정 시 전 영역 혼합 풀 유지
-  - [ ] `npm test` 100% 통과
+  - [x] Ch.5 나이트메어에서 Level 5~9 세부 문제 풀 선택 가능
+  - [x] SubLevel 미지정 시 전 영역 혼합 풀 유지
+  - [x] `npm test` 100% 통과
 
 ---
 
