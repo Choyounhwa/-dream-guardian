@@ -1091,6 +1091,282 @@
   - [ ] 마우스 클릭 및 키보드(1~5, Esc) Fallback이 정상 유지됨
   - [ ] `npm test` 100% Pass 및 빌드 정상 완료
 
+---
+
+### Issue #120 (Card #51): [CFG-001] 존/커서/티어 설정 config/ 외부화 및 Config 분리
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/120
+- **Labels**: `refactor`, `P1-high`, `phase-3`
+- **작업 ID**: `[CFG-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 개발 규칙 6절(데이터와 코드 분리) 및 RC-8에 따라, `AnswerSelector`, `RecipeGenerator` 등에 하드코딩된 피트니스 존 좌표, 커서 색상 및 감도, 티어별 체류시간 상수들을 `config/` 디렉터리로 외부화하여 관리한다.
+- **수정 대상**:
+  - `dream_guardian/config/zone.config.ts` (신규)
+  - `dream_guardian/config/cursor.config.ts` (신규)
+  - `dream_guardian/config/posture.config.ts` (신규)
+  - `dream_guardian/src/core/Config.ts`
+  - `dream_guardian/src/input/AnswerSelector.ts`
+  - `dream_guardian/src/input/RecipeGenerator.ts`
+  - `dream_guardian/tests/unit/architecture.test.ts`
+- **구현 내용**:
+  1. `config/zone.config.ts`: 10개/11개 피트니스 존 좌표(`DEFAULT_FITNESS_ZONES`) 분리 정의
+  2. `config/cursor.config.ts`: 커서 색상(`CURSOR_COLORS`), 신뢰도 임계값 분리 정의
+  3. `config/posture.config.ts`: 티어별 기본 체류시간(0.7s~1.2s), 감쇠 계수 분리 정의
+  4. 기존 코드에서 하드코딩 상수를 제거하고 `config/` 모듈 참조로 교체
+  5. `architecture.test.ts`의 dwellTime 검증 동기화
+- **유지 사항**:
+  - 기존 판정 로직 및 렌더러 동작 일관성 유지
+- **변경 금지**:
+  - 문제 출제, 수식 계산, 전투 HP/마나 시스템
+- **완료 조건**:
+  - [ ] `config/` 디렉터리에 존/커서/자세 설정 파일 분리 생성 완료
+  - [ ] 기존 판정 로직 및 렌더러 동작에 영향 없이 `npm test` 100% Pass
+  - [ ] 빌드(`npm run build`) 0 에러
+
+---
+
+### Issue #121 (Card #52): [ZONE-001] 피트니스 존 레이아웃 재정의 (겹침 제거 및 문제/답안 밴드 예약)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/121
+- **Labels**: `feature`, `P1-high`, `phase-6`
+- **작업 ID**: `[ZONE-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - RC-9(존 4·5와 6·7·8이 y 0.55~0.58 겹침 및 답안 오브와 존 겹침), RC-6(머리·골반 존 7 중복 충돌)을 해결하고, 18:9 화면 비율에 맞춘 겹침 없는 존 레이아웃과 문제/답안 전용 밴드를 확립한다.
+- **수정 대상**:
+  - `dream_guardian/config/zone.config.ts`
+  - `dream_guardian/src/input/AnswerSelector.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/tests/unit/input-system.test.ts`
+- **구현 내용**:
+  1. 상단 문제 밴드(y: 0.18~0.32), 중앙 답안 밴드(y: 0.44~0.56) 영역 예약
+  2. 존 1~3 (상단/머리·만세 존, y: 0.02~0.18) 재배치
+  3. 존 4~5 (중단 측면 존, y: 0.32~0.44) 재배치
+  4. 존 6~8 (중하단 존, y: 0.58~0.74, 골반/낮은 손) 재배치
+  5. 존 9~10 (하단 존, y: 0.76~0.92, 스쿼트/딥 존) 재배치
+  6. 모든 존 간 경계 여백(최소 2% 이상) 확보하여 겹침(Overlap) 0% 보장
+  7. `HEAD_ZONES` ∩ `HIP_ZONES` = ∅ (머리-골반 동일 존 충돌 방지) 확립
+- **완료 조건**:
+  - [ ] 10개 피트니스 존 간 겹침 면적이 0%임을 수치 검증
+  - [ ] 문제 텍스트 및 답안 버튼이 피트니스 존 영역과 겹치지 않음
+  - [ ] 머리와 골반의 허용 존 집합이 상호 배타적임 확인
+  - [ ] `npm test` 100% Pass
+
+---
+
+### Issue #122 (Card #53): [DATA-001] 피트니스 패턴 원본 데이터(fitness pattern.csv) 로더 및 유효성 검증기 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/122
+- **Labels**: `feature`, `P1-high`, `phase-4`
+- **작업 ID**: `[DATA-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - `fitness pattern.csv`(360건: Single 60, Double 100, Triple 100, Quad 100) 데이터를 파싱하고, 게임 엔진에서 활용 가능한 타입화된 피트니스 패턴 풀로 로드 및 사전 검증한다.
+- **수정 대상**:
+  - `dream_guardian/src/data/FitnessPatternLoader.ts` (신규)
+  - `dream_guardian/src/types/posture.ts` (또는 `types/index.ts`)
+  - `dream_guardian/tests/unit/fitness-pattern-loader.test.ts` (신규)
+- **구현 내용**:
+  1. `FitnessPatternLoader.ts`: CSV 파서(헤더: ID, 사용 부위, 왼손, 오른손, 머리, 골반, 판정 부위 수) 구현
+  2. `S001`~`Q100` 360개 패턴 파싱 및 타입 인스턴스 생성
+  3. 존 번호 파싱(1~11, 'X' 처리) 및 부위별 매핑
+  4. 부위 수/존 수 불일치 데이터 유효성 검증
+- **완료 조건**:
+  - [ ] `fitness pattern.csv` 360건 전수 무오류 파싱
+  - [ ] S(60건), D(100건), T(100건), Q(100건) 필터링 단위 테스트 통과
+  - [ ] `npm test` 100% Pass
+
+---
+
+### Issue #123 (Card #54): [POSE-001] 자세 선택 시스템 AnswerPosture 및 PostureProgress 데이터 타입 신설
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/123
+- **Labels**: `feature`, `P1-high`, `phase-3`
+- **작업 ID**: `[POSE-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - RC-1(부위↔존 고정 인덱스 페어링 한계)과 RC-5(진행도 2슬롯 한계)를 극복하기 위해, 다중 부위-다중 존 집합 덮기 및 존별/부위별 독립 진행도를 지원하는 신규 데이터 타입을 정의한다.
+- **수정 대상**:
+  - `dream_guardian/src/types/posture.ts` (신규)
+  - `dream_guardian/src/types/index.ts`
+  - `dream_guardian/tests/unit/architecture.test.ts`
+- **구현 내용**:
+  1. `BodyPart`: `'leftHand' | 'rightHand' | 'head' | 'hip'`
+  2. `AnswerPosture`: `choiceIndex`, `parts: BodyPart[]`, `zoneIds: number[]`, `binding: 'any' | 'ordered'`, `gates?: PartGate[]`, `patternId: string`
+  3. `PostureProgress`: `choiceIndex`, `progress: number`, `met: boolean`, `partStates: { part: BodyPart; zoneId: number | null }[]`, `zoneCovered: Record<number, boolean>`
+  4. 기존 `ChoiceRecipe`와의 상호 호환 어댑터 타입 제공
+- **완료 조건**:
+  - [ ] 신규 자세 타입 컴파일 0 에러 (`npm run build`)
+  - [ ] 아키텍처 단위 테스트 통과
+  - [ ] `npm test` 100% Pass
+
+---
+
+### Issue #124 (Card #55): [POSE-002] 집합 덮기(Set Coverage) 기반 matchPosture 판정 알고리즘 및 단위 테스트 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/124
+- **Labels**: `feature`, `P0-critical`, `phase-3`
+- **작업 ID**: `[POSE-002]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - RC-1(양손 동일 존 불가), G-8(D061 양손 존2 등)을 완벽히 지원하기 위해, 고정 1:1 페어링을 폐기하고 집합 덮기(Set Coverage) 기반의 수학적 판정 술어 `matchPosture()`를 구현한다.
+- **수정 대상**:
+  - `dream_guardian/src/input/PostureMatcher.ts` (신규)
+  - `dream_guardian/src/input/AnswerSelector.ts`
+  - `dream_guardian/tests/unit/posture-matcher.test.ts` (신규)
+- **구현 내용**:
+  1. 집합 덮기 술어 구현:
+     - (A) 모든 요구 부위가 어떤 활성 존 내부에 존재: `∀ p ∈ P : ∃ z ∈ Z, inside(p, z)`
+     - (B) 모든 활성 존이 최소 1개 이상의 요구 부위로 덮임: `∀ z ∈ Z : ∃ p ∈ P, inside(p, z)`
+  2. 2부위 1존, 2부위 2존(정방향 및 좌우 역방향 교환 허용), 3부위 1~3존, 4부위 지원
+  3. 한 존에 몰림 방지 (조건 B) 검증
+  4. `binding: 'ordered'` 시 순서 엄격 판정 옵션
+  5. 단위 테스트 슈트 12종 이상 작성
+- **완료 조건**:
+  - [ ] 2부위 1존: 두 부위 모두 존 내부 → met / 한 부위만 → not met
+  - [ ] 2부위 2존: 정방향 met / 역방향(좌우 교환) met (RC-1 해결)
+  - [ ] 2부위 2존: 두 부위가 같은 존에 몰림 → not met (조건 B 검증)
+  - [ ] 3부위 1존 / 2존 / 3존 각 케이스 통과
+  - [ ] `npm test` 100% Pass
+
+---
+
+### Issue #125 (Card #56): [POSE-003] 패턴 풀 기반 좌/우 선택지 추출기 및 생성 제약(C1~C7) 검증기 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/125
+- **Labels**: `feature`, `P1-high`, `phase-3`
+- **작업 ID**: `[POSE-003]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - RC-4, RC-6을 해결하여, 문제 출제 시 플레이어가 양쪽 답안을 동시에 충족하거나 머리/골반이 충돌하지 않도록 7대 안전 제약조건(C1~C7)을 만족하는 자세 쌍을 생성한다.
+- **수정 대상**:
+  - `dream_guardian/src/input/PostureGenerator.ts` (신규)
+  - `dream_guardian/src/input/RecipeGenerator.ts`
+  - `dream_guardian/tests/unit/posture-generator.test.ts` (신규)
+- **구현 내용**:
+  1. C1: `|union(A.zoneIds, B.zoneIds)| <= 최대 존 수 (3)`
+  2. C2: `A.parts \ B.parts ≠ ∅` AND `B.parts \ A.parts ≠ ∅` (배타 부위 보장으로 동시 충족 Deadlock 원천 차단)
+  3. C3: head와 hip 동일 존 요구 배제
+  4. C4: head와 hip 동시 요구 시 `zone(head).y < zone(hip).y` 보장
+  5. C5: 부위별 허용 존 검증 (머리: 1~4, 골반: 6~11 등)
+  6. C6: `parts.length >= distinct(zoneIds).length`
+  7. C7: 최근 3문제 내 동일 `patternId` 제외 쿨다운
+- **완료 조건**:
+  - [ ] 100회 연속 생성 시 C1~C7 위반 0건
+  - [ ] 양쪽 선택지 동시 만족 조합 생성 차단 확인
+  - [ ] `npm test` 100% Pass
+
+---
+
+### Issue #126 (Card #57): [POSE-004] PartGate (캘리브레이션 기준선 대비 신체 변위) 판정 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/126
+- **Labels**: `feature`, `P1-high`, `phase-3`
+- **작업 ID**: `[POSE-004]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - RC-3(단순 직립 상태만으로 존 2와 존 7에 머리/골반이 닿아 자동 충족되는 결함)을 해결하기 위해, 캘리브레이션 기준선 대비 실제 신체 움직임(변위)을 확인하는 `PartGate` 판정을 도입한다.
+- **수정 대상**:
+  - `dream_guardian/src/input/PartGateEvaluator.ts` (신규)
+  - `dream_guardian/src/motion/CalibrationHelper.ts`
+  - `dream_guardian/src/input/AnswerSelector.ts`
+  - `dream_guardian/tests/unit/part-gate.test.ts` (신규)
+- **구현 내용**:
+  1. 캘리브레이션 시 저장된 중립 기준선(코 Y, 어깨 Y, 골반 Y) 활용
+  2. 스쿼트 요구 시 골반 Y의 하강 변위(`Δy >= threshold`) 검증
+  3. 머리 기울이기 요구 시 코 X/Y의 상대 변위 검증
+  4. 팔 뻗기/만세 요구 시 손목-어깨 거리 및 상향 변위 검증
+- **완료 조건**:
+  - [ ] 기준선 변위 미달 시 존 내부라도 not met 판정
+  - [ ] 실제 동작 수행 시 정상 충족 확인
+  - [ ] `npm test` 100% Pass
+
+---
+
+### Issue #127 (Card #58): [ICON-001] PartIconRenderer 신설 (손/머리/골반 부위별 공통 아이콘 시스템)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/127
+- **Labels**: `feature`, `P2-medium`, `phase-6`
+- **작업 ID**: `[ICON-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 스켈레톤 커서와 답안 버튼, 피트니스 존에서 동일한 형상과 색상의 부위별 아이콘을 렌더링하여 플레이어의 직관성을 극대화한다.
+- **수정 대상**:
+  - `dream_guardian/src/render/PartIconRenderer.ts` (신규)
+  - `dream_guardian/src/render/index.ts`
+  - `dream_guardian/tests/unit/part-icon-renderer.test.ts` (신규)
+- **구현 내용**:
+  1. 왼손: 시안 `#28E6FF`, 좌향 손바닥 실루엣 벡터 드로잉
+  2. 오른손: 노랑 `#FFCB4D`, 우향 미러 손바닥 실루엣 벡터 드로잉
+  3. 머리: 보라 `#C889FF`, 원형 얼굴 + 2점 눈 드로잉
+  4. 골반: 주황 `#FF865E`, 라운드 다이아몬드(마름모) 드로잉
+  5. 임의 크기(`size`), 중심 좌표(`cx, cy`), 알파, 외곽선/채움 모드 지원
+- **완료 조건**:
+  - [ ] 4개 부위 아이콘이 캔버스에 선명하게 렌더링
+  - [ ] 단위 테스트: 드로잉 커맨드 호출 무오류 검증
+  - [ ] `npm test` 100% Pass
+
+---
+
+### Issue #128 (Card #59): [UI-001] 답안 버튼 부위 아이콘, 색상 및 묶음 기호(함께/각각) 시각화
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/128
+- **Labels**: `feature`, `P1-high`, `phase-6`
+- **작업 ID**: `[UI-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - RC-2(답안 UI에 부위 정보 부재)를 해결하여, 답안 오브 아래에 어떤 부위 커서를 어떤 방식으로 배치해야 하는지(한 존 vs 각 존)를 아이콘과 묶음 기호로 직관적으로 표시한다.
+- **수정 대상**:
+  - `dream_guardian/src/render/MathRenderer.ts` 또는 `main.ts (renderQuestion)`
+  - `dream_guardian/src/render/PartIconRenderer.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+- **구현 내용**:
+  1. 답안 버튼 하단에 요구 부위 아이콘 나열 렌더링
+  2. 묶음 기호 표기:
+     - 부위 2~3개 / 1개 존: `(아이콘 아이콘)` 괄호 묶음 ("함께 한 존에")
+     - 부위 n개 / n개 존: `아이콘 / 아이콘` 구분선 ("각각 다른 존에")
+     - 부위 3개 / 2개 존: `(아이콘 아이콘) / 아이콘` 혼합 묶음
+  3. 텍스트 힌트 병행 표시 (예: "양손 함께 존 2")
+- **완료 조건**:
+  - [ ] 답안 카드 하단에 부위 아이콘 및 묶음 기호 정상 표시
+  - [ ] 2부위/3부위 조합별 묶음 기호 분기 검증
+  - [ ] `npm test` 100% Pass
+
+---
+
+### Issue #129 (Card #60): [UI-002] 피트니스 존별/부위별 독립 진행도 피드백 및 i % 2 오매핑 수정
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/129
+- **Labels**: `bug`, `P1-high`, `phase-6`
+- **작업 ID**: `[UI-002]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - RC-5(진행도 2슬롯으로 인해 3번째 존이 `i % 2`로 오매핑되고 전체 커서에 일괄 `max()`가 전달되던 결함)를 수정하고, 존별 및 부위별 독립적인 충전 진행도 피드백을 제공한다.
+- **수정 대상**:
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/tests/unit/input-system.test.ts`
+- **구현 내용**:
+  1. `choiceProgress`를 존 ID별 맵(`Map<number, number>`) 또는 `PostureProgress` 객체 기반으로 전환
+  2. 활성 존 3개 이상에서도 각 존이 개별 충전 게이지를 표시하도록 렌더링 로직 수정
+  3. 커서별로 자신이 위치한 존의 진행도에 맞는 아크를 표시하도록 분리
+- **완료 조건**:
+  - [ ] 3개 이상 활성 존에서 각 존의 진행도가 서로 간섭 없이 독립 렌더링
+  - [ ] 커서별 체류 아크가 해당 커서가 속한 존의 충전률을 정확히 반영
+  - [ ] `npm test` 100% Pass
+
+---
+
+### Issue #130 (Card #61): [REFACTOR-001] AnswerSelector 죽은 판정 경로(update) 정리 및 단위 테스트 정비
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/130
+- **Labels**: `refactor`, `P2-medium`, `phase-3`
+- **작업 ID**: `[REFACTOR-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - RC-7(실게임에서 쓰이지 않는 레거시 `update()` 경로와 `updateFromPose()` 간의 상태 불일치)을 해소하고, `input-system.test.ts`의 테스트들을 신규 판정 파이프라인으로 일원화한다.
+- **수정 대상**:
+  - `dream_guardian/src/input/AnswerSelector.ts`
+  - `dream_guardian/tests/unit/input-system.test.ts`
+- **구현 내용**:
+  1. 레거시 `update(cursorX, cursorY, dt)` 경로를 `updateFromPose` 또는 신규 `PostureMatcher`로 통합
+  2. `input-system.test.ts`의 의존 테스트(약 7개)를 신규 인터페이스로 마이그레이션
+  3. 불필요한 레거시 필드 및 메서드 안전 제거
+- **완료 조건**:
+  - [ ] 미사용 레거시 경로 정리 완료
+  - [ ] 255개 이상 모든 단위 테스트 100% Pass 유지
+  - [ ] `main.ts` 게임 루프 무결성 보존
+
+
 
 
 

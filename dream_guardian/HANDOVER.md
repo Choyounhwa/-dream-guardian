@@ -85,9 +85,9 @@
 
 ---
 
-## 🔴 최우선 현안: 자세 선택 시스템 재설계 (미착수)
+## 🔴 최우선 현안: 자세 선택 시스템 재설계 (카드 등록 완료)
 
-> 등록일: 2026-09-22 / 상태: **분석 완료, 구현 승인 대기**
+> 등록일: 2026-09-22 / 상태: **GitHub Issue 카드 등록 완료 (#120~#130), 구현 승인 대기**
 > 상세 분석: `docs/04_POSTURE_SYSTEM_ANALYSIS.md`
 > 패턴 원본: `E:\AIAIAIAIAI\Arithmetic Game\fitness pattern.csv` (360건)
 
@@ -209,21 +209,21 @@ ID 접두사별 분포:
 - [ ] **G-2 결정**: 4부위(Q 시리즈) 100건을 채택하여 명세를 1~4부위로 확장할지, 제외할지
 - [ ] **G-3 결정**: 4존 패턴 37건 채택 여부
 
-**2단계 — 작업 카드 등록 (개발 규칙 9항, 승인 후 구현)**
+**2단계 — 작업 카드 등록 완료 (개발 규칙 9항, 승인 대기)**
 
-| 순서 | 카드 ID | 제목 | 관련 RC/G |
-|---|---|---|---|
-| 1 | `CFG-001` | 존/커서/티어 설정 `config/` 외부화 | RC-8 |
-| 2 | `ZONE-001` | 존 레이아웃 재정의 (개수 확정 + 겹침 제거 + 답안 밴드 예약) | RC-9, G-1 |
-| 3 | `DATA-001` | `fitness pattern.csv` → 패턴 로더 구현 (CSVLoader 재사용) | G-1~G-8 |
-| 4 | `POSE-001` | `AnswerPosture` / `PostureProgress` 타입 신설 | RC-1, RC-5 |
-| 5 | `POSE-002` | 집합 덮기 판정 `matchPosture()` + 단위 테스트 | RC-1, RC-4, G-8 |
-| 6 | `POSE-003` | 패턴 풀에서 좌/우 자세 2개 추출 + 제약 C1~C6 | RC-4, RC-6 |
-| 7 | `POSE-004` | `PartGate` (캘리브레이션 대비 변위) 판정 | RC-3 |
-| 8 | `ICON-001` | `PartIconRenderer` 신설 (손/머리/골반 아이콘) | 아이콘 요구 |
-| 9 | `UI-001` | 답안 버튼 부위 아이콘·색상·묶음 기호 표시 | RC-2 |
-| 10 | `UI-002` | 존별/부위별 개별 진행도 피드백 (`i % 2` 버그 수정) | RC-5 |
-| 11 | `REFACTOR-001` | 죽은 판정 경로 `update()` 정리 | RC-7 |
+| 순서 | 카드 ID | GitHub Issue | 제목 | 관련 RC/G | 분류 | 상태 |
+|---|---|---|---|---|---|---|
+| 1 | `CFG-001` | [#120](https://github.com/Choyounhwa/-dream-guardian/issues/120) | 존/커서/티어 설정 `config/` 외부화 및 Config 분리 | RC-8 | `refactor`, `P1-high` | ⚪ 대기 |
+| 2 | `ZONE-001` | [#121](https://github.com/Choyounhwa/-dream-guardian/issues/121) | 피트니스 존 레이아웃 재정의 (겹침 제거 및 문제/답안 밴드 예약) | RC-9, G-1 | `feature`, `P1-high` | ⚪ 대기 |
+| 3 | `DATA-001` | [#122](https://github.com/Choyounhwa/-dream-guardian/issues/122) | 피트니스 패턴 원본 데이터(fitness pattern.csv) 로더 및 유효성 검증기 구현 | G-1~G-8 | `feature`, `P1-high` | ⚪ 대기 |
+| 4 | `POSE-001` | [#123](https://github.com/Choyounhwa/-dream-guardian/issues/123) | 자세 선택 시스템 AnswerPosture 및 PostureProgress 데이터 타입 신설 | RC-1, RC-5 | `feature`, `P1-high` | ⚪ 대기 |
+| 5 | `POSE-002` | [#124](https://github.com/Choyounhwa/-dream-guardian/issues/124) | 집합 덮기(Set Coverage) 기반 matchPosture 판정 알고리즘 및 단위 테스트 구현 | RC-1, RC-4, G-8 | `feature`, `P0-critical` | ⚪ 대기 |
+| 6 | `POSE-003` | [#125](https://github.com/Choyounhwa/-dream-guardian/issues/125) | 패턴 풀 기반 좌/우 선택지 추출기 및 생성 제약(C1~C7) 검증기 구현 | RC-4, RC-6 | `feature`, `P1-high` | ⚪ 대기 |
+| 7 | `POSE-004` | [#126](https://github.com/Choyounhwa/-dream-guardian/issues/126) | PartGate (캘리브레이션 기준선 대비 신체 변위) 판정 구현 | RC-3 | `feature`, `P1-high` | ⚪ 대기 |
+| 8 | `ICON-001` | [#127](https://github.com/Choyounhwa/-dream-guardian/issues/127) | PartIconRenderer 신설 (손/머리/골반 부위별 공통 아이콘 시스템) | 아이콘 요구 | `feature`, `P2-medium` | ⚪ 대기 |
+| 9 | `UI-001` | [#128](https://github.com/Choyounhwa/-dream-guardian/issues/128) | 답안 버튼 부위 아이콘, 색상 및 묶음 기호(함께/각각) 시각화 | RC-2 | `feature`, `P1-high` | ⚪ 대기 |
+| 10 | `UI-002` | [#129](https://github.com/Choyounhwa/-dream-guardian/issues/129) | 피트니스 존별/부위별 독립 진행도 피드백 및 i % 2 오매핑 수정 | RC-5 | `bug`, `P1-high` | ⚪ 대기 |
+| 11 | `REFACTOR-001` | [#130](https://github.com/Choyounhwa/-dream-guardian/issues/130) | AnswerSelector 죽은 판정 경로(update) 정리 및 단위 테스트 정비 | RC-7 | `refactor`, `P2-medium` | ⚪ 대기 |
 
 **주의:** `ZONE-001`은 `UI-001`보다 반드시 앞서야 합니다(답안 밴드 좌표 의존). `REFACTOR-001`은 `input-system.test.ts` 약 7개 테스트가 `update()`에 의존하므로 단독 카드로 수행합니다(개발 규칙 3.3/18항).
 
