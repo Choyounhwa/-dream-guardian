@@ -1157,7 +1157,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/122
 - **Labels**: `feature`, `P1-high`, `phase-4`
 - **작업 ID**: `[DATA-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Done - 2026-09-22)**
 - **목적**:
   - `fitness pattern.csv`(360건: Single 60, Double 100, Triple 100, Quad 100) 데이터를 파싱하고, 게임 엔진에서 활용 가능한 타입화된 피트니스 패턴 풀로 로드 및 사전 검증한다.
 - **수정 대상**:
@@ -1170,9 +1170,9 @@
   3. 존 번호 파싱(1~11, 'X' 처리) 및 부위별 매핑
   4. 부위 수/존 수 불일치 데이터 유효성 검증
 - **완료 조건**:
-  - [ ] `fitness pattern.csv` 360건 전수 무오류 파싱
-  - [ ] S(60건), D(100건), T(100건), Q(100건) 필터링 단위 테스트 통과
-  - [ ] `npm test` 100% Pass
+  - [x] `fitness pattern.csv` 360건 전수 무오류 파싱
+  - [x] S(60건), D(100건), T(100건), Q(100건) 필터링 단위 테스트 통과
+  - [x] `npm test` 100% Pass
 
 ---
 
@@ -1180,7 +1180,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/123
 - **Labels**: `feature`, `P1-high`, `phase-3`
 - **작업 ID**: `[POSE-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Done - 2026-09-22)**
 - **목적**:
   - RC-1(부위↔존 고정 인덱스 페어링 한계)과 RC-5(진행도 2슬롯 한계)를 극복하기 위해, 다중 부위-다중 존 집합 덮기 및 존별/부위별 독립 진행도를 지원하는 신규 데이터 타입을 정의한다.
 - **수정 대상**:
@@ -1193,9 +1193,9 @@
   3. `PostureProgress`: `choiceIndex`, `progress: number`, `met: boolean`, `partStates: { part: BodyPart; zoneId: number | null }[]`, `zoneCovered: Record<number, boolean>`
   4. 기존 `ChoiceRecipe`와의 상호 호환 어댑터 타입 제공
 - **완료 조건**:
-  - [ ] 신규 자세 타입 컴파일 0 에러 (`npm run build`)
-  - [ ] 아키텍처 단위 테스트 통과
-  - [ ] `npm test` 100% Pass
+  - [x] 신규 자세 타입 컴파일 0 에러 (`npm run build`)
+  - [x] 아키텍처 단위 테스트 통과
+  - [x] `npm test` 100% Pass
 
 ---
 
@@ -1203,7 +1203,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/124
 - **Labels**: `feature`, `P0-critical`, `phase-3`
 - **작업 ID**: `[POSE-002]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Done - 2026-09-22)**
 - **목적**:
   - RC-1(양손 동일 존 불가), G-8(D061 양손 존2 등)을 완벽히 지원하기 위해, 고정 1:1 페어링을 폐기하고 집합 덮기(Set Coverage) 기반의 수학적 판정 술어 `matchPosture()`를 구현한다.
 - **수정 대상**:
@@ -1219,11 +1219,11 @@
   4. `binding: 'ordered'` 시 순서 엄격 판정 옵션
   5. 단위 테스트 슈트 12종 이상 작성
 - **완료 조건**:
-  - [ ] 2부위 1존: 두 부위 모두 존 내부 → met / 한 부위만 → not met
-  - [ ] 2부위 2존: 정방향 met / 역방향(좌우 교환) met (RC-1 해결)
-  - [ ] 2부위 2존: 두 부위가 같은 존에 몰림 → not met (조건 B 검증)
-  - [ ] 3부위 1존 / 2존 / 3존 각 케이스 통과
-  - [ ] `npm test` 100% Pass
+  - [x] 2부위 1존: 두 부위 모두 존 내부 → met / 한 부위만 → not met
+  - [x] 2부위 2존: 정방향 met / 역방향(좌우 교환) met (RC-1 해결)
+  - [x] 2부위 2존: 두 부위가 같은 존에 몰림 → not met (조건 B 검증)
+  - [x] 3부위 1존 / 2존 / 3존 각 케이스 통과
+  - [x] `npm test` 100% Pass
 
 ---
 
@@ -1231,7 +1231,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/125
 - **Labels**: `feature`, `P1-high`, `phase-3`
 - **작업 ID**: `[POSE-003]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Done - 2026-09-22)**
 - **목적**:
   - RC-4, RC-6을 해결하여, 문제 출제 시 플레이어가 양쪽 답안을 동시에 충족하거나 머리/골반이 충돌하지 않도록 7대 안전 제약조건(C1~C7)을 만족하는 자세 쌍을 생성한다.
 - **수정 대상**:
@@ -1247,9 +1247,9 @@
   6. C6: `parts.length >= distinct(zoneIds).length`
   7. C7: 최근 3문제 내 동일 `patternId` 제외 쿨다운
 - **완료 조건**:
-  - [ ] 100회 연속 생성 시 C1~C7 위반 0건
-  - [ ] 양쪽 선택지 동시 만족 조합 생성 차단 확인
-  - [ ] `npm test` 100% Pass
+  - [x] 100회 연속 생성 시 C1~C7 위반 0건
+  - [x] 양쪽 선택지 동시 만족 조합 생성 차단 확인
+  - [x] `npm test` 100% Pass
 
 ---
 
@@ -1257,7 +1257,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/126
 - **Labels**: `feature`, `P1-high`, `phase-3`
 - **작업 ID**: `[POSE-004]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Done - 2026-09-22)**
 - **목적**:
   - RC-3(단순 직립 상태만으로 존 2와 존 7에 머리/골반이 닿아 자동 충족되는 결함)을 해결하기 위해, 캘리브레이션 기준선 대비 실제 신체 움직임(변위)을 확인하는 `PartGate` 판정을 도입한다.
 - **수정 대상**:
@@ -1271,9 +1271,9 @@
   3. 머리 기울이기 요구 시 코 X/Y의 상대 변위 검증
   4. 팔 뻗기/만세 요구 시 손목-어깨 거리 및 상향 변위 검증
 - **완료 조건**:
-  - [ ] 기준선 변위 미달 시 존 내부라도 not met 판정
-  - [ ] 실제 동작 수행 시 정상 충족 확인
-  - [ ] `npm test` 100% Pass
+  - [x] 기준선 변위 미달 시 존 내부라도 not met 판정
+  - [x] 실제 동작 수행 시 정상 충족 확인
+  - [x] `npm test` 100% Pass
 
 ---
 
@@ -1554,6 +1554,178 @@
   - `dream_guardian/src/ui/ResultRenderer.ts`
   - `dream_guardian/src/input/MenuInput.ts`
   - `dream_guardian/tests/unit/ui-system.test.ts`
+
+---
+
+### Issue #135 (Card #66): [CALC-001] 자세 유지(Dwell Time) 기반 피트니스 칼로리 소모 계산식 확장 및 결과 통계 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/135
+- **Labels**: `feature`, `P2-medium`, `phase-6`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[CALC-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 현재 칼로리 소모 공식 `(steps*0.04) + (squats*0.35) + (jumps*0.15)`은 달리기/스쿼트/점프만 반영하고 있어, 플레이어가 문제를 풀며 스트레칭 및 국민체조 자세를 정지 유지(Dwell)한 운동 노력을 보상하지 못하는 결함을 해결한다. 자세 유지 시간(초)을 칼로리 공식에 반영하여 피트니스 보상을 정밀화한다.
+- **수정 대상**:
+  - `dream_guardian/src/ui/ResultRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+  - `dream_guardian/config/posture.config.ts`
+- **구현 내용**:
+  1. **자세 유지 시간(postureDwellTime) 누적 트래킹**:
+     - `main.ts`의 문제 풀이 루프에서 커서가 활성 존에 체류하며 충전된 시간(초)을 실시간 누적 (`totalDwellTime`).
+  2. **칼로리 공식 확장 (`ResultRenderer.calcCalories`)**:
+     - 기존 공식에 자세 유지 칼로리 계수(`0.06~0.08 kcal/s`) 추가:
+       `calories = (steps * 0.04) + (squats * 0.35) + (jumps * 0.15) + (dwellTime * 0.07)`
+  3. **결과 화면(`ResultRenderer`) 통계 표시 확장**:
+     - 결과 리포트에 `스트레칭 유지: N초` 항목을 추가하여 운동 피드백 제공.
+  4. **설정 외부화**:
+     - 칼로리 계수(`CALORIE_RATES`)를 `config/posture.config.ts`에 분리하여 밸런스 조정 지원.
+- **유지 사항**:
+  - 기존 걸음, 스쿼트, 점프 칼로리 계산 단위 테스트 호환성 유지
+  - 결과 화면 별 등급(Stars) 산출 로직 보존
+- **변경 금지**:
+  - 전투 HP/마나 증감 로직
+  - 문제 출제 및 정답 판정 시스템
+- **완료 조건**:
+  - [ ] 자세 유지 시간이 누적되어 결과 데이터에 전달됨
+  - [ ] 확장된 칼로리 공식이 적용되어 정확한 수치 계산 검증
+  - [ ] 결과 화면에 스트레칭 유지 시간 표시
+  - [ ] `npm test` 단위 테스트 100% Pass
+- **테스트**:
+  - `tests/unit/ui-system.test.ts`에 확장 칼로리 계산식 단위 테스트 추가
+  - `npm test` 전체 통과 검증
+- **관련 파일**:
+  - `dream_guardian/src/ui/ResultRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+  - `dream_guardian/config/posture.config.ts`
+
+---
+
+### Issue #136 (Card #67): [AUDIO-002] 피트니스 존 체류(Dwell) 점진적 충전음 및 자세 완성 화음 효과음(Web Audio SFX) 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/136
+- **Labels**: `feature`, `P2-medium`, `phase-7`
+- **Milestone**: `v0.5-ui-visuals`
+- **작업 ID**: `[AUDIO-002]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 플레이어가 원하는 답안의 부위를 활성 존에 배치하고 유지하는 동안, 시각적인 아크 채움뿐만 아니라 청각적으로 충전 진행도(점진적 피치 상승)와 확정 순간(맑은 화음 종소리)을 인지할 수 있도록 실시간 오디오 피드백을 제공하여 체감성을 극대화한다.
+- **수정 대상**:
+  - `dream_guardian/src/audio/SFXSynth.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/effects.test.ts`
+- **구현 내용**:
+  1. **충전 피치 톤 합성 (`playDwellCharge(progress: number)`)**:
+     - Web Audio OscillatorNode를 활용하여, 체류 진행도(0.0~1.0)에 따라 기본 주파수가 부드럽게 상승(`220Hz -> 440Hz -> 880Hz`)하는 은은한 펄스 톤 합성.
+     - 존에서 이탈하거나 충전이 취소되면 게인을 즉시 페이드아웃하여 잡음 제거.
+  2. **자세 완성 화음 (`playPostureComplete()`)**:
+     - 1.0초 충전 달성 순간 맑은 3화음(C5-E5-G5 벨 톤) 사운드 재생.
+  3. **인게임 루프 결합 (`main.ts`)**:
+     - `answerSelector`의 진행도 변화에 맞춰 비차단 오디오 재생.
+     - 브라우저 음소거/오디오 컨텍스트 상태 보호.
+- **유지 사항**:
+  - 기존 정답음, 오답음, 피격음 등 12종 SFX 보존
+  - 비차단 큐 구조로 프레임 드랍 0% 유지
+- **변경 금지**:
+  - `QuestionSpeech` (TTS 음성 안내)와의 충돌 방지
+  - 수학 문제 평가 및 보스전 전투 수치
+- **완료 조건**:
+  - [ ] 존 체류 충전 시 진행도에 비례한 피치 상승 효과음 재생
+  - [ ] 자세 확정 시 맑은 완성 화음 재생
+  - [ ] 무음(Muted) 환경에서도 에러 없이 게임 진행 가능
+  - [ ] `npm test` 100% Pass
+- **테스트**:
+  - Web Audio 목(Mock) 기반 사운드 트리거 단위 테스트
+  - `npm test` 전체 통과 검증
+- **관련 파일**:
+  - `dream_guardian/src/audio/SFXSynth.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/effects.test.ts`
+
+---
+
+### Issue #137 (Card #68): [TUT-001] 최초 플레이어 대상 4색 신체 커서 및 피트니스 존 매칭 인터랙티브 튜토리얼 오버레이 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/137
+- **Labels**: `feature`, `P2-medium`, `phase-6`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[TUT-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 처음 게임을 접하는 사용자가 4색 신체 커서(손바닥, 머리, 골반)와 10개 피트니스 존을 활용하여 답안을 선택하는 원리를 빠르게 습득할 수 있도록, 첫 플레이 진입 시 1회 직관적인 가이드 오버레이 및 연습 인터랙션을 제공한다.
+- **수정 대상**:
+  - `dream_guardian/src/ui/TutorialOverlay.ts` (신규)
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/storage/index.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+- **구현 내용**:
+  1. **튜토리얼 단계별 시각 안내**:
+     - 1단계: 4색 신체 커서 소개 (시안 왼손, 노랑 오른손, 보라 머리, 주황 골반)
+     - 2단계: 피트니스 존 매칭 원리 (원하는 답안의 부위를 활성 존에 1초간 올려놓기)
+     - 3단계: 미니 연습 (화면에 뜬 1개 존에 손 올려보기)
+  2. **원클릭 / 제스처 스킵 지원**:
+     - 화면 클릭, Space 키, 또는 양손 모으기 제스처로 언제든 즉시 스킵 가능.
+  3. **최초 1회 실행 상태 영속화**:
+     - LocalStorage(`dream_guardian_tutorial_done`)에 완료 플래그 저장하여 재방문 시 자동 생략.
+     - 메인 메뉴 하단 옵션에서 '튜토리얼 다시 보기' 지원.
+- **유지 사항**:
+  - 기존 FSM 게임 상태 전이 규칙 준수
+  - 키보드/마우스 Fallback 입력 호환성 유지
+- **변경 금지**:
+  - 문제 출제 및 전투 생명주기 로직
+  - 기존 `CanvasManager` 뷰포트 스케일링 체계
+- **완료 조건**:
+  - [ ] 첫 게임 시작 시 튜토리얼 오버레이가 정상 노출됨
+  - [ ] 스킵 버튼 또는 제스처로 즉시 본 게임으로 전환됨
+  - [ ] 완료 후 로컬스토리지에 저장되어 다음 플레이 시 반복 노출되지 않음
+  - [ ] `npm test` 단위 테스트 100% Pass
+- **테스트**:
+  - `tests/unit/ui-system.test.ts`에 튜토리얼 상태 머신 및 스토리지 플래그 검증 추가
+  - `npm test` 전체 통과 검증
+- **관련 파일**:
+  - `dream_guardian/src/ui/TutorialOverlay.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/storage/index.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+
+---
+
+### Issue #138 (Card #69): [DOCS-001] GDD 기획서 및 프로젝트 공식 문서 최신화 (보라 머리/얼굴 확정, 10존 레이아웃, 국민체조 패턴 및 집합 덮기 모델 공식 반영)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/138
+- **Labels**: `documentation`, `P2-medium`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[DOCS-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 개발 초기의 구형 사양(어깨 커서 표기, 12존 체계, 단순 1:1 페어링 등)이 남아있는 기획 문서들을 현재 확정된 아키텍처(보라 머리/얼굴 확정, 겹침 0% 10존 레이아웃, fitness pattern.csv 360건, 집합 덮기 matchPosture 알고리즘)와 100% 일치하도록 공식 최신화한다.
+- **수정 대상**:
+  - `docs/01_GAME_DESIGN_DOCUMENT.md`
+  - `docs/02_WORK_BREAKDOWN_STRUCTURE.md`
+  - `AGENTS.md`
+- **구현 내용**:
+  1. **신체 커서 정의 정정**:
+     - 보라 `#C889FF`: "어깨" 표기를 "머리/얼굴(Head)"로 전면 정정 (`shoulder` 타입 레거시 처리).
+  2. **피트니스 존 및 밴드 최신화**:
+     - 10개 피트니스 존 좌표 규격(18:9 가상 뷰포트, 상호 겹침 0%) 및 예약 밴드(문제 밴드, 답안 밴드) 반영.
+  3. **국민체조 360종 패턴 및 판정 룰 명시**:
+     - `fitness pattern.csv` 원본 데이터(Single 60, Double 100, Triple 100, Quad 100) 반영.
+     - 고정 페어링 대신 집합 덮기(Set Coverage: 조건 A & 조건 B) 판정 술어 공식 수록.
+     - 7대 안전 제약(C1~C7) 및 PartGate 캘리브레이션 변위 검증 반영.
+- **유지 사항**:
+  - 5대 챕터 및 보스전 밸런스(HP, 마나, 데미지) 기획 유지
+  - 스토리 전문 및 캐릭터 설정 보존
+- **변경 금지**:
+  - 소스 코드 및 테스트 코드 수정 금지 (순수 문서 동기화 작업)
+- **완료 조건**:
+  - [ ] GDD 내 모든 어깨 표기가 머리/얼굴로 정정됨
+  - [ ] 10개 피트니스 존 및 집합 덮기 판정 공식이 기획서에 명시됨
+  - [ ] 문서 간 모순 0건 확인
+- **테스트**:
+  - 문서 링크 및 Markdown 렌더링 무결성 검증
+- **관련 파일**:
+  - `docs/01_GAME_DESIGN_DOCUMENT.md`
+  - `docs/02_WORK_BREAKDOWN_STRUCTURE.md`
+  - `AGENTS.md`
+
 
 
 

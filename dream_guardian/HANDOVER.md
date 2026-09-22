@@ -23,11 +23,11 @@
 
 ---
 
-## 🟢 2026-09-22 세션 구현 완료 내역 (6개 카드 전원 통과)
+## 🟢 2026-09-22 세션 구현 완료 내역 (11개 카드 전원 통과)
 
-> 등록일: 2026-09-22 / 최종 상태: **GitHub Issue 카드 6건 완료 (#116, #120, #121, #117, #118, #119), 테스트 275/275 100% Pass**
+> 등록일: 2026-09-22 / 최종 상태: **GitHub Issue 카드 11건 완료 (#116, #120, #121, #117, #118, #119, #122, #123, #124, #125, #126), 테스트 320/320 100% Pass**
 
-사용자 요청 사항, 결함 제보 및 자세 선택 시스템 기반 리팩터링에 따라 총 6개 카드의 개발 및 검증을 100% 완료했습니다.
+사용자 요청 사항, 결함 제보 및 자세 선택 시스템 기반 리팩터링에 따라 총 11개 카드의 개발 및 검증을 100% 완료했습니다.
 
 ### 1. 완료된 작업 카드 상세 내역
 
@@ -39,6 +39,11 @@
 | `FEAT-CURSOR-001` | [#117](https://github.com/Choyounhwa/-dream-guardian/issues/117) | 신체 부위 크기 추정 기반 커서 동적 사이징 및 손바닥 트래킹 | 어깨 너비 비례 0.55~2.0x 동적 사이징, 채움색 없는 투명 네온 외곽선(Outline Only), Pose 손가락 기저 가중 손바닥 중심 트래킹 | 🟢 **Pass (267/267)** |
 | `FEAT-CURSOR-002` | [#118](https://github.com/Choyounhwa/-dream-guardian/issues/118) | 커서 화면 이탈 방지 상위 스켈레톤 계층 Fallback 및 스무딩 이동 | 손바닥→손목→전완→팔꿈치→상완→어깨 6단계 Fallback, 지수 보간(Lerp 0.25), 화면 경계 0.02 마진 안전 클램핑 | 🟢 **Pass (270/270)** |
 | `BUG-MENU-001` | [#119](https://github.com/Choyounhwa/-dream-guardian/issues/119) | 메뉴 화면 4색 커서 상시 가시화 및 양손 모으기 제스처 복원 | 첫 메뉴 진입 즉시 4색 커서 가시화, Cover 줌 감안 합장 임계값 0.22 튜닝, 0.8초 호버 체류 자동 선택, 마우스/키보드 Fallback 보존 | 🟢 **Pass (275/275)** |
+| `DATA-001` | [#122](https://github.com/Choyounhwa/-dream-guardian/issues/122) | 피트니스 패턴 원본 데이터 로더 및 유효성 검증기 | `FitnessPatternLoader.ts` 구현, `fitness pattern.csv` 360건 전수 무오류 파싱(S:60, D:100, T:100, Q:100) 및 타입화 | 🟢 **Pass (280/280)** |
+| `POSE-001` | [#123](https://github.com/Choyounhwa/-dream-guardian/issues/123) | 자세 선택 시스템 AnswerPosture 및 PostureProgress 타입 신설 | RC-1/RC-5 해소: 다중 부위-다중 존 집합 덮기 모델, 존별/부위별 독립 진행도 추적, ChoiceRecipe 상호 호환 어댑터 | 🟢 **Pass (281/281)** |
+| `POSE-002` | [#124](https://github.com/Choyounhwa/-dream-guardian/issues/124) | 집합 덮기(Set Coverage) 기반 matchPosture 판정 알고리즘 | 조건 A(모든 요구 부위가 목표 존에 위치) 및 조건 B(모든 목표 존이 덮임) 수학적 구현, 좌우 교환 허용 및 몰림 방지 | 🟢 **Pass (299/299)** |
+| `POSE-003` | [#125](https://github.com/Choyounhwa/-dream-guardian/issues/125) | 패턴 풀 기반 선택지 생성기 및 7대 안전 제약(C1~C7) 검증기 | C1~C7(최대 3존, 상호 배타 부위로 Deadlock 원천 차단, 머리/골반 물리 정렬, 쿨다운 등) 100회 연속 무결성 보장 | 🟢 **Pass (310/310)** |
+| `POSE-004` | [#126](https://github.com/Choyounhwa/-dream-guardian/issues/126) | PartGate (캘리브레이션 기준선 대비 신체 변위) 판정 구현 | `CalibrationBaseline` 확장, 스쿼트(골반 하강 변위), 목 기울임, 만세 상향 변위 검증으로 단순 직립 자동 충족(RC-3) 완전 해결 | 🟢 **Pass (320/320)** |
 
 ### 2. 브라우저 실테스트 피드백 반영 및 주요 환경 해결
 
@@ -55,7 +60,7 @@
 
 ## 🔴 최우선 현안: 자세 선택 시스템 재설계 (카드 등록 완료)
 
-> 등록일: 2026-09-22 / 상태: **GitHub Issue 카드 등록 완료 (#120~#134), 구현 승인 대기**
+> 등록일: 2026-09-22 / 상태: **GitHub Issue 카드 등록 완료 (#120~#138), 구현 승인 대기**
 > 상세 분석: `docs/04_POSTURE_SYSTEM_ANALYSIS.md`
 > 패턴 원본: `E:\AIAIAIAIAI\Arithmetic Game\fitness pattern.csv` (360건)
 
@@ -183,12 +188,12 @@ ID 접두사별 분포:
 |---|---|---|---|---|---|---|
 | 1 | `CFG-001` | [#120](https://github.com/Choyounhwa/-dream-guardian/issues/120) | 존/커서/티어 설정 `config/` 외부화 및 Config 분리 | RC-8 | `refactor`, `P1-high` | 🟢 **완료 (260/260 Pass)** |
 | 2 | `ZONE-001` | [#121](https://github.com/Choyounhwa/-dream-guardian/issues/121) | 피트니스 존 레이아웃 재정의 (겹침 제거 및 문제/답안 밴드 예약) | RC-9, G-1 | `feature`, `P1-high` | 🟢 **완료 (264/264 Pass)** |
-| 3 | `DATA-001` | [#122](https://github.com/Choyounhwa/-dream-guardian/issues/122) | 피트니스 패턴 원본 데이터(fitness pattern.csv) 로더 및 유효성 검증기 구현 | G-1~G-8 | `feature`, `P1-high` | ⚪ 대기 |
-| 4 | `POSE-001` | [#123](https://github.com/Choyounhwa/-dream-guardian/issues/123) | 자세 선택 시스템 AnswerPosture 및 PostureProgress 데이터 타입 신설 | RC-1, RC-5 | `feature`, `P1-high` | ⚪ 대기 |
-| 5 | `POSE-002` | [#124](https://github.com/Choyounhwa/-dream-guardian/issues/124) | 집합 덮기(Set Coverage) 기반 matchPosture 판정 알고리즘 및 단위 테스트 구현 | RC-1, RC-4, G-8 | `feature`, `P0-critical` | ⚪ 대기 |
-| 6 | `POSE-003` | [#125](https://github.com/Choyounhwa/-dream-guardian/issues/125) | 패턴 풀 기반 좌/우 선택지 추출기 및 생성 제약(C1~C7) 검증기 구현 | RC-4, RC-6 | `feature`, `P1-high` | ⚪ 대기 |
-| 7 | `POSE-004` | [#126](https://github.com/Choyounhwa/-dream-guardian/issues/126) | PartGate (캘리브레이션 기준선 대비 신체 변위) 판정 구현 | RC-3 | `feature`, `P1-high` | ⚪ 대기 |
-| 8 | `ICON-001` | [#127](https://github.com/Choyounhwa/-dream-guardian/issues/127) | PartIconRenderer 신설 (손/머리/골반 부위별 공통 아이콘 시스템) | 아이콘 요구 | `feature`, `P2-medium` | ⚪ 대기 |
+| 3 | `DATA-001` | [#122](https://github.com/Choyounhwa/-dream-guardian/issues/122) | 피트니스 패턴 원본 데이터(fitness pattern.csv) 로더 및 유효성 검증기 구현 | G-1~G-8 | `feature`, `P1-high` | 🟢 **완료 (280/280 Pass)** |
+| 4 | `POSE-001` | [#123](https://github.com/Choyounhwa/-dream-guardian/issues/123) | 자세 선택 시스템 AnswerPosture 및 PostureProgress 데이터 타입 신설 | RC-1, RC-5 | `feature`, `P1-high` | 🟢 **완료 (281/281 Pass)** |
+| 5 | `POSE-002` | [#124](https://github.com/Choyounhwa/-dream-guardian/issues/124) | 집합 덮기(Set Coverage) 기반 matchPosture 판정 알고리즘 및 단위 테스트 구현 | RC-1, RC-4, G-8 | `feature`, `P0-critical` | 🟢 **완료 (299/299 Pass)** |
+| 6 | `POSE-003` | [#125](https://github.com/Choyounhwa/-dream-guardian/issues/125) | 패턴 풀 기반 좌/우 선택지 추출기 및 생성 제약(C1~C7) 검증기 구현 | RC-4, RC-6 | `feature`, `P1-high` | 🟢 **완료 (310/310 Pass)** |
+| 7 | `POSE-004` | [#126](https://github.com/Choyounhwa/-dream-guardian/issues/126) | PartGate (캘리브레이션 기준선 대비 신체 변위) 판정 구현 | RC-3 | `feature`, `P1-high` | 🟢 **완료 (320/320 Pass)** |
+| 8 | `ICON-001` | [#127](https://github.com/Choyounhwa/-dream-guardian/issues/127) | PartIconRenderer 신설 (손/머리/골반 부위별 공통 아이콘 시스템) | 아이콘 요구 | `feature`, `P2-medium` | ⚪ **다음 착수 권장** |
 | 9 | `UI-001` | [#128](https://github.com/Choyounhwa/-dream-guardian/issues/128) | 답안 버튼 부위 아이콘, 색상 및 묶음 기호(함께/각각) 시각화 | RC-2 | `feature`, `P1-high` | ⚪ 대기 |
 | 10 | `UI-002` | [#129](https://github.com/Choyounhwa/-dream-guardian/issues/129) | 피트니스 존별/부위별 독립 진행도 피드백 및 i % 2 오매핑 수정 | RC-5 | `bug`, `P1-high` | ⚪ 대기 |
 | 11 | `REFACTOR-001` | [#130](https://github.com/Choyounhwa/-dream-guardian/issues/130) | AnswerSelector 죽은 판정 경로(update) 정리 및 단위 테스트 정비 | RC-7 | `refactor`, `P2-medium` | ⚪ 대기 |
@@ -196,6 +201,10 @@ ID 접두사별 분포:
 | 13 | `UI-004` | [#132](https://github.com/Choyounhwa/-dream-guardian/issues/132) | 원거리(1m+) 가독성 보장을 위한 인게임 HUD 및 수식/선택지/결과 텍스트 대형화 & 고대비 렌더링 | 1m 텍스트 가독성 | `feature`, `P1-high` | ⚪ 대기 |
 | 14 | `INPUT-002` | [#133](https://github.com/Choyounhwa/-dream-guardian/issues/133) | 스켈레톤 커서 메뉴 조작성 개선 (히트박스 패딩 마진, 호버 떨림 방지 히스테리시스 및 가시성 강화) | 스켈레톤 커서 오선택 방지 | `feature`, `P1-high` | ⚪ 대기 |
 | 15 | `FEAT-RESULT-001` | [#134](https://github.com/Choyounhwa/-dream-guardian/issues/134) | 게임 결과 화면(Result) 양손 합장(모으기) 제스처 메뉴 복귀 기능 및 시각 피드백 구현 | 결과 화면 모션 조작 | `feature`, `P1-high` | ⚪ 대기 |
+| 16 | `CALC-001` | [#135](https://github.com/Choyounhwa/-dream-guardian/issues/135) | 자세 유지(Dwell Time) 기반 피트니스 칼로리 소모 계산식 확장 및 결과 통계 연동 | 칼로리 보상 정밀화 | `feature`, `P2-medium` | ⚪ 대기 |
+| 17 | `AUDIO-002` | [#136](https://github.com/Choyounhwa/-dream-guardian/issues/136) | 피트니스 존 체류(Dwell) 점진적 충전음 및 자세 완성 화음 효과음(Web Audio SFX) 구현 | 청각 피드백 강화 | `feature`, `P2-medium` | ⚪ 대기 |
+| 18 | `TUT-001` | [#137](https://github.com/Choyounhwa/-dream-guardian/issues/137) | 최초 플레이어 대상 4색 신체 커서 및 피트니스 존 매칭 인터랙티브 튜토리얼 오버레이 구현 | 온보딩 UX | `feature`, `P2-medium` | ⚪ 대기 |
+| 19 | `DOCS-001` | [#138](https://github.com/Choyounhwa/-dream-guardian/issues/138) | GDD 기획서 및 프로젝트 공식 문서 최신화 (보라 머리/얼굴 확정, 10존 레이아웃, 국민체조 패턴 및 집합 덮기 모델 공식 반영) | 공식 기획 일치화 | `documentation`, `P2-medium` | ⚪ 대기 |
 
 **주의:** `ZONE-001`은 `UI-001`보다 반드시 앞서야 합니다(답안 밴드 좌표 의존). `REFACTOR-001`은 `input-system.test.ts` 약 7개 테스트가 `update()`에 의존하므로 단독 카드로 수행합니다(개발 규칙 3.3/18항).
 
