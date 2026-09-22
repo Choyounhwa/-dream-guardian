@@ -1726,6 +1726,73 @@
   - `docs/02_WORK_BREAKDOWN_STRUCTURE.md`
   - `AGENTS.md`
 
+---
+
+### Issue #139 (Card #70): [BUG-SCALE-001] 3.0배 Cover 뷰포트 확대율에 따른 인체 부위 기준값(어깨/손/머리/골반) 포화 클램핑 왜곡 수정 및 서버/진입점 일원화
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/139
+- **Labels**: `bug`, `P1-high`, `phase-3`, `phase-6`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[BUG-SCALE-001]`
+- **상태**: 🟢 **완료 (Done - 2026-09-22)**
+- **목적**:
+  - CameraLayer의 3.0배 Cover 뷰포트 확대율과 CursorTracker의 하드코딩 기준 픽셀(어깨 240px, 손 길이 120px 등) 간의 스케일 불일치로 인해, 커서 크기 동적 사이징이 항상 최대치(2.0배)에 걸려 고정(Clamping Saturation)되고 손가락 관절이 노이즈로 오인식되어 손 크기가 0 Fallback되던 현상을 해결한다. 또한 구버전 좀비 서버 프로세스 점유 문제를 정리하고 최신 모던 번들 진입점으로 일원화한다.
+- **원인 분석**:
+  1. **어깨 너비 기준값 포화 (천장 클램핑)**:
+     - 16:9 웹캠을 18:9 캔버스에 Cover할 때 중앙 기준 3.0배 확대됨.
+     - 실제 어깨 너비(450~750px) 대비 기준값(240px)이 너무 작아 `scaleFactor`가 항시 최대치 2.0에 포화되어 카메라 거리 변화가 전혀 체감되지 않음.
+  2. **손 길이 한계치 초과(maxHandLen)로 인한 손바닥 크기 0 Fallback**:
+     - 3.0배 확대된 손목-손가락 거리는 140~240px이나, `maxHandLen`이 120px로 제한되어 실제 손가락 관절을 '노이즈'로 판단하여 기각함. 그 결과 `handLenPx = 0`이 되어 손 커서가 36px로 고정됨.
+  3. **머리 및 골반 상한선(Max Bound) 조기 도달**:
+     - 머리 타원 X반경(108~162px)이 `maxRadiusX: 45px`에 조기 포화되어 45px로 고정.
+     - 골반 너비(77~121px)가 `maxHalfWidth: 48px`에 조기 포화되어 48px로 고정.
+  4. **구버전 프로세스(PID 28408) 포트 3000 점유**:
+     - 이전 세션의 구버전 프로세스가 포트 3000을 잡고 있어 최신 동적 사이징 코드가 브라우저에 반영되지 않고 구버전 정적 코드가 동작함.
+- **수정 대상**:
+  - `dream_guardian/src/input/CursorTracker.ts`
+  - `dream_guardian/config/cursor.config.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/src/input/MenuInput.ts`
+  - `dream_guardian/src/skeleton/BoneRenderer.ts`
+  - `dream_guardian/src/skeleton/JointRenderer.ts`
+  - `dream_guardian/index.html`
+  - `run_server.bat`
+  - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
+- **구현 내용**:
+  1. **Cover 3.0배 확대율을 반영한 인체 기준값 현실화**:
+     - 어깨 기준 너비: `240px` → `460px` (원거리 0.6x ~ 근거리 1.5x 이상의 넓은 다이내믹 레인지 확보)
+     - 유효 손 길이 상한(`maxHandLen`): `120px` → `260px` (실제 손가락 관절 정상 수용)
+     - 유효 전완 길이 상한(`maxForearmLen`): `280px` → `600px`
+  2. **커서 상한선(Max Bounds) 현실화**:
+     - 머리 타원 상한: `45px / 60px` → `52px / 68px`
+     - 손 반경 상한: `36px` → `48px`
+     - 골반 반너비 상한: `48px` → `55px`
+  3. **합장 감지 거리 현실화**:
+     - `MenuInput` 감지 거리 임계값을 Cover 줌에 맞추어 `0.22`로 조정하여 양손 모으기 제스처 활성화.
+  4. **스켈레톤 손바닥 연장 드로잉**:
+     - 뼈대 라인이 손목에서 손바닥 중심까지 이어지고, 발광 조인트 구체가 손바닥 중앙에 렌더링되도록 개선.
+  5. **서버 진입점 및 프로세스 일원화**:
+     - 구버전 2,802줄 index.html을 `main.ts` 모던 모듈 로더로 교체.
+     - 포트 3000 좀비 프로세스 종료 및 최신 워크스페이스 Vite 서버 가동.
+- **완료 조건**:
+  - [x] 카메라 거리에 따라 커서 크기가 0.6배~1.5배 이상 유연하게 축소/확대됨
+  - [x] 손가락 관절이 정상 인식되어 손바닥 중심 트래킹 및 손 크기 연동 정상 동작
+  - [x] 머리 및 골반 커서 크기가 천장에 박히지 않고 자연스러운 크기 변화 표현
+  - [x] 양손 모으기 제스처로 홈 메뉴 선택 0.8초 프로그레스 정상 발동
+  - [x] Vitest 단위 테스트 100% Pass (320/320 Pass)
+- **테스트**:
+  - `tests/unit/cursor-tracker-recipe.test.ts` 내 동적 사이징 및 손바닥 트래킹 검증
+  - 브라우저 상에서 카메라 거리별 커서 확대/축소 및 양손 모으기 실테스트 검증
+- **관련 파일**:
+  - `dream_guardian/src/input/CursorTracker.ts`
+  - `dream_guardian/config/cursor.config.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/src/input/MenuInput.ts`
+  - `dream_guardian/src/skeleton/BoneRenderer.ts`
+  - `dream_guardian/src/skeleton/JointRenderer.ts`
+  - `dream_guardian/index.html`
+  - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
+
+
 
 
 
