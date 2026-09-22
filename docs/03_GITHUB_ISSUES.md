@@ -968,7 +968,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/116
 - **Labels**: `bug`, `P0-critical`, `phase-3`
 - **작업 ID**: `[BUG-CURSOR-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 문제선택 화면(`gamePhase === 'question'`)에서 화면에 그려진 스켈레톤 관절(손, 머리, 골반)과 4색 커서(원, 타원, 삼각형)의 위치가 크게 어긋나는 이격(Discrepancy) 결함을 해결하고, 웹캠 미러 피드 및 스켈레톤과 커서 좌표계를 1:1로 일치시킨다.
 - **현상 및 원인 분석**:
@@ -992,9 +992,9 @@
   2. `AnswerSelectionRenderer`의 커서 드로잉 좌표가 `JointRenderer`의 관절 좌표와 오차 0px로 일치하도록 동기화.
   3. 피트니스 존 판정 좌표계와 커서 좌표계의 정합성 보장.
 - **완료 조건**:
-  - [ ] 스켈레톤 관절(머리, 손, 골반) 위치와 4색 커서의 중심 위치가 1:1로 정확하게 일치
-  - [ ] 창 크기 및 캔버스 스케일이 변경되어도 스켈레톤과 커서 간 이격이 발생하지 않음
-  - [ ] `npm test` 100% Pass 및 빌드 정상 완료
+  - [x] 스켈레톤 관절(머리, 손, 골반) 위치와 4색 커서의 중심 위치가 1:1로 정확하게 일치
+  - [x] 창 크기 및 캔버스 스케일이 변경되어도 스켈레톤과 커서 간 이격이 발생하지 않음
+  - [x] `npm test` 100% Pass 및 빌드 정상 완료
 
 ---
 
@@ -1002,7 +1002,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/117
 - **Labels**: `feature`, `P1-high`, `phase-3`, `phase-6`
 - **작업 ID**: `[FEAT-CURSOR-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 카메라와의 거리에 따라 신체 부위 크기를 추정하여 커서 크기를 자연스럽게 맞추고, 시야를 가리는 채움색을 제거하여 깔끔한 네온 외곽선(Stroke only)으로 표현한다.
   - 양손 커서를 단순 손목(Wrist)이 아닌 실제 손바닥 중심(Palm center)으로 정밀 트래킹한다.
@@ -1024,10 +1024,10 @@
      - 투명 내부 + 네온 테두리(`ctx.stroke()`)만 렌더링하여 게임 화면 시인성 극대화.
      - 체류 진행도(Dwell Progress) 표시 시에만 외곽 아크 또는 게이지 테두리 점등.
 - **완료 조건**:
-  - [ ] 4색 커서(손, 머리, 골반)에 채움색이 전혀 없고 깔끔한 네온 외곽선으로만 렌더링
-  - [ ] 플레이어가 카메라에 가까워지거나 멀어질 때 커서 크기가 신체 부위 크기에 비례하여 동적 조절
-  - [ ] 양손 커서가 손목 관절이 아니라 실제 손바닥 중심을 정확히 추적
-  - [ ] `npm test` 100% Pass 및 빌드 정상 완료
+  - [x] 4색 커서(손, 머리, 골반)에 채움색이 전혀 없고 깔끔한 네온 외곽선으로만 렌더링
+  - [x] 플레이어가 카메라에 가까워지거나 멀어질 때 커서 크기가 신체 부위 크기에 비례하여 동적 조절
+  - [x] 양손 커서가 손목 관절이 아니라 실제 손바닥 중심을 정확히 추적
+  - [x] `npm test` 100% Pass 및 빌드 정상 완료
 
 ---
 
@@ -1035,7 +1035,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/118
 - **Labels**: `feature`, `P1-high`, `phase-3`, `phase-6`
 - **작업 ID**: `[FEAT-CURSOR-002]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 정답 선택 시 플레이어가 손이나 신체를 화면 밖으로 크게 뻗었을 때, 커서가 사라지거나 깜빡이지 않고 자연스럽게 상위 관절을 따라 화면 내에 유지되도록 계층 Fallback 및 보간 이동을 구현한다.
 - **수정 대상**:
@@ -1053,10 +1053,10 @@
      - 커서가 즉시 사라지지 않고, 이전 위치에서 상위 관절 위치로 부드럽게 지수 보간(Lerp Factor 0.25) 이동.
      - 화면 경계에 부드럽게 머물도록 마진 기반 클램핑 적용하여 깜빡임(Flickering) 및 소멸 원천 차단.
 - **완료 조건**:
-  - [ ] 손바닥이 화면 밖으로 나가도 커서가 사라지지 않고 손목/전완/팔꿈치/어깨로 자연스럽게 이동
-  - [ ] 깜빡임이나 끊김 없는 부드러운 전환(Lerp) 확인
-  - [ ] 화면 경계 근처에서도 답안 영역 조작 가능성 유지
-  - [ ] `npm test` 100% Pass 및 빌드 정상 완료
+  - [x] 손바닥이 화면 밖으로 나가도 커서가 사라지지 않고 손목/전완/팔꿈치/어깨로 자연스럽게 이동
+  - [x] 깜빡임이나 끊김 없는 부드러운 전환(Lerp) 확인
+  - [x] 화면 경계 근처에서도 답안 영역 조작 가능성 유지
+  - [x] `npm test` 100% Pass 및 빌드 정상 완료
 
 ---
 
@@ -1064,7 +1064,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/119
 - **Labels**: `bug`, `P1-high`, `phase-3`, `phase-6`
 - **작업 ID**: `[BUG-MENU-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 스켈레톤 커서 및 메뉴 제스처 입력 모듈(`MenuInput.ts`)이 개발되었으나, `main.ts` 메인 루프에 전혀 연동되지 않아 런타임에서 양손 모으기(합장) 메뉴 선택이 완전히 누락된 결함을 복원한다.
   - 메인 메뉴 화면(`screenMode === 'menu'`)에서 4색 커서가 렌더링되지 않아 모션으로 메뉴를 조작할 수 없는 문제를 해결한다.
@@ -1086,10 +1086,10 @@
   3. 챕터 카드 및 서브레벨 카드에 호버 체류 시 프로그레스 아크를 표시하고, 0.8초 달성 시 메뉴 선택 자동 트리거.
   4. 기존 마우스 클릭 및 키보드(1~5, Esc) Fallback 조작 100% 보존.
 - **완료 조건**:
-  - [ ] 첫 메뉴 화면 진입 즉시 신체 커서 및 양손 모으기 커서가 화면에 표시됨
-  - [ ] 카메라 앞에서 양손을 모아 챕터 카드/서브레벨 카드에 0.8초 체류 시 터치 없이 메뉴가 선택되어 게임 진입
-  - [ ] 마우스 클릭 및 키보드(1~5, Esc) Fallback이 정상 유지됨
-  - [ ] `npm test` 100% Pass 및 빌드 정상 완료
+  - [x] 첫 메뉴 화면 진입 즉시 신체 커서 및 양손 모으기 커서가 화면에 표시됨
+  - [x] 카메라 앞에서 양손을 모아 챕터 카드/서브레벨 카드에 0.8초 체류 시 터치 없이 메뉴가 선택되어 게임 진입
+  - [x] 마우스 클릭 및 키보드(1~5, Esc) Fallback이 정상 유지됨
+  - [x] `npm test` 100% Pass 및 빌드 정상 완료
 
 ---
 
@@ -1097,7 +1097,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/120
 - **Labels**: `refactor`, `P1-high`, `phase-3`
 - **작업 ID**: `[CFG-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 개발 규칙 6절(데이터와 코드 분리) 및 RC-8에 따라, `AnswerSelector`, `RecipeGenerator` 등에 하드코딩된 피트니스 존 좌표, 커서 색상 및 감도, 티어별 체류시간 상수들을 `config/` 디렉터리로 외부화하여 관리한다.
 - **수정 대상**:
@@ -1119,9 +1119,9 @@
 - **변경 금지**:
   - 문제 출제, 수식 계산, 전투 HP/마나 시스템
 - **완료 조건**:
-  - [ ] `config/` 디렉터리에 존/커서/자세 설정 파일 분리 생성 완료
-  - [ ] 기존 판정 로직 및 렌더러 동작에 영향 없이 `npm test` 100% Pass
-  - [ ] 빌드(`npm run build`) 0 에러
+  - [x] `config/` 디렉터리에 존/커서/자세 설정 파일 분리 생성 완료
+  - [x] 기존 판정 로직 및 렌더러 동작에 영향 없이 `npm test` 100% Pass
+  - [x] 빌드(`npm run build`) 0 에러
 
 ---
 
@@ -1129,7 +1129,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/121
 - **Labels**: `feature`, `P1-high`, `phase-6`
 - **작업 ID**: `[ZONE-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - RC-9(존 4·5와 6·7·8이 y 0.55~0.58 겹침 및 답안 오브와 존 겹침), RC-6(머리·골반 존 7 중복 충돌)을 해결하고, 18:9 화면 비율에 맞춘 겹침 없는 존 레이아웃과 문제/답안 전용 밴드를 확립한다.
 - **수정 대상**:
@@ -1146,10 +1146,10 @@
   6. 모든 존 간 경계 여백(최소 2% 이상) 확보하여 겹침(Overlap) 0% 보장
   7. `HEAD_ZONES` ∩ `HIP_ZONES` = ∅ (머리-골반 동일 존 충돌 방지) 확립
 - **완료 조건**:
-  - [ ] 10개 피트니스 존 간 겹침 면적이 0%임을 수치 검증
-  - [ ] 문제 텍스트 및 답안 버튼이 피트니스 존 영역과 겹치지 않음
-  - [ ] 머리와 골반의 허용 존 집합이 상호 배타적임 확인
-  - [ ] `npm test` 100% Pass
+  - [x] 10개 피트니스 존 간 겹침 면적이 0%임을 수치 검증
+  - [x] 문제 텍스트 및 답안 버튼이 피트니스 존 영역과 겹치지 않음
+  - [x] 머리와 골반의 허용 존 집합이 상호 배타적임 확인
+  - [x] `npm test` 100% Pass
 
 ---
 
@@ -1365,6 +1365,197 @@
   - [ ] 미사용 레거시 경로 정리 완료
   - [ ] 255개 이상 모든 단위 테스트 100% Pass 유지
   - [ ] `main.ts` 게임 루프 무결성 보존
+
+---
+
+### Issue #131 (Card #62): [UI-003] 홈메뉴(챕터 및 서브레벨 단계선택) 원거리/대화면 레이아웃 개편 및 카드 간격 확장
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/131
+- **Labels**: `phase-6`, `feature`, `P1-high`
+- **작업 ID**: `[UI-003]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 사용자가 카메라 및 화면에서 1미터 이상 떨어진 상태에서 스켈레톤 커서로 조작 시, 홈메뉴와 단계선택 카드가 지나치게 작고 촘촘하여 선택이 어렵던 문제를 해결한다.
+  - 카드의 크기를 확대하고 간격(Gap)을 대폭 넓혀 오선택 및 떨림 간섭을 차단하고, 뒤로가기 버튼을 대형화하여 원거리 터치/호버 조작성을 확보한다.
+- **수정 대상**:
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+- **구현 내용**:
+  1. **메인 챕터 메뉴 카드 레이아웃 확장**:
+     - 카드 크기: 기존 `cardW = min(140, w * 0.12)` → `cardW = min(220, w * 0.17)`로 약 60% 대형화
+     - 카드 높이 비율: `cardH = cardW * 0.7` → `cardH = cardW * 0.75` (최소 140px 이상 확보)
+     - 카드 간 간격(Gap): 기존 16px → 32~40px로 2배 이상 확장하여 인접 카드 간섭 제거
+  2. **서브레벨(세부 난이도 / 단계선택) 그리드 레이아웃 개편**:
+     - 기존 최대 4열 촘촘한 그리드 → 2~3열 와이드 그리드로 조정
+     - 단계 카드 크기: `cardW = min(280, (w * 0.85) / cols - 24)`, `cardH = cardW * 0.55`로 확대
+     - 가로/세로 간격: `gapX = 32px`, `gapY = 24px` 이상 확보
+     - 상단 `← 뒤로가기` 버튼: 기존 높이 40px → 56~60px, 너비 220px 이상으로 대형화
+  3. **메뉴 내 텍스트 크기 스케일업 (1m 시인성 보장)**:
+     - 메인 타이틀: `min(56, w * 0.05)px bold`
+     - 챕터 번호 및 이름: `cardW * 0.22` (약 32~40px)
+     - 단계 라벨: 20~24px bold, 문항수 서브라벨: 16~18px
+     - 뒤로가기 텍스트: 18px bold
+  4. **히트테스트 동기화**:
+     - `hitTest()` 및 `hitTestSub()`의 좌표 판정을 신규 카드 레이아웃 수치와 100% 동기화
+- **유지 사항**:
+  - 챕터별 고유 테마 색상 및 해금/잠금 상태 표현
+  - 마우스 클릭 및 1~5 / Esc 숫자키 키보드 입력 인터페이스 호환성 유지
+- **변경 금지**:
+  - 인게임 전투 로직 및 문제 출제 데이터
+  - 커서 트래킹 좌표계 변환 수식
+- **완료 조건**:
+  - [ ] 메인 챕터 카드 크기 및 간격 2배 확대 적용 및 화면 비율별 반응형 정렬
+  - [ ] 서브레벨 그리드가 2~3열로 여유 있게 배치되고 카드 간격 30px 이상 확보
+  - [ ] 상단 뒤로가기 버튼 대형화 및 1m 거리에서 시인성 확보
+  - [ ] 메뉴 관련 단위 테스트(`ui-system.test.ts`) 100% Pass
+  - [ ] `npm test` 전체 통과
+- **테스트**:
+  - `npx vitest run tests/unit/ui-system.test.ts`
+  - 화면 해상도(1280x720, 1920x1080)별 카드 크기 및 간격 시각 검증
+- **관련 파일**:
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+
+---
+
+### Issue #132 (Card #63): [UI-004] 원거리(1m+) 가독성 보장을 위한 인게임 HUD 및 수식/선택지/결과 텍스트 대형화 & 고대비 렌더링
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/132
+- **Labels**: `phase-6`, `feature`, `P1-high`
+- **작업 ID**: `[UI-004]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 사용자가 1미터 이상 떨어진 상태에서도 체력, 마나, 문제 수식, 정답 선택지 및 결과 데이터를 한눈에 읽을 수 있도록 전반적인 텍스트 크기와 시인성(명도 대비, 외곽선, 백드롭)을 전면 개선한다.
+- **수정 대상**:
+  - `dream_guardian/src/ui/HUDLayer.ts`
+  - `dream_guardian/src/render/MathRenderer.ts`
+  - `dream_guardian/src/main.ts` (`renderQuestion`, `renderRunningPhase`, `renderFeedback`)
+  - `dream_guardian/src/ui/ResultRenderer.ts`
+- **구현 내용**:
+  1. **인게임 HUD 가독성 대폭 강화 (`HUDLayer.ts`)**:
+     - HP 바 높이: 24px → 32px 확대
+     - HP 수치 폰트: `bold 12px` → `bold 18~20px`로 확대 및 텍스트 외곽선/그림자 부여
+     - 보스 이름 폰트: `bold 16px` → `bold 24px` 확대
+     - 콤보 수치: 32px → 44px 대형화
+  2. **문제 및 선택지 수식 대형화 & 선명도 보강 (`main.ts`, `MathRenderer.ts`)**:
+     - 문제 텍스트 폰트: 최대 48px → 최대 60~64px (`min(64, w * 0.05)`)
+     - 선택지 버튼 크기: `btnW = min(240, w * 0.19)`, `btnH = btnW * 0.55` 확대
+     - 선택지 폰트: 최대 36px → 46~48px
+     - 키보드/조작 힌트: 14px → 18~20px
+     - 분수선 굵기: 2px → 3.5px, 빈칸 박스 테두리 굵기 강화로 1m 밖에서도 분수/루트 식별 선명화
+  3. **달리기 안내 및 피드백 폰트 강화**:
+     - 달리기 페이즈 안내문: 24px → 30px, 반투명 백드롭 패널로 3D 그리드 배경과 분리
+     - 정답/오답 피드백: 64px → 80px 초대형 텍스트 및 발광 강화
+  4. **결과 화면 텍스트 스케일업 (`ResultRenderer.ts`)**:
+     - 점수, 칼로리, 클리어 시간, 등급 텍스트를 1m 시인성 기준으로 1.4배 확대
+- **유지 사항**:
+  - HP/마나 수치 계산 및 선형 감쇠 보간 로직 보존
+  - MathRenderer 수식 토큰 파싱(대분수, 지수, 루트 등) 규칙 100% 보존
+- **변경 금지**:
+  - 전투 데미지 계산 및 마나 충전 밸런스 공식
+  - 이벤트 버스 및 상태 머신 인터페이스
+- **완료 조건**:
+  - [ ] HUD HP 텍스트 18px 이상 및 HP 바 높이 32px 반영
+  - [ ] 문제 수식 및 선택지 텍스트 25% 이상 대형화 및 분수선/빈칸 시인성 강화
+  - [ ] 결과 화면 통계 텍스트 원거리 가독성 확보
+  - [ ] `npm test` 100% Pass
+- **테스트**:
+  - `npx vitest run tests/unit/ui-system.test.ts`
+  - 브라우저 상에서 1.5m 거리 육안 가독성 검증
+- **관련 파일**:
+  - `dream_guardian/src/ui/HUDLayer.ts`
+  - `dream_guardian/src/render/MathRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/ui/ResultRenderer.ts`
+
+---
+
+### Issue #133 (Card #64): [INPUT-002] 스켈레톤 커서 메뉴 조작성 개선 (히트박스 패딩 마진, 호버 떨림 방지 히스테리시스 및 가시성 강화)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/133
+- **Labels**: `phase-3`, `phase-6`, `feature`, `P1-high`
+- **작업 ID**: `[INPUT-002]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 1미터 이상 떨어진 거리에서 신체 제어 시 발생하는 미세 떨림(Jitter)으로 인해 메뉴 카드의 경계선에서 호버 타이머가 초기화되던 문제를 해결하고, 모션 커서로 메뉴를 쉽게 조작할 수 있도록 히트박스 여유 마진과 호버 안정화(Hysteresis)를 제공한다.
+- **수정 대상**:
+  - `dream_guardian/src/ui/MenuRenderer.ts` (`hitTest`, `hitTestSub` 패딩 옵션 지원)
+  - `dream_guardian/src/input/MenuInput.ts`
+  - `dream_guardian/src/main.ts` (메뉴 호버 로직 및 조작 가이드)
+- **구현 내용**:
+  1. **히트박스 여유 마진(Padding Margin) 추가**:
+     - `hitTest` 및 `hitTestSub`에 외곽 패딩(16~24px) 파라미터를 추가하여, 카드의 테두리 근처에서도 안정적으로 커서가 감지되도록 판정 영역 확장
+  2. **호버 떨림 방지 히스테리시스(Hover Hysteresis) 알고리즘 적용**:
+     - 커서가 이미 특정 카드에 진입하여 호버 중인 경우, 해당 카드의 유효 영역을 추가 확장(+20px)하여 신체 떨림으로 잠시 외곽을 벗어나도 0.8초 게이지 충전이 즉시 리셋되지 않고 유지되도록 보정
+  3. **메뉴 조작 모션 유연화 (단손 커서 지원 검토 및 제스처 튜닝)**:
+     - 양손 모으기(MenuInput) 제스처 외에도, 한 손(오른손 또는 왼손)을 카드로 뻗어 머무르는 단손 호버 선택 판정 결합
+  4. **호버 프로그레스 링 대형화 및 시인성 강화**:
+     - 메뉴 선택 프로그레스 아크 반경(38px → 50px) 및 선 두께(5px → 7px) 확대, 발광 효과 강화로 1m 밖에서도 선택 진행률 즉시 인지
+- **유지 사항**:
+  - 마우스 클릭 및 키보드(1~5, Esc) Fallback 입력 기능 100% 정상 작동 유지
+  - 0.8초 체류 확정(Dwell Time) 시간 밸런스 유지
+- **변경 금지**:
+  - 인게임 정답 판정(`AnswerSelector`) 알고리즘
+  - PoseManager 및 관절 스켈레톤 트래킹 내부 로직
+- **완료 조건**:
+  - [ ] 메뉴 카드 히트박스에 감지 여유 패딩 적용
+  - [ ] 호버 중 미세 떨림 발생 시 호버 타이머가 초기화되지 않는 히스테리시스 로직 검증
+  - [ ] 호버 프로그레스 아크 대형화(반경 50px, 두께 7px) 및 시각적 피드백 향상
+  - [ ] `npm test` 100% Pass
+- **테스트**:
+  - `npx vitest run tests/unit/input-system.test.ts`
+  - 웹캠 모션 및 마우스 호버로 단계 선택 안정성 테스트
+- **관련 파일**:
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+  - `dream_guardian/src/input/MenuInput.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/input-system.test.ts`
+
+---
+
+### Issue #134 (Card #65): [FEAT-RESULT-001] 게임 결과 화면(Result) 양손 합장(모으기) 제스처 메뉴 복귀 기능 및 시각 피드백 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/134
+- **Labels**: `feature`, `P1-high`, `phase-6`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[FEAT-RESULT-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 게임 종료 후 결과 화면(`screenMode === 'result'`)에서 키보드나 마우스 터치 없이도, 웹캠 앞에서 양손을 모으는(합장) 체감형 제스처로 0.8초 체류 시 메인 메뉴로 자연스럽게 복귀할 수 있도록 제스처 인터랙션 및 시각 피드백을 구현한다.
+- **수정 대상**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/ui/ResultRenderer.ts`
+  - `dream_guardian/src/input/MenuInput.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+- **구현 내용**:
+  1. **결과 화면 포즈 및 합장 감지 연동**:
+     - `screenMode === 'result'` 상태에서도 웹캠 포즈 추출(`poseManager`) 및 `MenuInput`을 활성화하여 양손 손바닥/손목 좌표 간 거리를 실시간 추적.
+  2. **합장 유지 시간(0.8초 Dwell) 판정**:
+     - 양손이 모인 상태(거리 < 임계값)를 0.8초 동안 연속 유지하면 `goToMenu()`를 자동 호출하여 메인 메뉴로 전환.
+     - 손이 떨어지면 누적 진행도 초기화(오입력 방지).
+  3. **시각 피드백 및 안내 UI 개선**:
+     - 결과 화면에 양손 모으기 중심점 커서 및 충전 프로그레스 링/아크 실시간 렌더링.
+     - 하단 안내 문구를 `양손을 모으거나 ESC/클릭 시 메뉴로 복귀`로 갱신.
+  4. **대체 입력(Fallback) 보존**:
+     - 카메라가 없거나 제스처 인식이 어려운 환경을 위해 기존 마우스 클릭 및 키보드(ESC, Enter, Space) 메뉴 복귀 100% 정상 유지.
+- **유지 사항**:
+  - 결과 화면 통계(걸음, 스쿼트, 점프, 칼로리, 별점) 계산 및 렌더링 유지
+  - 마우스 클릭 및 ESC/Enter/Space 키보드 Fallback 조작 유지
+- **변경 금지**:
+  - 전투 시스템 및 문제 출제 로직
+  - 기존 `MenuInput`의 기본 임계값 공식의 하위 호환성 훼손 금지
+- **완료 조건**:
+  - [ ] 게임 종료 후 결과 화면에서 양손을 모았을 때 합장 커서 및 충전 링이 시각적으로 표시됨
+  - [ ] 0.8초간 양손을 모으고 있으면 터치나 키보드 없이 메인 메뉴로 자동 복귀함
+  - [ ] 손을 중간에 떼면 복귀가 취소되고 충전 게이지가 리셋됨
+  - [ ] 마우스 클릭 및 ESC/Enter/Space 키보드 복귀가 정상 동작함
+  - [ ] `npm test` 단위 테스트 100% Pass 및 빌드 번들링 0 에러
+- **테스트**:
+  - `tests/unit/ui-system.test.ts`에 결과 화면 합장 제스처 복귀 판정 및 진행도 테스트 추가
+  - `npm test` 전체 통과 검증
+- **관련 파일**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/ui/ResultRenderer.ts`
+  - `dream_guardian/src/input/MenuInput.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+
+
 
 
 
