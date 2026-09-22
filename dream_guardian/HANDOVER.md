@@ -18,6 +18,299 @@
 | `TASKS.md` | 초기 작업 목차/WBS 원본 |
 | `DEVELOPMENT_WALKTHROUGH.md` | 초기 개발 워크스루 원본 |
 | `ANTIGRAVITY_HANDOVER_ARCHIVE.md` | 이전 외부 도구 인수인계 문서 보관본 |
+| `../docs/04_POSTURE_SYSTEM_ANALYSIS.md` | **자세 선택 시스템 원인 분석 및 재설계안 (최신)** |
+| `../fitness pattern.csv` *(외부: `E:\AIAIAIAIAI\Arithmetic Game\`)* | **피트니스 패턴 원본 데이터 360건** |
+
+---
+
+## 🟡 신규 접수 현안 및 작업 카드 (스켈레톤 커서 고도화 / 메뉴 제스처 누락 복원)
+
+> 등록일: 2026-09-22 / 상태: **GitHub Issue 카드 등록 완료 (#116, #117, #118, #119), 구현 승인 대기**
+
+사용자 요청 사항 및 버그 제보에 따라 다음 6대 항목에 대한 원인 분석과 신규 작업 카드가 등록되었습니다.
+
+### 1. 주요 요구사항 및 분석 결과
+
+1. **각 커서 크기 신체부위 사이즈 추정 맞춤 (채움색 없음)**:
+   - **현재 실태**: `AnswerSelectionRenderer.ts`에서 손 반경 18px, 머리 타원 22x28px, 골반 역삼각 24x14px 등 고정 픽셀 상수로 하드코딩되어 있으며, 내부가 반투명 색상으로 채워져(`ctx.fill()`) 인게임 가시성을 저해함.
+   - **개선안**:
+     - 머리(Head): 양 귀 간격(Landmark #7-#8) 또는 코-어깨 거리 비례 동적 타원 반경 계산.
+     - 손(Hand): 손목-손가락 길이 또는 어깨 너비 비례 동적 원 반경 계산.
+     - 골반(Hip): 좌우 골반(#23-#24) 너비 비례 동적 삼각형 크기 계산.
+     - **채움색 제거(Stroke only)**: `ctx.fill()`을 완전히 제거하고 네온 외곽선 테두리만 렌더링하여 투명하고 선명한 시인성 확보.
+
+2. **커서가 메뉴 선택(홈) 화면부터 보이도록 변경**:
+   - **현재 실태**: `main.ts`에서 커서 렌더링(`answerSelectionRenderer.render`)이 `screenMode === 'game' && gamePhase === 'question'` 조건 안에서만 호출되므로, 메뉴 화면(`screenMode === 'menu'`)에서는 스켈레톤 선만 보이고 커서가 전혀 렌더링되지 않음.
+   - **개선안**: 홈 메뉴 화면 진입 즉시 4색 신체 커서가 렌더링되며, 메뉴 카드를 모션으로 가리켜 선택할 수 있도록 생명주기 확장.
+
+3. **문제선택 화면에서 커서가 스켈레톤과 이격이 나는 원인 규명**:
+   - **근본 원인 확인**:
+     - `CameraLayer.ts`는 18:9 가상 캔버스(1080x2160)에 16:9 웹캠을 **Cover 모드**로 확대 렌더링함 (`scale = Math.max(1080/1280, 2160/720) = 3.0`, `dw = 3840`, `dh = 2160`, 좌우 각 1380px 크롭).
+     - `PoseManager.virtualLandmarks`는 `cameraLayer.landmarkToCanvas(...)` Cover 프로젝션을 거쳐 가상 해상도에 정확히 일치되도록 스켈레톤을 그림.
+     - 그러나 `main.ts:480`의 `answerSelector.updateFromPose`에는 Cover 변환이 되지 않은 `poseManager.rawLandmarks`(0~1 정규화)가 전달되고, `CursorTracker`는 `1 - lm.x`만 수행한 뒤 `AnswerSelectionRenderer`에서 `pos.x * w`로 단순 선형 스케일링함.
+     - 스켈레톤은 3.0배 확대된 Cover 좌표에 그려지는 반면 커서는 비확대 좌표에 그려지므로 **수백 픽셀의 심각한 좌표 이격**이 발생함. 피트니스 존 판정도 실제 몸 위치와 어긋남.
+   - **해결안**: 커서 좌표 추적 및 피트니스 존 판정에 `cameraLayer.landmarkToCanvas` Cover 프로젝션을 일원화 적용하여 0px 오차로 일치시킴.
+
+4. **양손 커서의 손목(Wrist)이 아닌 손바닥(Palm) 트래킹**:
+   - **현재 실태**: `main.ts`에서 `answerSelector.updateFromPose(..., undefined, ...)`로 `palms`가 항상 `undefined`로 전달되어 `CursorTracker`가 무조건 Pose #15(왼쪽 손목), #16(오른쪽 손목)을 커서로 사용함.
+   - **개선안**:
+     - MediaPipe Hands가 연결된 경우 손바닥 중심(#9)을 사용.
+     - Pose 단독 환경에서도 손목(#15/#16), 손가락 관절(#17/#19, #18/#20), 엄지(#21/#22)의 가중 중심 및 전완 방향 벡터 연장을 통해 실제 손바닥 중심점을 정밀 추정.
+
+5. **추가사항: 화면 밖 이탈 시 상위 스켈레톤 계층 Fallback 및 스무딩 이동**:
+   - **요구 계층**:
+     - 손 커서: 손바닥(Palm) → 손목(Wrist) → 전완(Forearm) → 팔꿈치(Elbow) → 상완(Upper Arm) → 어깨(Shoulder).
+     - 머리 커서: 코 → 눈/귀 중점 → 목/어깨 중점.
+     - 골반 커서: 골반 중점 → 체간(Torso) 중점 → 어깨 중점.
+   - **동작 방식**: 랜드마크가 화면 밖(`x < 0 || x > 1 || y < 0 || y > 1`)으로 벗어나거나 신뢰도가 떨어져도 커서가 사라지거나 깜빡이지 않고, 상위 관절로 지수 보간(Lerp 0.25)되어 화면 경계선 안쪽에서 부드럽게 머무르며 자세를 계속 추적.
+
+6. **정답 선택 버그 점검: 두 손 모아 메뉴 선택하는 기능 누락 확인**:
+   - **확인 결과**: **실제로 누락(미연동)되어 있음을 확인.**
+     - `src/input/MenuInput.ts` 모듈(양손 합장 감지) 및 단위 테스트(`tests/unit/input-system.test.ts`)는 작성되어 있으나, `src/main.ts`에 import되거나 인스턴스화되지 않음.
+     - 런타임의 메뉴 선택은 오직 마우스 `click`과 키보드(1~5, Esc)로만 동작 중이며, 양손 모으기 제스처 커서와 0.8초 호버 체류(Hover Dwell) 판정 코드가 게임 루프에 완전히 누락되어 있음.
+   - **복원안**: `main.ts`에 `MenuInput`을 인스턴스화하여 메뉴 루프에서 양손 모으기 시 '손 모으기' 링 커서를 렌더링하고, 챕터/서브레벨 카드 0.8초 체류 시 자동 선택 트리거 연동.
+
+---
+
+### 2. 신규 등록된 GitHub Issue 카드 목록
+
+| 카드 ID | GitHub Issue | 제목 | 분류 | 우선순위 |
+|---|---|---|---|---|
+| `BUG-CURSOR-001` | [#116](https://github.com/Choyounhwa/-dream-guardian/issues/116) | 문제선택 화면 스켈레톤-커서 좌표계 이격 해결 (Cover 변환 동기화) | 버그 수정 | P0-critical |
+| `FEAT-CURSOR-001` | [#117](https://github.com/Choyounhwa/-dream-guardian/issues/117) | 신체 부위 크기 추정 기반 커서 동적 사이징, 채움색 제거(테두리 전용) 및 손바닥(Palm) 중심 트래킹 고도화 | 기능 확장 | P1-high |
+| `FEAT-CURSOR-002` | [#118](https://github.com/Choyounhwa/-dream-guardian/issues/118) | 커서 화면 이탈 방지 상위 스켈레톤 계층 Fallback 및 스무딩 이동 구현 | 기능 확장 | P1-high |
+| `BUG-MENU-001` | [#119](https://github.com/Choyounhwa/-dream-guardian/issues/119) | 메뉴 화면 4색 커서 상시 가시화 및 양손 모으기(MenuInput) 제스처 메뉴 선택 기능 누락 복원 | 버그 수정 | P1-high |
+
+---
+
+---
+
+## 🔴 최우선 현안: 자세 선택 시스템 재설계 (미착수)
+
+> 등록일: 2026-09-22 / 상태: **분석 완료, 구현 승인 대기**
+> 상세 분석: `docs/04_POSTURE_SYSTEM_ANALYSIS.md`
+> 패턴 원본: `E:\AIAIAIAIAI\Arithmetic Game\fitness pattern.csv` (360건)
+
+스켈레톤 커서·피트니스 존·정답 선택이 의도대로 동작하지 않는 문제를 분석한 결과, **코드 버그가 아니라 데이터 모델이 요구 규칙을 표현할 수 없는 구조적 불일치**임이 확인되었습니다.
+
+### A. 목표 게임 루프 (사용자 확정 명세)
+
+```
+에너지(마나) 충전 완료 → 문제 출제 + 답안 2개 표시
+  → 각 답안이 1~3개 신체 부위를 요구 (좌/우 답안은 서로 다른 부위 구성)
+  → 피트니스 존 1~3개 동시 활성화
+  → 플레이어가 정답이라 판단한 답안의 요구 부위 커서를 활성 존에 배치
+  → 약 1초 유지 → 답안 확정 → 정답/오답 판정
+```
+
+부위 수 × 존 수 조합 명세:
+
+| 부위 | 존 | 플레이어 동작 |
+|---|---|---|
+| 1 | 1 | 해당 부위 커서를 존에 올린다 |
+| 2 | 1 | 두 부위를 **같은 존**에 올린다 |
+| 2 | 2 | 두 부위를 **각 존에 1개씩** (좌우 배치 자유) |
+| 3 | 1 | 세 부위를 **모두 한 존**에 |
+| 3 | 2 | 세 부위를 2개 존에 **2+1 분배** |
+| 3 | 3 | 세 부위를 **각 존에 1개씩** |
+
+명시적 제약: **머리와 골반이 동일한 존을 요구하는 조합은 배제**한다.
+달성 목표: ① 직관성(답안을 보고 즉시 부위 판단) ② 운동성(국민체조·스트레칭) ③ 손/머리/골반 각기 다른 아이콘.
+
+### B. 피트니스 패턴 원본 데이터 분석 (`fitness pattern.csv`, 360건)
+
+컬럼 구조:
+
+```csv
+ID, 사용 부위, 왼손, 오른손, 머리, 골반, 판정 부위 수
+S001,왼손,1,X,X,X,1          # 값 = 존 ID, 'X' = 미사용
+D001,왼손 + 오른손,1,3,X,X,2
+T001,왼손 + 오른손 + 머리,1,3,2,X,3
+Q001,전신 (두 손 모아 하늘 + 바른자세 정면),2,2,2,7,4
+```
+
+ID 접두사별 분포:
+
+| 접두사 | 의미 | 건수 | 판정 부위 수 |
+|---|---|---|---|
+| `S` | Single (단일 부위) | 60 | 1 |
+| `D` | Double (2부위) | 100 | 2 |
+| `T` | Triple (3부위) | 100 | 3 |
+| `Q` | Quad / 전신 (4부위) | **100** | **4** |
+
+실제 (부위 수 × 서로 다른 존 수) 교차 분포:
+
+| | 1존 | 2존 | 3존 | 4존 | 합 |
+|---|---|---|---|---|---|
+| **1부위** | 60 | — | — | — | 60 |
+| **2부위** | 6 | 94 | — | — | 100 |
+| **3부위** | 3 | 41 | 56 | — | 100 |
+| **4부위** | — | 11 | 52 | 37 | 100 |
+
+존 ID 사용 빈도:
+
+| 존 | 1 | 2 | 3 | 4 | **5** | 6 | 7 | 8 | 9 | 10 | **11** |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 횟수 | 100 | 147 | 84 | 83 | **0** | 69 | 150 | 74 | 93 | 93 | **67** |
+
+부위별 사용 존 집합:
+
+| 부위 | 사용 존 |
+|---|---|
+| 왼손 | 1, 2, 4, 6, 7, 9, 10 |
+| 오른손 | 2, 3, 7, 8, 10, 11 |
+| 머리 | 1, 2, 3, 4 |
+| 골반 | 6, 7, 8, 9, 10, 11 |
+
+### C. 패턴 데이터 ↔ 명세/코드 3자 간 갈등 (⚠️ 결정 필요)
+
+| # | 갈등 | 패턴 CSV | 사용자 명세 | 현재 코드 | 영향 |
+|---|---|---|---|---|---|
+| **G-1** | **존 총 개수** | **11개 (1~11), 존 5는 0회** | 미규정 | **10개 (1~10)** | 🔴 치명. CSV의 존 11 패턴 67건을 현재 코드로 로드 불가 |
+| **G-2** | **최대 부위 수** | **4부위 100건 (Q 시리즈)** | **최대 3부위** | 최대 2부위 | 🔴 Q 시리즈 100건 사용 여부 결정 필요 |
+| **G-3** | 최대 존 수 | **최대 4존 (37건)** | **최대 3존** | 최대 3존 | 🟡 4존 패턴 37건 제외 또는 명세 확장 |
+| **G-4** | 머리·골반 동일 존 | **0건 (준수)** | 배제 | Tier 3이 양 선택지 존 7 중복 → **위반** | 🟢 CSV는 이미 제약 충족 |
+| **G-5** | 머리 허용 존 | 1, 2, 3, 4 | 미규정 | `HEAD_ZONES = {1,2,3,4,5,7}` | 🟡 CSV 기준(1~4)으로 축소 권장 |
+| **G-6** | 골반 허용 존 | 6, 7, 8, 9, 10, **11** | 미규정 | `HIP_ZONES = {6,7,8,9,10}` | 🟡 존 11 추가 필요 |
+| **G-7** | 손 허용 존 | 왼손 7종 / 오른손 6종 (**비대칭**) | 미규정 | 제한 없음 (전 존) | 🟡 좌우 비대칭 제약 데이터화 |
+| **G-8** | 양손 동일 존 | **허용** (D061 `2,2` 등 6건) | 허용 ("양손을 모두 존에") | 고정 페어링으로 표현 불가 | 🔴 집합 덮기 판정 필수 근거 |
+| **G-9** | 커서 색상 정의 | 머리 사용 | 머리 | `head` = 보라 (GDD는 "어깨") | 🟢 머리로 확정, GDD 갱신 대상 |
+
+**핵심 결론:** G-1(존 11개), G-2(4부위), G-8(양손 동일 존)은 **현재 코드 구조로 구현 불가능**합니다. `docs/04_POSTURE_SYSTEM_ANALYSIS.md`의 집합 덮기(Set Coverage) 판정 + 존 레이아웃 재정의가 선행되어야 합니다.
+
+### D. 근본 원인 요약 (상세는 분석 문서 §4)
+
+| ID | 원인 | 위치 |
+|---|---|---|
+| RC-1 ★★★ | 부위↔존이 **고정 인덱스 페어링** → "양손을 한 존에" 표현 불가 | `RecipeGenerator.ts:97` |
+| RC-2 ★★★ | 답안 UI에 부위 정보 0. `RenderZoneInfo.requiredCursors` 정의만 존재·미사용 | `AnswerSelectionRenderer.ts:16,29-36` |
+| RC-3 ★★★ | 절대 좌표 존 → 직립만으로 조건 충족 (코 y≈0.15가 존2에, 골반 y≈0.6이 존7에 이미 포함) | `AnswerSelector.ts:45-56` |
+| RC-4 ★★ | `activeZones`가 파생값 → 존 개수 제어 불가 | `RecipeGenerator.ts` |
+| RC-5 ★★ | 진행도 2슬롯뿐 → `choiceProgress[i % 2]`로 3번째 존 오매핑, 전 커서에 `max()` 공통 전달 | `AnswerSelectionRenderer.ts:43,61` |
+| RC-6 ★★ | `HEAD_ZONES ∩ HIP_ZONES = {7}` → 머리·골반 충돌 + Deadlock Guard 리셋 루프 | `AnswerSelector.ts:59-63,97-98` |
+| RC-7 ★ | 판정 경로 이중화. `update()`(존 기반)와 `updateFromPose()`(선택지 기반)가 상태 비공유, 실게임은 후자만 사용하며 부위-존 제약 미검증 | `AnswerSelector.ts:194-282,309-378` |
+| RC-8 ★ | `config/` 디렉터리 부재 (개발 규칙 6절 위반). 존 좌표·티어·감쇠 계수 전부 하드코딩 | 프로젝트 전역 |
+| RC-9 ★ | 존 4·5와 6·7·8이 y 0.55~0.58 **겹침**, 답안이 존 4·5 내부에 그려짐 | `AnswerSelector.ts:45-56`, `main.ts:277` |
+
+### E. 확정된 기획 결정
+
+| # | 항목 | 결정 |
+|---|---|---|
+| D-1 | 산출물 | `docs/04_POSTURE_SYSTEM_ANALYSIS.md` 분석 문서 (완료) |
+| D-2 | 존 레이아웃 | **재정의 적용** — 겹침 제거 + 문제/답안 밴드 예약 |
+| D-3 | 보라 `#C889FF` | **머리/얼굴(head)로 확정.** GDD "어깨" 표기 갱신, `shoulder` 타입 폐기 |
+
+### F. 다음 세션 착수 항목 (우선순위)
+
+**1단계 — 사용자 결정 필요 (구현 불가 차단 항목)**
+
+- [ ] **G-1 결정**: 존을 11개로 확장할지, CSV의 존 11 패턴 67건을 버릴지
+- [ ] **G-1b 결정**: CSV에서 0회 사용된 **존 5의 처리** (삭제 / 신규 패턴 추가 / 예비 유지)
+- [ ] **G-2 결정**: 4부위(Q 시리즈) 100건을 채택하여 명세를 1~4부위로 확장할지, 제외할지
+- [ ] **G-3 결정**: 4존 패턴 37건 채택 여부
+
+**2단계 — 작업 카드 등록 (개발 규칙 9항, 승인 후 구현)**
+
+| 순서 | 카드 ID | 제목 | 관련 RC/G |
+|---|---|---|---|
+| 1 | `CFG-001` | 존/커서/티어 설정 `config/` 외부화 | RC-8 |
+| 2 | `ZONE-001` | 존 레이아웃 재정의 (개수 확정 + 겹침 제거 + 답안 밴드 예약) | RC-9, G-1 |
+| 3 | `DATA-001` | `fitness pattern.csv` → 패턴 로더 구현 (CSVLoader 재사용) | G-1~G-8 |
+| 4 | `POSE-001` | `AnswerPosture` / `PostureProgress` 타입 신설 | RC-1, RC-5 |
+| 5 | `POSE-002` | 집합 덮기 판정 `matchPosture()` + 단위 테스트 | RC-1, RC-4, G-8 |
+| 6 | `POSE-003` | 패턴 풀에서 좌/우 자세 2개 추출 + 제약 C1~C6 | RC-4, RC-6 |
+| 7 | `POSE-004` | `PartGate` (캘리브레이션 대비 변위) 판정 | RC-3 |
+| 8 | `ICON-001` | `PartIconRenderer` 신설 (손/머리/골반 아이콘) | 아이콘 요구 |
+| 9 | `UI-001` | 답안 버튼 부위 아이콘·색상·묶음 기호 표시 | RC-2 |
+| 10 | `UI-002` | 존별/부위별 개별 진행도 피드백 (`i % 2` 버그 수정) | RC-5 |
+| 11 | `REFACTOR-001` | 죽은 판정 경로 `update()` 정리 | RC-7 |
+
+**주의:** `ZONE-001`은 `UI-001`보다 반드시 앞서야 합니다(답안 밴드 좌표 의존). `REFACTOR-001`은 `input-system.test.ts` 약 7개 테스트가 `update()`에 의존하므로 단독 카드로 수행합니다(개발 규칙 3.3/18항).
+
+### G. 핵심 설계 결정: 집합 덮기(Set Coverage) 판정
+
+고정 페어링을 폐기하고 다음 술어로 대체합니다. 이것이 G-8(양손 동일 존)과 사용자 명세 전 케이스를 표현하는 유일한 방법입니다.
+
+```
+matched(P, Z) ⟺
+  (A) ∀ p ∈ P : ∃ z ∈ Z, inside(p, z)   // 모든 요구 부위가 어떤 활성 존 안에 있다
+  (B) ∀ z ∈ Z : ∃ p ∈ P, inside(p, z)   // 모든 활성 존이 최소 1개 부위로 덮인다
+```
+
+조건 (B)가 존 개수를 의미 있게 만듭니다. 복잡도는 O(|P|×|Z|), 최대 4×4.
+
+```ts
+// src/types/posture.ts (신규)
+export type BodyPart = 'leftHand' | 'rightHand' | 'head' | 'hip';
+
+export interface AnswerPosture {
+  choiceIndex: 0 | 1;
+  parts: BodyPart[];           // 1~3 (또는 G-2 채택 시 1~4)
+  zoneIds: number[];           // 1~3 (또는 G-3 채택 시 1~4)
+  binding: 'any' | 'ordered';  // 'any' = 집합 덮기(기본)
+  gates?: PartGate[];          // 캘리브레이션 대비 변위 조건
+  patternId: string;           // fitness pattern.csv의 ID (S001, D001, T001, Q001...)
+}
+
+export interface PostureProgress {
+  choiceIndex: 0 | 1;
+  progress: number;
+  met: boolean;
+  partStates: { part: BodyPart; zoneId: number | null }[];
+  zoneCovered: Record<number, boolean>;
+}
+```
+
+좌/우 자세 추출 제약:
+
+```
+C1  |union(A.zoneIds, B.zoneIds)| <= 최대 존 수
+C2  A.parts \ B.parts != ∅  AND  B.parts \ A.parts != ∅   // 배타 부위 (Deadlock 방지)
+C3  head와 hip이 동일 zoneId를 요구하지 않음               // CSV는 이미 0건
+C4  head와 hip이 함께 요구되면 zone(head).y < zone(hip).y
+C5  ∀ p, z : 부위별 허용 존 통과 (CSV 실사용 집합 기준)
+C6  parts.length >= distinct(zoneIds).length
+C7  최근 3문제 내 동일 patternId 제외 (쿨다운)
+```
+
+### H. 아이콘 시스템
+
+`src/render/PartIconRenderer.ts`를 신설하고 **커서 렌더링과 답안 라벨 렌더링이 동일 함수를 공유**합니다. 같은 모양·같은 색이 두 위치에 나타나는 것이 직관성의 핵심입니다.
+
+| 부위 | 아이콘 | 색상 | 현재 |
+|---|---|---|---|
+| leftHand | 손바닥 실루엣 (좌향) | 시안 `#28E6FF` | 원 + `'L'` 텍스트 |
+| rightHand | 손바닥 실루엣 (우향 미러) | 노랑 `#FFCB4D` | 원 + `'R'` 텍스트 |
+| head | 원형 얼굴 (눈 2점) | 보라 `#C889FF` | 타원 + `'HEAD'` 텍스트 |
+| hip | 마름모 (다이아몬드) | 주황 `#FF865E` | 역삼각형 + `'HIP'` 텍스트 |
+
+묶음 기호 (한 존 vs 각 존 구분):
+
+| 조건 | 표기 |
+|---|---|
+| 부위 2~3개 / 존 1개 | 아이콘을 `( )` 괄호로 묶음 → "함께 한 존에" |
+| 부위 n개 / 존 n개 | 아이콘 사이 `\|` 구분선 → "각각 다른 존에" |
+| 부위 3개 / 존 2개 | `( ) \|` 혼합 → 2개 묶음 + 1개 분리 |
+
+### I. 테스트 요구 (POSE-002 필수)
+
+```
+□ 2부위 1존: 두 부위 모두 존 내부 → met / 한 부위만 → not met
+□ 2부위 2존: 정방향 met / 역방향(좌우 교환) met       ← RC-1 회귀 방지 핵심
+□ 2부위 2존: 두 부위가 같은 존에 몰림 → not met       ← 조건 (B) 검증
+□ 3부위 1존 / 2존 / 3존 각 met, 한 존 비었을 때 not met
+□ binding:'ordered' 시 역방향 → not met
+□ C2: 두 자세 동시 met 조합이 생성되지 않음 (100회 반복)
+□ C3: head·hip 동일 존 조합 미생성
+□ C6: parts.length < zoneIds.length 조합 미생성
+□ 활성 존 3개 이상에서 존별 진행도 독립 표시           ← RC-5 회귀 방지
+□ PartGate: baseline 변위 미달 시 not met
+□ CSV 360건 전체가 로더를 통과하고 제약 위반 0건
+```
+
+현재 커버리지 공백: 2부위 조합 AND 판정 테스트 **0건**, 3존 렌더링 미검증(`i % 2` 버그가 테스트 통과), `avgWeight` 미검증.
+
+---
 
 > 최근 안정화: 메뉴 커서는 두 기존 손 표식이 가까워졌을 때 그 정확한 중점에 하나만 생성되고 메뉴 위 전면에 렌더링됩니다. 손이 멀어지면 커서가 사라집니다. 음성은 비차단이고 게임 루프는 예외 격리/다음 프레임 선예약 구조입니다. `COMPLETION.md`의 "최신 안정화 수정"을 우선합니다.
 
@@ -80,7 +373,7 @@
 1. **프로젝트 목적**:
    - 닌텐도 '링핏 어드벤처' 스타일로 제자리 달리기, 팔 뻗기, 앉기, 점프 등 전신 운동을 하며 수학 문제를 해결하는 모바일 웹캠 기반 체감형 기능성 게임.
 2. **원작 스토리**:
-   - `E:\AIAIAIAI\Arithmetic Game\GU's mong story.txt` 바탕의 **《꿈의 수호신》** ("생각하는 힘이, 나를 지킨다").
+   - `E:\AIAIAIAIAI\Arithmetic Game\GU's mong story.txt` 바탕의 **《꿈의 수호신》** ("생각하는 힘이, 나를 지킨다").
    - 아이의 생각하는 힘(사고의 빛)으로 성장하는 꼬마 수호신 vs 몽계(꿈의 세계)를 위협하는 4종 괴물과 최종 보스 '나이트메어'.
 3. **그래픽/톤앤매너**:
    - 기존의 중세 골드/화염 연금술 테마에서 **신비로운 아이스블루, 라벤더, 딥네이비, 별빛 실버** 테마로 전면 개편.
@@ -98,7 +391,7 @@
 ## 📁 2. 파일 및 디렉토리 구조
 
 ```
-E:\AIAIAIAI\Arithmetic Game\
+E:\AIAIAIAIAI\Arithmetic Game\
 ├── index.html                   # [원본 보존] 기존 마법 연금술 아카데미 게임
 ├── questions.csv                 # [원본 보존] 전체 수학 문제 원본 DB (685문항)
 ├── questions_cleaned.csv         # [원본 보존] 클린 버전 문제 DB
@@ -112,10 +405,10 @@ E:\AIAIAIAI\Arithmetic Game\
         └── guardian.png          # 수호신 캐릭터 일러스트 (투명 크로마키 처리 완료)
 ```
 
-> **아티팩트 및 기획 문서 위치**:
-> - 기획서(Implementation Plan): `C:\Users\fondf\.gemini\antigravity\brain\78269c86-7ba7-4164-a76a-ad6ef6ca4238\implementation_plan.md`
-> - 세부 WBS 작업목차: `C:\Users\fondf\.gemini\antigravity\brain\78269c86-7ba7-4164-a76a-ad6ef6ca4238\task.md`
-> - 개발 워크스루: `C:\Users\fondf\.gemini\antigravity\brain\78269c86-7ba7-4164-a76a-ad6ef6ca4238\walkthrough.md`
+> **기획 및 작업 문서 위치 (프로젝트 내부)**:
+> - 기획서(Implementation Plan): `dream_guardian/IMPLEMENTATION_PLAN.md`
+> - 세부 WBS 작업목차: `dream_guardian/TASKS.md`
+> - 개발 워크스루: `dream_guardian/DEVELOPMENT_WALKTHROUGH.md`
 
 ---
 
@@ -151,14 +444,14 @@ E:\AIAIAIAI\Arithmetic Game\
 
 ### 권장: Vite 로컬 개발 서버 (HMR 핫 리로딩 지원)
 ```powershell
-cd "E:\AIAIAIAI\Arithmetic Game\dream_guardian"
+cd "E:\AIAIAIAIAI\Arithmetic Game\dream_guardian"
 npm run dev
 ```
 브라우저에서 `http://localhost:3000/` 접속
 
 ### 프로덕션 빌드 & 테스트
 ```powershell
-cd "E:\AIAIAIAI\Arithmetic Game\dream_guardian"
+cd "E:\AIAIAIAIAI\Arithmetic Game\dream_guardian"
 npm run build
 npm test
 ```

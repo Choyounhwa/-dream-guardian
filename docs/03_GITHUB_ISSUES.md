@@ -962,6 +962,136 @@
   - [x] '뒤로가기' 클릭 및 Esc/0/Backspace 키 입력 시 메인 챕터 선택 메뉴로 복귀
   - [x] Vitest 20개 파일 255개 테스트 100% Pass 및 번들 빌드 정상 완료
 
+---
+
+### Issue #116 (Card #47): [BUG-CURSOR-001] 문제선택 화면 스켈레톤-커서 좌표계 이격 해결 (Cover 변환 동기화)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/116
+- **Labels**: `bug`, `P0-critical`, `phase-3`
+- **작업 ID**: `[BUG-CURSOR-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 문제선택 화면(`gamePhase === 'question'`)에서 화면에 그려진 스켈레톤 관절(손, 머리, 골반)과 4색 커서(원, 타원, 삼각형)의 위치가 크게 어긋나는 이격(Discrepancy) 결함을 해결하고, 웹캠 미러 피드 및 스켈레톤과 커서 좌표계를 1:1로 일치시킨다.
+- **현상 및 원인 분석**:
+  1. **Cover 뷰포트 스케일 불일치**:
+     - `CameraLayer`는 18:9 캔버스(1080x2160)에 16:9 웹캠을 Cover 모드로 렌더링하며, 중앙 기준 `scale = Math.max(vw/vW, vh/vH) = 3.0`로 확대되어 좌우가 잘려나감(`dw=3840`, `dh=2160`, 좌우 각 1380px 크롭).
+     - `PoseManager.virtualLandmarks`는 `cameraLayer.landmarkToCanvas(lm, vw, vh)`를 통해 이 Cover 변환을 적용하여 스켈레톤 뼈대와 관절을 렌더링함.
+  2. **커서 추적 좌표계의 단순 선형 스케일링**:
+     - `main.ts`에서 `answerSelector.updateFromPose`를 호출할 때 Cover 변환이 되지 않은 `poseManager.rawLandmarks`(0~1 정규화)를 그대로 전달함.
+     - `CursorTracker.ts`는 `1 - lm.x`만 수행하고, `AnswerSelectionRenderer.ts`는 `pos.x * w`로 단순 곱셈함.
+     - 결과적으로 스켈레톤 관절은 Cover 줌(3.0배)된 좌표에 그려지는 반면, 커서는 비확대 0~1 공간에 그려져 수백 픽셀 이상의 심각한 이격이 발생함.
+  3. **피트니스 존 판정 왜곡**:
+     - 커서가 잘못된 좌표에 있으므로 피트니스 존과의 접촉 판정 역시 사용자의 실제 신체 위치와 일치하지 않음.
+- **수정 대상**:
+  - `dream_guardian/src/input/CursorTracker.ts`
+  - `dream_guardian/src/input/AnswerSelector.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
+- **구현 내용**:
+  1. `CursorTracker` 및 `AnswerSelector`에 뷰포트 프로젝션 함수(`projectFn` 또는 Cover 변환)를 연동하거나, `main.ts`에서 Cover 좌표계로 변환된 정규화/가상 랜드마크를 주입하여 스켈레톤과 1:1 일치 보장.
+  2. `AnswerSelectionRenderer`의 커서 드로잉 좌표가 `JointRenderer`의 관절 좌표와 오차 0px로 일치하도록 동기화.
+  3. 피트니스 존 판정 좌표계와 커서 좌표계의 정합성 보장.
+- **완료 조건**:
+  - [ ] 스켈레톤 관절(머리, 손, 골반) 위치와 4색 커서의 중심 위치가 1:1로 정확하게 일치
+  - [ ] 창 크기 및 캔버스 스케일이 변경되어도 스켈레톤과 커서 간 이격이 발생하지 않음
+  - [ ] `npm test` 100% Pass 및 빌드 정상 완료
+
+---
+
+### Issue #117 (Card #48): [FEAT-CURSOR-001] 신체 부위 크기 추정 기반 커서 동적 사이징, 채움색 제거(테두리 전용) 및 손바닥(Palm) 중심 트래킹 고도화
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/117
+- **Labels**: `feature`, `P1-high`, `phase-3`, `phase-6`
+- **작업 ID**: `[FEAT-CURSOR-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 카메라와의 거리에 따라 신체 부위 크기를 추정하여 커서 크기를 자연스럽게 맞추고, 시야를 가리는 채움색을 제거하여 깔끔한 네온 외곽선(Stroke only)으로 표현한다.
+  - 양손 커서를 단순 손목(Wrist)이 아닌 실제 손바닥 중심(Palm center)으로 정밀 트래킹한다.
+- **수정 대상**:
+  - `dream_guardian/src/input/CursorTracker.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
+- **구현 내용**:
+  1. **손바닥(Palm) 중심 트래킹 고도화**:
+     - MediaPipe Hands 손바닥 랜드마크(#9) 연동.
+     - Hands 부재 시 Pose 손목(#15/#16), 손가락 관절(#17/#19, #18/#20), 엄지(#21/#22)의 가중 중심 및 전완 방향 벡터 연장을 통해 실제 손바닥 중심점을 정밀 추정.
+  2. **신체 부위별 크기 동적 추정**:
+     - 머리(Head): 양 귀 간격(#7-#8) 또는 코-어깨 거리 기반으로 사용자의 원거리/근거리 깊이에 비례한 타원 반경 동적 계산.
+     - 손(Hand): 손목-손가락 길이 또는 어깨 너비 비례 원 반지름 동적 계산.
+     - 골반(Hip): 좌우 골반(#23-#24) 간격 비례 삼각형 너비/높이 동적 계산.
+  3. **채움색 제거 (채움색 없음 / Outline Only)**:
+     - `AnswerSelectionRenderer`에서 `ctx.fill()` 제거.
+     - 투명 내부 + 네온 테두리(`ctx.stroke()`)만 렌더링하여 게임 화면 시인성 극대화.
+     - 체류 진행도(Dwell Progress) 표시 시에만 외곽 아크 또는 게이지 테두리 점등.
+- **완료 조건**:
+  - [ ] 4색 커서(손, 머리, 골반)에 채움색이 전혀 없고 깔끔한 네온 외곽선으로만 렌더링
+  - [ ] 플레이어가 카메라에 가까워지거나 멀어질 때 커서 크기가 신체 부위 크기에 비례하여 동적 조절
+  - [ ] 양손 커서가 손목 관절이 아니라 실제 손바닥 중심을 정확히 추적
+  - [ ] `npm test` 100% Pass 및 빌드 정상 완료
+
+---
+
+### Issue #118 (Card #49): [FEAT-CURSOR-002] 커서 화면 이탈 방지 상위 스켈레톤 계층 Fallback 및 스무딩 이동 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/118
+- **Labels**: `feature`, `P1-high`, `phase-3`, `phase-6`
+- **작업 ID**: `[FEAT-CURSOR-002]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 정답 선택 시 플레이어가 손이나 신체를 화면 밖으로 크게 뻗었을 때, 커서가 사라지거나 깜빡이지 않고 자연스럽게 상위 관절을 따라 화면 내에 유지되도록 계층 Fallback 및 보간 이동을 구현한다.
+- **수정 대상**:
+  - `dream_guardian/src/input/CursorTracker.ts`
+  - `dream_guardian/src/input/AnswerSelector.ts`
+  - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
+- **구현 내용**:
+  1. **상위 스켈레톤 Fallback 계층 정의**:
+     - 손 커서: 손바닥(Palm) → 손목(Wrist, #15/#16) → 전완(Forearm, 손목-팔꿈치 중점) → 팔꿈치(Elbow, #13/#14) → 상완(Upper Arm, 팔꿈치-어깨 중점) → 어깨(Shoulder, #11/#12).
+     - 머리 커서: 코(#0) → 눈/귀 중점 → 목/어깨 중점.
+     - 골반 커서: 골반 중점(#23/#24) → 체간(Torso) 중점 → 어깨 중점.
+  2. **화면 이탈 및 신뢰도 저하 감지**:
+     - 정규화 좌표가 화면 밖(`x < 0 || x > 1 || y < 0 || y > 1`)으로 벗어나거나 신뢰도 < 임계값일 때, 상위 계층 관절 순으로 즉시 탐색하여 유효한 최상위 관절 좌표 선택.
+  3. **스무딩(Lerp) 및 이탈 방지 경계 클램프**:
+     - 커서가 즉시 사라지지 않고, 이전 위치에서 상위 관절 위치로 부드럽게 지수 보간(Lerp Factor 0.25) 이동.
+     - 화면 경계에 부드럽게 머물도록 마진 기반 클램핑 적용하여 깜빡임(Flickering) 및 소멸 원천 차단.
+- **완료 조건**:
+  - [ ] 손바닥이 화면 밖으로 나가도 커서가 사라지지 않고 손목/전완/팔꿈치/어깨로 자연스럽게 이동
+  - [ ] 깜빡임이나 끊김 없는 부드러운 전환(Lerp) 확인
+  - [ ] 화면 경계 근처에서도 답안 영역 조작 가능성 유지
+  - [ ] `npm test` 100% Pass 및 빌드 정상 완료
+
+---
+
+### Issue #119 (Card #50): [BUG-MENU-001] 메뉴 화면 4색 커서 상시 가시화 및 양손 모으기(MenuInput) 제스처 메뉴 선택 기능 누락 복원
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/119
+- **Labels**: `bug`, `P1-high`, `phase-3`, `phase-6`
+- **작업 ID**: `[BUG-MENU-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 스켈레톤 커서 및 메뉴 제스처 입력 모듈(`MenuInput.ts`)이 개발되었으나, `main.ts` 메인 루프에 전혀 연동되지 않아 런타임에서 양손 모으기(합장) 메뉴 선택이 완전히 누락된 결함을 복원한다.
+  - 메인 메뉴 화면(`screenMode === 'menu'`)에서 4색 커서가 렌더링되지 않아 모션으로 메뉴를 조작할 수 없는 문제를 해결한다.
+- **현상 및 원인 분석**:
+  1. **모듈 미연동 누락**:
+     - `MenuInput.ts`가 `src/input/MenuInput.ts`에 독립 클래스로 구현되어 단위 테스트까지 존재하지만, `main.ts`에 import되지도 인스턴스화되지도 않음.
+  2. **메뉴 루프 내 커서 비활성화**:
+     - `screenMode === 'menu'` 상태에서 `CursorTracker` 및 `AnswerSelectionRenderer`가 갱신 및 호출되지 않아 스켈레톤 라인만 표시되고 커서가 전면 숨김 상태임.
+  3. **양손 모으기 호버 체류 판정 부재**:
+     - 메뉴 선택이 오직 마우스 `click`과 키보드 `keydown`(1~5, Esc)으로만 동작함.
+- **수정 대상**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/input/MenuInput.ts`
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+  - `dream_guardian/tests/unit/input-system.test.ts`
+- **구현 내용**:
+  1. `main.ts`에 `MenuInput` 인스턴스 연동 및 메뉴 루프에서 양손 좌표 기반 합장 감지 활성화.
+  2. 메뉴 화면(`MENU_MAIN`, `MENU_SUB`)에서 4색 신체 커서 또는 양손 모으기 커서('손 모으기' 링) 실시간 렌더링.
+  3. 챕터 카드 및 서브레벨 카드에 호버 체류 시 프로그레스 아크를 표시하고, 0.8초 달성 시 메뉴 선택 자동 트리거.
+  4. 기존 마우스 클릭 및 키보드(1~5, Esc) Fallback 조작 100% 보존.
+- **완료 조건**:
+  - [ ] 첫 메뉴 화면 진입 즉시 신체 커서 및 양손 모으기 커서가 화면에 표시됨
+  - [ ] 카메라 앞에서 양손을 모아 챕터 카드/서브레벨 카드에 0.8초 체류 시 터치 없이 메뉴가 선택되어 게임 진입
+  - [ ] 마우스 클릭 및 키보드(1~5, Esc) Fallback이 정상 유지됨
+  - [ ] `npm test` 100% Pass 및 빌드 정상 완료
+
+
 
 
 
