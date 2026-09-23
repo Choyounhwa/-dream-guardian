@@ -2065,7 +2065,7 @@
 - **Labels**: `feature`, `P1-high`, `phase-3`, `phase-6`
 - **Milestone**: `v0.5-input-ui`
 - **작업 ID**: `[FEAT-CURSOR-004]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Done - 2026-09-24)**
 - **목적**:
   1. 손 커서 및 스켈레톤 손 관절 트래킹 포인트를 기존 손바닥 하단/손목 중심에서 **중지 손가락 시작 부분(3rd MCP Joint)**으로 상향 조정하여 실제 조작감과 시각적 직관성을 향상시킨다.
   2. 골반(HIP) 커서의 크기를 힙과 연결된 양다리 시작 포인트(Left Hip #23 ~ Right Hip #24) 사이의 실측 거리를 기준으로 **1.5배(너비 = hipDist × 1.5)** 크게 동적 확장한다.
@@ -2088,13 +2088,13 @@
   - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
 - **구현 내용**:
   1. `CursorTracker._estimatePalmCenter` 중지 손가락 기저부 가중치 재조정 및 `JointRenderer`, `BoneRenderer` 0px 동기화
-  2. 골반 실측 다리 너비 대비 1.5배 스케일링 (`halfWidth = hipDist * 0.75`, `halfHeight = halfWidth * 0.45`, `maxHalfWidth: 180px+`)
-  3. `AnswerSelectionRenderer._renderCursors` 골반 형상 납작 라운드 마름모 개편 (상·우·하·좌 4개 꼭짓점 라운드 연결)
+  2. 골반 실측 다리 너비 대비 1.5배 스케일링 (`halfWidth = hipDist * 0.75`, `halfHeight = halfWidth * 0.45`, `maxHalfWidth: 220px`)
+  3. `AnswerSelectionRenderer._renderCursors` 골반 형상 납작 라운드 마름모 개편 (상·우·하·좌 4개 꼭짓점 라운드 연결, Canvas arcTo fallback 안전 처리)
 - **완료 조건**:
-  - [ ] 손 커서 및 스켈레톤 손 마커 중심이 중지 손가락 시작부(MCP)에 정확히 위치함
-  - [ ] 골반 커서 너비가 양 고관절 시작점(#23-#24) 사이 실측 거리의 1.5배로 동적 사이징됨
-  - [ ] 골반 커서가 모서리가 둥근 납작한 마름모 모양으로 시원하게 렌더링됨
-  - [ ] `npm test` 100% Pass 및 `npm run build` 0 에러
+  - [x] 손 커서 및 스켈레톤 손 마커 중심이 중지 손가락 시작부(MCP)에 정확히 위치함
+  - [x] 골반 커서 너비가 양 고관절 시작점(#23-#24) 사이 실측 거리의 1.5배로 동적 사이징됨
+  - [x] 골반 커서가 모서리가 둥근 납작한 마름모 모양으로 시원하게 렌더링됨
+  - [x] `npm test` 100% Pass 및 `npm run build` 0 에러
 - **관련 파일**:
   - `dream_guardian/config/cursor.config.ts`
   - `dream_guardian/src/input/CursorTracker.ts`

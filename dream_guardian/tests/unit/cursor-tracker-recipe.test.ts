@@ -35,6 +35,7 @@ function createMockCtx(): CanvasRenderingContext2D {
     fillRect: vi.fn(),
     strokeRect: vi.fn(),
     arc: vi.fn(),
+    arcTo: vi.fn(),
     ellipse: vi.fn(),
     fill: vi.fn(),
     stroke: vi.fn(),
@@ -112,8 +113,8 @@ describe('CursorTracker (Issue #104)', () => {
     // 손바닥 중심은 손목(y=0.4)보다 손가락 기저(y=0.32~0.34) 쪽으로 위로 전진해야 함 (y < 0.4)
     expect(leftHand.y).toBeLessThan(0.40);
     expect(leftHand.y).toBeGreaterThan(0.32);
-    // 가중치: 0.4*0.4 + 0.32*0.35 + 0.34*0.25 = 0.16 + 0.112 + 0.085 = 0.357
-    expect(leftHand.y).toBeCloseTo(0.357, 2);
+    // 중지 기저부 가중치 (Issue #145): 0.15*0.4 + 0.425*0.32 + 0.425*0.34 = 0.06 + 0.136 + 0.1445 = 0.3405
+    expect(leftHand.y).toBeCloseTo(0.341, 2);
   });
 
   it('카메라 거리에 따른 신체 부위 크기 동적 추정이 적용된다 (Issue #117)', () => {
@@ -554,5 +555,76 @@ describe('AnswerSelectionRenderer (Issue #104)', () => {
     expect(head?.size?.radiusX).toBeGreaterThanOrEqual(50);
     expect(leftHand?.size?.radius).toBeGreaterThanOrEqual(40);
     expect(hip?.size?.halfWidth).toBeGreaterThanOrEqual(45);
+  });
+
+  it('[FEAT-CURSOR-004 / Test 1] 손바닥 트래킹 좌표가 손목이 아닌 중지 손가락 시작부(3rd MCP, 검지-소지 기저부 축)로 위치 조절된다 (Issue #145)', () => {
+    const tracker = new CursorTracker();
+    const lm = createMockLandmarks();
+    // 왼손목(#15): (0.2, 0.40), 왼팔꿈치(#13): (0.2, 0.50)
+    // 검지 기저(#19): (0.2, 0.30), 소지 기저(#17): (0.2, 0.32)
+    lm[13] = { x: 0.2, y: 0.50, z: 0, visibility: 0.9 };
+    lm[15] = { x: 0.2, y: 0.40, z: 0, visibility: 0.95 };
+    lm[17] = { x: 0.2, y: 0.32, z: 0, visibility: 0.9 };
+    lm[19] = { x: 0.2, y: 0.30, z: 0, visibility: 0.9 };
+
+    const cursors = tracker.update(lm);
+    const leftHand = cursors.get('leftHand')!;
+    expect(leftHand).toBeDefined();
+
+    // 중지 손가락 시작부(3rd MCP): 손목(0.40)보다 손가락 기저선(0.30~0.32) 쪽에 매우 가깝게 전진해야 함 (y < 0.33)
+    // 이전 손바닥 하단 공식 (가중치 0.40) -> y = 0.345
+    // 신규 중지 기저 공식 (가중치 0.15) -> y = 0.40*0.15 + 0.30*0.425 + 0.32*0.425 = 0.3235
+    expect(leftHand.y).toBeLessThan(0.33);
+    expect(leftHand.y).toBeCloseTo(0.3235, 2);
+  });
+
+  it('[FEAT-CURSOR-004 / Test 2] 골반 커서 너비가 힙과 연결된 양다리 시작포인트(#23-#24) 사이 거리의 1.5배로 동적 확장된다 (Issue #145)', () => {
+    const tracker = new CursorTracker({ virtualWidth: 1080, virtualHeight: 2160 });
+    const virtualLm: NormalizedLandmark[] = [];
+    for (let i = 0; i < 33; i++) {
+      virtualLm.push({ x: 540, y: 1080, z: 0, visibility: 0 });
+    }
+    // 양다리 시작포인트: 왼골반(#23) x=440, 오른골반(#24) x=640 -> hipDist = 200px
+    virtualLm[23] = { x: 440, y: 1300, z: 0, visibility: 0.95 };
+    virtualLm[24] = { x: 640, y: 1300, z: 0, visibility: 0.95 };
+
+    const cursors = tracker.update(virtualLm, undefined, false, {
+      isVirtual: true,
+      virtualWidth: 1080,
+      virtualHeight: 2160,
+    });
+
+    const hip = cursors.get('hip')!;
+    expect(hip).toBeDefined();
+    expect(hip.size).toBeDefined();
+
+    // 전체 너비 = hipDist(200px) * 1.5 = 300px
+    // halfWidth = 300 / 2 = 150px
+    expect(hip.size!.halfWidth).toBeCloseTo(150, 0);
+  });
+
+  it('[FEAT-CURSOR-004 / Test 3] 골반 커서가 상하 대칭의 납작한 마름모 비율(halfHeight = halfWidth * 0.45)로 설정된다 (Issue #145)', () => {
+    const tracker = new CursorTracker({ virtualWidth: 1080, virtualHeight: 2160 });
+    const virtualLm: NormalizedLandmark[] = [];
+    for (let i = 0; i < 33; i++) {
+      virtualLm.push({ x: 540, y: 1080, z: 0, visibility: 0 });
+    }
+    virtualLm[23] = { x: 450, y: 1300, z: 0, visibility: 0.95 };
+    virtualLm[24] = { x: 650, y: 1300, z: 0, visibility: 0.95 };
+
+    const cursors = tracker.update(virtualLm, undefined, false, {
+      isVirtual: true,
+      virtualWidth: 1080,
+      virtualHeight: 2160,
+    });
+
+    const hip = cursors.get('hip')!;
+    expect(hip).toBeDefined();
+    expect(hip.size).toBeDefined();
+
+    // 납작한 마름모: 상하 오프셋이 대칭이며 너비 대비 약 45% 두께
+    const expectedHalfHeight = Math.round(hip.size!.halfWidth! * 0.45);
+    expect(hip.size!.topOffset).toBe(expectedHalfHeight);
+    expect(hip.size!.bottomOffset).toBe(expectedHalfHeight);
   });
 });

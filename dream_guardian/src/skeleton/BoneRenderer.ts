@@ -77,11 +77,11 @@ export class BoneRenderer {
         let palmX = wrist.x;
         let palmY = wrist.y;
         if (indexKnuckle && pinkyKnuckle && (indexKnuckle.visibility ?? 0) >= 0.35 && (pinkyKnuckle.visibility ?? 0) >= 0.35) {
-          palmX = wrist.x * 0.4 + indexKnuckle.x * 0.35 + pinkyKnuckle.x * 0.25;
-          palmY = wrist.y * 0.4 + indexKnuckle.y * 0.35 + pinkyKnuckle.y * 0.25;
+          palmX = wrist.x * 0.15 + indexKnuckle.x * 0.425 + pinkyKnuckle.x * 0.425;
+          palmY = wrist.y * 0.15 + indexKnuckle.y * 0.425 + pinkyKnuckle.y * 0.425;
         } else if (elbow && (elbow.visibility ?? 0) >= 0.35) {
-          palmX = wrist.x + (wrist.x - elbow.x) * 0.18;
-          palmY = wrist.y + (wrist.y - elbow.y) * 0.18;
+          palmX = wrist.x + (wrist.x - elbow.x) * 0.22;
+          palmY = wrist.y + (wrist.y - elbow.y) * 0.22;
         } else if (shoulder && (shoulder.visibility ?? 0) >= 0.35) {
           const dx = wrist.x - shoulder.x;
           const dy = wrist.y - shoulder.y;

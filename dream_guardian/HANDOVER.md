@@ -58,6 +58,7 @@
 | `FEAT-CURSOR-003` | [#140](https://github.com/Choyounhwa/-dream-guardian/issues/140) | 전 장면 4색 스켈레톤 커서 상시 지속 가시화 및 생명주기 통일 | 메뉴·달리기·문제·결과 전 화면에서 4색 커서 상시 렌더링 일원화 | 🟢 **Pass (321/321)** |
 | `REFACTOR-001` | [#130](https://github.com/Choyounhwa/-dream-guardian/issues/130) | AnswerSelector 죽은 판정 경로(update) 정리 및 단위 테스트 정비 | 미사용 레거시 update 경로 및 _progress 제거, updateFromPose 단일 파이프라인 일원화 | 🟢 **Pass (336/336)** |
 | `BUG-SCALE-002` | [#144](https://github.com/Choyounhwa/-dream-guardian/issues/144) | 실사용 웹캠 근접 환경 신체 실측 크기 동적 추정 고도화 및 커서 시인성 현실화 | 귀 가림 시 눈(x2.6)·코/어깨 다계층 안면 추정, 팔꿈치 이탈 시 손목 너머 손바닥 40~70px 전진, 1080p 커서 규격 상향(손 45~90px, 머리 55~140px, 골반 55~120px, PC 1.5m baseline 350px/하한 0.70) | 🟢 **Pass (357/357)** |
+| `FEAT-CURSOR-004` | [#145](https://github.com/Choyounhwa/-dream-guardian/issues/145) | 스켈레톤 손 트래킹 중지 기저부(MCP) 위치 조정 및 골반 커서 실측 다리 너비(1.5x) 라운드 납작 마름모 개편 | 손 트래킹 중지 손가락 시작점(3rd MCP) 상향, 골반 커서 실측 다리 너비 1.5배(너비 = hipDist × 1.5) 동적 확장, 모서리 라운드 납작 마름모 렌더링 개편 | 🟢 **Pass (360/360)** |
 
 ### 2. 브라우저 실테스트 피드백 반영 및 주요 환경 해결
 

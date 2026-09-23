@@ -43,11 +43,12 @@ export const CURSOR_DIMENSIONS = {
     maxRadiusY: 185,
   },
   hip: {
-    defaultHalfWidth: 55,
-    defaultTopOffset: 32,
-    defaultBottomOffset: 42,
-    minHalfWidth: 16,
-    maxHalfWidth: 120,
+    defaultHalfWidth: 80,
+    defaultTopOffset: 36,
+    defaultBottomOffset: 36,
+    aspectRatio: 0.45, // 납작한 마름모 세로:가로 비율 (halfHeight = halfWidth * 0.45)
+    minHalfWidth: 20,
+    maxHalfWidth: 220,
   },
   dwellArc: {
     arcOffset: 12,

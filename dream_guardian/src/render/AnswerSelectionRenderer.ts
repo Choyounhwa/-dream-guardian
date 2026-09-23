@@ -205,24 +205,39 @@ export class AnswerSelectionRenderer {
         ctx.textBaseline = 'middle';
         ctx.fillText('HEAD', cx, cy);
       } else if (type === 'hip') {
-        // 골반: 라운드 역삼각형 외곽선 전용 (Issue #117: 채움색 없음 / Outline Only & 동적 크기)
+        // 골반: 납작한 라운드 마름모 외곽선 전용 (Issue #145: Flattened Rounded Rhombus & 다리 시작점 1.5배)
         const hw = pos.size?.halfWidth ?? CURSOR_DIMENSIONS.hip.defaultHalfWidth;
-        const topY = pos.size?.topOffset ?? CURSOR_DIMENSIONS.hip.defaultTopOffset;
-        const botY = pos.size?.bottomOffset ?? CURSOR_DIMENSIONS.hip.defaultBottomOffset;
+        const hh = pos.size?.halfHeight ?? pos.size?.topOffset ?? Math.round(hw * CURSOR_DIMENSIONS.hip.aspectRatio);
+        const radius = Math.min(12, Math.round(hh * 0.35));
+
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.moveTo(cx - hw, cy - topY);
-        ctx.lineTo(cx + hw, cy - topY);
-        ctx.lineTo(cx, cy + botY);
-        ctx.closePath();
+        if (typeof ctx.arcTo === 'function') {
+          // Left-to-Top 중간에서 시작하여 Top, Right, Bottom, Left 4개 꼭짓점을 라운딩하며 연결
+          const midLeftTopX = (cx - hw + cx) / 2;
+          const midLeftTopY = (cy + cy - hh) / 2;
+          ctx.moveTo(midLeftTopX, midLeftTopY);
+          ctx.arcTo(cx, cy - hh, cx + hw, cy, radius);
+          ctx.arcTo(cx + hw, cy, cx, cy + hh, radius);
+          ctx.arcTo(cx, cy + hh, cx - hw, cy, radius);
+          ctx.arcTo(cx - hw, cy, cx, cy - hh, radius);
+          ctx.closePath();
+        } else {
+          ctx.moveTo(cx, cy - hh);
+          ctx.lineTo(cx + hw, cy);
+          ctx.lineTo(cx, cy + hh);
+          ctx.lineTo(cx - hw, cy);
+          ctx.closePath();
+        }
         ctx.stroke();
 
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = `bold ${Math.max(9, Math.round(hw * 0.45))}px sans-serif`;
+        ctx.font = `bold ${Math.max(9, Math.round(hw * 0.28))}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('HIP', cx, cy - 2);
+        ctx.fillText('HIP', cx, cy);
       }
 
       // 체류 충전 아크 (해당 커서가 위치한 존의 독립 진행도가 있을 때만 외곽에 표시)

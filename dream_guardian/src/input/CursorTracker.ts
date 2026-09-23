@@ -20,8 +20,9 @@ export interface CursorSize {
   /** 타원/머리 커서의 경우 가로/세로 반지름 (픽셀 단위) */
   radiusX?: number;
   radiusY?: number;
-  /** 역삼각/골반 커서의 경우 반너비 및 높이 오프셋 (픽셀 단위) */
+  /** 마름모/골반 커서의 경우 반너비, 반높이 및 상하 오프셋 (픽셀 단위, Issue #145) */
   halfWidth?: number;
+  halfHeight?: number;
   topOffset?: number;
   bottomOffset?: number;
 }
@@ -153,10 +154,10 @@ export class CursorTracker {
   }
 
   /**
-   * Pose 관절로부터 손바닥(Palm) 중심점 및 손 길이 추정 (Issue #117, Issue #144)
-   * 1순위: 손목(#15/#16), 검지 기저(#19/#20), 소지 기저(#17/#18)의 가중 중심
+   * Pose 관절로부터 손바닥(Palm) 중심점 및 손 길이 추정 (Issue #117, Issue #144, Issue #145)
+   * 1순위: 손목(#15/#16), 검지 기저(#19/#20), 소지 기저(#17/#18)의 중지 손가락 시작부(3rd MCP) 가중 중심
    * 2순위: 단일 손가락 기저부 방향 전진
-   * 3순위: 팔꿈치 유효 시 전완 벡터 16% 연장
+   * 3순위: 팔꿈치 유효 시 전완 벡터 22% 연장
    * 4순위: 팔꿈치 결손(화면 밖 이탈) 시 어깨-손목 벡터 기반 40~70px 전진 (상반신 근접 가상 뷰포트 환경)
    */
   private _estimatePalmCenter(
@@ -174,7 +175,7 @@ export class CursorTracker {
     const maxArmLen = isVirtual ? 600 : 0.45;
     const maxFullArmLen = isVirtual ? 1200 : 0.90;
 
-    // 1순위: 양 손가락 관절 모두 유효 -> 가중 중심 (실제 손바닥 중심점)
+    // 1순위: 양 손가락 관절 모두 유효 -> 중지 손가락 시작부(3rd MCP Joint, 검지-소지 기저선 중심) (Issue #145)
     if (indexKnuckle && pinkyKnuckle && indexConf >= 0.35 && pinkyConf >= 0.35) {
       const handDx = indexKnuckle.x - wrist.x;
       const handDy = indexKnuckle.y - wrist.y;
@@ -183,8 +184,8 @@ export class CursorTracker {
       if (handLength > 0.005 && handLength <= maxHandLen) {
         return {
           pt: {
-            x: wrist.x * 0.4 + indexKnuckle.x * 0.35 + pinkyKnuckle.x * 0.25,
-            y: wrist.y * 0.4 + indexKnuckle.y * 0.35 + pinkyKnuckle.y * 0.25,
+            x: wrist.x * 0.15 + indexKnuckle.x * 0.425 + pinkyKnuckle.x * 0.425,
+            y: wrist.y * 0.15 + indexKnuckle.y * 0.425 + pinkyKnuckle.y * 0.425,
           },
           confidence: Math.max(wristConf, Math.min(indexConf, pinkyConf)),
           handLength,
@@ -200,8 +201,8 @@ export class CursorTracker {
       if (handLength > 0.005 && handLength <= maxHandLen) {
         return {
           pt: {
-            x: wrist.x + handDx * 0.55,
-            y: wrist.y + handDy * 0.55,
+            x: wrist.x + handDx * 0.85,
+            y: wrist.y + handDy * 0.85,
           },
           confidence: Math.max(wristConf, indexConf),
           handLength,
@@ -215,8 +216,8 @@ export class CursorTracker {
       if (handLength > 0.005 && handLength <= maxHandLen) {
         return {
           pt: {
-            x: wrist.x + handDx * 0.55,
-            y: wrist.y + handDy * 0.55,
+            x: wrist.x + handDx * 0.85,
+            y: wrist.y + handDy * 0.85,
           },
           confidence: Math.max(wristConf, pinkyConf),
           handLength,
@@ -224,7 +225,7 @@ export class CursorTracker {
       }
     }
 
-    // 3순위: 손가락 관절 부재/이탈 시 팔꿈치가 손목과 유효 범위 내에 있는 경우: 전완 방향 16% 연장
+    // 3순위: 손가락 관절 부재/이탈 시 팔꿈치가 손목과 유효 범위 내에 있는 경우: 전완 방향 22% 연장
     if (elbow && (elbow.visibility ?? 0) >= 0.35) {
       const armDx = wrist.x - elbow.x;
       const armDy = wrist.y - elbow.y;
@@ -232,11 +233,11 @@ export class CursorTracker {
       if (armLen > 0.01 && armLen <= maxArmLen) {
         return {
           pt: {
-            x: wrist.x + armDx * 0.16,
-            y: wrist.y + armDy * 0.16,
+            x: wrist.x + armDx * 0.22,
+            y: wrist.y + armDy * 0.22,
           },
           confidence: wristConf,
-          handLength: armLen * 0.25,
+          handLength: armLen * 0.30,
         };
       }
     }
@@ -526,12 +527,17 @@ export class CursorTracker {
         const hipDist = Math.sqrt(hDx * hDx + hDy * hDy);
         const hipDistPx = isVirtual ? hipDist : hipDist * vw;
         if (hipDistPx > 20) {
-          hipHalfWidth = Math.max(CURSOR_DIMENSIONS.hip.minHalfWidth, Math.min(CURSOR_DIMENSIONS.hip.maxHalfWidth, Math.round(hipDistPx * 0.28)));
+          // Issue #145: 힙과 연결된 양다리 시작포인트(leftHip~rightHip) 사이 거리의 1.5배
+          // 전체 너비 = hipDistPx * 1.5 -> 반너비 = hipDistPx * 0.75
+          hipHalfWidth = Math.max(
+            CURSOR_DIMENSIONS.hip.minHalfWidth,
+            Math.min(CURSOR_DIMENSIONS.hip.maxHalfWidth, Math.round(hipDistPx * 0.75)),
+          );
         }
       }
       hipHalfWidth = Math.max(CURSOR_DIMENSIONS.hip.minHalfWidth, Math.min(CURSOR_DIMENSIONS.hip.maxHalfWidth, hipHalfWidth));
-      const hipTopOffset = Math.round(hipHalfWidth * 0.58);
-      const hipBottomOffset = Math.round(hipHalfWidth * 0.75);
+      // Issue #145: 납작한 마름모 상하 반높이 (halfHeight = halfWidth * 0.45)
+      const hipHalfHeight = Math.round(hipHalfWidth * CURSOR_DIMENSIONS.hip.aspectRatio);
 
       this._cursors.set('hip', {
         type: 'hip',
@@ -539,7 +545,12 @@ export class CursorTracker {
         y: resolvedHip.y,
         confidence: resolvedHip.confidence,
         source: 'pose',
-        size: { halfWidth: hipHalfWidth, topOffset: hipTopOffset, bottomOffset: hipBottomOffset },
+        size: {
+          halfWidth: hipHalfWidth,
+          halfHeight: hipHalfHeight,
+          topOffset: hipHalfHeight,
+          bottomOffset: hipHalfHeight,
+        },
       });
     }
 

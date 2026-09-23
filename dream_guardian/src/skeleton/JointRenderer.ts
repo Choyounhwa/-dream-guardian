@@ -94,11 +94,11 @@ export class JointRenderer {
         let palmX = lm.x;
         let palmY = lm.y;
         if (indexK && pinkyK && (indexK.visibility ?? 0) >= 0.35 && (pinkyK.visibility ?? 0) >= 0.35) {
-          palmX = lm.x * 0.4 + indexK.x * 0.35 + pinkyK.x * 0.25;
-          palmY = lm.y * 0.4 + indexK.y * 0.35 + pinkyK.y * 0.25;
+          palmX = lm.x * 0.15 + indexK.x * 0.425 + pinkyK.x * 0.425;
+          palmY = lm.y * 0.15 + indexK.y * 0.425 + pinkyK.y * 0.425;
         } else if (elbow && (elbow.visibility ?? 0) >= 0.35) {
-          palmX = lm.x + (lm.x - elbow.x) * 0.18;
-          palmY = lm.y + (lm.y - elbow.y) * 0.18;
+          palmX = lm.x + (lm.x - elbow.x) * 0.22;
+          palmY = lm.y + (lm.y - elbow.y) * 0.22;
         } else if (shoulder && (shoulder.visibility ?? 0) >= 0.35) {
           const dx = lm.x - shoulder.x;
           const dy = lm.y - shoulder.y;
