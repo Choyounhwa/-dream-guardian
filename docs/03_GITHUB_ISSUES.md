@@ -2058,6 +2058,52 @@
   - `dream_guardian/src/skeleton/BoneRenderer.ts`
   - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
 
+---
+
+### Issue #145 (Card #72): [FEAT-CURSOR-004] 스켈레톤 손 트래킹 중지 기저부(MCP) 위치 조정 및 골반 커서 실측 다리 너비(1.5x) 라운드 납작 마름모 개편
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/145
+- **Labels**: `feature`, `P1-high`, `phase-3`, `phase-6`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[FEAT-CURSOR-004]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  1. 손 커서 및 스켈레톤 손 관절 트래킹 포인트를 기존 손바닥 하단/손목 중심에서 **중지 손가락 시작 부분(3rd MCP Joint)**으로 상향 조정하여 실제 조작감과 시각적 직관성을 향상시킨다.
+  2. 골반(HIP) 커서의 크기를 힙과 연결된 양다리 시작 포인트(Left Hip #23 ~ Right Hip #24) 사이의 실측 거리를 기준으로 **1.5배(너비 = hipDist × 1.5)** 크게 동적 확장한다.
+  3. 기존 역삼각형 골반 커서 형상을 인체 골반 형태에 맞는 **납작한 마름모(Flattened Rhombus, 모서리 라운드)**로 개편하여 시인성과 심미성을 극대화한다.
+- **현상 및 원인 분석**:
+  1. **손 트래킹 기준점 편향 (손목 근접)**: 기존 `_estimatePalmCenter`는 손목 가중치(0.4)가 높아 손바닥 하단에 위치함.
+  2. **골반 커서 크기 과소 (실제 고관절 폭 미달)**: 기존 반너비 계산식(`hipDistPx * 0.28`)은 양다리 시작점 거리의 절반 수준에 불과하여 골반을 감싸지 못함.
+  3. **골반 커서 형상 불일치 (단순 역삼각형)**: 스켈레톤 관절 마커 및 UI 부위 아이콘(다이아몬드/마름모)과 달리 역삼각형으로 렌더링되어 형태 불일치.
+- **TDD 테스트 선작성 계획 (Red → Green)**:
+  1. [Test 1] 손바닥 트래킹 좌표가 중지 손가락 시작점(MCP, 검지-소지 중점 가중치 `wrist * 0.15 + (index + pinky) * 0.425`)으로 산출되는지 검증
+  2. [Test 2] 골반 커서 크기가 양다리 시작점(#23-#24) 사이 거리의 1.5배(너비 = hipDist × 1.5)로 동적 확장되는지 수치 검증
+  3. [Test 3] 골반 커서가 4개 꼭짓점 기반 납작 마름모(모서리 라운드) 형상으로 렌더링되는지 패스 검증
+- **수정 대상**:
+  - `dream_guardian/config/cursor.config.ts`
+  - `dream_guardian/src/input/CursorTracker.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/src/skeleton/JointRenderer.ts`
+  - `dream_guardian/src/skeleton/BoneRenderer.ts`
+  - `dream_guardian/src/render/PartIconRenderer.ts`
+  - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
+- **구현 내용**:
+  1. `CursorTracker._estimatePalmCenter` 중지 손가락 기저부 가중치 재조정 및 `JointRenderer`, `BoneRenderer` 0px 동기화
+  2. 골반 실측 다리 너비 대비 1.5배 스케일링 (`halfWidth = hipDist * 0.75`, `halfHeight = halfWidth * 0.45`, `maxHalfWidth: 180px+`)
+  3. `AnswerSelectionRenderer._renderCursors` 골반 형상 납작 라운드 마름모 개편 (상·우·하·좌 4개 꼭짓점 라운드 연결)
+- **완료 조건**:
+  - [ ] 손 커서 및 스켈레톤 손 마커 중심이 중지 손가락 시작부(MCP)에 정확히 위치함
+  - [ ] 골반 커서 너비가 양 고관절 시작점(#23-#24) 사이 실측 거리의 1.5배로 동적 사이징됨
+  - [ ] 골반 커서가 모서리가 둥근 납작한 마름모 모양으로 시원하게 렌더링됨
+  - [ ] `npm test` 100% Pass 및 `npm run build` 0 에러
+- **관련 파일**:
+  - `dream_guardian/config/cursor.config.ts`
+  - `dream_guardian/src/input/CursorTracker.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/src/skeleton/JointRenderer.ts`
+  - `dream_guardian/src/skeleton/BoneRenderer.ts`
+  - `dream_guardian/src/render/PartIconRenderer.ts`
+  - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
+
 
 
 
