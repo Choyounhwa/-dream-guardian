@@ -1281,7 +1281,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/127
 - **Labels**: `feature`, `P2-medium`, `phase-6`
 - **작업 ID**: `[ICON-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 스켈레톤 커서와 답안 버튼, 피트니스 존에서 동일한 형상과 색상의 부위별 아이콘을 렌더링하여 플레이어의 직관성을 극대화한다.
 - **수정 대상**:
@@ -1305,7 +1305,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/128
 - **Labels**: `feature`, `P1-high`, `phase-6`
 - **작업 ID**: `[UI-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - RC-2(답안 UI에 부위 정보 부재)를 해결하여, 답안 오브 아래에 어떤 부위 커서를 어떤 방식으로 배치해야 하는지(한 존 vs 각 존)를 아이콘과 묶음 기호로 직관적으로 표시한다.
 - **수정 대상**:
@@ -1330,7 +1330,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/129
 - **Labels**: `bug`, `P1-high`, `phase-6`
 - **작업 ID**: `[UI-002]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - RC-5(진행도 2슬롯으로 인해 3번째 존이 `i % 2`로 오매핑되고 전체 커서에 일괄 `max()`가 전달되던 결함)를 수정하고, 존별 및 부위별 독립적인 충전 진행도 피드백을 제공한다.
 - **수정 대상**:
@@ -1351,7 +1351,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/130
 - **Labels**: `refactor`, `P2-medium`, `phase-3`
 - **작업 ID**: `[REFACTOR-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - RC-7(실게임에서 쓰이지 않는 레거시 `update()` 경로와 `updateFromPose()` 간의 상태 불일치)을 해소하고, `input-system.test.ts`의 테스트들을 신규 판정 파이프라인으로 일원화한다.
 - **수정 대상**:
@@ -1372,7 +1372,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/131
 - **Labels**: `phase-6`, `feature`, `P1-high`
 - **작업 ID**: `[UI-003]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 사용자가 카메라 및 화면에서 1미터 이상 떨어진 상태에서 스켈레톤 커서로 조작 시, 홈메뉴와 단계선택 카드가 지나치게 작고 촘촘하여 선택이 어렵던 문제를 해결한다.
   - 카드의 크기를 확대하고 간격(Gap)을 대폭 넓혀 오선택 및 떨림 간섭을 차단하고, 뒤로가기 버튼을 대형화하여 원거리 터치/호버 조작성을 확보한다.
@@ -1421,7 +1421,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/132
 - **Labels**: `phase-6`, `feature`, `P1-high`
 - **작업 ID**: `[UI-004]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 사용자가 1미터 이상 떨어진 상태에서도 체력, 마나, 문제 수식, 정답 선택지 및 결과 데이터를 한눈에 읽을 수 있도록 전반적인 텍스트 크기와 시인성(명도 대비, 외곽선, 백드롭)을 전면 개선한다.
 - **수정 대상**:
@@ -1472,7 +1472,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/133
 - **Labels**: `phase-3`, `phase-6`, `feature`, `P1-high`
 - **작업 ID**: `[INPUT-002]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 1미터 이상 떨어진 거리에서 신체 제어 시 발생하는 미세 떨림(Jitter)으로 인해 메뉴 카드의 경계선에서 호버 타이머가 초기화되던 문제를 해결하고, 모션 커서로 메뉴를 쉽게 조작할 수 있도록 히트박스 여유 마진과 호버 안정화(Hysteresis)를 제공한다.
 - **수정 대상**:
@@ -1515,7 +1515,7 @@
 - **Labels**: `feature`, `P1-high`, `phase-6`
 - **Milestone**: `v0.5-input-ui`
 - **작업 ID**: `[FEAT-RESULT-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 게임 종료 후 결과 화면(`screenMode === 'result'`)에서 키보드나 마우스 터치 없이도, 웹캠 앞에서 양손을 모으는(합장) 체감형 제스처로 0.8초 체류 시 메인 메뉴로 자연스럽게 복귀할 수 있도록 제스처 인터랙션 및 시각 피드백을 구현한다.
 - **수정 대상**:
@@ -1562,7 +1562,7 @@
 - **Labels**: `feature`, `P2-medium`, `phase-6`
 - **Milestone**: `v0.5-input-ui`
 - **작업 ID**: `[CALC-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 현재 칼로리 소모 공식 `(steps*0.04) + (squats*0.35) + (jumps*0.15)`은 달리기/스쿼트/점프만 반영하고 있어, 플레이어가 문제를 풀며 스트레칭 및 국민체조 자세를 정지 유지(Dwell)한 운동 노력을 보상하지 못하는 결함을 해결한다. 자세 유지 시간(초)을 칼로리 공식에 반영하여 피트니스 보상을 정밀화한다.
 - **수정 대상**:
@@ -1607,7 +1607,7 @@
 - **Labels**: `feature`, `P2-medium`, `phase-7`
 - **Milestone**: `v0.5-ui-visuals`
 - **작업 ID**: `[AUDIO-002]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 플레이어가 원하는 답안의 부위를 활성 존에 배치하고 유지하는 동안, 시각적인 아크 채움뿐만 아니라 청각적으로 충전 진행도(점진적 피치 상승)와 확정 순간(맑은 화음 종소리)을 인지할 수 있도록 실시간 오디오 피드백을 제공하여 체감성을 극대화한다.
 - **수정 대상**:
@@ -1649,7 +1649,7 @@
 - **Labels**: `feature`, `P2-medium`, `phase-6`
 - **Milestone**: `v0.5-input-ui`
 - **작업 ID**: `[TUT-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 처음 게임을 접하는 사용자가 4색 신체 커서(손바닥, 머리, 골반)와 10개 피트니스 존을 활용하여 답안을 선택하는 원리를 빠르게 습득할 수 있도록, 첫 플레이 진입 시 1회 직관적인 가이드 오버레이 및 연습 인터랙션을 제공한다.
 - **수정 대상**:
@@ -1694,7 +1694,7 @@
 - **Labels**: `documentation`, `P2-medium`
 - **Milestone**: `v0.5-input-ui`
 - **작업 ID**: `[DOCS-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Completed)**
 - **목적**:
   - 개발 초기의 구형 사양(어깨 커서 표기, 12존 체계, 단순 1:1 페어링 등)이 남아있는 기획 문서들을 현재 확정된 아키텍처(보라 머리/얼굴 확정, 겹침 0% 10존 레이아웃, fitness pattern.csv 360건, 집합 덮기 matchPosture 알고리즘)와 100% 일치하도록 공식 최신화한다.
 - **수정 대상**:
@@ -1791,6 +1791,275 @@
   - `dream_guardian/src/skeleton/JointRenderer.ts`
   - `dream_guardian/index.html`
   - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
+
+---
+
+### Issue #140 (Card #66): [FEAT-CURSOR-003] 전 장면(메뉴·달리기·문제·결과) 4색 스켈레톤 커서 상시 지속 가시화 및 생명주기 통일
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/140
+- **Labels**: `feature`, `P1-high`, `phase-3`, `phase-6`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[FEAT-CURSOR-003]`
+- **상태**: 🟢 **완료 (Completed)**
+- **목적**:
+  - 현재 메뉴와 문제 페이즈에서만 간헐적으로 표시되고 달리기 페이즈와 결과 화면에서 소멸하는 커서의 생명주기 단절 결함을 해결한다.
+  - 플레이어가 카메라 앞에 서 있는 한, 4색 신체 커서(시안 왼손, 노랑 오른손, 보라 머리, 주황 골반)가 메뉴(홈), 달리기, 문제 선택, 게임 결과 화면 등 게임의 모든 장면에서 일관되게 100% 지속 표시되도록 렌더링 및 갱신 파이프라인을 통일한다.
+- **현상 및 원인 분석**:
+  1. **렌더링 분기 누락**:
+     - `main.ts`의 `render()` 구조상 `gamePhase === 'running'` 및 `screenMode === 'result'` 블록에서 `answerSelectionRenderer.render(...)` 호출이 누락되어 있어, 해당 페이즈 진입 즉시 신체 커서가 화면에서 증발함.
+  2. **신체 모션 피드백 단절**:
+     - 제자리 달리기 중에도 유저가 자신의 손 위치와 팔 스윙 높이를 시각적으로 인지해야 직관적이나, 커서가 사라져 몰입감 저해.
+  3. **결과 화면 제스처 복귀 연계 준비**:
+     - 결과 화면에서도 향후 합장 제스처 메뉴 복귀(#134)와 연계되려면 손 커서가 상시 표시되어 있어야 함.
+- **수정 대상**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+- **구현 내용**:
+  1. **메인 렌더 파이프라인 전 장면 상시화**:
+     - `screenMode` 및 `gamePhase`에 종속되어 분기 처리되던 커서 렌더링을 최상위 레이어로 공통화.
+     - 문제 페이즈(`gamePhase === 'question'`)에서는 피트니스 존(`activeZones`) 및 진행도와 함께 렌더링하고, 메뉴/달리기/결과 화면에서는 피트니스 존 없이 순수 4색 커서만 깔끔하게 상시 렌더링.
+  2. **엔진 업데이트 루프 생명주기 통일**:
+     - 포즈가 감지되는 모든 프레임에서 `screenMode`와 무관하게 `cursorTracker.update`와 `answerSelectionRenderer.update(dt)`를 상시 호출하여 커서 펄스 및 좌표 갱신 지속 보장.
+  3. **단위 및 통합 검증 테스트 구축**:
+     - 메뉴, 달리기, 문제, 결과 전 장면에서 커서 목록(`cursors.size === 4`) 및 렌더링이 연속 보존됨을 검증하는 테스트 추가.
+- **유지 사항**:
+  - 기존 문제 페이즈에서의 피트니스 존 체류 판정 및 Deadlock Guard 로직 유지
+  - 기존 4색 네온 테두리(Outline Only) 및 손바닥 중심 트래킹 유지
+  - 마우스 클릭 및 키보드 Fallback 조작 유지
+- **변경 금지**:
+  - 전투 시스템 HP/마나 수치 계산, CSV 문제 출제 로직
+- **완료 조건**:
+  - [x] 홈 메뉴 화면에서 4색 커서가 정상 표시됨
+  - [x] 제자리 달리기 페이즈 중에도 커서가 사라지지 않고 실시간 트래킹 유지됨
+  - [x] 문제 선택 페이즈에서 활성 존 및 커서가 정상 표시 및 판정 동작함
+  - [x] 게임 결과(Result) 화면에서도 커서가 사라지지 않고 유지됨
+  - [x] `npm test` 100% Pass 및 빌드 정상 완료
+- **관련 파일**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+
+---
+
+### Issue #141 (Card #73): [UI-BAR-001] 전 화면 공통 하단 고정 바(Yellow Bar) 및 설정(Settings) 모달 신설과 레거시 상단 부유 버튼(#top_controls) 완전 삭제
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/141
+- **Labels**: `phase-6`, `feature`, `P1-high`
+- **작업 ID**: `[UI-BAR-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 모든 페이즈(홈 메뉴, 서브 메뉴, 인게임, 결과)의 하단에 동일한 규격(200px)의 공통 고정 바(Yellow Box)를 구축하여 인터페이스 일관성을 확보한다.
+  - 우측 상단에서 보스 HP 바를 가리고 1m 거리에서 조작하기 어려웠던 부유 버튼(`#top_controls`)을 완전히 삭제하고, 하단 바 좌측 슬롯(Cyan Box)에 "설정" 버튼을 배치하여 모달 드로어로 제어할 수 있도록 개편한다.
+  - 하단 바 우측 슬롯(Red Box)에 화면별 전용 액션 버튼("뒤로", "정지", "메뉴로")의 공통 레이아웃 프레임을 제공한다.
+- **삭제(제거) 대상**:
+  1. `dream_guardian/index.html` 내 `<div id="top_controls">` 및 하위 버튼 (`#btn_cam`, `#btn_fullscreen`) HTML 마크업 완전 삭제
+  2. `dream_guardian/index.html` 내 `#top_controls`, `.ctrl-btn`, `.ctrl-btn:hover`, `.ctrl-btn:active` CSS 스타일 완전 삭제
+  3. `dream_guardian/src/main.ts` 내 `#btn_cam` 및 `#btn_fullscreen` DOM 이벤트 리스너 바인딩 코드 삭제
+- **신규 구현 내용**:
+  1. **공통 하단 고정 바 (Yellow Box)**:
+     - 규격: `x: 0, y: 1960px (y: 0.907), w: 1080px (1.0), h: 200px (0.093)`
+     - 스타일: 반투명 다크 네이비(`rgba(10, 14, 26, 0.92)`), 상단 2px 네온 골드 구분선(`#FFCB4D`), 캔버스 렌더링
+  2. **좌측 "설정" 버튼 (Cyan Box)**:
+     - 규격: `x: 30px, y: 1990px, w: 140px, h: 140px` (정사각형 라운드)
+     - 스타일: 시안 네온 외곽선(`#28E6FF`, 3px), 배경 `rgba(40, 230, 255, 0.12)`, 폰트 `bold 36px`
+     - 클릭 및 모션 호버(0.8초) 판정 연동
+  3. **설정 모달 드로어 (`SettingsModal.ts` 신규 구현)**:
+     - 화면 중앙 오버레이 팝업 모달
+     - 항목: 📷 카메라 ON/OFF 토글, ⛶ 전체화면 토글, 🦴 스켈레톤 미러 표시 ON/OFF, 🔊 볼륨 제어, 닫기 버튼
+  4. **우측 액션 버튼 슬롯 공통 프레임 (Red Box)**:
+     - 규격: `x: 810px, y: 1990px, w: 240px, h: 140px`
+     - 각 페이즈별 액션("뒤로", "정지", "메뉴로") 핸들러 연결 인터페이스 확립
+- **유지 사항**:
+  - 단축키(C: 카메라, F: 전체화면) 키보드 이벤트 보존
+  - 4색 스켈레톤 커서의 하단 바 위 상시 렌더링 유지
+- **변경 금지**:
+  - 전투 데미지 계산 및 문제 생성 알고리즘
+  - 포즈 감지 및 랜드마크 추출 파이프라인
+- **완료 조건**:
+  - [ ] `index.html`에서 상단 부유 버튼 및 스타일이 완전히 삭제됨
+  - [ ] 전 화면 하단에 200px 높이의 하단 고정 바가 일관되게 렌더링됨
+  - [ ] 좌측 "설정" 버튼 클릭/호버 시 설정 모달이 열리고 카메라/전체화면 토글이 정상 작동함
+  - [ ] `npm test` 단위 테스트 100% Pass 및 빌드 정상 완료
+- **테스트**:
+  - `npx vitest run tests/unit/ui-system.test.ts`
+  - 브라우저 상에서 상단 간섭 제거 및 설정 모달 작동 검증
+- **관련 파일**:
+  - `dream_guardian/index.html`
+  - `dream_guardian/src/ui/SettingsModal.ts` (신설)
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+
+---
+
+### Issue #142 (Card #74): [UI-MENU-002] 홈 메뉴(2-2-1) 및 서브 메뉴(2x3) 와이드 레이아웃 개편과 1:1 대형 폰트 적용 (레거시 가로 1열 및 상단 뒤로가기 삭제)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/142
+- **Labels**: `phase-6`, `feature`, `P1-high`
+- **작업 ID**: `[UI-MENU-002]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 1미터 이상 떨어진 플레이어 환경에서 글씨가 너무 작고 카드가 촘촘하여 발생하던 조작 곤란과 시인성 저하를 해결한다.
+  - 첨부된 2번째(홈 메뉴)와 3번째(서브 메뉴) 레이아웃 설계에 따라 카드를 와이드 그리드로 재배치하고, 카드 내부 텍스트를 칸별 높이에 1:1로 꽉 채우도록 스케일업한다.
+  - 기존 상단의 작고 좁은 뒤로가기 버튼을 삭제하고 하단 고정 바 우측 슬롯으로 이관한다.
+- **삭제(제거) 대상**:
+  1. `MenuRenderer.ts` 내 챕터 카드 가로 1열 나열 수식 (`cardW = min(140, w*0.12)`, `gap = 16`, 단일 행 계산) 완전 삭제
+  2. `MenuRenderer.ts` `getSubMenuLayouts()` 내 상단 중앙 `y: 0.14` 높이 40px짜리 레거시 `← 뒤로가기` 버튼 정의 및 히트테스트 삭제
+  3. `MenuRenderer.ts` 내 가변 4열 서브레벨 그리드 분할 계산식 및 13~16px 소형 텍스트 렌더링 코드 삭제
+  4. 화면 중앙 하단(`h * 0.75`)의 작은 레거시 안내문 삭제
+- **신규 구현 내용**:
+  1. **홈 메뉴 2-2-1 와이드 다이아몬드 레이아웃 (Image 2)**:
+     - 상단 타이틀 영역 (Red Box): `x: 140, y: 180, w: 800, h: 220`, 타이틀 **`bold 76px`**, 슬로건 **`32px`**
+     - 챕터 카드 5개 (Green Box): 크기 개별 **`w: 360px, h: 380px`** (라운드 코너 24px)
+       - 1행: Ch.1 (`x: 120, y: 460`), Ch.2 (`x: 600, y: 460`)
+       - 2행: Ch.3 (`x: 120, y: 920`), Ch.4 (`x: 600, y: 920`)
+       - 3행: Ch.5 나이트메어 (`x: 360, y: 1380`, 중앙 정렬)
+     - 카드 내부 텍스트 (Red Box - 칸별 높이 1:1 매핑):
+       - 챕터 번호 (`Ch.X`): 높이 90px → **`bold 64px`**
+       - 챕터명 (`포겟`, `후다닥`): 높이 70px → **`bold 48px`**
+       - 별점 (`★★★`): 높이 50px → **`42px`** (`#FFCB4D`)
+  2. **서브 메뉴 2열 3행 대형 와이드 레이아웃 (Image 3)**:
+     - 상단 헤더 (Red Box): `x: 80, y: 160, w: 920, h: 200`, 타이틀 **`bold 56px`**, 안내 **`28px`**
+     - 단계 카드 6개 (Green Box): 크기 개별 **`w: 420px, h: 380px`** (간격 X: 80px, Y: 60px)
+       - 1행: 1단계 (`x: 80, y: 440`), 2단계 (`x: 580, y: 440`)
+       - 2행: 3단계 (`x: 80, y: 880`), 4단계 (`x: 580, y: 880`)
+       - 3행: 5단계 (`x: 80, y: 1320`), 6단계 (전체 종합 ALL, `x: 580, y: 1320`)
+     - 카드 내부 텍스트 (Red Box - 1:1 매핑):
+       - 단계 타이틀: 높이 120px 기준 **`bold 68px`** (원거리 시인성 확보)
+       - 서브 문항수: **`32px`**
+  3. **하단 고정 바 우측 "뒤로" 버튼 (Red Box)**:
+     - 위치: `x: 780px, y: 1990px, w: 270px, h: 140px`, 폰트: **`bold 42px`**
+  4. **히트테스트 동기화**:
+     - `hitTest(x, y)` 및 `hitTestSub(x, y)` 판정 좌표계를 신규 2-2-1 및 2x3 와이드 그리드로 100% 갱신
+- **유지 사항**:
+  - 챕터별 테마 색상 및 잠금(🔒) 표현 유지
+  - 키보드(1~5, Esc) 및 마우스 클릭 Fallback 유지
+  - 양손 모으기(MenuInput) 제스처 및 호버 Dwell 시간(0.8초) 유지
+- **변경 금지**:
+  - CSV 문제 뱅크의 서브레벨 데이터 구조
+  - `CursorTracker` 뷰포트 정규화 좌표 변환
+- **완료 조건**:
+  - [ ] 홈 메뉴 5개 카드가 2-2-1 와이드 그리드로 정렬되고 폰트 1:1 확대 반영
+  - [ ] 서브 메뉴가 2열 3행으로 정렬되고 상단 뒤로가기가 하단 고정 바 우측으로 이동
+  - [ ] 신규 레이아웃 좌표에 맞춰 마우스 클릭 및 모션 커서 히트테스트 100% 정상 작동
+  - [ ] `npm test` 단위 테스트 100% Pass 및 빌드 정상 완료
+- **테스트**:
+  - `npx vitest run tests/unit/ui-system.test.ts`
+  - 브라우저 상에서 1.5m 원거리 가독성 및 카드 선택 모션 테스트
+- **관련 파일**:
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+
+---
+
+### Issue #143 (Card #75): [UI-INGAME-001] 인게임 마젠타 문제영역 고정 컨테이너, 3중 회전 마법진(E_Pit_act1~3) 피트니스 존 및 마젠타 결과 카드 패널 개편
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/143
+- **Labels**: `phase-6`, `feature`, `P1-high`, `phase-7`
+- **작업 ID**: `[UI-INGAME-001]`
+- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **목적**:
+  - 첨부된 4번째(인게임 문제 선택)와 5번째(게임 결과) 설계에 따라, 문제와 답안이 화면에서 어긋나거나 겹치지 않도록 **마젠타 고정 영역(Magenta Box)**을 확립한다.
+  - 밋밋하던 직사각형 점선 피트니스 존을 폐기하고, 사용자가 제공한 3종 이미지 에셋(`E_Pit_act1~3.png`)을 활용하여 다방향으로 회전(Spin/Orbit/Shimmer)하는 화려한 마법진 피트니스 존 이펙트를 구현한다.
+  - 결과 화면을 체계적인 **마젠타 결과 카드 패널**로 감싸고, 8개 운동 통계 지표를 74px 높이별 1:1 매칭 44px 대형 폰트로 개편한다.
+- **삭제(제거) 대상**:
+  1. `HUDLayer.ts` 내 좌하단 구석 세로형 플라스크 렌더링 함수(`_renderManaFlask`) 삭제 (하단 고정 바 중앙 수평 게이지로 이관)
+  2. `AnswerSelectionRenderer.ts` 내 단순 직사각형 점선 테두리(`ctx.strokeRect`) 및 텍스트 렌더링 삭제
+  3. `main.ts` `renderQuestion` 내 경계 없이 임의 Y좌표에 수식을 그리던 레거시 코드 삭제
+  4. `ResultRenderer.ts` 내 프레임 없이 텍스트를 단순 나열하던 코드 삭제
+- **신규 구현 내용**:
+  1. **마젠타 문제영역 고정 컨테이너 (Image 4 - Magenta Box)**:
+     - 규격: **`x: 100px, y: 320px, w: 880px, h: 1000px`**
+     - 수식 텍스트 오버플로우 방지: 수식 길이에 따라 폰트 크기를 자동 스케일 다운(`scaleDownToFit`: 기본 88px → 최대 56px)하여 절대 마젠타 박스를 벗어나지 않도록 고정
+     - 답안 버튼 2개: 크기 개별 **`w: 360px, h: 260px`**, 좌표 좌 `x: 140, y: 960`, 우 `x: 580, y: 960`, 수식 폰트 **`bold 96px`**
+  2. **피트니스 존 활성 3중 회전 마법진 (Image 4 - Cyan Circles)**:
+     - 에셋: `dream_guardian/img/E_Pit_act1.png`, `E_Pit_act2.png`, `E_Pit_act3.png`
+     - 활성 존 중심점(`cx, cy`) 기준으로 3개 레이어를 각각 다른 방향과 속도로 회전:
+       - 링 1 (`E_Pit_act1.png`): 시계 방향 (`angle = time * 0.8`)
+       - 링 2 (`E_Pit_act2.png`): 반시계 방향 고속 회전 (`angle = -time * 1.2`)
+       - 링 3 (`E_Pit_act3.png`): 시계 방향 펄스 회전 (`angle = time * 0.5`, 알파 0.6~1.0)
+     - 스크린 블렌드 모드(`screen`) 및 네온 글로우 파티클 적용
+  3. **하단 고정 바 중앙 HUD & 우측 "정지" 버튼 (Image 4 - Yellow Bar)**:
+     - 중앙: 수평 마나 게이지 바 (0~100) 및 콤보 배지 통합 표시
+     - 우측 버튼: `x: 810px, y: 1990px, w: 240px, h: 140px`, 폰트 **`bold 42px`** ("정지" / 일시정지 모달 트리거)
+  4. **마젠타 결과 카드 패널 및 1:1 대형 폰트 리포트 (Image 5)**:
+     - 마젠타 컨테이너 패널: **`x: 100px, y: 240px, w: 880px, h: 1580px`**, 네온 패널 스타일
+     - 타이틀: 높이 150px 기준 **`bold 100px`** ("승리!" / "패배..."), 챕터명 **`42px`**
+     - 8개 운동 통계: 1개 라인 높이 **`74px`**, 폰트 **`bold 44px`** 1:1 매칭 렌더링
+       (정답률, 최대콤보, 시간, 걸음, 스쿼트, 점프, 자세유지, 칼로리)
+     - 하단 고정 바 우측 "메뉴로" 버튼: **`bold 42px`**
+- **유지 사항**:
+  - safeEval 수식 평가 및 CSV 문제 출제 로직
+  - 전투 대미지 계산, 마나 100 도달 시 수호신 스펠 시전 로직
+  - 칼로리 공식 `(steps*0.04) + (squats*0.35) + (jumps*0.15) + (dwellTime*0.07)` 계산식
+- **변경 금지**:
+  - `MathRenderer`의 가로 분수선, 지수, 루트 기호 파싱 로직
+  - 커서 트래킹 랜드마크 추출 및 Cover 프로젝션
+- **완료 조건**:
+  - [ ] 문제 수식이 마젠타 박스(880x1000px) 내부 중앙에 고정되고 긴 수식도 경계를 벗어나지 않음
+  - [ ] 활성 피트니스 존에 `E_Pit_act1~3.png` 3중 링이 각기 다른 방향으로 회전하며 마법진 이펙트를 연출함
+  - [ ] 결과 화면이 마젠타 패널로 감싸지고 8개 지표가 44px 대형 폰트로 선명하게 표시됨
+  - [ ] 하단 고정 바의 중앙 마나 바 및 "정지", "메뉴로" 버튼이 정상 작동함
+  - [ ] `npm test` 단위 테스트 100% Pass 및 빌드 정상 완료
+- **테스트**:
+  - `npx vitest run tests/unit/ui-system.test.ts`
+  - 브라우저 상에서 인게임 문제 풀이, 마법진 회전 애니메이션 및 결과 화면 검증
+- **관련 파일**:
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/src/render/MathRenderer.ts`
+  - `dream_guardian/src/ui/HUDLayer.ts`
+  - `dream_guardian/src/ui/ResultRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+
+---
+
+### Issue #144 (Card #71): [BUG-SCALE-002] 실사용 웹캠 근접 환경(귀 가림·팔꿈치 이탈) 신체 실측 크기 동적 추정 고도화 및 커서 시인성 현실화
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/144
+- **Labels**: `bug`, `P1-high`, `phase-3`, `phase-6`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[BUG-SCALE-002]`
+- **상태**: 🟢 **완료 (Done - 2026-09-24)**
+- **목적**:
+  - 실제 웹캠 플레이 환경(상반신 클로즈업, 헤드셋 착용, 한 손 올림, 팔꿈치 화면 밖 이탈 등)에서 머리와 손 커서가 신체 크기를 따라가지 못하고 작게 고정되던 결함을 해결한다.
+  - 귀가 가려져도 눈 간격 및 안면 비례로 머리 크기를 정밀 측정하고, 팔꿈치가 화면 밖으로 잘려도 손바닥 중심을 정확히 찾아내어, 1080×2160 캔버스 상에서 실제 사용자 신체 크기에 맞게 시원하게 감싸도록 가시성을 현실화한다.
+- **현상 및 원인 분석**:
+  1. **머리(HEAD) 귀 인식 실패 시 극소 크기(26×34px) 박제**:
+     - 기존 로직은 양 귀(#7, #8)가 선명할 때만 머리 크기를 계산함.
+     - 헤드셋 착용이나 손을 올렸을 때 귀가 가려지면 기본값인 26×34px로 강제 Fallback되어, 450px짜리 실제 얼굴 위에 코딱지만 한 보라색 타원이 얹혀짐.
+  2. **오른손(R) 팔꿈치 화면 밖 이탈 시 손목 및 기본 크기(22px) 박제**:
+     - 상반신 근접 구도에서 팔꿈치(#14)가 화면 밖으로 잘리면 전완 벡터 연장이 실패하여 손목에 커서가 멈춤.
+     - `handLength = 0`이 되어 250px 크기의 실제 손 위에 22px짜리 작은 동전 원만 표시됨.
+  3. **1080p 해상도 대비 과소 설정된 최대 상한선(Max Bounds)**:
+     - `cursor.config.ts`의 최대 상한선(`maxRadiusX: 52px`, `maxRadius: 48px`)이 1080×2160 화면 대비 너무 작게 제한되어 있어, 사용자가 가까이 와도 성인 신체 대비 1/5 크기 이상 커지지 못함.
+- **TDD 테스트 선작성 계획 (Red → Green)**:
+  1. [Test 1] 안면 부분 가림(귀 신뢰도 0) 시 눈 간격(#2-#5) 기반 머리 크기 동적 추정 테스트
+  2. [Test 2] 팔꿈치 화면 이탈 시에도 손바닥 중심점(Palm) 전진 추정 테스트
+  3. [Test 3] 1080×2160 해상도 실측 신체 비례 스케일 범위 검증
+- **수정 대상**:
+  - `dream_guardian/config/cursor.config.ts`
+  - `dream_guardian/src/input/CursorTracker.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/src/skeleton/JointRenderer.ts`
+  - `dream_guardian/src/skeleton/BoneRenderer.ts`
+  - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
+- **구현 내용**:
+  1. 다계층 안면 크기 추정 파이프라인 (`CursorTracker._estimateHeadSize`): 1순위 귀 간격, 2순위 눈 간격(x2.6), 3순위 어깨 너비 기반 scaleFactor 비례
+  2. 팔꿈치 결손 대응 손바닥 추정 강화 (`CursorTracker._estimatePalmCenter`): 어깨-손목 축 40~70px 전진 (상반신 근접 가상 뷰포트 환경), `JointRenderer` 및 `BoneRenderer`와 완전 일치
+  3. 1080p 뷰포트 규격에 맞춘 커서 현실적 크기 상한선 확장 (`cursor.config.ts`): 머리 55×72px (최대 140×185px), 손 45px (최대 90px), 골반 55px (최대 120px), PC baselineShoulder 350px 및 scaleFactor 하한 0.70 보장
+- **완료 조건**:
+  - [x] 헤드셋이나 손으로 귀가 가려져도 머리 커서가 실제 얼굴 크기에 맞춰 동적으로 크기 조절됨
+  - [x] 팔꿈치가 화면 밖으로 나가도 손 커서가 손목이 아닌 실제 손바닥 중심에 위치함
+  - [x] 화면 속 1080p 해상도 기준 얼굴과 손바닥을 시원하게 감싸는 현실적 크기(손 50px+, 머리 100px+)로 렌더링됨
+  - [x] `npm test` 100% Pass 및 프로덕션 빌드 0 에러
+- **관련 파일**:
+  - `dream_guardian/config/cursor.config.ts`
+  - `dream_guardian/src/input/CursorTracker.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/src/skeleton/JointRenderer.ts`
+  - `dream_guardian/src/skeleton/BoneRenderer.ts`
+  - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
+
+
+
 
 
 

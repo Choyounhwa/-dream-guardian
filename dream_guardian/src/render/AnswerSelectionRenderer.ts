@@ -4,11 +4,16 @@
  * Issue #104:
  * - 활성 피트니스 존 네온 테두리, 라벨 및 요구 커서 인디케이터 시각화
  * - 4색 신체 커서(시안 왼손, 노랑 오른손, 보라 머리, 주황 골반) 및 체류 진행도(Dwell Arc) 표시
+ *
+ * Issue #116:
+ * - Cover 뷰포트 프로젝션 좌표계와 1:1 동기화 (pos.x * w, pos.y * h = JointRenderer 관절 좌표와 0px 오차 일치)
  */
 
-import type { FitnessZone, CursorType } from '../input/AnswerSelector.js';
-import { CURSOR_COLORS } from '../input/AnswerSelector.js';
+import type { FitnessZone } from '../../config/zone.config.js';
+import type { CursorType } from '../../config/cursor.config.js';
+import { CURSOR_COLORS, CURSOR_DIMENSIONS } from '../../config/cursor.config.js';
 import type { CursorPosition } from '../input/CursorTracker.js';
+import type { MagicCircleRenderer } from './MagicCircleRenderer.js';
 
 export interface RenderZoneInfo {
   zone: FitnessZone;
@@ -16,8 +21,20 @@ export interface RenderZoneInfo {
   requiredCursors?: CursorType[];
 }
 
+/** 존별 진행도 입력 타입 (튜플, Map, Record 지원, Issue #129) */
+export type ZoneProgressInput =
+  | [number, number]
+  | Map<number, number>
+  | Record<number, number>;
+
 export class AnswerSelectionRenderer {
   private _pulseTimer = 0;
+  private _magicCircle: MagicCircleRenderer | null = null;
+
+  /** 마법진 렌더러 주입 (선택적, Issue #143) */
+  setMagicCircle(renderer: MagicCircleRenderer): void {
+    this._magicCircle = renderer;
+  }
 
   update(dt: number): void {
     this._pulseTimer = (this._pulseTimer + dt * 3) % (Math.PI * 2);
@@ -32,17 +49,37 @@ export class AnswerSelectionRenderer {
     h: number,
     activeZones: readonly FitnessZone[],
     cursors: ReadonlyMap<CursorType, CursorPosition>,
-    choiceProgress: [number, number] = [0, 0],
+    choiceProgress: ZoneProgressInput = [0, 0],
   ): void {
     ctx.save();
 
-    // 1. 활성 피트니스 존 테두리 및 충전 렌더링
+    // 1. 활성 피트니스 존 테두리 및 충전 렌더링 (존별 독립 진행도)
     this._renderZones(ctx, w, h, activeZones, choiceProgress);
 
-    // 2. 4색 신체 커서 및 체류 아크 렌더링
-    this._renderCursors(ctx, w, h, cursors, Math.max(choiceProgress[0], choiceProgress[1]));
+    // 2. 4색 신체 커서 및 체류 아크 렌더링 (커서별 위치한 존의 진행도 독립 반영)
+    this._renderCursors(ctx, w, h, cursors, activeZones, choiceProgress);
 
     ctx.restore();
+  }
+
+  /**
+   * 존 ID 또는 인덱스에 매핑된 진행도 조회 (Issue #129 / i % 2 오매핑 해소)
+   */
+  private _getZoneProgress(
+    zoneId: number,
+    index: number,
+    progressInput: ZoneProgressInput,
+  ): number {
+    if (progressInput instanceof Map) {
+      return progressInput.get(zoneId) ?? 0;
+    }
+    if (Array.isArray(progressInput)) {
+      return progressInput[index] ?? 0;
+    }
+    if (typeof progressInput === 'object' && progressInput !== null) {
+      return (progressInput as Record<number, number>)[zoneId] ?? 0;
+    }
+    return 0;
   }
 
   private _renderZones(
@@ -50,7 +87,7 @@ export class AnswerSelectionRenderer {
     w: number,
     h: number,
     activeZones: readonly FitnessZone[],
-    choiceProgress: [number, number],
+    choiceProgress: ZoneProgressInput,
   ): void {
     for (let i = 0; i < activeZones.length; i++) {
       const zone = activeZones[i];
@@ -58,7 +95,16 @@ export class AnswerSelectionRenderer {
       const zy = zone.y * h;
       const zw = zone.width * w;
       const zh = zone.height * h;
-      const progress = choiceProgress[i % 2] ?? 0;
+      // Issue #129: i % 2 오매핑 수정 -> 존별 독립 진행도 매핑
+      const progress = this._getZoneProgress(zone.id, i, choiceProgress);
+
+      // Issue #143: 3중 회전 마법진 렌더링 (존 배경 아래에 깔림)
+      if (this._magicCircle?.isReady) {
+        const cx = zx + zw / 2;
+        const cy = zy + zh / 2;
+        const size = Math.max(zw, zh) * 1.2;
+        this._magicCircle.renderAtZone(ctx, cx, cy, size);
+      }
 
       // 존 배경 (은은한 글로우)
       ctx.fillStyle = 'rgba(40, 230, 255, 0.06)';
@@ -91,80 +137,106 @@ export class AnswerSelectionRenderer {
     w: number,
     h: number,
     cursors: ReadonlyMap<CursorType, CursorPosition>,
-    maxProgress: number,
+    activeZones: readonly FitnessZone[],
+    progressInput: ZoneProgressInput,
   ): void {
     for (const [type, pos] of cursors) {
       const cx = pos.x * w;
       const cy = pos.y * h;
       const color = CURSOR_COLORS[type];
 
+      // Issue #129: 커서별 독립 진행도 (커서가 위치한 활성 존의 진행도 매핑)
+      let cursorProgress = 0;
+      for (let zi = 0; zi < activeZones.length; zi++) {
+        const z = activeZones[zi];
+        if (
+          pos.x >= z.x &&
+          pos.x <= z.x + z.width &&
+          pos.y >= z.y &&
+          pos.y <= z.y + z.height
+        ) {
+          cursorProgress = Math.max(cursorProgress, this._getZoneProgress(z.id, zi, progressInput));
+        }
+      }
+      if (activeZones.length === 0 && Array.isArray(progressInput)) {
+        cursorProgress = Math.max(progressInput[0] ?? 0, progressInput[1] ?? 0);
+      }
+
       ctx.save();
       ctx.shadowColor = color;
       ctx.shadowBlur = 10;
 
       if (type === 'leftHand' || type === 'rightHand') {
-        // 손 커서: 원 + 펄스 링
-        const radius = 18;
-        ctx.fillStyle = color;
+        // 손 커서: 네온 링 외곽선 전용 (Issue #117: 채움색 없음 / Outline Only & 동적 크기)
+        const radius = pos.size?.radius ?? CURSOR_DIMENSIONS.hand.defaultRadius;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.stroke();
 
         // 펄스 링
         const pulseR = radius + 6 + Math.sin(this._pulseTimer) * 4;
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(cx, cy, pulseR, 0, Math.PI * 2);
         ctx.stroke();
 
         // 라벨
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 11px sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `bold ${Math.max(10, Math.round(radius * 0.65))}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(type === 'leftHand' ? 'L' : 'R', cx, cy);
       } else if (type === 'head') {
-        // 머리/얼굴: 라운드 타원
+        // 머리/얼굴: 라운드 타원 외곽선 전용 (Issue #117: 채움색 없음 / Outline Only & 동적 크기)
+        const rx = pos.size?.radiusX ?? CURSOR_DIMENSIONS.head.defaultRadiusX;
+        const ry = pos.size?.radiusY ?? CURSOR_DIMENSIONS.head.defaultRadiusY;
         ctx.strokeStyle = color;
-        ctx.fillStyle = 'rgba(200, 137, 255, 0.3)';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.ellipse(cx, cy, 22, 28, 0, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 11px sans-serif';
+        ctx.font = `bold ${Math.max(10, Math.round(rx * 0.5))}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('HEAD', cx, cy);
       } else if (type === 'hip') {
-        // 골반: 라운드 역삼각형
-        ctx.fillStyle = 'rgba(255, 134, 94, 0.4)';
+        // 골반: 라운드 역삼각형 외곽선 전용 (Issue #117: 채움색 없음 / Outline Only & 동적 크기)
+        const hw = pos.size?.halfWidth ?? CURSOR_DIMENSIONS.hip.defaultHalfWidth;
+        const topY = pos.size?.topOffset ?? CURSOR_DIMENSIONS.hip.defaultTopOffset;
+        const botY = pos.size?.bottomOffset ?? CURSOR_DIMENSIONS.hip.defaultBottomOffset;
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(cx - 24, cy - 14);
-        ctx.lineTo(cx + 24, cy - 14);
-        ctx.lineTo(cx, cy + 18);
+        ctx.moveTo(cx - hw, cy - topY);
+        ctx.lineTo(cx + hw, cy - topY);
+        ctx.lineTo(cx, cy + botY);
         ctx.closePath();
-        ctx.fill();
         ctx.stroke();
 
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 10px sans-serif';
+        ctx.font = `bold ${Math.max(9, Math.round(hw * 0.45))}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('HIP', cx, cy - 2);
       }
 
-      // 체류 충전 아크 (진행도가 있을 때)
-      if (maxProgress > 0) {
+      // 체류 충전 아크 (해당 커서가 위치한 존의 독립 진행도가 있을 때만 외곽에 표시)
+      if (cursorProgress > 0) {
+        let baseR: number = CURSOR_DIMENSIONS.hand.defaultRadius;
+        if (pos.size?.radius) baseR = pos.size.radius;
+        else if (pos.size?.radiusX) baseR = Math.max(pos.size.radiusX, pos.size.radiusY ?? CURSOR_DIMENSIONS.head.defaultRadiusY);
+        else if (pos.size?.halfWidth) baseR = pos.size.halfWidth;
+
+        const arcR = baseR + CURSOR_DIMENSIONS.dwellArc.arcOffset;
         ctx.strokeStyle = '#4DFFAA';
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(cx, cy, 32, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * maxProgress);
+        ctx.arc(cx, cy, arcR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * cursorProgress);
         ctx.stroke();
       }
 

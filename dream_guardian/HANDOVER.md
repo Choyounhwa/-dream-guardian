@@ -23,11 +23,11 @@
 
 ---
 
-## 🟢 2026-09-22 세션 구현 완료 내역 (12개 카드 전원 통과)
+## 🟢 2026-09-22 세션 구현 완료 내역 (21개 카드 전원 통과)
 
-> 등록일: 2026-09-22 / 최종 상태: **GitHub Issue 카드 12건 완료 (#116, #120, #121, #117, #118, #119, #122, #123, #124, #125, #126, #139), 테스트 320/320 100% Pass**
+> 등록일: 2026-09-22 / 최종 상태: **GitHub Issue 카드 21건 완료 (#116, #120, #121, #117, #118, #119, #122, #123, #124, #125, #126, #127, #128, #129, #131, #132, #133, #134, #135, #136, #137, #138, #140, #130), 테스트 336/336 100% Pass**
 
-사용자 요청 사항, 결함 제보 및 자세 선택 시스템 기반 리팩터링에 따라 총 12개 카드의 개발 및 검증을 100% 완료했습니다.
+사용자 요청 사항, 결함 제보 및 자세 선택 시스템 기반 리팩터링에 따라 총 21개 카드의 개발 및 검증을 100% 완료했습니다.
 
 ### 1. 완료된 작업 카드 상세 내역
 
@@ -44,7 +44,20 @@
 | `POSE-002` | [#124](https://github.com/Choyounhwa/-dream-guardian/issues/124) | 집합 덮기(Set Coverage) 기반 matchPosture 판정 알고리즘 | 조건 A(모든 요구 부위가 목표 존에 위치) 및 조건 B(모든 목표 존이 덮임) 수학적 구현, 좌우 교환 허용 및 몰림 방지 | 🟢 **Pass (299/299)** |
 | `POSE-003` | [#125](https://github.com/Choyounhwa/-dream-guardian/issues/125) | 패턴 풀 기반 선택지 생성기 및 7대 안전 제약(C1~C7) 검증기 | C1~C7(최대 3존, 상호 배타 부위로 Deadlock 원천 차단, 머리/골반 물리 정렬, 쿨다운 등) 100회 연속 무결성 보장 | 🟢 **Pass (310/310)** |
 | `POSE-004` | [#126](https://github.com/Choyounhwa/-dream-guardian/issues/126) | PartGate (캘리브레이션 기준선 대비 신체 변위) 판정 구현 | `CalibrationBaseline` 확장, 스쿼트(골반 하강 변위), 목 기울임, 만세 상향 변위 검증으로 단순 직립 자동 충족(RC-3) 완전 해결 | 🟢 **Pass (320/320)** |
-| `BUG-SCALE-001` | [#139](https://github.com/Choyounhwa/-dream-guardian/issues/139) | 3.0배 Cover 뷰포트 확대율에 따른 인체 부위 기준값(어깨/손/머리/골반) 포화 클램핑 왜곡 수정 및 서버/진입점 일원화 | 어깨 기준 너비 460px 현실화(0.6x~1.5x+ 다이내믹 레인지 확보), 손 길이 한계치 260px 확장(손바닥 0 Fallback 해결), 머리/골반 상한 현실화, 모던 번들 진입점 일원화 | 🟢 **Pass (320/320)** |
+| `ICON-001` | [#127](https://github.com/Choyounhwa/-dream-guardian/issues/127) | PartIconRenderer 신설 (손/머리/골반 공통 아이콘 시스템) | 4색 신체 부위 벡터 아이콘(좌향/우향 손바닥, 원형 얼굴, 다이아몬드 골반) 렌더러 신설 | 🟢 **Pass (326/326)** |
+| `UI-001` | [#128](https://github.com/Choyounhwa/-dream-guardian/issues/128) | 답안 버튼 부위 아이콘, 색상 및 묶음 기호(함께/각각) 시각화 | 답안 버튼 하단 요구 부위 아이콘 렌더링, `( )` 함께 한 존에, `\|` 각각 다른 존에 묶음 기호, 그라데이션 테두리 | 🟢 **Pass (327/327)** |
+| `UI-002` | [#129](https://github.com/Choyounhwa/-dream-guardian/issues/129) | 피트니스 존별/부위별 독립 진행도 피드백 및 i % 2 오매핑 수정 | 존별 독립 진행도 맵 연동, 3개 이상 존 독립 렌더링, 커서별 진입 존 독립 아크 점등 | 🟢 **Pass (329/329)** |
+| `UI-003` | [#131](https://github.com/Choyounhwa/-dream-guardian/issues/131) | 홈메뉴 원거리/대화면 레이아웃 개편 및 카드 간격 확장 | 메인 챕터 카드 60% 대형화 및 간격 24~28px 확장, 단계선택 2열 와이드 그리드 개편, 뒤로가기 버튼 대형화 | 🟢 **Pass (329/329)** |
+| `UI-004` | [#132](https://github.com/Choyounhwa/-dream-guardian/issues/132) | 원거리(1m+) 가독성 보장을 위한 인게임 HUD 및 수식/결과 텍스트 대형화 | HP바 32px 및 HP 폰트 18px, 수식 폰트 64px, 분수선/루트 3.5px, 결과 통계 1.5배 스케일업 | 🟢 **Pass (329/329)** |
+| `INPUT-002` | [#133](https://github.com/Choyounhwa/-dream-guardian/issues/133) | 스켈레톤 커서 메뉴 조작성 개선 (히트박스 패딩 및 호버 히스테리시스) | 히트박스 패딩(+12px) 및 호버 히스테리시스(+24px) 떨림 방지, 0.8초 아크 50px/7px 대형화 | 🟢 **Pass (331/331)** |
+| `FEAT-RESULT-001` | [#134](https://github.com/Choyounhwa/-dream-guardian/issues/134) | 게임 결과 화면 양손 합장 제스처 메뉴 복귀 기능 구현 | 결과 화면에서 양손 모으기 0.8초 체류 시 터치 없이 메뉴 자동 복귀 | 🟢 **Pass (332/332)** |
+| `CALC-001` | [#135](https://github.com/Choyounhwa/-dream-guardian/issues/135) | 자세 유지(Dwell Time) 기반 피트니스 칼로리 소모 계산식 확장 | `(steps*0.04) + (squats*0.35) + (jumps*0.15) + (dwell*0.07)` 공식 적용 및 결과 화면 표시 | 🟢 **Pass (332/332)** |
+| `AUDIO-002` | [#136](https://github.com/Choyounhwa/-dream-guardian/issues/136) | 피트니스 존 체류 충전음 및 자세 완성 화음 효과음 구현 | `SFXSynth.ts` 구현, 체류 진행도(0~1)에 비례한 피치 상승(220Hz->880Hz) 충전음, C5-E5-G5 3화음 벨 톤 | 🟢 **Pass (335/335)** |
+| `TUT-001` | [#137](https://github.com/Choyounhwa/-dream-guardian/issues/137) | 최초 플레이어 대상 인터랙티브 튜토리얼 오버레이 구현 | 3단계 가이드(커서 소개 -> 존 매칭 -> 준비 완료), 원클릭/Space/제스처 스킵, localStorage 1회 영속화 | 🟢 **Pass (337/337)** |
+| `DOCS-001` | [#138](https://github.com/Choyounhwa/-dream-guardian/issues/138) | GDD 기획서 및 프로젝트 공식 문서 최신화 | GDD/AGENTS/WBS 내 보라 머리/얼굴 확정, 10존 레이아웃 및 집합 덮기 공식 반영 | 🟢 **Pass (337/337)** |
+| `FEAT-CURSOR-003` | [#140](https://github.com/Choyounhwa/-dream-guardian/issues/140) | 전 장면 4색 스켈레톤 커서 상시 지속 가시화 및 생명주기 통일 | 메뉴·달리기·문제·결과 전 화면에서 4색 커서 상시 렌더링 일원화 | 🟢 **Pass (321/321)** |
+| `REFACTOR-001` | [#130](https://github.com/Choyounhwa/-dream-guardian/issues/130) | AnswerSelector 죽은 판정 경로(update) 정리 및 단위 테스트 정비 | 미사용 레거시 update 경로 및 _progress 제거, updateFromPose 단일 파이프라인 일원화 | 🟢 **Pass (336/336)** |
+| `BUG-SCALE-002` | [#144](https://github.com/Choyounhwa/-dream-guardian/issues/144) | 실사용 웹캠 근접 환경 신체 실측 크기 동적 추정 고도화 및 커서 시인성 현실화 | 귀 가림 시 눈(x2.6)·코/어깨 다계층 안면 추정, 팔꿈치 이탈 시 손목 너머 손바닥 40~70px 전진, 1080p 커서 규격 상향(손 45~90px, 머리 55~140px, 골반 55~120px, PC 1.5m baseline 350px/하한 0.70) | 🟢 **Pass (357/357)** |
 
 ### 2. 브라우저 실테스트 피드백 반영 및 주요 환경 해결
 
@@ -54,6 +67,22 @@
 - **합장 감지 임계값 현실화**: 3.0배 Cover 뷰포트 확대율에 맞춰 `MenuInput` 감지 거리를 `0.22`로 조정하여 양손 모으기 제스처와 0.8초 프로그레스 아크 활성화.
 - **커서 동적 사이징 현실화**: 가상 좌표계 기준 어깨 너비(`460px`)와 손 길이 한계치(`260px`)를 Cover 줌에 맞추어 보정하여, 카메라 거리에 따라 커서가 시원하게 커지고 작아지는 다이내믹 스케일링 복원.
 - **서버 런처 동기화**: `run_server.bat`이 현재 워크스페이스의 Vite 개발 서버(`npm run dev`)를 바로 띄우도록 갱신.
+
+---
+
+## 🟡 신규 접수 현안: 원거리(1m+) UI 전면 레이아웃 개편 및 레거시 제거 (Issue #141, #142, #143 등록)
+
+> 등록일: 2026-09-24 / 상태: **GitHub Issue 카드 3건 등록 완료 (#141, #142, #143), 구현 승인 대기**
+
+사용자가 제공한 5장의 UI 설계 가이드 이미지에 따라 1080×2160 해상도 기준 1미터 이상 원거리 플레이 시인성과 조작성을 완벽히 확보하기 위한 종합 UI 데이터 분석 및 작업 카드가 정식 등록되었습니다.
+
+### 1. 신규 등록 카드 요약
+
+| 순서 | 카드 ID | GitHub Issue | 제목 | 핵심 구현 및 삭제 대상 | 상태 |
+|---|---|---|---|---|---|
+| 1 | `UI-BAR-001` | [#141](https://github.com/Choyounhwa/-dream-guardian/issues/141) | 전 화면 공통 하단 고정 바(Yellow Bar) 및 설정(Settings) 모달 신설과 레거시 상단 부유 버튼(#top_controls) 완전 삭제 | • **[삭제]** `index.html` 상단 부유 버튼 (`#top_controls`, `#btn_cam`, `#btn_fullscreen`) 및 CSS 제거<br>• **[신규]** 전 화면 공통 200px 하단 고정 바 (`y: 1960~2160`)<br>• **[신규]** 좌측 `설정` 모달 버튼 (`30, 1990, 140x140`, Cyan), 우측 액션 프레임 (`810, 1990, 240x140`, Red)<br>• **[신규]** `SettingsModal.ts` 팝업 구현 (카메라/전체화면/스켈레톤/볼륨) | ⚪ **대기 (승인 대기)** |
+| 2 | `UI-MENU-002` | [#142](https://github.com/Choyounhwa/-dream-guardian/issues/142) | 홈 메뉴(2-2-1) 및 서브 메뉴(2x3) 와이드 레이아웃 개편과 1:1 대형 폰트 적용 (레거시 가로 1열 및 상단 뒤로가기 삭제) | • **[삭제]** 가로 1열 140px 챕터 카드 나열식 및 단일 행 `hitTest` 제거<br>• **[삭제]** 상단 `y: 0.14` 높이 40px 작고 좁은 뒤로가기 버튼 제거<br>• **[신규]** 홈 메뉴 **2 - 2 - 1 와이드 다이아몬드 그리드** (`360×380px` 카드, 1:1 폰트 64/48/42px)<br>• **[신규]** 서브 메뉴 **2열 3행 대형 와이드 그리드** (`420×380px`, 1:1 폰트 68px/32px)<br>• **[신규]** `← 뒤로` 버튼을 하단 고정 바 우측 슬롯(`780, 1990, 270x140`, 42px)으로 이관 | ⚪ **대기 (승인 대기)** |
+| 3 | `UI-INGAME-001` | [#143](https://github.com/Choyounhwa/-dream-guardian/issues/143) | 인게임 마젠타 문제영역 고정 컨테이너, 3중 회전 마법진(E_Pit_act1~3) 피트니스 존 및 마젠타 결과 카드 패널 개편 | • **[삭제]** `HUDLayer.ts` 좌하단 구석 세로형 마나 플라스크(`_renderManaFlask`) 삭제 (하단 바로 이관)<br>• **[삭제]** 단순 직사각형 점선 피트니스 존 테두리 및 텍스트 삭제<br>• **[삭제]** 결과 화면의 프레임 없는 24px 단순 텍스트 나열 코드 삭제<br>• **[신규]** **마젠타 문제영역 고정 박스** (`100, 320, 880x1000px`, 텍스트 오버플로우 방지 자동 축소)<br>• **[신규]** **3중 회전 마법진 피트니스 존** (`E_Pit_act1~3.png` 각각 다른 방향 Spin/Orbit/Shimmer 애니메이션)<br>• **[신규]** 답안 버튼 2개 횡배치 (`360×260px`, 폰트 96px)<br>• **[신규]** **마젠타 결과 카드 패널** (`100, 240, 880x1580px`, 8개 지표 라인 74px x 폰트 44px 1:1 매핑) | ⚪ **대기 (승인 대기)** |
 
 ---
 
@@ -194,18 +223,23 @@ ID 접두사별 분포:
 | 5 | `POSE-002` | [#124](https://github.com/Choyounhwa/-dream-guardian/issues/124) | 집합 덮기(Set Coverage) 기반 matchPosture 판정 알고리즘 및 단위 테스트 구현 | RC-1, RC-4, G-8 | `feature`, `P0-critical` | 🟢 **완료 (299/299 Pass)** |
 | 6 | `POSE-003` | [#125](https://github.com/Choyounhwa/-dream-guardian/issues/125) | 패턴 풀 기반 좌/우 선택지 추출기 및 생성 제약(C1~C7) 검증기 구현 | RC-4, RC-6 | `feature`, `P1-high` | 🟢 **완료 (310/310 Pass)** |
 | 7 | `POSE-004` | [#126](https://github.com/Choyounhwa/-dream-guardian/issues/126) | PartGate (캘리브레이션 기준선 대비 신체 변위) 판정 구현 | RC-3 | `feature`, `P1-high` | 🟢 **완료 (320/320 Pass)** |
-| 8 | `ICON-001` | [#127](https://github.com/Choyounhwa/-dream-guardian/issues/127) | PartIconRenderer 신설 (손/머리/골반 부위별 공통 아이콘 시스템) | 아이콘 요구 | `feature`, `P2-medium` | ⚪ **다음 착수 권장** |
-| 9 | `UI-001` | [#128](https://github.com/Choyounhwa/-dream-guardian/issues/128) | 답안 버튼 부위 아이콘, 색상 및 묶음 기호(함께/각각) 시각화 | RC-2 | `feature`, `P1-high` | ⚪ 대기 |
-| 10 | `UI-002` | [#129](https://github.com/Choyounhwa/-dream-guardian/issues/129) | 피트니스 존별/부위별 독립 진행도 피드백 및 i % 2 오매핑 수정 | RC-5 | `bug`, `P1-high` | ⚪ 대기 |
-| 11 | `REFACTOR-001` | [#130](https://github.com/Choyounhwa/-dream-guardian/issues/130) | AnswerSelector 죽은 판정 경로(update) 정리 및 단위 테스트 정비 | RC-7 | `refactor`, `P2-medium` | ⚪ 대기 |
-| 12 | `UI-003` | [#131](https://github.com/Choyounhwa/-dream-guardian/issues/131) | 홈메뉴(챕터 및 서브레벨 단계선택) 원거리/대화면 레이아웃 개편 및 카드 간격 확장 | 1m 원거리 조작성 | `feature`, `P1-high` | ⚪ 대기 |
-| 13 | `UI-004` | [#132](https://github.com/Choyounhwa/-dream-guardian/issues/132) | 원거리(1m+) 가독성 보장을 위한 인게임 HUD 및 수식/선택지/결과 텍스트 대형화 & 고대비 렌더링 | 1m 텍스트 가독성 | `feature`, `P1-high` | ⚪ 대기 |
-| 14 | `INPUT-002` | [#133](https://github.com/Choyounhwa/-dream-guardian/issues/133) | 스켈레톤 커서 메뉴 조작성 개선 (히트박스 패딩 마진, 호버 떨림 방지 히스테리시스 및 가시성 강화) | 스켈레톤 커서 오선택 방지 | `feature`, `P1-high` | ⚪ 대기 |
-| 15 | `FEAT-RESULT-001` | [#134](https://github.com/Choyounhwa/-dream-guardian/issues/134) | 게임 결과 화면(Result) 양손 합장(모으기) 제스처 메뉴 복귀 기능 및 시각 피드백 구현 | 결과 화면 모션 조작 | `feature`, `P1-high` | ⚪ 대기 |
-| 16 | `CALC-001` | [#135](https://github.com/Choyounhwa/-dream-guardian/issues/135) | 자세 유지(Dwell Time) 기반 피트니스 칼로리 소모 계산식 확장 및 결과 통계 연동 | 칼로리 보상 정밀화 | `feature`, `P2-medium` | ⚪ 대기 |
-| 17 | `AUDIO-002` | [#136](https://github.com/Choyounhwa/-dream-guardian/issues/136) | 피트니스 존 체류(Dwell) 점진적 충전음 및 자세 완성 화음 효과음(Web Audio SFX) 구현 | 청각 피드백 강화 | `feature`, `P2-medium` | ⚪ 대기 |
-| 18 | `TUT-001` | [#137](https://github.com/Choyounhwa/-dream-guardian/issues/137) | 최초 플레이어 대상 4색 신체 커서 및 피트니스 존 매칭 인터랙티브 튜토리얼 오버레이 구현 | 온보딩 UX | `feature`, `P2-medium` | ⚪ 대기 |
-| 19 | `DOCS-001` | [#138](https://github.com/Choyounhwa/-dream-guardian/issues/138) | GDD 기획서 및 프로젝트 공식 문서 최신화 (보라 머리/얼굴 확정, 10존 레이아웃, 국민체조 패턴 및 집합 덮기 모델 공식 반영) | 공식 기획 일치화 | `documentation`, `P2-medium` | ⚪ 대기 |
+| 8 | `ICON-001` | [#127](https://github.com/Choyounhwa/-dream-guardian/issues/127) | PartIconRenderer 신설 (손/머리/골반 부위별 공통 아이콘 시스템) | 아이콘 요구 | `feature`, `P2-medium` | 🟢 **완료 (326/326 Pass)** |
+| 9 | `UI-001` | [#128](https://github.com/Choyounhwa/-dream-guardian/issues/128) | 답안 버튼 부위 아이콘, 색상 및 묶음 기호(함께/각각) 시각화 | RC-2 | `feature`, `P1-high` | 🟢 **완료 (327/327 Pass)** |
+| 10 | `UI-002` | [#129](https://github.com/Choyounhwa/-dream-guardian/issues/129) | 피트니스 존별/부위별 독립 진행도 피드백 및 i % 2 오매핑 수정 | RC-5 | `bug`, `P1-high` | 🟢 **완료 (329/329 Pass)** |
+| 11 | `UI-003` | [#131](https://github.com/Choyounhwa/-dream-guardian/issues/131) | 홈메뉴(챕터 및 서브레벨 단계선택) 원거리/대화면 레이아웃 개편 및 카드 간격 확장 | 1m 원거리 조작성 | `feature`, `P1-high` | 🟢 **완료 (329/329 Pass)** |
+| 12 | `UI-004` | [#132](https://github.com/Choyounhwa/-dream-guardian/issues/132) | 원거리(1m+) 가독성 보장을 위한 인게임 HUD 및 수식/선택지/결과 텍스트 대형화 & 고대비 렌더링 | 1m 텍스트 가독성 | `feature`, `P1-high` | 🟢 **완료 (329/329 Pass)** |
+| 13 | `INPUT-002` | [#133](https://github.com/Choyounhwa/-dream-guardian/issues/133) | 스켈레톤 커서 메뉴 조작성 개선 (히트박스 패딩 마진, 호버 떨림 방지 히스테리시스 및 가시성 강화) | 스켈레톤 커서 오선택 방지 | `feature`, `P1-high` | 🟢 **완료 (331/331 Pass)** |
+| 14 | `FEAT-RESULT-001` | [#134](https://github.com/Choyounhwa/-dream-guardian/issues/134) | 게임 결과 화면(Result) 양손 합장(모으기) 제스처 메뉴 복귀 기능 및 시각 피드백 구현 | 결과 화면 모션 조작 | `feature`, `P1-high` | 🟢 **완료 (332/332 Pass)** |
+| 15 | `CALC-001` | [#135](https://github.com/Choyounhwa/-dream-guardian/issues/135) | 자세 유지(Dwell Time) 기반 피트니스 칼로리 소모 계산식 확장 및 결과 통계 연동 | 칼로리 보상 정밀화 | `feature`, `P2-medium` | 🟢 **완료 (332/332 Pass)** |
+| 16 | `AUDIO-002` | [#136](https://github.com/Choyounhwa/-dream-guardian/issues/136) | 피트니스 존 체류(Dwell) 점진적 충전음 및 자세 완성 화음 효과음(Web Audio SFX) 구현 | 청각 피드백 강화 | `feature`, `P2-medium` | 🟢 **완료 (335/335 Pass)** |
+| 17 | `TUT-001` | [#137](https://github.com/Choyounhwa/-dream-guardian/issues/137) | 최초 플레이어 대상 4색 신체 커서 및 피트니스 존 매칭 인터랙티브 튜토리얼 오버레이 구현 | 온보딩 UX | `feature`, `P2-medium` | 🟢 **완료 (337/337 Pass)** |
+| 18 | `DOCS-001` | [#138](https://github.com/Choyounhwa/-dream-guardian/issues/138) | GDD 기획서 및 프로젝트 공식 문서 최신화 (보라 머리/얼굴 확정, 10존 레이아웃, 국민체조 패턴 및 집합 덮기 모델 공식 반영) | 공식 기획 일치화 | `documentation`, `P2-medium` | 🟢 **완료 (337/337 Pass)** |
+| 19 | `FEAT-CURSOR-003` | [#140](https://github.com/Choyounhwa/-dream-guardian/issues/140) | 전 장면(메뉴·달리기·문제·결과) 4색 스켈레톤 커서 상시 지속 가시화 및 생명주기 통일 | 전 화면 커서 생명주기 일원화 | `feature`, `P1-high` | 🟢 **완료 (321/321 Pass)** |
+| 20 | `REFACTOR-001` | [#130](https://github.com/Choyounhwa/-dream-guardian/issues/130) | AnswerSelector 죽은 판정 경로(update) 정리 및 단위 테스트 정비 | RC-7 | `refactor`, `P2-medium` | 🟢 **완료 (336/336 Pass)** |
+| 21 | `UI-BAR-001` | [#141](https://github.com/Choyounhwa/-dream-guardian/issues/141) | 전 화면 공통 하단 고정 바(Yellow Bar) 및 설정(Settings) 모달 신설과 레거시 상단 부유 버튼(#top_controls) 완전 삭제 | 상단 간섭 제거 / 공통 고정 바 | `feature`, `P1-high` | ⚪ **대기 (승인 대기)** |
+| 22 | `UI-MENU-002` | [#142](https://github.com/Choyounhwa/-dream-guardian/issues/142) | 홈 메뉴(2-2-1) 및 서브 메뉴(2x3) 와이드 레이아웃 개편과 1:1 대형 폰트 적용 (레거시 가로 1열 및 상단 뒤로가기 삭제) | 메뉴 원거리 시인성 & 1:1 폰트 | `feature`, `P1-high` | ⚪ **대기 (승인 대기)** |
+| 23 | `UI-INGAME-001` | [#143](https://github.com/Choyounhwa/-dream-guardian/issues/143) | 인게임 마젠타 문제영역 고정 컨테이너, 3중 회전 마법진(E_Pit_act1~3) 피트니스 존 및 마젠타 결과 카드 패널 개편 | 마젠타 컨테이너 & 마법진 스핀 | `feature`, `P1-high` | ⚪ **대기 (승인 대기)** |
+| 24 | `BUG-SCALE-002` | [#144](https://github.com/Choyounhwa/-dream-guardian/issues/144) | 실사용 웹캠 근접 환경(귀 가림·팔꿈치 이탈) 신체 실측 크기 동적 추정 고도화 및 커서 시인성 현실화 | 귀 가림 시 눈/코 비례 산출, 팔꿈치 이탈 시 손바닥 전진, 1080p 신체 실측 스케일 현실화 | `bug`, `P1-high` | ⚪ **대기 (승인 대기)** |
 
 **주의:** `ZONE-001`은 `UI-001`보다 반드시 앞서야 합니다(답안 밴드 좌표 의존). `REFACTOR-001`은 `input-system.test.ts` 약 7개 테스트가 `update()`에 의존하므로 단독 카드로 수행합니다(개발 규칙 3.3/18항).
 

@@ -83,6 +83,44 @@ export class JointRenderer {
       const style = this._styles[idx];
       if (!style) continue;
 
+      // 손목 관절(15, 16)은 실제 손바닥 중심 위치로 주 손 관절 마커 드로잉 (스켈레톤 손목이 아닌 손바닥 표시)
+      if (idx === POSE_LANDMARKS.LEFT_WRIST || idx === POSE_LANDMARKS.RIGHT_WRIST) {
+        const isLeft = idx === POSE_LANDMARKS.LEFT_WRIST;
+        const elbow = landmarks[isLeft ? POSE_LANDMARKS.LEFT_ELBOW : POSE_LANDMARKS.RIGHT_ELBOW];
+        const indexK = landmarks[isLeft ? POSE_LANDMARKS.LEFT_INDEX : POSE_LANDMARKS.RIGHT_INDEX];
+        const pinkyK = landmarks[isLeft ? POSE_LANDMARKS.LEFT_PINKY : POSE_LANDMARKS.RIGHT_PINKY];
+        const shoulder = landmarks[isLeft ? POSE_LANDMARKS.LEFT_SHOULDER : POSE_LANDMARKS.RIGHT_SHOULDER];
+
+        let palmX = lm.x;
+        let palmY = lm.y;
+        if (indexK && pinkyK && (indexK.visibility ?? 0) >= 0.35 && (pinkyK.visibility ?? 0) >= 0.35) {
+          palmX = lm.x * 0.4 + indexK.x * 0.35 + pinkyK.x * 0.25;
+          palmY = lm.y * 0.4 + indexK.y * 0.35 + pinkyK.y * 0.25;
+        } else if (elbow && (elbow.visibility ?? 0) >= 0.35) {
+          palmX = lm.x + (lm.x - elbow.x) * 0.18;
+          palmY = lm.y + (lm.y - elbow.y) * 0.18;
+        } else if (shoulder && (shoulder.visibility ?? 0) >= 0.35) {
+          const dx = lm.x - shoulder.x;
+          const dy = lm.y - shoulder.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          if (len > 20) {
+            const adv = Math.max(40, Math.min(70, len * 0.12));
+            palmX = lm.x + (dx / len) * adv;
+            palmY = lm.y + (dy / len) * adv;
+          }
+        }
+
+        ctx.fillStyle = style.color;
+        ctx.strokeStyle = style.color;
+        ctx.lineWidth = 2;
+
+        // 손목 위치: 작은 보조 관절 (크기 5)
+        this._drawCircle(ctx, lm.x, lm.y, 5 * scale);
+        // 손바닥 위치: 주 손 관절 마커 (크기 11)
+        this._drawCircle(ctx, palmX, palmY, 11 * scale);
+        continue;
+      }
+
       const size = style.size * scale;
 
       ctx.fillStyle = style.color;
