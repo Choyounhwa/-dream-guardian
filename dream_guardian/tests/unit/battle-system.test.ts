@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { BattleState } from '../../src/game/BattleState.js';
 import { BossController } from '../../src/game/BossController.js';
 import { GuardianSystem, STAGE_NAMES } from '../../src/game/GuardianSystem.js';
+import { DEFAULT_CONFIG } from '../../src/core/Config.js';
 
 // ═══════════════════════════════════
 // BattleState
@@ -243,3 +244,75 @@ describe('GuardianSystem', () => {
     expect(gs.isCasting).toBe(false);
   });
 });
+
+// ═══════════════════════════════════
+// 전투 통합 흐름 (Issue #146 - BUG-BATTLE-001)
+// ═══════════════════════════════════
+
+describe('정답 시 보스 HP 즉시 감소 타격 검증 (Issue #146 - BUG-BATTLE-001)', () => {
+  it('DEFAULT_CONFIG.battle.correctDamage가 1로 정의되어 있다', () => {
+    expect(DEFAULT_CONFIG.battle.correctDamage).toBe(1);
+  });
+
+  it('매 정답마다 보스가 즉시 기본 데미지(1)를 입는다 (1~3문제 정답 시에도 HP 감소)', () => {
+    const battle = new BattleState();
+    const boss = new BossController(1); // maxHp = 10
+    const correctDmg = DEFAULT_CONFIG.battle.correctDamage;
+
+    // 문제 1 정답
+    battle.onCorrect();
+    boss.takeDamage(correctDmg);
+    expect(boss.hp).toBe(9);
+    expect(battle.mana).toBe(25);
+
+    // 문제 2 정답
+    battle.onCorrect();
+    boss.takeDamage(correctDmg);
+    expect(boss.hp).toBe(8);
+    expect(battle.mana).toBe(50);
+
+    // 문제 3 정답
+    battle.onCorrect();
+    boss.takeDamage(correctDmg);
+    expect(boss.hp).toBe(7);
+    expect(battle.mana).toBe(75);
+  });
+
+  it('4번째 정답 시 기본 데미지(1)와 마나 100 달성에 따른 수호신 스펠 캐스팅(4)이 함께 적용된다', () => {
+    const battle = new BattleState();
+    const boss = new BossController(1); // maxHp = 10
+    const guardian = new GuardianSystem();
+    const correctDmg = DEFAULT_CONFIG.battle.correctDamage;
+
+    // 1~3번 문제 정답
+    for (let i = 0; i < 3; i++) {
+      battle.onCorrect();
+      boss.takeDamage(correctDmg);
+    }
+    expect(boss.hp).toBe(7);
+
+    // 4번째 문제 정답
+    battle.onCorrect();
+    boss.takeDamage(correctDmg); // 7 -> 6
+    expect(boss.hp).toBe(6);
+
+    // 마나 100 도달 시 캐스팅
+    expect(battle.trySpendMana()).toBe(true);
+    const spellDmg = guardian.cast();
+    boss.takeDamage(spellDmg); // 6 -> 2
+    expect(boss.hp).toBe(2);
+    expect(boss.isDefeated).toBe(false);
+  });
+
+  it('기본 데미지로 보스 체력이 0이 되면 즉시 isDefeated가 true가 된다', () => {
+    const boss = new BossController(1); // maxHp = 10
+    const correctDmg = DEFAULT_CONFIG.battle.correctDamage;
+    // 10문제 정답 가정
+    for (let i = 0; i < 10; i++) {
+      boss.takeDamage(correctDmg);
+    }
+    expect(boss.hp).toBe(0);
+    expect(boss.isDefeated).toBe(true);
+  });
+});
+

@@ -1,4 +1,9 @@
 import type { GameConfig } from '../types/index.js';
+import { POSTURE_TIMING_CONFIG } from '../../config/posture.config.js';
+
+export * from '../../config/zone.config.js';
+export * from '../../config/cursor.config.js';
+export * from '../../config/posture.config.js';
 
 /**
  * 18:9 고정 종횡비 해상도 프리셋
@@ -25,6 +30,7 @@ export const DEFAULT_CONFIG: GameConfig = {
     spellCost: 100,
   },
   battle: {
+    correctDamage: 1,
     spellDamage: 4,
     bossHpNormal: 10,
     bossHpNightmare: 20,
@@ -37,9 +43,9 @@ export const DEFAULT_CONFIG: GameConfig = {
     stepInterval: 0.2,
   },
   input: {
-    dwellTime: 1.0,
-    centerWeight: 1.5,
-    edgeWeight: 0.75,
+    dwellTime: POSTURE_TIMING_CONFIG.defaultDwellTime,
+    centerWeight: POSTURE_TIMING_CONFIG.centerWeight,
+    edgeWeight: POSTURE_TIMING_CONFIG.edgeWeight,
   },
   render: {
     virtualWidth: 1080,

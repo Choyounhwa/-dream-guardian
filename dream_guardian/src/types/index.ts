@@ -64,6 +64,7 @@ export interface GameConfig {
     spellCost: number;
   };
   battle: {
+    correctDamage: number;
     spellDamage: number;
     bossHpNormal: number;
     bossHpNightmare: number;
@@ -254,4 +255,7 @@ export interface MathRenderOptions {
   align?: 'left' | 'center' | 'right';
   baseline?: 'top' | 'middle' | 'bottom';
 }
+
+// ─── Posture & Fitness System Types (Issue #122 / #123) ───
+export * from './posture.js';
 
