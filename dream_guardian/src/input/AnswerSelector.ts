@@ -160,6 +160,16 @@ export class AnswerSelector {
     this._gateEvaluator.setBaseline(baseline);
   }
 
+  /** 현재 문제가 스테이지 첫 번째 문제인지 여부 (Issue #160) */
+  get isFirstQuestion(): boolean {
+    return this._currentQuestionNumber === 1;
+  }
+
+  /** 현재 문제 번호 (1-based) */
+  get currentQuestionNumber(): number {
+    return this._currentQuestionNumber;
+  }
+
   get virtualWidth(): number {
     return this._virtualWidth;
   }

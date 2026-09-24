@@ -14,6 +14,7 @@ import type { AnswerPosture, BodyPart } from '../types/posture.js';
 import { recipeToAnswerPosture } from '../types/posture.js';
 import { PartIconRenderer } from './PartIconRenderer.js';
 import type { QuestionRecipePlan } from '../input/RecipeGenerator.js';
+import type { CursorPosition } from '../input/CursorTracker.js';
 
 export interface SilhouettePosition {
   x: number;
@@ -23,12 +24,48 @@ export interface SilhouettePosition {
 export class PostureGuideRenderer {
   private _pulseTimer = 0;
   private _customPositions: SilhouettePosition[] | null = null;
+  private _hintTimer = 0;
+  private _hintDuration = 5.0;
 
   /**
    * 프레임별 펄스 타이머 갱신 (60fps 기준)
    */
   update(dt: number): void {
     this._pulseTimer = (this._pulseTimer + dt * 3) % (Math.PI * 2);
+    if (this._hintTimer > 0) {
+      this._hintTimer = Math.max(0, this._hintTimer - dt);
+    }
+  }
+
+  /**
+   * 스테이지 첫 문제 유도 화살표 힌트 시작 (Issue #160 / FEAT-GUIDE-002)
+   * @param duration 노출 지속 시간 (초, 기본값 5.0)
+   */
+  startFirstQuestionHint(duration = 5.0): void {
+    this._hintDuration = duration;
+    this._hintTimer = duration;
+  }
+
+  /**
+   * 유도 화살표 힌트 초기화
+   */
+  resetHint(): void {
+    this._hintTimer = 0;
+  }
+
+  /** 유도 화살표 힌트 활성 여부 */
+  get isHintActive(): boolean {
+    return this._hintTimer > 0;
+  }
+
+  /** 전체 힌트 지속 시간 (초) */
+  get hintDuration(): number {
+    return this._hintDuration;
+  }
+
+  /** 남은 힌트 시간 (초) */
+  get hintTimer(): number {
+    return Math.max(0, this._hintTimer);
   }
 
   /**
@@ -48,10 +85,22 @@ export class PostureGuideRenderer {
     plan: QuestionRecipePlan,
     choiceProgress: [number, number] = [0, 0],
     activeChoiceIndex: number | null = null,
+    cursors?: ReadonlyMap<CursorType, CursorPosition>,
+    isFirstQuestion?: boolean,
   ): void {
     if (!plan || !plan.choices) return;
     const postures: AnswerPosture[] = plan.choices.map((c) => recipeToAnswerPosture(c));
-    this.render(ctx, virtualWidth, virtualHeight, postures, plan.activeZones, choiceProgress, activeChoiceIndex);
+    this.render(
+      ctx,
+      virtualWidth,
+      virtualHeight,
+      postures,
+      plan.activeZones,
+      choiceProgress,
+      activeChoiceIndex,
+      cursors,
+      isFirstQuestion,
+    );
   }
 
   /**
@@ -65,6 +114,8 @@ export class PostureGuideRenderer {
     activeZones: readonly FitnessZone[],
     choiceProgress: [number, number] = [0, 0],
     activeChoiceIndex: number | null = null,
+    cursors?: ReadonlyMap<CursorType, CursorPosition>,
+    isFirstQuestion?: boolean,
   ): void {
     if (virtualWidth <= 0 || virtualHeight <= 0) return;
 
@@ -80,7 +131,123 @@ export class PostureGuideRenderer {
       this._renderPostures(ctx, virtualWidth, virtualHeight, postures, choiceProgress, activeChoiceIndex);
     }
 
+    // 3. Issue #160: 스테이지 첫 문제(isFirstQuestion) 유도 화살표 렌더링
+    if (isFirstQuestion && this.isHintActive && cursors && cursors.size > 0 && activeZones && activeZones.length > 0) {
+      this._renderArrowHints(ctx, virtualWidth, virtualHeight, activeZones, postures, cursors);
+    }
+
     ctx.restore();
+  }
+
+  /**
+   * 스테이지 첫 문제 커서 -> 목표 존 유도 화살표(Arrow Hint) 렌더링 (Issue #160)
+   */
+  private _renderArrowHints(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    activeZones: readonly FitnessZone[],
+    postures: readonly AnswerPosture[],
+    cursors: ReadonlyMap<CursorType, CursorPosition>,
+  ): void {
+    const fade = Math.min(1, this._hintTimer);
+    const pulse = 0.8 + 0.2 * Math.sin(this._pulseTimer * 3);
+    const arrowAlpha = fade * pulse;
+    if (arrowAlpha <= 0.01) return;
+
+    const renderedPairs = new Set<string>();
+
+    for (const posture of postures) {
+      for (let i = 0; i < posture.parts.length; i++) {
+        const part = posture.parts[i];
+        const zoneId = posture.zoneIds[i];
+        if (!part || zoneId === undefined) continue;
+
+        const pairKey = `${part}_${zoneId}`;
+        if (renderedPairs.has(pairKey)) continue;
+
+        const cursor = cursors.get(part as CursorType);
+        if (!cursor) continue;
+
+        const zone = activeZones.find((z) => z.id === zoneId);
+        if (!zone) continue;
+
+        // 커서 좌표 정규화 판정
+        const normX = cursor.x > 1 ? cursor.x / vw : cursor.x;
+        const normY = cursor.y > 1 ? cursor.y / vh : cursor.y;
+
+        // 커서가 이미 목표 존 내부에 진입한 경우 화살표 생략 (즉시 소멸)
+        const isInside =
+          normX >= zone.x &&
+          normX <= zone.x + zone.width &&
+          normY >= zone.y &&
+          normY <= zone.y + zone.height;
+
+        if (isInside) continue;
+
+        renderedPairs.add(pairKey);
+
+        const startX = normX * vw;
+        const startY = normY * vh;
+        const targetX = (zone.x + zone.width / 2) * vw;
+        const targetY = (zone.y + zone.height / 2) * vh;
+
+        const dist = Math.hypot(targetX - startX, targetY - startY);
+        if (dist < 40) continue;
+
+        const angle = Math.atan2(targetY - startY, targetX - startX);
+        const partColor = CURSOR_COLORS[part as CursorType] ?? '#28E6FF';
+
+        ctx.save();
+        ctx.globalAlpha = arrowAlpha;
+        ctx.shadowColor = partColor;
+        ctx.shadowBlur = 16;
+        ctx.strokeStyle = partColor;
+        ctx.fillStyle = partColor;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // 화살표 끝점을 존 경계 근처로 조정
+        const zoneInset = Math.min(zone.width * vw, zone.height * vh) * 0.28;
+        const endX = targetX - Math.cos(angle) * zoneInset;
+        const endY = targetY - Math.sin(angle) * zoneInset;
+
+        // 1. 점선 애니메이션 샤프트 드로잉
+        if (typeof ctx.setLineDash === 'function') {
+          ctx.setLineDash([14, 8]);
+          ctx.lineDashOffset = -this._pulseTimer * 45;
+        }
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // 2. 화살표 머리 드로잉 (닫힌 삼각형)
+        if (typeof ctx.setLineDash === 'function') {
+          ctx.setLineDash([]);
+        }
+        const headLen = 22;
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(
+          endX - headLen * Math.cos(angle - Math.PI / 6),
+          endY - headLen * Math.sin(angle - Math.PI / 6),
+        );
+        ctx.lineTo(
+          endX - headLen * 0.6 * Math.cos(angle),
+          endY - headLen * 0.6 * Math.sin(angle),
+        );
+        ctx.lineTo(
+          endX - headLen * Math.cos(angle + Math.PI / 6),
+          endY - headLen * Math.sin(angle + Math.PI / 6),
+        );
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+      }
+    }
   }
 
   /**

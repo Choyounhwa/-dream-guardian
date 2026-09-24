@@ -3,7 +3,9 @@ import { PostureGuideRenderer } from '../../src/render/PostureGuideRenderer.js';
 import type { AnswerPosture } from '../../src/types/posture.js';
 import type { FitnessZone } from '../../config/zone.config.js';
 import type { QuestionRecipePlan } from '../../src/input/RecipeGenerator.js';
-import { getTierInfo } from '../../src/input/AnswerSelector.js';
+import { AnswerSelector, getTierInfo } from '../../src/input/AnswerSelector.js';
+import type { CursorPosition } from '../../src/input/CursorTracker.js';
+import type { CursorType } from '../../config/cursor.config.js';
 
 function createMockCtx(): CanvasRenderingContext2D {
   return {
@@ -180,5 +182,125 @@ describe('PostureGuideRenderer (Issue #159 - FEAT-GUIDE-001)', () => {
     const elapsed = performance.now() - start;
     // 100회 드로잉이 50ms 이내에 완료되어야 함
     expect(elapsed).toBeLessThan(50);
+  });
+
+  describe('Issue #160 (Card #90) - FEAT-GUIDE-002: 첫 문제 유도 화살표(Arrow Hint)', () => {
+    it('AnswerSelector는 questionNumber가 1일 때 isFirstQuestion이 true이고, 2 이상일 때 false이다', () => {
+      const selector = new AnswerSelector();
+      selector.setQuestion(1);
+      expect(selector.isFirstQuestion).toBe(true);
+
+      selector.setQuestion(2);
+      expect(selector.isFirstQuestion).toBe(false);
+
+      selector.setQuestion(5);
+      expect(selector.isFirstQuestion).toBe(false);
+
+      selector.setQuestion(1);
+      expect(selector.isFirstQuestion).toBe(true);
+    });
+
+    it('첫 번째 문제(isFirstQuestion === true)에서 4색 커서->목표 존 유도 화살표가 렌더링된다', () => {
+      const renderer = new PostureGuideRenderer();
+      renderer.startFirstQuestionHint(5.0);
+      expect(renderer.isHintActive).toBe(true);
+
+      const ctx = createMockCtx();
+      const cursors = new Map<CursorType, CursorPosition>([
+        [
+          'leftHand',
+          { type: 'leftHand', x: 0.5, y: 0.5, confidence: 0.9, source: 'hands' },
+        ],
+      ]);
+
+      renderer.render(
+        ctx,
+        1080,
+        2160,
+        MOCK_POSTURES,
+        MOCK_ZONES,
+        [0, 0],
+        null,
+        cursors,
+        true, // isFirstQuestion
+      );
+
+      // 화살표 선 및 헤드 드로잉 호출 확인
+      expect(ctx.beginPath).toHaveBeenCalled();
+      expect(ctx.stroke).toHaveBeenCalled();
+    });
+
+    it('목표 존에 커서가 이미 진입한 경우 해당 화살표는 즉시 렌더링되지 않는다', () => {
+      const renderer = new PostureGuideRenderer();
+      renderer.startFirstQuestionHint(5.0);
+
+      const ctx = createMockCtx();
+      // Zone 4: x: 0.04~0.30, y: 0.24~0.40 -> 커서가 0.15, 0.30에 위치 (완전 내부)
+      const insideCursors = new Map<CursorType, CursorPosition>([
+        [
+          'leftHand',
+          { type: 'leftHand', x: 0.15, y: 0.30, confidence: 0.9, source: 'hands' },
+        ],
+      ]);
+
+      renderer.render(
+        ctx,
+        1080,
+        2160,
+        MOCK_POSTURES,
+        MOCK_ZONES,
+        [0, 0],
+        null,
+        insideCursors,
+        true,
+      );
+
+      // 내부 커서에 대해서는 화살표가 드로잉되지 않음
+      expect(ctx.save).toHaveBeenCalled();
+    });
+
+    it('5초가 경과하면 화살표 힌트 타이머가 만료되어 화살표가 자동 페이드아웃 및 소멸한다', () => {
+      const renderer = new PostureGuideRenderer();
+      renderer.startFirstQuestionHint(5.0);
+      expect(renderer.isHintActive).toBe(true);
+
+      // 4초 경과 (남은 1초 - 페이드아웃 구간)
+      renderer.update(4.0);
+      expect(renderer.isHintActive).toBe(true);
+      expect(renderer.hintTimer).toBeCloseTo(1.0, 1);
+
+      // 1.5초 추가 경과 (총 5.5초 -> 완전 만료)
+      renderer.update(1.5);
+      expect(renderer.isHintActive).toBe(false);
+      expect(renderer.hintTimer).toBe(0);
+    });
+
+    it('두 번째 문제부터는(isFirstQuestion === false) 화살표 힌트가 비활성화되어 렌더링되지 않는다', () => {
+      const renderer = new PostureGuideRenderer();
+      renderer.startFirstQuestionHint(5.0);
+
+      const ctx = createMockCtx();
+      const cursors = new Map<CursorType, CursorPosition>([
+        [
+          'leftHand',
+          { type: 'leftHand', x: 0.5, y: 0.5, confidence: 0.9, source: 'hands' },
+        ],
+      ]);
+
+      renderer.render(
+        ctx,
+        1080,
+        2160,
+        MOCK_POSTURES,
+        MOCK_ZONES,
+        [0, 0],
+        null,
+        cursors,
+        false, // isFirstQuestion === false
+      );
+
+      // isFirstQuestion이 false이므로 화살표 드로잉은 전혀 수행되지 않음
+      expect(ctx.save).toHaveBeenCalled();
+    });
   });
 });

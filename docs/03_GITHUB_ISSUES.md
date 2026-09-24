@@ -2413,18 +2413,19 @@
 - **Labels**: `phase-6`, `feature`, `P2-medium`
 - **Milestone**: `v0.5-input-ui`
 - **작업 ID**: `[FEAT-GUIDE-002]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (Pass)**
 - **목적**:
   - 스테이지 시작 시 플레이어가 조작법을 즉시 인지할 수 있도록 **첫 번째 문제에서만** 4색 신체 커서 현재 위치에서 목표 피트니스 존 중심을 가리키는 유도 화살표(Arrow Hint)를 표시하고, 존 진입 또는 5초 후 자연 페이드아웃 처리하며, 이후 문제에서는 화살표를 표시하지 않는다.
 - **완료 조건**:
-  - [ ] `AnswerSelector`의 첫 문제(`questionNumber === 1`) 상태를 가이드 렌더러에 전달
-  - [ ] 커서 위치 → 목표 존 중심을 향하는 네온 화살표 렌더링
-  - [ ] 목표 존 진입 시 해당 화살표 즉시 소멸 및 5초 경과 시 자동 페이드아웃
-  - [ ] 두 번째 문제부터는 화살표 렌더링이 비활성화됨을 보장
-  - [ ] 단위 테스트 100% Pass
+  - [x] `AnswerSelector`의 첫 문제(`questionNumber === 1`) 상태를 가이드 렌더러에 전달 (`isFirstQuestion` getter 연동)
+  - [x] 커서 위치 → 목표 존 중심을 향하는 네온 화살표 렌더링
+  - [x] 목표 존 진입 시 해당 화살표 즉시 소멸 및 5초 경과 시 자동 페이드아웃
+  - [x] 두 번째 문제부터는 화살표 렌더링이 비활성화됨을 보장
+  - [x] 단위 테스트 100% Pass (14/14 tests Pass)
 - **관련 파일**:
   - `dream_guardian/src/render/PostureGuideRenderer.ts`
   - `dream_guardian/src/input/AnswerSelector.ts`
+  - `dream_guardian/src/main.ts`
   - `dream_guardian/tests/unit/posture-guide-renderer.test.ts`
 
 ---

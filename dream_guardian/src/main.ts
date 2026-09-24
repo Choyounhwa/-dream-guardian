@@ -264,6 +264,9 @@ function nextQuestion(): void {
   questionVisible = true;
   answerLocked = false;
   answerSelector.startQuestion(battle.totalQuestions + 1);
+  if (answerSelector.isFirstQuestion) {
+    postureGuideRenderer.startFirstQuestionHint(5.0);
+  }
   console.log(`[DG] 문제: ${currentQuestion.questionText}`);
   speech.speak(currentQuestion.questionText);
 }
@@ -1080,7 +1083,7 @@ const engine = new GameEngine({
       locomotionModal.render(ctx, vw, vh);
     }
 
-    // 7.8 Issue #159: 목표 자세 실루엣 가이드 오버레이 (PostureGuideRenderer)
+    // 7.8 Issue #159 & #160: 목표 자세 실루엣 가이드 오버레이 및 첫 문제 유도 화살표
     const isQuestionPhase = screenMode === 'game' && gamePhase === 'question' && questionVisible;
     if (isQuestionPhase && answerSelector.currentPlan) {
       postureGuideRenderer.renderFromPlan(
@@ -1089,6 +1092,9 @@ const engine = new GameEngine({
         vh,
         answerSelector.currentPlan,
         answerSelector.choiceProgress,
+        null,
+        answerSelector.cursorTracker.cursors,
+        answerSelector.isFirstQuestion,
       );
     }
 
