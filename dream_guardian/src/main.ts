@@ -383,26 +383,8 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
 
   ctx.save();
 
-  // 1. Issue #143: 마젠타 문제영역 고정 컨테이너 (x: 100, y: 320, w: 880, h: 1000)
-  const boxX = 100 * scaleX;
+  // 1. Issue #143 & #165: 문제영역 가상 레이아웃 영역 (사각 박스 화면 표시 제거, Y 기준 좌표계 유지)
   const boxY = 320 * scaleY;
-  const boxW = 880 * scaleX;
-  const boxH = 1000 * scaleY;
-
-  ctx.fillStyle = 'rgba(20, 10, 32, 0.85)';
-  ctx.strokeStyle = '#FF28D8';
-  ctx.lineWidth = 3.5 * scaleX;
-  ctx.shadowColor = '#FF28D8';
-  ctx.shadowBlur = 18 * scaleX;
-  ctx.beginPath();
-  if (ctx.roundRect) {
-    ctx.roundRect(boxX, boxY, boxW, boxH, 24 * scaleX);
-  } else {
-    ctx.rect(boxX, boxY, boxW, boxH);
-  }
-  ctx.fill();
-  ctx.stroke();
-  ctx.shadowBlur = 0;
 
   // 2. 문제 수식 텍스트 (오버플로우 방지 자동 축소: 기본 88px -> 최소 56px)
   const cx = w / 2;

@@ -63,6 +63,7 @@
 | `INPUT-MOTION-001` | [#169](https://github.com/Choyounhwa/-dream-guardian/issues/169) | 인게임 문제 스테이지 양손 합장 제스처 메뉴 연동 및 문제풀이 일시정지 가드 | 인게임 전 프레임 합장 감지 활성화, 금빛 네온 합장 링 렌더링, 하단 바(정지/설정) 0.8초 호버 연동, 합장 중 답안 판정 일시정지(Safety Guard) 및 분리 시 4색 커서 즉시 복귀 | 🟢 **Pass (470/470)** |
 | `UI-ANS-001` | [#163](https://github.com/Choyounhwa/-dream-guardian/issues/163) | 답안 버튼 외곽선 두께 2배 증가 (8px) | 답안 버튼 외곽선 테두리 선 두께 8px(기존 4px 대비 2배), 기본 lineWidth 7.0 상향, 방사선 3.0 상향 및 네온 글로우(12px) 강화 | 🟢 **Pass (471/471)** |
 | `UI-ANS-002` | [#164](https://github.com/Choyounhwa/-dream-guardian/issues/164) | 답안 버튼 위치 4, 5번 피트니스 존 하단 X축 정렬 배치 | 0번 버튼을 4번 존 하단(중심 X 183.6px), 1번 버튼을 5번 존 하단(중심 X 896.4px)에 수직 정렬하고 Y축 890px(존 하단 바로 아래) 재배치, 자식 요소 및 클릭 히트테스트 자동 동기화 | 🟢 **Pass (472/472)** |
+| `RENDER-MATH-001` | [#165](https://github.com/Choyounhwa/-dream-guardian/issues/165) | 문제 영역 마젠타 사각 박스 가상 영역화 (화면 표시 제거) | `renderQuestion` 내 마젠타(#FF28D8) 테두리 및 어두운 사각 박스 드로잉 코드 완전 제거, Y 기준 좌표계만 유지하여 배경 그리드 및 보스 시야 100% 개방 | 🟢 **Pass (472/472)** |
 
 ### 2. 브라우저 실테스트 피드백 반영 및 주요 환경 해결
 
