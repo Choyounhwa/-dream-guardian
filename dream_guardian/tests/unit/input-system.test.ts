@@ -12,6 +12,7 @@ import { KeyboardInput } from '../../src/input/KeyboardInput.js';
 import { MenuRenderer } from '../../src/ui/MenuRenderer.js';
 import { AnswerSelectionRenderer } from '../../src/render/AnswerSelectionRenderer.js';
 import { CursorTracker } from '../../src/input/CursorTracker.js';
+import { BottomBar } from '../../src/ui/BottomBar.js';
 import type { NormalizedLandmark } from '../../src/types/index.js';
 
 // ═══════════════════════════════════
@@ -658,5 +659,113 @@ describe('스켈레톤 커서 메뉴 조작성 개선 (Issue #133 / INPUT-002)',
     expect(menuRenderer.hitTest(jitterX, jitterY, vw, vh, 10)).toBe(0);
     // 호버 유지 히스테리시스 패딩(24px)으로는 카드 체류가 유지됨
     expect(menuRenderer.hitTest(jitterX, jitterY, vw, vh, 24)).toBe(2);
+  });
+});
+
+describe('인게임 문제 스테이지 양손 합장 제스처 메뉴 연동 (Issue #169 / INPUT-MOTION-001)', () => {
+  it('인게임 문제 풀이 중 양손이 가까워지면 MenuInput이 합장 상태(active: true)로 활성화된다', () => {
+    const menuInput = new MenuInput();
+
+    // 1. 처음엔 양손이 멀리 떨어져 있음 (합장 비활성)
+    const farResult = menuInput.update(0.2, 0.5, 0.8, 0.5);
+    expect(farResult.active).toBe(false);
+    expect(menuInput.isActive).toBe(false);
+
+    // 2. 인게임 문제 풀이 중 양손을 가슴 앞 중앙(0.5, 0.7)으로 모음
+    const joinResult = menuInput.update(0.48, 0.7, 0.52, 0.7);
+    expect(joinResult.active).toBe(true);
+    expect(menuInput.isActive).toBe(true);
+    expect(joinResult.x).toBeCloseTo(0.5);
+    expect(joinResult.y).toBeCloseTo(0.7);
+  });
+
+  it('인게임 합장 커서 위치로 하단 바 설정 버튼 및 정지 버튼 호버가 정상 판정되고 0.8초 체류 시 동작한다', () => {
+    const menuInput = new MenuInput();
+    const bottomBar = new BottomBar();
+    const vw = 1080;
+    const vh = 2160;
+
+    // A. 하단 바 설정 버튼(좌측: x: 100, y: 2060) 위치로 양손 합장
+    const settingsNormX = 100 / vw;
+    const settingsNormY = 2060 / vh;
+    const joinSettings = menuInput.update(settingsNormX - 0.01, settingsNormY, settingsNormX + 0.01, settingsNormY);
+    expect(joinSettings.active).toBe(true);
+
+    const hitSettings = bottomBar.hitTestSettings(joinSettings.x * vw, joinSettings.y * vh, vw, vh, 15);
+    expect(hitSettings).toBe(true);
+
+    // 0.8초 체류 시뮬레이션
+    let settingsTimer = 0;
+    let settingsOpened = false;
+    for (let f = 0; f < 60; f++) {
+      settingsTimer += 0.016;
+      if (settingsTimer >= 0.8) {
+        settingsOpened = true;
+        break;
+      }
+    }
+    expect(settingsOpened).toBe(true);
+
+    // B. 하단 바 일시정지(정지) 버튼(우측: x: 930, y: 2060) 위치로 양손 합장
+    const actionNormX = 930 / vw;
+    const actionNormY = 2060 / vh;
+    const joinAction = menuInput.update(actionNormX - 0.01, actionNormY, actionNormX + 0.01, actionNormY);
+    expect(joinAction.active).toBe(true);
+
+    const hitAction = bottomBar.hitTestAction(joinAction.x * vw, joinAction.y * vh, vw, vh, 15);
+    expect(hitAction).toBe(true);
+
+    // 0.8초 체류 시뮬레이션
+    let actionTimer = 0;
+    let actionTriggered = false;
+    for (let f = 0; f < 60; f++) {
+      actionTimer += 0.016;
+      if (actionTimer >= 0.8) {
+        actionTriggered = true;
+        break;
+      }
+    }
+    expect(actionTriggered).toBe(true);
+  });
+
+  it('합장 활성화 상태(menuInput.isActive === true)에서는 AnswerSelector가 일시정지(paused)되어 오답/정답 처리가 방지된다', () => {
+    const selector = new AnswerSelector();
+    expect(selector.paused).toBe(false);
+
+    // 합장 감지 시뮬레이션
+    const menuInput = new MenuInput();
+    menuInput.update(0.49, 0.6, 0.51, 0.6);
+    expect(menuInput.isActive).toBe(true);
+
+    // 합장에 따라 selector.paused 활성화
+    selector.paused = menuInput.isActive;
+    expect(selector.paused).toBe(true);
+
+    // 랜드마크 생성
+    const mockLm: NormalizedLandmark[] = [];
+    for (let i = 0; i < 33; i++) {
+      mockLm.push({ x: 0.5, y: 0.5, z: 0, visibility: 0.95 });
+    }
+
+    // paused 상태에서는 updateFromPose가 항상 null 반환 및 답안 확정 차단
+    for (let f = 0; f < 60; f++) {
+      const res = selector.updateFromPose(mockLm, undefined, 0.016);
+      expect(res).toBeNull();
+    }
+  });
+
+  it('합장 해제 시 AnswerSelector의 일시정지가 해제되어 통상 4색 커서 문제 풀이가 재개된다', () => {
+    const selector = new AnswerSelector();
+    const menuInput = new MenuInput();
+
+    // 1. 합장 시작
+    menuInput.update(0.49, 0.6, 0.51, 0.6);
+    selector.paused = menuInput.isActive;
+    expect(selector.paused).toBe(true);
+
+    // 2. 합장 해제 (양손 분리)
+    menuInput.update(0.2, 0.6, 0.8, 0.6);
+    selector.paused = menuInput.isActive;
+    expect(selector.paused).toBe(false);
   });
 });

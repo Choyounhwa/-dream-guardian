@@ -584,6 +584,51 @@ function getHUDData() {
   };
 }
 
+// ─── 양손 모으기(합장) 커서 렌더링 헬퍼 (Issue #119, #134, #169) ───
+function renderJoinedHandsCursor(
+  ctx: CanvasRenderingContext2D,
+  vw: number,
+  vh: number,
+  label: string,
+  progress: number = 0,
+): void {
+  if (!menuInput.isActive) return;
+  const mx = menuInput.cursorX * vw;
+  const my = menuInput.cursorY * vh;
+
+  ctx.save();
+  ctx.shadowColor = '#FFCB4D';
+  ctx.shadowBlur = 15;
+
+  // 외곽 합장 네온 링 (시인성 강화 펄스)
+  const pulse = Math.sin(Date.now() / 150) * 4;
+  ctx.strokeStyle = '#FFCB4D';
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.arc(mx, my, 34 + pulse, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 텍스트 라벨
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, mx, my);
+
+  // 0.8초 호버 체류 프로그레스 아크
+  if (progress > 0) {
+    const clampedProgress = Math.min(1, Math.max(0, progress));
+    ctx.strokeStyle = '#4DFFAA';
+    ctx.lineWidth = 7;
+    ctx.shadowColor = '#4DFFAA';
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.arc(mx, my, 50, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clampedProgress);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 // ─── 게임 엔진 ───
 const engine = new GameEngine({
   update(dt: number): void {
@@ -645,6 +690,15 @@ const engine = new GameEngine({
     const vh = canvasManager.virtualHeight;
     const leftHand = answerSelector.cursorTracker.getCursor('leftHand');
     const rightHand = answerSelector.cursorTracker.getCursor('rightHand');
+
+    // Issue #169: 전 화면(menu, game, result) 공통 매 프레임 양손 합장 제스처 갱신 및 문제선택 일시정지 동기화
+    if (leftHand && rightHand) {
+      menuInput.update(leftHand.x, leftHand.y, rightHand.x, rightHand.y);
+    } else {
+      menuInput.reset();
+    }
+    answerSelector.paused = menuInput.isActive;
+
     let hoverTarget: { x: number; y: number } | null = null;
 
     if (menuInput.isActive) {
@@ -714,16 +768,10 @@ const engine = new GameEngine({
       dreamGrid.update(dt, 0.8);
       effectManager.update(dt);
 
-      // Issue #119 & Issue #133: 메뉴 선택 판정 (양손 모으기 우선, 또는 손 뻗기 호버 지원 + 히스테리시스 20px 패딩)
-      const leftHand = answerSelector.cursorTracker.getCursor('leftHand');
-      const rightHand = answerSelector.cursorTracker.getCursor('rightHand');
+      // Issue #119 & Issue #133: 메뉴 선택 판정 (양손 모으기 우선)
       let activeTargetPos: { x: number; y: number } | null = null;
-
-      if (leftHand && rightHand) {
-        const menuResult = menuInput.update(leftHand.x, leftHand.y, rightHand.x, rightHand.y);
-        if (menuResult.active) {
-          activeTargetPos = { x: menuResult.x, y: menuResult.y };
-        }
+      if (menuInput.isActive) {
+        activeTargetPos = { x: menuInput.cursorX, y: menuInput.cursorY };
       }
 
       if (activeTargetPos) {
@@ -781,21 +829,13 @@ const engine = new GameEngine({
       effectManager.update(dt);
 
       // Issue #134: 결과 화면 양손 모으기(합장) 0.8초 체류 시 메뉴 자동 복귀
-      const leftHand = answerSelector.cursorTracker.getCursor('leftHand');
-      const rightHand = answerSelector.cursorTracker.getCursor('rightHand');
-      if (leftHand && rightHand) {
-        const menuResult = menuInput.update(leftHand.x, leftHand.y, rightHand.x, rightHand.y);
-        if (menuResult.active) {
-          resultReturnTimer += dt;
-          if (resultReturnTimer >= MENU_HOVER_DWELL_TIME) {
-            resultReturnTimer = 0;
-            goToMenu();
-          }
-        } else {
+      if (menuInput.isActive) {
+        resultReturnTimer += dt;
+        if (resultReturnTimer >= MENU_HOVER_DWELL_TIME) {
           resultReturnTimer = 0;
+          goToMenu();
         }
       } else {
-        menuInput.reset();
         resultReturnTimer = 0;
       }
       return;
@@ -814,8 +854,8 @@ const engine = new GameEngine({
 
     if (isRunning) {
       const activeDetector = getActiveLocomotionDetector();
-      // 선택된 운동 모드 동작 유지 시 완만 지속 충전
-      if (activeDetector.isRunning) {
+      // 선택된 운동 모드 동작 유지 시 완만 지속 충전 (합장 중일 때는 충전 일시 정지)
+      if (activeDetector.isRunning && !menuInput.isActive) {
         runGauge += dt * 15;
       } else if (runGauge > 0) {
         // 정지 시 초당 4% 자연 감쇠
@@ -828,7 +868,10 @@ const engine = new GameEngine({
         nextQuestion();
       }
     } else if (gamePhase === 'question' && questionVisible && !answerLocked) {
-      if (poseManager.hasPose) {
+      if (menuInput.isActive) {
+        // Issue #169: 합장 중에는 답안 피트니스 존 판정 및 선택 진행을 일시 정지(Pause)하여 오답/정답 처리를 원천 방지
+        sfx.updateDwellCharge(0);
+      } else if (poseManager.hasPose) {
         // Issue #116: 스켈레톤 렌더링에 사용되는 보간 랜드마크(smoothedLandmarks)를 우선 사용하여
         // 스켈레톤 관절과 4색 커서 중심 좌표가 0px 오차로 1:1 일치하도록 동기화
         const sourceLandmarks =
@@ -925,44 +968,6 @@ const engine = new GameEngine({
         );
       }
 
-      // Issue #119: 양손 모으기(합장) 제스처 커서 및 0.8초 호버 체류 아크 렌더링
-      if (menuInput.isActive) {
-        const mx = menuInput.cursorX * vw;
-        const my = menuInput.cursorY * vh;
-
-        ctx.save();
-        ctx.shadowColor = '#FFCB4D';
-        ctx.shadowBlur = 15;
-
-        // 외곽 합장 네온 링 (Issue #133: 시인성 대폭 강화)
-        const pulse = Math.sin(Date.now() / 150) * 4;
-        ctx.strokeStyle = '#FFCB4D';
-        ctx.lineWidth = 3.5;
-        ctx.beginPath();
-        ctx.arc(mx, my, 34 + pulse, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // 텍스트 라벨
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('손모으기', mx, my);
-
-        // 0.8초 호버 체류 프로그레스 아크 (Issue #133: 반경 50px, 두께 7px 대형화)
-        if (menuHoverTimer > 0) {
-          const progress = Math.min(1, menuHoverTimer / MENU_HOVER_DWELL_TIME);
-          ctx.strokeStyle = '#4DFFAA';
-          ctx.lineWidth = 7;
-          ctx.shadowColor = '#4DFFAA';
-          ctx.shadowBlur = 18;
-          ctx.beginPath();
-          ctx.arc(mx, my, 50, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-
       // 카메라 상태 안내 오버레이 (대기 중 또는 권한 거부 시 안내)
       if (cameraLayer.status === 'requesting') {
         ctx.fillStyle = '#28E6FF';
@@ -1004,42 +1009,6 @@ const engine = new GameEngine({
       effectManager.render(ctx);
     } else if (screenMode === 'result' && resultData) {
       resultRenderer.render(ctx, vw, vh, resultData);
-
-      // Issue #134: 결과 화면 합장 복귀 링 및 0.8초 프로그레스 아크 렌더링
-      if (menuInput.isActive) {
-        const mx = menuInput.cursorX * vw;
-        const my = menuInput.cursorY * vh;
-
-        ctx.save();
-        ctx.shadowColor = '#FFCB4D';
-        ctx.shadowBlur = 16;
-
-        const pulse = Math.sin(Date.now() / 150) * 4;
-        ctx.strokeStyle = '#FFCB4D';
-        ctx.lineWidth = 3.5;
-        ctx.beginPath();
-        ctx.arc(mx, my, 34 + pulse, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('메뉴복귀', mx, my);
-
-        if (resultReturnTimer > 0) {
-          const progress = Math.min(1, resultReturnTimer / MENU_HOVER_DWELL_TIME);
-          ctx.strokeStyle = '#4DFFAA';
-          ctx.lineWidth = 7;
-          ctx.shadowColor = '#4DFFAA';
-          ctx.shadowBlur = 18;
-          ctx.beginPath();
-          ctx.arc(mx, my, 50, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-
       effectManager.render(ctx);
     }
 
@@ -1104,14 +1073,40 @@ const engine = new GameEngine({
       const activeZones = isQuestionPhase && answerSelector.currentPlan ? answerSelector.currentPlan.activeZones : [];
       const choiceProgress: [number, number] = isQuestionPhase ? answerSelector.choiceProgress : [0, 0];
 
+      // Issue #169: 합장 시 개별 손 커서(시안/노랑)를 숨기고 단일 금빛 합장 링으로 대체
+      const renderCursors = new Map(answerSelector.cursorTracker.cursors.entries());
+      if (menuInput.isActive) {
+        renderCursors.delete('leftHand');
+        renderCursors.delete('rightHand');
+      }
+
       answerSelectionRenderer.render(
         ctx,
         vw,
         vh,
         activeZones,
-        answerSelector.cursorTracker.cursors,
+        renderCursors,
         choiceProgress,
       );
+    }
+
+    // 8.5 Issue #119, #134, #169: 양손 모으기(합장) 활성화 시 전 화면 공통 금빛 합장 링 렌더링
+    if (menuInput.isActive) {
+      let label = '손모으기';
+      let progress = 0;
+
+      if (screenMode === 'menu') {
+        label = menuHoverItem ? '선택' : (settingsHoverTimer > 0 ? '설정' : (actionHoverTimer > 0 ? '뒤로' : '손모으기'));
+        progress = Math.max(menuHoverTimer, settingsHoverTimer, actionHoverTimer) / MENU_HOVER_DWELL_TIME;
+      } else if (screenMode === 'game') {
+        label = settingsHoverTimer > 0 ? '설정' : (actionHoverTimer > 0 ? '정지' : '손모으기');
+        progress = Math.max(settingsHoverTimer, actionHoverTimer) / MENU_HOVER_DWELL_TIME;
+      } else if (screenMode === 'result') {
+        label = '메뉴복귀';
+        progress = Math.max(resultReturnTimer, settingsHoverTimer, actionHoverTimer) / MENU_HOVER_DWELL_TIME;
+      }
+
+      renderJoinedHandsCursor(ctx, vw, vh, label, progress);
     }
 
     // 9. Issue #137: 튜토리얼 인터랙티브 오버레이 렌더링

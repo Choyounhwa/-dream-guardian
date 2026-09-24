@@ -114,6 +114,7 @@ export class AnswerSelector {
   private _gateEvaluator = new PartGateEvaluator();
   private _currentPlan: QuestionRecipePlan | null = null;
   private _choiceProgress: [number, number] = [0, 0];
+  private _paused = false;
   private _virtualWidth = 1080;
   private _virtualHeight = 2160;
   private _projectFn?: ViewportProjectFn;
@@ -168,6 +169,15 @@ export class AnswerSelector {
   /** 현재 문제 번호 (1-based) */
   get currentQuestionNumber(): number {
     return this._currentQuestionNumber;
+  }
+
+  /** 문제 선택 일시정지 여부 (Issue #169: 양손 합장 제스처 시 Safety Guard) */
+  get paused(): boolean {
+    return this._paused;
+  }
+
+  set paused(val: boolean) {
+    this._paused = val;
   }
 
   get virtualWidth(): number {
@@ -231,6 +241,11 @@ export class AnswerSelector {
     }
     const plan = this._currentPlan!;
     const cursors = this._cursorTracker.update(landmarks, palms, isMirrored, options);
+
+    // Issue #169: 합장 제스처 등으로 일시정지 상태인 경우 판정 중단 및 답안 확정 차단
+    if (this._paused) {
+      return null;
+    }
 
     // 각 선택지(0: 좌, 1: 우)의 요구조건 충족 여부 확인 (Issue #124: 집합 덮기 & Issue #126: PartGate)
     const checkChoiceMet = (recipeIdx: number): { met: boolean; avgWeight: number } => {
