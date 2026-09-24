@@ -2484,6 +2484,262 @@
   - `dream_guardian/tests/unit/bottom-bar.test.ts`
   - `dream_guardian/HANDOVER.md`
 
+---
+
+### Issue #162 (Card #93): [UI-BAR-003] 설정 및 정지 버튼 문자 제거 및 아이콘화
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/162
+- **Labels**: `phase-6`, `feature`, `P2-medium`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[UI-BAR-003]`
+- **상태**: ⚪ **등록 완료 (승인 대기)**
+- **목적**:
+  - 하단 고정 바의 '⚙ 설정', '정지' 텍스트를 제거하고 심플한 고대비 그래픽 아이콘으로 대체하여 시인성을 높이고 군더더기를 없앤다.
+- **수정 대상**:
+  - `dream_guardian/src/ui/BottomBar.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/bottom-bar.test.ts`
+- **상세 요구사항 및 신규 구현 내용**:
+  1. 좌측 설정 버튼: '⚙ 설정' 한글 텍스트를 제거하고 단독 대형 톱니바퀴 심볼('⚙') 또는 Canvas 2D 벡터 아이콘 중앙 렌더링.
+  2. 우측 액션 버튼: 인게임 진행 중 '정지' 한글 텍스트를 제거하고 일시정지 아이콘('⏸' 또는 Canvas 2D 트윈 버티컬 바) 중앙 렌더링.
+  3. 터치 및 모션 호버 게이지 아크(0.8초) 인터랙션은 기존 위치 그대로 유지.
+- **유지 사항**:
+  - 버튼 좌표(settingsBtn: 30, 1990 / actionBtn: 810, 1990) 및 히트박스 판정
+  - 호버 충전 게이지 및 모달 오픈/메뉴 복귀 트리거
+- **변경 금지**:
+  - 하단 바 중앙 마나 게이지 및 콤보 배지 구조
+- **완료 조건**:
+  - [ ] 좌측 버튼에 '설정' 한글 텍스트 없이 아이콘만 표시
+  - [ ] 게임 중 우측 버튼에 '정지' 한글 텍스트 없이 일시정지 아이콘만 표시
+  - [ ] 클릭 및 모션 호버 시 정상 작동
+  - [ ] `npm test` 단위 테스트 100% Pass
+- **관련 파일**:
+  - `dream_guardian/src/ui/BottomBar.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/bottom-bar.test.ts`
+
+---
+
+### Issue #163 (Card #94): [UI-ANS-001] 답안 버튼 외곽선 두께 2배 증가
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/163
+- **Labels**: `phase-6`, `feature`, `P2-medium`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[UI-ANS-001]`
+- **상태**: ⚪ **등록 완료 (승인 대기)**
+- **목적**:
+  - 카메라 배경 및 다채로운 인게임 이펙트 속에서도 2개 선택지 버튼의 경계선이 원거리(1~2m)에서 한눈에 들어오도록 시인성을 극대화한다.
+- **수정 대상**:
+  - `dream_guardian/src/render/PartIconRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/part-icon-renderer.test.ts`
+- **상세 요구사항 및 신규 구현 내용**:
+  1. `PartIconRenderer.drawRadialAnswerButton` 호출 시 전달하는 lineWidth 값을 기존 `4 * scaleX`에서 `8 * scaleX`(2배)로 상향.
+  2. 메서드 기본 lineWidth 매개변수 역시 `3.5` -> `7.0`으로 상향 조정.
+  3. 1개/2개/3개 분할 섹터의 외곽 스트로크 및 방사선 두께를 2배로 확장하여 시인성 보장.
+- **유지 사항**:
+  - 방사형 색상 분할(1개/2개/3개 커서 부위 색상) 로직
+  - 라운드 코너(20px) 및 내부 수식 폰트 중앙 정렬
+- **변경 금지**:
+  - 답안 수식 텍스트 렌더링(`renderMath`) 좌표 계산
+  - 하단 키보드 안내 텍스트 폰트
+- **완료 조건**:
+  - [ ] 답안 버튼 외곽선 테두리 선 두께가 8px(기존 4px 대비 2배)로 두껍고 선명하게 렌더링
+  - [ ] 1개/2개 분할 방사형 섹터 테두리 모두 일관된 두께 적용
+  - [ ] `npm test` 단위 테스트 100% Pass
+- **관련 파일**:
+  - `dream_guardian/src/render/PartIconRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/part-icon-renderer.test.ts`
+
+---
+
+### Issue #164 (Card #95): [UI-ANS-002] 답안 버튼 위치 4, 5번 피트니스 존 하단 X축 정렬 배치
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/164
+- **Labels**: `phase-6`, `feature`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[UI-ANS-002]`
+- **상태**: ⚪ **등록 완료 (승인 대기)**
+- **목적**:
+  - 플레이어가 4번 존(좌측 중단)과 5번 존(우측 중단)을 보면서 자연스럽게 직관적으로 답안을 인지할 수 있도록, 답안 버튼 0/1의 X 좌표와 너비를 4번/5번 피트니스 존 바로 아래에 수직 정렬한다.
+- **수정 대상**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/config/zone.config.ts`
+- **상세 요구사항 및 신규 구현 내용**:
+  1. Zone 4(좌: x 0.04, w 0.26) 및 Zone 5(우: x 0.70, w 0.26)의 실제 좌표 기준 정렬:
+     - 0번(좌측) 답안 버튼: X축을 Zone 4와 동일하게 맞추고, 너비 또한 Zone 4 너비(또는 중심)에 정렬.
+     - 1번(우측) 답안 버튼: X축을 Zone 5와 동일하게 맞추고, 너비 또한 Zone 5 너비(또는 중심)에 정렬.
+  2. Y 좌표를 Zone 4, 5의 하단 경계(`y = 0.40`, 가상 해상도 864px) 바로 아래(예: 880px ~ 920px)로 배치.
+  3. 요구 부위 아이콘 및 키보드 안내 문구가 재배치된 버튼의 중심 X축에 맞춰 자동 정렬.
+- **유지 사항**:
+  - 답안 버튼 2개(좌/우) 매핑 구조 및 선택 결과 처리
+  - 피트니스 존 자체의 독립 좌표계
+- **변경 금지**:
+  - 피트니스 존 1~11번의 좌표 정의 (`config/zone.config.ts` 내부 기본 좌표는 불변)
+- **완료 조건**:
+  - [ ] 0번 답안 버튼의 중심 X축이 4번 피트니스 존의 중심 X축과 일치
+  - [ ] 1번 답안 버튼의 중심 X축이 5번 피트니스 존의 중심 X축과 일치
+  - [ ] Y축 위치가 4, 5번 존의 바로 아래쪽에 위치
+  - [ ] `npm test` 회귀 결함 0건
+- **관련 파일**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/config/zone.config.ts`
+
+---
+
+### Issue #165 (Card #96): [RENDER-MATH-001] 문제 영역 마젠타 사각 박스 가상 영역화 (화면 표시 제거)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/165
+- **Labels**: `phase-6`, `feature`, `P2-medium`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[RENDER-MATH-001]`
+- **상태**: ⚪ **등록 완료 (승인 대기)**
+- **목적**:
+  - 현재 화면 중앙에 렌더링되는 마젠타(#FF28D8) 테두리 및 반투명 배경 박스는 레이아웃 배치를 위한 가상 영역이므로, 실제 화면 드로잉을 제거하여 3D 배경 그리드 및 보스가 가려지지 않고 깔끔하게 보이도록 한다.
+- **수정 대상**:
+  - `dream_guardian/src/main.ts`
+- **상세 요구사항 및 신규 구현 내용**:
+  1. `renderQuestion` 함수 내 마젠타 사각 박스를 그리는 `ctx.stroke()`, `ctx.fill()`, `ctx.shadowColor = '#FF28D8'` 코드 블록 비활성화/제거.
+  2. `boxX, boxY, boxW, boxH` 좌표 변수는 문제 텍스트 및 답안 버튼의 상대 기준 좌표로만 내부 유지(가상 영역화).
+- **유지 사항**:
+  - 문제 텍스트 및 자식 요소들의 배치 기준 좌표계
+  - 문제 표시 플래그(`questionVisible`) 로직
+- **변경 금지**:
+  - 문제 수식 렌더링 및 답안 버튼 렌더링 호출
+- **완료 조건**:
+  - [ ] 인게임 문제 화면에서 마젠타색 테두리와 어두운 사각형 배경이 화면에 나타나지 않음
+  - [ ] 문제 텍스트와 답안 버튼은 정상 위치에 선명하게 표시
+  - [ ] `npm test` 회귀 결함 0건
+- **관련 파일**:
+  - `dream_guardian/src/main.ts`
+
+---
+
+### Issue #167 (Card #97): [RENDER-MATH-002] 문제 폰트 1.5배 확대 및 영역 초과 시 자동 줄바꿈(Word Wrap)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/167
+- **Labels**: `phase-6`, `feature`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[RENDER-MATH-002]`
+- **상태**: ⚪ **등록 완료 (승인 대기)**
+- **목적**:
+  - 1~2m 떨어진 상태에서 문제 수식의 가독성을 대폭 끌어올리기 위해 기본 폰트 크기를 1.5배 확대하고, 긴 문장이나 분수식이 가상 문제 폭을 초과할 경우 안전하게 여러 줄로 줄바꿈한다.
+- **수정 대상**:
+  - `dream_guardian/src/render/MathRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/math-renderer.test.ts`
+- **상세 요구사항 및 신규 구현 내용**:
+  1. 기본 폰트 크기를 기존 `88 * scaleX`에서 `132 * scaleX`(1.5배)로 기본값 상향.
+  2. MathRenderer multiline / wrap 지원: 가상 문제 영역 폭(`maxWidth = 880 * scaleX` 또는 지정 폭)을 초과하는 토큰 스트림을 연산자나 공백 단위로 분할하여 다음 줄로 줄바꿈.
+  3. 각 줄의 수직 간격(`lineHeight = fontSize * 1.35`)을 계산하여 전체 텍스트 블록을 수직/수평 중앙 정렬.
+  4. 분수 토큰(whole, num, den) 및 거듭제곱, 루트 토큰이 중간에 비정상적으로 분리되지 않고 단일 단위로 줄바꿈되도록 보장.
+- **유지 사항**:
+  - 교과서 표준 분수선, 루트, 지수 거듭제곱 파싱 규칙
+  - [ ? ] 빈칸 하이라이트 박스 색상
+- **변경 금지**:
+  - `QuestionBank` 및 CSV 문제 텍스트 원본 데이터
+- **완료 조건**:
+  - [ ] 짧은 문제는 1.5배(132px급) 대형 폰트로 선명하게 표시
+  - [ ] 폭을 초과하는 긴 문제는 글자가 화면 밖으로 짤리지 않고 자연스럽게 2~3줄로 줄바꿈
+  - [ ] 분수 토큰 도중에 비정상적으로 분리되지 않음
+  - [ ] `npm test` 단위 테스트 100% Pass
+- **관련 파일**:
+  - `dream_guardian/src/render/MathRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/math-renderer.test.ts`
+
+---
+
+### Issue #168 (Card #98): [UI-MENU-003] 홈 메뉴 메인 타이틀 및 서브 문구 변경
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/168
+- **Labels**: `phase-6`, `feature`, `P2-medium`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[UI-MENU-003]`
+- **상태**: ⚪ **등록 완료 (승인 대기)**
+- **목적**:
+  - 홈 화면 최상단 타이틀과 서브 슬로건 문구를 최신 기획 및 사용자 지정 명칭으로 갱신한다.
+- **수정 대상**:
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+- **상세 요구사항 및 신규 구현 내용**:
+  1. 상단 메인 타이틀: 기존 '꿈속 세계 탐험'에서 지정된 새 명칭으로 교체.
+  2. 하단 슬로건 문구: 기존 '알레와 함께 신비로운 꿈의 성역으로 다이빙!'에서 새 슬로건으로 교체.
+  3. 네온 섀도우 및 폰트 크기(76px) 시각 효과 정합성 유지.
+- **유지 사항**:
+  - 챕터 카드 레이아웃 및 상단 텍스트 중앙 정렬 위치
+- **변경 금지**:
+  - 챕터별 이름(에메랄드 심해 등) 및 카드 선택 히트테스트
+- **완료 조건**:
+  - [ ] 홈 메뉴 상단에 변경된 메인 타이틀과 슬로건이 정상 표시
+  - [ ] 글자 수 변경에 따른 중앙 정렬 및 여백 이상 없음
+  - [ ] `npm test` 단위 테스트 100% Pass
+- **관련 파일**:
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+
+---
+
+### Issue #169 (Card #99): [INPUT-MOTION-001] 인게임 문제 스테이지 양손 합장 제스처 메뉴 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/169
+- **Labels**: `phase-3`, `feature`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[INPUT-MOTION-001]`
+- **상태**: ⚪ **등록 완료 (승인 대기)**
+- **목적**:
+  - 메인 메뉴 및 결과 화면뿐만 아니라 인게임 문제 풀이 스테이지에서도 두 손을 모으면 양손 합장 커서가 나타나고, 하단 고정 바의 일시정지/설정 버튼을 호버(0.8초)하여 조작할 수 있도록 개선한다.
+- **수정 대상**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/input/MenuInput.ts`
+  - `dream_guardian/tests/unit/input-system.test.ts`
+- **상세 요구사항 및 신규 구현 내용**:
+  1. `screenMode === 'game'` (문제 풀이 및 달리기 페이즈 포함) 상태에서도 매 프레임 `menuInput.update(leftHand.x, leftHand.y, rightHand.x, rightHand.y)` 실행.
+  2. 합장 감지(`menuInput.isActive`) 시 화면에 금빛 네온 합장 링 커서 및 호버 링 렌더링.
+  3. 합장 커서 위치로 하단 바 설정 버튼(좌) 및 일시정지 버튼(우) 호버 타이머 누적 (0.8초 체류 시 기능 동작).
+  4. 합장 중(`menuInput.isActive === true`)일 때는 답안 피트니스 존 판정을 일시 정지(Pause)하여 오작동 방지.
+- **유지 사항**:
+  - 메뉴/결과 화면의 합장 제스처 인터랙션 및 키보드 조작 호환
+- **변경 금지**:
+  - AnswerSelector의 기존 제스처 판정 로직 원본 구조
+- **완료 조건**:
+  - [ ] 인게임 문제 풀이 중 양손을 모으면 중앙에 금빛 합장 커서가 등장
+  - [ ] 합장 커서를 하단 정지/설정 버튼에 0.8초 유지하면 해당 기능 정상 동작
+  - [ ] 합장 해제 시 즉시 통상 4색 신체 커서로 복귀
+  - [ ] `npm test` 단위 테스트 100% Pass
+- **관련 파일**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/input/MenuInput.ts`
+  - `dream_guardian/tests/unit/input-system.test.ts`
+
+---
+
+### Issue #170 (Card #100): [INPUT-ZONE-001] Head(머리) 및 Hip(골반) 커서 피트니스 존 진입 감도 최적화
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/170
+- **Labels**: `phase-3`, `feature`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[INPUT-ZONE-001]`
+- **상태**: 🟢 **완료 (100% Pass)**
+- **목적**:
+  - 현재 Head(타원)와 Hip(마름모) 커서는 모두 단일 중심점(코 좌표, 양 골반 중점) 1점만으로 판정하여, 시각적으로 커서 면적의 50% 이상이 존 경계선을 완전히 넘어가야만 게이지가 차오르기 시작한다.
+  - 플레이어의 신체 피로도를 개선하고, Head와 Hip 커서가 존 영역에 자연스럽게 진입했을 때(외곽 접촉 또는 25% 진입) 즉시 부드럽게 충전이 개시되도록 감도를 최적화한다.
+- **수정 대상**:
+  - `dream_guardian/src/input/PostureMatcher.ts`
+  - `dream_guardian/config/posture.config.ts`
+  - `dream_guardian/tests/unit/posture-matcher.test.ts`
+- **상세 요구사항 및 신규 구현 내용**:
+  1. 커서 부위별(head, hip) 시각적 크기(반경 및 halfWidth/halfHeight)를 고려한 진입 여유 마진(margin) 적용 (Head 타원 25% 진입, Hip 마름모 25% 진입 시 즉각 충전 시작).
+  2. 외곽/마진 영역 진입 시 `edgeWeight`(0.75)로 부드럽게 감속 충전 개시, 중심점 완전 진입 시 `centerWeight`(1.5)로 정상 속도 충전.
+  3. 설정값 분리 (`config/posture.config.ts`: `cursorEntryMargin: { head: 0.03, hip: 0.04, hand: 0.0 }`).
+- **유지 사항**:
+  - Hand(손) 커서의 기존 정밀 판정 로직 유지
+  - 11개 피트니스 존 상호 간 겹침 0% 레이아웃 규격 유지
+  - 기존 Deadlock Guard 및 PartGate 캘리브레이션 안정성 유지
+- **변경 금지**:
+  - `config/zone.config.ts`의 피트니스 존 기본 좌표(1~11번)
+  - Head와 Hip의 상호 배타적 존 규칙 (`HEAD_ZONES ∩ HIP_ZONES = ∅`)
+- **완료 조건**:
+  - [x] Head 커서가 피트니스 존 경계에 살짝 닿거나 25% 진입했을 때 체류 게이지 즉시 충전 개시
+  - [x] Hip 커서(스쿼트/골반 이동) 역시 중심점이 완전히 닿기 전 외곽 진입 시 즉시 체류 게이지 충전 개시
+  - [x] 인접한 다른 존으로 오인식(False Positive)되는 현상 0건
+  - [x] `npm test -- posture-matcher.test.ts` 100% Pass
+- **관련 파일**:
+  - `dream_guardian/src/input/PostureMatcher.ts`
+  - `dream_guardian/config/posture.config.ts`
+  - `dream_guardian/tests/unit/posture-matcher.test.ts`
+
 
 
 

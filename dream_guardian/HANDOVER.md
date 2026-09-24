@@ -102,6 +102,14 @@
 | 17 | `FEAT-ZONE-004` | [#158](https://github.com/Choyounhwa/-dream-guardian/issues/158) | PostureGenerator C8 제약(Cross-Body) 통합 및 패턴 풀 필터링 | • **[신규]** `PostureGenerator`에 C8 제약(Hip 9~11 시 손 1~3 차단) 추가<br>• **[필터]** `FitnessPatternLoader` 및 `validatePosturePair()` 런타임 위반 차단 | ⚪ **대기 (승인 대기)** |
 | 18 | `FEAT-GUIDE-001` | [#159](https://github.com/Choyounhwa/-dream-guardian/issues/159) | 목표 자세 실루엣 가이드 오버레이 (PostureGuideRenderer) 구현 | • **[신규]** `PostureGuideRenderer.ts` 생성<br>• **[시각화]** 반투명 스틱맨 인체 실루엣 및 목표 존 네온 하이라이트(부위 색상 글로우 + 중앙 아이콘) | ⚪ **대기 (승인 대기)** |
 | 19 | `FEAT-GUIDE-002` | [#160](https://github.com/Choyounhwa/-dream-guardian/issues/160) | 스테이지 시작 첫 문제 유도 화살표(Arrow Hint) 표시 | • **[신규]** 스테이지 첫 문제(`questionNumber === 1`)에서만 커서→목표존 방향 화살표 렌더링<br>• **[소멸]** 목표 존 진입 시 소멸 및 5초 경과 시 자동 페이드아웃 (두 번째 문제부터 미표시) | ⚪ **대기 (승인 대기)** |
+| 20 | `UI-BAR-003` | [#162](https://github.com/Choyounhwa/-dream-guardian/issues/162) | 설정 및 정지 버튼 문자 제거 및 아이콘화 | • **[개편]** 좌측 '⚙ 설정' 한글 제거 후 톱니바퀴 아이콘화, 우측 인게임 '정지' 한글 제거 후 일시정지(⏸) 아이콘화 | ⚪ **대기 (승인 대기)** |
+| 21 | `UI-ANS-001` | [#163](https://github.com/Choyounhwa/-dream-guardian/issues/163) | 답안 버튼 외곽선 두께 2배 증가 | • **[강화]** 답안 버튼 외곽선 테두리 선 두께를 기존 4px 대비 2배(8px)로 확장하여 원거리 시인성 극대화 | ⚪ **대기 (승인 대기)** |
+| 22 | `UI-ANS-002` | [#164](https://github.com/Choyounhwa/-dream-guardian/issues/164) | 답안 버튼 위치 4, 5번 피트니스 존 하단 X축 정렬 배치 | • **[재배치]** 0번/1번 답안 버튼을 4번(좌)/5번(우) 피트니스 존과 X축 위치를 일치시키고 바로 아래 하단에 배치 | ⚪ **대기 (승인 대기)** |
+| 23 | `RENDER-MATH-001` | [#165](https://github.com/Choyounhwa/-dream-guardian/issues/165) | 문제 영역 마젠타 사각 박스 가상 영역화 (화면 표시 제거) | • **[정돈]** 마젠타(#FF28D8) 테두리 및 반투명 배경 박스 화면 드로잉 제거, 가상 레이아웃 좌표계로만 유지 | ⚪ **대기 (승인 대기)** |
+| 24 | `RENDER-MATH-002` | [#167](https://github.com/Choyounhwa/-dream-guardian/issues/167) | 문제 폰트 1.5배 확대 및 영역 초과 시 자동 줄바꿈(Word Wrap) | • **[가독성]** 기본 문제 폰트 1.5배(132px급) 확대, 문제 영역 폭 초과 시 연산자/공백 단위 자동 줄바꿈 지원 | ⚪ **대기 (승인 대기)** |
+| 25 | `UI-MENU-003` | [#168](https://github.com/Choyounhwa/-dream-guardian/issues/168) | 홈 메뉴 메인 타이틀 및 서브 문구 변경 | • **[텍스트]** 홈 메뉴 최상단 메인 타이틀 및 슬로건 문구를 최신 기획 및 사용자 지정 명칭으로 교체 | ⚪ **대기 (승인 대기)** |
+| 26 | `INPUT-MOTION-001` | [#169](https://github.com/Choyounhwa/-dream-guardian/issues/169) | 인게임 문제 스테이지 양손 합장 제스처 메뉴 연동 | • **[인터랙션]** 인게임 문제/달리기 중에도 두 손 모을 시 합장 커서 표출 및 하단 설정/정지 버튼 0.8초 호버 조작 지원 | ⚪ **대기 (승인 대기)** |
+| 27 | `INPUT-ZONE-001` | [#170](https://github.com/Choyounhwa/-dream-guardian/issues/170) | Head(머리) 및 Hip(골반) 커서 피트니스 존 진입 감도 최적화 | • **[감도]** 코/골반 중심점 1점 판정에서 바운딩 마진(25% 진입 또는 외곽 접촉 시 즉각 충전 개시)으로 최적화 | 🟢 **완료 (100% Pass)** |
 
 ---
 
