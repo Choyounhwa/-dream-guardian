@@ -2256,14 +2256,14 @@
 - **Labels**: `phase-3`, `feature`, `P1-high`
 - **Milestone**: `v0.3-vision-motion`
 - **작업 ID**: `[FEAT-MOTION-001]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (Pass)**
 - **목적**:
   - 아파트 층간 소음, 좁은 공간, 하체 부상 등 뛸 수 없는 환경에서 플레이어가 게임에 몰입할 수 있도록 골반 상하(무소음 바운스), 골반 좌우(스웨이/트월킹), 양손 교차(드라이빙/휠 펌핑) 3가지 저소음 대체 이동 감지기를 구현하고 공통 Locomotion 감지 인터페이스를 확립한다.
 - **완료 조건**:
-  - [ ] `ILocomotionDetector` 인터페이스 및 3종 신규 감지기(`HipBounceDetector`, `HipSwayDetector`, `ArmCrossDetector`) 구현
-  - [ ] 골반 상하, 골반 좌우, 양손 교차 모션 시뮬레이션에서 스텝 카운트와 활성 상태를 정확하게 판정
-  - [ ] `Config.ts`에 모드별 감도 파라미터 외부화 완료
-  - [ ] 단위 테스트(`tests/unit/locomotion-detectors.test.ts`) 100% Pass 및 전체 테스트 회귀 없음
+  - [x] `ILocomotionDetector` 인터페이스 및 3종 신규 감지기(`HipBounceDetector`, `HipSwayDetector`, `ArmCrossDetector`) 구현
+  - [x] 골반 상하, 골반 좌우, 양손 교차 모션 시뮬레이션에서 스텝 카운트와 활성 상태를 정확하게 판정
+  - [x] `Config.ts`에 모드별 감도 파라미터 외부화 완료
+  - [x] 단위 테스트(`tests/unit/locomotion-detectors.test.ts`) 100% Pass 및 전체 테스트 회귀 없음
 - **관련 파일**:
   - `dream_guardian/src/types/index.ts`
   - `dream_guardian/src/core/Config.ts`

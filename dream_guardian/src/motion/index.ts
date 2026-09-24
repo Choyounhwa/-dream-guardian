@@ -6,3 +6,7 @@ export { CalibrationHelper } from './CalibrationHelper.js';
 export { RunDetector } from './RunDetector.js';
 export { SquatDetector } from './SquatDetector.js';
 export { JumpDetector } from './JumpDetector.js';
+export type { ILocomotionDetector, LocomotionMode } from './LocomotionDetector.js';
+export { HipBounceDetector } from './HipBounceDetector.js';
+export { HipSwayDetector } from './HipSwayDetector.js';
+export { ArmCrossDetector } from './ArmCrossDetector.js';

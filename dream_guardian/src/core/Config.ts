@@ -41,6 +41,9 @@ export const DEFAULT_CONFIG: GameConfig = {
     jumpSpeedMin: 0.22,
     runBounceMin: 0.012,
     stepInterval: 0.2,
+    hipBounceMin: 0.010,
+    hipSwayMin: 0.012,
+    armCrossMin: 0.030,
   },
   input: {
     dwellTime: POSTURE_TIMING_CONFIG.defaultDwellTime,

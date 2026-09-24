@@ -75,6 +75,9 @@ export interface GameConfig {
     jumpSpeedMin: number;
     runBounceMin: number;
     stepInterval: number;
+    hipBounceMin?: number;
+    hipSwayMin?: number;
+    armCrossMin?: number;
   };
   input: {
     dwellTime: number;
