@@ -6,6 +6,8 @@ import {
   HEAD_ZONES,
   HIP_ZONES,
   SHOULDER_ZONES,
+  LEFT_HAND_ZONES,
+  RIGHT_HAND_ZONES,
   CURSOR_COLORS,
   CURSOR_CONFIDENCE_THRESHOLD,
   TIER_CONFIGS,
@@ -64,6 +66,10 @@ describe('Architecture Test', () => {
     expect(HEAD_ZONES.size).toBeGreaterThan(0);
     expect(HIP_ZONES.size).toBeGreaterThan(0);
     expect(SHOULDER_ZONES.size).toBeGreaterThan(0);
+    expect(LEFT_HAND_ZONES.size).toBe(7);
+    expect(RIGHT_HAND_ZONES.size).toBe(6);
+    expect(LEFT_HAND_ZONES.has(4)).toBe(true);
+    expect(RIGHT_HAND_ZONES.has(8)).toBe(true);
 
     // 2. cursor.config 검증
     expect(CURSOR_COLORS.leftHand).toBe('#28E6FF');

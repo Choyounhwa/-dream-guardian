@@ -307,6 +307,28 @@ describe('RecipeGenerator (Issue #104)', () => {
     const hasOverlap = leftCursors.some((c) => rightCursors.includes(c));
     expect(hasOverlap).toBe(false);
   });
+
+  it('신체 부위별(왼손/오른손 비대칭 및 머리/골반) 허용 존이 엄격히 판정된다 (Issue #151 / FEAT-POSE-006)', () => {
+    // 왼손: 1, 2, 4, 6, 7, 9, 10 허용, 3, 5, 8, 11 불허
+    expect(generator.isValidZoneForCursor('leftHand', 4)).toBe(true);
+    expect(generator.isValidZoneForCursor('leftHand', 1)).toBe(true);
+    expect(generator.isValidZoneForCursor('leftHand', 3)).toBe(false);
+    expect(generator.isValidZoneForCursor('leftHand', 8)).toBe(false);
+
+    // 오른손: 2, 3, 7, 8, 10, 11 허용, 1, 4, 5, 6, 9 불허
+    expect(generator.isValidZoneForCursor('rightHand', 3)).toBe(true);
+    expect(generator.isValidZoneForCursor('rightHand', 8)).toBe(true);
+    expect(generator.isValidZoneForCursor('rightHand', 4)).toBe(false);
+    expect(generator.isValidZoneForCursor('rightHand', 1)).toBe(false);
+
+    // 머리: 1~5 허용, 6~11 불허
+    expect(generator.isValidZoneForCursor('head', 2)).toBe(true);
+    expect(generator.isValidZoneForCursor('head', 7)).toBe(false);
+
+    // 골반: 6~11 허용, 1~5 불허
+    expect(generator.isValidZoneForCursor('hip', 7)).toBe(true);
+    expect(generator.isValidZoneForCursor('hip', 1)).toBe(false);
+  });
 });
 
 describe('Shared Active Zone & Color Cursor Mechanism (Issue #150 / REFACTOR-POSE-001)', () => {

@@ -81,3 +81,13 @@ export const SHOULDER_ZONES = new Set<number>([4, 5, 6, 7, 8]);
  * 엉덩이/골반 커서 사용 가능 존 (하단 및 스쿼트 존 6, 7, 8, 9, 10, 11)
  */
 export const HIP_ZONES = new Set<number>([6, 7, 8, 9, 10, 11]);
+
+/**
+ * 왼손 커서 사용 가능 존 (1, 2, 4, 6, 7, 9, 10 - 비대칭 설계, Issue #151)
+ */
+export const LEFT_HAND_ZONES = new Set<number>([1, 2, 4, 6, 7, 9, 10]);
+
+/**
+ * 오른손 커서 사용 가능 존 (2, 3, 7, 8, 10, 11 - 비대칭 설계, Issue #151)
+ */
+export const RIGHT_HAND_ZONES = new Set<number>([2, 3, 7, 8, 10, 11]);

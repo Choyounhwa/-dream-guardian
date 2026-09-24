@@ -11,7 +11,13 @@
  */
 
 import type { FitnessZone } from '../../config/zone.config.js';
-import { FITNESS_ZONES, HEAD_ZONES, HIP_ZONES } from '../../config/zone.config.js';
+import {
+  FITNESS_ZONES,
+  HEAD_ZONES,
+  HIP_ZONES,
+  LEFT_HAND_ZONES,
+  RIGHT_HAND_ZONES,
+} from '../../config/zone.config.js';
 import type { CursorType } from '../../config/cursor.config.js';
 import type { TierConfig as TierInfo } from '../../config/posture.config.js';
 import { PostureGenerator } from './PostureGenerator.js';
@@ -125,11 +131,13 @@ export class RecipeGenerator {
   }
 
   /**
-   * 주어진 신체 커서가 특정 피트니스 존에 유효한지 검증
+   * 주어진 신체 커서가 특정 피트니스 존에 유효한지 검증 (Issue #151: 왼손/오른손 비대칭 허용 존 준수)
    */
   isValidZoneForCursor(cursor: CursorType, zoneId: number): boolean {
     if (cursor === 'head') return HEAD_ZONES.has(zoneId);
     if (cursor === 'hip') return HIP_ZONES.has(zoneId);
-    return true; // 손(leftHand, rightHand)은 전 구역 사용 가능
+    if (cursor === 'leftHand') return LEFT_HAND_ZONES.has(zoneId);
+    if (cursor === 'rightHand') return RIGHT_HAND_ZONES.has(zoneId);
+    return false;
   }
 }

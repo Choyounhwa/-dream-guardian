@@ -18,6 +18,8 @@ import {
   DEFAULT_FITNESS_ZONES,
   HEAD_ZONES,
   HIP_ZONES,
+  LEFT_HAND_ZONES,
+  RIGHT_HAND_ZONES,
   type FitnessZone,
 } from '../../config/zone.config.js';
 import { TIER_CONFIGS, type TierConfig } from '../../config/posture.config.js';
@@ -45,31 +47,36 @@ export interface PostureGeneratorOptions {
 
 /**
  * 큐레이션된 기본 피트니스 체조 패턴 16종 (외부 데이터 부재 시 내장 풀)
+ *
+ * Issue #151 (FEAT-POSE-006):
+ * - 왼손 비대칭 허용 구역 (LEFT_HAND_ZONES: 1, 2, 4, 6, 7, 9, 10)
+ * - 오른손 비대칭 허용 구역 (RIGHT_HAND_ZONES: 2, 3, 7, 8, 10, 11)
+ * - 완전 색상 비공유 원칙 (A.parts ∩ B.parts = ∅) 준수
  */
 export const DEFAULT_CURATED_PATTERNS: AnswerPosture[] = [
-  // Tier 1 (단일 손 및 기본 도달)
+  // Tier 1 (단일 손 및 기본 도달: 왼손 vs 오른손)
   { choiceIndex: 0, parts: ['leftHand'], zoneIds: [1], binding: 'any', patternId: 'P01_L_UP' },
   { choiceIndex: 1, parts: ['rightHand'], zoneIds: [3], binding: 'any', patternId: 'P02_R_UP' },
   { choiceIndex: 0, parts: ['leftHand'], zoneIds: [4], binding: 'any', patternId: 'P03_L_MID' },
-  { choiceIndex: 1, parts: ['rightHand'], zoneIds: [5], binding: 'any', patternId: 'P04_R_MID' },
+  { choiceIndex: 1, parts: ['rightHand'], zoneIds: [8], binding: 'any', patternId: 'P04_R_MID' },
 
-  // Tier 2 (양손 또는 머리 스트레칭)
-  { choiceIndex: 0, parts: ['leftHand', 'rightHand'], zoneIds: [1, 3], binding: 'any', patternId: 'P05_BOTH_V' },
-  { choiceIndex: 1, parts: ['leftHand', 'rightHand'], zoneIds: [2, 2], binding: 'any', patternId: 'P06_BOTH_TOP' },
-  { choiceIndex: 0, parts: ['head'], zoneIds: [1], binding: 'ordered', patternId: 'P07_HEAD_LEFT' },
-  { choiceIndex: 1, parts: ['head'], zoneIds: [3], binding: 'ordered', patternId: 'P08_HEAD_RIGHT' },
-  { choiceIndex: 0, parts: ['leftHand', 'head'], zoneIds: [1, 2], binding: 'any', patternId: 'P09_L_HEAD' },
-  { choiceIndex: 1, parts: ['rightHand', 'head'], zoneIds: [3, 2], binding: 'any', patternId: 'P10_R_HEAD' },
+  // Tier 2 (머리 vs 손 스트레칭: 상호 배타)
+  { choiceIndex: 0, parts: ['head'], zoneIds: [1], binding: 'ordered', patternId: 'P05_HEAD_L' },
+  { choiceIndex: 1, parts: ['rightHand'], zoneIds: [3], binding: 'any', patternId: 'P06_RH_UP' },
+  { choiceIndex: 0, parts: ['leftHand'], zoneIds: [4], binding: 'any', patternId: 'P07_LH_MID' },
+  { choiceIndex: 1, parts: ['head'], zoneIds: [2], binding: 'ordered', patternId: 'P08_HEAD_TOP' },
 
-  // Tier 3 (골반/스쿼트 및 전신 협응)
-  { choiceIndex: 0, parts: ['hip'], zoneIds: [7], binding: 'ordered', patternId: 'P11_SQUAT' },
-  { choiceIndex: 1, parts: ['leftHand', 'hip'], zoneIds: [4, 7], binding: 'any', patternId: 'P12_L_SQUAT' },
-  { choiceIndex: 0, parts: ['rightHand', 'hip'], zoneIds: [5, 7], binding: 'any', patternId: 'P13_R_SQUAT' },
-  { choiceIndex: 1, parts: ['leftHand', 'rightHand', 'hip'], zoneIds: [4, 5, 7], binding: 'any', patternId: 'P14_T_SQUAT' },
+  // Tier 3 (전신 협응 2부위: {왼손, 골반} vs {오른손, 머리})
+  { choiceIndex: 0, parts: ['leftHand', 'hip'], zoneIds: [4, 7], binding: 'any', patternId: 'P09_L_SQUAT' },
+  { choiceIndex: 1, parts: ['rightHand', 'head'], zoneIds: [8, 2], binding: 'any', patternId: 'P10_R_HEAD' },
+  { choiceIndex: 0, parts: ['head', 'leftHand'], zoneIds: [2, 1], binding: 'any', patternId: 'P11_HEAD_LH' },
+  { choiceIndex: 1, parts: ['hip', 'rightHand'], zoneIds: [7, 8], binding: 'any', patternId: 'P12_HIP_RH' },
 
-  // Tier 4 (보스 피니시 - 전신 및 고난도)
-  { choiceIndex: 0, parts: ['leftHand', 'rightHand', 'head'], zoneIds: [1, 3, 2], binding: 'any', patternId: 'P15_FINISH_1' },
-  { choiceIndex: 1, parts: ['leftHand', 'rightHand', 'hip'], zoneIds: [1, 3, 7], binding: 'any', patternId: 'P16_FINISH_2' },
+  // Tier 4 (보스 피니시 2부위: 완전 색상 비공유 조합)
+  { choiceIndex: 0, parts: ['leftHand', 'hip'], zoneIds: [2, 7], binding: 'any', patternId: 'P13_FINISH_L' },
+  { choiceIndex: 1, parts: ['rightHand', 'head'], zoneIds: [2, 7], binding: 'any', patternId: 'P14_FINISH_R' },
+  { choiceIndex: 0, parts: ['leftHand', 'head'], zoneIds: [1, 2], binding: 'any', patternId: 'P15_FINISH_ALT_L' },
+  { choiceIndex: 1, parts: ['rightHand', 'hip'], zoneIds: [3, 7], binding: 'any', patternId: 'P16_FINISH_ALT_R' },
 ];
 
 /**
@@ -98,17 +105,15 @@ export function validatePosturePair(
     };
   }
 
-  // ── C2: 상호 배타적 부위 보장 (A \ B ≠ ∅ AND B \ A ≠ ∅) ──
-  const setA = new Set(postureA.parts);
+  // ── C2: 완전 색상 비공유 보장 (A.parts ∩ B.parts = ∅, Issue #151) ──
   const setB = new Set(postureB.parts);
-  const aDiffB = postureA.parts.filter((p) => !setB.has(p));
-  const bDiffA = postureB.parts.filter((p) => !setA.has(p));
+  const sharedParts = postureA.parts.filter((p) => setB.has(p));
 
-  if (aDiffB.length === 0 || bDiffA.length === 0) {
+  if (sharedParts.length > 0) {
     return {
       valid: false,
       violatedConstraint: 'C2',
-      reason: '양측 선택지 간 상호 배타적 부위가 없어 동시 충족(Deadlock) 위험이 있습니다.',
+      reason: `양측 선택지 간 공유하는 신체 부위(${sharedParts.join(', ')})가 존재하여 완전 색상 비공유 원칙을 위반합니다.`,
     };
   }
 
@@ -152,6 +157,20 @@ export function validatePosturePair(
           valid: false,
           violatedConstraint: 'C5',
           reason: `골반 커서는 하단 존(HIP_ZONES: 6~11)만 사용 가능하나 존 ${zId}가 할당되었습니다.`,
+        };
+      }
+      if (p === 'leftHand' && !LEFT_HAND_ZONES.has(zId)) {
+        return {
+          valid: false,
+          violatedConstraint: 'C5',
+          reason: `왼손 커서는 허용 존(LEFT_HAND_ZONES: 1, 2, 4, 6, 7, 9, 10)만 사용 가능하나 존 ${zId}가 할당되었습니다.`,
+        };
+      }
+      if (p === 'rightHand' && !RIGHT_HAND_ZONES.has(zId)) {
+        return {
+          valid: false,
+          violatedConstraint: 'C5',
+          reason: `오른손 커서는 허용 존(RIGHT_HAND_ZONES: 2, 3, 7, 8, 10, 11)만 사용 가능하나 존 ${zId}가 할당되었습니다.`,
         };
       }
     }
@@ -350,14 +369,14 @@ export class PostureGenerator {
     const fallbackB: AnswerPosture = {
       choiceIndex: 1,
       parts: ['rightHand'],
-      zoneIds: [5],
+      zoneIds: [8],
       binding: 'any',
       patternId: 'SAFE_FALLBACK_R',
     };
 
     return {
       tier,
-      activeZoneIds: [4, 5],
+      activeZoneIds: [4, 8],
       postures: [fallbackA, fallbackB],
     };
   }
