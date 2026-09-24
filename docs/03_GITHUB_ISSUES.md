@@ -2752,7 +2752,7 @@
 - **Labels**: `phase-3`, `feature`, `P1-high`
 - **Milestone**: `v0.5-input-ui`
 - **작업 ID**: `[FEAT-MOTION-002]`
-- **상태**: ⚪ **등록 완료 (승인 대기)**
+- **상태**: 🟢 **완료 (100% Pass)**
 - **목적**:
   - MediaPipe Pose의 손목 및 어깨 랜드마크를 기반으로 '왼손이 오른쪽 어깨에, 오른손이 왼쪽 어깨에 동시에 일정 거리 이내로 접근'하는 X자 교차 제스처를 감지하는 독립 감지기 `XGestureDetector`를 구현한다.
 - **수정 및 생성 대상**:
@@ -2782,11 +2782,11 @@
   - `src/input/AnswerSelector.ts` 내부의 피트니스 자세 판정식
   - 기존 `PoseManager` 수신 데이터 규격
 - **완료 조건**:
-  - [ ] 왼손-오른어깨, 오른손-왼어깨 동시 접근 시 X자 교차 감지
-  - [ ] 0.4초 체류 유지 시 정상 트리거 반환
-  - [ ] 트리거 후 1.0초 쿨다운 동안 추가 트리거 억제
-  - [ ] 양손 합장 자세를 X자로 오인식하지 않음 검증
-  - [ ] `npm test -- x-gesture-detector.test.ts` 100% Pass
+  - [x] 왼손-오른어깨, 오른손-왼어깨 동시 접근 시 X자 교차 감지
+  - [x] 0.4초 체류 유지 시 정상 트리거 반환
+  - [x] 트리거 후 1.0초 쿨다운 동안 추가 트리거 억제
+  - [x] 양손 합장 자세를 X자로 오인식하지 않음 검증
+  - [x] `npm test -- x-gesture-detector.test.ts` 100% Pass
 - **관련 파일**:
   - `dream_guardian/src/motion/XGestureDetector.ts`
   - `dream_guardian/src/motion/index.ts`
@@ -2878,6 +2878,113 @@
   - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
   - `dream_guardian/src/main.ts`
   - `dream_guardian/tests/unit/posture-guide-renderer.test.ts`
+
+---
+
+### Issue #174 (Card #104): [BUG-ZONE-002] Head 존 2 및 Hip 존 7 출제 배제 및 직립 자동 선택 방지
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/174
+- **Labels**: `phase-3`, `bug`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[BUG-ZONE-002]`
+- **상태**: 🟢 **완료 (Closed, 100% Pass)**
+- **목적**:
+  - 머리 커서가 선택지일 때 상단 2번 존에 출제되거나, 골반 커서가 중하단 7번 존에 출제되는 현상을 원천 차단한다.
+  - 플레이어가 카메라 앞에서 직립 대기 상태일 때 머리와 골반이 각각 2번, 7번 존에 위치하여, 문제 출제 즉시 움직임 없이도 정답이 자동 선택되던 결함을 근본 해결한다.
+- **수정 대상**:
+  - `dream_guardian/config/zone.config.ts`
+  - `dream_guardian/src/input/RecipeGenerator.ts`
+  - `dream_guardian/src/input/PostureGenerator.ts`
+  - `dream_guardian/src/data/FitnessPatternLoader.ts`
+  - `fitness pattern.csv` (root, `public/`, `src/data/` 3개 위치)
+  - `dream_guardian/tests/unit/zone-config.test.ts`
+  - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts`
+  - `dream_guardian/tests/unit/input-system.test.ts`
+  - `dream_guardian/tests/unit/fitness-pattern-loader.test.ts`
+  - `dream_guardian/tests/unit/posture-generator.test.ts`
+- **상세 요구사항 및 신규 구현 내용**:
+  1. **원인 분석**:
+     - `HEAD_ZONES`에 상단 1~3번 제외 규칙이 있었으나, 실제 런타임 문제 출제를 담당하는 `RecipeGenerator.ts`에서 Tier 2 (`commonZoneId = pickHeadLeft ? 2 : 1`), Tier 3 (`topZone = 2`) 존 번호가 하드코딩되어 `HEAD_ZONES`를 우회하고 2번에 출제됨.
+     - 카메라 앞 기본 직립 상태의 자연 좌표(머리 ~0.18, 골반 ~0.60)가 2번/7번 존 영역과 일치하여, 문제 출제 즉시 0초부터 체류 시간이 차올라 자동 선택됨.
+  2. **`config/zone.config.ts`**:
+     - `HIP_ZONES`에서 직립 기본 위치인 7번을 완전 배제하여 `new Set([6, 8, 9, 10, 11])`로 개편 (`isValidZoneForCursor('hip', 7)` -> `false`).
+  3. **`src/input/RecipeGenerator.ts`**:
+     - Tier 2 공용 존을 2/1번 대신 중단 좌/우인 4번 또는 5번 존으로 전면 교체하여 머리가 2번에 출제되지 않도록 수정.
+     - Tier 3을 상단 2번/중하 7번 대신 중단 4번(머리/손) + 하단 스쿼트 10번(골반/손)으로 교체하여 깊은 스쿼트나 명확한 틸트를 수행해야만 답안이 선택되도록 개편.
+  4. **`src/input/PostureGenerator.ts`**:
+     - 내장 큐레이션 패턴(`DEFAULT_CURATED_PATTERNS`) 내 7번 존이 포함된 P09~P16을 10번(하단 스쿼트), 6번(좌하), 8번(우하)으로 전수 교체.
+     - Tier 2 단일 부위 후보 필터링 보강으로 머리와 손이 상호 배타적으로 정상 매칭되도록 개선.
+  5. **`fitness pattern.csv` 전수 보정**:
+     - 원본 360건 패턴 중 골반이 7번으로 되어 있던 48건의 데이터를 상단 손과의 Cross-Body 물리 제약을 준수하는 유효 존(6번 좌하 스쿼트, 8번 우하 스쿼트, 10번 하단 스쿼트)으로 전수 보정하여 360건 무오류 파싱 및 로드 보장.
+- **유지 사항**:
+  - 양손 전 존 1~11 허용 및 머리 중단 4~5번 한정 규격 유지
+  - Cross-Body 물리 연동 제약 (골반 9~11 시 손 1~3 금지) 유지
+  - 좌/우 답안 동일 공용 활성 존(Shared Active Zone) 및 색상 비공유 원칙 유지
+- **완료 조건**:
+  - [x] Tier 2 및 Tier 3 출제 시 머리가 2번(및 1, 3번)에 할당되지 않음
+  - [x] 골반이 7번에 할당되지 않음
+  - [x] `fitness pattern.csv` 360건 전체에서 골반 7번 패턴 0건 및 100% 무오류 파싱
+  - [x] `npm test` 전체 477개 테스트 100% Pass
+- **관련 파일**:
+  - `dream_guardian/config/zone.config.ts`
+  - `dream_guardian/src/input/RecipeGenerator.ts`
+  - `dream_guardian/src/input/PostureGenerator.ts`
+  - `dream_guardian/src/data/FitnessPatternLoader.ts`
+  - `fitness pattern.csv`
+  - `dream_guardian/public/fitness pattern.csv`
+  - `dream_guardian/src/data/fitness pattern.csv`
+
+---
+
+### Issue #175 (Card #105): [FEAT-RHYTHM-001] 달리기 페이즈 4회(25%x4) 에너지 완충 및 상시 4박자 리듬 템포 문제 풀이 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/175
+- **Labels**: `phase-3`, `phase-5`, `feature`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[FEAT-RHYTHM-001]`
+- **상태**: 🟡 **진행 중 (In Progress)**
+- **목적**:
+  - 달리기 페이즈의 게이지 충전을 임의의 연속 충전 대신 명확한 4번의 스텝(스텝당 25%씩, 4회 달성 시 100% 완충)으로 변경한다.
+  - 상시 4/4박자 리듬 템포(BPM 120, 1박당 0.5초, 4박자 1마디 = 2.0초)를 연동하여, 달리기 4박자(1-2-3-4) → 문제 풀이 4박자(1-2-3-4)로 경쾌하게 이어지는 일체형 리듬 피트니스 게임플레이를 구현한다.
+  - 문제 풀이 시 피트니스 존 자세 유지(Dwell) 시간을 4박자 리듬(~2.0초)으로 정렬하고, 4박자 비트 틱 사운드 및 HUD 4세그먼트 시각 피드백을 제공한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/core/RhythmEngine.ts` (신규: 4박자 BPM 메트로놈 및 비트 동기화 엔진)
+  - `dream_guardian/src/audio/SFXSynth.ts` (메트로놈 강박/약박 및 비트 틱 SFX)
+  - `dream_guardian/config/posture.config.ts` (4박자 템포 기준 DwellTime 2.0초 정렬)
+  - `dream_guardian/src/input/AnswerSelector.ts` (4박자 리듬 체류 연동)
+  - `dream_guardian/src/main.ts` (달리기 4회 25% 완충, 4박자 게이지 세그먼트 UI, 메트로놈 루프 연동)
+  - `dream_guardian/tests/unit/rhythm-gameplay.test.ts` (신규 단위 테스트)
+- **상세 요구사항 및 신규 구현 내용**:
+  1. **달리기 페이즈 4회 완충 (25% x 4)**:
+     - 스텝 1회 감지(또는 Space/Click fallback 1회) 시 정확히 `runGauge += 25` 증가.
+     - 4스텝 도달 시 `runGauge = 100%`로 즉시 문제 풀이 페이즈로 전환.
+     - 스텝 간 자연스러운 4박자 리듬 간격(약 1.5초 이내) 동안 게이지가 누수되지 않도록 비활동 유예 시간(grace period: 1.5초) 적용.
+  2. **상시 4박자 리듬 템포 (RhythmEngine)**:
+     - 표준 피트니스 템포 BPM 120 (1박 = 0.50초, 4박 = 2.0초).
+     - 매 박마다 `beatIndex` (0, 1, 2, 3) 갱신 및 비트 펄스 발생.
+     - 1박(강박)에는 고음 메트로놈 틱(`metronome_strong`), 2·3·4박(약박)에는 부드러운 틱(`metronome_weak`) 재생.
+  3. **4박자 문제 풀이 연동**:
+     - 피트니스 존 자세 유지 시간(Dwell Time)을 4박자(2.0초)로 정렬.
+     - 자세 유지 중 매 박자마다 25%씩 충전되며 리듬 비트 틱과 함께 4박자 도달 시 즉시 정답 확정.
+  4. **인게임 HUD 4세그먼트 시각화**:
+     - 달리기 게이지 바 및 문제 풀이 체류 아크를 4개 블록/세그먼트로 분할 렌더링하여 1-2-3-4 리듬 진행도를 시각적으로 명확히 표시.
+- **유지 사항**:
+  - 기존 11개 피트니스 존 좌표 및 판정 알고리즘
+  - 기존 키보드(Space) 및 마우스 클릭 fallback 기능
+- **변경 금지**:
+  - `BattleState`, `BossController` 내부 수치 공식
+  - `QuestionBank` 수식 파싱 및 TTS 시스템
+- **완료 조건**:
+  - [ ] 달리기 페이즈에서 스텝 4회 시 게이지 100% 완충 및 문제 출제 전환
+  - [ ] Space/Click 역시 4회 시 100% 완충
+  - [ ] RhythmEngine이 BPM 120 기준 4박자 주기(0.5초 간격)를 정확히 카운트
+  - [ ] 문제 풀이 자세 유지 4박자(2.0초) 도달 시 정답 확정
+  - [ ] `npm test -- rhythm-gameplay.test.ts` 100% Pass
+  - [ ] 전체 단위 테스트 회귀 결함 0건
+- **관련 파일**:
+  - `dream_guardian/src/core/RhythmEngine.ts`
+  - `dream_guardian/src/audio/SFXSynth.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/rhythm-gameplay.test.ts`
+
 
 
 

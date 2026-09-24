@@ -116,7 +116,7 @@
 | 25 | `UI-MENU-003` | [#168](https://github.com/Choyounhwa/-dream-guardian/issues/168) | 홈 메뉴 메인 타이틀 및 서브 문구 변경 | • **[텍스트]** 홈 메뉴 최상단 메인 타이틀 및 슬로건 문구를 최신 기획 및 사용자 지정 명칭으로 교체 | ⚪ **대기 (승인 대기)** |
 | 26 | `INPUT-MOTION-001` | [#169](https://github.com/Choyounhwa/-dream-guardian/issues/169) | 인게임 문제 스테이지 양손 합장 제스처 메뉴 연동 | • **[인터랙션]** 인게임 문제/달리기 중에도 두 손 모을 시 합장 커서 표출 및 하단 설정/정지 버튼 0.8초 호버 조작 지원 | ⚪ **대기 (승인 대기)** |
 | 27 | `INPUT-ZONE-001` | [#170](https://github.com/Choyounhwa/-dream-guardian/issues/170) | Head(머리) 및 Hip(골반) 커서 피트니스 존 진입 감도 최적화 | • **[감도]** 코/골반 중심점 1점 판정에서 바운딩 마진(25% 진입 또는 외곽 접촉 시 즉각 충전 개시)으로 최적화 | 🟢 **완료 (100% Pass)** |
-| 28 | `BUG-ZONE-002` | - | Head 존 2 및 Hip 존 7 출제 배제 및 직립 자동 선택 방지 | • **[원인분석]** `HEAD_ZONES` 제약에도 `RecipeGenerator` 내 하드코딩 존(Tier 2: 2번, Tier 3: 2번/7번)으로 우회 출제 발생, 직립 시 머리(0.18)와 골반(0.60)이 각각 2번/7번에 자연 위치하여 출제 즉시 자동 선택 발생<br>• **[수정]** `HIP_ZONES`에서 7번 제외(`{6, 8, 9, 10, 11}`), `RecipeGenerator` Tier 2를 {4, 5}로, Tier 3을 4번(중단) + 10번(하단 스쿼트)으로 전면 교체<br>• **[데이터]** `fitness pattern.csv` 48건 골반 7번 패턴을 유효 존(6/8/10)으로 전수 보정 (360건 무오류 유지) | 🟢 **완료 (100% Pass)** |
+| 28 | `BUG-ZONE-002` | [#174](https://github.com/Choyounhwa/-dream-guardian/issues/174) | Head 존 2 및 Hip 존 7 출제 배제 및 직립 자동 선택 방지 | • **[원인분석]** `HEAD_ZONES` 제약에도 `RecipeGenerator` 내 하드코딩 존(Tier 2: 2번, Tier 3: 2번/7번)으로 우회 출제 발생, 직립 시 머리(0.18)와 골반(0.60)이 각각 2번/7번에 자연 위치하여 출제 즉시 자동 선택 발생<br>• **[수정]** `HIP_ZONES`에서 7번 제외(`{6, 8, 9, 10, 11}`), `RecipeGenerator` Tier 2를 {4, 5}로, Tier 3을 4번(중단) + 10번(하단 스쿼트)으로 전면 교체<br>• **[데이터]** `fitness pattern.csv` 48건 골반 7번 패턴을 유효 존(6/8/10)으로 전수 보정 (360건 무오류 유지) | 🟢 **완료 (100% Pass)** |
 
 ---
 

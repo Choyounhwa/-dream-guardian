@@ -10,3 +10,5 @@ export type { ILocomotionDetector, LocomotionMode } from './LocomotionDetector.j
 export { HipBounceDetector } from './HipBounceDetector.js';
 export { HipSwayDetector } from './HipSwayDetector.js';
 export { ArmCrossDetector } from './ArmCrossDetector.js';
+export { XGestureDetector } from './XGestureDetector.js';
+export type { XGestureResult } from './XGestureDetector.js';
