@@ -22,7 +22,7 @@ import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
 import { ResultRenderer, calcStars } from './ui/ResultRenderer.js';
 import type { ResultData } from './ui/ResultRenderer.js';
-import { BossRenderer, DreamGrid, renderMath, AnswerSelectionRenderer, PartIconRenderer, MagicCircleRenderer } from './render/index.js';
+import { BossRenderer, DreamGrid, renderMath, AnswerSelectionRenderer, PartIconRenderer, MagicCircleRenderer, PostureGuideRenderer } from './render/index.js';
 import { EffectManager } from './effects/index.js';
 import {
   RunDetector,
@@ -110,6 +110,7 @@ answerSelector.setViewport(
 );
 const answerSelectionRenderer = new AnswerSelectionRenderer();
 const magicCircleRenderer = new MagicCircleRenderer();
+const postureGuideRenderer = new PostureGuideRenderer();
 const menuInput = new MenuInput();
 const sfx = new SFXSynth();
 const tutorial = new TutorialOverlay();
@@ -586,6 +587,7 @@ const engine = new GameEngine({
     // Issue #140: 전 장면(메뉴·달리기·문제·결과) 커서 펄스 타이머 상시 갱신
     answerSelectionRenderer.update(dt);
     magicCircleRenderer.update(dt);
+    postureGuideRenderer.update(dt);
     tutorial.update(dt);
 
     // 웹캠 비디오 프레임 추출 및 스켈레톤 보간 파이프라인
@@ -1078,10 +1080,21 @@ const engine = new GameEngine({
       locomotionModal.render(ctx, vw, vh);
     }
 
+    // 7.8 Issue #159: 목표 자세 실루엣 가이드 오버레이 (PostureGuideRenderer)
+    const isQuestionPhase = screenMode === 'game' && gamePhase === 'question' && questionVisible;
+    if (isQuestionPhase && answerSelector.currentPlan) {
+      postureGuideRenderer.renderFromPlan(
+        ctx,
+        vw,
+        vh,
+        answerSelector.currentPlan,
+        answerSelector.choiceProgress,
+      );
+    }
+
     // 8. Issue #140 & #141: 전 장면(메뉴·달리기·문제·결과) 4색 스켈레톤 커서 상시 지속 렌더링
     // (하단 바 및 모달 위에 상시 렌더링되어 호버/클릭 지원)
     if (answerSelector.cursorTracker.cursors.size > 0) {
-      const isQuestionPhase = screenMode === 'game' && gamePhase === 'question' && questionVisible;
       const activeZones = isQuestionPhase && answerSelector.currentPlan ? answerSelector.currentPlan.activeZones : [];
       const choiceProgress: [number, number] = isQuestionPhase ? answerSelector.choiceProgress : [0, 0];
 

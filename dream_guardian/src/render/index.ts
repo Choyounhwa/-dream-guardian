@@ -8,6 +8,12 @@ export { DreamGrid } from './DreamGrid.js';
 export type { DreamGridConfig } from './DreamGrid.js';
 export { parseMath, measureToken, measureMath, renderMath } from './MathRenderer.js';
 export { AnswerSelectionRenderer } from './AnswerSelectionRenderer.js';
+export { PartIconRenderer, drawPartIcon } from './PartIconRenderer.js';
+export type { BodyPartIconType, DrawPartIconOptions } from './PartIconRenderer.js';
+export { MagicCircleRenderer, MAGIC_CIRCLE_CONFIG } from './MagicCircleRenderer.js';
+export type { MagicCircleConfig, MagicCircleLayerConfig, ScalePulseConfig } from './MagicCircleRenderer.js';
+export { PostureGuideRenderer } from './PostureGuideRenderer.js';
+export type { SilhouettePosition } from './PostureGuideRenderer.js';
 
 
 

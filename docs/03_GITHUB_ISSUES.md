@@ -2392,14 +2392,14 @@
 - **Labels**: `phase-6`, `feature`, `P1-high`
 - **Milestone**: `v0.5-input-ui`
 - **작업 ID**: `[FEAT-GUIDE-001]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (Pass)**
 - **목적**:
   - 플레이어가 출제된 문제를 보고 요구되는 신체 부위와 목표 존으로 신속히 이동할 수 있도록, 목표 피트니스 존 네온 하이라이트(부위 색상 글로우 및 중앙 아이콘)와 반투명 스틱맨 인체 실루엣을 렌더링하는 `PostureGuideRenderer`를 신설한다.
 - **완료 조건**:
-  - [ ] `PostureGuideRenderer` 클래스 신설 및 `AnswerPosture` 기반 목표 자세 실루엣(스틱맨) 렌더링
-  - [ ] 목표 피트니스 존 테두리 부위 색상 글로우 및 중앙 부위 벡터 아이콘 렌더링
-  - [ ] 커서가 진입한 유효 선택지 실루엣의 능동적 하이라이트 전환
-  - [ ] 단위 테스트 100% Pass 및 렌더링 성능 60fps 유지
+  - [x] `PostureGuideRenderer` 클래스 신설 및 `AnswerPosture` 기반 목표 자세 실루엣(스틱맨) 렌더링
+  - [x] 목표 피트니스 존 테두리 부위 색상 글로우 및 중앙 부위 벡터 아이콘 렌더링
+  - [x] 커서가 진입한 유효 선택지 실루엣의 능동적 하이라이트 전환
+  - [x] 단위 테스트 100% Pass 및 렌더링 성능 60fps 유지
 - **관련 파일**:
   - `dream_guardian/src/render/PostureGuideRenderer.ts`
   - `dream_guardian/src/render/index.ts`

@@ -100,7 +100,7 @@
 | 15 | `FEAT-ZONE-003` | [#156](https://github.com/Choyounhwa/-dream-guardian/issues/156) | 커서-존 허용 매트릭스 개편 (양손 전 존 1~11 허용, 머리 존 4~5 한정) 및 Cross-Body 제약(Hip 9~11 시 손 1~3 차단) 신설 | • **[개편]** 양손(`leftHand`, `rightHand`) 전 존(1~11) 허용 (옆구리 스트레칭 및 교차 도달)<br>• **[제한]** `HEAD_ZONES`를 `{4, 5}`로 한정 (존 1~3 점프 유지 불가 배제)<br>• **[신규]** Cross-Body 제약: 골반이 최하단(존 9~11)일 때 양손의 최상단(존 1~3) 배치 차단 | 🟢 **완료 (100% Pass)** |
 | 16 | `DATA-002` | [#157](https://github.com/Choyounhwa/-dream-guardian/issues/157) | fitness pattern.csv 신규 HEAD_ZONES {4,5} 제약 반영 및 머리 패턴 전수 보정 | • **[수정]** `fitness pattern.csv` 162건 머리 패턴 존 1~3 → 존 4/5 재배치<br>• **[검증]** Cross-Body 위반 패턴 전수 정비 및 360건 무오류 로드 보장 | 🟢 **완료 (100% Pass)** |
 | 17 | `FEAT-ZONE-004` | [#158](https://github.com/Choyounhwa/-dream-guardian/issues/158) | PostureGenerator C8 제약(Cross-Body) 통합 및 패턴 풀 필터링 | • **[신규]** `PostureGenerator`에 C8 제약(Hip 9~11 시 손 1~3 차단) 추가<br>• **[필터]** `FitnessPatternLoader` 및 `validatePosturePair()` 런타임 위반 차단 | 🟢 **완료 (100% Pass)** |
-| 18 | `FEAT-GUIDE-001` | [#159](https://github.com/Choyounhwa/-dream-guardian/issues/159) | 목표 자세 실루엣 가이드 오버레이 (PostureGuideRenderer) 구현 | • **[신규]** `PostureGuideRenderer.ts` 생성<br>• **[시각화]** 반투명 스틱맨 인체 실루엣 및 목표 존 네온 하이라이트(부위 색상 글로우 + 중앙 아이콘) | ⚪ **대기 (승인 대기)** |
+| 18 | `FEAT-GUIDE-001` | [#159](https://github.com/Choyounhwa/-dream-guardian/issues/159) | 목표 자세 실루엣 가이드 오버레이 (PostureGuideRenderer) 구현 | • **[신규]** `PostureGuideRenderer.ts` 생성<br>• **[시각화]** 반투명 스틱맨 인체 실루엣 및 목표 존 네온 하이라이트(부위 색상 글로우 + 중앙 아이콘) | 🟢 **완료 (100% Pass)** |
 | 19 | `FEAT-GUIDE-002` | [#160](https://github.com/Choyounhwa/-dream-guardian/issues/160) | 스테이지 시작 첫 문제 유도 화살표(Arrow Hint) 표시 | • **[신규]** 스테이지 첫 문제(`questionNumber === 1`)에서만 커서→목표존 방향 화살표 렌더링<br>• **[소멸]** 목표 존 진입 시 소멸 및 5초 경과 시 자동 페이드아웃 (두 번째 문제부터 미표시) | ⚪ **대기 (승인 대기)** |
 | 20 | `UI-BAR-003` | [#162](https://github.com/Choyounhwa/-dream-guardian/issues/162) | 설정 및 정지 버튼 문자 제거 및 아이콘화 | • **[개편]** 좌측 '⚙ 설정' 한글 제거 후 톱니바퀴 아이콘화, 우측 인게임 '정지' 한글 제거 후 일시정지(⏸) 아이콘화 | ⚪ **대기 (승인 대기)** |
 | 21 | `UI-ANS-001` | [#163](https://github.com/Choyounhwa/-dream-guardian/issues/163) | 답안 버튼 외곽선 두께 2배 증가 | • **[강화]** 답안 버튼 외곽선 테두리 선 두께를 기존 4px 대비 2배(8px)로 확장하여 원거리 시인성 극대화 | ⚪ **대기 (승인 대기)** |
@@ -554,18 +554,15 @@ npm test
 
 다음에 작업을 재개할 때 등록된 신규 이슈 카드를 다음 권장 순서대로 TDD 사이클(Red → Green → Refactor)에 맞춰 구현하시면 됩니다:
 
-1. **[FEAT-GUIDE-001] 목표 자세 실루엣 가이드 오버레이 (PostureGuideRenderer) 구현 ([#159](https://github.com/Choyounhwa/-dream-guardian/issues/159))**:
-   - 목표 피트니스 존 네온 하이라이트(부위 색상 글로우 및 중앙 아이콘) 시각화
-   - 반투명 스틱맨 인체 실루엣 렌더링 및 진입 선택지 실루엣 반응형 강조
-2. **[FEAT-GUIDE-002] 스테이지 시작 첫 문제 유도 화살표(Arrow Hint) 표시 ([#160](https://github.com/Choyounhwa/-dream-guardian/issues/160))**:
+1. **[FEAT-GUIDE-002] 스테이지 시작 첫 문제 유도 화살표(Arrow Hint) 표시 ([#160](https://github.com/Choyounhwa/-dream-guardian/issues/160))**:
    - 첫 문제(`questionNumber === 1`)에서만 커서→목표존 방향 화살표 렌더링
    - 목표 존 진입 시 소멸 및 5초 후 자동 페이드아웃, 2번째 문제부터 미표시
-3. **[UI-MENU-004] 홈/서브 메뉴 중앙 개방형 레이아웃 재배치 및 박스·수학유형(3배) 규격 통일 ([#161](https://github.com/Choyounhwa/-dream-guardian/issues/161))**:
+2. **[UI-MENU-004] 홈/서브 메뉴 중앙 개방형 레이아웃 재배치 및 박스·수학유형(3배) 규격 통일 ([#161](https://github.com/Choyounhwa/-dream-guardian/issues/161))**:
    - 홈/서브 메뉴 카드 좌우 외곽 재배치(중앙 뷰포트 확보) 및 박스 크기(288x304) 통일
    - 수학 유형 텍스트 3배(78px) 확대 및 `Ch.1~5` 텍스트 제거
-4. **[UI-BAR-002] 하단 고정바(BottomBar) 내 운동 모드 선택 버튼 신설 ([#166](https://github.com/Choyounhwa/-dream-guardian/issues/166))**:
+3. **[UI-BAR-002] 하단 고정바(BottomBar) 내 운동 모드 선택 버튼 신설 ([#166](https://github.com/Choyounhwa/-dream-guardian/issues/166))**:
    - 하단 고정바 좌측 슬롯(x: 190, y: 1990)에 운동 모드 버튼 신설 및 메인 제목 하단 레거시 제거
-5. **달리기 동적 보정 (보류 현안)**:
+4. **달리기 동적 보정 (보류 현안)**:
    - 제자리 달리기 중 전후좌우 신체 드리프트 보정(`TorsoCentroidTracker` 등)은 추후 정밀 검증 후 재개.
 
 ---
