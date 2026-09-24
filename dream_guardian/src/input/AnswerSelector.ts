@@ -128,12 +128,17 @@ export class AnswerSelector {
     this._centerWeight = centerWeight;
     this._edgeWeight = edgeWeight;
     this._currentTierInfo = getTierInfo(1);
-    this._currentPlan = this._recipeGenerator.generatePlan(this._currentTierInfo);
+    this._currentPlan = this._recipeGenerator.generatePlan(this._currentTierInfo, 0, 1);
   }
 
   /** 전체 존 목록 */
   get zones(): readonly FitnessZone[] {
     return FITNESS_ZONES;
+  }
+
+  /** RecipeGenerator 인스턴스 */
+  get recipeGenerator(): RecipeGenerator {
+    return this._recipeGenerator;
   }
 
   /** 현재 체류 시간 설정값 */
@@ -217,7 +222,7 @@ export class AnswerSelector {
    */
   startQuestion(questionNumber: number, isComplexQuestion = false): QuestionRecipePlan {
     this.setQuestion(questionNumber, isComplexQuestion);
-    this._currentPlan = this._recipeGenerator.generatePlan(this._currentTierInfo);
+    this._currentPlan = this._recipeGenerator.generatePlan(this._currentTierInfo, Math.random(), questionNumber);
     this._choiceProgress = [0, 0];
     this.reset();
     return this._currentPlan;

@@ -322,9 +322,45 @@ describe('RecipeGenerator (Issue #104)', () => {
     expect(generator.isValidZoneForCursor('head', 2)).toBe(false);
     expect(generator.isValidZoneForCursor('head', 7)).toBe(false);
 
-    // 골반: 6~11 허용, 1~5 불허
-    expect(generator.isValidZoneForCursor('hip', 7)).toBe(true);
+    // 골반: 6, 8, 9, 10, 11 허용, 직립 기본 위치인 7번 및 1~5 불허
+    expect(generator.isValidZoneForCursor('hip', 6)).toBe(true);
+    expect(generator.isValidZoneForCursor('hip', 10)).toBe(true);
+    expect(generator.isValidZoneForCursor('hip', 11)).toBe(true);
+    expect(generator.isValidZoneForCursor('hip', 7)).toBe(false);
     expect(generator.isValidZoneForCursor('hip', 1)).toBe(false);
+  });
+
+  it('Tier 2 및 Tier 3 출제 시 머리는 2번(및 1, 3번)에 출제되지 않고, 골반은 7번에 출제되지 않는다', () => {
+    // Tier 2 (문제 4~7)
+    for (let q = 4; q <= 7; q++) {
+      const tierInfo = getTierInfo(q);
+      const plan = generator.generatePlan(tierInfo);
+      for (const choice of plan.choices) {
+        if (choice.requiredCursors.includes('head')) {
+          expect(choice.targetZoneIds.includes(2)).toBe(false);
+          expect(choice.targetZoneIds.includes(1)).toBe(false);
+          expect(choice.targetZoneIds.includes(3)).toBe(false);
+          // 머리는 4 또는 5만 허용
+          for (const zid of choice.targetZoneIds) {
+            expect([4, 5]).toContain(zid);
+          }
+        }
+      }
+    }
+
+    // Tier 3 (문제 8~11)
+    for (let q = 8; q <= 11; q++) {
+      const tierInfo = getTierInfo(q);
+      const plan = generator.generatePlan(tierInfo);
+      for (const choice of plan.choices) {
+        if (choice.requiredCursors.includes('head')) {
+          expect(choice.targetZoneIds.includes(2)).toBe(false);
+        }
+        if (choice.requiredCursors.includes('hip')) {
+          expect(choice.targetZoneIds.includes(7)).toBe(false);
+        }
+      }
+    }
   });
 });
 
@@ -712,3 +748,97 @@ describe('AnswerSelectionRenderer (Issue #104)', () => {
     expect(hip.size!.bottomOffset).toBe(expectedHalfHeight);
   });
 });
+
+describe('RecipeGenerator Zone Diversity & Cooldown (Issue #175 / BUG-ZONE-003)', () => {
+  it('Tier 1에서 연속 생성 시 존 4번에만 고정되지 않고 다양한 피트니스 존(1~8번)이 출제된다', () => {
+    const generator = new RecipeGenerator();
+    const tierInfo = getTierInfo(1);
+    const zoneSet = new Set<number>();
+
+    for (let i = 0; i < 20; i++) {
+      const plan = generator.generatePlan(tierInfo, (i * 0.17) % 1);
+      for (const z of plan.activeZones) {
+        zoneSet.add(z.id);
+      }
+    }
+
+    // 20회 생성 시 최소 4개 이상의 서로 다른 존이 출제되어야 함 (기존: 4번 1개만 고정)
+    expect(zoneSet.size).toBeGreaterThanOrEqual(4);
+    // 4번 외에도 상단(1, 2, 3), 우측(5), 하단(6, 8) 등 다양한 존 포함 검증
+    expect(zoneSet.has(4)).toBe(true);
+    const nonFourZones = Array.from(zoneSet).filter((id) => id !== 4);
+    expect(nonFourZones.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('Tier 3에서 연속 생성 시 [4, 10]에만 고정되지 않고 다양한 2존 조합이 출제된다', () => {
+    const generator = new RecipeGenerator();
+    const tierInfo = getTierInfo(9); // Tier 3
+    const combinationSet = new Set<string>();
+
+    for (let i = 0; i < 20; i++) {
+      const plan = generator.generatePlan(tierInfo, (i * 0.23) % 1);
+      const key = plan.activeZones.map((z) => z.id).sort((a, b) => a - b).join(',');
+      combinationSet.add(key);
+    }
+
+    // 최소 3종류 이상의 서로 다른 2존 조합 출제 검증 (기존: "4,10" 1종류만 고정)
+    expect(combinationSet.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it('Tier 4에서 연속 생성 시 2번에만 고정되지 않고 1, 2, 3번 상단 존들이 다양하게 출제된다', () => {
+    const generator = new RecipeGenerator();
+    const tierInfo = getTierInfo(13); // Tier 4
+    const zoneSet = new Set<number>();
+
+    for (let i = 0; i < 20; i++) {
+      const plan = generator.generatePlan(tierInfo, (i * 0.31) % 1);
+      for (const z of plan.activeZones) {
+        zoneSet.add(z.id);
+      }
+    }
+
+    // 최소 2개 이상의 상단 만세 존 출제 검증 (기존: 2번 1개만 고정)
+    expect(zoneSet.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('연속으로 문제 생성 시 직전 문제와 동일한 피트니스 존 배치가 연속 출제되지 않는다 (Cooldown 검증)', () => {
+    const generator = new RecipeGenerator();
+    const tierInfo = getTierInfo(1);
+    let previousZoneKey = '';
+    let consecutiveRepeatCount = 0;
+
+    for (let i = 0; i < 20; i++) {
+      const plan = generator.generatePlan(tierInfo, (i * 0.29 + 0.1) % 1);
+      const currentZoneKey = plan.activeZones.map((z) => z.id).sort((a, b) => a - b).join(',');
+      if (previousZoneKey !== '' && currentZoneKey === previousZoneKey) {
+        consecutiveRepeatCount++;
+      }
+      previousZoneKey = currentZoneKey;
+    }
+
+    expect(consecutiveRepeatCount).toBe(0);
+  });
+
+  it('AnswerSelector에서 문제 번호(questionNumber) 진행에 따라 피트니스 존이 정적으로 고정되지 않고 다양하게 변화한다', () => {
+    const as = new AnswerSelector();
+    const zoneHistory: string[] = [];
+
+    // 문제 1(웜업)부터 10번까지 진행
+    for (let q = 1; q <= 10; q++) {
+      const plan = as.startQuestion(q);
+      const key = plan.activeZones.map((z) => z.id).sort((a, b) => a - b).join(',');
+      zoneHistory.push(key);
+    }
+
+    // 첫 문제는 튜토리얼 일관성을 위해 4번(좌중)으로 시작
+    expect(zoneHistory[0]).toBe('4');
+
+    // 10문제 중 서로 다른 고유 존 조합이 최소 4가지 이상이어야 함
+    const uniqueKeys = new Set(zoneHistory);
+    expect(uniqueKeys.size).toBeGreaterThanOrEqual(4);
+
+    // 문제 2번은 1번(4번)과 다른 존이어야 함
+    expect(zoneHistory[1]).not.toBe('4');
+  });
+});
+

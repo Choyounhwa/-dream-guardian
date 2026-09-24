@@ -2935,8 +2935,30 @@
 
 ---
 
-### Issue #175 (Card #105): [FEAT-RHYTHM-001] 달리기 페이즈 4회(25%x4) 에너지 완충 및 상시 4박자 리듬 템포 문제 풀이 연동
+### Issue #175 (Card #105): [BUG-ZONE-003] 문제풀이 피트니스 존 하드코딩 고정 배치 해소 및 전 구역(1~11번) 순환/랜덤 다양화
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/175
+- **Labels**: `phase-3`, `bug`, `P1-high`
+- **Milestone**: `v0.3-vision-motion`
+- **작업 ID**: `[BUG-ZONE-003]`
+- **상태**: 🟢 **완료 (Pass)**
+- **목적**:
+  - 인게임 문제 풀이 시 출제되는 피트니스 존이 Tier 1은 항상 4번, Tier 3은 항상 4+10번, Tier 4는 항상 2번으로 고정되어 있던 하드코딩 배치를 해소하고, 1~11번 전 구역을 고르게 활용하는 다채로운 존 풀과 직전 문제 중복 방지 쿨다운을 적용한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/input/RecipeGenerator.ts` (티어별 다채로운 공용 존 풀 구축 및 Cooldown 큐)
+  - `dream_guardian/src/input/AnswerSelector.ts` (startQuestion 문제 번호 기반 연동 및 getter)
+  - `dream_guardian/src/main.ts` (게임 시작 시 `/fitness pattern.csv` 360건 로더 파이프라인 연동)
+  - `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts` (존 다양성, 쿨다운, 연속 생성 검증)
+- **완료 조건**:
+  - [x] Tier 1~4에서 고정 존 배치가 제거되고 전 구역(1~11번)이 고르게 랜덤/순환 출제됨
+  - [x] 직전 문제와 동일한 존 배치 연속 출제 방지 쿨다운 적용
+  - [x] `main.ts` 내 `fitness pattern.csv` 360건 로드 파이프라인 연동
+  - [x] 기존 공용 활성 존 및 C1~C8 안전 제약 100% 준수
+  - [x] 단위 테스트 100% Pass (502/502) 및 전체 테스트 회귀 결함 0건
+
+---
+
+### Issue #176 (Card #106): [FEAT-RHYTHM-001] 달리기 페이즈 4회(25%x4) 에너지 완충 및 상시 4박자 리듬 템포 문제 풀이 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/176
 - **Labels**: `phase-3`, `phase-5`, `feature`, `P1-high`
 - **Milestone**: `v0.5-input-ui`
 - **작업 ID**: `[FEAT-RHYTHM-001]`

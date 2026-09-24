@@ -117,6 +117,7 @@
 | 26 | `INPUT-MOTION-001` | [#169](https://github.com/Choyounhwa/-dream-guardian/issues/169) | 인게임 문제 스테이지 양손 합장 제스처 메뉴 연동 | • **[인터랙션]** 인게임 문제/달리기 중에도 두 손 모을 시 합장 커서 표출 및 하단 설정/정지 버튼 0.8초 호버 조작 지원 | ⚪ **대기 (승인 대기)** |
 | 27 | `INPUT-ZONE-001` | [#170](https://github.com/Choyounhwa/-dream-guardian/issues/170) | Head(머리) 및 Hip(골반) 커서 피트니스 존 진입 감도 최적화 | • **[감도]** 코/골반 중심점 1점 판정에서 바운딩 마진(25% 진입 또는 외곽 접촉 시 즉각 충전 개시)으로 최적화 | 🟢 **완료 (100% Pass)** |
 | 28 | `BUG-ZONE-002` | [#174](https://github.com/Choyounhwa/-dream-guardian/issues/174) | Head 존 2 및 Hip 존 7 출제 배제 및 직립 자동 선택 방지 | • **[원인분석]** `HEAD_ZONES` 제약에도 `RecipeGenerator` 내 하드코딩 존(Tier 2: 2번, Tier 3: 2번/7번)으로 우회 출제 발생, 직립 시 머리(0.18)와 골반(0.60)이 각각 2번/7번에 자연 위치하여 출제 즉시 자동 선택 발생<br>• **[수정]** `HIP_ZONES`에서 7번 제외(`{6, 8, 9, 10, 11}`), `RecipeGenerator` Tier 2를 {4, 5}로, Tier 3을 4번(중단) + 10번(하단 스쿼트)으로 전면 교체<br>• **[데이터]** `fitness pattern.csv` 48건 골반 7번 패턴을 유효 존(6/8/10)으로 전수 보정 (360건 무오류 유지) | 🟢 **완료 (100% Pass)** |
+| 29 | `BUG-ZONE-003` | [#175](https://github.com/Choyounhwa/-dream-guardian/issues/175) | 문제풀이 피트니스 존 하드코딩 고정 배치 해소 및 전 구역(1~11번) 순환/랜덤 다양화 | • **[원인분석]** `RecipeGenerator` 내 Tier 1(Zone 4), Tier 3(Zone 4+10), Tier 4(Zone 2)의 정적 하드코딩 및 쿨다운 부재로 인해 특정 존만 반복 출제되는 현상 규명<br>• **[다양화]** Tier 1(4, 5, 2, 1, 3, 6, 8), Tier 2(4/5 머리·손 교차 4종), Tier 3(8종 2존 협응 쌍), Tier 4(1, 2, 3, 5, 4) 등 전 구역 활용 존 풀 구축<br>• **[쿨다운]** 직전 문제와 동일한 존 배치 연속 출제 방지 쿨다운 적용 및 첫 문제는 4번 시작 안정화<br>• **[데이터]** `main.ts` 부트스트랩 시 `/fitness pattern.csv` 360건 비동기 로드 파이프라인 연동 | 🟢 **완료 (502/502 Pass)** |
 
 ---
 

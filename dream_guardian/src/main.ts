@@ -13,6 +13,7 @@ import { JointRenderer } from './skeleton/JointRenderer.js';
 import { SkeletonAnimation } from './skeleton/SkeletonAnimation.js';
 import { QuestionBank } from './question/QuestionBank.js';
 import { parseCSV } from './question/CSVLoader.js';
+import { parseFitnessPatternCSV } from './data/FitnessPatternLoader.js';
 import { generateQuestion, type GeneratedQuestion } from './question/QuestionEvaluator.js';
 import { QuestionSpeech } from './question/QuestionSpeech.js';
 import { BattleState } from './game/BattleState.js';
@@ -210,6 +211,20 @@ async function loadQuestions(): Promise<void> {
       console.log(`[DG] ${records.length}개 문제 로드`);
     } else { questionBank.loadRecords([]); }
   } catch { questionBank.loadRecords([]); }
+}
+
+async function loadFitnessPatterns(): Promise<void> {
+  try {
+    const resp = await fetch('/fitness pattern.csv');
+    if (resp.ok) {
+      const text = await resp.text();
+      const records = parseFitnessPatternCSV(text);
+      answerSelector.recipeGenerator.postureGenerator.setPatterns(records);
+      console.log(`[DG] ${records.length}개 피트니스 패턴 로드 완료`);
+    }
+  } catch (err) {
+    console.warn('[DG] 피트니스 패턴 로드 실패:', err);
+  }
 }
 
 // ─── 카메라 및 포즈 파이프라인 ───
@@ -1460,7 +1475,7 @@ async function bootstrap(): Promise<void> {
   console.log('[DG] v0.4 starting...');
   canvasManager.resize();
   console.log(`[DG] Canvas: ${canvas.width}x${canvas.height}`);
-  await loadQuestions();
+  await Promise.all([loadQuestions(), loadFitnessPatterns()]);
 
   // Issue #143: 3중 마법진 이미지 에셋 로드 및 AnswerSelectionRenderer 연결
   const magicCirclePaths = ['img/E_Pit_act1.png', 'img/E_Pit_act2.png', 'img/E_Pit_act3.png'];
