@@ -110,8 +110,9 @@ answerSelector.setViewport(
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
 const answerSelectionRenderer = new AnswerSelectionRenderer();
+answerSelectionRenderer.renderZoneBoxes = false; // Issue #173: 사각 영역 드로잉 비활성화 (가상 영역화)
 const magicCircleRenderer = new MagicCircleRenderer();
-const postureGuideRenderer = new PostureGuideRenderer();
+const postureGuideRenderer = new PostureGuideRenderer(); // Issue #173: renderZoneBoxes 기본 false (가상 영역화)
 const menuInput = new MenuInput();
 const sfx = new SFXSynth();
 const tutorial = new TutorialOverlay();

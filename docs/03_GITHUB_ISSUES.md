@@ -2745,6 +2745,142 @@
   - `dream_guardian/config/posture.config.ts`
   - `dream_guardian/tests/unit/posture-matcher.test.ts`
 
+---
+
+### Issue #171 (Card #101): [FEAT-MOTION-002] 양손 대각 어깨 교차 X자 제스처 감지기(XGestureDetector) 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/171
+- **Labels**: `phase-3`, `feature`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[FEAT-MOTION-002]`
+- **상태**: ⚪ **등록 완료 (승인 대기)**
+- **목적**:
+  - MediaPipe Pose의 손목 및 어깨 랜드마크를 기반으로 '왼손이 오른쪽 어깨에, 오른손이 왼쪽 어깨에 동시에 일정 거리 이내로 접근'하는 X자 교차 제스처를 감지하는 독립 감지기 `XGestureDetector`를 구현한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/motion/XGestureDetector.ts` (신규 생성)
+  - `dream_guardian/src/motion/index.ts` (Re-export 등록)
+  - `dream_guardian/config/motion.config.ts` (X자 제스처 관련 임계값 설정 추가)
+  - `dream_guardian/tests/unit/x-gesture-detector.test.ts` (신규 단위 테스트)
+- **상세 요구사항 및 신규 구현 내용**:
+  1. **어깨 너비 기준 정규화 척도**:
+     - `shoulderWidth = hypot(rightShoulder - leftShoulder)`
+     - 사용자 체형 및 카메라 거리에 영향을 받지 않도록 고정 픽셀 대신 어깨 너비를 척도(1.0)로 활용.
+  2. **대각 교차 판정 조건**:
+     - 왼손목 ↔ 오른쪽 어깨 거리 < `shoulderWidth * crossThreshold` (기본 0.55)
+     - 오른손목 ↔ 왼쪽 어깨 거리 < `shoulderWidth * crossThreshold` (기본 0.55)
+     - 양쪽 조건 동시 충족 시 `isCrossing = true`
+  3. **체류 유지(Dwell Time) & 오발동 방지**:
+     - 스쳐 지나가는 동작 배제를 위해 0.4초간 자세 유지 시 최종 트리거(`triggered = true`).
+     - 현재 유지 시간 비례 진행도 `progress` (0~1) 반환.
+  4. **트리거 쿨다운(Cooldown)**:
+     - 트리거 직후 1.0초 쿨다운 적용하여 중복 연속 트리거 방지.
+  5. **양손 합장(`MenuInput`)과의 완벽한 분리 검증**:
+     - 두 손을 모으는 합장 자세는 반대 어깨와의 거리가 멀어 X자로 오인식되지 않음을 단위 테스트로 보장.
+- **유지 사항**:
+  - 기존 `MenuInput`(양손 합장 거리 감지) 및 `ArmCrossDetector`(상하 교차 달리기 감지) 독립성 유지
+  - 기존 피트니스 10개 존 판정 로직 불변
+- **변경 금지**:
+  - `src/input/AnswerSelector.ts` 내부의 피트니스 자세 판정식
+  - 기존 `PoseManager` 수신 데이터 규격
+- **완료 조건**:
+  - [ ] 왼손-오른어깨, 오른손-왼어깨 동시 접근 시 X자 교차 감지
+  - [ ] 0.4초 체류 유지 시 정상 트리거 반환
+  - [ ] 트리거 후 1.0초 쿨다운 동안 추가 트리거 억제
+  - [ ] 양손 합장 자세를 X자로 오인식하지 않음 검증
+  - [ ] `npm test -- x-gesture-detector.test.ts` 100% Pass
+- **관련 파일**:
+  - `dream_guardian/src/motion/XGestureDetector.ts`
+  - `dream_guardian/src/motion/index.ts`
+  - `dream_guardian/config/motion.config.ts`
+  - `dream_guardian/tests/unit/x-gesture-detector.test.ts`
+
+---
+
+### Issue #172 (Card #102): [UI-PAUSE-001] 인게임 일시정지(Pause) 팝업 모달 구현 및 X자/합장 제스처 제어 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/172
+- **Labels**: `phase-6`, `feature`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[UI-PAUSE-001]`
+- **상태**: ⚪ **등록 완료 (승인 대기)**
+- **목적**:
+  - 서브메뉴에서 X자 제스처 감지 시 홈(메인) 메뉴로 이전 화면 복귀를 수행한다.
+  - 인게임(달리기 및 문제 풀이) 화면에서 X자 제스처 감지 시 게임을 일시정지하고, 일시정지 팝업 모달(`PauseModal`)을 띄워 게임 재개 및 홈 메뉴 복귀를 양손 합장 제스처로 선택할 수 있도록 구현한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/ui/PauseModal.ts` (신규 생성)
+  - `dream_guardian/src/ui/index.ts` (Re-export 등록)
+  - `dream_guardian/src/main.ts` (`XGestureDetector` 및 `PauseModal` 연동)
+  - `dream_guardian/tests/unit/pause-modal.test.ts` (신규 단위 테스트)
+- **상세 요구사항 및 신규 구현 내용**:
+  1. **서브메뉴(Sub Menu) X자 제스처 뒤로가기**:
+     - `screenMode === 'menu' && menuMode === 'sub'` 상태에서 X자 제스처 트리거 시 `selectSubLevel(-1)` 실행 (메인 메뉴로 복귀).
+  2. **인게임(Game) X자 제스처 일시정지 트리거**:
+     - `screenMode === 'game'` 상태(달리기 페이즈 및 문제 풀이 페이즈)에서 X자 제스처 트리거 시 일시정지 모달 오픈(`pauseModal.open()`).
+     - 모달 오픈 시 `answerSelector.paused = true`, 문제 풀이/달리기 타이머 및 보스 패턴 정지.
+  3. **일시정지 팝업 모달(`PauseModal`) UI 구성**:
+     - 모달 중앙 카드: 반투명 다크 배경 + 네온 테두리.
+     - [계속하기 (Resume)] 버튼 & [홈으로 나가기 (Quit)] 버튼 2개 제공.
+     - 양손 합장 커서(`MenuInput`) 호버(0.8초 체류) 시 프로그레스 링 차오름 및 기능 확정 실행:
+       - 계속하기: 모달 닫기 및 게임 재개 (`pauseModal.close()`).
+       - 홈으로 나가기: 게임 종료 및 메인 메뉴 이동 (`goToMenu()`).
+  4. **키보드 조작 Fallback 호환**:
+     - 키보드 `Esc` 또는 `P` 키로도 일시정지 열기/닫기 지원.
+- **유지 사항**:
+  - 기존 `SettingsModal`, `TutorialOverlay`, `LocomotionModal` 등의 모달 시스템과 충돌 없이 독립 동작
+  - 하단 고정바(`BottomBar`)의 기존 정지/설정 버튼 기능 유지
+- **변경 금지**:
+  - `BattleState` 및 `BossController` 내부 계산식
+  - `QuestionBank` 문제 출제 상태 머신
+- **완료 조건**:
+  - [ ] 서브메뉴에서 X자 제스처 시 홈(메인) 메뉴로 복귀
+  - [ ] 인게임 화면에서 X자 제스처 시 일시정지 모달 오픈 및 게임 정지
+  - [ ] 일시정지 모달에서 양손 합장 호버(0.8초)로 '계속하기' 선택 시 정상 재개
+  - [ ] 일시정지 모달에서 양손 합장 호버(0.8초)로 '홈으로 나가기' 선택 시 메인 메뉴 이동
+  - [ ] `npm test -- pause-modal.test.ts` 100% Pass
+- **관련 파일**:
+  - `dream_guardian/src/ui/PauseModal.ts`
+  - `dream_guardian/src/ui/index.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/pause-modal.test.ts`
+
+---
+
+### Issue #173 (Card #103): [RENDER-ZONE-001] 피트니스 존 활성화 시 네모 영역 표시 제거 (가상 영역화)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/173
+- **Labels**: `phase-6`, `feature`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[RENDER-ZONE-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **목적**:
+  - 인게임 문제 풀이 페이즈에서 피트니스 존이 활성화될 때 화면에 렌더링되던 네온 사각 박스 테두리(stroke) 및 반투명 배경 채움(fill) 드로잉을 제거한다.
+  - 피트니스 존의 사각 좌표계(`x, y, width, height`)는 커서 체류 판정 및 부위 아이콘 중심 좌표(`cx, cy`) 배치를 위한 내부 가상 영역(Virtual Boundary)으로만 유지하여, 3D 배경 그리드, 보스, 그리고 회전 마법진/부위 아이콘이 깔끔하게 보이도록 한다.
+- **수정 대상**:
+  - `dream_guardian/src/render/PostureGuideRenderer.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/posture-guide-renderer.test.ts`
+- **상세 요구사항 및 신규 구현 내용**:
+  1. `PostureGuideRenderer.ts` 내 `_renderZoneHighlights`에서 네온 사각 박스를 그리는 `roundRect`/`rect`, `stroke()`, `fill()` 코드 블록 비활성화/제거 (`renderZoneBoxes = false` 기본값 적용).
+  2. 존 사각 좌표계(`zx, zy, zw, zh`)는 부위 아이콘 중심 좌표(`cx, cy`) 및 크기(`iconSize`) 계산을 위한 기준 좌표로만 내부 유지(가상 영역화).
+  3. 중앙 부위 벡터 아이콘(`PartIconRenderer.drawIcon`), 답안별 스틱맨 실루엣(`_renderPostures`), 첫 문제 유도 화살표(`_renderArrowHints`)는 기존대로 정상 유지.
+  4. `AnswerSelectionRenderer.ts`에 `renderZoneBoxes` 속성 추가 및 `main.ts`에서 비활성화하여 예외 상황에서도 사각 박스가 노출되지 않도록 가상화 완료.
+- **유지 사항**:
+  - 피트니스 존 판정 및 커서 체류 판정 가상 영역 로직
+  - 목표 자세 스틱맨 실루엣 및 중앙 부위 아이콘 렌더링
+- **변경 금지**:
+  - `zone.config.ts`의 피트니스 존 좌표 규격
+  - `AnswerSelector` 내부 자세 판정 및 체류 계산식
+- **완료 조건**:
+  - [x] 인게임 문제 풀이 시 활성 피트니스 존 위치에 사각 테두리나 반투명 사각 배경이 화면에 드로잉되지 않음
+  - [x] 중앙 부위 아이콘(L/R/HEAD/HIP)과 하단 목표 자세 스틱맨 실루엣은 정상 위치에 선명하게 표시
+  - [x] 단위 테스트에서 `roundRect`/`strokeRect` 등 사각 박스 드로잉 미호출 검증 통과
+  - [x] `npm test` 전체 480개 테스트 100% Pass
+- **관련 파일**:
+  - `dream_guardian/src/render/PostureGuideRenderer.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/posture-guide-renderer.test.ts`
+
+
+
 
 
 

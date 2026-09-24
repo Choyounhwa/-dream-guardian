@@ -27,6 +27,9 @@ export class PostureGuideRenderer {
   private _hintTimer = 0;
   private _hintDuration = 5.0;
 
+  /** 피트니스 존 사각 박스 화면 드로잉 활성화 여부 (Issue #173: 기본값 false - 가상 영역화) */
+  public renderZoneBoxes = false;
+
   /**
    * 프레임별 펄스 타이머 갱신 (60fps 기준)
    */
@@ -297,25 +300,28 @@ export class PostureGuideRenderer {
 
       ctx.save();
 
-      // 외부 네온 글로우 테두리
-      ctx.shadowColor = partColor;
-      ctx.shadowBlur = isEngaged ? 24 : 12 + 6 * pulse;
-      ctx.strokeStyle = partColor;
-      ctx.lineWidth = isEngaged ? 5 : 3.5;
+      // Issue #173: 피트니스 존 사각 박스 화면 드로잉 제거 (기본값 false, 가상 영역화)
+      if (this.renderZoneBoxes) {
+        // 외부 네온 글로우 테두리
+        ctx.shadowColor = partColor;
+        ctx.shadowBlur = isEngaged ? 24 : 12 + 6 * pulse;
+        ctx.strokeStyle = partColor;
+        ctx.lineWidth = isEngaged ? 5 : 3.5;
 
-      const cornerRadius = 14;
-      ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(zx, zy, zw, zh, cornerRadius);
-      } else {
-        ctx.rect(zx, zy, zw, zh);
+        const cornerRadius = 14;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(zx, zy, zw, zh, cornerRadius);
+        } else {
+          ctx.rect(zx, zy, zw, zh);
+        }
+        ctx.stroke();
+
+        // 내부 은은한 반투명 색상 틴트
+        ctx.fillStyle = partColor;
+        ctx.globalAlpha = isEngaged ? 0.22 : 0.08 + 0.04 * pulse;
+        ctx.fill();
       }
-      ctx.stroke();
-
-      // 내부 은은한 반투명 색상 틴트
-      ctx.fillStyle = partColor;
-      ctx.globalAlpha = isEngaged ? 0.22 : 0.08 + 0.04 * pulse;
-      ctx.fill();
 
       // 존 중앙 부위 벡터 아이콘 렌더링
       ctx.shadowBlur = 0;

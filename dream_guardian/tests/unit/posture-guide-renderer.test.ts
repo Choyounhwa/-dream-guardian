@@ -303,4 +303,41 @@ describe('PostureGuideRenderer (Issue #159 - FEAT-GUIDE-001)', () => {
       expect(ctx.save).toHaveBeenCalled();
     });
   });
+
+  describe('Issue #173 (Card #103) - RENDER-ZONE-001: 피트니스 존 활성화 시 네모 영역 표시 제거 (가상 영역화)', () => {
+    it('활성 피트니스 존 렌더링 시 roundRect나 rect 기반의 사각 테두리 및 반투명 배경 채움이 호출되지 않는다', () => {
+      const renderer = new PostureGuideRenderer();
+      const ctx = createMockCtx();
+
+      renderer.render(ctx, 1080, 2160, MOCK_POSTURES, MOCK_ZONES, [0, 0]);
+
+      // 사각 영역 박스를 그리는 roundRect 및 rect가 일체 호출되지 않아야 함 (가상 영역화)
+      expect(ctx.roundRect).not.toHaveBeenCalled();
+      expect(ctx.rect).not.toHaveBeenCalled();
+    });
+
+    it('renderZoneBoxes를 명시적으로 true로 설정하면 사각 박스가 드로잉된다', () => {
+      const renderer = new PostureGuideRenderer();
+      renderer.renderZoneBoxes = true;
+      const ctx = createMockCtx();
+
+      renderer.render(ctx, 1080, 2160, MOCK_POSTURES, MOCK_ZONES, [0, 0]);
+
+      expect(ctx.roundRect).toHaveBeenCalled();
+    });
+
+    it('사각 박스 드로잉이 제거되어도 중앙 부위 벡터 아이콘(PartIcon)과 하단 실루엣은 정상 드로잉된다', () => {
+      const renderer = new PostureGuideRenderer();
+      const ctx = createMockCtx();
+
+      renderer.render(ctx, 1080, 2160, MOCK_POSTURES, MOCK_ZONES, [0, 0]);
+
+      // 스틱맨 실루엣 및 부위 아이콘 드로잉 정상 유지
+      expect(ctx.save).toHaveBeenCalled();
+      expect(ctx.restore).toHaveBeenCalled();
+      expect(ctx.beginPath).toHaveBeenCalled();
+      expect(ctx.stroke).toHaveBeenCalled();
+    });
+  });
 });
+

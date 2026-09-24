@@ -31,6 +31,9 @@ export class AnswerSelectionRenderer {
   private _pulseTimer = 0;
   private _magicCircle: MagicCircleRenderer | null = null;
 
+  /** 사각 테두리 폴백 드로잉 활성화 여부 (Issue #173: 가상 영역화 제어, 기본값 true로 단위 테스트 호환) */
+  public renderZoneBoxes = true;
+
   /** 마법진 렌더러 주입 (선택적, Issue #143) */
   setMagicCircle(renderer: MagicCircleRenderer): void {
     this._magicCircle = renderer;
@@ -120,7 +123,7 @@ export class AnswerSelectionRenderer {
           ctx.stroke();
           ctx.restore();
         }
-      } else {
+      } else if (this.renderZoneBoxes) {
         // Fallback (테스트 또는 이미지 미로드 시)
         ctx.fillStyle = 'rgba(40, 230, 255, 0.08)';
         ctx.beginPath();
