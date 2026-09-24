@@ -15,8 +15,8 @@ describe('FitnessPatternLoader (Issue #122 - DATA-001)', () => {
   const SAMPLE_CSV = `ID,사용 부위,왼손,오른손,머리,골반,판정 부위 수
 S001,왼손,1,X,X,X,1
 D001,왼손 + 오른손,1,3,X,X,2
-T001,왼손 + 오른손 + 머리,1,3,2,X,3
-Q001,"전신 (두 손 모아 하늘 + 바른자세 정면)",2,2,2,7,4`;
+T001,왼손 + 오른손 + 머리,1,3,4,X,3
+Q001,"전신 (두 손 모아 하늘 + 바른자세 정면)",2,2,4,7,4`;
 
   it('샘플 CSV를 정상 파싱하여 레코드를 생성한다', () => {
     const records = parseFitnessPatternCSV(SAMPLE_CSV);
@@ -42,7 +42,7 @@ Q001,"전신 (두 손 모아 하늘 + 바른자세 정면)",2,2,2,7,4`;
     // T001 검증
     expect(records[2].id).toBe('T001');
     expect(records[2].patternType).toBe('T');
-    expect(records[2].head).toBe(2);
+    expect(records[2].head).toBe(4);
     expect(records[2].parts).toEqual(['leftHand', 'rightHand', 'head']);
 
     // Q001 검증 (따옴표 포함 설명 및 동일 존 중복 포함)
@@ -51,10 +51,10 @@ Q001,"전신 (두 손 모아 하늘 + 바른자세 정면)",2,2,2,7,4`;
     expect(records[3].name).toBe('전신 (두 손 모아 하늘 + 바른자세 정면)');
     expect(records[3].leftHand).toBe(2);
     expect(records[3].rightHand).toBe(2);
-    expect(records[3].head).toBe(2);
+    expect(records[3].head).toBe(4);
     expect(records[3].hip).toBe(7);
     expect(records[3].parts).toHaveLength(4);
-    expect(records[3].distinctZoneIds).toEqual([2, 7]);
+    expect(records[3].distinctZoneIds).toEqual([2, 4, 7]);
   });
 
   it('빈 문자열이나 헤더만 있는 경우 빈 배열을 반환한다', () => {
@@ -191,5 +191,116 @@ Q001,"전신 (두 손 모아 하늘 + 바른자세 정면)",2,2,2,7,4`;
     const safeList = filterCrossBodyPatterns(mixedRecords);
     expect(safeList).toHaveLength(1);
     expect(safeList[0].id).toBe('D_OK');
+  });
+
+  describe('Issue #157 (Card #87) - DATA-002: HEAD_ZONES {4,5} 및 Cross-Body 전수 검증', () => {
+    it('validateFitnessPattern은 머리 존이 1, 2, 3, 7 등 {4, 5} 이외일 때 유효하지 않다고 판정한다', () => {
+      const invalidHeadZones = [1, 2, 3, 6, 7, 8, 9, 10, 11];
+      for (const z of invalidHeadZones) {
+        const record = {
+          id: 'T_INVALID_HEAD',
+          patternType: 'T' as const,
+          name: `머리 존 ${z} 테스트`,
+          leftHand: 4,
+          rightHand: 5,
+          head: z,
+          hip: null,
+          partCount: 3,
+          parts: ['leftHand', 'rightHand', 'head'] as any[],
+          zoneIds: [4, 5, z],
+          distinctZoneIds: [4, 5, z],
+          partZoneMap: { leftHand: 4, rightHand: 5, head: z },
+        };
+        const res = validateFitnessPattern(record);
+        expect(res.valid).toBe(false);
+        expect(res.errors.some((e) => e.includes('HEAD_ZONES: 4, 5'))).toBe(true);
+      }
+    });
+
+    it('validateFitnessPattern은 머리 존이 4 또는 5일 때 정상 통과한다', () => {
+      for (const z of [4, 5]) {
+        const record = {
+          id: `T_VALID_HEAD_${z}`,
+          patternType: 'T' as const,
+          name: `머리 존 ${z} 정상 테스트`,
+          leftHand: 1,
+          rightHand: 3,
+          head: z,
+          hip: null,
+          partCount: 3,
+          parts: ['leftHand', 'rightHand', 'head'] as any[],
+          zoneIds: [1, 3, z],
+          distinctZoneIds: [1, 3, z],
+          partZoneMap: { leftHand: 1, rightHand: 3, head: z },
+        };
+        const res = validateFitnessPattern(record);
+        expect(res.valid).toBe(true);
+        expect(res.errors).toHaveLength(0);
+      }
+    });
+
+    it('실제 fitness pattern.csv 360건 전체에서 머리 존 1, 2, 3이 0건이고 오직 4 또는 5만 존재한다', () => {
+      const csvPath = path.resolve(__dirname, '../../../fitness pattern.csv');
+      const rawContent = fs.readFileSync(csvPath, 'utf-8');
+      const records = parseFitnessPatternCSV(rawContent);
+
+      expect(records).toHaveLength(360);
+
+      const headRecords = records.filter((r) => r.head !== null);
+      expect(headRecords.length).toBeGreaterThan(0);
+
+      // 1, 2, 3 존 머리 패턴 0건 확인
+      const forbiddenHeadRecords = headRecords.filter(
+        (r) => r.head === 1 || r.head === 2 || r.head === 3
+      );
+      expect(forbiddenHeadRecords).toHaveLength(0);
+
+      // 모든 머리 패턴이 4 또는 5에만 속하는지 확인
+      for (const r of headRecords) {
+        expect([4, 5]).toContain(r.head);
+      }
+    });
+
+    it('실제 fitness pattern.csv 360건 전체에서 골반 9~11일 때 양손 1~3인 Cross-Body 위반이 0건이다', () => {
+      const csvPath = path.resolve(__dirname, '../../../fitness pattern.csv');
+      const rawContent = fs.readFileSync(csvPath, 'utf-8');
+      const records = parseFitnessPatternCSV(rawContent);
+
+      const crossBodyViolations = records.filter((r) => {
+        if (r.hip === null || ![9, 10, 11].includes(r.hip)) return false;
+        const leftViolates = r.leftHand !== null && [1, 2, 3].includes(r.leftHand);
+        const rightViolates = r.rightHand !== null && [1, 2, 3].includes(r.rightHand);
+        return leftViolates || rightViolates;
+      });
+
+      expect(crossBodyViolations).toHaveLength(0);
+    });
+
+    it('3개 위치의 fitness pattern.csv 파일이 모두 존재하고 360건 무오류 및 내용이 완전히 일치한다', () => {
+      const paths = [
+        path.resolve(__dirname, '../../../fitness pattern.csv'),
+        path.resolve(__dirname, '../../public/fitness pattern.csv'),
+        path.resolve(__dirname, '../../src/data/fitness pattern.csv'),
+      ];
+
+      const contents: string[] = [];
+
+      for (const p of paths) {
+        expect(fs.existsSync(p)).toBe(true);
+        const content = fs.readFileSync(p, 'utf-8');
+        contents.push(content);
+
+        const records = parseFitnessPatternCSV(content);
+        expect(records).toHaveLength(360);
+
+        const validation = validateAllFitnessPatterns(records);
+        expect(validation.invalidCount).toBe(0);
+        expect(validation.validCount).toBe(360);
+      }
+
+      // 3개 파일 내용 100% 동일 확인
+      expect(contents[0]).toBe(contents[1]);
+      expect(contents[0]).toBe(contents[2]);
+    });
   });
 });
