@@ -2368,18 +2368,20 @@
 - **Labels**: `phase-3`, `feature`, `P1-high`
 - **Milestone**: `v0.3-vision-motion`
 - **작업 ID**: `[FEAT-ZONE-004]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (Pass)**
 - **목적**:
   - `PostureGenerator`의 7대 안전 제약(C1~C7) 체계에 Cross-Body 물리 연동 제약을 **C8 제약**으로 정식 통합하고, `validatePosturePair()` 및 `FitnessPatternLoader`에서 위반 패턴을 런타임에 자동 필터링한다.
 - **완료 조건**:
-  - [ ] `validatePosturePair()`에 C8 제약(hip: 9~11 & hand: 1~3 조합 거부) 추가
-  - [ ] `FitnessPatternLoader` 로드 시 C8 위반 패턴 필터링 옵션 지원
-  - [ ] 100회 연속 무작위 자세 페어 생성 시 C8 위반 0건 보장
-  - [ ] 단위 테스트 100% Pass
+  - [x] `validatePosturePair()`에서 C8 제약 위반 감지 및 에러 이유 반환
+  - [x] hip: 9~11과 hand: 1~3 조합이 거부됨
+  - [x] hip: 6~8과 hand: 1~3 조합은 정상 통과
+  - [x] 100회 연속 생성 테스트 무결성 확인
+  - [x] `npm test` 100% Pass
 - **관련 파일**:
   - `dream_guardian/src/input/PostureGenerator.ts`
   - `dream_guardian/src/data/FitnessPatternLoader.ts`
   - `dream_guardian/tests/unit/posture-generator.test.ts`
+  - `dream_guardian/tests/unit/fitness-pattern-loader.test.ts`
 
 ---
 

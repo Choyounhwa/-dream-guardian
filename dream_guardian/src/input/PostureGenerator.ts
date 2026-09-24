@@ -268,7 +268,13 @@ export class PostureGenerator {
     this._seedFn = options?.seedFn ?? Math.random;
 
     if (options?.patterns && options.patterns.length > 0) {
-      this._patterns = options.patterns.map((r, idx) => ({
+      const validPatterns = options.patterns.filter((r) => {
+        if (r.hip === null) return true;
+        if (r.leftHand !== null && isCrossBodyViolation(r.leftHand, r.hip)) return false;
+        if (r.rightHand !== null && isCrossBodyViolation(r.rightHand, r.hip)) return false;
+        return true;
+      });
+      this._patterns = validPatterns.map((r, idx) => ({
         choiceIndex: (idx % 2 === 0 ? 0 : 1) as 0 | 1,
         parts: [...r.parts],
         zoneIds: [...r.zoneIds],
@@ -281,10 +287,16 @@ export class PostureGenerator {
   }
 
   /**
-   * 외부 패턴 레코드(CSV 로더 산출물 등) 풀 등록
+   * 외부 패턴 레코드(CSV 로더 산출물 등) 풀 등록 (C8 위반 패턴 자동 필터링, Issue #158)
    */
   setPatterns(records: FitnessPatternRecord[]): void {
-    this._patterns = records.map((r, idx) => ({
+    const validPatterns = records.filter((r) => {
+      if (r.hip === null) return true;
+      if (r.leftHand !== null && isCrossBodyViolation(r.leftHand, r.hip)) return false;
+      if (r.rightHand !== null && isCrossBodyViolation(r.rightHand, r.hip)) return false;
+      return true;
+    });
+    this._patterns = validPatterns.map((r, idx) => ({
       choiceIndex: (idx % 2 === 0 ? 0 : 1) as 0 | 1,
       parts: [...r.parts],
       zoneIds: [...r.zoneIds],

@@ -234,6 +234,63 @@ describe('PostureGenerator & Constraints C1~C7 (Issue #125 - POSE-003)', () => {
       expect(result.valid).toBe(false);
       expect(result.violatedConstraint).toBe('C7');
     });
+
+    it('C8: 골반 최하단(9~11)과 손 최상단(1~3) 동시 배치는 Cross-Body 제약 위반으로 거부된다 (Issue #158 / FEAT-ZONE-004)', () => {
+      const otherPosture: AnswerPosture = {
+        choiceIndex: 1,
+        parts: ['head'],
+        zoneIds: [4],
+        binding: 'any',
+        patternId: 'OTHER_HEAD',
+      };
+
+      // 1. 왼손 존 1 (최상단) + 골반 존 9 (최하단)
+      const postureC8_1: AnswerPosture = {
+        choiceIndex: 0,
+        parts: ['leftHand', 'hip'],
+        zoneIds: [1, 9],
+        binding: 'any',
+        patternId: 'C8_TEST_1',
+      };
+      const res1 = validatePosturePair(postureC8_1, otherPosture);
+      expect(res1.valid).toBe(false);
+      expect(res1.violatedConstraint).toBe('C8');
+      expect(res1.reason).toContain('Cross-Body');
+
+      // 2. 오른손 존 3 (최상단) + 골반 존 10 (최하단)
+      const postureC8_2: AnswerPosture = {
+        choiceIndex: 0,
+        parts: ['rightHand', 'hip'],
+        zoneIds: [3, 10],
+        binding: 'any',
+        patternId: 'C8_TEST_2',
+      };
+      const res2 = validatePosturePair(postureC8_2, otherPosture);
+      expect(res2.valid).toBe(false);
+      expect(res2.violatedConstraint).toBe('C8');
+
+      // 3. 정상 통과 케이스 1: 골반 중하단(7) + 손 최상단(2) -> C8 통과
+      const postureValid1: AnswerPosture = {
+        choiceIndex: 0,
+        parts: ['leftHand', 'hip'],
+        zoneIds: [2, 7],
+        binding: 'any',
+        patternId: 'C8_VALID_1',
+      };
+      const resPass1 = validatePosturePair(postureValid1, otherPosture);
+      expect(resPass1.valid).toBe(true);
+
+      // 4. 정상 통과 케이스 2: 골반 최하단(10) + 손 중단(4) -> C8 통과
+      const postureValid2: AnswerPosture = {
+        choiceIndex: 0,
+        parts: ['leftHand', 'hip'],
+        zoneIds: [4, 10],
+        binding: 'any',
+        patternId: 'C8_VALID_2',
+      };
+      const resPass2 = validatePosturePair(postureValid2, otherPosture);
+      expect(resPass2.valid).toBe(true);
+    });
   });
 
   it('실제 fitness pattern.csv 원본 데이터를 로드하여 주입해도 100회 연속 정상 생성된다', () => {
