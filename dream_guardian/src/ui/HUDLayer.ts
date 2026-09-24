@@ -51,7 +51,6 @@ export class HUDLayer {
    */
   render(ctx: CanvasRenderingContext2D, w: number, h: number, data: HUDData): void {
     this._renderHpBars(ctx, w, data);
-    this._renderManaFlask(ctx, w, h);
     this._renderCombo(ctx, w, data);
     this._renderBossName(ctx, w, data);
 
@@ -61,32 +60,38 @@ export class HUDLayer {
   }
 
   private _renderHpBars(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
-    const barW = Math.min(280, w * 0.22);
-    const barH = 24;
+    // Issue #132: 1m+ 원거리 가독성을 위한 HP바 및 수치 텍스트 대형화
+    const barW = Math.min(320, w * 0.28);
+    const barH = 32;
     const y = 20;
     const pad = 20;
 
     // 플레이어 HP (좌측)
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillRect(pad, y, barW, barH);
     const pGrad = ctx.createLinearGradient(pad, 0, pad + barW, 0);
     pGrad.addColorStop(0, '#28E6FF');
     pGrad.addColorStop(1, '#4DFFAA');
     ctx.fillStyle = pGrad;
     ctx.fillRect(pad, y, barW * Math.max(0, this._displayPlayerHp), barH);
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 2.5;
     ctx.strokeRect(pad, y, barW, barH);
 
-    // 라벨
+    // 라벨 (18px 볼드 + 섀도우)
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 4;
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 12px sans-serif';
+    ctx.font = 'bold 18px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`HP ${data.playerHp}/${data.playerMaxHp}`, pad + 6, y + 16);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`HP ${data.playerHp}/${data.playerMaxHp}`, pad + 8, y + barH / 2);
+    ctx.restore();
 
     // 보스 HP (우측)
     const bx = w - pad - barW;
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillRect(bx, y, barW, barH);
     const bGrad = ctx.createLinearGradient(bx + barW, 0, bx, 0);
     bGrad.addColorStop(0, '#FF4444');
@@ -94,57 +99,42 @@ export class HUDLayer {
     ctx.fillStyle = bGrad;
     const bossBarW = barW * Math.max(0, this._displayBossHp);
     ctx.fillRect(bx + barW - bossBarW, y, bossBarW, barH);
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 2.5;
     ctx.strokeRect(bx, y, barW, barH);
 
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 4;
     ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
-    ctx.fillText(`HP ${data.bossHp}/${data.bossMaxHp}`, bx + barW - 6, y + 16);
-  }
-
-  private _renderManaFlask(ctx: CanvasRenderingContext2D, _w: number, h: number): void {
-    const fx = 30;
-    const fy = h - 80;
-    const fw = 36;
-    const fh = 50;
-
-    // 플라스크 외곽
-    ctx.strokeStyle = 'rgba(200,137,255,0.6)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(fx, fy, fw, fh, 6);
-    ctx.stroke();
-
-    // 액체
-    const fillH = fh * Math.max(0, Math.min(1, this._displayMana));
-    const mGrad = ctx.createLinearGradient(0, fy + fh, 0, fy + fh - fillH);
-    mGrad.addColorStop(0, '#C889FF');
-    mGrad.addColorStop(1, '#FF65C3');
-    ctx.fillStyle = mGrad;
-    ctx.beginPath();
-    ctx.roundRect(fx + 2, fy + fh - fillH, fw - 4, fillH - 2, 4);
-    ctx.fill();
-
-    // 라벨
-    ctx.fillStyle = '#C889FF';
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('MANA', fx + fw / 2, fy - 6);
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillText(`HP ${data.bossHp}/${data.bossMaxHp}`, bx + barW - 8, y + barH / 2);
+    ctx.restore();
   }
 
   private _renderCombo(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
     if (data.combo <= 0) return;
+    ctx.save();
+    ctx.shadowColor = data.combo >= 5 ? '#FFCB4D' : '#28E6FF';
+    ctx.shadowBlur = 10;
     ctx.fillStyle = data.combo >= 5 ? '#FFCB4D' : '#fff';
-    ctx.font = `bold ${data.combo >= 5 ? 20 : 16}px sans-serif`;
+    ctx.font = `bold ${data.combo >= 5 ? 32 : 24}px sans-serif`;
     ctx.textAlign = 'right';
-    ctx.fillText(`COMBO x${data.combo}`, w - 24, 70);
+    ctx.fillText(`COMBO x${data.combo}`, w - 24, 76);
+    ctx.restore();
   }
 
   private _renderBossName(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
-    ctx.fillStyle = '#888';
-    ctx.font = '11px sans-serif';
+    ctx.save();
+    ctx.shadowColor = '#FF4444';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = '#FFCB4D';
+    ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(`Ch.${data.chapter} ${BOSS_NAMES[data.chapter] ?? ''}`, w / 2, 36);
+    ctx.restore();
   }
 
   private _renderShield(ctx: CanvasRenderingContext2D, w: number, h: number): void {

@@ -26,6 +26,9 @@ export interface BottomBarRenderOptions {
   customActionSlot?: BottomBarSlot;
   settingsHoverProgress?: number;
   actionHoverProgress?: number;
+  mana?: number;
+  manaMax?: number;
+  combo?: number;
 }
 
 export class BottomBar {
@@ -124,7 +127,71 @@ export class BottomBar {
       ctx.stroke();
     }
 
-    // 4. 우측 액션 버튼
+    // 4. 중앙 수평 마나 게이지 & 콤보 배지 (Issue #143)
+    if (options?.mana !== undefined) {
+      const mana = Math.max(0, options.mana);
+      const manaMax = options.manaMax || 100;
+      const ratio = Math.min(1, mana / manaMax);
+
+      const mx = 210 * scaleX;
+      const my = 2038 * scaleY;
+      const mw = 560 * scaleX;
+      const mh = 50 * scaleY;
+      const mRadius = 14 * scaleX;
+
+      // 콤보 표시
+      if (options.combo && options.combo > 1) {
+        ctx.font = `bold ${Math.round(28 * scaleX)}px sans-serif`;
+        ctx.fillStyle = '#FFCB4D';
+        ctx.shadowColor = '#FFCB4D';
+        ctx.shadowBlur = 10 * scaleX;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`🔥 COMBO x${options.combo}`, mx + mw / 2, my - 4 * scaleY);
+        ctx.shadowBlur = 0;
+      }
+
+      // 마나 게이지 배경
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.strokeStyle = 'rgba(200, 137, 255, 0.5)';
+      ctx.lineWidth = 2 * scaleX;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(mx, my, mw, mh, mRadius);
+      } else {
+        ctx.rect(mx, my, mw, mh);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      // 마나 게이지 채우기
+      if (ratio > 0) {
+        const fillW = Math.max(mRadius * 2, mw * ratio);
+        const mGrad = ctx.createLinearGradient(mx, 0, mx + mw, 0);
+        mGrad.addColorStop(0, '#C889FF');
+        mGrad.addColorStop(1, '#FF65C3');
+        ctx.fillStyle = mGrad;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(mx, my, fillW, mh, mRadius);
+        } else {
+          ctx.rect(mx, my, fillW, mh);
+        }
+        ctx.fill();
+      }
+
+      // 마나 텍스트 라벨
+      ctx.font = `bold ${Math.round(26 * scaleX)}px sans-serif`;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+      ctx.shadowBlur = 4 * scaleX;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`MANA ${Math.round(mana)} / ${manaMax}`, mx + mw / 2, my + mh / 2);
+      ctx.shadowBlur = 0;
+    }
+
+    // 5. 우측 액션 버튼
     if (options?.actionLabel) {
       const aSlot = options.customActionSlot ?? BOTTOM_BAR_CONFIG.actionBtn;
       const ax = aSlot.x * scaleX;
@@ -146,7 +213,7 @@ export class BottomBar {
       ctx.fill();
       ctx.stroke();
 
-      ctx.font = `bold ${Math.round(36 * scaleX)}px sans-serif`;
+      ctx.font = `bold ${Math.round(42 * scaleX)}px sans-serif`;
       ctx.fillStyle = aColor;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';

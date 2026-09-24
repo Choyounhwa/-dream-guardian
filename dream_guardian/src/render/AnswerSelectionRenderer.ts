@@ -102,37 +102,45 @@ export class AnswerSelectionRenderer {
       // Issue #129: i % 2 오매핑 수정 -> 존별 독립 진행도 매핑
       const progress = this._getZoneProgress(zone.id, i, choiceProgress);
 
-      // Issue #143: 3중 회전 마법진 렌더링 (존 배경 아래에 깔림)
+      const cx = zx + zw / 2;
+      const cy = zy + zh / 2;
+      const size = Math.max(zw, zh) * 1.35;
+
+      // Issue #143: 3중 회전 마법진 렌더링
       if (this._magicCircle?.isReady) {
-        const cx = zx + zw / 2;
-        const cy = zy + zh / 2;
-        const size = Math.max(zw, zh) * 1.2;
         this._magicCircle.renderAtZone(ctx, cx, cy, size);
+        if (progress > 0) {
+          ctx.save();
+          ctx.strokeStyle = '#4DFFAA';
+          ctx.lineWidth = 6 * (w / 1080);
+          ctx.shadowColor = '#4DFFAA';
+          ctx.shadowBlur = 18 * (w / 1080);
+          ctx.beginPath();
+          ctx.arc(cx, cy, (size / 2) * 0.9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+          ctx.stroke();
+          ctx.restore();
+        }
+      } else {
+        // Fallback (테스트 또는 이미지 미로드 시)
+        ctx.fillStyle = 'rgba(40, 230, 255, 0.08)';
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(zx, zy, zw, zh, 16);
+        } else {
+          ctx.rect(zx, zy, zw, zh);
+        }
+        ctx.fill();
+
+        // 충전 진행 시 채움 바 (Issue #129 검증 호환)
+        if (progress > 0) {
+          ctx.fillStyle = `rgba(77, 255, 170, ${0.15 + progress * 0.25})`;
+          ctx.fillRect(zx, zy + zh * (1 - progress), zw, zh * progress);
+        }
+
+        ctx.strokeStyle = progress > 0 ? '#4DFFAA' : 'rgba(40, 230, 255, 0.5)';
+        ctx.lineWidth = progress > 0 ? 3 : 1.5;
+        ctx.strokeRect(zx, zy, zw, zh);
       }
-
-      // 존 배경 (은은한 글로우)
-      ctx.fillStyle = 'rgba(40, 230, 255, 0.06)';
-      ctx.beginPath();
-      ctx.rect(zx, zy, zw, zh);
-      ctx.fill();
-
-      // 충전 진행 시 채움 바
-      if (progress > 0) {
-        ctx.fillStyle = `rgba(77, 255, 170, ${0.15 + progress * 0.25})`;
-        ctx.fillRect(zx, zy + zh * (1 - progress), zw, zh * progress);
-      }
-
-      // 네온 점선 테두리
-      ctx.strokeStyle = progress > 0 ? '#4DFFAA' : 'rgba(40, 230, 255, 0.45)';
-      ctx.lineWidth = progress > 0 ? 3 : 1.5;
-      ctx.strokeRect(zx, zy, zw, zh);
-
-      // 존 라벨
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.font = `bold ${Math.max(12, Math.min(16, w * 0.015))}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(zone.label, zx + zw / 2, zy + 6);
     }
   }
 

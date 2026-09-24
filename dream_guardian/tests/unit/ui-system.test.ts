@@ -447,3 +447,24 @@ describe('TutorialOverlay 튜토리얼 시스템 (Issue #137 / TUT-001)', () => 
     expect(mockCtx.fillText).toHaveBeenCalled();
   });
 });
+
+describe('인게임 마젠타 컨테이너 & 마법진 & 결과 패널 (Issue #143 / UI-INGAME-001)', () => {
+  it('ResultRenderer가 마젠타 결과 카드 패널(880x1580) 규격을 반환한다', () => {
+    const result = new ResultRenderer();
+    const layout = (result as unknown as { getPanelLayout(w: number, h: number): { x: number; y: number; w: number; h: number } }).getPanelLayout(1080, 2160);
+    expect(layout).toEqual({
+      x: 100,
+      y: 240,
+      w: 880,
+      h: 1580,
+    });
+  });
+
+  it('ResultRenderer가 1:1 대형 통계 라인 높이(74px)와 폰트(44px)를 반환한다', () => {
+    const result = new ResultRenderer();
+    const lineH = (result as unknown as { getStatLineHeight(h: number): number }).getStatLineHeight(2160);
+    const fontS = (result as unknown as { getStatFontSize(w: number): number }).getStatFontSize(1080);
+    expect(lineH).toBe(74);
+    expect(fontS).toBe(44);
+  });
+});

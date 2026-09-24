@@ -1,11 +1,15 @@
 /**
  * ResultRenderer - 결과 화면, 칼로리 계산, 별 등급
  *
- * 클리어/실패 피드백 + 운동 통계 리포트
- * 칼로리: (steps*0.04) + (squats*0.35) + (jumps*0.15)
+ * Issue #143 (Card #75 / UI-INGAME-001):
+ * - 마젠타 결과 카드 패널 (880x1580px, 네온 마젠타 외곽선)
+ * - 타이틀 bold 100px (승리/패배), 챕터명 42px, 별점 54px
+ * - 8개 운동 통계 1:1 매칭 74px 라인 x 44px 대형 폰트 리포트
  *
- * @see Issue #23 (GitHub #88)
+ * @see Issue #23 (GitHub #88), Issue #135, Issue #143
  */
+
+import { CALORIE_RATES } from '../../config/posture.config.js';
 
 export interface ResultData {
   victory: boolean;
@@ -17,11 +21,30 @@ export interface ResultData {
   squats: number;
   jumps: number;
   elapsedTime: number;
+  /** 스트레칭/자세 유지 시간 (초, Issue #135) */
+  dwellTime?: number;
 }
 
-/** 칼로리 계산 */
-export function calcCalories(steps: number, squats: number, jumps: number): number {
-  return steps * 0.04 + squats * 0.35 + jumps * 0.15;
+export interface ResultPanelLayout {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** 칼로리 계산 (자세 유지 시간 반영 확장, Issue #135 / CALC-001) */
+export function calcCalories(
+  steps: number,
+  squats: number,
+  jumps: number,
+  dwellTime = 0,
+): number {
+  return (
+    steps * CALORIE_RATES.step +
+    squats * CALORIE_RATES.squat +
+    jumps * CALORIE_RATES.jump +
+    dwellTime * CALORIE_RATES.dwellPerSecond
+  );
 }
 
 /** 별 등급 (1~3) 산출 */
@@ -36,62 +59,130 @@ export function calcStars(correctCount: number, totalQuestions: number, elapsedT
 const BOSS_NAMES = ['', '포겟', '후다닥', '뒤죽박죽', '에라', '나이트메어'];
 
 export class ResultRenderer {
+  /**
+   * 마젠타 결과 카드 패널 레이아웃 (1080x2160 기준 x: 100, y: 240, w: 880, h: 1580)
+   */
+  getPanelLayout(w: number, h: number): ResultPanelLayout {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    return {
+      x: 100 * scaleX,
+      y: 240 * scaleY,
+      w: 880 * scaleX,
+      h: 1580 * scaleY,
+    };
+  }
+
+  /**
+   * 통계 1줄 높이 (2160 기준 74px)
+   */
+  getStatLineHeight(h: number): number {
+    return Math.round(74 * (h / 2160));
+  }
+
+  /**
+   * 통계 폰트 크기 (1080 기준 44px)
+   */
+  getStatFontSize(w: number): number {
+    return Math.round(44 * (w / 1080));
+  }
+
   render(ctx: CanvasRenderingContext2D, w: number, h: number, data: ResultData): void {
-    // 배경 오버레이
-    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+
+    ctx.save();
+
+    // 1. 전체 화면 딤 오버레이
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
     ctx.fillRect(0, 0, w, h);
+
+    // 2. 마젠타 결과 카드 패널 (x: 100, y: 240, w: 880, h: 1580)
+    const panel = this.getPanelLayout(w, h);
+    ctx.fillStyle = 'rgba(20, 10, 30, 0.95)';
+    ctx.strokeStyle = '#FF28D8';
+    ctx.lineWidth = 3.5 * scaleX;
+    ctx.shadowColor = '#FF28D8';
+    ctx.shadowBlur = 18 * scaleX;
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(panel.x, panel.y, panel.w, panel.h, 28 * scaleX);
+    } else {
+      ctx.rect(panel.x, panel.y, panel.w, panel.h);
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // 타이틀
-    const titleY = h * 0.2;
-    ctx.font = `bold ${Math.min(56, w * 0.05)}px sans-serif`;
+    // 3. 타이틀 영역: bold 100px ("승리!" / "패배...")
+    const titleY = panel.y + 110 * scaleY;
+    ctx.font = `bold ${Math.round(100 * scaleX)}px sans-serif`;
     ctx.fillStyle = data.victory ? '#4DFFAA' : '#FF4444';
+    ctx.shadowColor = data.victory ? '#4DFFAA' : '#FF4444';
+    ctx.shadowBlur = 20 * scaleX;
     ctx.fillText(data.victory ? '승리!' : '패배...', w / 2, titleY);
+    ctx.shadowBlur = 0;
 
-    // 챕터 정보
-    ctx.font = `${Math.min(20, w * 0.018)}px sans-serif`;
-    ctx.fillStyle = '#aaa';
-    ctx.fillText(`Ch.${data.chapter} ${BOSS_NAMES[data.chapter] ?? ''}`, w / 2, titleY + 50);
+    // 챕터명: bold 42px
+    ctx.font = `bold ${Math.round(42 * scaleX)}px sans-serif`;
+    ctx.fillStyle = '#FFCB4D';
+    ctx.fillText(`Ch.${data.chapter} ${BOSS_NAMES[data.chapter] ?? ''}`, w / 2, titleY + 90 * scaleY);
 
-    // 별 등급
+    // 별 등급 (승리 시): bold 54px
     if (data.victory) {
       const stars = calcStars(data.correctCount, data.totalQuestions, data.elapsedTime);
-      ctx.font = `${Math.min(40, w * 0.035)}px sans-serif`;
+      ctx.font = `bold ${Math.round(54 * scaleX)}px sans-serif`;
       ctx.fillStyle = '#FFCB4D';
-      ctx.fillText('★'.repeat(stars) + '☆'.repeat(3 - stars), w / 2, h * 0.35);
+      ctx.shadowColor = '#FFCB4D';
+      ctx.shadowBlur = 14 * scaleX;
+      ctx.fillText('★'.repeat(stars) + '☆'.repeat(3 - stars), w / 2, titleY + 165 * scaleY);
+      ctx.shadowBlur = 0;
     }
 
-    // 통계
-    const statY = h * 0.45;
-    const lineH = Math.min(30, h * 0.035);
-    ctx.font = `${Math.min(16, w * 0.014)}px sans-serif`;
-    ctx.fillStyle = '#ccc';
+    // 4. 8개 운동 통계 리포트 (74px 라인 x bold 44px 1:1 매칭)
+    const statStartY = panel.y + (data.victory ? 470 : 380) * scaleY;
+    const lineH = this.getStatLineHeight(h);
+    const fontS = this.getStatFontSize(w);
+
+    ctx.font = `bold ${fontS}px sans-serif`;
+    ctx.fillStyle = '#FFFFFF';
 
     const accuracy = data.totalQuestions > 0
-      ? Math.round(data.correctCount / data.totalQuestions * 100)
+      ? Math.round((data.correctCount / data.totalQuestions) * 100)
       : 0;
-    const calories = calcCalories(data.steps, data.squats, data.jumps);
-    const timeStr = `${Math.floor(data.elapsedTime / 60)}:${String(Math.floor(data.elapsedTime % 60)).padStart(2, '0')}`;
+    const dwell = data.dwellTime ?? 0;
+    const calories = calcCalories(data.steps, data.squats, data.jumps, dwell);
+    const timeStr = `${Math.floor(data.elapsedTime / 60)}분 ${String(Math.floor(data.elapsedTime % 60)).padStart(2, '0')}초`;
 
     const lines = [
-      `정답: ${data.correctCount} / ${data.totalQuestions} (${accuracy}%)`,
-      `최대 콤보: ${data.maxCombo}`,
-      `시간: ${timeStr}`,
-      `걸음: ${data.steps}`,
-      `스쿼트: ${data.squats}`,
-      `점프: ${data.jumps}`,
-      `칼로리: ${calories.toFixed(1)} kcal`,
+      `🎯 정답률: ${data.correctCount} / ${data.totalQuestions} (${accuracy}%)`,
+      `🔥 최대 콤보: ${data.maxCombo} COMBO`,
+      `⏱️ 플레이 시간: ${timeStr}`,
+      `🏃 달린 걸음: ${data.steps}보`,
+      `🏋️ 스쿼트: ${data.squats}회`,
+      `🦘 점프: ${data.jumps}회`,
+      `🧘 자세 유지: ${dwell.toFixed(1)}초`,
+      `⚡ 소모 칼로리: ${calories.toFixed(1)} kcal`,
     ];
 
     for (let i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i], w / 2, statY + i * lineH);
+      const ly = statStartY + i * lineH;
+      // 은은한 구분선 배경 바
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.015)';
+      ctx.fillRect(panel.x + 40 * scaleX, ly - lineH / 2 + 6 * scaleY, panel.w - 80 * scaleX, lineH - 12 * scaleY);
+
+      ctx.fillStyle = i === 7 ? '#FFCB4D' : '#EAEAEA';
+      ctx.fillText(lines[i], w / 2, ly);
     }
 
-    // 안내
-    ctx.font = `${Math.min(14, w * 0.012)}px sans-serif`;
-    ctx.fillStyle = '#666';
-    ctx.fillText('ESC 또는 클릭으로 메뉴 복귀', w / 2, h * 0.88);
+    // 5. 하단 안내문
+    ctx.font = `${Math.round(26 * scaleX)}px sans-serif`;
+    ctx.fillStyle = '#888888';
+    ctx.fillText('양손을 모으거나 하단 [메뉴로] 버튼을 클릭하세요', w / 2, panel.y + panel.h - 50 * scaleY);
+
+    ctx.restore();
   }
 }

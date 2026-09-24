@@ -345,40 +345,74 @@ function goToMenu(): void {
 function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): void {
   if (!currentQuestion || !questionVisible) return;
 
-  const cx = w / 2;
-  // Issue #121: 예약 밴드(RESERVED_BANDS.question, y: 0.24~0.40) 내부 중앙 배치
-  const cy = h * 0.32;
+  const scaleX = w / 1080;
+  const scaleY = h / 2160;
 
-  // 문제 텍스트 (직관적 수식 렌더러 적용: 가로 분수선, 지수, 루트, 빈칸 박스 - Issue #132: 1m 대형화)
-  ctx.shadowColor = 'rgba(40,230,255,0.5)';
-  ctx.shadowBlur = 20;
-  const qFontSize = Math.min(64, w * 0.054);
-  renderMath(ctx, currentQuestion.questionText, cx, cy, {
+  ctx.save();
+
+  // 1. Issue #143: 마젠타 문제영역 고정 컨테이너 (x: 100, y: 320, w: 880, h: 1000)
+  const boxX = 100 * scaleX;
+  const boxY = 320 * scaleY;
+  const boxW = 880 * scaleX;
+  const boxH = 1000 * scaleY;
+
+  ctx.fillStyle = 'rgba(20, 10, 32, 0.85)';
+  ctx.strokeStyle = '#FF28D8';
+  ctx.lineWidth = 3.5 * scaleX;
+  ctx.shadowColor = '#FF28D8';
+  ctx.shadowBlur = 18 * scaleX;
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(boxX, boxY, boxW, boxH, 24 * scaleX);
+  } else {
+    ctx.rect(boxX, boxY, boxW, boxH);
+  }
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // 2. 문제 수식 텍스트 (오버플로우 방지 자동 축소: 기본 88px -> 최소 56px)
+  const cx = w / 2;
+  const qY = boxY + 240 * scaleY;
+  const qText = currentQuestion.questionText;
+  const qLen = qText.length;
+  let qFontSize = 88 * scaleX;
+  if (qLen > 12) {
+    qFontSize = Math.max(56 * scaleX, (88 - (qLen - 12) * 2.5) * scaleX);
+  }
+
+  ctx.shadowColor = 'rgba(40, 230, 255, 0.5)';
+  ctx.shadowBlur = 16 * scaleX;
+  renderMath(ctx, qText, cx, qY, {
     fontSize: qFontSize,
     color: '#ffffff',
     align: 'center',
     placeholderColor: '#28E6FF',
-    placeholderBgColor: 'rgba(40,230,255,0.18)',
+    placeholderBgColor: 'rgba(40, 230, 255, 0.18)',
     fractionLineColor: '#ffffff',
   });
   ctx.shadowBlur = 0;
 
-  // 선택지 (Issue #121: 예약 밴드 내부, Issue #132: 버튼 및 폰트 대형화)
-  const btnW = Math.min(240, w * 0.20);
-  const btnH = Math.round(btnW * 0.58);
-  const gap = 50;
-  const btnY = h * 0.44;
+  // 3. 답안 버튼 2개 횡배치 (w: 360, h: 260, 좌: 140, 우: 580, y: 960)
+  const btnW = 360 * scaleX;
+  const btnH = 260 * scaleY;
+  const btnY = 960 * scaleY;
+  const btnXs = [140 * scaleX, 580 * scaleX];
 
   for (let i = 0; i < 2; i++) {
-    const bx = cx + (i === 0 ? -(btnW + gap / 2) : gap / 2);
+    const bx = btnXs[i];
     const plan = answerSelector.currentPlan;
     const recipe = plan?.choices[i];
 
-    // Issue #148: 답안 버튼 사각형 중심점 기점 방사형(Radial) 색상 분할 렌더링
-    PartIconRenderer.drawRadialAnswerButton(ctx, recipe, bx, btnY, btnW, btnH, 16, 3.5);
+    // Issue #148: 방사형 색상 분할 버튼 렌더링
+    PartIconRenderer.drawRadialAnswerButton(ctx, recipe, bx, btnY, btnW, btnH, 20 * scaleX, 4 * scaleX);
 
-    const choiceFontSize = Math.min(46, w * 0.040);
-    renderMath(ctx, String(currentQuestion.choices[i]), bx + btnW / 2, btnY + btnH / 2, {
+    // 수식 폰트: bold 96px (긴 수식은 최소 60px까지 자동 축소)
+    const choiceStr = String(currentQuestion.choices[i]);
+    const choiceLen = choiceStr.length;
+    const choiceFontSize = choiceLen > 6 ? Math.max(60 * scaleX, (96 - (choiceLen - 6) * 6) * scaleX) : 96 * scaleX;
+
+    renderMath(ctx, choiceStr, bx + btnW / 2, btnY + btnH / 2 - 20 * scaleY, {
       fontSize: choiceFontSize,
       color: '#FFCB4D',
       align: 'center',
@@ -386,18 +420,21 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
       placeholderColor: '#FFCB4D',
     });
 
-    // Issue #128: 답안 버튼 하단에 요구 부위 아이콘 및 묶음 기호(( )/|) 렌더링
+    // 요구 부위 아이콘 렌더링
     if (recipe) {
-      const iconSize = Math.min(22, Math.max(16, w * 0.018));
-      PartIconRenderer.drawRequirementGroup(ctx, recipe, bx + btnW / 2, btnY + btnH + 20, iconSize);
+      const iconSize = 28 * scaleX;
+      PartIconRenderer.drawRequirementGroup(ctx, recipe, bx + btnW / 2, btnY + btnH - 36 * scaleY, iconSize);
     }
 
-    ctx.font = `bold ${Math.min(16, w * 0.014)}px sans-serif`;
+    // 키보드 힌트
+    ctx.font = `bold ${Math.round(22 * scaleX)}px sans-serif`;
     ctx.fillStyle = '#AAAAAA';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`키보드 [${i + 1}]`, bx + btnW / 2, btnY + btnH + 42);
+    ctx.fillText(`키보드 [${i + 1}]`, bx + btnW / 2, btnY + btnH + 34 * scaleY);
   }
+
+  ctx.restore();
 }
 
 // ─── 피드백 렌더링 ───
@@ -983,6 +1020,9 @@ const engine = new GameEngine({
       customActionSlot,
       settingsHoverProgress: settingsHoverTimer / MENU_HOVER_DWELL_TIME,
       actionHoverProgress: actionHoverTimer / MENU_HOVER_DWELL_TIME,
+      mana: screenMode === 'game' ? battle.mana : undefined,
+      manaMax: screenMode === 'game' ? DEFAULT_CONFIG.mana.spellCost : undefined,
+      combo: screenMode === 'game' ? battle.combo : undefined,
     });
 
     // 7. Issue #141: 설정 모달 렌더링 (오버레이 및 팝업 카드)
@@ -1123,15 +1163,16 @@ canvas.addEventListener('click', (e) => {
       return;
     }
     if (questionVisible && currentQuestion && !answerLocked) {
-      const cx = vw / 2;
-      const cy = vh * 0.38 + 80;
-      const btnW = Math.min(200, vw * 0.16);
-      const btnH = btnW * 0.55;
-      const gap = 50;
+      const scaleX = vw / 1080;
+      const scaleY = vh / 2160;
+      const btnW = 360 * scaleX;
+      const btnH = 260 * scaleY;
+      const btnY = 960 * scaleY;
+      const btnXs = [140 * scaleX, 580 * scaleX];
 
       for (let i = 0; i < 2; i++) {
-        const bx = cx + (i === 0 ? -(btnW + gap / 2) : gap / 2);
-        if (x >= bx && x <= bx + btnW && y >= cy && y <= cy + btnH) {
+        const bx = btnXs[i];
+        if (x >= bx && x <= bx + btnW && y >= btnY && y <= btnY + btnH) {
           handleAnswer(i);
           break;
         }
