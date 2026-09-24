@@ -2449,6 +2449,41 @@
   - `dream_guardian/tests/unit/ui-system.test.ts`
   - `dream_guardian/HANDOVER.md`
 
+---
+
+### Issue #166 (Card #92): [UI-BAR-002] 하단 고정바(BottomBar) 내 운동 모드 선택 버튼 신설 및 메인 제목 하단 레거시 제거
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/166
+- **Labels**: `phase-6`, `feature`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[UI-BAR-002]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - 현재 메인 메뉴 타이틀 하단에 위치한 운동 모드 선택 버튼을 삭제하여 타이틀 영역과 웹캠 중앙 뷰포트 시인성을 정돈한다.
+  - 전 화면 공통 하단 고정바(`BottomBar`) 좌측 영역(`x: 190, y: 1990, w: 260, h: 140`)에 현재 선택된 운동 모드(아이콘 + 한글 모드명)를 표출하는 전용 메뉴 버튼을 신설한다.
+  - 메뉴 화면에서 마우스/터치 클릭 및 4색 신체 커서 호버(0.8초 체류)를 통해 `LocomotionModal`을 즉각 호출할 수 있도록 조작 체계를 일원화한다.
+- **수정 대상**:
+  - `dream_guardian/src/ui/BottomBar.ts`
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/bottom-bar.test.ts`
+- **유지 사항**:
+  - 기존 `BottomBar` 설정 버튼(`x: 30, w: 140`), 우측 액션 버튼(`x: 780/810`), 인게임 마나바 레이아웃
+  - `LocomotionModal` 4종 모드, 0.8초 체류, `localStorage` 영속 로직 완전 유지
+- **변경 금지**:
+  - `RunDetector`, `HipBounceDetector`, `HipSwayDetector`, `ArmCrossDetector` 등 모션 엔진 로직
+  - 전투, 문제 평가 및 스켈레톤 파이프라인
+- **완료 조건**:
+  - [ ] 하단 고정바 내 운동 모드 버튼(`x: 190, y: 1990, w: 260, h: 140`) 정상 렌더링
+  - [ ] 메인 메뉴 타이틀 하단 임시 버튼 및 관련 메서드 정리
+  - [ ] 마우스 클릭 및 신체 커서 0.8초 체류 시 운동 모드 모달 정상 호출
+  - [ ] 단위 테스트 100% Pass 및 빌드 에러 0건
+- **관련 파일**:
+  - `dream_guardian/src/ui/BottomBar.ts`
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/bottom-bar.test.ts`
+  - `dream_guardian/HANDOVER.md`
+
 
 
 
