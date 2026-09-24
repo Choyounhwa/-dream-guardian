@@ -20,6 +20,7 @@ import {
   HIP_ZONES,
   LEFT_HAND_ZONES,
   RIGHT_HAND_ZONES,
+  isCrossBodyViolation,
   type FitnessZone,
 } from '../../config/zone.config.js';
 import { TIER_CONFIGS, type TierConfig } from '../../config/posture.config.js';
@@ -33,7 +34,7 @@ import { postureToChoiceRecipe } from '../types/posture.js';
 
 export interface ConstraintCheckResult {
   valid: boolean;
-  violatedConstraint?: 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6' | 'C7';
+  violatedConstraint?: 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6' | 'C7' | 'C8';
   reason?: string;
 }
 
@@ -48,9 +49,10 @@ export interface PostureGeneratorOptions {
 /**
  * 큐레이션된 기본 피트니스 체조 패턴 16종 (외부 데이터 부재 시 내장 풀)
  *
- * Issue #151 (FEAT-POSE-006):
- * - 왼손 비대칭 허용 구역 (LEFT_HAND_ZONES: 1, 2, 4, 6, 7, 9, 10)
- * - 오른손 비대칭 허용 구역 (RIGHT_HAND_ZONES: 2, 3, 7, 8, 10, 11)
+ * Issue #156 (FEAT-ZONE-003):
+ * - 양손 전 존(1~11) 허용
+ * - 머리 중단 존(HEAD_ZONES: 4, 5) 한정
+ * - Cross-Body 물리 연동 제약 (골반 9~11 시 손 1~3 배제)
  * - 완전 색상 비공유 원칙 (A.parts ∩ B.parts = ∅) 준수
  */
 export const DEFAULT_CURATED_PATTERNS: AnswerPosture[] = [
@@ -61,21 +63,21 @@ export const DEFAULT_CURATED_PATTERNS: AnswerPosture[] = [
   { choiceIndex: 1, parts: ['rightHand'], zoneIds: [8], binding: 'any', patternId: 'P04_R_MID' },
 
   // Tier 2 (머리 vs 손 스트레칭: 상호 배타)
-  { choiceIndex: 0, parts: ['head'], zoneIds: [1], binding: 'ordered', patternId: 'P05_HEAD_L' },
+  { choiceIndex: 0, parts: ['head'], zoneIds: [4], binding: 'ordered', patternId: 'P05_HEAD_L' },
   { choiceIndex: 1, parts: ['rightHand'], zoneIds: [3], binding: 'any', patternId: 'P06_RH_UP' },
-  { choiceIndex: 0, parts: ['leftHand'], zoneIds: [4], binding: 'any', patternId: 'P07_LH_MID' },
-  { choiceIndex: 1, parts: ['head'], zoneIds: [2], binding: 'ordered', patternId: 'P08_HEAD_TOP' },
+  { choiceIndex: 0, parts: ['leftHand'], zoneIds: [1], binding: 'any', patternId: 'P07_LH_UP' },
+  { choiceIndex: 1, parts: ['head'], zoneIds: [5], binding: 'ordered', patternId: 'P08_HEAD_R' },
 
   // Tier 3 (전신 협응 2부위: {왼손, 골반} vs {오른손, 머리})
   { choiceIndex: 0, parts: ['leftHand', 'hip'], zoneIds: [4, 7], binding: 'any', patternId: 'P09_L_SQUAT' },
-  { choiceIndex: 1, parts: ['rightHand', 'head'], zoneIds: [8, 2], binding: 'any', patternId: 'P10_R_HEAD' },
-  { choiceIndex: 0, parts: ['head', 'leftHand'], zoneIds: [2, 1], binding: 'any', patternId: 'P11_HEAD_LH' },
+  { choiceIndex: 1, parts: ['rightHand', 'head'], zoneIds: [8, 5], binding: 'any', patternId: 'P10_R_HEAD' },
+  { choiceIndex: 0, parts: ['head', 'leftHand'], zoneIds: [4, 1], binding: 'any', patternId: 'P11_HEAD_LH' },
   { choiceIndex: 1, parts: ['hip', 'rightHand'], zoneIds: [7, 8], binding: 'any', patternId: 'P12_HIP_RH' },
 
   // Tier 4 (보스 피니시 2부위: 완전 색상 비공유 조합)
   { choiceIndex: 0, parts: ['leftHand', 'hip'], zoneIds: [2, 7], binding: 'any', patternId: 'P13_FINISH_L' },
-  { choiceIndex: 1, parts: ['rightHand', 'head'], zoneIds: [2, 7], binding: 'any', patternId: 'P14_FINISH_R' },
-  { choiceIndex: 0, parts: ['leftHand', 'head'], zoneIds: [1, 2], binding: 'any', patternId: 'P15_FINISH_ALT_L' },
+  { choiceIndex: 1, parts: ['rightHand', 'head'], zoneIds: [2, 5], binding: 'any', patternId: 'P14_FINISH_R' },
+  { choiceIndex: 0, parts: ['leftHand', 'head'], zoneIds: [1, 4], binding: 'any', patternId: 'P15_FINISH_ALT_L' },
   { choiceIndex: 1, parts: ['rightHand', 'hip'], zoneIds: [3, 7], binding: 'any', patternId: 'P16_FINISH_ALT_R' },
 ];
 
@@ -149,7 +151,7 @@ export function validatePosturePair(
         return {
           valid: false,
           violatedConstraint: 'C5',
-          reason: `머리 커서는 상단 존(HEAD_ZONES: 1~5)만 사용 가능하나 존 ${zId}가 할당되었습니다.`,
+          reason: `머리 커서는 중단 좌/우 존(HEAD_ZONES: 4, 5)만 사용 가능하나 존 ${zId}가 할당되었습니다.`,
         };
       }
       if (p === 'hip' && !HIP_ZONES.has(zId)) {
@@ -163,15 +165,37 @@ export function validatePosturePair(
         return {
           valid: false,
           violatedConstraint: 'C5',
-          reason: `왼손 커서는 허용 존(LEFT_HAND_ZONES: 1, 2, 4, 6, 7, 9, 10)만 사용 가능하나 존 ${zId}가 할당되었습니다.`,
+          reason: `왼손 커서는 허용 존(LEFT_HAND_ZONES: 1~11)만 사용 가능하나 존 ${zId}가 할당되었습니다.`,
         };
       }
       if (p === 'rightHand' && !RIGHT_HAND_ZONES.has(zId)) {
         return {
           valid: false,
           violatedConstraint: 'C5',
-          reason: `오른손 커서는 허용 존(RIGHT_HAND_ZONES: 2, 3, 7, 8, 10, 11)만 사용 가능하나 존 ${zId}가 할당되었습니다.`,
+          reason: `오른손 커서는 허용 존(RIGHT_HAND_ZONES: 1~11)만 사용 가능하나 존 ${zId}가 할당되었습니다.`,
         };
+      }
+    }
+
+    // ── C8: Cross-Body 물리 연동 제약 (골반 최하단 9~11 시 손 최상단 1~3 차단, Issue #156 / #158) ──
+    const hipIndices = posture.parts
+      .map((p, idx) => (p === 'hip' ? idx : -1))
+      .filter((idx) => idx !== -1);
+    const handIndices = posture.parts
+      .map((p, idx) => (p === 'leftHand' || p === 'rightHand' ? idx : -1))
+      .filter((idx) => idx !== -1);
+
+    for (const hipIdx of hipIndices) {
+      const zHip = posture.zoneIds[hipIdx] ?? posture.zoneIds[0];
+      for (const handIdx of handIndices) {
+        const zHand = posture.zoneIds[handIdx] ?? posture.zoneIds[0];
+        if (isCrossBodyViolation(zHand, zHip)) {
+          return {
+            valid: false,
+            violatedConstraint: 'C8',
+            reason: `골반이 최하단 존(${zHip})일 때 손이 최상단 존(${zHand})에 위치할 수 없습니다 (Cross-Body 제약 위반).`,
+          };
+        }
       }
     }
 

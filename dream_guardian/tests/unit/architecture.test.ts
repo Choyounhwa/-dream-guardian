@@ -61,13 +61,13 @@ describe('Architecture Test', () => {
   });
 
   it('config/ 분리 모듈(zone, cursor, posture)이 Config.ts를 통해 정상 재노출된다 (Issue #120 / CFG-001)', () => {
-    // 1. zone.config 검증
+    // 1. zone.config 검증 (Issue #156: 양손 전 존 1~11, 머리 4~5)
     expect(DEFAULT_FITNESS_ZONES).toHaveLength(11);
-    expect(HEAD_ZONES.size).toBeGreaterThan(0);
+    expect(HEAD_ZONES.size).toBe(2);
     expect(HIP_ZONES.size).toBeGreaterThan(0);
     expect(SHOULDER_ZONES.size).toBeGreaterThan(0);
-    expect(LEFT_HAND_ZONES.size).toBe(7);
-    expect(RIGHT_HAND_ZONES.size).toBe(6);
+    expect(LEFT_HAND_ZONES.size).toBe(11);
+    expect(RIGHT_HAND_ZONES.size).toBe(11);
     expect(LEFT_HAND_ZONES.has(4)).toBe(true);
     expect(RIGHT_HAND_ZONES.has(8)).toBe(true);
 

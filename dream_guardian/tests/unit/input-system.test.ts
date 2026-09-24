@@ -32,12 +32,12 @@ describe('AnswerSelector', () => {
     expect(CURSOR_COLORS.hip).toBe('#FF865E');
   });
 
-  it('머리/얼굴(head) 커서는 상단/측면 존(1,2,3,4,5)에서 동작하고 하단존에서는 차단된다', () => {
-    expect(HEAD_ZONES.has(1)).toBe(true);
-    expect(HEAD_ZONES.has(2)).toBe(true);
-    expect(HEAD_ZONES.has(3)).toBe(true);
+  it('머리/얼굴(head) 커서는 중단 측면 존(4, 5)에서 동작하고 상단 및 하단존에서는 차단된다 (Issue #156)', () => {
     expect(HEAD_ZONES.has(4)).toBe(true);
     expect(HEAD_ZONES.has(5)).toBe(true);
+    expect(HEAD_ZONES.has(1)).toBe(false);
+    expect(HEAD_ZONES.has(2)).toBe(false);
+    expect(HEAD_ZONES.has(3)).toBe(false);
     expect(HEAD_ZONES.has(7)).toBe(false); // RC-6 해소 확인 (머리-골반 동일 존 충돌 방지)
     expect(HEAD_ZONES.has(10)).toBe(false);
   });

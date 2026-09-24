@@ -2325,15 +2325,15 @@
 - **Labels**: `phase-3`, `feature`, `P1-high`
 - **Milestone**: `v0.3-vision-motion`
 - **작업 ID**: `[FEAT-ZONE-003]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (Pass)**
 - **목적**:
   - 실제 신체 가동 범위(옆구리 늘리기, 교차 도달) 분석에 따라 왼손/오른손을 전 피트니스 존(1~11)으로 확장하고, 점프로 일시 도달은 가능하나 체류 유지가 불가능한 머리 커서의 상단 존(1~3)을 배제하여 머리를 좌/우 중단 존(4, 5)으로 한정한다. 아울러 골반이 최하단(존 9~11)에 도달했을 때 양손이 최상단(존 1~3)에 도달하는 물리적 한계 자세를 차단하는 Cross-Body 연동 제약을 신설한다.
 - **완료 조건**:
-  - [ ] `LEFT_HAND_ZONES` 및 `RIGHT_HAND_ZONES` 전 존(1~11) 허용 확립
-  - [ ] `HEAD_ZONES`를 `{4, 5}`로 한정 (존 1~3 배제)
-  - [ ] `isValidZoneForCursor()` 및 Cross-Body 제약(hip: 9~11 시 hand: 1~3 차단) 함수 구현
-  - [ ] `PostureGenerator` C5 검증 로직 및 `DEFAULT_CURATED_PATTERNS` 내 머리 존 1~3 패턴을 4/5로 수정
-  - [ ] 단위 테스트 100% Pass 및 타입 에러 0건
+  - [x] `LEFT_HAND_ZONES` 및 `RIGHT_HAND_ZONES` 전 존(1~11) 허용 확립
+  - [x] `HEAD_ZONES`를 `{4, 5}`로 한정 (존 1~3 배제)
+  - [x] `isValidZoneForCursor()` 및 Cross-Body 제약(hip: 9~11 시 hand: 1~3 차단) 함수 구현
+  - [x] `PostureGenerator` C5 검증 로직 및 `DEFAULT_CURATED_PATTERNS` 내 머리 존 1~3 패턴을 4/5로 수정
+  - [x] 단위 테스트 100% Pass 및 타입 에러 0건
 - **관련 파일**:
   - `dream_guardian/config/zone.config.ts`
   - `dream_guardian/src/input/RecipeGenerator.ts`

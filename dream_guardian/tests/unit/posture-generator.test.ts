@@ -118,8 +118,8 @@ describe('PostureGenerator & Constraints C1~C7 (Issue #125 - POSE-003)', () => {
       };
       const postureB3: AnswerPosture = {
         choiceIndex: 1,
-        parts: ['head', 'rightHand'], // 완전 상호 배타, Head in 2, RH in 7
-        zoneIds: [2, 7],
+        parts: ['head', 'rightHand'], // 완전 상호 배타, Head in 5, RH in 7 (총 활성존 4, 7, 5 = 3개로 C1 준수)
+        zoneIds: [5, 7],
         binding: 'any',
         patternId: 'C2_B3',
       };
@@ -175,12 +175,12 @@ describe('PostureGenerator & Constraints C1~C7 (Issue #125 - POSE-003)', () => {
       expect(result.violatedConstraint).toBe('C4');
     });
 
-    it('C5: 머리/골반 및 왼손/오른손 비대칭 허용 구역 제약을 위반하면 거부된다 (Issue #151)', () => {
-      // 1. 머리 하단 존(7) 위반
+    it('C5: 머리/골반 허용 구역 제약을 위반하면 거부된다 (Issue #156)', () => {
+      // 1. 머리가 중단 좌/우(4, 5)가 아닌 상단 존(2)에 배정된 경우
       const postureHeadInvalid: AnswerPosture = {
         choiceIndex: 0,
         parts: ['head'],
-        zoneIds: [7], // 존 7은 HIP_ZONES (머리 사용 불가)
+        zoneIds: [2], // 존 2는 상단 존 (머리 사용 불가)
         binding: 'any',
         patternId: 'C5_HEAD',
       };
@@ -193,32 +193,15 @@ describe('PostureGenerator & Constraints C1~C7 (Issue #125 - POSE-003)', () => {
       };
       expect(validatePosturePair(postureHeadInvalid, postureValidOther).violatedConstraint).toBe('C5');
 
-      // 2. 왼손이 허용 존(1, 2, 4, 6, 7, 9, 10)이 아닌 3번(우상) 존에 배정된 경우
-      const postureLeftHandInvalid: AnswerPosture = {
+      // 2. 골반이 하단 존(6~11)이 아닌 중단 존(4)에 배정된 경우
+      const postureHipInvalid: AnswerPosture = {
         choiceIndex: 0,
-        parts: ['leftHand'],
-        zoneIds: [3], // 존 3은 오른손 전용
-        binding: 'any',
-        patternId: 'C5_LH_INVALID',
-      };
-      expect(validatePosturePair(postureLeftHandInvalid, postureValidOther).violatedConstraint).toBe('C5');
-
-      // 3. 오른손이 허용 존(2, 3, 7, 8, 10, 11)이 아닌 4번(좌) 존에 배정된 경우
-      const postureRightHandInvalid: AnswerPosture = {
-        choiceIndex: 1,
-        parts: ['rightHand'],
-        zoneIds: [4], // 존 4는 왼손 전용
-        binding: 'any',
-        patternId: 'C5_RH_INVALID',
-      };
-      const postureValidLeft: AnswerPosture = {
-        choiceIndex: 0,
-        parts: ['leftHand'],
+        parts: ['hip'],
         zoneIds: [4],
         binding: 'any',
-        patternId: 'C5_LH_VALID',
+        patternId: 'C5_HIP_INVALID',
       };
-      expect(validatePosturePair(postureValidLeft, postureRightHandInvalid).violatedConstraint).toBe('C5');
+      expect(validatePosturePair(postureHipInvalid, postureValidOther).violatedConstraint).toBe('C5');
     });
 
     it('C6: 부위 수보다 고유 존 수가 많으면 집합 덮기 불가능으로 거부된다', () => {

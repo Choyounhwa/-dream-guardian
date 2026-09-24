@@ -69,10 +69,10 @@ export const DEFAULT_FITNESS_ZONES: readonly FitnessZone[] = [
 export const FITNESS_ZONES: readonly FitnessZone[] = DEFAULT_FITNESS_ZONES;
 
 /**
- * 머리/얼굴 커서 사용 가능 존 (상단 및 중단 존 1, 2, 3, 4, 5)
- * RC-6 방지: 존 7 제거 -> HEAD_ZONES ∩ HIP_ZONES = ∅ (상호 배타적 보장)
+ * 머리/얼굴 커서 사용 가능 존 (중단 좌/우 존 4, 5 한정, Issue #156 / FEAT-ZONE-003)
+ * 존 1~3 점프 체류 불가 문제 배제 및 HEAD_ZONES ∩ HIP_ZONES = ∅ (상호 배타적 보장)
  */
-export const HEAD_ZONES = new Set<number>([1, 2, 3, 4, 5]);
+export const HEAD_ZONES = new Set<number>([4, 5]);
 
 /** 어깨 커서 사용 가능 존 (중간존 4, 5, 6, 7, 8 - 호환) */
 export const SHOULDER_ZONES = new Set<number>([4, 5, 6, 7, 8]);
@@ -83,11 +83,33 @@ export const SHOULDER_ZONES = new Set<number>([4, 5, 6, 7, 8]);
 export const HIP_ZONES = new Set<number>([6, 7, 8, 9, 10, 11]);
 
 /**
- * 왼손 커서 사용 가능 존 (1, 2, 4, 6, 7, 9, 10 - 비대칭 설계, Issue #151)
+ * 왼손 커서 사용 가능 존 (전 존 1~11 허용, Issue #156)
  */
-export const LEFT_HAND_ZONES = new Set<number>([1, 2, 4, 6, 7, 9, 10]);
+export const LEFT_HAND_ZONES = new Set<number>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 
 /**
- * 오른손 커서 사용 가능 존 (2, 3, 7, 8, 10, 11 - 비대칭 설계, Issue #151)
+ * 오른손 커서 사용 가능 존 (전 존 1~11 허용, Issue #156)
  */
-export const RIGHT_HAND_ZONES = new Set<number>([2, 3, 7, 8, 10, 11]);
+export const RIGHT_HAND_ZONES = new Set<number>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+
+/**
+ * Cross-Body 물리 연동 제약 검증:
+ * 골반이 최하단(존 9, 10, 11)일 때 손이 최상단(존 1, 2, 3)에 위치하는 비현실적 자세 차단 (Issue #156)
+ */
+export function isCrossBodyViolation(handZone: number, hipZone: number): boolean {
+  const isHipBottom = hipZone >= 9 && hipZone <= 11;
+  const isHandTop = handZone >= 1 && handZone <= 3;
+  return isHipBottom && isHandTop;
+}
+
+/**
+ * 특정 커서가 특정 피트니스 존에 유효한지 검증 (Issue #156)
+ */
+export function isValidZoneForCursor(cursor: string, zoneId: number): boolean {
+  if (cursor === 'head') return HEAD_ZONES.has(zoneId);
+  if (cursor === 'hip') return HIP_ZONES.has(zoneId);
+  if (cursor === 'leftHand') return LEFT_HAND_ZONES.has(zoneId);
+  if (cursor === 'rightHand') return RIGHT_HAND_ZONES.has(zoneId);
+  if (cursor === 'shoulder') return SHOULDER_ZONES.has(zoneId);
+  return false;
+}
