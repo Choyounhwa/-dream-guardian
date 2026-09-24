@@ -37,6 +37,7 @@ import { MenuInput } from './input/MenuInput.js';
 import { SFXSynth } from './audio/SFXSynth.js';
 import { TutorialOverlay } from './ui/TutorialOverlay.js';
 import { BottomBar, SettingsModal, LocomotionModal, LOCOMOTION_MODES, type BottomBarSlot } from './ui/index.js';
+import { getAnswerButtonLayouts } from '../config/zone.config.js';
 
 if (typeof document === 'undefined') {
   throw new Error('브라우저 환경에서만 실행 가능합니다.');
@@ -425,14 +426,15 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
   });
   ctx.shadowBlur = 0;
 
-  // 3. 답안 버튼 2개 횡배치 (w: 360, h: 260, 좌: 140, 우: 580, y: 960)
-  const btnW = 360 * scaleX;
-  const btnH = 260 * scaleY;
-  const btnY = 960 * scaleY;
-  const btnXs = [140 * scaleX, 580 * scaleX];
+  // 3. 답안 버튼 2개 횡배치 (Issue #164: 4, 5번 피트니스 존 하단 수직/X축 중심 정렬)
+  const buttonLayouts = getAnswerButtonLayouts(w, h);
 
   for (let i = 0; i < 2; i++) {
-    const bx = btnXs[i];
+    const btn = buttonLayouts[i];
+    const bx = btn.x;
+    const btnY = btn.y;
+    const btnW = btn.width;
+    const btnH = btn.height;
     const plan = answerSelector.currentPlan;
     const recipe = plan?.choices[i];
 
@@ -1246,16 +1248,11 @@ canvas.addEventListener('click', (e) => {
       return;
     }
     if (questionVisible && currentQuestion && !answerLocked) {
-      const scaleX = vw / 1080;
-      const scaleY = vh / 2160;
-      const btnW = 360 * scaleX;
-      const btnH = 260 * scaleY;
-      const btnY = 960 * scaleY;
-      const btnXs = [140 * scaleX, 580 * scaleX];
+      const buttonLayouts = getAnswerButtonLayouts(vw, vh);
 
       for (let i = 0; i < 2; i++) {
-        const bx = btnXs[i];
-        if (x >= bx && x <= bx + btnW && y >= btnY && y <= btnY + btnH) {
+        const btn = buttonLayouts[i];
+        if (x >= btn.x && x <= btn.x + btn.width && y >= btn.y && y <= btn.y + btn.height) {
           handleAnswer(i);
           break;
         }

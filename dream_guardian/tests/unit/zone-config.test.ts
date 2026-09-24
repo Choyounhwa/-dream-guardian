@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
+  DEFAULT_FITNESS_ZONES,
   HEAD_ZONES,
   HIP_ZONES,
   LEFT_HAND_ZONES,
   RIGHT_HAND_ZONES,
   isCrossBodyViolation,
   isValidZoneForCursor,
+  getAnswerButtonLayouts,
 } from '../../config/zone.config.js';
 
 describe('Zone Config & Cursor-Zone Matrix (Issue #156 / FEAT-ZONE-003)', () => {
@@ -90,6 +92,30 @@ describe('Zone Config & Cursor-Zone Matrix (Issue #156 / FEAT-ZONE-003)', () => 
         expect(isValidZoneForCursor('leftHand', z)).toBe(true);
         expect(isValidZoneForCursor('rightHand', z)).toBe(true);
       }
+    });
+  });
+
+  describe('답안 버튼 위치 4, 5번 피트니스 존 하단 X축 정렬 배치 (Issue #164 / UI-ANS-002)', () => {
+    it('0번 및 1번 답안 버튼이 각각 4번 및 5번 피트니스 존 중심 X축과 일치하고 하단에 배치된다', () => {
+      const [btn0, btn1] = getAnswerButtonLayouts(1080, 2160);
+      const z4 = DEFAULT_FITNESS_ZONES.find((z) => z.id === 4)!;
+      const z5 = DEFAULT_FITNESS_ZONES.find((z) => z.id === 5)!;
+
+      const z4CenterX = (z4.x + z4.width / 2) * 1080;
+      const z5CenterX = (z5.x + z5.width / 2) * 1080;
+
+      // 1. 중심 X축 100% 일치
+      expect(btn0.centerX).toBeCloseTo(z4CenterX, 0);
+      expect(btn1.centerX).toBeCloseTo(z5CenterX, 0);
+
+      // 2. Y축 위치가 4, 5번 존 바로 아래쪽에 위치
+      const z4BottomY = (z4.y + z4.height) * 2160;
+      expect(btn0.y).toBeGreaterThan(z4BottomY);
+      expect(btn0.y).toBeLessThan(z4BottomY + 60);
+
+      // 3. 버튼 너비가 존 너비와 조화롭게 구성
+      expect(btn0.width).toBeGreaterThanOrEqual(260);
+      expect(btn1.width).toBeGreaterThanOrEqual(260);
     });
   });
 });

@@ -113,3 +113,40 @@ export function isValidZoneForCursor(cursor: string, zoneId: number): boolean {
   if (cursor === 'shoulder') return SHOULDER_ZONES.has(zoneId);
   return false;
 }
+
+export interface AnswerButtonLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  centerX: number;
+}
+
+/**
+ * 답안 버튼 0/1의 X축 정렬 및 배치 계산 (Issue #164 / UI-ANS-002)
+ * - 0번(좌측) 버튼: 4번 피트니스 존 하단 수직/X축 중심 정렬
+ * - 1번(우측) 버튼: 5번 피트니스 존 하단 수직/X축 중심 정렬
+ */
+export function getAnswerButtonLayouts(
+  virtualWidth = 1080,
+  virtualHeight = 2160,
+): [AnswerButtonLayout, AnswerButtonLayout] {
+  const z4 = DEFAULT_FITNESS_ZONES.find((z) => z.id === 4)!;
+  const z5 = DEFAULT_FITNESS_ZONES.find((z) => z.id === 5)!;
+
+  const scaleY = virtualHeight / 2160;
+
+  // 너비는 4, 5번 존의 실제 픽셀 너비와 일치 (0.26 * 1080 = 281px)
+  const width = Math.round(z4.width * virtualWidth);
+  const height = Math.round(250 * scaleY);
+  // Y축은 4, 5번 존 하단(y: 0.24 + height: 0.16 = 0.40 -> 864px) 바로 아래(890px)
+  const y = Math.round((z4.y + z4.height) * virtualHeight + 26 * scaleY);
+
+  const x0 = Math.round(z4.x * virtualWidth);
+  const x1 = Math.round(z5.x * virtualWidth);
+
+  return [
+    { x: x0, y, width, height, centerX: x0 + width / 2 },
+    { x: x1, y, width, height, centerX: x1 + width / 2 },
+  ];
+}
