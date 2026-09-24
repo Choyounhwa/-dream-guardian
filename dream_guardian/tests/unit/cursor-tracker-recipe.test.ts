@@ -309,16 +309,81 @@ describe('RecipeGenerator (Issue #104)', () => {
   });
 });
 
+describe('Shared Active Zone & Color Cursor Mechanism (Issue #150 / REFACTOR-POSE-001)', () => {
+  const generator = new RecipeGenerator();
+
+  it('문제 출제 시 좌/우 답안이 동일한 공용 피트니스 존(targetZoneIds)을 공유한다', () => {
+    for (let t = 1; t <= 4; t++) {
+      const tierInfo = getTierInfo(t === 1 ? 1 : t === 2 ? 5 : t === 3 ? 9 : 13);
+      const plan = generator.generatePlan(tierInfo);
+
+      // 좌/우 답안 동일 공용 존 검증
+      expect(plan.choices[0].targetZoneIds).toEqual(plan.choices[1].targetZoneIds);
+      // activeZones가 공용 존과 1:1 일치하는지 검증
+      const activeZoneIds = plan.activeZones.map((z) => z.id);
+      expect(activeZoneIds).toEqual(plan.choices[0].targetZoneIds);
+      // 요구 커서는 중복되지 않음 검증
+      const hasCursorOverlap = plan.choices[0].requiredCursors.some((c) =>
+        plan.choices[1].requiredCursors.includes(c)
+      );
+      expect(hasCursorOverlap).toBe(false);
+    }
+  });
+
+  it('공용 피트니스 존에 진입한 커서 색상에 따라 해당 답안 선택지가 독립적으로 충전된다', () => {
+    const as = new AnswerSelector();
+    const plan = as.startQuestion(1); // Tier 1: 공용 존 (Zone 4)
+    expect(plan.choices[0].targetZoneIds).toEqual([4]);
+    expect(plan.choices[1].targetZoneIds).toEqual([4]);
+
+    const lm = createMockLandmarks();
+    // 1. 왼손만 공용 존 4(0.17, 0.32)에 진입, 오른손은 허공(0.5, 0.5)
+    lm[15] = { x: 0.17, y: 0.32, z: 0, visibility: 0.95 };
+    lm[16] = { x: 0.5, y: 0.5, z: 0, visibility: 0.95 };
+
+    as.updateFromPose(lm, undefined, 0.3);
+    expect(as.choiceProgress[0]).toBeGreaterThan(0);
+    expect(as.choiceProgress[1]).toBe(0);
+
+    // 2. 리셋 후 오른손만 공용 존 4(0.17, 0.32)에 진입, 왼손은 허공(0.5, 0.5)
+    as.reset();
+    expect(as.choiceProgress[0]).toBe(0);
+    expect(as.choiceProgress[1]).toBe(0);
+
+    lm[15] = { x: 0.5, y: 0.5, z: 0, visibility: 0.95 }; // 왼손 허공
+    lm[16] = { x: 0.17, y: 0.32, z: 0, visibility: 0.95 }; // 오른손 공용 존 4
+
+    as.updateFromPose(lm, undefined, 0.3);
+    expect(as.choiceProgress[0]).toBe(0);
+    expect(as.choiceProgress[1]).toBeGreaterThan(0);
+  });
+
+  it('공용 존에 양쪽 커서가 동시에 진입하면 Deadlock Guard가 작동하여 감쇠된다', () => {
+    const as = new AnswerSelector();
+    as.startQuestion(1);
+
+    const lm = createMockLandmarks();
+    // 양손 모두 공용 존 4(0.17, 0.32)에 진입
+    lm[15] = { x: 0.17, y: 0.32, z: 0, visibility: 0.95 };
+    lm[16] = { x: 0.17, y: 0.32, z: 0, visibility: 0.95 };
+
+    const result = as.updateFromPose(lm, undefined, 0.3);
+    expect(result).toBeNull();
+    expect(as.choiceProgress[0]).toBe(0);
+    expect(as.choiceProgress[1]).toBe(0);
+  });
+});
+
 describe('AnswerSelector - updateFromPose & Deadlock Guard (Issue #104)', () => {
   it('동일 신체 조건으로 양쪽 선택지 조건을 동시에 만족할 경우 Deadlock Guard가 발동하여 취소된다', () => {
     const as = new AnswerSelector();
-    as.startQuestion(1); // Tier 1: Left=leftHand in Zone 4, Right=rightHand in Zone 5
+    as.startQuestion(1); // Tier 1: 공용 활성 존 Zone 4 (Left=leftHand, Right=rightHand)
 
     const lm = createMockLandmarks();
     // leftHand(Zone 4: x=0.04~0.30, y=0.24~0.40) -> x=0.17, y=0.32
     lm[15] = { x: 0.17, y: 0.32, z: 0, visibility: 0.95 };
-    // rightHand(Zone 5: x=0.70~0.96, y=0.24~0.40) -> x=0.83, y=0.32
-    lm[16] = { x: 0.83, y: 0.32, z: 0, visibility: 0.95 };
+    // rightHand도 공용 Zone 4에 동시 진입 -> x=0.17, y=0.32
+    lm[16] = { x: 0.17, y: 0.32, z: 0, visibility: 0.95 };
 
     // 양쪽 모두 만족하는 상태
     const result = as.updateFromPose(lm, undefined, 0.5);

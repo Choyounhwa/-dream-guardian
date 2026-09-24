@@ -74,6 +74,10 @@ export class AnswerSelectionRenderer {
       return progressInput.get(zoneId) ?? 0;
     }
     if (Array.isArray(progressInput)) {
+      if (progressInput.length === 2) {
+        // 공용 활성 존: 좌/우 답안 진행도 중 최대 진행도 반영 (Issue #150)
+        return Math.max(progressInput[0] ?? 0, progressInput[1] ?? 0);
+      }
       return progressInput[index] ?? 0;
     }
     if (typeof progressInput === 'object' && progressInput !== null) {
