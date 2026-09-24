@@ -2348,16 +2348,18 @@
 - **Labels**: `phase-4`, `data`, `P1-high`
 - **Milestone**: `v0.3-vision-motion`
 - **작업 ID**: `[DATA-002]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (Pass)**
 - **목적**:
   - `FEAT-ZONE-003`에서 갱신된 `HEAD_ZONES: {4, 5}` 규격에 맞추어 `fitness pattern.csv` 원본 데이터(360건) 중 존 1~3을 요구하는 162건의 머리 패턴을 유효한 존(존 1·2 → 4 좌측 기울임, 존 3 → 5 우측 기울임)으로 전수 보정한다.
 - **완료 조건**:
-  - [ ] `fitness pattern.csv` 내 머리 컬럼 중 1, 2, 3 값이 완전히 제거되고 4 또는 5로 재배치
-  - [ ] 골반 9~11 행에서 양손이 1~3인 Cross-Body 위반 패턴 전수 정비
-  - [ ] `FitnessPatternLoader` 360건 무오류 파싱 및 유효성 검증 스크립트 위반 0건 확인
-  - [ ] 단위 테스트 100% Pass
+  - [x] `fitness pattern.csv` 내 머리 컬럼 중 1, 2, 3 값이 완전히 제거되고 4 또는 5로 재배치 (총 216건의 머리 패턴 중 1/2/3 0건, 4: 179건, 5: 37건)
+  - [x] 골반 9~11 행에서 양손이 1~3인 Cross-Body 위반 패턴 전수 정비 (0건 확인)
+  - [x] `FitnessPatternLoader` 360건 무오류 파싱 및 유효성 검증 스크립트 위반 0건 확인
+  - [x] 단위 테스트 100% Pass (452/452 Pass)
 - **관련 파일**:
   - `fitness pattern.csv`
+  - `dream_guardian/public/fitness pattern.csv`
+  - `dream_guardian/src/data/fitness pattern.csv`
   - `dream_guardian/src/data/FitnessPatternLoader.ts`
   - `dream_guardian/tests/unit/fitness-pattern-loader.test.ts`
 
