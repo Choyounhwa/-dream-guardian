@@ -116,7 +116,7 @@ export class PartIconRenderer {
   }
 
   /**
-   * 요구 부위 구성 색상 기반 답안 카드 테두리 그라데이션 생성 (Issue #128 / UI-001)
+   * 요구 부위 구성 색상 기반 답안 카드 테두리 그라데이션 생성 (Issue #128 / UI-001 / 호환 유지)
    */
   static getRequirementGradient(
     ctx: CanvasRenderingContext2D,
@@ -136,6 +136,111 @@ export class PartIconRenderer {
       grad.addColorStop(stop, CURSOR_COLORS[parts[i]] ?? '#FFCB4D');
     }
     return grad;
+  }
+
+  /**
+   * 답안 버튼(둥근 사각형) 방사형(Radial) 색상 분할 렌더러 (Issue #148 / FEAT-UI-005)
+   *
+   * ANSWER_SELECTION_DESIGN.md 준수:
+   * - 1개 색상: 전체 단일 색상 테두리 및 은은한 채움
+   * - 2개 색상: 중심점 기준 1/2(180도) 방사형 부채꼴 분할
+   * - 3개 색상: 중심점 기준 1/3(120도) 방사형 부채꼴 분할
+   * - 둥근 사각형 클리핑 영역 내에서 방사형 부채꼴 섹터를 드로잉하여 경계선 밖 넘침 원천 차단
+   */
+  static drawRadialAnswerButton(
+    ctx: CanvasRenderingContext2D,
+    recipe: ChoiceRequirement | null | undefined,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius = 16,
+    lineWidth = 3.5,
+  ): void {
+    const rawParts = recipe?.requiredCursors;
+    const parts = (rawParts && rawParts.length > 0) ? rawParts : null;
+
+    const colors = parts
+      ? parts.map((p) => CURSOR_COLORS[p] ?? '#FFCB4D')
+      : ['#FFCB4D'];
+    const count = colors.length;
+
+    const cx = x + width / 2;
+    const cy = y + height / 2;
+    const R = Math.hypot(width, height);
+
+    const hexToRgba = (hex: string, alpha: number): string => {
+      const clean = hex.replace('#', '');
+      if (clean.length === 6) {
+        const r = parseInt(clean.substring(0, 2), 16);
+        const g = parseInt(clean.substring(2, 4), 16);
+        const b = parseInt(clean.substring(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+      return hex;
+    };
+
+    if (count <= 1) {
+      // 1개 색상 (단일 색상 채움 및 테두리)
+      const color = colors[0];
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(x, y, width, height, radius);
+      ctx.lineWidth = lineWidth;
+      ctx.strokeStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+      ctx.stroke();
+
+      ctx.fillStyle = hexToRgba(color, 0.10);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    // 2개 또는 3개 색상: 중심점 기점 방사형(Radial) 부채꼴 분할
+    // 12시 방향(-Math.PI / 2)부터 시계방향으로 섹터 분할
+    const delta = (Math.PI * 2) / count;
+
+    for (let i = 0; i < count; i++) {
+      const startAngle = -Math.PI / 2 + i * delta;
+      const endAngle = startAngle + delta;
+      const color = colors[i];
+
+      ctx.save();
+      // 섹터 i 영역으로 클리핑
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, R, startAngle, endAngle);
+      ctx.closePath();
+      ctx.clip();
+
+      // 섹터 내부 둥근 사각형 배경 채움
+      ctx.fillStyle = hexToRgba(color, 0.12);
+      ctx.beginPath();
+      ctx.roundRect(x, y, width, height, radius);
+      ctx.fill();
+
+      // 섹터 테두리 스트로크
+      ctx.lineWidth = lineWidth;
+      ctx.strokeStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.roundRect(x, y, width, height, radius);
+      ctx.stroke();
+
+      // 섹터 경계 분할선 (중심에서 외곽으로)
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(startAngle) * R, cy + Math.sin(startAngle) * R);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.shadowBlur = 0;
+      ctx.stroke();
+
+      ctx.restore();
+    }
   }
   /**
    * 신체 부위별 아이콘 단독 렌더링

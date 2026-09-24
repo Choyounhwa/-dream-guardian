@@ -369,18 +369,8 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
     const plan = answerSelector.currentPlan;
     const recipe = plan?.choices[i];
 
-    // Issue #128: 요구 부위 색상 그라데이션 테두리
-    if (recipe) {
-      ctx.strokeStyle = PartIconRenderer.getRequirementGradient(ctx, recipe, bx, btnY, bx + btnW, btnY + btnH);
-    } else {
-      ctx.strokeStyle = '#FFCB4D';
-    }
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.roundRect(bx, btnY, btnW, btnH, 16);
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(255,203,77,0.08)';
-    ctx.fill();
+    // Issue #148: 답안 버튼 사각형 중심점 기점 방사형(Radial) 색상 분할 렌더링
+    PartIconRenderer.drawRadialAnswerButton(ctx, recipe, bx, btnY, btnW, btnH, 16, 3.5);
 
     const choiceFontSize = Math.min(46, w * 0.040);
     renderMath(ctx, String(currentQuestion.choices[i]), bx + btnW / 2, btnY + btnH / 2, {
