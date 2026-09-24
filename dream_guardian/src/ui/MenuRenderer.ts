@@ -1,9 +1,10 @@
 /**
  * MenuRenderer - 메인 메뉴 챕터 카드 및 서브레벨 선택 Canvas 렌더링
  *
- * 5개 챕터 카드, 해금/잠금 시각화 및 서브레벨(세부 난이도) 그리드 UI
- *
- * @see Issue #22 (GitHub #87), Issue #103, Issue #115 (Card #103-B)
+ * Issue #142 (Card #74 / UI-MENU-002):
+ * - 홈 메뉴 2-2-1 와이드 다이아몬드 그리드 및 1:1 대형 폰트 적용
+ * - 서브 메뉴 2열 3행 대형 와이드 그리드 개편
+ * - 레거시 가로 1열 및 상단 뒤로가기 삭제, 하단 고정 바 우측 슬롯 연동
  */
 
 import type { SubLevelInfo } from '../types/index.js';
@@ -32,99 +33,131 @@ export interface SubCardLayout {
   h: number;
 }
 
+export interface ChapterCardLayout {
+  chapter: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export class MenuRenderer {
   /**
-   * 메인 챕터 선택 메뉴 렌더링
+   * 챕터 카드 레이아웃 계산 (2-2-1 와이드 다이아몬드 레이아웃, Issue #142 / UI-MENU-002)
+   * 1080x2160 가상 해상도 기준:
+   * - 개별 카드: 360 x 380px
+   * - 1행: Ch.1 (120, 460), Ch.2 (600, 460)
+   * - 2행: Ch.3 (120, 920), Ch.4 (600, 920)
+   * - 3행: Ch.5 (360, 1380, 중앙 정렬)
    */
-  render(ctx: CanvasRenderingContext2D, w: number, h: number, state: MenuState): void {
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+  getChapterLayouts(w: number, h: number): ChapterCardLayout[] {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
 
-    const titleY = h * 0.18;
-    ctx.font = `bold ${Math.min(48, w * 0.04)}px sans-serif`;
-    ctx.fillStyle = '#C889FF';
-    ctx.fillText('꿈의 수호신', w / 2, titleY);
+    const cardW = 360 * scaleX;
+    const cardH = 380 * scaleY;
 
-    ctx.font = `${Math.min(18, w * 0.015)}px sans-serif`;
-    ctx.fillStyle = '#888';
-    ctx.fillText('생각하는 힘이, 나를 지킨다', w / 2, titleY + 40);
-
-    // 챕터 카드
-    const cardW = Math.min(140, w * 0.12);
-    const cardH = cardW * 0.7;
-    const gap = 16;
-    const totalW = CHAPTER_INFO.length * cardW + (CHAPTER_INFO.length - 1) * gap;
-    const startX = (w - totalW) / 2;
-    const cardY = h * 0.42;
-
-    for (let i = 0; i < CHAPTER_INFO.length; i++) {
-      const info = CHAPTER_INFO[i];
-      const ch = i + 1;
-      const x = startX + i * (cardW + gap);
-      const locked = ch > state.unlockedChapter;
-      const selected = ch === state.selectedChapter;
-
-      // 카드 배경
-      ctx.fillStyle = locked ? 'rgba(255,255,255,0.03)' : `${info.color}10`;
-      ctx.strokeStyle = locked ? 'rgba(255,255,255,0.1)' : selected ? info.color : `${info.color}60`;
-      ctx.lineWidth = selected ? 3 : 1.5;
-      ctx.beginPath();
-      ctx.roundRect(x, cardY, cardW, cardH, 10);
-      ctx.fill();
-      ctx.stroke();
-
-      // 챕터 번호
-      ctx.fillStyle = locked ? '#444' : info.color;
-      ctx.font = `bold ${cardW * 0.18}px sans-serif`;
-      ctx.fillText(`Ch.${ch}`, x + cardW / 2, cardY + cardH * 0.35);
-
-      // 이름
-      ctx.font = `${cardW * 0.11}px sans-serif`;
-      ctx.fillText(locked ? '???' : info.name, x + cardW / 2, cardY + cardH * 0.6);
-
-      // 별
-      if (!locked) {
-        const starCount = state.stars[ch] ?? 0;
-        const starStr = '★'.repeat(starCount) + '☆'.repeat(3 - starCount);
-        ctx.font = `${cardW * 0.1}px sans-serif`;
-        ctx.fillStyle = '#FFCB4D';
-        ctx.fillText(starStr, x + cardW / 2, cardY + cardH * 0.82);
-      }
-
-      // 잠금 아이콘
-      if (locked) {
-        ctx.font = `${cardW * 0.2}px sans-serif`;
-        ctx.fillStyle = '#444';
-        ctx.fillText('🔒', x + cardW / 2, cardY + cardH * 0.82);
-      }
-    }
-
-    // 안내 텍스트
-    ctx.font = `${Math.min(14, w * 0.012)}px sans-serif`;
-    ctx.fillStyle = '#666';
-    ctx.fillText('챕터를 클릭하거나 1~5 키를 눌러 시작', w / 2, h * 0.75);
+    return [
+      { chapter: 1, x: 120 * scaleX, y: 460 * scaleY, w: cardW, h: cardH },
+      { chapter: 2, x: 600 * scaleX, y: 460 * scaleY, w: cardW, h: cardH },
+      { chapter: 3, x: 120 * scaleX, y: 920 * scaleY, w: cardW, h: cardH },
+      { chapter: 4, x: 600 * scaleX, y: 920 * scaleY, w: cardW, h: cardH },
+      { chapter: 5, x: 360 * scaleX, y: 1380 * scaleY, w: cardW, h: cardH },
+    ];
   }
 
   /**
-   * 서브레벨 카드 레이아웃 계산 (렌더링 및 히트테스트 공통)
+   * 메인 챕터 선택 메뉴 렌더링 (2-2-1 와이드 다이아몬드 레이아웃)
+   */
+  render(ctx: CanvasRenderingContext2D, w: number, h: number, state: MenuState): void {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // 1. 상단 타이틀 영역 (Red Box: x: 140, y: 180, w: 800, h: 220)
+    const titleCenterY = 260 * scaleY;
+    ctx.font = `bold ${Math.round(76 * scaleX)}px sans-serif`;
+    ctx.fillStyle = '#C889FF';
+    ctx.shadowColor = '#C889FF';
+    ctx.shadowBlur = 16 * scaleX;
+    ctx.fillText('꿈의 수호신', w / 2, titleCenterY);
+    ctx.shadowBlur = 0;
+
+    // 슬로건
+    ctx.font = `${Math.round(32 * scaleX)}px sans-serif`;
+    ctx.fillStyle = '#CCCCCC';
+    ctx.fillText('생각하는 힘이, 나를 지킨다', w / 2, titleCenterY + 70 * scaleY);
+
+    // 2. 챕터 카드 5개 (2-2-1 와이드 다이아몬드)
+    const layouts = this.getChapterLayouts(w, h);
+
+    for (let i = 0; i < layouts.length; i++) {
+      const item = layouts[i];
+      const info = CHAPTER_INFO[i];
+      const ch = item.chapter;
+      const locked = ch > state.unlockedChapter;
+      const selected = ch === state.selectedChapter;
+
+      // 카드 배경 및 테두리 (라운드 코너 24px)
+      ctx.fillStyle = locked ? 'rgba(255, 255, 255, 0.03)' : `${info.color}15`;
+      ctx.strokeStyle = locked ? 'rgba(255, 255, 255, 0.15)' : selected ? info.color : `${info.color}75`;
+      ctx.lineWidth = selected ? 4.0 * scaleX : 2.5 * scaleX;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(item.x, item.y, item.w, item.h, 24 * scaleX);
+      } else {
+        ctx.rect(item.x, item.y, item.w, item.h);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      // 카드 내부 텍스트 (칸별 높이 1:1 매핑)
+      // 1) 챕터 번호 (Ch.X): bold 64px
+      ctx.fillStyle = locked ? '#555555' : info.color;
+      ctx.font = `bold ${Math.round(64 * scaleX)}px sans-serif`;
+      ctx.fillText(`Ch.${ch}`, item.x + item.w / 2, item.y + 90 * scaleY);
+
+      // 2) 챕터명: bold 48px
+      ctx.fillStyle = locked ? '#444444' : '#FFFFFF';
+      ctx.font = `bold ${Math.round(48 * scaleX)}px sans-serif`;
+      ctx.fillText(locked ? '???' : info.name, item.x + item.w / 2, item.y + 200 * scaleY);
+
+      // 3) 별점 (★★★) 또는 잠금 (🔒)
+      if (!locked) {
+        const starCount = state.stars[ch] ?? 0;
+        const starStr = '★'.repeat(starCount) + '☆'.repeat(3 - starCount);
+        ctx.font = `${Math.round(42 * scaleX)}px sans-serif`;
+        ctx.fillStyle = '#FFCB4D';
+        ctx.fillText(starStr, item.x + item.w / 2, item.y + 305 * scaleY);
+      } else {
+        ctx.font = `${Math.round(54 * scaleX)}px sans-serif`;
+        ctx.fillStyle = '#555555';
+        ctx.fillText('🔒', item.x + item.w / 2, item.y + 305 * scaleY);
+      }
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * 서브레벨 카드 레이아웃 계산 (2열 3행 대형 와이드 레이아웃, Issue #142 / UI-MENU-002)
+   * 1080x2160 가상 해상도 기준:
+   * - 개별 카드: 420 x 380px (간격 gapX: 80, gapY: 60)
+   * - 1행: (80, 440), (580, 440)
+   * - 2행: (80, 880), (580, 880)
+   * - 3행: (80, 1320), (580, 1320)
+   * - 뒤로가기 버튼 (-1): 하단 고정 바 우측 슬롯 (780, 1990, 270, 140)
    */
   getSubMenuLayouts(w: number, h: number, _chapter: number, subLevels: SubLevelInfo[]): SubCardLayout[] {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+
     const layouts: SubCardLayout[] = [];
 
-    // 1. 뒤로가기 버튼
-    const backW = Math.min(160, w * 0.18);
-    const backH = 40;
-    layouts.push({
-      subLevel: -1,
-      label: '← 뒤로가기',
-      subLabel: '챕터 선택으로',
-      x: w * 0.5 - backW / 2,
-      y: h * 0.14,
-      w: backW,
-      h: backH,
-    });
-
-    // 2. 서브레벨 목록 + 전체 선택 카드
+    // 1. 단계 목록 + 전체 종합(ALL)
     const allItems = [
       ...subLevels.map((s) => ({
         subLevel: s.subLevel,
@@ -138,15 +171,13 @@ export class MenuRenderer {
       },
     ];
 
-    const cols = w > 800 ? Math.min(4, allItems.length) : 2;
-    const cardW = Math.min(220, (w * 0.85) / cols - 16);
-    const cardH = cardW * 0.52;
-    const gapX = 16;
-    const gapY = 14;
-
-    const gridW = cols * cardW + (cols - 1) * gapX;
-    const startX = (w - gridW) / 2;
-    const startY = h * 0.32;
+    const cardW = 420 * scaleX;
+    const cardH = 380 * scaleY;
+    const startX = 80 * scaleX;
+    const startY = 440 * scaleY;
+    const gapX = 80 * scaleX;
+    const gapY = 60 * scaleY;
+    const cols = 2;
 
     for (let i = 0; i < allItems.length; i++) {
       const item = allItems[i];
@@ -166,11 +197,22 @@ export class MenuRenderer {
       });
     }
 
+    // 2. 뒤로가기 버튼: 하단 고정 바 우측 슬롯 연동 (x: 780, y: 1990, w: 270, h: 140)
+    layouts.push({
+      subLevel: -1,
+      label: '← 뒤로',
+      subLabel: '챕터 선택',
+      x: 780 * scaleX,
+      y: 1990 * scaleY,
+      w: 270 * scaleX,
+      h: 140 * scaleY,
+    });
+
     return layouts;
   }
 
   /**
-   * 서브레벨(세부 난이도) 선택 메뉴 렌더링
+   * 서브레벨(세부 난이도) 선택 메뉴 렌더링 (2열 3행 대형 와이드 레이아웃)
    */
   renderSubMenu(
     ctx: CanvasRenderingContext2D,
@@ -180,99 +222,111 @@ export class MenuRenderer {
     subLevels: SubLevelInfo[],
     selectedSubLevel?: number,
   ): void {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+
     const chInfo = CHAPTER_INFO[chapter - 1] || CHAPTER_INFO[0];
     const layouts = this.getSubMenuLayouts(w, h, chapter, subLevels);
 
+    ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // 챕터 헤더 타이틀
-    const titleY = h * 0.22;
-    ctx.font = `bold ${Math.min(36, w * 0.032)}px sans-serif`;
+    // 1. 상단 헤더 영역 (Red Box: x: 80, y: 160, w: 920, h: 200)
+    const titleCenterY = 240 * scaleY;
+    ctx.font = `bold ${Math.round(56 * scaleX)}px sans-serif`;
     ctx.fillStyle = chInfo.color;
-    ctx.fillText(`Ch.${chapter} ${chInfo.name} - 세부 난이도 선택`, w / 2, titleY);
+    ctx.shadowColor = chInfo.color;
+    ctx.shadowBlur = 12 * scaleX;
+    ctx.fillText(`Ch.${chapter} ${chInfo.name} - 단계 선택`, w / 2, titleCenterY);
+    ctx.shadowBlur = 0;
 
-    ctx.font = `${Math.min(16, w * 0.014)}px sans-serif`;
-    ctx.fillStyle = '#AAAAAA';
-    ctx.fillText(`${chInfo.sub} 집중 학습 단계를 선택하세요`, w / 2, titleY + 34);
+    // 안내 문구: 28px
+    ctx.font = `${Math.round(28 * scaleX)}px sans-serif`;
+    ctx.fillStyle = '#CCCCCC';
+    ctx.fillText(`${chInfo.sub} 집중 학습 단계를 선택하세요`, w / 2, titleCenterY + 65 * scaleY);
 
-    // 카드 렌더링
+    // 2. 단계 카드 6개 (2열 3행)
     for (const item of layouts) {
-      const isBack = item.subLevel === -1;
+      if (item.subLevel === -1) {
+        // 뒤로가기 버튼은 BottomBar에서 하단 고정 바 우측 슬롯으로 전담 렌더링
+        continue;
+      }
+
       const isAll = item.subLevel === 0;
       const isSelected = selectedSubLevel !== undefined && item.subLevel === selectedSubLevel;
+      const baseColor = isAll ? '#FFCB4D' : chInfo.color;
 
-      if (isBack) {
-        // 뒤로가기 버튼
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.roundRect(item.x, item.y, item.w, item.h, 8);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = `bold ${Math.min(14, w * 0.013)}px sans-serif`;
-        ctx.fillText(item.label, item.x + item.w / 2, item.y + item.h / 2);
+      // 카드 배경 및 테두리 (라운드 코너 24px)
+      ctx.fillStyle = isSelected ? `${baseColor}25` : 'rgba(255, 255, 255, 0.05)';
+      ctx.strokeStyle = isSelected ? baseColor : `${baseColor}75`;
+      ctx.lineWidth = isSelected ? 4.0 * scaleX : 2.5 * scaleX;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(item.x, item.y, item.w, item.h, 24 * scaleX);
       } else {
-        // 서브레벨 카드
-        const baseColor = isAll ? '#FFCB4D' : chInfo.color;
-        ctx.fillStyle = isSelected ? `${baseColor}25` : 'rgba(255, 255, 255, 0.04)';
-        ctx.strokeStyle = isSelected ? baseColor : `${baseColor}60`;
-        ctx.lineWidth = isSelected ? 2.5 : 1.2;
-        ctx.beginPath();
-        ctx.roundRect(item.x, item.y, item.w, item.h, 10);
-        ctx.fill();
-        ctx.stroke();
-
-        // 라벨 (서브레벨 제목)
-        ctx.fillStyle = isAll ? '#FFCB4D' : '#FFFFFF';
-        ctx.font = `bold ${Math.min(16, item.w * 0.09)}px sans-serif`;
-        ctx.fillText(item.label, item.x + item.w / 2, item.y + item.h * 0.38);
-
-        // 부제 (문항 수)
-        ctx.fillStyle = '#888888';
-        ctx.font = `${Math.min(13, item.w * 0.075)}px sans-serif`;
-        ctx.fillText(item.subLabel, item.x + item.w / 2, item.y + item.h * 0.72);
+        ctx.rect(item.x, item.y, item.w, item.h);
       }
+      ctx.fill();
+      ctx.stroke();
+
+      // 카드 내부 텍스트 (1:1 매핑)
+      // 1) 단계 타이틀: bold 68px
+      ctx.fillStyle = isAll ? '#FFCB4D' : '#FFFFFF';
+      ctx.font = `bold ${Math.round(68 * scaleX)}px sans-serif`;
+      ctx.fillText(item.label, item.x + item.w / 2, item.y + 160 * scaleY);
+
+      // 2) 서브 문항수: 32px
+      ctx.fillStyle = '#AAAAAA';
+      ctx.font = `${Math.round(32 * scaleX)}px sans-serif`;
+      ctx.fillText(item.subLabel, item.x + item.w / 2, item.y + 280 * scaleY);
     }
 
-    // 하단 키보드 힌트
-    ctx.font = `${Math.min(14, w * 0.012)}px sans-serif`;
-    ctx.fillStyle = '#666';
-    ctx.fillText('단계를 클릭하여 시작하거나 Esc/0 키로 뒤로가기', w / 2, h * 0.90);
+    ctx.restore();
   }
 
   /**
-   * 클릭 좌표로 챕터 선택 판정
+   * 클릭 좌표로 챕터 선택 판정 (getChapterLayouts와 100% 동기화, Issue #133: padding 지원)
+   * @param padding 히트박스 여유 마진 (픽셀 단위, 기본값 0)
    * @returns 선택된 챕터 (1~5) 또는 0
    */
-  hitTest(x: number, y: number, w: number, h: number): number {
-    const cardW = Math.min(140, w * 0.12);
-    const cardH = cardW * 0.7;
-    const gap = 16;
-    const totalW = 5 * cardW + 4 * gap;
-    const startX = (w - totalW) / 2;
-    const cardY = h * 0.42;
-
-    for (let i = 0; i < 5; i++) {
-      const cx = startX + i * (cardW + gap);
-      if (x >= cx && x <= cx + cardW && y >= cardY && y <= cardY + cardH) {
-        return i + 1;
+  hitTest(x: number, y: number, w: number, h: number, padding = 0): number {
+    const layouts = this.getChapterLayouts(w, h);
+    for (const card of layouts) {
+      if (
+        x >= card.x - padding &&
+        x <= card.x + card.w + padding &&
+        y >= card.y - padding &&
+        y <= card.y + card.h + padding
+      ) {
+        return card.chapter;
       }
     }
     return 0;
   }
 
   /**
-   * 서브레벨 클릭 판정
+   * 서브레벨 클릭 판정 (getSubMenuLayouts와 100% 동기화, Issue #133: padding 지원)
+   * @param padding 히트박스 여유 마진 (픽셀 단위, 기본값 0)
    * @returns -1: 뒤로가기, 0: 전체, 1~N: 서브레벨 번호, null: 클릭 안 됨
    */
-  hitTestSub(x: number, y: number, w: number, h: number, chapter: number, subLevels: SubLevelInfo[]): number | null {
+  hitTestSub(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    chapter: number,
+    subLevels: SubLevelInfo[],
+    padding = 0,
+  ): number | null {
     const layouts = this.getSubMenuLayouts(w, h, chapter, subLevels);
     for (const item of layouts) {
-      if (x >= item.x && x <= item.x + item.w && y >= item.y && y <= item.y + item.h) {
+      if (
+        x >= item.x - padding &&
+        x <= item.x + item.w + padding &&
+        y >= item.y - padding &&
+        y <= item.y + item.h + padding
+      ) {
         return item.subLevel;
       }
     }
