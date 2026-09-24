@@ -66,6 +66,7 @@
 | `RENDER-MATH-001` | [#165](https://github.com/Choyounhwa/-dream-guardian/issues/165) | 문제 영역 마젠타 사각 박스 가상 영역화 (화면 표시 제거) | `renderQuestion` 내 마젠타(#FF28D8) 테두리 및 어두운 사각 박스 드로잉 코드 완전 제거, Y 기준 좌표계만 유지하여 배경 그리드 및 보스 시야 100% 개방 | 🟢 **Pass (472/472)** |
 | `RENDER-MATH-002` | [#167](https://github.com/Choyounhwa/-dream-guardian/issues/167) | 문제 폰트 1.5배 확대 및 영역 초과 시 자동 줄바꿈(Word Wrap) | 문제 폰트 크기 기본값 132px(기존 88px 대비 1.5배) 대형화, `MathRenderer` 내 `wrapMathTokens` 및 `maxWidth` 기반 자동 줄바꿈 지원, 분수·루트·지수 복합 토큰 원형 보존 및 수직 중앙 정렬 | 🟢 **Pass (475/475)** |
 | `RENDER-ZONE-001` | [#173](https://github.com/Choyounhwa/-dream-guardian/issues/173) | 피트니스 존 활성화 시 네모 영역 표시 제거 (가상 영역화) | `PostureGuideRenderer.ts` 내 `_renderZoneHighlights`에서 네온 사각 테두리 및 반투명 채움 드로잉 제거(`renderZoneBoxes = false`), `AnswerSelectionRenderer` 사각 박스 가상화, 중앙 부위 벡터 아이콘 및 하단 스틱맨 실루엣 100% 유지 | 🟢 **Pass (480/480)** |
+| `BUG-ZONE-003` | [#175](https://github.com/Choyounhwa/-dream-guardian/issues/175) | 문제풀이 피트니스 존 하드코딩 고정 배치 해소 및 전 구역(1~11번) 순환/랜덤 다양화 | 티어별 다채로운 공용 존 풀 구축(Tier 1: 7개 존, Tier 2: 4종 머리·손 교차, Tier 3: 8종 2존 조합, Tier 4: 상단 만세 5종), 직전 존 연속 출제 방지 쿨다운 적용 및 첫 문제 4번 시작 안정화, `main.ts` 부트스트랩 시 360건 피트니스 패턴 로더 파이프라인 연동 | 🟢 **Pass (502/502)** |
 
 ### 2. 브라우저 실테스트 피드백 반영 및 주요 환경 해결
 
