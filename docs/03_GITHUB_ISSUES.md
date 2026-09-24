@@ -2282,14 +2282,14 @@
 - **Labels**: `phase-6`, `feature`, `P1-high`
 - **Milestone**: `v0.5-input-ui`
 - **작업 ID**: `[FEAT-UI-006]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (Pass)**
 - **목적**:
   - 게임 시작 전 또는 인게임 설정에서 플레이어가 거주 환경(소음, 공간 등)에 맞춰 원하는 운동 방식(🏃 제자리 달리기, 🦘 골반 바운스, 💃 골반 스웨이, 🚗 양손 교차)을 직관적으로 선택할 수 있는 대화면 UI 모달과 4색 커서 체류(Dwell) 및 클릭 인터랙션을 구현한다.
 - **완료 조건**:
-  - [ ] 4종 운동 모드를 시각적으로 안내하는 2x2 카드 UI 모달 렌더링
-  - [ ] 신체 커서 체류(0.8s) 및 클릭으로 모드 선택 및 활성화 상태 변경 가능
-  - [ ] `localStorage`를 통한 선택 모드 영속 저장 및 복원
-  - [ ] 단위 테스트(`tests/unit/locomotion-ui.test.ts`) 100% Pass
+  - [x] 4종 운동 모드를 시각적으로 안내하는 2x2 카드 UI 모달 렌더링
+  - [x] 신체 커서 체류(0.8s) 및 클릭으로 모드 선택 및 활성화 상태 변경 가능
+  - [x] `localStorage`를 통한 선택 모드 영속 저장 및 복원
+  - [x] 단위 테스트(`tests/unit/locomotion-ui.test.ts`) 100% Pass
 - **관련 파일**:
   - `dream_guardian/src/ui/LocomotionModal.ts`
   - `dream_guardian/src/ui/MenuRenderer.ts`
@@ -2422,6 +2422,32 @@
   - `dream_guardian/src/render/PostureGuideRenderer.ts`
   - `dream_guardian/src/input/AnswerSelector.ts`
   - `dream_guardian/tests/unit/posture-guide-renderer.test.ts`
+
+---
+
+### Issue #161 (Card #91): [UI-MENU-004] 홈/서브 메뉴 중앙 개방형 레이아웃 재배치 및 박스·수학유형(3배) 규격 통일
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/161
+- **Labels**: `phase-6`, `feature`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[UI-MENU-004]`
+- **상태**: ⚪ **등록 완료 (승인 대기)**
+- **목적**:
+  - 플레이어가 화면 정면(중앙)에 섰을 때 메뉴 카드에 가려지지 않고 전신 스켈레톤과 웹캠 영상이 선명하게 보이도록 메뉴 위치를 중앙 기점 좌우 바깥쪽으로 배치한다 (중앙 개방형 뷰포트 확보).
+  - 카드 박스 크기를 기존 대비 0.8배 (`w: 288px, h: 304px`)로 축소하여 공간 효율을 극대화한다.
+  - 홈 화면 챕터 카드 상단의 불필요한 `Ch.1` ~ `Ch.5` 텍스트를 삭제하여 시각적 군더더기를 제거한다.
+  - 1.5m~2m 원거리 플레이 환경에서 한눈에 과목/영역을 인지할 수 있도록 홈 메뉴 및 서브 메뉴의 수학 유형 텍스트(예: `덧셈 · 뺄셈`, `곱셈 · 나눗셈`, `분수` 등)를 기존 26px에서 3배(`78px`)로 대폭 확대한다.
+  - 서브 메뉴의 박스 크기(기존 420x380) 및 텍스트 폰트/스타일을 모두 홈 메뉴 기준(`288px × 304px`, 78px 수학유형 등)으로 일관되게 통일한다.
+- **완료 조건**:
+  - [ ] 홈 메뉴와 서브 메뉴 카드가 중앙을 비우고 좌우 외곽(x: 50, x: 742)으로 재배치되어 중앙 404px 영역에 플레이어가 온전히 보임
+  - [ ] 홈 메뉴 및 서브 메뉴 카드 박스 크기가 `w: 288px, h: 304px` (0.8배)로 완전 통일됨
+  - [ ] 홈 화면 카드에서 `Ch.1` ~ `Ch.5` 텍스트가 완전히 삭제됨
+  - [ ] 홈 메뉴와 서브 메뉴의 수학 유형 텍스트가 기존 대비 3배(`bold 78px`)로 확대 적용됨
+  - [ ] 신규 레이아웃 좌표에 맞춰 마우스 클릭 및 모션 커서 히트테스트가 100% 정상 동작함
+  - [ ] `npm test` 단위 테스트 100% Pass 및 `npm run build` 검증 완료
+- **관련 파일**:
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+  - `dream_guardian/tests/unit/ui-system.test.ts`
+  - `dream_guardian/HANDOVER.md`
 
 
 

@@ -9,18 +9,64 @@
 
 import type { SubLevelInfo } from '../types/index.js';
 
-export const CHAPTER_INFO = [
-  { name: '포겟', sub: '덧셈/뺄셈', color: '#4DFFAA' },
-  { name: '후다닥', sub: '곱셈/나눗셈', color: '#28E6FF' },
-  { name: '뒤죽박죽', sub: '분수', color: '#FFCB4D' },
-  { name: '에라', sub: '소수', color: '#C889FF' },
-  { name: '나이트메어', sub: '전 영역', color: '#FF4444' },
+export interface ChapterInfo {
+  chapter: number;
+  name: string;
+  fullName: string;
+  sub: string;
+  boss: string;
+  color: string;
+}
+
+export const CHAPTER_INFO: ChapterInfo[] = [
+  {
+    chapter: 1,
+    name: '에메랄드 심해',
+    fullName: '나비가 숨 쉬는 에메랄드 심해',
+    sub: '덧셈 · 뺄셈',
+    boss: '심해 삼킴이 굴룹',
+    color: '#4DFFAA',
+  },
+  {
+    chapter: 2,
+    name: '사탕 바구니 숲',
+    fullName: '별자리가 떨어진 사탕 바구니 숲',
+    sub: '곱셈 · 나눗셈',
+    boss: '성운 먹깨비 네뷸라',
+    color: '#28E6FF',
+  },
+  {
+    chapter: 3,
+    name: '오르골 구름 서재',
+    fullName: '거꾸로 흐르는 오르골 구름 서재',
+    sub: '분수',
+    boss: '태엽 삼키개 크로노스',
+    color: '#FFCB4D',
+  },
+  {
+    chapter: 4,
+    name: '색종이 사파리',
+    fullName: '크레용 화산과 색종이 사파리',
+    sub: '소수',
+    boss: '먹물 대왕 인크라켄',
+    color: '#C889FF',
+  },
+  {
+    chapter: 5,
+    name: '은하 회전목마',
+    fullName: '끝없는 기억의 은하 회전목마',
+    sub: '전 영역 종합',
+    boss: '악몽의 지배자 나이트메어',
+    color: '#FF4444',
+  },
 ];
 
 export interface MenuState {
   unlockedChapter: number;
   stars: Record<number, number>;
   selectedChapter: number;
+  locomotionLabel?: string;
+  locomotionIcon?: string;
 }
 
 export interface SubCardLayout {
@@ -67,6 +113,35 @@ export class MenuRenderer {
   }
 
   /**
+   * 운동 모드 선택 버튼 레이아웃
+   */
+  getLocomotionButtonLayout(w: number, h: number): { x: number; y: number; w: number; h: number } {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    return {
+      x: 290 * scaleX,
+      y: 375 * scaleY,
+      w: 500 * scaleX,
+      h: 56 * scaleY,
+    };
+  }
+
+  /**
+   * 운동 모드 선택 버튼 히트 테스트
+   */
+  hitTestLocomotion(x: number, y: number, w: number, h: number, padding = 10): boolean {
+    const scaleX = w / 1080;
+    const btn = this.getLocomotionButtonLayout(w, h);
+    const pad = padding * scaleX;
+    return (
+      x >= btn.x - pad &&
+      x <= btn.x + btn.w + pad &&
+      y >= btn.y - pad &&
+      y <= btn.y + btn.h + pad
+    );
+  }
+
+  /**
    * 메인 챕터 선택 메뉴 렌더링 (2-2-1 와이드 다이아몬드 레이아웃)
    */
   render(ctx: CanvasRenderingContext2D, w: number, h: number, state: MenuState): void {
@@ -83,13 +158,34 @@ export class MenuRenderer {
     ctx.fillStyle = '#C889FF';
     ctx.shadowColor = '#C889FF';
     ctx.shadowBlur = 16 * scaleX;
-    ctx.fillText('꿈의 수호신', w / 2, titleCenterY);
+    ctx.fillText('꿈속 세계 탐험', w / 2, titleCenterY);
     ctx.shadowBlur = 0;
 
     // 슬로건
-    ctx.font = `${Math.round(32 * scaleX)}px sans-serif`;
+    ctx.font = `${Math.round(30 * scaleX)}px sans-serif`;
     ctx.fillStyle = '#CCCCCC';
-    ctx.fillText('생각하는 힘이, 나를 지킨다', w / 2, titleCenterY + 70 * scaleY);
+    ctx.fillText('알레와 함께 신비로운 꿈의 성역으로 다이빙!', w / 2, titleCenterY + 70 * scaleY);
+
+    // 1.5 운동 모드 선택 버튼
+    if (state.locomotionLabel) {
+      const lBtn = this.getLocomotionButtonLayout(w, h);
+      ctx.fillStyle = 'rgba(40, 230, 255, 0.12)';
+      ctx.strokeStyle = '#28E6FF';
+      ctx.lineWidth = 2 * scaleX;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(lBtn.x, lBtn.y, lBtn.w, lBtn.h, 16 * scaleX);
+      } else {
+        ctx.rect(lBtn.x, lBtn.y, lBtn.w, lBtn.h);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.font = `bold ${Math.round(24 * scaleX)}px sans-serif`;
+      ctx.fillStyle = '#FFFFFF';
+      const icon = state.locomotionIcon ?? '🏃';
+      ctx.fillText(`${icon} 운동 모드: ${state.locomotionLabel} ⚙`, lBtn.x + lBtn.w / 2, lBtn.y + lBtn.h / 2);
+    }
 
     // 2. 챕터 카드 5개 (2-2-1 와이드 다이아몬드)
     const layouts = this.getChapterLayouts(w, h);
@@ -115,25 +211,30 @@ export class MenuRenderer {
       ctx.stroke();
 
       // 카드 내부 텍스트 (칸별 높이 1:1 매핑)
-      // 1) 챕터 번호 (Ch.X): bold 64px
+      // 1) 챕터 번호 (Ch.X): bold 48px
       ctx.fillStyle = locked ? '#555555' : info.color;
-      ctx.font = `bold ${Math.round(64 * scaleX)}px sans-serif`;
-      ctx.fillText(`Ch.${ch}`, item.x + item.w / 2, item.y + 90 * scaleY);
-
-      // 2) 챕터명: bold 48px
-      ctx.fillStyle = locked ? '#444444' : '#FFFFFF';
       ctx.font = `bold ${Math.round(48 * scaleX)}px sans-serif`;
-      ctx.fillText(locked ? '???' : info.name, item.x + item.w / 2, item.y + 200 * scaleY);
+      ctx.fillText(`Ch.${ch}`, item.x + item.w / 2, item.y + 75 * scaleY);
 
-      // 3) 별점 (★★★) 또는 잠금 (🔒)
+      // 2) 챕터명 (꿈속 탐험 테마): bold 44px
+      ctx.fillStyle = locked ? '#444444' : '#FFFFFF';
+      ctx.font = `bold ${Math.round(44 * scaleX)}px sans-serif`;
+      ctx.fillText(locked ? '???' : info.name, item.x + item.w / 2, item.y + 160 * scaleY);
+
+      // 3) 학습 영역 / 테마 부제: 26px
+      ctx.fillStyle = locked ? '#333333' : '#BBBBBB';
+      ctx.font = `${Math.round(26 * scaleX)}px sans-serif`;
+      ctx.fillText(locked ? '미개방 성역' : info.sub, item.x + item.w / 2, item.y + 225 * scaleY);
+
+      // 4) 별점 (★★★) 또는 잠금 (🔒)
       if (!locked) {
         const starCount = state.stars[ch] ?? 0;
         const starStr = '★'.repeat(starCount) + '☆'.repeat(3 - starCount);
-        ctx.font = `${Math.round(42 * scaleX)}px sans-serif`;
+        ctx.font = `${Math.round(40 * scaleX)}px sans-serif`;
         ctx.fillStyle = '#FFCB4D';
         ctx.fillText(starStr, item.x + item.w / 2, item.y + 305 * scaleY);
       } else {
-        ctx.font = `${Math.round(54 * scaleX)}px sans-serif`;
+        ctx.font = `${Math.round(48 * scaleX)}px sans-serif`;
         ctx.fillStyle = '#555555';
         ctx.fillText('🔒', item.x + item.w / 2, item.y + 305 * scaleY);
       }
@@ -234,17 +335,17 @@ export class MenuRenderer {
 
     // 1. 상단 헤더 영역 (Red Box: x: 80, y: 160, w: 920, h: 200)
     const titleCenterY = 240 * scaleY;
-    ctx.font = `bold ${Math.round(56 * scaleX)}px sans-serif`;
+    ctx.font = `bold ${Math.round(54 * scaleX)}px sans-serif`;
     ctx.fillStyle = chInfo.color;
     ctx.shadowColor = chInfo.color;
     ctx.shadowBlur = 12 * scaleX;
-    ctx.fillText(`Ch.${chapter} ${chInfo.name} - 단계 선택`, w / 2, titleCenterY);
+    ctx.fillText(`Ch.${chapter} ${chInfo.name} - 탐험 구역 선택`, w / 2, titleCenterY);
     ctx.shadowBlur = 0;
 
-    // 안내 문구: 28px
+    // 안내 문구: 풀 테마명 및 학습 영역
     ctx.font = `${Math.round(28 * scaleX)}px sans-serif`;
     ctx.fillStyle = '#CCCCCC';
-    ctx.fillText(`${chInfo.sub} 집중 학습 단계를 선택하세요`, w / 2, titleCenterY + 65 * scaleY);
+    ctx.fillText(`${chInfo.fullName} (${chInfo.sub})`, w / 2, titleCenterY + 65 * scaleY);
 
     // 2. 단계 카드 6개 (2열 3행)
     for (const item of layouts) {

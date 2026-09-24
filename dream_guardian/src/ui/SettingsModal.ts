@@ -10,7 +10,7 @@
  * - ✕ 닫기 버튼 및 배경 터치 닫기
  */
 
-export type SettingsAction = 'close' | 'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'backdrop-close';
+export type SettingsAction = 'close' | 'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion' | 'backdrop-close';
 
 export interface ModalButtonSlot {
   x: number;
@@ -24,13 +24,14 @@ export class SettingsModal {
   private _cameraEnabled = true;
   private _skeletonEnabled = true;
   private _soundEnabled = true;
+  private _locomotionModeLabel = '제자리 달리기';
 
-  // 모달 다이얼로그 가상 기준 (1080x2160 기준 w: 800, h: 960, 중앙)
+  // 모달 다이얼로그 가상 기준 (1080x2160 기준 w: 800, h: 1080, 중앙)
   private readonly MODAL_VIRTUAL = {
     x: 140,
-    y: 600,
+    y: 480,
     w: 800,
-    h: 960,
+    h: 1080,
   };
 
   get isOpen(): boolean {
@@ -61,6 +62,14 @@ export class SettingsModal {
     this._soundEnabled = val;
   }
 
+  get locomotionModeLabel(): string {
+    return this._locomotionModeLabel;
+  }
+
+  set locomotionModeLabel(val: string) {
+    this._locomotionModeLabel = val;
+  }
+
   open(): void {
     this._isOpen = true;
   }
@@ -76,7 +85,11 @@ export class SettingsModal {
   /**
    * 모달 내 특정 버튼의 절대 좌표 및 크기 계산
    */
-  getButtonLayout(action: 'close' | 'camera' | 'fullscreen' | 'skeleton' | 'sound', w: number, h: number): ModalButtonSlot {
+  getButtonLayout(
+    action: 'close' | 'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion',
+    w: number,
+    h: number,
+  ): ModalButtonSlot {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
     const mx = this.MODAL_VIRTUAL.x * scaleX;
@@ -95,30 +108,37 @@ export class SettingsModal {
       case 'camera':
         return {
           x: mx + 60 * scaleX,
-          y: my + 160 * scaleY,
+          y: my + 140 * scaleY,
           w: mw - 120 * scaleX,
-          h: 120 * scaleY,
+          h: 110 * scaleY,
         };
       case 'fullscreen':
         return {
           x: mx + 60 * scaleX,
-          y: my + 320 * scaleY,
+          y: my + 270 * scaleY,
           w: mw - 120 * scaleX,
-          h: 120 * scaleY,
+          h: 110 * scaleY,
         };
       case 'skeleton':
         return {
           x: mx + 60 * scaleX,
-          y: my + 480 * scaleY,
+          y: my + 400 * scaleY,
           w: mw - 120 * scaleX,
-          h: 120 * scaleY,
+          h: 110 * scaleY,
         };
       case 'sound':
         return {
           x: mx + 60 * scaleX,
-          y: my + 640 * scaleY,
+          y: my + 530 * scaleY,
           w: mw - 120 * scaleX,
-          h: 120 * scaleY,
+          h: 110 * scaleY,
+        };
+      case 'locomotion':
+        return {
+          x: mx + 60 * scaleX,
+          y: my + 660 * scaleY,
+          w: mw - 120 * scaleX,
+          h: 110 * scaleY,
         };
     }
   }
@@ -142,12 +162,13 @@ export class SettingsModal {
     }
 
     // 2. 내부 버튼 히트 체크
-    const actions: Array<'close' | 'camera' | 'fullscreen' | 'skeleton' | 'sound'> = [
+    const actions: Array<'close' | 'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion'> = [
       'close',
       'camera',
       'fullscreen',
       'skeleton',
       'sound',
+      'locomotion',
     ];
 
     for (const act of actions) {
@@ -285,6 +306,14 @@ export class SettingsModal {
       '🔊 사운드 효과음',
       this._soundEnabled ? 'ON' : 'OFF',
       this._soundEnabled
+    );
+
+    // 운동 방식 선택 버튼
+    renderOptionBtn(
+      this.getButtonLayout('locomotion', w, h),
+      '🏃 운동 방식',
+      `${this._locomotionModeLabel} ⚙`,
+      true
     );
 
     ctx.restore();

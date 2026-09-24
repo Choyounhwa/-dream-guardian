@@ -29,7 +29,7 @@ import { AnswerSelector } from './input/AnswerSelector.js';
 import { MenuInput } from './input/MenuInput.js';
 import { SFXSynth } from './audio/SFXSynth.js';
 import { TutorialOverlay } from './ui/TutorialOverlay.js';
-import { BottomBar, SettingsModal, type BottomBarSlot } from './ui/index.js';
+import { BottomBar, SettingsModal, LocomotionModal, LOCOMOTION_MODES, type BottomBarSlot } from './ui/index.js';
 
 if (typeof document === 'undefined') {
   throw new Error('브라우저 환경에서만 실행 가능합니다.');
@@ -97,8 +97,17 @@ const sfx = new SFXSynth();
 const tutorial = new TutorialOverlay();
 const bottomBar = new BottomBar();
 const settingsModal = new SettingsModal();
+const locomotionModal = new LocomotionModal();
 let settingsHoverTimer = 0;
 let actionHoverTimer = 0;
+
+function updateLocomotionLabel(): void {
+  const currentLoco = LOCOMOTION_MODES.find(m => m.mode === locomotionModal.selectedMode);
+  if (currentLoco) {
+    settingsModal.locomotionModeLabel = currentLoco.label;
+  }
+}
+updateLocomotionLabel();
 
 // ─── 메뉴 제스처 선택 상태 (Issue #119 / BUG-MENU-001) ───
 let menuHoverItem: { type: 'chapter' | 'sublevel'; id: number } | null = null;
@@ -605,28 +614,36 @@ const engine = new GameEngine({
       menuHoverTimer = 0;
     }
 
-    // Issue #141: 공통 하단 바 모션 호버(0.8초) 판정
-    if (!settingsModal.isOpen && !tutorial.isVisible) {
-      const vw = canvasManager.virtualWidth;
-      const vh = canvasManager.virtualHeight;
-      const leftHand = answerSelector.cursorTracker.getCursor('leftHand');
-      const rightHand = answerSelector.cursorTracker.getCursor('rightHand');
-      let hoverTarget: { x: number; y: number } | null = null;
+    const vw = canvasManager.virtualWidth;
+    const vh = canvasManager.virtualHeight;
+    const leftHand = answerSelector.cursorTracker.getCursor('leftHand');
+    const rightHand = answerSelector.cursorTracker.getCursor('rightHand');
+    let hoverTarget: { x: number; y: number } | null = null;
 
-      if (menuInput.isActive) {
-        hoverTarget = { x: menuInput.cursorX * vw, y: menuInput.cursorY * vh };
-      } else if (leftHand || rightHand) {
-        if (leftHand && rightHand) {
-          hoverTarget = leftHand.y > rightHand.y
-            ? { x: leftHand.x, y: leftHand.y }
-            : { x: rightHand.x, y: rightHand.y };
-        } else if (leftHand) {
-          hoverTarget = { x: leftHand.x, y: leftHand.y };
-        } else if (rightHand) {
-          hoverTarget = { x: rightHand.x, y: rightHand.y };
+    if (menuInput.isActive) {
+      hoverTarget = { x: menuInput.cursorX * vw, y: menuInput.cursorY * vh };
+    } else if (leftHand || rightHand) {
+      if (leftHand && rightHand) {
+        hoverTarget = leftHand.y > rightHand.y
+          ? { x: leftHand.x, y: leftHand.y }
+          : { x: rightHand.x, y: rightHand.y };
+      } else if (leftHand) {
+        hoverTarget = { x: leftHand.x, y: leftHand.y };
+      } else if (rightHand) {
+        hoverTarget = { x: rightHand.x, y: rightHand.y };
+      }
+    }
+
+    // Issue #154: 운동 모드 모달 호버(0.8초) 판정
+    if (locomotionModal.isOpen) {
+      if (hoverTarget) {
+        const hoverRes = locomotionModal.updateHover(hoverTarget.x, hoverTarget.y, vw, vh, dt);
+        if (hoverRes.modeSelected) {
+          sfx.play('correct');
+          updateLocomotionLabel();
         }
       }
-
+    } else if (!settingsModal.isOpen && !tutorial.isVisible) {
       if (hoverTarget) {
         if (bottomBar.hitTestSettings(hoverTarget.x, hoverTarget.y, vw, vh, 15)) {
           settingsHoverTimer += dt;
@@ -860,10 +877,13 @@ const engine = new GameEngine({
     if (screenMode === 'menu') {
       dreamGrid.render(ctx, vw, vh, { alpha: 0.08, color: '#28E6FF' });
       if (menuMode === 'main') {
+        const currentLoco = LOCOMOTION_MODES.find((m) => m.mode === locomotionModal.selectedMode);
         menuRenderer.render(ctx, vw, vh, {
           unlockedChapter,
           stars: starsMap,
           selectedChapter: menuHoverItem?.type === 'chapter' ? menuHoverItem.id : 0,
+          locomotionLabel: currentLoco?.label,
+          locomotionIcon: currentLoco?.icon,
         });
       } else {
         const subLevels = questionBank.getSubLevels(selectedChapter);
@@ -1030,6 +1050,11 @@ const engine = new GameEngine({
       settingsModal.render(ctx, vw, vh);
     }
 
+    // 7.5 Issue #154: 운동 모드(이동 방식 4종) 모달 렌더링
+    if (locomotionModal.isOpen) {
+      locomotionModal.render(ctx, vw, vh);
+    }
+
     // 8. Issue #140 & #141: 전 장면(메뉴·달리기·문제·결과) 4색 스켈레톤 커서 상시 지속 렌더링
     // (하단 바 및 모달 위에 상시 렌더링되어 호버/클릭 지원)
     if (answerSelector.cursorTracker.cursors.size > 0) {
@@ -1079,11 +1104,27 @@ canvas.addEventListener('click', (e) => {
     return;
   }
 
+  // Issue #154: 운동 모드(이동 방식 4종) 모달 열림 상태 시 클릭 우선 처리
+  if (locomotionModal.isOpen) {
+    const res = locomotionModal.handleClick(x, y, vw, vh);
+    if (res) {
+      sfx.play('hover');
+      if (res.action === 'select') {
+        updateLocomotionLabel();
+      }
+    }
+    return;
+  }
+
   // Issue #141: 설정 모달 열림 상태 시 모달 클릭 우선 처리
   if (settingsModal.isOpen) {
     const action = settingsModal.handleClick(x, y, vw, vh);
     if (action === 'close' || action === 'backdrop-close') {
       settingsModal.close();
+      sfx.play('hover');
+    } else if (action === 'locomotion') {
+      settingsModal.close();
+      locomotionModal.open();
       sfx.play('hover');
     } else if (action === 'camera') {
       if (cameraLayer.isActive) {
@@ -1137,6 +1178,11 @@ canvas.addEventListener('click', (e) => {
 
   if (screenMode === 'menu') {
     if (menuMode === 'main') {
+      if (menuRenderer.hitTestLocomotion(x, y, vw, vh)) {
+        locomotionModal.open();
+        sfx.play('hover');
+        return;
+      }
       const ch = menuRenderer.hitTest(x, y, vw, vh);
       selectChapter(ch);
     } else {
@@ -1185,8 +1231,12 @@ canvas.addEventListener('click', (e) => {
 
 // ─── 키보드 단축키 ───
 document.addEventListener('keydown', (e) => {
-  // Issue #141: 설정 모달 열림 상태 시 Escape로 닫기
+  // Issue #141 / #154: 모달 열림 상태 시 Escape로 닫기
   if (e.key === 'Escape') {
+    if (locomotionModal.isOpen) {
+      locomotionModal.close();
+      return;
+    }
     if (settingsModal.isOpen) {
       settingsModal.close();
       return;
