@@ -155,7 +155,7 @@ export class PartIconRenderer {
     width: number,
     height: number,
     radius = 16,
-    lineWidth = 3.5,
+    lineWidth = 7.0,
   ): void {
     const rawParts = recipe?.requiredCursors;
     const parts = (rawParts && rawParts.length > 0) ? rawParts : null;
@@ -189,7 +189,7 @@ export class PartIconRenderer {
       ctx.lineWidth = lineWidth;
       ctx.strokeStyle = color;
       ctx.shadowColor = color;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 12;
       ctx.stroke();
 
       ctx.fillStyle = hexToRgba(color, 0.10);
@@ -221,21 +221,21 @@ export class PartIconRenderer {
       ctx.roundRect(x, y, width, height, radius);
       ctx.fill();
 
-      // 섹터 테두리 스트로크
+      // 섹터 테두리 스트로크 (Issue #163: 2배 두께 및 선명한 네온 글로우)
       ctx.lineWidth = lineWidth;
       ctx.strokeStyle = color;
       ctx.shadowColor = color;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.roundRect(x, y, width, height, radius);
       ctx.stroke();
 
-      // 섹터 경계 분할선 (중심에서 외곽으로)
+      // 섹터 경계 분할선 (중심에서 외곽으로, Issue #163: 두께 3.0 상향)
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.lineTo(cx + Math.cos(startAngle) * R, cy + Math.sin(startAngle) * R);
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 3.0;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
       ctx.shadowBlur = 0;
       ctx.stroke();
 

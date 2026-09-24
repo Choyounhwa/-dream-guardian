@@ -436,8 +436,8 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
     const plan = answerSelector.currentPlan;
     const recipe = plan?.choices[i];
 
-    // Issue #148: 방사형 색상 분할 버튼 렌더링
-    PartIconRenderer.drawRadialAnswerButton(ctx, recipe, bx, btnY, btnW, btnH, 20 * scaleX, 4 * scaleX);
+    // Issue #148 & #163: 방사형 색상 분할 버튼 렌더링 (외곽선 두께 8px로 2배 상향)
+    PartIconRenderer.drawRadialAnswerButton(ctx, recipe, bx, btnY, btnW, btnH, 20 * scaleX, 8 * scaleX);
 
     // 수식 폰트: bold 96px (긴 수식은 최소 60px까지 자동 축소)
     const choiceStr = String(currentQuestion.choices[i]);

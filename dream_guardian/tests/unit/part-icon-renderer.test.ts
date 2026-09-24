@@ -140,5 +140,25 @@ describe('PartIconRenderer (Issue #127 / ICON-001)', () => {
       expect(ctx.stroke).toHaveBeenCalled();
       expect(ctx.strokeStyle).toBe('#FFCB4D');
     });
+
+    it('답안 버튼 기본 외곽선 두께가 7.0(기존 3.5 대비 2배)이며 8px 지정 시 8px로 렌더링된다 (Issue #163 / UI-ANS-001)', () => {
+      const ctx1 = createMockCtx();
+      const recipe = { requiredCursors: ['leftHand'] as const, targetZoneIds: [4] };
+
+      // 1. 기본 lineWidth 호출 (매개변수 미지정 시 7.0 적용 검증)
+      PartIconRenderer.drawRadialAnswerButton(ctx1, recipe as any, 100, 200, 300, 150, 16);
+      expect(ctx1.lineWidth).toBe(7.0);
+
+      // 2. 8px 지정 호출 (기존 4px 대비 2배 상향 검증)
+      const ctx2 = createMockCtx();
+      PartIconRenderer.drawRadialAnswerButton(ctx2, recipe as any, 100, 200, 300, 150, 16, 8.0);
+      expect(ctx2.lineWidth).toBe(8.0);
+
+      // 3. 다중 섹터(2개) 분할 시에도 외곽선 및 분할선이 2배 두께로 선명화된다
+      const ctx3 = createMockCtx();
+      const recipeDouble = { requiredCursors: ['leftHand', 'rightHand'] as const, targetZoneIds: [4, 8] };
+      PartIconRenderer.drawRadialAnswerButton(ctx3, recipeDouble as any, 100, 200, 300, 150, 16, 8.0);
+      expect(ctx3.lineWidth).toBeGreaterThanOrEqual(3.0); // 분할선 3.0 이상
+    });
   });
 });
