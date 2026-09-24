@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { parseMath, measureMath, renderMath } from '../../src/render/MathRenderer.js';
-import type { MathToken } from '../../src/types/index.js';
+import { parseMath, measureMath, renderMath, wrapMathTokens } from '../../src/render/MathRenderer.js';
 
 function createMockCtx(): CanvasRenderingContext2D {
   return {
@@ -143,5 +142,55 @@ describe('MathRenderer - measureMath & renderMath (Issue #114)', () => {
     expect(ctx.beginPath).toHaveBeenCalled();
     expect(ctx.lineTo).toHaveBeenCalled();
     expect(ctx.fillText).toHaveBeenCalledWith('16', expect.any(Number), expect.any(Number));
+  });
+
+  describe('문제 폰트 확대 및 영역 초과 자동 줄바꿈 (Issue #167 / RENDER-MATH-002)', () => {
+    it('maxWidth 지정 시 긴 수식을 자동 줄바꿈(wrapMathTokens)하여 여러 줄로 분할한다', () => {
+      const ctx = createMockCtx();
+      // 긴 수식: "1/2 + 3/4 + 5/6 + 7/8 = [ ? ]"
+      const tokens = parseMath('1/2 + 3/4 + 5/6 + 7/8 = [ ? ]');
+      const singleDim = measureMath(ctx, tokens, { fontSize: 40 });
+
+      // maxWidth를 전체 폭의 절반으로 설정 -> 2줄 이상 분할되어야 함
+      const maxWidth = singleDim.width * 0.55;
+      const lines = wrapMathTokens(ctx, tokens, { fontSize: 40 }, maxWidth);
+
+      expect(lines.length).toBeGreaterThanOrEqual(2);
+      // 모든 토큰 수가 보존되어야 함
+      const totalTokens = lines.reduce((acc, l) => acc + l.length, 0);
+      expect(totalTokens).toBe(tokens.length);
+    });
+
+    it('분수 토큰(whole, num, den) 및 복합 토큰이 줄바꿈 도중에 분리되지 않고 원형을 유지한다', () => {
+      const ctx = createMockCtx();
+      const tokens = parseMath('1 2/3 + 4/5 = [ ? ]');
+      const lines = wrapMathTokens(ctx, tokens, { fontSize: 40 }, 100);
+
+      // 분수 토큰이 깨지지 않고 온전한 fraction 타입으로 남아있는지 검증
+      let foundFraction = false;
+      for (const line of lines) {
+        for (const t of line) {
+          if (t.type === 'fraction') {
+            foundFraction = true;
+            expect(t.num).toBeDefined();
+            expect(t.den).toBeDefined();
+          }
+        }
+      }
+      expect(foundFraction).toBe(true);
+    });
+
+    it('renderMath에 maxWidth 옵션 전달 시 자동 줄바꿈되어 렌더링되고 총 높이가 1줄 대비 증가한다', () => {
+      const ctx = createMockCtx();
+      const text = '1/2 + 3/4 + 5/6 = [ ? ]';
+      const singleRes = renderMath(ctx, text, 100, 100, { fontSize: 40 });
+      const wrapRes = renderMath(ctx, text, 100, 100, {
+        fontSize: 40,
+        maxWidth: singleRes.width * 0.5,
+      });
+
+      expect(wrapRes.height).toBeGreaterThan(singleRes.height);
+      expect(wrapRes.width).toBeLessThanOrEqual(singleRes.width);
+    });
   });
 });

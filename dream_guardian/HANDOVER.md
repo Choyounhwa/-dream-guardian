@@ -64,6 +64,7 @@
 | `UI-ANS-001` | [#163](https://github.com/Choyounhwa/-dream-guardian/issues/163) | 답안 버튼 외곽선 두께 2배 증가 (8px) | 답안 버튼 외곽선 테두리 선 두께 8px(기존 4px 대비 2배), 기본 lineWidth 7.0 상향, 방사선 3.0 상향 및 네온 글로우(12px) 강화 | 🟢 **Pass (471/471)** |
 | `UI-ANS-002` | [#164](https://github.com/Choyounhwa/-dream-guardian/issues/164) | 답안 버튼 위치 4, 5번 피트니스 존 하단 X축 정렬 배치 | 0번 버튼을 4번 존 하단(중심 X 183.6px), 1번 버튼을 5번 존 하단(중심 X 896.4px)에 수직 정렬하고 Y축 890px(존 하단 바로 아래) 재배치, 자식 요소 및 클릭 히트테스트 자동 동기화 | 🟢 **Pass (472/472)** |
 | `RENDER-MATH-001` | [#165](https://github.com/Choyounhwa/-dream-guardian/issues/165) | 문제 영역 마젠타 사각 박스 가상 영역화 (화면 표시 제거) | `renderQuestion` 내 마젠타(#FF28D8) 테두리 및 어두운 사각 박스 드로잉 코드 완전 제거, Y 기준 좌표계만 유지하여 배경 그리드 및 보스 시야 100% 개방 | 🟢 **Pass (472/472)** |
+| `RENDER-MATH-002` | [#167](https://github.com/Choyounhwa/-dream-guardian/issues/167) | 문제 폰트 1.5배 확대 및 영역 초과 시 자동 줄바꿈(Word Wrap) | 문제 폰트 크기 기본값 132px(기존 88px 대비 1.5배) 대형화, `MathRenderer` 내 `wrapMathTokens` 및 `maxWidth` 기반 자동 줄바꿈 지원, 분수·루트·지수 복합 토큰 원형 보존 및 수직 중앙 정렬 | 🟢 **Pass (475/475)** |
 
 ### 2. 브라우저 실테스트 피드백 반영 및 주요 환경 해결
 

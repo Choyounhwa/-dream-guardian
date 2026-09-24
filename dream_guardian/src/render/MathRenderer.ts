@@ -259,18 +259,60 @@ export function measureMath(
 }
 
 /**
- * 캔버스에 수식 토큰 렌더링
+ * 수식 토큰 스트림을 maxWidth 기준으로 단어/연산자 경계에서 줄바꿈 (Issue #167 / RENDER-MATH-002)
  */
-export function renderMath(
+export function wrapMathTokens(
   ctx: CanvasRenderingContext2D,
-  input: string | MathToken[],
+  tokens: MathToken[],
+  options: MathRenderOptions,
+  maxWidth: number,
+): MathToken[][] {
+  if (tokens.length === 0) return [];
+  if (!maxWidth || maxWidth <= 0) return [tokens];
+
+  const lines: MathToken[][] = [];
+  let currentLine: MathToken[] = [];
+  let currentLineWidth = 0;
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    const dim = measureToken(ctx, token, options);
+
+    // 공백 텍스트만 있는 토큰 처리
+    const isWhitespaceOnly = token.type === 'text' && token.text.trim().length === 0;
+
+    // 현재 줄이 비어있지 않고, 새 토큰 추가 시 maxWidth를 초과하는 경우
+    if (currentLine.length > 0 && currentLineWidth + dim.width > maxWidth && !isWhitespaceOnly) {
+      lines.push(currentLine);
+      currentLine = [token];
+      currentLineWidth = dim.width;
+    } else {
+      // 줄의 맨 앞에 오는 불필요한 공백 제거
+      if (currentLine.length === 0 && isWhitespaceOnly) {
+        continue;
+      }
+      currentLine.push(token);
+      currentLineWidth += dim.width;
+    }
+  }
+
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+
+  return lines.length > 0 ? lines : [tokens];
+}
+
+/**
+ * 단일 행 렌더링 헬퍼
+ */
+function renderSingleMathLine(
+  ctx: CanvasRenderingContext2D,
+  tokens: MathToken[],
   x: number,
   y: number,
   options: MathRenderOptions,
 ): { width: number; height: number } {
-  const tokens = typeof input === 'string' ? parseMath(input) : input;
-  if (tokens.length === 0) return { width: 0, height: 0 };
-
   const fs = options.fontSize;
   const family = options.fontFamily || 'sans-serif';
   const color = options.color || '#FFFFFF';
@@ -334,12 +376,12 @@ export function renderMath(
         ctx.textBaseline = 'middle';
         ctx.fillText(token.num, fracCenterX, y - fs * 0.38);
 
-        // 가로 분수선 (중앙선)
+        // 가로 분수선 (중앙선 - Issue #132: 1m 원거리 가독성 강화)
         const lineY = y;
         ctx.beginPath();
         ctx.moveTo(fracStartX + 2, lineY);
         ctx.lineTo(fracStartX + fracActualW - 2, lineY);
-        ctx.lineWidth = Math.max(2, Math.round(fs * 0.08));
+        ctx.lineWidth = Math.max(3.5, Math.round(fs * 0.09));
         ctx.strokeStyle = fracLineColor;
         ctx.stroke();
 
@@ -366,14 +408,14 @@ export function renderMath(
         const bottomY = y + fs * 0.45;
         const hookY = y + fs * 0.1;
 
-        // 루트 기호 및 상단 수평선 (Vinculum)
+        // 루트 기호 및 상단 수평선 (Vinculum - Issue #132: 1m 원거리 가독성 강화)
         ctx.beginPath();
         ctx.moveTo(curX, hookY);
         ctx.lineTo(curX + symbolW * 0.3, hookY + fs * 0.15);
         ctx.lineTo(curX + symbolW * 0.7, bottomY);
         ctx.lineTo(curX + symbolW, topY);
         ctx.lineTo(curX + dim.width - 2, topY);
-        ctx.lineWidth = Math.max(2, Math.round(fs * 0.08));
+        ctx.lineWidth = Math.max(3.5, Math.round(fs * 0.09));
         ctx.strokeStyle = color;
         ctx.lineJoin = 'miter';
         ctx.stroke();
@@ -427,4 +469,46 @@ export function renderMath(
 
   ctx.restore();
   return totalDim;
+}
+
+/**
+ * 캔버스에 수식 토큰 렌더링 (maxWidth 지정 시 자동 줄바꿈 지원, Issue #167)
+ */
+export function renderMath(
+  ctx: CanvasRenderingContext2D,
+  input: string | MathToken[],
+  x: number,
+  y: number,
+  options: MathRenderOptions,
+): { width: number; height: number } {
+  const tokens = typeof input === 'string' ? parseMath(input) : input;
+  if (tokens.length === 0) return { width: 0, height: 0 };
+
+  const fs = options.fontSize;
+  const maxWidth = options.maxWidth;
+
+  // 줄바꿈이 불필요하거나 maxWidth 미지정인 경우 단일 행 렌더링
+  if (!maxWidth || maxWidth <= 0) {
+    return renderSingleMathLine(ctx, tokens, x, y, options);
+  }
+
+  const lines = wrapMathTokens(ctx, tokens, options, maxWidth);
+  if (lines.length <= 1) {
+    return renderSingleMathLine(ctx, lines[0] || tokens, x, y, options);
+  }
+
+  // 여러 줄로 분할된 경우 수직 중앙 정렬
+  const lineH = options.lineHeight || Math.round(fs * 1.45);
+  const totalH = (lines.length - 1) * lineH + fs;
+  const startY = y - totalH / 2 + fs / 2;
+
+  let maxW = 0;
+  for (let li = 0; li < lines.length; li++) {
+    const lineTokens = lines[li];
+    const curY = startY + li * lineH;
+    const lineDim = renderSingleMathLine(ctx, lineTokens, x, curY, options);
+    if (lineDim.width > maxW) maxW = lineDim.width;
+  }
+
+  return { width: maxW, height: totalH };
 }

@@ -386,14 +386,14 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
   // 1. Issue #143 & #165: 문제영역 가상 레이아웃 영역 (사각 박스 화면 표시 제거, Y 기준 좌표계 유지)
   const boxY = 320 * scaleY;
 
-  // 2. 문제 수식 텍스트 (오버플로우 방지 자동 축소: 기본 88px -> 최소 56px)
+  // 2. 문제 수식 텍스트 (Issue #167: 1.5배 대형화 132px 및 maxWidth 자동 줄바꿈)
   const cx = w / 2;
-  const qY = boxY + 240 * scaleY;
+  const qY = boxY + 220 * scaleY;
   const qText = currentQuestion.questionText;
   const qLen = qText.length;
-  let qFontSize = 88 * scaleX;
-  if (qLen > 12) {
-    qFontSize = Math.max(56 * scaleX, (88 - (qLen - 12) * 2.5) * scaleX);
+  let qFontSize = 132 * scaleX; // 1.5배 대형화 (기존 88px -> 132px)
+  if (qLen > 10) {
+    qFontSize = Math.max(84 * scaleX, (132 - (qLen - 10) * 2.8) * scaleX);
   }
 
   ctx.shadowColor = 'rgba(40, 230, 255, 0.5)';
@@ -402,6 +402,7 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
     fontSize: qFontSize,
     color: '#ffffff',
     align: 'center',
+    maxWidth: 880 * scaleX,
     placeholderColor: '#28E6FF',
     placeholderBgColor: 'rgba(40, 230, 255, 0.18)',
     fractionLineColor: '#ffffff',

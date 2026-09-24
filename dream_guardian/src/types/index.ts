@@ -257,6 +257,8 @@ export interface MathRenderOptions {
   placeholderBgColor?: string;
   align?: 'left' | 'center' | 'right';
   baseline?: 'top' | 'middle' | 'bottom';
+  maxWidth?: number;
+  lineHeight?: number;
 }
 
 // ─── Posture & Fitness System Types (Issue #122 / #123) ───
