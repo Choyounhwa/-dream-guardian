@@ -97,7 +97,7 @@ src/
 │   ├── ResultScreen.ts    # 결과 화면
 │   ├── GameOverScreen.ts  # 게임오버 화면
 │   ├── RecordsModal.ts    # 운동 기록 모달
-│   ├── PauseMenu.ts       # 일시정지 메뉴
+│   ├── PauseModal.ts      # 일시정지 모달 (PauseModal.ts)
 │   └── CalibrationScreen.ts  # 보정 가이드
 ├── story/                 # 스토리/컷신
 │   ├── StoryIntro.ts      # 챕터 인트로 (3초)
@@ -214,14 +214,14 @@ tests/
 - [ ] 스쿼트 방어: 실드 연출 + 보스 공격 회피 +150점
 - [ ] 단위 테스트
 
-### 2.3 답 선택 시스템 (answer-selection.js → TypeScript 포팅)
-- [ ] `AnswerSelection.ts`: 4색 커서, 10존, 레시피 시스템
-- [ ] 존 레이아웃 (반-오픈 사각형)
-- [ ] 1초 연속 체류 확정 (중심 가중 1.5x, 가장자리 0.75x)
-- [ ] 0.4초 보정 기간
-- [ ] 엉덩이 커서 하단 존 제한 (6-10)
-- [ ] 기존 answer-selection.test.cjs 포팅 + 확장
-- [ ] 단위 테스트
+### 2.3 답 선택 시스템 (AnswerSelector & PostureMatcher 포팅 및 확장)
+- [x] `AnswerSelector.ts`: 4색 커서(머리/얼굴 반영), 10존 레이아웃, 티어별 레시피
+- [x] 피트니스 존 겹침 0% 레이아웃 및 문제/답안 전용 예약 밴드 (`zone.config.ts`)
+- [x] 집합 덮기(Set Coverage: 조건 A & B) 기반 `matchPosture()` 판정 알고리즘
+- [x] `fitness pattern.csv` 360종 패턴 로더 및 C1~C7 제약 선택지 생성기
+- [x] 캘리브레이션 기준선 대비 신체 변위 검증(`PartGateEvaluator.ts`)
+- [x] `PartIconRenderer.ts`: 손/머리/골반 벡터 아이콘 및 묶음 기호(( )/|) 시각화
+- [x] 단위/통합 테스트 (Vitest 100% Pass)
 
 ### 2.4 문제 출제 시스템
 - [ ] `CSVLoader.ts`: CSV 파싱, BOM 처리, fallback 내장 문제
@@ -266,7 +266,7 @@ tests/
 - [ ] `ResultScreen.ts`: 점수, 등급(S/A/B/C/D), 별(3/2/1), 정답률, 콤보, 시간
 - [ ] `GameOverScreen.ts`: HP 0 시 재도전/메뉴
 - [ ] `RecordsModal.ts`: 최근 8회 기록, 누적 통계
-- [ ] `PauseMenu.ts`: 일시정지, 재개, 포기
+- [x] `PauseModal.ts`: 일시정지, 재개, 홈 나가기 (X자 제스처 & 양손 합장 호버 0.8초 연동)
 
 ### 3.4 반응형 & 모바일
 - [ ] 9:18 고정 비율 컨테이너
@@ -337,40 +337,6 @@ tests/
 - [ ] CI/CD (GitHub Actions)
 - [ ] GitHub Pages / Vercel 배포
 - [ ] SemVer 릴리즈
-
----
-
-## Phase 6 (신규): 스켈레톤 커서 및 피트니스 자세 판정 시스템 전면 개편 (Issue #116 ~ #130)
-
-> **기준 문서**: `docs/04_POSTURE_SYSTEM_ANALYSIS.md`, `dream_guardian/HANDOVER.md`  
-> **목표**: 18:9 Cover 스케일링 좌표계 일치, 채움색 없는 동적 커서, 상위 계층 Fallback, 양손 모으기 메뉴 복원, 피트니스 존 겹침 제거, 집합 덮기(Set Coverage) 판정 및 공통 부위 아이콘 UI 구축
-
-### 6.1 단계별 세부 작업 순서 (안정적인 5단계 파이프라인)
-
-#### [단계 A] 기반 설정 및 데이터 모델 인프라 구축
-- [ ] `[CFG-001]` (Issue #120): 존/커서/티어 설정 `config/` 디렉터리 외부화 및 Config 분리 (RC-8)
-- [ ] `[DATA-001]` (Issue #122): `fitness pattern.csv` (360건) 원본 데이터 로더 및 유효성 검증기
-- [ ] `[POSE-001]` (Issue #123): 다중 부위-다중 존 `AnswerPosture` 및 `PostureProgress` 신규 데이터 모델
-
-#### [단계 B] 스켈레톤-커서 동기화 및 홈 메뉴 조작 복원
-- [ ] `[BUG-CURSOR-001]` (Issue #116): 문제선택 화면 스켈레톤-커서 좌표계 이격 해결 (Cover 변환 1:1 동기화)
-- [ ] `[FEAT-CURSOR-001]` (Issue #117): 신체 부위 크기 비례 커서 동적 사이징, 채움색 제거(외곽선 전용), 손바닥(Palm) 중심 트래킹
-- [ ] `[FEAT-CURSOR-002]` (Issue #118): 화면 밖 이탈 시 상위 스켈레톤 계층 Fallback (손바닥→손목→전완→팔꿈치→상완→어깨) 및 스무딩 보간
-- [ ] `[BUG-MENU-001]` (Issue #119): 메뉴 화면 4색 커서 상시 가시화 및 양손 모으기(`MenuInput`) 0.8초 Dwell 메뉴 선택 복원
-
-#### [단계 C] 피트니스 존 레이아웃 및 자세 판정 엔진 구축
-- [ ] `[ZONE-001]` (Issue #121): 존 레이아웃 재배치 (겹침 0% 제거, 머리·골반 배타 보장, 문제/답안 전용 밴드 예약)
-- [ ] `[POSE-002]` (Issue #124): 집합 덮기(Set Coverage) 기반 `matchPosture` 수학적 판정 알고리즘 및 단위 테스트
-- [ ] `[POSE-003]` (Issue #125): 패턴 풀 기반 좌/우 선택지 추출기 및 생성 제약(C1~C7) 검증기
-- [ ] `[POSE-004]` (Issue #126): `PartGate` (캘리브레이션 기준선 대비 실제 변위) 게이트 판정 구현
-
-#### [단계 D] 시각화 및 인게임 UI 연동
-- [ ] `[ICON-001]` (Issue #127): `PartIconRenderer` 신설 (손/머리/골반 공통 벡터 아이콘 렌더러)
-- [ ] `[UI-001]` (Issue #128): 답안 버튼 부위 아이콘, 색상 및 묶음 기호(`( ✋ ✋ )`, `✋ / ✋`) 시각화
-- [ ] `[UI-002]` (Issue #129): 피트니스 존별/부위별 독립 진행도 피드백 및 `i % 2` 오매핑 버그 수정
-
-#### [단계 E] 레거시 정리 및 최종 안정화
-- [ ] `[REFACTOR-001]` (Issue #130): `AnswerSelector` 죽은 판정 경로(`update`) 안전 제거 및 단위 테스트 정비
 
 ---
 

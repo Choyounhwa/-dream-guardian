@@ -66,6 +66,8 @@
 | `RENDER-MATH-001` | [#165](https://github.com/Choyounhwa/-dream-guardian/issues/165) | 문제 영역 마젠타 사각 박스 가상 영역화 (화면 표시 제거) | `renderQuestion` 내 마젠타(#FF28D8) 테두리 및 어두운 사각 박스 드로잉 코드 완전 제거, Y 기준 좌표계만 유지하여 배경 그리드 및 보스 시야 100% 개방 | 🟢 **Pass (472/472)** |
 | `RENDER-MATH-002` | [#167](https://github.com/Choyounhwa/-dream-guardian/issues/167) | 문제 폰트 1.5배 확대 및 영역 초과 시 자동 줄바꿈(Word Wrap) | 문제 폰트 크기 기본값 132px(기존 88px 대비 1.5배) 대형화, `MathRenderer` 내 `wrapMathTokens` 및 `maxWidth` 기반 자동 줄바꿈 지원, 분수·루트·지수 복합 토큰 원형 보존 및 수직 중앙 정렬 | 🟢 **Pass (475/475)** |
 | `RENDER-ZONE-001` | [#173](https://github.com/Choyounhwa/-dream-guardian/issues/173) | 피트니스 존 활성화 시 네모 영역 표시 제거 (가상 영역화) | `PostureGuideRenderer.ts` 내 `_renderZoneHighlights`에서 네온 사각 테두리 및 반투명 채움 드로잉 제거(`renderZoneBoxes = false`), `AnswerSelectionRenderer` 사각 박스 가상화, 중앙 부위 벡터 아이콘 및 하단 스틱맨 실루엣 100% 유지 | 🟢 **Pass (480/480)** |
+| `FEAT-MOTION-002` | [#171](https://github.com/Choyounhwa/-dream-guardian/issues/171) | 양손 대각 어깨 교차 X자 제스처 감지기(XGestureDetector) 구현 | 어깨 너비 정규화 대각 교차 판정, 0.4초 Dwell Time, 1.0초 쿨다운, 양손 합장 제스처와 오인식 분리 검증 완비 | 🟢 **Pass (489/489)** |
+| `UI-PAUSE-001` | [#172](https://github.com/Choyounhwa/-dream-guardian/issues/172) | 인게임 일시정지(Pause) 팝업 모달 구현 및 X자/합장 제스처 연동 | 서브메뉴 X자 뒤로가기, 인게임 X자 일시정지 모달 호출, 게임/타이머 일시정지, 양손 합장 커서 0.8초 호버로 [재개]/[나가기] 확정 선택, Esc/P 키보드 단축키 지원 | 🟢 **Pass (497/497)** |
 | `BUG-ZONE-003` | [#175](https://github.com/Choyounhwa/-dream-guardian/issues/175) | 문제풀이 피트니스 존 하드코딩 고정 배치 해소 및 전 구역(1~11번) 순환/랜덤 다양화 | 티어별 다채로운 공용 존 풀 구축(Tier 1: 7개 존, Tier 2: 4종 머리·손 교차, Tier 3: 8종 2존 조합, Tier 4: 상단 만세 5종), 직전 존 연속 출제 방지 쿨다운 적용 및 첫 문제 4번 시작 안정화, `main.ts` 부트스트랩 시 360건 피트니스 패턴 로더 파이프라인 연동 | 🟢 **Pass (502/502)** |
 
 ### 2. 브라우저 실테스트 피드백 반영 및 주요 환경 해결
@@ -563,14 +565,7 @@ npm test
 
 다음에 작업을 재개할 때 등록된 신규 이슈 카드를 다음 권장 순서대로 TDD 사이클(Red → Green → Refactor)에 맞춰 구현하시면 됩니다:
 
-1. **[FEAT-MOTION-002] 양손 대각 어깨 교차 X자 제스처 감지기(XGestureDetector) 구현 ([#171](https://github.com/Choyounhwa/-dream-guardian/issues/171))**:
-   - 왼손-오른어깨, 오른손-왼어깨 동시 접근 기반 X자 제스처 판정 및 0.4초 체류 유지(Dwell Time) 트리거
-   - 양손 합장 제스처 및 인게임 답안 선택과의 오인식 분리 검증 (TDD 단위 테스트)
-2. **[UI-PAUSE-001] 인게임 일시정지(Pause) 팝업 모달 구현 및 X자/합장 제스처 제어 연동 ([#172](https://github.com/Choyounhwa/-dream-guardian/issues/172))**:
-   - 서브메뉴에서 X자 제스처 시 홈 메뉴 복귀
-   - 인게임 화면에서 X자 제스처 시 일시정지 모달 오픈 및 게임 타이머/루프 정지
-   - 일시정지 모달 내 [계속하기], [홈으로 나가기] 버튼을 양손 합장 커서(0.8초 호버)로 확정 선택
-3. **[UI-MENU-004] 홈/서브 메뉴 중앙 개방형 레이아웃 재배치 및 박스·수학유형(3배) 규격 통일 ([#161](https://github.com/Choyounhwa/-dream-guardian/issues/161))**:
+1. **[UI-MENU-004] 홈/서브 메뉴 중앙 개방형 레이아웃 재배치 및 박스·수학유형(3배) 규격 통일 ([#161](https://github.com/Choyounhwa/-dream-guardian/issues/161))**:
    - 홈/서브 메뉴 카드 좌우 외곽 재배치(중앙 뷰포트 확보) 및 박스 크기(288x304) 통일
    - 수학 유형 텍스트 3배(78px) 확대 및 `Ch.1~5` 텍스트 제거
 2. **[UI-BAR-002] 하단 고정바(BottomBar) 내 운동 모드 선택 버튼 신설 ([#166](https://github.com/Choyounhwa/-dream-guardian/issues/166))**:
@@ -581,4 +576,4 @@ npm test
    - 제자리 달리기 중 전후좌우 신체 드리프트 보정(`TorsoCentroidTracker` 등)은 추후 정밀 검증 후 재개.
 
 ---
-*최종 갱신일시: 2026-09-24*
+*최종 갱신일시: 2026-09-25*
