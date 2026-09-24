@@ -34,6 +34,10 @@ export class BossRenderer {
     } else if (this._hitTimer > 0) {
       this._hitTimer = Math.max(0, this._hitTimer - dt);
     }
+
+    if (this._attackAnimTimer > 0) {
+      this._attackAnimTimer = Math.max(0, this._attackAnimTimer - dt);
+    }
   }
 
   /** 피격 연출 트리거 */

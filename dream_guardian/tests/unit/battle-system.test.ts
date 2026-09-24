@@ -170,6 +170,50 @@ describe('BossController', () => {
     expect(bc.chapter).toBe(3);
     expect(bc.phase).toBe('idle');
   });
+
+  // Issue #147: 기습 보스 공격 타이머 제거 및 오답 반격 일원화
+  it('기본 생성 시(attackInterval 기본값 0) 기습 공격 타이머가 동작하지 않고 상시 idle을 유지한다', () => {
+    const bc = new BossController(1);
+    for (let i = 0; i < 60; i++) {
+      const attacked = bc.update(1.0);
+      expect(attacked).toBe(false);
+      expect(bc.isWarning).toBe(false);
+      expect(bc.isAttacking).toBe(false);
+    }
+    expect(bc.phase).toBe('idle');
+  });
+
+  it('오답 반격 시 triggerAttack()으로 attacking 상태가 되고 지속 시간 경과 후 idle로 복귀한다', () => {
+    const bc = new BossController(1);
+    bc.triggerAttack(0.5);
+    expect(bc.isAttacking).toBe(true);
+    expect(bc.phase).toBe('attacking');
+
+    bc.update(0.3);
+    expect(bc.isAttacking).toBe(true);
+    expect(bc.phase).toBe('attacking');
+
+    bc.update(0.25);
+    expect(bc.isAttacking).toBe(false);
+    expect(bc.phase).toBe('idle');
+  });
+
+  it('triggerCounterAttack() 별칭도 정상 동작한다', () => {
+    const bc = new BossController(1);
+    bc.triggerCounterAttack(0.4);
+    expect(bc.isAttacking).toBe(true);
+    bc.update(0.5);
+    expect(bc.isAttacking).toBe(false);
+  });
+
+  it('defeated 상태에서는 triggerAttack()을 호출해도 공격 상태가 되지 않는다', () => {
+    const bc = new BossController(1);
+    bc.takeDamage(10);
+    expect(bc.isDefeated).toBe(true);
+    bc.triggerAttack();
+    expect(bc.phase).toBe('defeated');
+    expect(bc.isAttacking).toBe(false);
+  });
 });
 
 // ═══════════════════════════════════

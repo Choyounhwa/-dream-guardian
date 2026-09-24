@@ -294,8 +294,12 @@ function handleAnswer(idx: number): void {
   } else {
     sfx.play('wrong');
     effectManager.playPreset('wrong', bx, by);
+    // Issue #147: 기습 타이머 제거 및 보스 공격을 오답 시 반격(-25 HP)으로 일원화
+    boss.triggerAttack();
+    bossRenderer.triggerAttack();
+    effectManager.playPreset('wrong', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.5);
     battle.onWrong();
-    console.log(`[DG] HP: ${battle.hp}/${battle.maxHp}`);
+    console.log(`[DG] 오답 보스 반격! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
 
     if (!battle.isAlive) {
       setTimeout(() => showResult(false), 600);
@@ -726,14 +730,7 @@ const engine = new GameEngine({
     guardian.update(dt);
     bossRenderer.update(dt);
     effectManager.update(dt);
-
-    const attacked = boss.update(dt);
-    if (attacked) {
-      bossRenderer.triggerAttack();
-      effectManager.playPreset('wrong', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.5);
-      const dmg = boss.resolveAttack(false);
-      if (dmg > 0) battle.onBossAttack();
-    }
+    boss.update(dt);
 
     hudLayer.update(dt, getHUDData());
 

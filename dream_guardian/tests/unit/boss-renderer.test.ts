@@ -87,6 +87,19 @@ describe('BossRenderer - 5 Procedural Bosses (Issue #25)', () => {
     expect(ctx.scale).toHaveBeenCalled();
   });
 
+  // Issue #147: 공격 모션 타이머 update 감쇠 검증
+  it('공격 모션(triggerAttack) 후 update(0.6s) 경과 시 기본 스케일(1.0)로 복귀한다', () => {
+    const renderer = new BossRenderer();
+    renderer.triggerAttack();
+
+    const mockCtx = createMockCtx();
+    // 0.6초 경과 -> _attackAnimTimer(0.5s) 종료
+    renderer.update(0.6);
+    renderer.render(mockCtx, 1, 400, 200, 60, 'idle');
+
+    expect(mockCtx.scale).toHaveBeenCalledWith(1, 1);
+  });
+
   it('시간 경과(update)에 따라 애니메이션이 진행된다', () => {
     const renderer = new BossRenderer();
     renderer.update(0.016);
