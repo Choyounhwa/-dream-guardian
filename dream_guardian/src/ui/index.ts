@@ -10,4 +10,6 @@ export { SettingsModal } from './SettingsModal.js';
 export type { SettingsAction, ModalButtonSlot } from './SettingsModal.js';
 export { LocomotionModal, LOCOMOTION_MODES, STORAGE_KEY_LOCOMOTION_MODE, LOCOMOTION_DWELL_TIME } from './LocomotionModal.js';
 export type { LocomotionModeInfo } from './LocomotionModal.js';
+export { PauseModal, PAUSE_DWELL_TIME } from './PauseModal.js';
+export type { PauseAction } from './PauseModal.js';
 

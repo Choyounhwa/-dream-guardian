@@ -29,6 +29,7 @@ import {
   HipBounceDetector,
   HipSwayDetector,
   ArmCrossDetector,
+  XGestureDetector,
   type ILocomotionDetector,
   type LocomotionMode,
 } from './motion/index.js';
@@ -36,7 +37,7 @@ import { AnswerSelector } from './input/AnswerSelector.js';
 import { MenuInput } from './input/MenuInput.js';
 import { SFXSynth } from './audio/SFXSynth.js';
 import { TutorialOverlay } from './ui/TutorialOverlay.js';
-import { BottomBar, SettingsModal, LocomotionModal, LOCOMOTION_MODES, type BottomBarSlot } from './ui/index.js';
+import { BottomBar, SettingsModal, LocomotionModal, PauseModal, LOCOMOTION_MODES, type BottomBarSlot } from './ui/index.js';
 import { getAnswerButtonLayouts } from '../config/zone.config.js';
 
 if (typeof document === 'undefined') {
@@ -119,6 +120,8 @@ const tutorial = new TutorialOverlay();
 const bottomBar = new BottomBar();
 const settingsModal = new SettingsModal();
 const locomotionModal = new LocomotionModal();
+const pauseModal = new PauseModal();
+const xGestureDetector = new XGestureDetector();
 let settingsHoverTimer = 0;
 let actionHoverTimer = 0;
 
@@ -245,6 +248,8 @@ function startChapter(ch: number, subLevel?: number): void {
   castingFlash = 0;
   totalSteps = 0;
   totalDwellTime = 0;
+  pauseModal.close();
+  xGestureDetector.reset();
   screenMode = 'game';
   ensureCameraStarted().catch(() => {});
 
@@ -370,6 +375,7 @@ function showResult(victory: boolean): void {
 
 function goToMenu(): void {
   sfx.stopDwellCharge();
+  pauseModal.close();
   console.log('[DG] 메뉴 복귀');
   screenMode = 'menu';
   menuMode = 'main';
@@ -645,6 +651,19 @@ const engine = new GameEngine({
         );
       }
 
+      // Issue #171 & #172: X자 교차 제스처 갱신 (서브메뉴 뒤로가기 & 인게임 일시정지)
+      if (sourceLandmarks.length >= 17) {
+        const xResult = xGestureDetector.update(sourceLandmarks, dt);
+        if (xResult.triggered) {
+          if (screenMode === 'menu' && menuMode === 'sub') {
+            selectSubLevel(-1);
+          } else if (screenMode === 'game') {
+            pauseModal.toggle();
+            sfx.play('hover');
+          }
+        }
+      }
+
       const time = performance.now() / 1000;
       const activeDetector = getActiveLocomotionDetector();
       const stepped = activeDetector.update(
@@ -653,7 +672,7 @@ const engine = new GameEngine({
         time,
         canvasManager.virtualHeight,
       );
-      if (stepped && screenMode === 'game' && gamePhase === 'running') {
+      if (stepped && screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
         runGauge += 20;
         totalSteps++;
         effectManager.playBurst({
@@ -668,6 +687,7 @@ const engine = new GameEngine({
       skeletonAnimation.reset();
       Object.values(locomotionDetectors).forEach((d) => d.reset());
       menuInput.reset();
+      xGestureDetector.reset();
       menuHoverItem = null;
       menuHoverTimer = 0;
     }
@@ -677,13 +697,13 @@ const engine = new GameEngine({
     const leftHand = answerSelector.cursorTracker.getCursor('leftHand');
     const rightHand = answerSelector.cursorTracker.getCursor('rightHand');
 
-    // Issue #169: 전 화면(menu, game, result) 공통 매 프레임 양손 합장 제스처 갱신 및 문제선택 일시정지 동기화
+    // Issue #169 & #172: 전 화면(menu, game, result) 공통 매 프레임 양손 합장 제스처 갱신 및 문제선택/모달 일시정지 동기화
     if (leftHand && rightHand) {
       menuInput.update(leftHand.x, leftHand.y, rightHand.x, rightHand.y);
     } else {
       menuInput.reset();
     }
-    answerSelector.paused = menuInput.isActive;
+    answerSelector.paused = menuInput.isActive || pauseModal.isOpen;
 
     let hoverTarget: { x: number; y: number } | null = null;
 
@@ -701,8 +721,20 @@ const engine = new GameEngine({
       }
     }
 
-    // Issue #154: 운동 모드 모달 호버(0.8초) 판정
-    if (locomotionModal.isOpen) {
+    // Issue #172: 일시정지 모달 호버(0.8초) 판정
+    if (pauseModal.isOpen) {
+      if (hoverTarget) {
+        const pauseRes = pauseModal.updateHover(hoverTarget.x, hoverTarget.y, vw, vh, dt);
+        if (pauseRes.action === 'resume') {
+          pauseModal.close();
+          sfx.play('correct');
+        } else if (pauseRes.action === 'quit') {
+          pauseModal.close();
+          goToMenu();
+          sfx.play('hover');
+        }
+      }
+    } else if (locomotionModal.isOpen) {
       if (hoverTarget) {
         const hoverRes = locomotionModal.updateHover(hoverTarget.x, hoverTarget.y, vw, vh, dt);
         if (hoverRes.modeSelected) {
@@ -734,7 +766,10 @@ const engine = new GameEngine({
             actionHoverTimer = 0;
             if (screenMode === 'menu' && menuMode === 'sub') {
               selectSubLevel(-1);
-            } else if (screenMode === 'game' || screenMode === 'result') {
+            } else if (screenMode === 'game') {
+              pauseModal.open();
+              sfx.play('hover');
+            } else if (screenMode === 'result') {
               goToMenu();
             }
           }
@@ -827,9 +862,10 @@ const engine = new GameEngine({
       return;
     }
 
-    if (screenMode !== 'game') {
+    if (screenMode !== 'game' || pauseModal.isOpen) {
       dreamGrid.update(dt, 0.8);
       effectManager.update(dt);
+      sfx.stopDwellCharge();
       return;
     }
 
@@ -1038,6 +1074,11 @@ const engine = new GameEngine({
       locomotionModal.render(ctx, vw, vh);
     }
 
+    // 7.6 Issue #172: 일시정지 모달 렌더링
+    if (pauseModal.isOpen) {
+      pauseModal.render(ctx, vw, vh);
+    }
+
     // 7.8 Issue #159 & #160: 목표 자세 실루엣 가이드 오버레이 및 첫 문제 유도 화살표
     const isQuestionPhase = screenMode === 'game' && gamePhase === 'question' && questionVisible;
     if (isQuestionPhase && answerSelector.currentPlan) {
@@ -1076,12 +1117,15 @@ const engine = new GameEngine({
       );
     }
 
-    // 8.5 Issue #119, #134, #169: 양손 모으기(합장) 활성화 시 전 화면 공통 금빛 합장 링 렌더링
+    // 8.5 Issue #119, #134, #169, #172: 양손 모으기(합장) 활성화 시 전 화면 공통 금빛 합장 링 렌더링
     if (menuInput.isActive) {
       let label = '손모으기';
       let progress = 0;
 
-      if (screenMode === 'menu') {
+      if (pauseModal.isOpen) {
+        label = pauseModal.hoverAction === 'resume' ? '재개' : (pauseModal.hoverAction === 'quit' ? '나가기' : '선택');
+        progress = pauseModal.hoverProgress;
+      } else if (screenMode === 'menu') {
         label = menuHoverItem ? '선택' : (settingsHoverTimer > 0 ? '설정' : (actionHoverTimer > 0 ? '뒤로' : '손모으기'));
         progress = Math.max(menuHoverTimer, settingsHoverTimer, actionHoverTimer) / MENU_HOVER_DWELL_TIME;
       } else if (screenMode === 'game') {
@@ -1093,6 +1137,44 @@ const engine = new GameEngine({
       }
 
       renderJoinedHandsCursor(ctx, vw, vh, label, progress);
+    }
+
+    // 8.8 Issue #171 & #172: X자 제스처 진행 시 상단 비주얼 피드백 표시
+    if (xGestureDetector.isCrossing && !xGestureDetector.inCooldown && !pauseModal.isOpen) {
+      ctx.save();
+      const cx = vw * 0.5;
+      const cy = vh * 0.22;
+      const prog = xGestureDetector.progress;
+
+      ctx.fillStyle = 'rgba(10, 14, 26, 0.88)';
+      ctx.strokeStyle = '#FF865E';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#FF865E';
+      ctx.shadowBlur = 16;
+      if (ctx.roundRect) {
+        ctx.roundRect(cx - 180, cy - 40, 360, 80, 24);
+      } else {
+        ctx.rect(cx - 180, cy - 40, 360, 80);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const label = (screenMode === 'menu' && menuMode === 'sub') ? '✕ 홈으로 나가기...' : '⏸ 일시정지...';
+      ctx.fillText(label, cx, cy - 6);
+
+      const barW = 300 * prog;
+      ctx.fillStyle = '#4DFFAA';
+      if (ctx.roundRect) {
+        ctx.roundRect(cx - 150, cy + 22, barW, 8, 4);
+      } else {
+        ctx.rect(cx - 150, cy + 22, barW, 8);
+      }
+      ctx.fill();
+      ctx.restore();
     }
 
     // 9. Issue #137: 튜토리얼 인터랙티브 오버레이 렌더링
@@ -1124,6 +1206,23 @@ canvas.addEventListener('click', (e) => {
   // Issue #137: 튜토리얼 노출 중 탭/클릭 시 다음 단계 진행 또는 닫기
   if (tutorial.isVisible) {
     tutorial.nextStep();
+    return;
+  }
+
+  // Issue #172: 일시정지 모달 열림 상태 시 클릭 우선 처리
+  if (pauseModal.isOpen) {
+    const action = pauseModal.hitTest(x, y, vw, vh);
+    if (action === 'resume') {
+      pauseModal.close();
+      sfx.play('correct');
+    } else if (action === 'quit') {
+      pauseModal.close();
+      goToMenu();
+      sfx.play('hover');
+    } else if (action === 'backdrop') {
+      pauseModal.close();
+      sfx.play('hover');
+    }
     return;
   }
 
@@ -1193,7 +1292,10 @@ canvas.addEventListener('click', (e) => {
   if (hasAction && bottomBar.hitTestAction(x, y, vw, vh, 0, customSlot)) {
     if (screenMode === 'menu' && menuMode === 'sub') {
       selectSubLevel(-1);
-    } else if (screenMode === 'game' || screenMode === 'result') {
+    } else if (screenMode === 'game') {
+      pauseModal.open();
+      sfx.play('hover');
+    } else if (screenMode === 'result') {
       goToMenu();
     }
     return;
@@ -1249,14 +1351,28 @@ canvas.addEventListener('click', (e) => {
 
 // ─── 키보드 단축키 ───
 document.addEventListener('keydown', (e) => {
-  // Issue #141 / #154: 모달 열림 상태 시 Escape로 닫기
-  if (e.key === 'Escape') {
+  // Issue #141 / #154 / #172: 모달 열림 상태 시 Escape 또는 P로 토글/닫기
+  if (e.key === 'Escape' || e.code === 'KeyP') {
+    if (pauseModal.isOpen) {
+      pauseModal.close();
+      sfx.play('hover');
+      return;
+    }
     if (locomotionModal.isOpen) {
       locomotionModal.close();
       return;
     }
     if (settingsModal.isOpen) {
       settingsModal.close();
+      return;
+    }
+    if (screenMode === 'game') {
+      pauseModal.open();
+      sfx.play('hover');
+      return;
+    }
+    if (screenMode === 'menu' && menuMode === 'sub') {
+      selectSubLevel(-1);
       return;
     }
   }
