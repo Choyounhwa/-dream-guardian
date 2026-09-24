@@ -24,7 +24,14 @@ import { ResultRenderer, calcStars } from './ui/ResultRenderer.js';
 import type { ResultData } from './ui/ResultRenderer.js';
 import { BossRenderer, DreamGrid, renderMath, AnswerSelectionRenderer, PartIconRenderer, MagicCircleRenderer } from './render/index.js';
 import { EffectManager } from './effects/index.js';
-import { RunDetector } from './motion/RunDetector.js';
+import {
+  RunDetector,
+  HipBounceDetector,
+  HipSwayDetector,
+  ArmCrossDetector,
+  type ILocomotionDetector,
+  type LocomotionMode,
+} from './motion/index.js';
 import { AnswerSelector } from './input/AnswerSelector.js';
 import { MenuInput } from './input/MenuInput.js';
 import { SFXSynth } from './audio/SFXSynth.js';
@@ -84,6 +91,17 @@ const bossRenderer = new BossRenderer();
 const dreamGrid = new DreamGrid({ speed: 1.2, hasCeiling: true });
 const effectManager = new EffectManager(15);
 const runDetector = new RunDetector();
+const locomotionDetectors: Record<LocomotionMode, ILocomotionDetector> = {
+  run: runDetector,
+  hip_bounce: new HipBounceDetector(),
+  hip_sway: new HipSwayDetector(),
+  arm_cross: new ArmCrossDetector(),
+};
+
+function getActiveLocomotionDetector(): ILocomotionDetector {
+  const mode = locomotionModal.selectedMode;
+  return locomotionDetectors[mode] ?? locomotionDetectors.run;
+}
 const answerSelector = new AnswerSelector();
 answerSelector.setViewport(
   canvasManager.virtualWidth,
@@ -204,7 +222,7 @@ function startRunningPhase(): void {
   runGauge = 0;
   questionVisible = false;
   answerLocked = true;
-  runDetector.reset();
+  Object.values(locomotionDetectors).forEach((d) => d.reset());
   console.log('[DG] 달리기 페이즈 시작 (게이지 100% 도달 시 문제 출제)');
 }
 
@@ -340,6 +358,7 @@ function showResult(victory: boolean): void {
     steps: totalSteps, squats: 0, jumps: 0,
     elapsedTime: 60,
     dwellTime: totalDwellTime,
+    locomotionMode: locomotionModal.selectedMode,
   };
 }
 
@@ -483,8 +502,9 @@ function renderRunningPhase(ctx: CanvasRenderingContext2D, vw: number, vh: numbe
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
+  const guide = hudLayer.getLocomotionGuide(locomotionModal.selectedMode);
   const isFever = runGauge >= 75;
-  const feverTitle = isFever ? '✨ FEVER! 수호신과 함께 질주!' : '제자리에서 달려 다음 문제로!';
+  const feverTitle = isFever ? '✨ FEVER! 수호신과 함께 질주!' : guide.title;
   ctx.font = 'bold 46px sans-serif';
   ctx.fillStyle = isFever ? '#28E6FF' : '#FFCB4D';
   ctx.shadowColor = isFever ? '#28E6FF' : '#FFCB4D';
@@ -494,7 +514,7 @@ function renderRunningPhase(ctx: CanvasRenderingContext2D, vw: number, vh: numbe
 
   ctx.font = 'bold 26px sans-serif';
   ctx.fillStyle = '#DDDDDD';
-  ctx.fillText('발을 구르거나 [Space] / 화면을 탭하세요', cx, cy - 15);
+  ctx.fillText(guide.subtitle, cx, cy - 15);
 
   // 게이지 바 외곽
   const barW = Math.min(540, vw * 0.72);
@@ -535,10 +555,11 @@ function renderRunningPhase(ctx: CanvasRenderingContext2D, vw: number, vh: numbe
   ctx.fillStyle = '#fff';
   ctx.fillText(`${Math.round(runGauge)}%`, cx, barY + barH / 2);
 
-  // 걸음 수 표시 (Issue #132: 32px 볼드 대형화)
+  // 걸음 수 표시 (Issue #132: 32px 볼드 대형화, Issue #155: 모드별 맞춤 라벨 및 단위)
+  const countUnit = locomotionModal.selectedMode === 'run' ? '보' : '회';
   ctx.font = 'bold 32px sans-serif';
   ctx.fillStyle = '#4DFFAA';
-  ctx.fillText(`🏃 걸음 수: ${totalSteps}보`, cx, barY + barH + 54);
+  ctx.fillText(`${guide.countLabel}: ${totalSteps}${countUnit}`, cx, barY + barH + 54);
 
   ctx.restore();
 }
@@ -589,7 +610,8 @@ const engine = new GameEngine({
       }
 
       const time = performance.now() / 1000;
-      const stepped = runDetector.update(
+      const activeDetector = getActiveLocomotionDetector();
+      const stepped = activeDetector.update(
         poseManager.virtualLandmarks,
         canvasManager.virtualHeight * 0.28,
         time,
@@ -608,7 +630,7 @@ const engine = new GameEngine({
       }
     } else {
       skeletonAnimation.reset();
-      runDetector.reset();
+      Object.values(locomotionDetectors).forEach((d) => d.reset());
       menuInput.reset();
       menuHoverItem = null;
       menuHoverTimer = 0;
@@ -786,8 +808,9 @@ const engine = new GameEngine({
     dreamGrid.update(dt, speedMult);
 
     if (isRunning) {
-      // 제자리 달리기 유지 시 완만 지속 충전
-      if (runDetector.isRunning) {
+      const activeDetector = getActiveLocomotionDetector();
+      // 선택된 운동 모드 동작 유지 시 완만 지속 충전
+      if (activeDetector.isRunning) {
         runGauge += dt * 15;
       } else if (runGauge > 0) {
         // 정지 시 초당 4% 자연 감쇠

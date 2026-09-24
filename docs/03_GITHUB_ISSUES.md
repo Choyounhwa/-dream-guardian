@@ -2304,14 +2304,14 @@
 - **Labels**: `phase-5`, `phase-6`, `feature`, `P1-high`
 - **Milestone**: `v0.4-gameplay-systems`
 - **작업 ID**: `[FEAT-GAME-002]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (Pass)**
 - **목적**:
   - 플레이어가 선택한 운동 모드에 맞춰 `gamePhase === 'running'` 게이지 충전 루프를 해당 감지기와 연동하고, 인게임 HUD에 실시간 모션 가이드 힌트를 표출하며, 결과 화면에서 모드별 맞춤 칼로리 소모 공식을 적용한다.
 - **완료 조건**:
-  - [ ] 4종 운동 모드 각각에서 동작 인식 시 정상적으로 게이지가 충전되어 다음 문제로 진입
-  - [ ] 러닝 구간 진입 시 현재 선택된 모드에 일치하는 HUD 가이드 텍스트 출력
-  - [ ] 결과 화면에서 선택된 모드에 맞는 칼로리 계산식 적용 및 표출
-  - [ ] 단위 테스트(`tests/unit/locomotion-gameplay.test.ts`) 100% Pass 및 전체 테스트 통과
+  - [x] 4종 운동 모드 각각에서 동작 인식 시 정상적으로 게이지가 충전되어 다음 문제로 진입
+  - [x] 러닝 구간 진입 시 현재 선택된 모드에 일치하는 HUD 가이드 텍스트 출력
+  - [x] 결과 화면에서 선택된 모드에 맞는 칼로리 계산식 적용 및 표출
+  - [x] 단위 테스트(`tests/unit/locomotion-gameplay.test.ts`) 100% Pass 및 전체 테스트 통과
 - **관련 파일**:
   - `dream_guardian/src/main.ts`
   - `dream_guardian/src/ui/HUDLayer.ts`

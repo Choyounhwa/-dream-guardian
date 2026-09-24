@@ -98,3 +98,11 @@ export const CALORIE_RATES = {
   jump: 0.15,        // 점프당 0.15 kcal
   dwellPerSecond: 0.07, // 스트레칭/자세 유지 1초당 0.07 kcal
 } as const;
+
+/** 운동 모드별 스텝당 칼로리 계수 (METs 기반, Issue #155 / FEAT-GAME-002) */
+export const LOCOMOTION_CALORIE_RATES = {
+  run: 0.040,        // 제자리 달리기: 0.040 kcal/step
+  hip_bounce: 0.035, // 골반 바운스: 0.035 kcal/step
+  hip_sway: 0.038,   // 골반 스웨이: 0.038 kcal/step
+  arm_cross: 0.032,  // 양손 교차: 0.032 kcal/step
+} as const;

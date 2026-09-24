@@ -9,7 +9,8 @@
  * @see Issue #23 (GitHub #88), Issue #135, Issue #143
  */
 
-import { CALORIE_RATES } from '../../config/posture.config.js';
+import { CALORIE_RATES, LOCOMOTION_CALORIE_RATES } from '../../config/posture.config.js';
+import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 
 export interface ResultData {
   victory: boolean;
@@ -23,6 +24,8 @@ export interface ResultData {
   elapsedTime: number;
   /** 스트레칭/자세 유지 시간 (초, Issue #135) */
   dwellTime?: number;
+  /** 선택된 운동 모드 (Issue #155 / FEAT-GAME-002) */
+  locomotionMode?: LocomotionMode;
 }
 
 export interface ResultPanelLayout {
@@ -32,19 +35,36 @@ export interface ResultPanelLayout {
   h: number;
 }
 
-/** 칼로리 계산 (자세 유지 시간 반영 확장, Issue #135 / CALC-001) */
+/** 칼로리 계산 (자세 유지 시간 및 운동 모드별 METs 반영 확장, Issue #135 / #155) */
 export function calcCalories(
   steps: number,
   squats: number,
   jumps: number,
   dwellTime = 0,
+  mode: LocomotionMode = 'run',
 ): number {
+  const stepRate = LOCOMOTION_CALORIE_RATES[mode] ?? CALORIE_RATES.step;
   return (
-    steps * CALORIE_RATES.step +
+    steps * stepRate +
     squats * CALORIE_RATES.squat +
     jumps * CALORIE_RATES.jump +
     dwellTime * CALORIE_RATES.dwellPerSecond
   );
+}
+
+/** 운동 모드별 통계 텍스트 라인 포맷팅 (Issue #155 / FEAT-GAME-002) */
+export function getLocomotionStatLine(mode: LocomotionMode = 'run', steps: number): string {
+  switch (mode) {
+    case 'hip_bounce':
+      return `🦘 골반 바운스: ${steps}회`;
+    case 'hip_sway':
+      return `💃 골반 스웨이: ${steps}회`;
+    case 'arm_cross':
+      return `🚗 양손 교차: ${steps}회`;
+    case 'run':
+    default:
+      return `🏃 달린 걸음: ${steps}보 (제자리 달리기)`;
+  }
 }
 
 /** 별 등급 (1~3) 산출 */
@@ -154,14 +174,15 @@ export class ResultRenderer {
       ? Math.round((data.correctCount / data.totalQuestions) * 100)
       : 0;
     const dwell = data.dwellTime ?? 0;
-    const calories = calcCalories(data.steps, data.squats, data.jumps, dwell);
+    const calories = calcCalories(data.steps, data.squats, data.jumps, dwell, data.locomotionMode);
     const timeStr = `${Math.floor(data.elapsedTime / 60)}분 ${String(Math.floor(data.elapsedTime % 60)).padStart(2, '0')}초`;
+    const stepLine = getLocomotionStatLine(data.locomotionMode, data.steps);
 
     const lines = [
       `🎯 정답률: ${data.correctCount} / ${data.totalQuestions} (${accuracy}%)`,
       `🔥 최대 콤보: ${data.maxCombo} COMBO`,
       `⏱️ 플레이 시간: ${timeStr}`,
-      `🏃 달린 걸음: ${data.steps}보`,
+      stepLine,
       `🏋️ 스쿼트: ${data.squats}회`,
       `🦘 점프: ${data.jumps}회`,
       `🧘 자세 유지: ${dwell.toFixed(1)}초`,
