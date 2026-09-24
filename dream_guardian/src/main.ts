@@ -29,6 +29,7 @@ import { AnswerSelector } from './input/AnswerSelector.js';
 import { MenuInput } from './input/MenuInput.js';
 import { SFXSynth } from './audio/SFXSynth.js';
 import { TutorialOverlay } from './ui/TutorialOverlay.js';
+import { BottomBar, SettingsModal, type BottomBarSlot } from './ui/index.js';
 
 if (typeof document === 'undefined') {
   throw new Error('브라우저 환경에서만 실행 가능합니다.');
@@ -94,6 +95,10 @@ const magicCircleRenderer = new MagicCircleRenderer();
 const menuInput = new MenuInput();
 const sfx = new SFXSynth();
 const tutorial = new TutorialOverlay();
+const bottomBar = new BottomBar();
+const settingsModal = new SettingsModal();
+let settingsHoverTimer = 0;
+let actionHoverTimer = 0;
 
 // ─── 메뉴 제스처 선택 상태 (Issue #119 / BUG-MENU-001) ───
 let menuHoverItem: { type: 'chapter' | 'sublevel'; id: number } | null = null;
@@ -563,6 +568,67 @@ const engine = new GameEngine({
       menuHoverTimer = 0;
     }
 
+    // Issue #141: 공통 하단 바 모션 호버(0.8초) 판정
+    if (!settingsModal.isOpen && !tutorial.isVisible) {
+      const vw = canvasManager.virtualWidth;
+      const vh = canvasManager.virtualHeight;
+      const leftHand = answerSelector.cursorTracker.getCursor('leftHand');
+      const rightHand = answerSelector.cursorTracker.getCursor('rightHand');
+      let hoverTarget: { x: number; y: number } | null = null;
+
+      if (menuInput.isActive) {
+        hoverTarget = { x: menuInput.cursorX * vw, y: menuInput.cursorY * vh };
+      } else if (leftHand || rightHand) {
+        if (leftHand && rightHand) {
+          hoverTarget = leftHand.y > rightHand.y
+            ? { x: leftHand.x, y: leftHand.y }
+            : { x: rightHand.x, y: rightHand.y };
+        } else if (leftHand) {
+          hoverTarget = { x: leftHand.x, y: leftHand.y };
+        } else if (rightHand) {
+          hoverTarget = { x: rightHand.x, y: rightHand.y };
+        }
+      }
+
+      if (hoverTarget) {
+        if (bottomBar.hitTestSettings(hoverTarget.x, hoverTarget.y, vw, vh, 15)) {
+          settingsHoverTimer += dt;
+          if (settingsHoverTimer >= MENU_HOVER_DWELL_TIME) {
+            settingsModal.open();
+            sfx.play('hover');
+            settingsHoverTimer = 0;
+          }
+        } else {
+          settingsHoverTimer = Math.max(0, settingsHoverTimer - dt * 2);
+        }
+
+        const customSlot = (screenMode === 'menu' && menuMode === 'sub')
+          ? { x: 780, y: 1990, w: 270, h: 140 }
+          : undefined;
+        const hasAction = (screenMode === 'menu' && menuMode === 'sub') || screenMode === 'game' || screenMode === 'result';
+
+        if (hasAction && bottomBar.hitTestAction(hoverTarget.x, hoverTarget.y, vw, vh, 15, customSlot)) {
+          actionHoverTimer += dt;
+          if (actionHoverTimer >= MENU_HOVER_DWELL_TIME) {
+            actionHoverTimer = 0;
+            if (screenMode === 'menu' && menuMode === 'sub') {
+              selectSubLevel(-1);
+            } else if (screenMode === 'game' || screenMode === 'result') {
+              goToMenu();
+            }
+          }
+        } else {
+          actionHoverTimer = Math.max(0, actionHoverTimer - dt * 2);
+        }
+      } else {
+        settingsHoverTimer = 0;
+        actionHoverTimer = 0;
+      }
+    } else {
+      settingsHoverTimer = 0;
+      actionHoverTimer = 0;
+    }
+
     if (screenMode === 'menu') {
       dreamGrid.update(dt, 0.8);
       effectManager.update(dt);
@@ -747,8 +813,8 @@ const engine = new GameEngine({
       cameraLayer.render(ctx, vw, vh);
     }
 
-    // 4. 스켈레톤 시각화 (수동 scale 불일치 제거 - 가상 좌표계 1:1 드로잉)
-    if (poseManager.hasPose && skeletonAnimation.smoothedLandmarks.length > 0) {
+    // 4. 스켈레톤 시각화 (설정에서 활성화된 경우만 렌더링)
+    if (settingsModal.skeletonEnabled && poseManager.hasPose && skeletonAnimation.smoothedLandmarks.length > 0) {
       boneRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, 1);
       jointRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, skeletonAnimation.breathScale);
     }
@@ -892,8 +958,40 @@ const engine = new GameEngine({
       effectManager.render(ctx);
     }
 
-    // 6. Issue #140: 전 장면(메뉴·달리기·문제·결과) 4색 스켈레톤 커서 상시 지속 렌더링
-    // 문제 페이즈에서는 피트니스 존 및 진행도와 함께, 그 외 모든 장면에서는 순수 커서 상시 가시화
+    // 6. Issue #141: 공통 하단 고정 바 (Yellow Bar) 렌더링
+    let actionLabel: string | undefined;
+    let actionColor: string | undefined;
+    let customActionSlot: BottomBarSlot | undefined;
+
+    if (screenMode === 'menu') {
+      if (menuMode === 'sub') {
+        actionLabel = '← 뒤로';
+        actionColor = '#28E6FF';
+        customActionSlot = { x: 780, y: 1990, w: 270, h: 140 };
+      }
+    } else if (screenMode === 'game') {
+      actionLabel = '정지';
+      actionColor = '#FF4444';
+    } else if (screenMode === 'result') {
+      actionLabel = '메뉴로';
+      actionColor = '#FFCB4D';
+    }
+
+    bottomBar.render(ctx, vw, vh, {
+      actionLabel,
+      actionColor,
+      customActionSlot,
+      settingsHoverProgress: settingsHoverTimer / MENU_HOVER_DWELL_TIME,
+      actionHoverProgress: actionHoverTimer / MENU_HOVER_DWELL_TIME,
+    });
+
+    // 7. Issue #141: 설정 모달 렌더링 (오버레이 및 팝업 카드)
+    if (settingsModal.isOpen) {
+      settingsModal.render(ctx, vw, vh);
+    }
+
+    // 8. Issue #140 & #141: 전 장면(메뉴·달리기·문제·결과) 4색 스켈레톤 커서 상시 지속 렌더링
+    // (하단 바 및 모달 위에 상시 렌더링되어 호버/클릭 지원)
     if (answerSelector.cursorTracker.cursors.size > 0) {
       const isQuestionPhase = screenMode === 'game' && gamePhase === 'question' && questionVisible;
       const activeZones = isQuestionPhase && answerSelector.currentPlan ? answerSelector.currentPlan.activeZones : [];
@@ -909,12 +1007,12 @@ const engine = new GameEngine({
       );
     }
 
-    // 7. Issue #137: 튜토리얼 인터랙티브 오버레이 렌더링
+    // 9. Issue #137: 튜토리얼 인터랙티브 오버레이 렌더링
     if (tutorial.isVisible) {
       tutorial.render(ctx, vw, vh);
     }
 
-    // 8. 가상 좌표계 복원
+    // 10. 가상 좌표계 복원
     canvasManager.resetTransform();
   },
 });
@@ -938,6 +1036,62 @@ canvas.addEventListener('click', (e) => {
   // Issue #137: 튜토리얼 노출 중 탭/클릭 시 다음 단계 진행 또는 닫기
   if (tutorial.isVisible) {
     tutorial.nextStep();
+    return;
+  }
+
+  // Issue #141: 설정 모달 열림 상태 시 모달 클릭 우선 처리
+  if (settingsModal.isOpen) {
+    const action = settingsModal.handleClick(x, y, vw, vh);
+    if (action === 'close' || action === 'backdrop-close') {
+      settingsModal.close();
+      sfx.play('hover');
+    } else if (action === 'camera') {
+      if (cameraLayer.isActive) {
+        cameraLayer.stop();
+        settingsModal.cameraEnabled = false;
+      } else {
+        ensureCameraStarted().catch(() => {});
+        settingsModal.cameraEnabled = true;
+      }
+      sfx.play('hover');
+    } else if (action === 'fullscreen') {
+      const container = document.getElementById('container') || canvas;
+      if (!document.fullscreenElement) {
+        container.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+      sfx.play('hover');
+    } else if (action === 'skeleton') {
+      settingsModal.skeletonEnabled = !settingsModal.skeletonEnabled;
+      sfx.play('hover');
+    } else if (action === 'sound') {
+      settingsModal.soundEnabled = !settingsModal.soundEnabled;
+      sfx.setMuted(!settingsModal.soundEnabled);
+      if (settingsModal.soundEnabled) sfx.play('correct');
+    }
+    return;
+  }
+
+  // Issue #141: 공통 하단 바 클릭 (설정 버튼)
+  if (bottomBar.hitTestSettings(x, y, vw, vh)) {
+    settingsModal.open();
+    sfx.play('hover');
+    return;
+  }
+
+  // Issue #141: 공통 하단 바 클릭 (우측 액션 버튼)
+  const customSlot = (screenMode === 'menu' && menuMode === 'sub')
+    ? { x: 780, y: 1990, w: 270, h: 140 }
+    : undefined;
+  const hasAction = (screenMode === 'menu' && menuMode === 'sub') || screenMode === 'game' || screenMode === 'result';
+
+  if (hasAction && bottomBar.hitTestAction(x, y, vw, vh, 0, customSlot)) {
+    if (screenMode === 'menu' && menuMode === 'sub') {
+      selectSubLevel(-1);
+    } else if (screenMode === 'game' || screenMode === 'result') {
+      goToMenu();
+    }
     return;
   }
 
@@ -988,37 +1142,16 @@ canvas.addEventListener('click', (e) => {
   }
 });
 
-// ─── 상단 컨트롤 버튼 ───
-const btnCam = document.getElementById('btn_cam');
-if (btnCam) {
-  btnCam.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (cameraLayer.isActive) {
-      cameraLayer.stop();
-      btnCam.textContent = '🚫';
-      btnCam.title = '카메라 켜기 (단축키: C)';
-    } else {
-      ensureCameraStarted().catch(() => {});
-      btnCam.textContent = '📷';
-      btnCam.title = '카메라 끄기 (단축키: C)';
-    }
-  });
-}
-
-const btnFullscreen = document.getElementById('btn_fullscreen');
-if (btnFullscreen) {
-  btnFullscreen.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const container = document.getElementById('container') || canvas;
-    if (!document.fullscreenElement) {
-      container.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen().catch(() => {});
-    }
-  });
-}
-
+// ─── 키보드 단축키 ───
 document.addEventListener('keydown', (e) => {
+  // Issue #141: 설정 모달 열림 상태 시 Escape로 닫기
+  if (e.key === 'Escape') {
+    if (settingsModal.isOpen) {
+      settingsModal.close();
+      return;
+    }
+  }
+
   // Issue #137: 튜토리얼 스킵 지원
   if (tutorial.isVisible) {
     if (e.code === 'Space' || e.key === 'Enter' || e.key === 'Escape') {
@@ -1047,19 +1180,24 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
+  // C: 카메라 켜기/끄기 단축키
   if (e.key.toLowerCase() === 'c') {
     if (cameraLayer.isActive) {
       cameraLayer.stop();
-      if (btnCam) {
-        btnCam.textContent = '🚫';
-        btnCam.title = '카메라 켜기 (단축키: C)';
-      }
+      settingsModal.cameraEnabled = false;
     } else {
       ensureCameraStarted().catch(() => {});
-      if (btnCam) {
-        btnCam.textContent = '📷';
-        btnCam.title = '카메라 끄기 (단축키: C)';
-      }
+      settingsModal.cameraEnabled = true;
+    }
+  }
+
+  // F: 전체화면 전환 단축키
+  if (e.key.toLowerCase() === 'f') {
+    const container = document.getElementById('container') || canvas;
+    if (!document.fullscreenElement) {
+      container.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
     }
   }
 

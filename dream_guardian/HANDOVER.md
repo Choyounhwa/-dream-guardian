@@ -81,7 +81,7 @@
 
 | 순서 | 카드 ID | GitHub Issue | 제목 | 핵심 구현 및 삭제 대상 | 상태 |
 |---|---|---|---|---|---|
-| 1 | `UI-BAR-001` | [#141](https://github.com/Choyounhwa/-dream-guardian/issues/141) | 전 화면 공통 하단 고정 바(Yellow Bar) 및 설정(Settings) 모달 신설과 레거시 상단 부유 버튼(#top_controls) 완전 삭제 | • **[삭제]** `index.html` 상단 부유 버튼 (`#top_controls`, `#btn_cam`, `#btn_fullscreen`) 및 CSS 제거<br>• **[신규]** 전 화면 공통 200px 하단 고정 바 (`y: 1960~2160`)<br>• **[신규]** 좌측 `설정` 모달 버튼 (`30, 1990, 140x140`, Cyan), 우측 액션 프레임 (`810, 1990, 240x140`, Red)<br>• **[신규]** `SettingsModal.ts` 팝업 구현 (카메라/전체화면/스켈레톤/볼륨) | ⚪ **대기 (승인 대기)** |
+| 1 | `UI-BAR-001` | [#141](https://github.com/Choyounhwa/-dream-guardian/issues/141) | 전 화면 공통 하단 고정 바(Yellow Bar) 및 설정(Settings) 모달 신설과 레거시 상단 부유 버튼(#top_controls) 완전 삭제 | • **[삭제]** `index.html` 상단 부유 버튼 (`#top_controls`, `#btn_cam`, `#btn_fullscreen`) 및 CSS 제거<br>• **[신규]** 전 화면 공통 200px 하단 고정 바 (`y: 1960~2160`)<br>• **[신규]** 좌측 `설정` 모달 버튼 (`30, 1990, 140x140`, Cyan), 우측 액션 프레임 (`810, 1990, 240x140`, Red)<br>• **[신규]** `SettingsModal.ts` 팝업 구현 (카메라/전체화면/스켈레톤/볼륨) | 🟢 **Pass (385/385)** |
 | 2 | `UI-MENU-002` | [#142](https://github.com/Choyounhwa/-dream-guardian/issues/142) | 홈 메뉴(2-2-1) 및 서브 메뉴(2x3) 와이드 레이아웃 개편과 1:1 대형 폰트 적용 (레거시 가로 1열 및 상단 뒤로가기 삭제) | • **[삭제]** 가로 1열 140px 챕터 카드 나열식 및 단일 행 `hitTest` 제거<br>• **[삭제]** 상단 `y: 0.14` 높이 40px 작고 좁은 뒤로가기 버튼 제거<br>• **[신규]** 홈 메뉴 **2 - 2 - 1 와이드 다이아몬드 그리드** (`360×380px` 카드, 1:1 폰트 64/48/42px)<br>• **[신규]** 서브 메뉴 **2열 3행 대형 와이드 그리드** (`420×380px`, 1:1 폰트 68px/32px)<br>• **[신규]** `← 뒤로` 버튼을 하단 고정 바 우측 슬롯(`780, 1990, 270x140`, 42px)으로 이관 | ⚪ **대기 (승인 대기)** |
 | 3 | `UI-INGAME-001` | [#143](https://github.com/Choyounhwa/-dream-guardian/issues/143) | 인게임 마젠타 문제영역 고정 컨테이너, 3중 회전 마법진(E_Pit_act1~3) 피트니스 존 및 마젠타 결과 카드 패널 개편 | • **[삭제]** `HUDLayer.ts` 좌하단 구석 세로형 마나 플라스크(`_renderManaFlask`) 삭제 (하단 바로 이관)<br>• **[삭제]** 단순 직사각형 점선 피트니스 존 테두리 및 텍스트 삭제<br>• **[삭제]** 결과 화면의 프레임 없는 24px 단순 텍스트 나열 코드 삭제<br>• **[신규]** **마젠타 문제영역 고정 박스** (`100, 320, 880x1000px`, 텍스트 오버플로우 방지 자동 축소)<br>• **[신규]** **3중 회전 마법진 피트니스 존** (`E_Pit_act1~3.png` 각각 다른 방향 Spin/Orbit/Shimmer 애니메이션)<br>• **[신규]** 답안 버튼 2개 횡배치 (`360×260px`, 폰트 96px)<br>• **[신규]** **마젠타 결과 카드 패널** (`100, 240, 880x1580px`, 8개 지표 라인 74px x 폰트 44px 1:1 매핑) | ⚪ **대기 (승인 대기)** |
 | 4 | `FEAT-CURSOR-004` | [#145](https://github.com/Choyounhwa/-dream-guardian/issues/145) | 스켈레톤 손 트래킹 중지 기저부(MCP) 위치 조정 및 골반 커서 실측 다리 너비(1.5x) 라운드 납작 마름모 개편 | • **[개편]** 손바닥 트래킹 중심을 손목/손바닥 하단에서 **중지 손가락 시작부(3rd MCP)**로 상향<br>• **[개편]** 골반 커서 크기를 양다리 시작 포인트(#23-#24) 사이 실측 거리의 **1.5배(너비 = hipDist × 1.5)**로 동적 확대<br>• **[개편]** 골반 커서 형상을 기존 역삼각형에서 **모서리가 둥근 납작한 마름모(Flattened Rounded Rhombus)**로 개편 | ⚪ **대기 (승인 대기)** |
@@ -92,8 +92,50 @@
 | 9 | `REFACTOR-POSE-001` | [#150](https://github.com/Choyounhwa/-dream-guardian/issues/150) | 좌/우 답안 공용 피트니스 존(Shared Active Zone) 및 색상 커서 선택 메커니즘 전환 | • **[목적]** 좌/우 선택지별 분리 존 배정 방식을 설계 대전제인 "공용 활성 존에 계산한 답안의 색상 커서를 이동하여 판정"하는 메커니즘으로 전환<br>• **[개편]** `RecipeGenerator`, `AnswerSelector` 공용 타겟 존 연동 | 🟢 **Pass (372/372)** |
 | 10 | `FEAT-POSE-006` | [#151](https://github.com/Choyounhwa/-dream-guardian/issues/151) | 신체 부위별(왼손/오른손 비대칭 및 머리) 허용 피트니스 존 제약 및 색상 완전 비공유 보장 | • **[목적]** 왼손/오른손의 전 구역 무제한 허용을 설계 규격(왼손: 1,2,4,6,7,9,10 / 오른손: 2,3,7,8,10,11)으로 비대칭 제한<br>• **[강화]** C2 제약을 완전 배타(`A.parts ∩ B.parts = ∅`)로 강화 | 🟢 **Pass (373/373)** |
 | 11 | `FEAT-SKEL-004` | [#152](https://github.com/Choyounhwa/-dream-guardian/issues/152) | 스켈레톤 뼈대 연결선 투명도(20% 불투명도 조정) 정합성 반영 | • **[목적]** 현재 `0.6`으로 다소 짙은 뼈대 연결선을 설계 문서("연결선은 20% 투명도") 규격에 맞추어 시인성 조정 | ⚪ **대기 (승인 대기)** |
+| 12 | `FEAT-MOTION-001` | [#153](https://github.com/Choyounhwa/-dream-guardian/issues/153) | 뛸 수 없는 환경을 위한 저소음/대체 이동(Locomotion) 감지기 3종 및 공통 인터페이스 구현 | • **[신규]** `ILocomotionDetector` 공통 인터페이스<br>• **[신규]** 골반 상하 바운스(`HipBounceDetector`)<br>• **[신규]** 골반 좌우 스웨이/트월킹(`HipSwayDetector`)<br>• **[신규]** 양손 상하 교차/드라이빙(`ArmCrossDetector`)<br>• **[신규]** `Config.ts` 감도 파라미터 분리 | ⚪ **대기 (승인 대기)** |
+| 13 | `FEAT-UI-006` | [#154](https://github.com/Choyounhwa/-dream-guardian/issues/154) | 운동 모드(이동 방식 4종) 선택 UI 모달 및 커서/터치 인터랙션 구현 | • **[신규]** 4종 운동 모드(달리기/골반바운스/골반스웨이/양손교차) 선택 모달 UI<br>• **[신규]** 4색 신체 커서 0.8초 Dwell 및 마우스/터치 클릭 선택<br>• **[신규]** `localStorage` 선택 모드 영속 저장 및 복원 | ⚪ **대기 (승인 대기)** |
+| 14 | `FEAT-GAME-002` | [#155](https://github.com/Choyounhwa/-dream-guardian/issues/155) | 선택된 운동 모드 인게임 러닝 루프/HUD 동작 가이드 및 맞춤 칼로리 공식 연동 | • **[연동]** `main.ts` 러닝 루프 다형성 감지기 연동<br>• **[신규]** 인게임 HUD 모드별 맞춤 동작 가이드 안내<br>• **[신규]** 모드별 METs 맞춤 칼로리 소모 공식 및 결과 화면 표출 | ⚪ **대기 (승인 대기)** |
+| 15 | `FEAT-ZONE-003` | [#156](https://github.com/Choyounhwa/-dream-guardian/issues/156) | 커서-존 허용 매트릭스 개편 (양손 전 존 1~11 허용, 머리 존 4~5 한정) 및 Cross-Body 제약(Hip 9~11 시 손 1~3 차단) 신설 | • **[개편]** 양손(`leftHand`, `rightHand`) 전 존(1~11) 허용 (옆구리 스트레칭 및 교차 도달)<br>• **[제한]** `HEAD_ZONES`를 `{4, 5}`로 한정 (존 1~3 점프 유지 불가 배제)<br>• **[신규]** Cross-Body 제약: 골반이 최하단(존 9~11)일 때 양손의 최상단(존 1~3) 배치 차단 | ⚪ **대기 (승인 대기)** |
+| 16 | `DATA-002` | [#157](https://github.com/Choyounhwa/-dream-guardian/issues/157) | fitness pattern.csv 신규 HEAD_ZONES {4,5} 제약 반영 및 머리 패턴 전수 보정 | • **[수정]** `fitness pattern.csv` 162건 머리 패턴 존 1~3 → 존 4/5 재배치<br>• **[검증]** Cross-Body 위반 패턴 전수 정비 및 360건 무오류 로드 보장 | ⚪ **대기 (승인 대기)** |
+| 17 | `FEAT-ZONE-004` | [#158](https://github.com/Choyounhwa/-dream-guardian/issues/158) | PostureGenerator C8 제약(Cross-Body) 통합 및 패턴 풀 필터링 | • **[신규]** `PostureGenerator`에 C8 제약(Hip 9~11 시 손 1~3 차단) 추가<br>• **[필터]** `FitnessPatternLoader` 및 `validatePosturePair()` 런타임 위반 차단 | ⚪ **대기 (승인 대기)** |
+| 18 | `FEAT-GUIDE-001` | [#159](https://github.com/Choyounhwa/-dream-guardian/issues/159) | 목표 자세 실루엣 가이드 오버레이 (PostureGuideRenderer) 구현 | • **[신규]** `PostureGuideRenderer.ts` 생성<br>• **[시각화]** 반투명 스틱맨 인체 실루엣 및 목표 존 네온 하이라이트(부위 색상 글로우 + 중앙 아이콘) | ⚪ **대기 (승인 대기)** |
+| 19 | `FEAT-GUIDE-002` | [#160](https://github.com/Choyounhwa/-dream-guardian/issues/160) | 스테이지 시작 첫 문제 유도 화살표(Arrow Hint) 표시 | • **[신규]** 스테이지 첫 문제(`questionNumber === 1`)에서만 커서→목표존 방향 화살표 렌더링<br>• **[소멸]** 목표 존 진입 시 소멸 및 5초 경과 시 자동 페이드아웃 (두 번째 문제부터 미표시) | ⚪ **대기 (승인 대기)** |
 
 ---
+
+### 2. 신규 제안: 뛸 수 없는 환경 대응 저소음 피트니스 이동 모드 (Issue #153, #154, #155)
+
+아파트 층간 소음, 발 부상, 좁은 공간 등 뛸 수 없는 환경에서도 온전히 게임을 플레이할 수 있도록 3단계 분할 카드를 등록하였습니다.
+
+1. **[FEAT-MOTION-001] 감지기 3종 및 공통 인터페이스 (#153)**:
+   - `ILocomotionDetector` 공통 인터페이스 (`update`, `reset`, `isRunning`, `stepCount`)
+   - **골반 상하 바운스 (`HipBounceDetector`)**: `LEFT_HIP(23)` / `RIGHT_HIP(24)` Y 바운스 (무소음 점프)
+   - **골반 좌우 스웨이 (`HipSwayDetector`)**: 골반 X 중심 왕복 및 좌우 틸트 반전 (트월킹/코어 셰이크)
+   - **양손 교차 상하 (`ArmCrossDetector`)**: `LEFT_WRIST(15)` / `RIGHT_WRIST(16)` Y 교차 역전 (드라이빙/휠 펌핑)
+2. **[FEAT-UI-006] 운동 모드 선택 UI 모달 및 인터랙션 (#154)**:
+   - 4개 모드 2x2 카드 UI (아이콘, 한국어 타이틀, 부위, 소음 등급 안내)
+   - 4색 커서 체류(0.8s) 및 마우스/터치 클릭 지원, `localStorage` 영속화
+3. **[FEAT-GAME-002] 인게임 러닝 루프 연동 및 맞춤 칼로리 (#155)**:
+   - `gamePhase === 'running'` 게이지 충전 다형성 연동
+   - 인게임 HUD 맞춤 모션 가이드 표시
+   - 모드별 METs 맞춤 칼로리 공식 연동 및 결과 화면 표출
+
+---
+
+### 3. 신규 확정: 커서-피트니스 존 매트릭스 개편 및 자세 가이드 (Issue #156 ~ #160)
+
+> 사용자 피드백(옆구리 늘리기 등 실제 관절 가동 범위 및 점프 체류 불가 문제)에 따라 커서-존 매트릭스를 현실화하고 시각 가이드를 신설합니다.
+
+1. **커서-존 허용 매트릭스 확정**:
+   - **왼손 (`leftHand`)**: **전 존(1~11) 허용** (반대편 도달 및 옆구리 늘리기 스트레칭)
+   - **오른손 (`rightHand`)**: **전 존(1~11) 허용**
+   - **머리 (`head`)**: **중단 좌/우 존(4, 5)만 허용** (존 1~3은 점프로 순간 진입은 가능하나 체류 유지가 불가능하므로 배제)
+   - **골반 (`hip`)**: **하단 존(6~11)만 허용** (존 1~5 상단 이동 배제)
+   - **Cross-Body 물리 연동 제약**: 골반이 최하단(존 9, 10, 11)일 때 양손은 최상단(존 1, 2, 3) 배치 불가 (스쿼트 시 만세 물리적 한계 배제)
+2. **시각 가이드 시스템**:
+   - **실루엣 가이드 오버레이 (`PostureGuideRenderer`)**: 목표 피트니스 존 네온 하이라이트(부위 색상 글로우 및 중앙 아이콘) + 반투명 스틱맨 인체 실루엣
+   - **첫 문제 유도 화살표 (`Arrow Hint`)**: 스테이지 시작 첫 문제에서만 커서→목표존 방향 화살표 표시 (5초 또는 진입 시 페이드아웃, 2번째 문제부터 미표시)
+   - **달리기 중 동적 보정**: 제자리 달리기 중 신체 이동 드리프트 보정은 정밀 설계를 위해 보류
 
 ---
 
@@ -500,17 +542,27 @@ npm test
 
 ## 📋 5. 다음에 이어서 진행할 작업 목록 (Next Steps)
 
-다음에 작업을 재개할 때 우선순위 순서대로 다음 항목을 진행하시면 됩니다:
+다음에 작업을 재개할 때 등록된 5개 신규 이슈 카드를 다음 권장 순서대로 TDD 사이클(Red → Green → Refactor)에 맞춰 구현하시면 됩니다:
 
-1. **스쿼트(앉기) 및 점프(Jump) 모션 연동 고도화**:
-   - 현재 달리기와 좌우 팔 뻗기 위주로 구성되어 있으므로, 보스의 특수 공격 패턴(회피용 스쿼트)이나 콤보 발동 시 점프 연출을 추가 결합.
-2. **미니언 / 정령 러시 시스템 이식 (선택)**:
-   - 달리기 시 아군 빛 정령이 출격하고, 적 그림자 정령과 격돌하는 3D 원근 미니언 연출 복원.
-3. **모바일 전면 카메라 최적화 및 캘리브레이션 조정**:
-   - 스마트폰 세로 거치 시 전신이 다 나오지 않고 상반신만 잡히는 환경을 고려하여 어깨/손목 인식 임계값(Threshold) 미세 조정.
-4. **스토리 엔딩 컷씬 및 나이트메어 클리어 연출**:
-   - 나이트메어 격파 후 "실패는 너의 힘이 아니야. 다시 해보는 순간, 그것은 나의 힘이니까." 감동적인 엔딩 스크롤 연출 구현.
-5. **명예의 전당 (Leaderboard) 랭킹 로컬스토리지 기록 연동 강화**.
+1. **[FEAT-ZONE-003] 커서-존 허용 매트릭스 개편 및 Cross-Body 제약 신설 ([#156](https://github.com/Choyounhwa/-dream-guardian/issues/156))**:
+   - `LEFT_HAND_ZONES` / `RIGHT_HAND_ZONES` 전 존(1~11) 허용
+   - `HEAD_ZONES`를 `{4, 5}`로 한정 (존 1~3 점프 유지 불가 배제)
+   - `isValidZoneForCursor()` 및 Cross-Body 제약(골반 9~11 시 손 1~3 차단) 구현
+   - `PostureGenerator` C5 검증 및 `DEFAULT_CURATED_PATTERNS` 머리 존 1~3 → 4/5 갱신
+2. **[DATA-002] fitness pattern.csv 신규 HEAD_ZONES {4,5} 제약 반영 및 머리 패턴 전수 보정 ([#157](https://github.com/Choyounhwa/-dream-guardian/issues/157))**:
+   - `fitness pattern.csv` 162건 머리 패턴 존 1~3 → 존 4/5 재배치 (존 1·2 → 4, 존 3 → 5)
+   - Cross-Body 위반 패턴 검증 및 `FitnessPatternLoader` 360건 무오류 파싱 보장
+3. **[FEAT-ZONE-004] PostureGenerator C8 제약(Cross-Body) 통합 및 패턴 풀 필터링 ([#158](https://github.com/Choyounhwa/-dream-guardian/issues/158))**:
+   - `validatePosturePair()`에 C8 제약(hip: 9~11 시 hand: 1~3 차단) 정식 통합
+   - `FitnessPatternLoader` 로드 시 C8 위반 패턴 런타임 필터링 지원
+4. **[FEAT-GUIDE-001] 목표 자세 실루엣 가이드 오버레이 (PostureGuideRenderer) 구현 ([#159](https://github.com/Choyounhwa/-dream-guardian/issues/159))**:
+   - 목표 피트니스 존 네온 하이라이트(부위 색상 글로우 및 중앙 아이콘) 시각화
+   - 반투명 스틱맨 인체 실루엣 렌더링 및 진입 선택지 실루엣 반응형 강조
+5. **[FEAT-GUIDE-002] 스테이지 시작 첫 문제 유도 화살표(Arrow Hint) 표시 ([#160](https://github.com/Choyounhwa/-dream-guardian/issues/160))**:
+   - 첫 문제(`questionNumber === 1`)에서만 커서→목표존 방향 화살표 렌더링
+   - 목표 존 진입 시 소멸 및 5초 후 자동 페이드아웃, 2번째 문제부터 미표시
+6. **달리기 동적 보정 (보류 현안)**:
+   - 제자리 달리기 중 전후좌우 신체 드리프트 보정(`TorsoCentroidTracker` 등)은 추후 정밀 검증 후 재개.
 
 ---
-*작성일시: 2026-09-19*
+*최종 갱신일시: 2026-09-24*

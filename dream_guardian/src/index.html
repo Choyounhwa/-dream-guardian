@@ -31,46 +31,11 @@
       height: 100%;
       cursor: pointer;
     }
-    /* 상단 부유 컨트롤 버튼 */
-    #top_controls {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      z-index: 25;
-      display: flex;
-      gap: 8px;
-    }
-    .ctrl-btn {
-      background: rgba(15, 20, 35, 0.75);
-      border: 1.5px solid #28e6ff;
-      color: #28e6ff;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      font-size: 18px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-      backdrop-filter: blur(4px);
-      transition: all 0.2s;
-    }
-    .ctrl-btn:hover {
-      background: rgba(40, 230, 255, 0.25);
-      transform: scale(1.08);
-    }
-    .ctrl-btn:active {
-      transform: scale(0.95);
-    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js" crossorigin="anonymous"></script>
 </head>
 <body>
   <div id="container">
-    <div id="top_controls">
-      <button class="ctrl-btn" id="btn_cam" title="카메라 켜기/끄기 (단축키: C)">📷</button>
-      <button class="ctrl-btn" id="btn_fullscreen" title="전체화면">⛶</button>
-    </div>
     <canvas id="game-canvas"></canvas>
   </div>
   <script type="module" src="./main.ts"></script>

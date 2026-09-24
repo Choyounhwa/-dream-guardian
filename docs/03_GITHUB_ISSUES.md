@@ -1845,7 +1845,7 @@
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/141
 - **Labels**: `phase-6`, `feature`, `P1-high`
 - **작업 ID**: `[UI-BAR-001]`
-- **상태**: ⚪ **대기 (Ready - 승인 대기)**
+- **상태**: 🟢 **완료 (Closed)**
 - **목적**:
   - 모든 페이즈(홈 메뉴, 서브 메뉴, 인게임, 결과)의 하단에 동일한 규격(200px)의 공통 고정 바(Yellow Box)를 구축하여 인터페이스 일관성을 확보한다.
   - 우측 상단에서 보스 HP 바를 가리고 1m 거리에서 조작하기 어려웠던 부유 버튼(`#top_controls`)을 완전히 삭제하고, 하단 바 좌측 슬롯(Cyan Box)에 "설정" 버튼을 배치하여 모달 드로어로 제어할 수 있도록 개편한다.
@@ -1875,19 +1875,20 @@
   - 전투 데미지 계산 및 문제 생성 알고리즘
   - 포즈 감지 및 랜드마크 추출 파이프라인
 - **완료 조건**:
-  - [ ] `index.html`에서 상단 부유 버튼 및 스타일이 완전히 삭제됨
-  - [ ] 전 화면 하단에 200px 높이의 하단 고정 바가 일관되게 렌더링됨
-  - [ ] 좌측 "설정" 버튼 클릭/호버 시 설정 모달이 열리고 카메라/전체화면 토글이 정상 작동함
-  - [ ] `npm test` 단위 테스트 100% Pass 및 빌드 정상 완료
+  - [x] `index.html`에서 상단 부유 버튼 및 스타일이 완전히 삭제됨
+  - [x] 전 화면 하단에 200px 높이의 하단 고정 바가 일관되게 렌더링됨
+  - [x] 좌측 "설정" 버튼 클릭/호버 시 설정 모달이 열리고 카메라/전체화면 토글이 정상 작동함
+  - [x] `npm test` 단위 테스트 100% Pass 및 빌드 정상 완료
 - **테스트**:
-  - `npx vitest run tests/unit/ui-system.test.ts`
+  - `npx vitest run tests/unit/bottom-bar.test.ts`
   - 브라우저 상에서 상단 간섭 제거 및 설정 모달 작동 검증
 - **관련 파일**:
   - `dream_guardian/index.html`
+  - `dream_guardian/src/ui/BottomBar.ts` (신설)
   - `dream_guardian/src/ui/SettingsModal.ts` (신설)
   - `dream_guardian/src/ui/MenuRenderer.ts`
   - `dream_guardian/src/main.ts`
-  - `dream_guardian/tests/unit/ui-system.test.ts`
+  - `dream_guardian/tests/unit/bottom-bar.test.ts`
 
 ---
 
@@ -2176,6 +2177,252 @@
   - `dream_guardian/src/main.ts`
   - `dream_guardian/src/game/BossController.ts`
   - `dream_guardian/tests/unit/battle-system.test.ts`
+
+---
+
+### Issue #148 (Card #78): [FEAT-UI-005] 답안 버튼 사각형 중심점 기점 방사형(Radial) 색상 분할 렌더링 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/148
+- **Labels**: `feature`, `P1-high`, `phase-6`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[FEAT-UI-005]`
+- **상태**: 🟢 **완료 (Pass)**
+- **목적**:
+  - 답안 버튼(둥근 사각형) 형태를 유지하면서 선형 그라디언트를 사각형 중심점 기점 방사형(Radial) 색상 분할로 개편하여 요구 커서 시인성 극대화.
+- **완료 조건**:
+  - [x] 1색(단색), 2색(1/2 방사형), 3색(1/3 방사형) 분할 렌더러 구현
+  - [x] 단위 테스트 및 빌드 100% 통과
+
+---
+
+### Issue #149 (Card #79): [FEAT-ZONE-002] 11번 우저(Right Bottom) 피트니스 존 추가 및 11구역 레이아웃 정합성 확보
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/149
+- **Labels**: `phase-3`, `feature`, `P1-high`, `phase-6`
+- **Milestone**: `v0.3-vision-motion`
+- **작업 ID**: `[FEAT-ZONE-002]`
+- **상태**: 🟢 **완료 (Pass)**
+- **목적**:
+  - 설계 문서 및 패턴 원본과 달리 코드에서 누락된 11번 존(`우저`, x: 0.70, y: 0.78, 0.26x0.16) 추가.
+- **완료 조건**:
+  - [x] `HIP_ZONES`에 11번 포함 및 11개 존 겹침 0% 보장
+  - [x] 단위 테스트 및 빌드 100% 통과
+
+---
+
+### Issue #150 (Card #80): [REFACTOR-POSE-001] 좌/우 답안 공용 피트니스 존(Shared Active Zone) 및 색상 커서 선택 메커니즘 전환
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/150
+- **Labels**: `phase-3`, `refactor`, `P1-high`
+- **Milestone**: `v0.3-vision-motion`
+- **작업 ID**: `[REFACTOR-POSE-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **목적**:
+  - 좌/우 선택지별 분리 존 배정 방식을 설계 대전제인 "공용 활성 존에 계산한 답안의 색상 커서를 이동하여 판정"하는 메커니즘으로 전환.
+- **완료 조건**:
+  - [x] `RecipeGenerator`, `AnswerSelector` 공용 타겟 존 연동
+  - [x] 단위 테스트 및 빌드 100% 통과
+
+---
+
+### Issue #151 (Card #81): [FEAT-POSE-006] 신체 부위별(왼손/오른손 비대칭 및 머리) 허용 피트니스 존 제약 및 색상 완전 비공유 보장
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/151
+- **Labels**: `phase-3`, `feature`, `P1-high`
+- **Milestone**: `v0.3-vision-motion`
+- **작업 ID**: `[FEAT-POSE-006]`
+- **상태**: 🟢 **완료 (Pass)**
+- **목적**:
+  - 왼손/오른손의 전 구역 무제한 허용을 설계 규격(왼손: 1,2,4,6,7,9,10 / 오른손: 2,3,7,8,10,11)으로 비대칭 제한하고 C2 제약을 완전 배타로 강화.
+- **완료 조건**:
+  - [x] 좌/우 손 허용 피트니스 존 비대칭 분리
+  - [x] C2 제약 강화 (`A.parts ∩ B.parts = ∅`)
+  - [x] 단위 테스트 및 빌드 100% 통과
+
+---
+
+### Issue #152 (Card #82): [FEAT-SKEL-004] 스켈레톤 뼈대 연결선 투명도(20% 불투명도 조정) 정합성 반영
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/152
+- **Labels**: `phase-2`, `feature`, `P2-medium`
+- **Milestone**: `v0.3-vision-motion`
+- **작업 ID**: `[FEAT-SKEL-004]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - 현재 `0.6`으로 다소 짙은 뼈대 연결선을 설계 문서 규격에 맞추어 20% 불투명도로 조정.
+- **완료 조건**:
+  - [ ] BoneRenderer 투명도 0.20 조정
+  - [ ] 단위 테스트 및 빌드 100% 통과
+
+---
+
+### Issue #153 (Card #83): [FEAT-MOTION-001] 뛸 수 없는 환경을 위한 저소음/대체 이동(Locomotion) 감지기 3종 및 공통 인터페이스 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/153
+- **Labels**: `phase-3`, `feature`, `P1-high`
+- **Milestone**: `v0.3-vision-motion`
+- **작업 ID**: `[FEAT-MOTION-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - 아파트 층간 소음, 좁은 공간, 하체 부상 등 뛸 수 없는 환경에서 플레이어가 게임에 몰입할 수 있도록 골반 상하(무소음 바운스), 골반 좌우(스웨이/트월킹), 양손 교차(드라이빙/휠 펌핑) 3가지 저소음 대체 이동 감지기를 구현하고 공통 Locomotion 감지 인터페이스를 확립한다.
+- **완료 조건**:
+  - [ ] `ILocomotionDetector` 인터페이스 및 3종 신규 감지기(`HipBounceDetector`, `HipSwayDetector`, `ArmCrossDetector`) 구현
+  - [ ] 골반 상하, 골반 좌우, 양손 교차 모션 시뮬레이션에서 스텝 카운트와 활성 상태를 정확하게 판정
+  - [ ] `Config.ts`에 모드별 감도 파라미터 외부화 완료
+  - [ ] 단위 테스트(`tests/unit/locomotion-detectors.test.ts`) 100% Pass 및 전체 테스트 회귀 없음
+- **관련 파일**:
+  - `dream_guardian/src/types/index.ts`
+  - `dream_guardian/src/core/Config.ts`
+  - `dream_guardian/src/motion/LocomotionDetector.ts`
+  - `dream_guardian/src/motion/HipBounceDetector.ts`
+  - `dream_guardian/src/motion/HipSwayDetector.ts`
+  - `dream_guardian/src/motion/ArmCrossDetector.ts`
+  - `dream_guardian/src/motion/RunDetector.ts`
+  - `dream_guardian/src/motion/index.ts`
+  - `dream_guardian/tests/unit/locomotion-detectors.test.ts`
+
+---
+
+### Issue #154 (Card #84): [FEAT-UI-006] 운동 모드(이동 방식 4종) 선택 UI 모달 및 커서/터치 인터랙션 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/154
+- **Labels**: `phase-6`, `feature`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[FEAT-UI-006]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - 게임 시작 전 또는 인게임 설정에서 플레이어가 거주 환경(소음, 공간 등)에 맞춰 원하는 운동 방식(🏃 제자리 달리기, 🦘 골반 바운스, 💃 골반 스웨이, 🚗 양손 교차)을 직관적으로 선택할 수 있는 대화면 UI 모달과 4색 커서 체류(Dwell) 및 클릭 인터랙션을 구현한다.
+- **완료 조건**:
+  - [ ] 4종 운동 모드를 시각적으로 안내하는 2x2 카드 UI 모달 렌더링
+  - [ ] 신체 커서 체류(0.8s) 및 클릭으로 모드 선택 및 활성화 상태 변경 가능
+  - [ ] `localStorage`를 통한 선택 모드 영속 저장 및 복원
+  - [ ] 단위 테스트(`tests/unit/locomotion-ui.test.ts`) 100% Pass
+- **관련 파일**:
+  - `dream_guardian/src/ui/LocomotionModal.ts`
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+  - `dream_guardian/src/ui/index.ts`
+  - `dream_guardian/src/input/MenuInput.ts`
+  - `dream_guardian/tests/unit/locomotion-ui.test.ts`
+
+---
+
+### Issue #155 (Card #85): [FEAT-GAME-002] 선택된 운동 모드 인게임 러닝 루프/HUD 동작 가이드 및 맞춤 칼로리 공식 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/155
+- **Labels**: `phase-5`, `phase-6`, `feature`, `P1-high`
+- **Milestone**: `v0.4-gameplay-systems`
+- **작업 ID**: `[FEAT-GAME-002]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - 플레이어가 선택한 운동 모드에 맞춰 `gamePhase === 'running'` 게이지 충전 루프를 해당 감지기와 연동하고, 인게임 HUD에 실시간 모션 가이드 힌트를 표출하며, 결과 화면에서 모드별 맞춤 칼로리 소모 공식을 적용한다.
+- **완료 조건**:
+  - [ ] 4종 운동 모드 각각에서 동작 인식 시 정상적으로 게이지가 충전되어 다음 문제로 진입
+  - [ ] 러닝 구간 진입 시 현재 선택된 모드에 일치하는 HUD 가이드 텍스트 출력
+  - [ ] 결과 화면에서 선택된 모드에 맞는 칼로리 계산식 적용 및 표출
+  - [ ] 단위 테스트(`tests/unit/locomotion-gameplay.test.ts`) 100% Pass 및 전체 테스트 통과
+- **관련 파일**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/ui/HUDLayer.ts`
+  - `dream_guardian/src/ui/ResultRenderer.ts`
+  - `dream_guardian/tests/unit/locomotion-gameplay.test.ts`
+
+---
+
+### Issue #156 (Card #86): [FEAT-ZONE-003] 커서-존 허용 매트릭스 개편 (양손 전 존 1~11 허용, 머리 존 4~5 한정) 및 Cross-Body 제약(Hip 9~11 시 손 1~3 차단) 신설
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/156
+- **Labels**: `phase-3`, `feature`, `P1-high`
+- **Milestone**: `v0.3-vision-motion`
+- **작업 ID**: `[FEAT-ZONE-003]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - 실제 신체 가동 범위(옆구리 늘리기, 교차 도달) 분석에 따라 왼손/오른손을 전 피트니스 존(1~11)으로 확장하고, 점프로 일시 도달은 가능하나 체류 유지가 불가능한 머리 커서의 상단 존(1~3)을 배제하여 머리를 좌/우 중단 존(4, 5)으로 한정한다. 아울러 골반이 최하단(존 9~11)에 도달했을 때 양손이 최상단(존 1~3)에 도달하는 물리적 한계 자세를 차단하는 Cross-Body 연동 제약을 신설한다.
+- **완료 조건**:
+  - [ ] `LEFT_HAND_ZONES` 및 `RIGHT_HAND_ZONES` 전 존(1~11) 허용 확립
+  - [ ] `HEAD_ZONES`를 `{4, 5}`로 한정 (존 1~3 배제)
+  - [ ] `isValidZoneForCursor()` 및 Cross-Body 제약(hip: 9~11 시 hand: 1~3 차단) 함수 구현
+  - [ ] `PostureGenerator` C5 검증 로직 및 `DEFAULT_CURATED_PATTERNS` 내 머리 존 1~3 패턴을 4/5로 수정
+  - [ ] 단위 테스트 100% Pass 및 타입 에러 0건
+- **관련 파일**:
+  - `dream_guardian/config/zone.config.ts`
+  - `dream_guardian/src/input/RecipeGenerator.ts`
+  - `dream_guardian/src/input/PostureGenerator.ts`
+  - `dream_guardian/tests/unit/zone-config.test.ts`
+  - `dream_guardian/tests/unit/posture-generator.test.ts`
+
+---
+
+### Issue #157 (Card #87): [DATA-002] fitness pattern.csv 신규 HEAD_ZONES {4,5} 제약 반영 및 머리 패턴 전수 보정
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/157
+- **Labels**: `phase-4`, `data`, `P1-high`
+- **Milestone**: `v0.3-vision-motion`
+- **작업 ID**: `[DATA-002]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - `FEAT-ZONE-003`에서 갱신된 `HEAD_ZONES: {4, 5}` 규격에 맞추어 `fitness pattern.csv` 원본 데이터(360건) 중 존 1~3을 요구하는 162건의 머리 패턴을 유효한 존(존 1·2 → 4 좌측 기울임, 존 3 → 5 우측 기울임)으로 전수 보정한다.
+- **완료 조건**:
+  - [ ] `fitness pattern.csv` 내 머리 컬럼 중 1, 2, 3 값이 완전히 제거되고 4 또는 5로 재배치
+  - [ ] 골반 9~11 행에서 양손이 1~3인 Cross-Body 위반 패턴 전수 정비
+  - [ ] `FitnessPatternLoader` 360건 무오류 파싱 및 유효성 검증 스크립트 위반 0건 확인
+  - [ ] 단위 테스트 100% Pass
+- **관련 파일**:
+  - `fitness pattern.csv`
+  - `dream_guardian/src/data/FitnessPatternLoader.ts`
+  - `dream_guardian/tests/unit/fitness-pattern-loader.test.ts`
+
+---
+
+### Issue #158 (Card #88): [FEAT-ZONE-004] PostureGenerator C8 제약(Cross-Body) 통합 및 패턴 풀 필터링
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/158
+- **Labels**: `phase-3`, `feature`, `P1-high`
+- **Milestone**: `v0.3-vision-motion`
+- **작업 ID**: `[FEAT-ZONE-004]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - `PostureGenerator`의 7대 안전 제약(C1~C7) 체계에 Cross-Body 물리 연동 제약을 **C8 제약**으로 정식 통합하고, `validatePosturePair()` 및 `FitnessPatternLoader`에서 위반 패턴을 런타임에 자동 필터링한다.
+- **완료 조건**:
+  - [ ] `validatePosturePair()`에 C8 제약(hip: 9~11 & hand: 1~3 조합 거부) 추가
+  - [ ] `FitnessPatternLoader` 로드 시 C8 위반 패턴 필터링 옵션 지원
+  - [ ] 100회 연속 무작위 자세 페어 생성 시 C8 위반 0건 보장
+  - [ ] 단위 테스트 100% Pass
+- **관련 파일**:
+  - `dream_guardian/src/input/PostureGenerator.ts`
+  - `dream_guardian/src/data/FitnessPatternLoader.ts`
+  - `dream_guardian/tests/unit/posture-generator.test.ts`
+
+---
+
+### Issue #159 (Card #89): [FEAT-GUIDE-001] 목표 자세 실루엣 가이드 오버레이 (PostureGuideRenderer) 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/159
+- **Labels**: `phase-6`, `feature`, `P1-high`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[FEAT-GUIDE-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - 플레이어가 출제된 문제를 보고 요구되는 신체 부위와 목표 존으로 신속히 이동할 수 있도록, 목표 피트니스 존 네온 하이라이트(부위 색상 글로우 및 중앙 아이콘)와 반투명 스틱맨 인체 실루엣을 렌더링하는 `PostureGuideRenderer`를 신설한다.
+- **완료 조건**:
+  - [ ] `PostureGuideRenderer` 클래스 신설 및 `AnswerPosture` 기반 목표 자세 실루엣(스틱맨) 렌더링
+  - [ ] 목표 피트니스 존 테두리 부위 색상 글로우 및 중앙 부위 벡터 아이콘 렌더링
+  - [ ] 커서가 진입한 유효 선택지 실루엣의 능동적 하이라이트 전환
+  - [ ] 단위 테스트 100% Pass 및 렌더링 성능 60fps 유지
+- **관련 파일**:
+  - `dream_guardian/src/render/PostureGuideRenderer.ts`
+  - `dream_guardian/src/render/index.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/posture-guide-renderer.test.ts`
+
+---
+
+### Issue #160 (Card #90): [FEAT-GUIDE-002] 스테이지 시작 첫 문제 유도 화살표(Arrow Hint) 표시
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/160
+- **Labels**: `phase-6`, `feature`, `P2-medium`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[FEAT-GUIDE-002]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - 스테이지 시작 시 플레이어가 조작법을 즉시 인지할 수 있도록 **첫 번째 문제에서만** 4색 신체 커서 현재 위치에서 목표 피트니스 존 중심을 가리키는 유도 화살표(Arrow Hint)를 표시하고, 존 진입 또는 5초 후 자연 페이드아웃 처리하며, 이후 문제에서는 화살표를 표시하지 않는다.
+- **완료 조건**:
+  - [ ] `AnswerSelector`의 첫 문제(`questionNumber === 1`) 상태를 가이드 렌더러에 전달
+  - [ ] 커서 위치 → 목표 존 중심을 향하는 네온 화살표 렌더링
+  - [ ] 목표 존 진입 시 해당 화살표 즉시 소멸 및 5초 경과 시 자동 페이드아웃
+  - [ ] 두 번째 문제부터는 화살표 렌더링이 비활성화됨을 보장
+  - [ ] 단위 테스트 100% Pass
+- **관련 파일**:
+  - `dream_guardian/src/render/PostureGuideRenderer.ts`
+  - `dream_guardian/src/input/AnswerSelector.ts`
+  - `dream_guardian/tests/unit/posture-guide-renderer.test.ts`
+
 
 
 
