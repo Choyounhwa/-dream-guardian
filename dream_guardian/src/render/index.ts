@@ -14,6 +14,6 @@ export { MagicCircleRenderer, MAGIC_CIRCLE_CONFIG } from './MagicCircleRenderer.
 export type { MagicCircleConfig, MagicCircleLayerConfig, ScalePulseConfig } from './MagicCircleRenderer.js';
 export { PostureGuideRenderer } from './PostureGuideRenderer.js';
 export type { SilhouettePosition } from './PostureGuideRenderer.js';
-
+export { KneeFramingGuideRenderer } from './KneeFramingGuideRenderer.js';
 
 
