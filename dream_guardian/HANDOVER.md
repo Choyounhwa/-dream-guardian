@@ -25,7 +25,7 @@
 
 ## 🔵 2026-09-27 확정: BEAT MOTION 8박 루프 전환 계획
 
-> 상태: **[ANSWER-ZONE-001 / #179] 골반/머리 상대 이동 기반 좌우 정답존 선택기 완료 🟢**, 다음 작업: `#180 BEAT-RUN-001`.  
+> 상태: **[BEAT-RUN-001 / #180] 자유 달리기 게이지의 8박 문제 준비 라운드 전환 완료 🟢**, 다음 작업: `#181 CHOREO-STAR-001`.  
 > 기존 "달리기 게이지 → 11존 자세로 답 선택"은 아래 8박 루프 사양으로 전면 대체된다. GDD, WBS, GITHUB_ISSUES, HANDOVER 4개 문서 간 단일 계약 동기화가 완료되었으며, 구현은 반드시 신규 BEAT 카드 한 건씩, TDD 표준 사이클(Red → Green → Refactor)로 진행한다.
 
 ### 확정 루프 (BPM 120, 1박 0.5초, 1라운드 16박 / 8.0초)
@@ -72,8 +72,8 @@
 | 2 | `BEAT-CORE-001` | [#177](https://github.com/Choyounhwa/-dream-guardian/issues/177) | BPM 120, 8박, pause/resume, 프레임 지연 보정 `RhythmEngine` | 🟢 **완료 (Pass)** |
 | 3 | `CENTER-RETURN-001` | [#178](https://github.com/Choyounhwa/-dream-guardian/issues/178) | 중앙 복귀/기준점 잠금 및 timeout/retry | 🟢 **완료 (Pass)** |
 | 4 | `ANSWER-ZONE-001` | [#179](https://github.com/Choyounhwa/-dream-guardian/issues/179) | 상대 좌/우 정답존, 히스테리시스, 0.5초 확정 | 🟢 **완료 (Pass)** |
-| 5 | `BEAT-RUN-001` | [#180](https://github.com/Choyounhwa/-dream-guardian/issues/180) | 기존 자유 게이지를 8박 달리기+문제 HUD로 전환 | ⚪ 다음 착수 |
-| 6 | `CHOREO-STAR-001` | [#181](https://github.com/Choyounhwa/-dream-guardian/issues/181) | CSV 패턴을 안전한 순차 별 타깃으로 변환 | ⚪ 대기 |
+| 5 | `BEAT-RUN-001` | [#180](https://github.com/Choyounhwa/-dream-guardian/issues/180) | 기존 자유 게이지를 8박 달리기+문제 HUD로 전환 | 🟢 **완료 (Pass)** |
+| 6 | `CHOREO-STAR-001` | [#181](https://github.com/Choyounhwa/-dream-guardian/issues/181) | CSV 패턴을 안전한 순차 별 타깃으로 변환 | ⚪ 다음 착수 |
 | 7 | `INPUT-STAR-001` | [#182](https://github.com/Choyounhwa/-dream-guardian/issues/182) | 단일 별 Perfect/Good/Late/Miss 판정 | ⚪ 대기 |
 | 8 | `RENDER-BEAT-001` | [#183](https://github.com/Choyounhwa/-dream-guardian/issues/183) | 중앙 게이트, 정답존, 별 비행/타이밍 링, 스웨이 레인 | ⚪ 대기 |
 | 9 | `GAME-ROUND-001` | [#184](https://github.com/Choyounhwa/-dream-guardian/issues/184) | 8박 종료 시 전투/통계 단일 정산 | ⚪ 대기 |

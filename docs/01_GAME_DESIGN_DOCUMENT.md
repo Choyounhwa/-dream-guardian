@@ -372,7 +372,7 @@ index.html (2,801줄 - 메인 게임 엔진)
 - [x] [BEAT-CORE-001 / #177] BPM 120 8박 단일 시간원 `RhythmEngine`
 - [x] [CENTER-RETURN-001 / #178] 중앙 복귀 게이트 및 개인 기준점 잠금
 - [x] [ANSWER-ZONE-001 / #179] 상대 좌/우 정답존 및 0.5초 확정
-- [ ] [BEAT-RUN-001 / #180] 8박 달리기 및 문제 출제 연동
+- [x] [BEAT-RUN-001 / #180] 8박 달리기 및 문제 출제 연동
 - [ ] [CHOREO-STAR-001 / #181] CSV 360 패턴 기반 순차 단일 별 안무 생성
 - [ ] [INPUT-STAR-001 / #182] 11존 단일 별 타이밍(Perfect/Good/Late/Miss) 수집 판정
 - [ ] [RENDER-BEAT-001 / #183] 중앙 게이트, 정답존, 별 비행/수축링, 스웨이 렌더러

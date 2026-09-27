@@ -3212,6 +3212,61 @@ BEAT-SPEC-001
   - `dream_guardian/HANDOVER.md`
   - `docs/03_GITHUB_ISSUES.md`
 
+---
+
+### Issue #180: [BEAT-RUN-001] 자유 달리기 게이지를 8박 문제 준비 라운드로 전환
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/180
+- **Labels**: `feature`, `P1-high`, `phase-5`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[BEAT-RUN-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: 자유 달리기 게이지를 8박 문제 준비 라운드로 전환
+- **목적**:
+  - 기존 runGauge 충전/감쇠와 게이지 100% 문제 전이를 제거하고, 달리기 1박부터 문제를 표시하는 8박 라운드를 연결한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/game/BeatRunCoordinator.ts` (신규: 8박 라운드 루프 코디네이터)
+  - `dream_guardian/src/game/index.ts` (BeatRunCoordinator export 추가)
+  - `dream_guardian/src/core/RhythmEngine.ts` (isRunning 별칭 getter 추가)
+  - `dream_guardian/src/main.ts` (runGauge 및 100% 전이 로직/UI 제거, BeatRunCoordinator 연동, 8박 점 및 문제 상단 HUD 렌더링, Space/Click fallback 전이)
+  - `dream_guardian/tests/integration/beat-run-gameplay.test.ts` (신규: 11개 통합 테스트)
+- **구현 내용**:
+  1. **문제 1회 생성 및 1박 즉시 출제/TTS**:
+     - runQuestion phase 시작 시점에 문제를 정확히 한 번 생성하고 화면 상단에 즉시 표시
+     - 비블로킹 한국어 TTS로 문제 낭독 시작
+     - 1~5박 진행 중 문제 중복 생성 방지
+  2. **8박 이전 답안 페이즈 엄격 차단**:
+     - 1~5박(RUN_QUESTION) 및 6~7박(CENTER_RETURN) 동안 `isAnswerOpen = false` 및 `answerLocked = true` 유지
+     - 8박 도달 전에는 답안 선택 진입 원천 차단
+  3. **8박 중앙 복귀 기준점 잠금 후 답안 페이즈 개방**:
+     - 6~7박 중앙 복귀 네온 게이트 오픈 및 8박 시점 기준점 잠금 완료 시 `ANSWER_OPEN` 전이
+     - 잠긴 `RoundCenterReference`를 `AnswerZoneSelector`에 주입하여 좌/우 정답 선택 개방
+  4. **중앙 복귀 지연 시 무피해 안전 연장(Retry) 및 Fallback**:
+     - 8박 시점 중앙 미복귀 시 오답/HP 차감 없이 최대 2박(1.0s) retry 연장 대기
+     - 연장 만료 시 `defaultFallbackReference` 강제 잠금으로 게임 루프 무중단 진행
+  5. **runGauge 제거 및 Space/Click Fallback 지원**:
+     - 기존 `runGauge += dt*15`, 자연 감쇠, 100% 게이지 UI 제거
+     - 웹캠 미사용 환경을 위한 Space/화면 클릭 시 8박 페이즈 전이 및 fallback 정답 확정 지원
+- **유지 사항**:
+  - 4개 locomotion mode, QuestionBank/TTS의 비차단 동작, pause, 11존 정의, 전투 수치.
+- **변경 금지**:
+  - AnswerZoneSelector 내부 판정, CenterReturnGate 내부 판정, 별 수집/오답 스웨이 구현.
+- **완료 조건**:
+  - [x] 한 문제는 매 run phase 시작 시 정확히 한 번 생성된다
+  - [x] 8박 전에는 answer phase가 열리지 않는다
+  - [x] 중앙 복귀 실패는 오답이 아닌 연장/ fallback 경로로 진행한다
+- **테스트**:
+  - Vitest 11개 통합 테스트 전원 통과 (`tests/integration/beat-run-gameplay.test.ts`), 전체 테스트 577/577 100% Pass, `npm run build` 번들 검증 완료
+- **관련 파일**:
+  - `dream_guardian/src/game/BeatRunCoordinator.ts`
+  - `dream_guardian/src/game/index.ts`
+  - `dream_guardian/src/core/RhythmEngine.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/integration/beat-run-gameplay.test.ts`
+  - `dream_guardian/HANDOVER.md`
+  - `docs/01_GAME_DESIGN_DOCUMENT.md`
+  - `docs/02_WORK_BREAKDOWN_STRUCTURE.md`
+  - `docs/03_GITHUB_ISSUES.md`
+
 
 
 

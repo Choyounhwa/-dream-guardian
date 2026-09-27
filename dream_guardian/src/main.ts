@@ -14,11 +14,11 @@ import { SkeletonAnimation } from './skeleton/SkeletonAnimation.js';
 import { QuestionBank } from './question/QuestionBank.js';
 import { parseCSV } from './question/CSVLoader.js';
 import { parseFitnessPatternCSV } from './data/FitnessPatternLoader.js';
-import { generateQuestion, type GeneratedQuestion } from './question/QuestionEvaluator.js';
+import type { GeneratedQuestion } from './question/QuestionEvaluator.js';
 import { QuestionSpeech } from './question/QuestionSpeech.js';
 import { BattleState } from './game/BattleState.js';
 import { BossController } from './game/BossController.js';
-import { GuardianSystem } from './game/GuardianSystem.js';
+import { GuardianSystem, BeatRunCoordinator } from './game/index.js';
 import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
 import { ResultRenderer, calcStars } from './ui/ResultRenderer.js';
@@ -123,6 +123,27 @@ const settingsModal = new SettingsModal();
 const locomotionModal = new LocomotionModal();
 const pauseModal = new PauseModal();
 const xGestureDetector = new XGestureDetector();
+const beatCoordinator = new BeatRunCoordinator({
+  questionBank,
+  battle,
+  speakFn: (text) => speech.speak(text),
+  onPhaseChange: (phase) => {
+    if (phase === 'RUN_QUESTION' || phase === 'CENTER_RETURN') {
+      gamePhase = 'running';
+    } else if (phase === 'ANSWER_OPEN') {
+      gamePhase = 'question';
+      questionVisible = true;
+      answerLocked = false;
+      answerSelector.startQuestion(battle.totalQuestions + 1);
+      if (answerSelector.isFirstQuestion) {
+        postureGuideRenderer.startFirstQuestionHint(5.0);
+      }
+    }
+  },
+  onAnswerConfirmed: (idx) => {
+    handleAnswer(idx);
+  },
+});
 let settingsHoverTimer = 0;
 let actionHoverTimer = 0;
 
@@ -184,7 +205,6 @@ let menuMode: MenuMode = 'main';
 let selectedChapter = 1;
 let selectedSubLevel: number | undefined = undefined;
 let gamePhase: GamePhase = 'running';
-let runGauge = 0;
 let totalSteps = 0;
 let totalDwellTime = 0; // Issue #135: 누적 자세 유지 시간 (초)
 let currentChapter = 1;
@@ -240,11 +260,12 @@ async function ensureCameraStarted(): Promise<void> {
 // ─── 게임 플로우 ───
 function startRunningPhase(): void {
   gamePhase = 'running';
-  runGauge = 0;
-  questionVisible = false;
+  questionVisible = true;
   answerLocked = true;
   Object.values(locomotionDetectors).forEach((d) => d.reset());
-  console.log('[DG] 달리기 페이즈 시작 (게이지 100% 도달 시 문제 출제)');
+  beatCoordinator.startRound({ chapter: currentChapter, subLevel: selectedSubLevel });
+  currentQuestion = beatCoordinator.currentQuestion;
+  console.log(`[DG] 8박 문제 라운드 시작: ${currentQuestion?.questionText}`);
 }
 
 function startChapter(ch: number, subLevel?: number): void {
@@ -274,23 +295,6 @@ function startChapter(ch: number, subLevel?: number): void {
   }
 
   startRunningPhase();
-}
-
-function nextQuestion(): void {
-  const record = questionBank.next();
-  currentQuestion = generateQuestion(record);
-  if (!currentQuestion) currentQuestion = generateQuestion(questionBank.next());
-  if (!currentQuestion) {
-    currentQuestion = { questionText: '3 + 5 = ?', correctAnswer: 8, wrongAnswer: 9, choices: [8, 9], correctIndex: 0 };
-  }
-  questionVisible = true;
-  answerLocked = false;
-  answerSelector.startQuestion(battle.totalQuestions + 1);
-  if (answerSelector.isFirstQuestion) {
-    postureGuideRenderer.startFirstQuestionHint(5.0);
-  }
-  console.log(`[DG] 문제: ${currentQuestion.questionText}`);
-  speech.speak(currentQuestion.questionText);
 }
 
 function handleAnswer(idx: number): void {
@@ -513,64 +517,89 @@ function renderRunningPhase(ctx: CanvasRenderingContext2D, vw: number, vh: numbe
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
+  const scaleX = vw / 1080;
+  const scaleY = vh / 2160;
+
+  // 1. 문제 수식 표시 (1박부터 상단 표시)
+  if (currentQuestion) {
+    const qY = 320 * scaleY + 160 * scaleY;
+    const qText = currentQuestion.questionText;
+    const qLen = qText.length;
+    let qFontSize = 110 * scaleX;
+    if (qLen > 10) {
+      qFontSize = Math.max(76 * scaleX, (110 - (qLen - 10) * 2.8) * scaleX);
+    }
+
+    ctx.shadowColor = 'rgba(40, 230, 255, 0.5)';
+    ctx.shadowBlur = 16 * scaleX;
+    renderMath(ctx, qText, cx, qY, {
+      fontSize: qFontSize,
+      color: '#ffffff',
+      align: 'center',
+      maxWidth: 880 * scaleX,
+      placeholderColor: '#28E6FF',
+      placeholderBgColor: 'rgba(40, 230, 255, 0.18)',
+      fractionLineColor: '#ffffff',
+    });
+    ctx.shadowBlur = 0;
+  }
+
+  // 2. 페이즈 안내 가이드
   const guide = hudLayer.getLocomotionGuide(locomotionModal.selectedMode);
-  const isFever = runGauge >= 75;
-  const feverTitle = isFever ? '✨ FEVER! 수호신과 함께 질주!' : guide.title;
-  ctx.font = 'bold 46px sans-serif';
-  ctx.fillStyle = isFever ? '#28E6FF' : '#FFCB4D';
-  ctx.shadowColor = isFever ? '#28E6FF' : '#FFCB4D';
+  const isCenter = beatCoordinator.phase === 'CENTER_RETURN';
+  const isRetry = beatCoordinator.centerReturnGate.isRetrying;
+  const title = isRetry
+    ? '⏳ 위치 안정화 연장 대기 중...'
+    : isCenter
+    ? '🌟 중앙으로 복귀하여 기준점을 맞춰주세요!'
+    : guide.title;
+  const subtitle = isCenter
+    ? '네온 게이트 중앙에 서서 잠시 멈추세요 (8박 기준점 잠금)'
+    : guide.subtitle;
+
+  ctx.font = 'bold 44px sans-serif';
+  ctx.fillStyle = isCenter ? '#28E6FF' : '#FFCB4D';
+  ctx.shadowColor = isCenter ? '#28E6FF' : '#FFCB4D';
   ctx.shadowBlur = 24;
-  ctx.fillText(feverTitle, cx, cy - 74);
+  ctx.fillText(title, cx, cy - 60);
   ctx.shadowBlur = 0;
 
   ctx.font = 'bold 26px sans-serif';
   ctx.fillStyle = '#DDDDDD';
-  ctx.fillText(guide.subtitle, cx, cy - 15);
+  ctx.fillText(subtitle, cx, cy - 5);
 
-  // 게이지 바 외곽
-  const barW = Math.min(540, vw * 0.72);
-  const barH = 34;
-  const barX = cx - barW / 2;
-  const barY = cy + 30;
+  // 3. 8박 진행 인디케이터 (원형 비트 점)
+  const currentBeat = beatCoordinator.beatIndex;
+  const dotRadius = 14 * scaleX;
+  const dotGap = 44 * scaleX;
+  const startX = cx - (7 * dotGap) / 2;
+  const dotY = cy + 55;
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-  ctx.beginPath();
-  ctx.roundRect(barX, barY, barW, barH, 17);
-  ctx.fill();
-
-  // 게이지 채우기
-  const fillW = Math.max(0, barW * (runGauge / 100));
-  if (fillW > 0) {
-    const grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
-    if (isFever) {
-      grad.addColorStop(0, '#28E6FF');
-      grad.addColorStop(1, '#4DFFAA');
-    } else {
-      grad.addColorStop(0, '#FF8844');
-      grad.addColorStop(1, '#FFCB4D');
-    }
-    ctx.fillStyle = grad;
+  for (let i = 0; i < 8; i++) {
+    const bx = startX + i * dotGap;
     ctx.beginPath();
-    ctx.roundRect(barX, barY, fillW, barH, 17);
+    ctx.arc(bx, dotY, dotRadius, 0, Math.PI * 2);
+    if (i <= currentBeat) {
+      ctx.fillStyle = i >= 5 ? '#28E6FF' : '#FFCB4D';
+      ctx.shadowColor = i >= 5 ? '#28E6FF' : '#FFCB4D';
+      ctx.shadowBlur = 10;
+    } else {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.shadowBlur = 0;
+    }
     ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.font = `bold ${Math.round(16 * scaleX)}px sans-serif`;
+    ctx.fillStyle = i <= currentBeat ? '#000000' : 'rgba(255, 255, 255, 0.5)';
+    ctx.fillText(`${i + 1}`, bx, dotY);
   }
 
-  ctx.strokeStyle = isFever ? '#28E6FF' : 'rgba(255, 255, 255, 0.4)';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.roundRect(barX, barY, barW, barH, 17);
-  ctx.stroke();
-
-  // 게이지 수치 텍스트
-  ctx.font = 'bold 24px sans-serif';
-  ctx.fillStyle = '#fff';
-  ctx.fillText(`${Math.round(runGauge)}%`, cx, barY + barH / 2);
-
-  // 걸음 수 표시 (Issue #132: 32px 볼드 대형화, Issue #155: 모드별 맞춤 라벨 및 단위)
+  // 4. 걸음 수 표시
   const countUnit = locomotionModal.selectedMode === 'run' ? '보' : '회';
   ctx.font = 'bold 32px sans-serif';
   ctx.fillStyle = '#4DFFAA';
-  ctx.fillText(`${guide.countLabel}: ${totalSteps}${countUnit}`, cx, barY + barH + 54);
+  ctx.fillText(`${guide.countLabel}: ${totalSteps}${countUnit}`, cx, dotY + 60);
 
   ctx.restore();
 }
@@ -688,8 +717,8 @@ const engine = new GameEngine({
         canvasManager.virtualHeight,
       );
       if (stepped && screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
-        runGauge += 20;
         totalSteps++;
+        beatCoordinator.recordStep();
         effectManager.playBurst({
           x: canvasManager.virtualWidth * 0.5,
           y: canvasManager.virtualHeight * 0.65,
@@ -884,25 +913,28 @@ const engine = new GameEngine({
       return;
     }
 
-    // 드림 그리드 속도 및 달리기 게이지 업데이트
+    // 드림 그리드 속도 및 8박 코디네이터 업데이트
     const isRunning = gamePhase === 'running';
-    const speedMult = isRunning ? 1.5 + (runGauge / 100) * 2.5 : 0.8;
+    const speedMult = isRunning ? 2.5 : 0.8;
     dreamGrid.update(dt, speedMult);
 
     if (isRunning) {
-      const activeDetector = getActiveLocomotionDetector();
-      // 선택된 운동 모드 동작 유지 시 완만 지속 충전 (합장 중일 때는 충전 일시 정지)
-      if (activeDetector.isRunning && !menuInput.isActive) {
-        runGauge += dt * 15;
-      } else if (runGauge > 0) {
-        // 정지 시 초당 4% 자연 감쇠
-        runGauge = Math.max(0, runGauge - dt * 4);
-      }
+      const sourceLandmarks =
+        skeletonAnimation.smoothedLandmarks.length >= 25
+          ? skeletonAnimation.smoothedLandmarks
+          : poseManager.virtualLandmarks;
 
-      if (runGauge >= 100) {
-        runGauge = 100;
+      beatCoordinator.update(dt, sourceLandmarks);
+      currentQuestion = beatCoordinator.currentQuestion;
+
+      if (beatCoordinator.isAnswerOpen && gamePhase !== 'question') {
         gamePhase = 'question';
-        nextQuestion();
+        questionVisible = true;
+        answerLocked = false;
+        answerSelector.startQuestion(battle.totalQuestions + 1);
+        if (answerSelector.isFirstQuestion) {
+          postureGuideRenderer.startFirstQuestionHint(5.0);
+        }
       }
     } else if (gamePhase === 'question' && questionVisible && !answerLocked) {
       if (menuInput.isActive) {
@@ -1025,7 +1057,7 @@ const engine = new GameEngine({
 
       let gridColor = CHAPTER_COLORS[currentChapter] || '#28E6FF';
       if (gamePhase === 'running') {
-        gridColor = runGauge >= 75 ? '#28E6FF' : '#FF8844';
+        gridColor = beatCoordinator.phase === 'CENTER_RETURN' ? '#28E6FF' : '#FF8844';
       }
 
       dreamGrid.render(ctx, vw, vh, {
@@ -1332,8 +1364,8 @@ canvas.addEventListener('click', (e) => {
     }
   } else if (screenMode === 'game') {
     if (gamePhase === 'running') {
-      runGauge += 15;
       totalSteps++;
+      beatCoordinator.recordStep();
       effectManager.playBurst({
         x: vw * 0.5,
         y: vh * 0.65,
@@ -1341,11 +1373,8 @@ canvas.addEventListener('click', (e) => {
         colors: ['#28E6FF', '#FFCB4D'],
         duration: 0.3,
       });
-      if (runGauge >= 100) {
-        runGauge = 100;
-        gamePhase = 'question';
-        nextQuestion();
-      }
+      beatCoordinator.triggerFallbackAdvance();
+      currentQuestion = beatCoordinator.currentQuestion;
       return;
     }
     if (questionVisible && currentQuestion && !answerLocked) {
@@ -1402,8 +1431,8 @@ document.addEventListener('keydown', (e) => {
 
   if (e.code === 'Space') {
     if (screenMode === 'game' && gamePhase === 'running') {
-      runGauge += 15;
       totalSteps++;
+      beatCoordinator.recordStep();
       effectManager.playBurst({
         x: canvasManager.virtualWidth * 0.5,
         y: canvasManager.virtualHeight * 0.65,
@@ -1411,11 +1440,8 @@ document.addEventListener('keydown', (e) => {
         colors: ['#28E6FF', '#FFCB4D'],
         duration: 0.3,
       });
-      if (runGauge >= 100) {
-        runGauge = 100;
-        gamePhase = 'question';
-        nextQuestion();
-      }
+      beatCoordinator.triggerFallbackAdvance();
+      currentQuestion = beatCoordinator.currentQuestion;
       return;
     }
   }

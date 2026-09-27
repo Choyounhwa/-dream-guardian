@@ -136,6 +136,11 @@ export class RhythmEngine {
     return this._running;
   }
 
+  /** 엔진 실행 중 여부 (running의 별칭) */
+  get isRunning(): boolean {
+    return this._running;
+  }
+
   /** 일시정지 여부 */
   get paused(): boolean {
     return this._paused;
