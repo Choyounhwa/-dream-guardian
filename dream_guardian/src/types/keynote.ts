@@ -13,3 +13,14 @@ export interface KeynoteCandidate {
 export interface Keynote extends KeynoteCandidate {
   beat: number;
 }
+
+export type FootKeynoteFoot = 'leftFoot' | 'rightFoot' | 'centerFoot';
+export type FootKeynoteSource = 'knee-proxy' | 'keyboard' | 'virtual';
+
+export interface FootKeynoteEvent {
+  foot: FootKeynoteFoot;
+  zoneId: 9 | 10 | 11;
+  source: FootKeynoteSource;
+  timestamp: number;
+  confidence: number;
+}

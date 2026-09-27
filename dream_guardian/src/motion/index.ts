@@ -14,6 +14,8 @@ export { XGestureDetector } from './XGestureDetector.js';
 export type { XGestureResult } from './XGestureDetector.js';
 export { CenterReturnGate } from './CenterReturnGate.js';
 export { KneeFramingValidator } from './KneeFramingValidator.js';
+export { FootKeynoteDetector } from './FootKeynoteDetector.js';
+export type { FootKeynoteDetectorOptions, FootKeynoteUpdateOptions } from './FootKeynoteDetector.js';
 export type {
   KneeFramingStatus,
   KneeFramingIssue,

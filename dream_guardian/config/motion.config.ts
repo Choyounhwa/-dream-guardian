@@ -41,3 +41,17 @@ export const DEFAULT_KNEE_FRAMING_CONFIG: KneeFramingConfig = {
   minShoulderWidthRatio: 0.12,
   maxShoulderWidthRatio: 0.45,
 };
+
+export interface FootKeynoteConfig {
+  minVisibility: number;
+  movementThreshold: number;
+  cooldownDuration: number;
+  rearmNeutralRatio: number;
+}
+
+export const DEFAULT_FOOT_KEYNOTE_CONFIG: FootKeynoteConfig = {
+  minVisibility: 0.5,
+  movementThreshold: 0.04,
+  cooldownDuration: 0.3,
+  rearmNeutralRatio: 0.25,
+};

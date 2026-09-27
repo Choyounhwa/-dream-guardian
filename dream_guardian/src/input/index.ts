@@ -8,6 +8,7 @@ export { MenuInput } from './MenuInput.js';
 export type { MenuCursorResult } from './MenuInput.js';
 export { KeyboardInput } from './KeyboardInput.js';
 export type { InputAction, InputCallback } from './KeyboardInput.js';
+export { FootKeynoteInput } from './FootKeynoteInput.js';
 export { AnswerZoneSelector } from './AnswerZoneSelector.js';
 export type {
   AnswerZone,
