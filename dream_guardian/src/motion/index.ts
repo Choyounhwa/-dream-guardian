@@ -13,6 +13,12 @@ export { ArmCrossDetector } from './ArmCrossDetector.js';
 export { XGestureDetector } from './XGestureDetector.js';
 export type { XGestureResult } from './XGestureDetector.js';
 export { CenterReturnGate } from './CenterReturnGate.js';
+export { KneeFramingValidator } from './KneeFramingValidator.js';
+export type {
+  KneeFramingStatus,
+  KneeFramingIssue,
+  KneeFramingResult,
+} from './KneeFramingValidator.js';
 export type {
   CenterGateStatus,
   CenterAnchorSource,

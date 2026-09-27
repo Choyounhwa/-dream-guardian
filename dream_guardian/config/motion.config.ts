@@ -21,3 +21,23 @@ export const DEFAULT_X_GESTURE_CONFIG: XGestureConfig = {
   cooldownTime: 1.0,
   minVisibility: 0.5,
 };
+
+export interface KneeFramingConfig {
+  minVisibility: number;
+  stabilityDuration: number;
+  horizontalSafeMargin: number;
+  topSafeMargin: number;
+  bottomSafeMargin: number;
+  minShoulderWidthRatio: number;
+  maxShoulderWidthRatio: number;
+}
+
+export const DEFAULT_KNEE_FRAMING_CONFIG: KneeFramingConfig = {
+  minVisibility: 0.5,
+  stabilityDuration: 0.75,
+  horizontalSafeMargin: 0.06,
+  topSafeMargin: 0.06,
+  bottomSafeMargin: 0.08,
+  minShoulderWidthRatio: 0.12,
+  maxShoulderWidthRatio: 0.45,
+};
