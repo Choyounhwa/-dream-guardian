@@ -3256,16 +3256,115 @@ BEAT-SPEC-001
   - [x] 중앙 복귀 실패는 오답이 아닌 연장/ fallback 경로로 진행한다
 - **테스트**:
   - Vitest 11개 통합 테스트 전원 통과 (`tests/integration/beat-run-gameplay.test.ts`), 전체 테스트 577/577 100% Pass, `npm run build` 번들 검증 완료
-- **관련 파일**:
+
+---
+
+### Issue #187: [BUG-BEAT-001] 달리기 페이즈 미동작 자동 8박 채움 결함 수정 및 실제 8회 운동 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/187
+- **Labels**: `bug`, `P0-critical`, `phase-5`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[BUG-BEAT-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 달리기 페이즈 미동작 자동 8박 채움 결함 수정 및 실제 8회 운동 연동
+- **목적**:
+  - 웹캠 앞에서 플레이어가 전혀 움직이지 않고 가만히 서 있어도 시간 경과(4.0초)로 8박이 자동 채워지는 결함을 해소하고, 플레이어가 실제로 1회 운동할 때마다 1박씩 차올라 총 8회의 실제 운동을 완료해야만 8박자가 완충되도록 연동한다.
+- **수정 대상**:
   - `dream_guardian/src/game/BeatRunCoordinator.ts`
-  - `dream_guardian/src/game/index.ts`
-  - `dream_guardian/src/core/RhythmEngine.ts`
   - `dream_guardian/src/main.ts`
   - `dream_guardian/tests/integration/beat-run-gameplay.test.ts`
-  - `dream_guardian/HANDOVER.md`
-  - `docs/01_GAME_DESIGN_DOCUMENT.md`
-  - `docs/02_WORK_BREAKDOWN_STRUCTURE.md`
-  - `docs/03_GITHUB_ISSUES.md`
+- **구현 내용**:
+  1. 달리기 페이즈(RUN_QUESTION)에서 시간 경과(dt) 기반 비트 자동 증가 차단.
+  2. `activeDetector.update()`의 `stepped` 이벤트 및 `beatCoordinator.recordStep()` 호출 시 1박씩(0/8 -> 1/8 -> ... -> 8/8) 비트 전진.
+  3. 키보드 Space 및 화면 클릭 fallback도 동일하게 1스텝 인정 및 1박 전진 지원.
+  4. 8회 운동 스텝 완수 시 비로소 8박 충족 및 다음 단계 전이.
+- **완료 조건**:
+  - [ ] 미동작 시(시간만 경과) 박자가 증가하지 않고 대기함
+  - [ ] 8회 운동 스텝 수행 시 정확히 8박 전진 및 완료됨
+  - [ ] 단위/통합 테스트 100% Pass
+
+---
+
+### Issue #190: [BEAT-ROUTINE-001] 8박 운동 → 2박 쉼(Ready) → 8박 키노트 합주 상태 전이 컨트롤러 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/190
+- **Labels**: `feature`, `P1-high`, `phase-5`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[BEAT-ROUTINE-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 8박 운동 → 2박 쉼(Ready) → 8박 키노트 합주 상태 전이 컨트롤러 구현
+- **목적**:
+  - 비트매니아식 8+2+8 비트 루틴(8박 운동 러닝 → 2박 호흡/Ready 브레이크 → 8박 키노트 합주 퍼포먼스)의 상태 전이 루프 및 타이밍 계약을 확립한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/game/BeatRunCoordinator.ts`
+  - `dream_guardian/src/core/RhythmEngine.ts`
+  - `dream_guardian/tests/unit/beat-routine-controller.test.ts`
+- **구현 내용**:
+  1. 8박 운동 러닝 (RUN_EXERCISE): 실제 8회 운동 스텝 감지 시 8박 완충.
+  2. 2박 호흡/준비 브레이크 (REST_READY): 8박 완충 직후 정확히 2박(1.0s) 동안 호흡 가다듬기 및 "READY... SET!" 카운트다운.
+  3. 8박 키노트 합주 퍼포먼스 (KEYNOTE_PERFORMANCE): 1박째 정답 위치 손 터치로 정답 확정 및 2~8박 연속 키노트 연주.
+  4. 라운드 단일 정산 (ROUND_RESOLVE): 8박 합주 종료 시점에 단 1회 전투 자원 및 리듬 성취도 일괄 정산.
+- **완료 조건**:
+  - [ ] 8회 운동 완료 즉시 REST_READY(2박)로 전이됨
+  - [ ] 2박 경과 후 1박째 정답 선택 및 키노트 연주 단계로 매끄럽게 연결됨
+  - [ ] 단위/통합 테스트 100% Pass
+
+---
+
+### Issue #191: [AUDIO-BAND-001] 1단계 기타(Zone 1~5) + 드럼(Zone 9~11) Web Audio 합성기 및 싱크/어긋남 사운드 엔진
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/191
+- **Labels**: `feature`, `P1-high`, `phase-6`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[AUDIO-BAND-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 1단계 기타(Zone 1~5) + 드럼(Zone 9~11) Web Audio 합성기 및 싱크/어긋남 사운드 엔진
+- **목적**:
+  - 비트매니아/DJMAX 스타일의 실시간 키사운드 시스템을 구축하여, 유저의 손(기타)/발(드럼) 터치 시 역동적인 악기 사운드를 합성하고, 박자 이탈 시 어긋남(Stumble/Glitch) 피드백을 제공한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/audio/SFXSynth.ts`
+  - `dream_guardian/src/audio/BandSynthesizer.ts` (신규)
+  - `dream_guardian/tests/unit/band-synthesizer.test.ts`
+- **구현 내용**:
+  1. 1단계(Ch.1) 록 앙상블 절차적 사운드 합성:
+     - 손 (Zone 1~5): 일렉 기타 리드/리프/파워코드 왜곡(Overdrive) 사운드
+     - 발 (Zone 9~11): 록 드럼 킥, 스네어, 하이햇/크래시 타격음
+  2. 정박(Sync) / 엇박(Stumble) 음향 메커니즘:
+     - 정박(±0.12s): 풍성한 100% 게인 클린 믹싱
+     - 엇박(±0.25s): 피치 벤드 글리치, 프렛 스크래치(Fret Scratch), 림샷 둔탁음
+     - 무동작(Miss): 메인 악기 트랙 음소거(Mute) 및 둔탁한 가이드 메트로놈 잔존
+  3. 2박 Ready 카운트다운 사운드 (READY... SET!)
+- **완료 조건**:
+  - [ ] Zone 1~5 손 터치 시 기타 음원 실시간 합성 출력
+  - [ ] Zone 9~11 발 터치 시 드럼 음원 실시간 합성 출력
+  - [ ] 엇박 및 미스 시 청각적 어긋남(Stumble) 연출 검증
+  - [ ] 단위 테스트 100% Pass
+
+---
+
+### Issue #192: [RENDER-KEYNOTE-001] Zone 1~5 및 Zone 9~11 비트매니아식 키노트 비주얼 렌더링 및 판정 연출
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/192
+- **Labels**: `feature`, `P1-high`, `phase-6`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[RENDER-KEYNOTE-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: Zone 1~5 및 Zone 9~11 비트매니아식 키노트 비주얼 렌더링 및 판정 연출
+- **목적**:
+  - 정답 위치에서 시작하여 8박 동안 Zone 1~5(손/기타)와 Zone 9~11(발/드럼)에 차례로 출현하는 비트매니아식 비트 링/노트 및 실시간 판정(PERFECT/GREAT/MISS)을 시각화한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/render/KeynoteRenderer.ts` (신규)
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/keynote-renderer.test.ts`
+- **구현 내용**:
+  1. 정답 위치 1박째 인트로 노트 연출: 2박 쉼 후 1박째 정답 존에 황금색 대형 포커스 링 점등.
+  2. 2~8박 키노트 순차 시각화:
+     - Zone 1~5 (상단 기타 레인): 네온 블루/퍼플 수축 타이밍 링
+     - Zone 9~11 (하단 드럼 레인): 네온 오렌지/골드 바닥 타격 펄스
+  3. 판정 텍스트 및 이펙트: PERFECT, GREAT, MISS 플로팅 텍스트 및 폭죽형 파티클 버스트.
+- **완료 조건**:
+  - [ ] 정답 위치 1박째 노트 강조 렌더링
+  - [ ] Zone 1~5(손) 및 9~11(발) 키노트 순차 수축 애니메이션
+  - [ ] 판정 텍스트 및 파티클 연동
+  - [ ] 단위/통합 테스트 100% Pass
+
+
 
 
 

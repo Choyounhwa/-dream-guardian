@@ -23,48 +23,50 @@
 
 ---
 
-## 🔵 2026-09-27 확정: BEAT MOTION 8박 루프 전환 계획
+## 🔵 2026-09-27 확정: BEAT MOTION 8+2+8 비트매니아식 피트니스 리듬 시스템 전환
 
-> 상태: **[BEAT-RUN-001 / #180] 자유 달리기 게이지의 8박 문제 준비 라운드 전환 완료 🟢**, 다음 작업: `#181 CHOREO-STAR-001`.  
-> 기존 "달리기 게이지 → 11존 자세로 답 선택"은 아래 8박 루프 사양으로 전면 대체된다. GDD, WBS, GITHUB_ISSUES, HANDOVER 4개 문서 간 단일 계약 동기화가 완료되었으며, 구현은 반드시 신규 BEAT 카드 한 건씩, TDD 표준 사이클(Red → Green → Refactor)로 진행한다.
+> 상태: **[BUG-BEAT-001 / #187] 8회 운동 비트 연동 카드 및 후속 리듬 앙상블 카드 3건 등록 완료 ⚪**, 다음 착수: `#187 [BUG-BEAT-001]`.  
+> "가만히 서 있어도 저절로 8박이 채워지는 결함"을 해소하고, 유저의 실제 운동이 비트를 완성하며, 정답 위치에서 시작하는 비트매니아식 8+2+8 키노트 합주 퍼포먼스로 전면 고도화합니다. GDD, WBS, GITHUB_ISSUES, HANDOVER 4개 문서 간 단일 계약 동기화가 완료되었습니다.
 
-### 확정 루프 (BPM 120, 1박 0.5초, 1라운드 16박 / 8.0초)
+### 확정 루프: 8+2+8 비트매니아식 피트니스 앙상블 (BPM 120, 총 18박 / 9.0초)
 
 ```text
-달리기 8박 (4.0s) + 문제/TTS
-  ├─ 1~5박: 이동 모드로 달리며 상단 수식 계산, 비블로킹 한국어 TTS 낭독
-  ├─ 6~7박: 중앙 복귀 네온 게이트 표시 → 골반 중심 복귀 유도
-  └─ 8박: 중앙 게이트 안정 프레임 중앙값(median)으로 개인 기준점(hipX, headX, shoulderWidth) 잠금
+[Phase 1] 8박 운동 러닝 (내가 만드는 비트, RUN_EXERCISE)
+  ├─ 상단에 수학 문제 출제 및 비블로킹 TTS 낭독
+  ├─ 플레이어가 실제로 8회 운동(달리기/바운스/스웨이/교차/Space)을 수행 (미동작 시 비트 불변/대기)
+  └─ 1회 운동마다 1박씩(1/8 → 8/8) 채워지며, 발스텝이 묵직한 서브 킥 & 베이스 펄스를 연주
         ↓
-답안 8박 (4.0s) 좌/우 정답존 & 리듬 운동
-  ├─ 1~k박: 기준점 대비 |dx| ≥ 0.42 × shoulderWidth 이동 후 0.5초(1박) 체류 확정 (|dx| ≤ 0.30 복귀 시 취소)
-  ├─ 정답 확정 (k박) → 남은 k+1~8박 동안 11존 순차 단일 별 수집 (CSV 360 패턴, Perfect/Good/Late/Miss 판정)
-  └─ 오답/미응답 확정 → 별 일체 미출현, 남은 k+1~8박 동안 좌우 메트로놈 스웨이 회복 운동 가이드
+[Phase 2] 2박 호흡 & 준비 브레이크 (REST_READY, 1.0s 고정)
+  ├─ 8회 운동 완충 직후 정확히 2박 동안 짧은 호흡 가다듬기 및 정답 위치 인지
+  └─ "READY... SET!" 비주얼 및 카운트 사운드와 함께 정답 위치/키노트 레인 점등
         ↓
-8박 종료 정산 (Single Point Settlement):
-  ├─ 정답: 기본 마나 +25 및 콤보 +1 (100% 보장, 별 성패 무관), 리듬 별 수집 포인트 누적
-  ├─ 오답/미응답: 플레이어 HP -25 및 콤보 0 리셋 (통계상 오답과 미응답은 분리 기록)
+[Phase 3] 8박 키노트 합주 퍼포먼스 (KEYNOTE_PERFORMANCE, 4.0s 고정)
+  ├─ 1박째: 정답의 위치(Zone 4/5 등)를 손으로 터치하여 정답 확정 및 인트로 기타 파워코드 작렬
+  ├─ 2~8박: 차례로 이어지는 키노트를 터치하며 풀바디 록 앙상블 합주 완성
+  │   ├─ [손 커서 (Zone 1~5)]: 일렉 기타 리드/리프 연주
+  │   └─ [발 스텝 (Zone 9~11)]: 록 드럼 킥/스네어/심벌 타격
+  └─ 비트매니아식 싱크(Sync) 판정:
+      ├─ 정박(±0.12s): 풍성한 100% 게인 클린 기타/드럼 사운드
+      ├─ 엇박(±0.25s): 피치 벤드 글리치, 프렛 스크래치(Fret Scratch), 림샷 둔탁음
+      └─ 무동작(Miss): 메인 악기 음소거(Mute) 및 조용한 가이드 틱만 잔존
+        ↓
+[Phase 4] 라운드 단일 정산 (Single Point Settlement):
+  ├─ 정답: 기본 마나 +25 및 콤보 +1 (100% 보장), 리듬 성취도 점수 누적
+  ├─ 오답/미응답: 플레이어 HP -25 및 콤보 0 리셋
   └─ 마나 100 도달 시: 수호신 스펠 캐스팅 자동 발동 → 보스 HP -4
 ```
 
-### 확정된 예외 및 실패 경로 규약 (Failure Paths)
+### 단계(Chapter)별 악기 편성 로드맵
 
-1. **중앙 복귀 실패/지연 (`CENTER_RETRY`)**:
-   - 달리기 8박 시점까지 중앙 미복귀 시 **절대 오답 처리하거나 HP를 깎지 않음**.
-   - 최대 2박(1.0초) 연장 대기 안내를 제공하며, 이후에도 미복귀 시 기본 기준점(x=0.5) 강제 잠금 및 키보드/터치 Fallback 활성화 후 답안 단계로 안전 진입.
-2. **답안 미응답/타임아웃 (`ANSWER_TIMEOUT`)**:
-   - 답안 8박 종료까지 미선택 시 `WRONG_SWAY`로 간주하여 종료 시점에 HP -25/콤보 리셋.
-   - 통계에는 오답(`wrongAnswerCount`)과 분리하여 미응답(`timeoutCount`)으로 독립 기록.
-3. **센서/카메라 끊김 (`TRACKING_LOST`)**:
-   - 화면 비상 키 가이드(좌: `←`/`A`, 우: `→`/`D`, 확인: `Space`/`Enter`) 즉시 제공으로 루프 무중단 진행.
+| 단계 (Chapter) | 보스 테마 / 수학 영역 | 손 (Zone 1~5) 악기 | 발 (Zone 9~11) 악기 | 앙상블 음악 장르 |
+|---|---|---|---|---|
+| **1단계 (Ch.1)** | 포겟 (망각의 늪 / 덧셈·뺄셈) | **일렉 기타 (Guitar)** | **록 드럼 (Rock Drum)** | **하드 록 / 팝 펑크** |
+| **2단계 (Ch.2)** | 후다닥 (가속의 시계탑 / 곱셈·나눗셈) | **신스 리드 (Synth Lead)** | **전자 808 킥/클랩 (EDM)** | **업템포 유로비트 / EDM** |
+| **3단계 (Ch.3)** | 뒤죽박죽 (왜곡의 숲 / 분수) | **그랜드 피아노 (Piano)** | **오케스트라 팀파니/심벌** | **네오 클래시컬 심포니** |
+| **4단계 (Ch.4)** | 에라 (무중력의 성 / 소수) | **슬랩 베이스 (Slap Bass)**| **펑크 찹 & 퍼커션** | **디스코 펑크 (Funk)** |
+| **5단계 (Ch.5)** | 나이트메어 (악몽의 궁전 / 종합) | **파이프 오르간 (Organ)** | **헤비메탈 투베이스 드럼** | **고딕 에픽 메탈** |
 
-### 데이터 영속성 및 분리 원칙
-
-- **인메모리 전용 (저장 금지)**: 라운드 중심 기준점(`hipX`, `headX`, `shoulderWidth`)은 카메라/체형 변화에 따라 매 라운드 8박에 갱신되는 런타임 변수이므로 localStorage에 절대 저장하지 않는다.
-- **영구 통계 분리 저장**: 리듬 별 수집 통계(`beatStarsCollected`, `perfectHits`, `goodHits`, `lateHits`, `missedStars`, `wrongAnswerCount`, `timeoutCount`, `recoverySwayCount`)는 챕터 클리어 별(`dream_guardian_stars`: 0~3개)과 완전히 다른 키/필드로 분리하여 저장한다.
-- **전투 수치 불간섭**: 별 수집 점수는 리듬 성취도일 뿐, 마나 충전(+25)이나 보스 데미지(-4)에 직접 영향을 주지 않는다.
-
-### 신규 작업 카드 순서 및 진행 현황
+### 작업 카드 순서 및 진행 현황
 
 | 순서 | 작업 ID | GitHub Issue | 단일 책임 | 상태 |
 |---:|---|---|---|:---:|
@@ -73,12 +75,12 @@
 | 3 | `CENTER-RETURN-001` | [#178](https://github.com/Choyounhwa/-dream-guardian/issues/178) | 중앙 복귀/기준점 잠금 및 timeout/retry | 🟢 **완료 (Pass)** |
 | 4 | `ANSWER-ZONE-001` | [#179](https://github.com/Choyounhwa/-dream-guardian/issues/179) | 상대 좌/우 정답존, 히스테리시스, 0.5초 확정 | 🟢 **완료 (Pass)** |
 | 5 | `BEAT-RUN-001` | [#180](https://github.com/Choyounhwa/-dream-guardian/issues/180) | 기존 자유 게이지를 8박 달리기+문제 HUD로 전환 | 🟢 **완료 (Pass)** |
-| 6 | `CHOREO-STAR-001` | [#181](https://github.com/Choyounhwa/-dream-guardian/issues/181) | CSV 패턴을 안전한 순차 별 타깃으로 변환 | ⚪ 다음 착수 |
-| 7 | `INPUT-STAR-001` | [#182](https://github.com/Choyounhwa/-dream-guardian/issues/182) | 단일 별 Perfect/Good/Late/Miss 판정 | ⚪ 대기 |
-| 8 | `RENDER-BEAT-001` | [#183](https://github.com/Choyounhwa/-dream-guardian/issues/183) | 중앙 게이트, 정답존, 별 비행/타이밍 링, 스웨이 레인 | ⚪ 대기 |
-| 9 | `GAME-ROUND-001` | [#184](https://github.com/Choyounhwa/-dream-guardian/issues/184) | 8박 종료 시 전투/통계 단일 정산 | ⚪ 대기 |
-| 10 | `AUDIO-BEAT-001` | [#185](https://github.com/Choyounhwa/-dream-guardian/issues/185) | 비트, 기준점 잠금, 별 연속 수집, 스웨이 SFX | ⚪ 대기 |
-| 11 | `E2E-BEAT-001` | [#186](https://github.com/Choyounhwa/-dream-guardian/issues/186) | 전체 루프 통합/E2E 및 기존 #97 검증 범위 대체 | ⚪ 대기 |
+| 6 | **`BUG-BEAT-001`** | **[#187](https://github.com/Choyounhwa/-dream-guardian/issues/187)** | **달리기 미동작 8박 자동 완충 차단 및 실제 8회 운동 스텝 연동** | ⚪ **다음 착수** |
+| 7 | **`BEAT-ROUTINE-001`** | **[#190](https://github.com/Choyounhwa/-dream-guardian/issues/190)** | **8박 운동 → 2박 쉼(Ready) → 8박 키노트 합주 상태 전이 컨트롤러** | ⚪ 대기 |
+| 8 | **`AUDIO-BAND-001`** | **[#191](https://github.com/Choyounhwa/-dream-guardian/issues/191)** | **1단계 기타(Zone 1~5) + 드럼(Zone 9~11) Web Audio 및 싱크/어긋남 사운드** | ⚪ 대기 |
+| 9 | **`RENDER-KEYNOTE-001`** | **[#192](https://github.com/Choyounhwa/-dream-guardian/issues/192)** | **Zone 1~5 및 Zone 9~11 비트매니아식 키노트 비주얼 및 판정 연출** | ⚪ 대기 |
+| 10 | `GAME-ROUND-001` | [#184](https://github.com/Choyounhwa/-dream-guardian/issues/184) | 8박 종료 시 전투/통계 단일 정산 | ⚪ 대기 |
+| 11 | `E2E-BEAT-001` | [#186](https://github.com/Choyounhwa/-dream-guardian/issues/186) | 전체 루프 통합/E2E 및 최종 검증 | ⚪ 대기 |
 
 ### 이슈 정리 결과
 
@@ -90,6 +92,20 @@
 ### GitHub BEAT 카드
 
 `#176 BEAT-SPEC-001` → `#177 BEAT-CORE-001` → `#178 CENTER-RETURN-001` → `#179 ANSWER-ZONE-001` → `#180 BEAT-RUN-001` 순서로 시작한다. 별 경로는 `#181 CHOREO-STAR-001` → `#182 INPUT-STAR-001` → `#183 RENDER-BEAT-001`, 정산/오디오는 `#184 GAME-ROUND-001`, `#185 AUDIO-BEAT-001`, 마지막 통합 검증은 `#186 E2E-BEAT-001`이다.
+
+---
+
+## 🟡 2026-09-27 신규 등록: 3D 러닝 트랙 와이어프레임 기둥 장애물 및 과일 아이템 수집 연출 (Issue #188, #189)
+
+> 등록일: 2026-09-27 / 상태: **GitHub Issue 카드 2건 등록 완료 (#188, #189), 승인 대기**
+
+사용자가 제공한 3D 러너 트랙 레퍼런스 영상(YouTube 1:56) 구도에 따라 달리기 구간의 시각적 원근 몰입감 및 피트니스 상호작용을 극대화하기 위한 렌더링/아이템 분할 카드가 정식 등록되었습니다.
+
+| 순서 | 카드 ID | GitHub Issue | 제목 | 핵심 구현 대상 | 상태 |
+|---|---|---|---|---|---|
+| 1 | `RENDER-TRACK-001` | [#188](https://github.com/Choyounhwa/-dream-guardian/issues/188) | 3D 드림 러닝 트랙 와이어프레임 사각기둥(Pillar) 장애물 및 네온 지평선·우주 파티클 렌더링 | • 3D Z-depth 투영 기반 전진하는 투명 네온 사각기둥(Pillars) 장애물<br>• 소실점 지평선 네온 레드/마젠타 발광 바(Horizon Glow Bar)<br>• 암흑 우주 배경 부유 및 패럴랙스 황금빛 삼각 별빛 파티클(Floating Space Dust) | ⚪ **승인 대기** |
+| 2 | `FEAT-ITEM-001` | [#189](https://github.com/Choyounhwa/-dream-guardian/issues/189) | 3D 러닝 트랙 부유 과일 아이템(딸기·바나나) 렌더링 및 모션 수집 시스템 | • 트랙 위 부유(Hover) 및 통통 튀는 바운스(Bobbing) 과일 아이템(딸기, 바나나)<br>• 달리기 중 신체 위치/스텝/방향 이동을 통한 수집(Pick-up) 판정<br>• 수집 시 파티클 버스트, 사운드(`crystal_pickup`), 피트니스 마나/점수 보너스 | ⚪ **승인 대기** |
+
 
 ---
 
