@@ -3160,6 +3160,58 @@ BEAT-SPEC-001
   - `dream_guardian/HANDOVER.md`
   - `docs/03_GITHUB_ISSUES.md`
 
+---
+
+### Issue #179: [ANSWER-ZONE-001] 골반/머리 상대 이동 기반 좌우 정답존 선택기
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/179
+- **Labels**: `feature`, `P1-high`, `phase-6`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[ANSWER-ZONE-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: 골반/머리 상대 이동 기반 좌우 정답존 선택기
+- **목적**:
+  - 11개 피트니스 존 답 선택을 대체하는 좌/우 정답존 입력을 독립 구현한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/config/beat-motion.config.ts` (AnswerZoneConfig 추가: entryRatio 0.42, cancelRatio 0.30, dwellDuration 0.5s)
+  - `dream_guardian/src/input/AnswerZoneSelector.ts` (신규: 상대 변위 계산, 히스테리시스, 0.5초 확정, 머리+어깨 동방향 보조 입력, fallback)
+  - `dream_guardian/src/input/index.ts` (AnswerZoneSelector 및 타입 export 추가)
+  - `dream_guardian/tests/unit/answer-zone-selector.test.ts` (신규: 20개 단위 테스트)
+- **구현 내용**:
+  1. **개인 기준점 대비 골반 우선 좌/우 상대 변위(`dx`) 산출**:
+     - `RoundCenterReference` 대비 골반 중심 변위 계산 (미러 모드 기준 좌: `dx < 0`, 우: `dx > 0`)
+     - 기준점 미주입 시 답안 조준 및 확정 원천 차단
+  2. **진입 `0.42 × sw` 및 취소 `0.30 × sw` 히스테리시스**:
+     - 데드존(`|dx| < 0.084` @ sw=0.20): 조준 미발생
+     - 진입 임계값 초과 시 `left` 또는 `right` 조준 시작
+     - 취소 임계값(`0.060`) 초과 복귀 시에만 조준 취소 및 체류 시간 리셋하여 미세 흔들림(jitter) 방지
+  3. **0.5초(BPM 120 1박) 체류 확정**:
+     - 해당 존 체류 0.5초 도달 시 단 1회 확정 (`isConfirmed = true`)
+     - 확정 후 중앙 복귀나 반대편 이동이 발생해도 번복되지 않는 불변성 유지
+     - 좌/우 상호 배타적 선택 보장
+  4. **골반 신뢰도 부족 시 머리+어깨 동방향 보조 입력 검증**:
+     - 머리(NOSE)와 어깨(LEFT/RIGHT_SHOULDER)가 모두 취소 임계값을 넘어 동일한 방향으로 이동한 경우에만 보조 입력 승인
+     - 방향 상반(머리 좌, 어깨 우) 또는 한 부위만 정체된 경우 보조 입력 거부 및 조준 방지
+  5. **미러 좌표계 및 Fallback 지원**:
+     - 카메라 미러링 환경에서 화면 좌/우 방향성 1:1 일치 보장
+     - 키보드/터치 비상 `selectByFallback()` 즉시 확정 및 `reset()` 수명주기 지원
+- **유지 사항**:
+  - 4색 커서 트래커, Cover/미러 변환, keyboard/touch fallback.
+- **변경 금지**:
+  - 11존 좌표와 안전 제약, CSV 패턴 생성, 전투 수치, main.ts 플로우.
+- **완료 조건**:
+  - [x] 좌/우를 동시에 확정하지 않는다
+  - [x] dead zone, 히스테리시스, dwell, 추적 유실, 미러 좌표가 테스트된다
+  - [x] 기준점 없이 답을 확정할 수 없다
+- **테스트**:
+  - Vitest 20개 단위 테스트 전원 통과 (`tests/unit/answer-zone-selector.test.ts`), 전체 테스트 566/566 100% Pass, `npm run build` 번들 검증 완료
+- **관련 파일**:
+  - `dream_guardian/config/beat-motion.config.ts`
+  - `dream_guardian/src/input/AnswerZoneSelector.ts`
+  - `dream_guardian/src/input/index.ts`
+  - `dream_guardian/tests/unit/answer-zone-selector.test.ts`
+  - `dream_guardian/HANDOVER.md`
+  - `docs/03_GITHUB_ISSUES.md`
+
 
 
 

@@ -220,7 +220,7 @@ tests/
   - 영속성 정책: 기준점 런타임 인메모리 유지(저장 금지), 리듬 통계 별도 키 분리 저장
 - [x] **`BEAT-CORE-001` (#177)**: `RhythmEngine.ts` BPM 120 단일 시간원, 8박 경과/정지/재개/프레임 지연 보정
 - [x] **`CENTER-RETURN-001` (#178)**: `CenterReturnGate.ts` 6~8박 중앙 복귀 판정 및 개인 기준점 잠금, 타임아웃/재시도
-- [ ] **`ANSWER-ZONE-001` (#179)**: `AnswerZoneSelector.ts` 상대 좌/우 정답존 이동 (`|dx| ≥ 0.42`), 히스테리시스(`0.30`), 0.5초 확정
+- [x] **`ANSWER-ZONE-001` (#179)**: `AnswerZoneSelector.ts` 상대 좌/우 정답존 이동 (`|dx| ≥ 0.42`), 히스테리시스(`0.30`), 0.5초 확정
 - [ ] **`BEAT-RUN-001` (#180)**: 기존 자유 `RunningGauge`를 8박 이동 기록 및 문제 HUD 준비로 전환
 - [ ] `FitnessTracker.ts`: 걸음/스쿼트/점프 카운트, 칼로리 계산
   - `(steps × 0.04) + (squats × 0.35) + (jumps × 0.15)` kcal

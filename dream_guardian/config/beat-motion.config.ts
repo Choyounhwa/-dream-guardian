@@ -52,14 +52,37 @@ export const DEFAULT_CENTER_RETURN_CONFIG: CenterReturnConfig = {
   },
 };
 
+export interface AnswerZoneConfig {
+  /** 정답존 진입 변위 비율 (어깨 너비 기준, 기본 0.42) */
+  entryRatio: number;
+  /** 정답존 취소 변위 비율 (히스테리시스, 어깨 너비 기준, 기본 0.30) */
+  cancelRatio: number;
+  /** 정답 확정을 위한 최소 체류 시간 (초, BPM 120 기준 1박 = 0.5s) */
+  dwellDuration: number;
+  /** 랜드마크 최소 가시성 (기본 0.5) */
+  minVisibility: number;
+  /** 미러(좌우 반전) 좌표계 적용 여부 (기본 true) */
+  isMirrored: boolean;
+}
+
+export const DEFAULT_ANSWER_ZONE_CONFIG: AnswerZoneConfig = {
+  entryRatio: 0.42,
+  cancelRatio: 0.30,
+  dwellDuration: 0.5,
+  minVisibility: 0.5,
+  isMirrored: true,
+};
+
 export interface BeatMotionConfig {
   bpm: number;
   beatsPerRound: number;
   centerReturn: CenterReturnConfig;
+  answerZone: AnswerZoneConfig;
 }
 
 export const DEFAULT_BEAT_MOTION_CONFIG: BeatMotionConfig = {
   bpm: 120,
   beatsPerRound: 8,
   centerReturn: DEFAULT_CENTER_RETURN_CONFIG,
+  answerZone: DEFAULT_ANSWER_ZONE_CONFIG,
 };
