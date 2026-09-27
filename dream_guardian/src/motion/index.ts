@@ -12,3 +12,10 @@ export { HipSwayDetector } from './HipSwayDetector.js';
 export { ArmCrossDetector } from './ArmCrossDetector.js';
 export { XGestureDetector } from './XGestureDetector.js';
 export type { XGestureResult } from './XGestureDetector.js';
+export { CenterReturnGate } from './CenterReturnGate.js';
+export type {
+  CenterGateStatus,
+  CenterAnchorSource,
+  RoundCenterReference,
+  CenterGateUpdateResult,
+} from './CenterReturnGate.js';

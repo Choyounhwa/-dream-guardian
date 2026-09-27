@@ -3108,6 +3108,59 @@ BEAT-SPEC-001
   - `dream_guardian/HANDOVER.md`
   - `docs/03_GITHUB_ISSUES.md`
 
+---
+
+### Issue #178: [CENTER-RETURN-001] 비트 전환 중앙 복귀 게이트 및 개인 기준점 잠금
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/178
+- **Labels**: `feature`, `P1-high`, `phase-3`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[CENTER-RETURN-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: 비트 전환 중앙 복귀 게이트 및 개인 기준점 잠금
+- **목적**:
+  - 매 라운드 답안 전 중앙 복귀를 검증하고, 절대 화면 좌표가 아닌 개인 신체 기준점으로 좌/우 선택을 준비한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/config/beat-motion.config.ts` (신규: targetX, toleranceX, stabilityDuration, maxExtension, fallbackReference 설정)
+  - `dream_guardian/src/motion/CenterReturnGate.ts` (신규: 골반 우선/보조 앵커, 중앙 허용폭 검증, 안정 프레임 중앙값 산출, 단 1회 잠금, retry 및 fallback 잠금)
+  - `dream_guardian/src/motion/index.ts` (CenterReturnGate 및 타입 export 추가)
+  - `dream_guardian/tests/unit/center-return-gate.test.ts` (신규: 18개 단위 테스트)
+- **구현 내용**:
+  1. **골반 우선 및 머리+어깨 보조 앵커 평가**:
+     - 골반(LEFT_HIP, RIGHT_HIP) 신뢰도(visibility >= 0.5) 시 `hipX` 중심 우선 평가
+     - 골반 신뢰도 부족 시 머리(NOSE) + 어깨(LEFT_SHOULDER, RIGHT_SHOULDER) 중심 보조 앵커 자동 평가
+     - 전신 신뢰도 부족 시 추적 유실(none) 처리 및 안정 누적 초기화
+  2. **중앙 허용폭 및 흔들림(Jitter) 방지 제약**:
+     - 기본 중앙폭 `targetX: 0.5`, `toleranceX: 0.08` (|x - 0.5| <= 0.08)
+     - 중앙 게이트 외부 이탈 또는 흔들림 발생 시 안정 누적 시간(`stableTime`) 및 샘플 즉시 리셋
+  3. **안정 프레임 중앙값(Median) 기반 개인 기준점(`RoundCenterReference`) 잠금**:
+     - 연속 0.4초 이상 체류 및 5개 이상 안정 프레임 수집 시 중앙값으로 `hipX`, `headX`, `shoulderWidth` 산출 및 잠금
+     - 단 1회 잠금 보장: 최초 잠금 이후 플레이어 이동이나 재호출에 덮어써지지 않는 불변성 유지
+  4. **최대 2박 연장(Retry) 및 타임아웃(Timeout) 규약**:
+     - 표준 1.0초(2박) 경과 시 오답/HP 차감 없이 `retry` 연장 상태 전이
+     - 연장 기간 중 중앙 복귀 성공 시 정상 잠금
+     - 총 2.0초(4박) 만료 시 게임 루프 중단을 방지하기 위해 `defaultFallbackReference` 강제 잠금 및 `timeout` 상태 전이
+  5. **인메모리 전용 런타임 수명주기**:
+     - localStorage 영구 저장 금지 원칙 준수 (단일 세션 인메모리 유지)
+     - 라운드 전환 시 `open({ roundIndex })`로 안전한 상태 초기화 및 재사용
+- **유지 사항**:
+  - CalibrationHelper의 기존 PartGate 기준선 모델, Cover/미러 좌표계, 11존 판정, keyboard/touch fallback.
+- **변경 금지**:
+  - RunDetector와 HipSwayDetector의 감지 알고리즘, AnswerSelector의 집합 덮기 알고리즘, main.ts 통합.
+- **완료 조건**:
+  - [x] 중앙 외부에서는 기준점이 잠기지 않는다
+  - [x] 안정 중앙 프레임은 한 번만 기준점을 잠근다
+  - [x] 흔들림, 추적 유실, 보조 앵커, timeout/retry가 단위 테스트된다
+- **테스트**:
+  - Vitest 18개 단위 테스트 전원 통과 (`tests/unit/center-return-gate.test.ts`), 전체 테스트 546/546 100% Pass, `npm run build` 번들 검증 완료
+- **관련 파일**:
+  - `dream_guardian/config/beat-motion.config.ts`
+  - `dream_guardian/src/motion/CenterReturnGate.ts`
+  - `dream_guardian/src/motion/index.ts`
+  - `dream_guardian/tests/unit/center-return-gate.test.ts`
+  - `dream_guardian/HANDOVER.md`
+  - `docs/03_GITHUB_ISSUES.md`
+
+
 
 
 
