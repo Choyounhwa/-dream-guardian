@@ -59,7 +59,7 @@ src/
 │       ├── SkeletonLayer.ts     # 뼈대+관절 마커+트레일
 │       ├── HUDLayer.ts          # SF스타일 HP바, 마나 플라스크
 │       ├── ParticleLayer.ts     # 빛 정령, 실드, 파티클
-│       ├── AnswerZoneLayer.ts   # 10존 답 선택 UI
+│       ├── AnswerZoneLayer.ts   # 좌/우 정답존 및 11존 별 수집 UI
 │       └── CutsceneLayer.ts     # 스토리/엔딩 컷신
 ├── audio/                 # 오디오
 │   ├── AudioManager.ts    # AudioContext 생명주기
@@ -73,7 +73,8 @@ src/
 │   ├── JumpDetector.ts    # 점프 감지
 │   └── CalibrationHelper.ts  # 체형 보정
 ├── input/                 # 입력 시스템
-│   ├── AnswerSelection.ts # 4색 커서 10존 답 선택 (answer-selection.js 포팅)
+│   ├── AnswerZoneSelector.ts # 골반/머리 기반 좌/우 정답존 선택
+│   ├── StarCollectionInput.ts # 4색 커서 11존 별 수집 판정
 │   ├── MenuInput.ts       # 양손 합장 메뉴 커서 (menu-input.js 포팅)
 │   ├── KeyboardInput.ts   # 키보드 fallback
 │   └── TouchInput.ts      # 터치 fallback
@@ -82,7 +83,8 @@ src/
 │   ├── BossController.ts  # 보스 AI (공격 타이밍, 페이즈)
 │   ├── GuardianGrowth.ts  # 수호신 성장 단계
 │   ├── ComboSystem.ts     # 연속 정답 콤보
-│   ├── RunningGauge.ts    # 달리기 게이지
+│   ├── BeatRoundController.ts # 8박 달리기/답안 라운드 전이
+│   ├── StarCollection.ts  # 별 수집 점수 및 결과
 │   ├── ScoreManager.ts    # 점수, 등급 판정
 │   └── FitnessTracker.ts  # 걸음, 스쿼트, 점프, 칼로리
 ├── question/              # 문제 출제
@@ -206,22 +208,39 @@ tests/
 - [ ] `ComboSystem.ts`: 연속 정답 추적, 콤보 리셋
 - [ ] 단위 테스트
 
-### 2.2 달리기 & 운동 시스템
-- [ ] `RunningGauge.ts`: 충전/감쇠 로직, 게이지 MAX 시 이벤트
+### 2.2 BEAT MOTION 달리기 & 운동 시스템 (8박 루프 확정 체계)
+> **규약 기준**: BPM 120 (1박 0.5초), 1라운드 = 달리기 8박 + 답안 8박 (총 16박 / 8.0초).  
+> 이전 문서의 4박자·4스텝 안(`FEAT-RHYTHM-001`)은 폐기되었으며, `#176` ~ `#186` 11단계 BEAT 카드로 구현 진행.
+
+- [x] **`BEAT-SPEC-001` (#176)**: BEAT MOTION 8박 라운드 규약 및 기존 입력 전환 계약 확정
+  - 8박 상태 전이표 (RUN_QUESTION, CENTER_RETURN, CENTER_LOCK, ANSWER_OPEN, CORRECT_DANCE, WRONG_SWAY, ROUND_RESOLVE)
+  - 6~7박 중앙 복귀 게이트, 8박 기준점 잠금 (골반/머리/어깨폭 중앙값), 0.5초 좌/우 정답 체류 확정
+  - 실패 경로 정의 (중앙 복귀 지연/연장 2박, 타임아웃 미응답, 센서 끊김 fallback)
+  - 단일 시점 정산 (답안 8박 종료 시 1회) 및 마나/별 점수 완전 분리 정책
+  - 영속성 정책: 기준점 런타임 인메모리 유지(저장 금지), 리듬 통계 별도 키 분리 저장
+- [ ] **`BEAT-CORE-001` (#177)**: `RhythmEngine.ts` BPM 120 단일 시간원, 8박 경과/정지/재개/프레임 지연 보정
+- [ ] **`CENTER-RETURN-001` (#178)**: `CenterReturnGate.ts` 6~8박 중앙 복귀 판정 및 개인 기준점 잠금, 타임아웃/재시도
+- [ ] **`ANSWER-ZONE-001` (#179)**: `AnswerZoneSelector.ts` 상대 좌/우 정답존 이동 (`|dx| ≥ 0.42`), 히스테리시스(`0.30`), 0.5초 확정
+- [ ] **`BEAT-RUN-001` (#180)**: 기존 자유 `RunningGauge`를 8박 이동 기록 및 문제 HUD 준비로 전환
 - [ ] `FitnessTracker.ts`: 걸음/스쿼트/점프 카운트, 칼로리 계산
   - `(steps × 0.04) + (squats × 0.35) + (jumps × 0.15)` kcal
-- [ ] 점프 시 게이지 +25% 보너스
-- [ ] 스쿼트 방어: 실드 연출 + 보스 공격 회피 +150점
+- [ ] 점프 시 가속 보너스 및 스쿼트 방어: 실드 연출 + 보스 공격 회피
 - [ ] 단위 테스트
 
-### 2.3 답 선택 시스템 (AnswerSelector & PostureMatcher 포팅 및 확장)
-- [x] `AnswerSelector.ts`: 4색 커서(머리/얼굴 반영), 10존 레이아웃, 티어별 레시피
-- [x] 피트니스 존 겹침 0% 레이아웃 및 문제/답안 전용 예약 밴드 (`zone.config.ts`)
+### 2.3 좌/우 정답존 및 11존 별 수집 시스템
+- [ ] **`CHOREO-STAR-001` (#181)**: `StarSequenceGenerator.ts` CSV 360종 패턴을 안전한 순차 단일 별 목표로 변환
+- [ ] **`INPUT-STAR-001` (#182)**: `StarCollectionInput.ts` 11존 단일 별 Perfect(±0.12s)/Good(±0.25s)/Late(±0.40s)/Miss 수집 판정
+- [ ] **`RENDER-BEAT-001` (#183)**: 중앙 게이트, 좌/우 정답 카드, 11존 별 비행/수축링, 스웨이 레인 렌더링
+- [ ] **`GAME-ROUND-001` (#184)**: 답안 8박 종료 시점 전투(HP/마나/콤보) 및 리듬 통계 단일 정산
+- [ ] **`AUDIO-BEAT-001` (#185)**: 비트 펄스, 기준점 잠금, 별 수집 피치/콤보, 스웨이 SFX 사운드
+- [ ] **`E2E-BEAT-001` (#186)**: 전체 8박 라운드 루프 통합 및 E2E 자동화 검증
+- [x] `AnswerSelector.ts`: 4색 커서, 11존 레이아웃, 집합 덮기/PartGate 안전 검증 기반 (별 수집 전환 대상)
+- [x] 피트니스 존 11개 겹침 0% 레이아웃 및 문제/답안 전용 예약 밴드 (`zone.config.ts`)
 - [x] 집합 덮기(Set Coverage: 조건 A & B) 기반 `matchPosture()` 판정 알고리즘
 - [x] `fitness pattern.csv` 360종 패턴 로더 및 C1~C7 제약 선택지 생성기
 - [x] 캘리브레이션 기준선 대비 신체 변위 검증(`PartGateEvaluator.ts`)
 - [x] `PartIconRenderer.ts`: 손/머리/골반 벡터 아이콘 및 묶음 기호(( )/|) 시각화
-- [x] 단위/통합 테스트 (Vitest 100% Pass)
+- [ ] 중앙 복귀, 좌/우 정답존, 별 시퀀스, 타이밍 판정 단위/통합 테스트
 
 ### 2.4 문제 출제 시스템
 - [ ] `CSVLoader.ts`: CSV 파싱, BOM 처리, fallback 내장 문제
@@ -258,7 +277,7 @@ tests/
 - [ ] `GuardianLayer.ts`: guardian.png + 크로마키 + 4성장 + 사인파 부유
 - [ ] `SkeletonLayer.ts`: 뼈대 + 색상 코딩 관절 + 호흡 + 트레일
 - [ ] `HUDLayer.ts`: SF 스타일 HP바 + 메달리온 + 마나 플라스크
-- [ ] `AnswerZoneLayer.ts`: 10존 시각화 + 커서 렌더링 + 충전 인디케이터
+- [ ] `AnswerZoneLayer.ts`: 중앙 복귀 게이트 + 좌/우 정답존 + 11존 별 비행/타이밍 렌더링
 - [ ] `ParticleLayer.ts`: 빛 정령, 실드 돔, 경고 웨이브
 - [ ] `CutsceneLayer.ts`: 스토리 인트로, 엔딩 4페이즈
 

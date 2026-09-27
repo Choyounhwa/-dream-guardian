@@ -67,7 +67,7 @@
 | `v0.2-core-engine` | Step 3 ~ 5 | 메인 루프(GameEngine), FSM 상태 머신, EventBus, CanvasManager |
 | `v0.3-vision-motion` | Step 6 ~ 7 | 카메라 피드, Pose 연동, 스켈레톤 시각화, 3대 동작 감지 |
 | `v0.4-gameplay-systems` | Step 8 ~ 9 | CSV 문제 뱅크, 안전 수식 평가, TTS, 전투/마나/보스 시스템 |
-| `v0.5-input-ui` | Step 10 ~ 11 | 10존 4색 커서 답선택, 제스처 메뉴 입력, HUD, 결과/통계 UI |
+| `v0.5-input-ui` | Step 10 ~ 11 | 좌/우 정답존, 11존 4색 별 수집, 제스처 메뉴 입력, HUD, 결과/통계 UI |
 | `v0.6-visuals-content` | Step 12 ~ 13 | 7종 이펙트, 5종 보스 드로잉, 5챕터 스토리, 세이브 스토리지 |
 | `v1.0-release` | Step 14 ~ 17 | 통합 E2E 테스트, 60fps 최적화, 모바일 호환성, PWA, CI/CD 배포 |
 
@@ -2957,57 +2957,110 @@
 
 ---
 
-### Issue #176 (Card #106): [FEAT-RHYTHM-001] 달리기 페이즈 4회(25%x4) 에너지 완충 및 상시 4박자 리듬 템포 문제 풀이 연동
+## BEAT MOTION 전환 계획 (2026-09-27)
+
+### 폐기 기록: 이전 4박자 문서안 [FEAT-RHYTHM-001]
+- **상태**: ⚪ **폐기 (새 8박 카드 체계로 대체)**
+- 이전 문서에만 있던 4박자·4스텝·게이지 완충 계획은 새 GitHub Issue #176 `[BEAT-SPEC-001]`과 무관한 폐기 사양이다.
+- 확정된 사양은 `8박 달리기+문제 → 중앙 복귀 기준점 잠금 → 8박 좌/우 정답존 → 정답 별 수집 또는 오답 스웨이`다.
+- 기존 `AnswerSelector`의 11존 답안 확정 경로는 제거하고, 11존/CSV/커서/안전 제약은 별 수집 시스템에 재사용한다.
+
+### 미처리 기존 카드 영향
+
+| GitHub Issue | 처리 | BEAT MOTION 반영 |
+|---|---|---|
+| #91, #93, #94, #100, #161, #162, #166 | 유지 | 신규 루프와 독립적으로 진행 가능 |
+| #92 | 분리/수정 | 드림 그리드는 유지하고, 리듬 오디오는 BEAT 카드로 분리 |
+| #95 | 보류/재설계 | 별 수집/좌우 선택과 충돌하는 별도 회피 입력은 금지 |
+| #96 | 범위 보강 | 리듬 판정/별 수집 통계를 저장하되 기준점은 저장하지 않음 |
+| #97 | 완료 조건 교체 | 8박, 중앙 복귀, 좌우 정답존, 별, 스웨이 E2E를 검증 |
+| #98, #99 | 후행 보강 | 별 파티클/오디오 누수, BPM 드리프트, 미러/모바일 기준점을 검증 |
+| #152 | 명세 수정 후 진행 | "20% 투명도"와 "20% 불투명도" 중 alpha 기준을 먼저 확정 |
+| #168 | 보류 | 새 메뉴 문구 원문 확정 전에는 완료 불가 |
+| #147, #159, #160 | 2026-09-27 Close | 기존 범위 구현 완료; BEAT 대체 기능은 새 카드에서 구현 |
+
+### 신규 카드 의존성
+
+```text
+BEAT-SPEC-001
+  → BEAT-CORE-001 → CENTER-RETURN-001 → ANSWER-ZONE-001 → BEAT-RUN-001
+  → CHOREO-STAR-001 → INPUT-STAR-001 → RENDER-BEAT-001 → GAME-ROUND-001
+  → AUDIO-BEAT-001 → E2E-BEAT-001
+```
+
+각 카드는 단일 기능과 TDD Red → Green → Refactor를 준수한다. `E2E-BEAT-001` 완료 후 #97, #98, #99의 검증 범위를 갱신한다.
+
+### 등록된 BEAT MOTION 카드
+
+| 순서 | GitHub Issue | 작업 ID | 단일 책임 | 선행 카드 |
+|---:|---:|---|---|---|
+| 1 | [#176](https://github.com/Choyounhwa/-dream-guardian/issues/176) | `BEAT-SPEC-001` | 8박 규약과 기존 입력 전환 계약 문서화 | 없음 |
+| 2 | [#177](https://github.com/Choyounhwa/-dream-guardian/issues/177) | `BEAT-CORE-001` | BPM 120 8박 `RhythmEngine` | #176 |
+| 3 | [#178](https://github.com/Choyounhwa/-dream-guardian/issues/178) | `CENTER-RETURN-001` | 중앙 복귀 게이트와 개인 기준점 잠금 | #177 |
+| 4 | [#179](https://github.com/Choyounhwa/-dream-guardian/issues/179) | `ANSWER-ZONE-001` | 골반/머리 상대 이동 좌/우 정답존 | #178 |
+| 5 | [#180](https://github.com/Choyounhwa/-dream-guardian/issues/180) | `BEAT-RUN-001` | 자유 게이지를 8박 문제 준비로 전환 | #177, #178, #179 |
+| 6 | [#181](https://github.com/Choyounhwa/-dream-guardian/issues/181) | `CHOREO-STAR-001` | CSV 기반 순차 별 안무 생성 | #176 |
+| 7 | [#182](https://github.com/Choyounhwa/-dream-guardian/issues/182) | `INPUT-STAR-001` | 11존 별 타이밍 수집 판정 | #181 |
+| 8 | [#183](https://github.com/Choyounhwa/-dream-guardian/issues/183) | `RENDER-BEAT-001` | 중앙/정답존/별/스웨이 렌더링 | #178, #179, #182 |
+| 9 | [#184](https://github.com/Choyounhwa/-dream-guardian/issues/184) | `GAME-ROUND-001` | 8박 종료 전투 및 리듬 통계 정산 | #180, #182 |
+| 10 | [#185](https://github.com/Choyounhwa/-dream-guardian/issues/185) | `AUDIO-BEAT-001` | 비트/기준점/별/스웨이 SFX | #177 |
+| 11 | [#186](https://github.com/Choyounhwa/-dream-guardian/issues/186) | `E2E-BEAT-001` | 전체 8박 루프 통합/E2E | #180, #183, #184, #185 |
+
+---
+
+### Issue #176: [BEAT-SPEC-001] BEAT MOTION 8박 라운드 규약 및 기존 입력 전환 계약 확정
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/176
-- **Labels**: `phase-3`, `phase-5`, `feature`, `P1-high`
-- **Milestone**: `v0.5-input-ui`
-- **작업 ID**: `[FEAT-RHYTHM-001]`
-- **상태**: 🟡 **진행 중 (In Progress)**
+- **Labels**: `documentation`, `P0-critical`, `phase-5`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[BEAT-SPEC-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: BEAT MOTION 8박 라운드 규약 및 기존 입력 전환 계약 확정
 - **목적**:
-  - 달리기 페이즈의 게이지 충전을 임의의 연속 충전 대신 명확한 4번의 스텝(스텝당 25%씩, 4회 달성 시 100% 완충)으로 변경한다.
-  - 상시 4/4박자 리듬 템포(BPM 120, 1박당 0.5초, 4박자 1마디 = 2.0초)를 연동하여, 달리기 4박자(1-2-3-4) → 문제 풀이 4박자(1-2-3-4)로 경쾌하게 이어지는 일체형 리듬 피트니스 게임플레이를 구현한다.
-  - 문제 풀이 시 피트니스 존 자세 유지(Dwell) 시간을 4박자 리듬(~2.0초)으로 정렬하고, 4박자 비트 틱 사운드 및 HUD 4세그먼트 시각 피드백을 제공한다.
-- **수정 및 생성 대상**:
-  - `dream_guardian/src/core/RhythmEngine.ts` (신규: 4박자 BPM 메트로놈 및 비트 동기화 엔진)
-  - `dream_guardian/src/audio/SFXSynth.ts` (메트로놈 강박/약박 및 비트 틱 SFX)
-  - `dream_guardian/config/posture.config.ts` (4박자 템포 기준 DwellTime 2.0초 정렬)
-  - `dream_guardian/src/input/AnswerSelector.ts` (4박자 리듬 체류 연동)
-  - `dream_guardian/src/main.ts` (달리기 4회 25% 완충, 4박자 게이지 세그먼트 UI, 메트로놈 루프 연동)
-  - `dream_guardian/tests/unit/rhythm-gameplay.test.ts` (신규 단위 테스트)
-- **상세 요구사항 및 신규 구현 내용**:
-  1. **달리기 페이즈 4회 완충 (25% x 4)**:
-     - 스텝 1회 감지(또는 Space/Click fallback 1회) 시 정확히 `runGauge += 25` 증가.
-     - 4스텝 도달 시 `runGauge = 100%`로 즉시 문제 풀이 페이즈로 전환.
-     - 스텝 간 자연스러운 4박자 리듬 간격(약 1.5초 이내) 동안 게이지가 누수되지 않도록 비활동 유예 시간(grace period: 1.5초) 적용.
-  2. **상시 4박자 리듬 템포 (RhythmEngine)**:
-     - 표준 피트니스 템포 BPM 120 (1박 = 0.50초, 4박 = 2.0초).
-     - 매 박마다 `beatIndex` (0, 1, 2, 3) 갱신 및 비트 펄스 발생.
-     - 1박(강박)에는 고음 메트로놈 틱(`metronome_strong`), 2·3·4박(약박)에는 부드러운 틱(`metronome_weak`) 재생.
-  3. **4박자 문제 풀이 연동**:
-     - 피트니스 존 자세 유지 시간(Dwell Time)을 4박자(2.0초)로 정렬.
-     - 자세 유지 중 매 박자마다 25%씩 충전되며 리듬 비트 틱과 함께 4박자 도달 시 즉시 정답 확정.
-  4. **인게임 HUD 4세그먼트 시각화**:
-     - 달리기 게이지 바 및 문제 풀이 체류 아크를 4개 블록/세그먼트로 분할 렌더링하여 1-2-3-4 리듬 진행도를 시각적으로 명확히 표시.
+  - 구현 전에 8박 라운드, 중앙 복귀, 좌/우 정답존, 정답 별 수집, 오답 스웨이 및 전투 정산 시점을 단일 테스트 가능 계약으로 고정한다.
+- **수정 대상**:
+  - `docs/01_GAME_DESIGN_DOCUMENT.md`
+  - `docs/02_WORK_BREAKDOWN_STRUCTURE.md`
+  - `docs/03_GITHUB_ISSUES.md`
+  - `dream_guardian/HANDOVER.md`
+- **구현 내용**:
+  1. **BPM 120 8박 라운드 규약 상태 전이표 확정**:
+     - 1박 = 0.5초, 8박 달리기 + 8박 답안 = 총 16박(8.0초) 단일 라운드 루프 확립
+     - `RUN_QUESTION` (달리기 1~5박): 달리기, 가로분수/수학 문제 출력, 비블로킹 한국어 TTS 낭독
+     - `CENTER_RETURN` (달리기 6~7박): 중앙 복귀 네온 게이트 표시, 플레이어 중심 유도
+     - `CENTER_LOCK` (달리기 8박): 골반/머리/어깨폭 안정 프레임 중앙값(median)으로 개인 기준점 잠금
+     - `ANSWER_OPEN` (답안 1~k박): 좌/우 답안 카드(A/B), 골반 우선/머리 보조 상대 변위(`|dx| ≥ 0.42 × shoulderWidth`), **0.5초(1박)** 체류 확정, `0.30` 이내 복귀 시 체류 취소(히스테리시스)
+     - `CORRECT_DANCE` (정답 확정 후 잔여 k+1~8박): 11개 피트니스 존 순차 단일 별 목표 출현, 비트 착지 판정(Perfect ±0.12s, Good ±0.25s, Late ±0.40s, Miss)
+     - `WRONG_SWAY` (오답/미응답 잔여 k+1~8박): 별 비표시, 좌우 메트로놈 스웨이 가이드로 리듬 운동 지속
+     - `ROUND_RESOLVE` (답안 8박 종료 시점): 단 1회 전투 자원 및 통계 정산
+  2. **실패 및 예외 경로(Failure Paths) 명세**:
+     - 중앙 복귀 실패/지연: 오답 처리 절대 금지, 최대 2박(1.0초) `CENTER_RETRY` 연장 대기, 이후에도 미인식 시 임시 기본 기준점 강제 잠금 및 Fallback 활성화 후 답안 단계 진입 (게임 루프 중단 방지)
+     - 답안 미응답(타임아웃): 8박 만료 시 `WRONG_SWAY` 간주, 종료 정산 시 HP -25/콤보 리셋, 통계에는 오답(`wrongAnswerCount`)과 분리하여 `timeoutCount`로 독립 기록
+     - 센서/카메라 손실: 화면 비상 Fallback 키(좌: `←`/`A`, 우: `→`/`D`, 확인: `Space`/`Enter`) 즉시 가이드
+  3. **전투 보상 및 별 점수 완전 분리**:
+     - 정답 확정 시 기본 마나 +25 및 콤보 +1을 100% 보장 (별 수집 결과와 무관)
+     - 별 점수는 리듬 성취도 통계(`beatStarsCollected` 등)로만 누적되며 전투 마나/보스 데미지에 불간섭
+     - 답안 8박 종료 시점에 단 1회 일괄 정산하여 프레임 동기화 무결성 확보
+  4. **데이터 영속성 정책 확정**:
+     - 라운드 기준점(`hipX`, `headX`, `shoulderWidth`): 단일 세션 인메모리 전용 (localStorage 영구 저장 금지)
+     - 리듬 별 통계: 챕터 클리어 등급 별(`dream_guardian_stars`: 0~3개)과 완전히 분리하여 `dream_guardian_stats` 내 전용 필드로 영속화
+  5. **구 4박자 가상 안 폐기 및 후속 카드 의존성 고정**:
+     - 구 4박자/4스텝 문서안(`FEAT-RHYTHM-001`) 공식 폐기 기록
+     - 신규 11단계 BEAT 카드 체계 의존성 확정: `#176 BEAT-SPEC-001` → `#177 BEAT-CORE-001` → `#178 CENTER-RETURN-001` → `#179 ANSWER-ZONE-001` → `#180 BEAT-RUN-001` → `#181 CHOREO-STAR-001` → `#182 INPUT-STAR-001` → `#183 RENDER-BEAT-001` → `#184 GAME-ROUND-001` → `#185 AUDIO-BEAT-001` → `#186 E2E-BEAT-001`
 - **유지 사항**:
-  - 기존 11개 피트니스 존 좌표 및 판정 알고리즘
-  - 기존 키보드(Space) 및 마우스 클릭 fallback 기능
+  - 11개 피트니스 존 좌표 레이아웃, 4색 신체 커서(손/머리/골반), Cover/미러 좌표계, CSV 360건 패턴, PartGate 및 C1~C8 안전 제약, 키보드/터치 fallback.
 - **변경 금지**:
-  - `BattleState`, `BossController` 내부 수치 공식
-  - `QuestionBank` 수식 파싱 및 TTS 시스템
+  - 프로덕션 코드(`src/`) 및 기존 전투 기본 수치(플레이어 HP 100, 오답 -25, 마나 100 스펠 -4).
 - **완료 조건**:
-  - [ ] 달리기 페이즈에서 스텝 4회 시 게이지 100% 완충 및 문제 출제 전환
-  - [ ] Space/Click 역시 4회 시 100% 완충
-  - [ ] RhythmEngine이 BPM 120 기준 4박자 주기(0.5초 간격)를 정확히 카운트
-  - [ ] 문제 풀이 자세 유지 4박자(2.0초) 도달 시 정답 확정
-  - [ ] `npm test -- rhythm-gameplay.test.ts` 100% Pass
-  - [ ] 전체 단위 테스트 회귀 결함 0건
+  - [x] 8박 전이와 모든 실패 경로(중앙 복귀 지연, 답안 미응답, 센서 끊김)가 문서에서 모순 없이 정의됨
+  - [x] 기준점(인메모리 전용) 및 별 통계(챕터 별과 분리) 영속성 정책이 정의됨
+  - [x] 4박자 가상 Issue #176은 폐기 기록으로 남고 후속 카드 의존성이 명시됨
+- **테스트**:
+  - 문서 상호 검토 (GDD, WBS, GITHUB_ISSUES, HANDOVER 4개 문서 간 정합성 일치 확인) 및 기존 단위 테스트 509/509 100% Pass
 - **관련 파일**:
-  - `dream_guardian/src/core/RhythmEngine.ts`
-  - `dream_guardian/src/audio/SFXSynth.ts`
-  - `dream_guardian/src/main.ts`
-  - `dream_guardian/tests/unit/rhythm-gameplay.test.ts`
-
-
+  - `docs/01_GAME_DESIGN_DOCUMENT.md`
+  - `docs/02_WORK_BREAKDOWN_STRUCTURE.md`
+  - `docs/03_GITHUB_ISSUES.md`
+  - `dream_guardian/HANDOVER.md`
 
 
 

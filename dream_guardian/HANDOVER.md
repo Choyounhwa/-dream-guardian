@@ -23,6 +23,76 @@
 
 ---
 
+## 🔵 2026-09-27 확정: BEAT MOTION 8박 루프 전환 계획
+
+> 상태: **[BEAT-SPEC-001 / #176] 계약 문서화 완료 🟢**, 신규 구현 대기 (다음 작업: `#177 BEAT-CORE-001`).  
+> 기존 "달리기 게이지 → 11존 자세로 답 선택"은 아래 8박 루프 사양으로 전면 대체된다. GDD, WBS, GITHUB_ISSUES, HANDOVER 4개 문서 간 단일 계약 동기화가 완료되었으며, 구현은 반드시 신규 BEAT 카드 한 건씩, TDD 표준 사이클(Red → Green → Refactor)로 진행한다.
+
+### 확정 루프 (BPM 120, 1박 0.5초, 1라운드 16박 / 8.0초)
+
+```text
+달리기 8박 (4.0s) + 문제/TTS
+  ├─ 1~5박: 이동 모드로 달리며 상단 수식 계산, 비블로킹 한국어 TTS 낭독
+  ├─ 6~7박: 중앙 복귀 네온 게이트 표시 → 골반 중심 복귀 유도
+  └─ 8박: 중앙 게이트 안정 프레임 중앙값(median)으로 개인 기준점(hipX, headX, shoulderWidth) 잠금
+        ↓
+답안 8박 (4.0s) 좌/우 정답존 & 리듬 운동
+  ├─ 1~k박: 기준점 대비 |dx| ≥ 0.42 × shoulderWidth 이동 후 0.5초(1박) 체류 확정 (|dx| ≤ 0.30 복귀 시 취소)
+  ├─ 정답 확정 (k박) → 남은 k+1~8박 동안 11존 순차 단일 별 수집 (CSV 360 패턴, Perfect/Good/Late/Miss 판정)
+  └─ 오답/미응답 확정 → 별 일체 미출현, 남은 k+1~8박 동안 좌우 메트로놈 스웨이 회복 운동 가이드
+        ↓
+8박 종료 정산 (Single Point Settlement):
+  ├─ 정답: 기본 마나 +25 및 콤보 +1 (100% 보장, 별 성패 무관), 리듬 별 수집 포인트 누적
+  ├─ 오답/미응답: 플레이어 HP -25 및 콤보 0 리셋 (통계상 오답과 미응답은 분리 기록)
+  └─ 마나 100 도달 시: 수호신 스펠 캐스팅 자동 발동 → 보스 HP -4
+```
+
+### 확정된 예외 및 실패 경로 규약 (Failure Paths)
+
+1. **중앙 복귀 실패/지연 (`CENTER_RETRY`)**:
+   - 달리기 8박 시점까지 중앙 미복귀 시 **절대 오답 처리하거나 HP를 깎지 않음**.
+   - 최대 2박(1.0초) 연장 대기 안내를 제공하며, 이후에도 미복귀 시 기본 기준점(x=0.5) 강제 잠금 및 키보드/터치 Fallback 활성화 후 답안 단계로 안전 진입.
+2. **답안 미응답/타임아웃 (`ANSWER_TIMEOUT`)**:
+   - 답안 8박 종료까지 미선택 시 `WRONG_SWAY`로 간주하여 종료 시점에 HP -25/콤보 리셋.
+   - 통계에는 오답(`wrongAnswerCount`)과 분리하여 미응답(`timeoutCount`)으로 독립 기록.
+3. **센서/카메라 끊김 (`TRACKING_LOST`)**:
+   - 화면 비상 키 가이드(좌: `←`/`A`, 우: `→`/`D`, 확인: `Space`/`Enter`) 즉시 제공으로 루프 무중단 진행.
+
+### 데이터 영속성 및 분리 원칙
+
+- **인메모리 전용 (저장 금지)**: 라운드 중심 기준점(`hipX`, `headX`, `shoulderWidth`)은 카메라/체형 변화에 따라 매 라운드 8박에 갱신되는 런타임 변수이므로 localStorage에 절대 저장하지 않는다.
+- **영구 통계 분리 저장**: 리듬 별 수집 통계(`beatStarsCollected`, `perfectHits`, `goodHits`, `lateHits`, `missedStars`, `wrongAnswerCount`, `timeoutCount`, `recoverySwayCount`)는 챕터 클리어 별(`dream_guardian_stars`: 0~3개)과 완전히 다른 키/필드로 분리하여 저장한다.
+- **전투 수치 불간섭**: 별 수집 점수는 리듬 성취도일 뿐, 마나 충전(+25)이나 보스 데미지(-4)에 직접 영향을 주지 않는다.
+
+### 신규 작업 카드 순서 및 진행 현황
+
+| 순서 | 작업 ID | GitHub Issue | 단일 책임 | 상태 |
+|---:|---|---|---|:---:|
+| 1 | `BEAT-SPEC-001` | [#176](https://github.com/Choyounhwa/-dream-guardian/issues/176) | 8박 계약, 전투 정산 시점, 미응답/스웨이 정책 문서화 고정 | 🟢 **완료 (Pass)** |
+| 2 | `BEAT-CORE-001` | [#177](https://github.com/Choyounhwa/-dream-guardian/issues/177) | BPM 120, 8박, pause/resume, 프레임 지연 보정 `RhythmEngine` | ⚪ 다음 착수 |
+| 3 | `CENTER-RETURN-001` | [#178](https://github.com/Choyounhwa/-dream-guardian/issues/178) | 중앙 복귀/기준점 잠금 및 timeout/retry | ⚪ 대기 |
+| 4 | `ANSWER-ZONE-001` | [#179](https://github.com/Choyounhwa/-dream-guardian/issues/179) | 상대 좌/우 정답존, 히스테리시스, 0.5초 확정 | ⚪ 대기 |
+| 5 | `BEAT-RUN-001` | [#180](https://github.com/Choyounhwa/-dream-guardian/issues/180) | 기존 자유 게이지를 8박 달리기+문제 HUD로 전환 | ⚪ 대기 |
+| 6 | `CHOREO-STAR-001` | [#181](https://github.com/Choyounhwa/-dream-guardian/issues/181) | CSV 패턴을 안전한 순차 별 타깃으로 변환 | ⚪ 대기 |
+| 7 | `INPUT-STAR-001` | [#182](https://github.com/Choyounhwa/-dream-guardian/issues/182) | 단일 별 Perfect/Good/Late/Miss 판정 | ⚪ 대기 |
+| 8 | `RENDER-BEAT-001` | [#183](https://github.com/Choyounhwa/-dream-guardian/issues/183) | 중앙 게이트, 정답존, 별 비행/타이밍 링, 스웨이 레인 | ⚪ 대기 |
+| 9 | `GAME-ROUND-001` | [#184](https://github.com/Choyounhwa/-dream-guardian/issues/184) | 8박 종료 시 전투/통계 단일 정산 | ⚪ 대기 |
+| 10 | `AUDIO-BEAT-001` | [#185](https://github.com/Choyounhwa/-dream-guardian/issues/185) | 비트, 기준점 잠금, 별 연속 수집, 스웨이 SFX | ⚪ 대기 |
+| 11 | `E2E-BEAT-001` | [#186](https://github.com/Choyounhwa/-dream-guardian/issues/186) | 전체 루프 통합/E2E 및 기존 #97 검증 범위 대체 | ⚪ 대기 |
+
+### 이슈 정리 결과
+
+- 이전 문서의 4박자 `FEAT-RHYTHM-001` 사양은 폐기했고, 새 8박 전환 계약은 GitHub #176 `BEAT-SPEC-001`로 등록했다.
+- #147, #159, #160은 구현 및 테스트 완료 상태였으나 GitHub가 열려 있어 2026-09-27에 Close 처리했다.
+- #92는 리듬 오디오를 신규 카드로 분리, #95는 입력 충돌 때문에 보류/재설계, #96/#97/#98/#99는 BEAT 통합 후 후행 갱신한다.
+- `UI-MENU-003`의 실제 GitHub 번호는 #168이며, 과거 HANDOVER의 #146 표기는 잘못된 기록이다.
+
+### GitHub BEAT 카드
+
+`#176 BEAT-SPEC-001` → `#177 BEAT-CORE-001` → `#178 CENTER-RETURN-001` → `#179 ANSWER-ZONE-001` → `#180 BEAT-RUN-001` 순서로 시작한다. 별 경로는 `#181 CHOREO-STAR-001` → `#182 INPUT-STAR-001` → `#183 RENDER-BEAT-001`, 정산/오디오는 `#184 GAME-ROUND-001`, `#185 AUDIO-BEAT-001`, 마지막 통합 검증은 `#186 E2E-BEAT-001`이다.
+
+---
+
 ## 🟢 2026-09-22 세션 구현 완료 내역 (21개 카드 전원 통과)
 
 > 등록일: 2026-09-22 / 최종 상태: **GitHub Issue 카드 21건 완료 (#116, #120, #121, #117, #118, #119, #122, #123, #124, #125, #126, #127, #128, #129, #131, #132, #133, #134, #135, #136, #137, #138, #140, #130), 테스트 336/336 100% Pass**
