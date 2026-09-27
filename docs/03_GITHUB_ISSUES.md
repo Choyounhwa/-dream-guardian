@@ -3062,6 +3062,53 @@ BEAT-SPEC-001
   - `docs/03_GITHUB_ISSUES.md`
   - `dream_guardian/HANDOVER.md`
 
+---
+
+### Issue #177: [BEAT-CORE-001] 8박자 단일 시간원 RhythmEngine 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/177
+- **Labels**: `feature`, `P0-critical`, `phase-5`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[BEAT-CORE-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: 8박자 단일 시간원 RhythmEngine 구현
+- **목적**:
+  - BPM 120의 단일 비트 시간원을 제공하여 달리기, 답안, 오디오, 렌더링이 동일한 8박 인덱스를 사용하게 한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/core/RhythmEngine.ts` (신규: BPM 120, 8박 인덱스 순환, Catch-up 비트 발행, pause/resume)
+  - `dream_guardian/src/core/index.ts` (RhythmEngine 및 BeatEvent export 추가)
+  - `dream_guardian/tests/unit/rhythm-engine.test.ts` (신규: 19개 단위 테스트)
+- **구현 내용**:
+  1. **BPM 기반 단일 비트 시간원**:
+     - 기본 BPM 120 (1박 0.5초 = 500ms, 8박 1라운드 = 4.0초)
+     - `beatIndex` (0~7 순환), `totalBeats` (단조 증가 누적), `roundIndex`, `beatProgress` (0.0~1.0), `roundProgress` (0.0~1.0)
+  2. **프레임 지연(Lag Spike) 비트 누락/중복 방지 (Catch-up)**:
+     - 대형 dt(e.g. 1.6s 등) 입력 시에도 경과된 비트를 누락 없이 순차 발행
+     - 중복 발행 방지 및 0~7 순환 인덱스 무결성 유지
+  3. **시간 제어 API**:
+     - `start()`, `pause()`, `resume()`, `stop()`, `reset()`, `update(dt)`, `setBpm(newBpm)`
+     - GameEngine의 dt(초 단위)만 입력으로 사용하며 브라우저 타이머(setInterval, setTimeout)를 일체 직접 생성하지 않음
+  4. **이벤트 리스너 및 EventBus 연동**:
+     - `onBeat(callback)` 구독 및 unsubscribe 함수 반환, `offBeat(callback)`
+     - `onRound(callback)` 라운드 순환(1라운드 이상) 시 콜백 호출
+     - 주입된 `EventBus`를 통해 `'rhythm:beat'` 및 `'rhythm:round'` 이벤트 연동 지원
+- **유지 사항**:
+  - 기존 GameEngine 시간 제어, pause 모달, 이동 감지기.
+- **변경 금지**:
+  - `main.ts` 게임 플로우, `AnswerSelector`, 전투 로직, 오디오 구현.
+- **완료 조건**:
+  - [x] BPM 120에서 0.5초마다 정확히 한 beat가 진행됨
+  - [x] 8박 후 0으로 순환함
+  - [x] pause/resume과 대형 dt에서 중복/누락 없는 이벤트가 보장됨
+- **테스트**:
+  - Vitest 19개 단위 테스트 전원 통과 (`tests/unit/rhythm-engine.test.ts`), 전체 테스트 528/528 100% Pass, `npm run build` 번들 검증 완료
+- **관련 파일**:
+  - `dream_guardian/src/core/RhythmEngine.ts`
+  - `dream_guardian/src/core/index.ts`
+  - `dream_guardian/tests/unit/rhythm-engine.test.ts`
+  - `dream_guardian/HANDOVER.md`
+  - `docs/03_GITHUB_ISSUES.md`
+
+
 
 
 

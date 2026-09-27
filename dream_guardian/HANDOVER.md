@@ -69,8 +69,8 @@
 | 순서 | 작업 ID | GitHub Issue | 단일 책임 | 상태 |
 |---:|---|---|---|:---:|
 | 1 | `BEAT-SPEC-001` | [#176](https://github.com/Choyounhwa/-dream-guardian/issues/176) | 8박 계약, 전투 정산 시점, 미응답/스웨이 정책 문서화 고정 | 🟢 **완료 (Pass)** |
-| 2 | `BEAT-CORE-001` | [#177](https://github.com/Choyounhwa/-dream-guardian/issues/177) | BPM 120, 8박, pause/resume, 프레임 지연 보정 `RhythmEngine` | ⚪ 다음 착수 |
-| 3 | `CENTER-RETURN-001` | [#178](https://github.com/Choyounhwa/-dream-guardian/issues/178) | 중앙 복귀/기준점 잠금 및 timeout/retry | ⚪ 대기 |
+| 2 | `BEAT-CORE-001` | [#177](https://github.com/Choyounhwa/-dream-guardian/issues/177) | BPM 120, 8박, pause/resume, 프레임 지연 보정 `RhythmEngine` | 🟢 **완료 (Pass)** |
+| 3 | `CENTER-RETURN-001` | [#178](https://github.com/Choyounhwa/-dream-guardian/issues/178) | 중앙 복귀/기준점 잠금 및 timeout/retry | ⚪ 다음 착수 |
 | 4 | `ANSWER-ZONE-001` | [#179](https://github.com/Choyounhwa/-dream-guardian/issues/179) | 상대 좌/우 정답존, 히스테리시스, 0.5초 확정 | ⚪ 대기 |
 | 5 | `BEAT-RUN-001` | [#180](https://github.com/Choyounhwa/-dream-guardian/issues/180) | 기존 자유 게이지를 8박 달리기+문제 HUD로 전환 | ⚪ 대기 |
 | 6 | `CHOREO-STAR-001` | [#181](https://github.com/Choyounhwa/-dream-guardian/issues/181) | CSV 패턴을 안전한 순차 별 타깃으로 변환 | ⚪ 대기 |

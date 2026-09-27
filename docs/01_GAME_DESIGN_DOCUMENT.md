@@ -369,7 +369,7 @@ index.html (2,801줄 - 메인 게임 엔진)
 
 ### 미구현 / 진행 대기 기능 (BEAT MOTION 8박 전환)
 - [x] **[BEAT-SPEC-001 / #176] BEAT MOTION 8박 라운드 규약 및 기존 입력 전환 계약 확정**
-- [ ] [BEAT-CORE-001 / #177] BPM 120 8박 단일 시간원 `RhythmEngine`
+- [x] [BEAT-CORE-001 / #177] BPM 120 8박 단일 시간원 `RhythmEngine`
 - [ ] [CENTER-RETURN-001 / #178] 중앙 복귀 게이트 및 개인 기준점 잠금
 - [ ] [ANSWER-ZONE-001 / #179] 상대 좌/우 정답존 및 0.5초 확정
 - [ ] [BEAT-RUN-001 / #180] 8박 달리기 및 문제 출제 연동
