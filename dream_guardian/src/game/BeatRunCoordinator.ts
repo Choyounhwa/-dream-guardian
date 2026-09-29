@@ -19,6 +19,8 @@ import { BattleState } from './BattleState.js';
 import { generateQuestion, type GeneratedQuestion } from '../question/QuestionEvaluator.js';
 import type { NormalizedLandmark } from '../types/index.js';
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
+import type { RoundAnswerStatus } from '../types/result.js';
+import type { Keynote } from '../types/keynote.js';
 
 export type BeatPhase =
   | 'RUN_QUESTION'
@@ -33,9 +35,10 @@ export interface BeatRunCoordinatorOptions {
   rhythmEngine?: RhythmEngine;
   centerReturnGate?: CenterReturnGate;
   answerZoneSelector?: AnswerZoneSelector;
+  keynotes?: readonly Keynote[];
   onQuestionGenerated?: (question: GeneratedQuestion) => void;
   onPhaseChange?: (phase: BeatPhase) => void;
-  onAnswerConfirmed?: (choiceIndex: number, correct: boolean) => void;
+  onAnswerConfirmed?: (choiceIndex: number, correct: boolean, status: RoundAnswerStatus) => void;
 }
 
 const EXERCISE_BEATS_PER_ROUND = 8;
@@ -47,7 +50,6 @@ export class BeatRunCoordinator {
   private readonly _centerReturnGate: CenterReturnGate;
   private readonly _answerZoneSelector: AnswerZoneSelector;
   private readonly _questionBank: QuestionBank;
-  private readonly _battle?: BattleState;
   private readonly _options: BeatRunCoordinatorOptions;
 
   private _phase: BeatPhase = 'RUN_QUESTION';
@@ -59,6 +61,7 @@ export class BeatRunCoordinator {
   private _performanceElapsed = 0;
   private _selectedChoiceIndex: number | null = null;
   private _roundResolveCount = 0;
+  private _keynotes: readonly Keynote[] = [];
 
   constructor(options?: BeatRunCoordinatorOptions) {
     this._options = options ?? {};
@@ -66,7 +69,7 @@ export class BeatRunCoordinator {
     this._centerReturnGate = options?.centerReturnGate ?? new CenterReturnGate();
     this._answerZoneSelector = options?.answerZoneSelector ?? new AnswerZoneSelector();
     this._questionBank = options?.questionBank ?? new QuestionBank();
-    this._battle = options?.battle;
+    this._keynotes = options?.keynotes ? [...options.keynotes] : [];
   }
 
   get phase(): BeatPhase {
@@ -108,6 +111,14 @@ export class BeatRunCoordinator {
 
   get answerZoneSelector(): AnswerZoneSelector {
     return this._answerZoneSelector;
+  }
+
+  get keynotes(): readonly Keynote[] {
+    return this._keynotes;
+  }
+
+  setKeynotes(keynotes: readonly Keynote[]): void {
+    this._keynotes = [...keynotes];
   }
 
   get totalSteps(): number {
@@ -282,15 +293,13 @@ export class BeatRunCoordinator {
 
     const choiceIndex = this._selectedChoiceIndex;
     const correct = choiceIndex !== null && choiceIndex === this._currentQuestion.correctIndex;
-    if (correct) {
-      this._battle?.onCorrect();
-    } else {
-      this._battle?.onWrong();
-    }
+    const status: RoundAnswerStatus = correct
+      ? 'correct'
+      : (choiceIndex === null ? 'timeout' : 'wrong');
 
     this._phase = 'ROUND_RESOLVE';
     this._roundResolveCount++;
-    this._options.onAnswerConfirmed?.(choiceIndex ?? -1, correct);
+    this._options.onAnswerConfirmed?.(choiceIndex ?? -1, correct, status);
     this._options.onPhaseChange?.(this._phase);
   }
 }

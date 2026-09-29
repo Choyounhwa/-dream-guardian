@@ -13,17 +13,26 @@ import { JointRenderer } from './skeleton/JointRenderer.js';
 import { SkeletonAnimation } from './skeleton/SkeletonAnimation.js';
 import { QuestionBank } from './question/QuestionBank.js';
 import { parseCSV } from './question/CSVLoader.js';
-import { parseFitnessPatternCSV } from './data/FitnessPatternLoader.js';
+import { parseFitnessPatternCSV, createKeynoteSequence } from './data/index.js';
 import type { GeneratedQuestion } from './question/QuestionEvaluator.js';
 import { QuestionSpeech } from './question/QuestionSpeech.js';
 import { BattleState } from './game/BattleState.js';
 import { BossController } from './game/BossController.js';
-import { GuardianSystem, BeatRunCoordinator } from './game/index.js';
+import { GuardianSystem, BeatRunCoordinator, BeatRoundResolver } from './game/index.js';
 import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
 import { ResultRenderer, calcStars } from './ui/ResultRenderer.js';
 import type { ResultData } from './ui/ResultRenderer.js';
-import { BossRenderer, DreamGrid, renderMath, AnswerSelectionRenderer, PartIconRenderer, MagicCircleRenderer, PostureGuideRenderer } from './render/index.js';
+import {
+  BossRenderer,
+  DreamGrid,
+  renderMath,
+  AnswerSelectionRenderer,
+  PartIconRenderer,
+  MagicCircleRenderer,
+  PostureGuideRenderer,
+  KneeFramingGuideRenderer,
+} from './render/index.js';
 import { EffectManager } from './effects/index.js';
 import {
   RunDetector,
@@ -31,17 +40,25 @@ import {
   HipSwayDetector,
   ArmCrossDetector,
   XGestureDetector,
+  KneeFramingValidator,
+  FootKeynoteDetector,
   type ILocomotionDetector,
   type LocomotionMode,
+  type KneeFramingResult,
 } from './motion/index.js';
-import { AnswerSelector } from './input/AnswerSelector.js';
-import { AnswerZoneSelector } from './input/AnswerZoneSelector.js';
+import {
+  AnswerSelector,
+  AnswerZoneSelector,
+  FootKeynoteInput,
+  StarCollectionInput,
+} from './input/index.js';
 import { toNormalizedLandmarks } from './utils/index.js';
 import { MenuInput } from './input/MenuInput.js';
 import { SFXSynth } from './audio/SFXSynth.js';
 import { TutorialOverlay } from './ui/TutorialOverlay.js';
 import { BottomBar, SettingsModal, LocomotionModal, PauseModal, LOCOMOTION_MODES, type BottomBarSlot } from './ui/index.js';
 import { getAnswerButtonLayouts } from '../config/zone.config.js';
+import type { RoundAnswerStatus, RoundResolveResult } from './types/result.js';
 
 if (typeof document === 'undefined') {
   throw new Error('브라우저 환경에서만 실행 가능합니다.');
@@ -125,6 +142,41 @@ const settingsModal = new SettingsModal();
 const locomotionModal = new LocomotionModal();
 const pauseModal = new PauseModal();
 const xGestureDetector = new XGestureDetector();
+
+// ─── BEAT MOTION / 키노트 / 프레이밍 시스템 (Issue #206) ───
+const beatRoundResolver = new BeatRoundResolver({
+  battle,
+  boss,
+  guardian,
+  onSpellCast: () => {
+    bossRenderer.triggerHit();
+    effectManager.playPreset('cast', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.24);
+    castingFlash = 0.6;
+    console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);
+  },
+  onBossDefeated: () => {
+    const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
+    starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
+    setTimeout(() => showResult(true), 600);
+  },
+  onPlayerDefeated: () => {
+    setTimeout(() => showResult(false), 600);
+  },
+});
+
+const kneeFramingValidator = new KneeFramingValidator();
+const kneeFramingGuideRenderer = new KneeFramingGuideRenderer();
+let currentKneeFraming: KneeFramingResult = kneeFramingValidator.update(0, null, canvasManager.virtualWidth, canvasManager.virtualHeight);
+
+const footKeynoteDetector = new FootKeynoteDetector({ isMirrored: false });
+const footKeynoteInput = new FootKeynoteInput();
+const starCollectionInput = new StarCollectionInput();
+starCollectionInput.setViewport(
+  canvasManager.virtualWidth,
+  canvasManager.virtualHeight,
+  (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
+);
+
 const beatCoordinator = new BeatRunCoordinator({
   questionBank,
   battle,
@@ -143,8 +195,9 @@ const beatCoordinator = new BeatRunCoordinator({
       }
     }
   },
-  onAnswerConfirmed: (idx) => {
-    handleAnswer(idx, true);
+  onAnswerConfirmed: (idx, _correct, status) => {
+    const resolveResult = beatRoundResolver.resolveRound(status);
+    handleAnswer(idx, status, resolveResult);
   },
 });
 let settingsHoverTimer = 0;
@@ -243,7 +296,9 @@ async function loadFitnessPatterns(): Promise<void> {
       const text = await resp.text();
       const records = parseFitnessPatternCSV(text);
       answerSelector.recipeGenerator.postureGenerator.setPatterns(records);
-      console.log(`[DG] ${records.length}개 피트니스 패턴 로드 완료`);
+      const keynotes = createKeynoteSequence(records, 7);
+      beatCoordinator.setKeynotes(keynotes);
+      console.log(`[DG] ${records.length}개 피트니스 패턴 로드 완료 및 ${keynotes.length}개 2~8박 키노트 생성 완료`);
     }
   } catch (err) {
     console.warn('[DG] 피트니스 패턴 로드 실패:', err);
@@ -279,6 +334,7 @@ function startChapter(ch: number, subLevel?: number): void {
   battle.reset();
   boss.reset(ch);
   guardian.reset();
+  beatRoundResolver.reset();
   hudLayer.reset();
   questionBank.setLevel(ch, subLevel);
   feedbackTimer = 0;
@@ -300,18 +356,18 @@ function startChapter(ch: number, subLevel?: number): void {
   startRunningPhase();
 }
 
-function handleAnswer(idx: number, resourcesAlreadySettled = false): void {
+function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: RoundResolveResult): void {
   sfx.stopDwellCharge();
   if (screenMode !== 'game') return;
   if (!currentQuestion || !questionVisible || answerLocked) return;
 
   answerLocked = true; // 연속 입력 방지
-  const correct = idx === currentQuestion.correctIndex;
+  const correct = status === 'correct';
   feedbackCorrect = correct;
   feedbackTimer = 0.8;
   questionVisible = false;
 
-  console.log(`[DG] 답: ${idx} (${correct ? '정답' : '오답'})`);
+  console.log(`[DG] 답: ${idx} (${correct ? '정답' : '오답'}) [${status}]`);
 
   const w = canvas.width;
   const h = canvas.height;
@@ -326,53 +382,38 @@ function handleAnswer(idx: number, resourcesAlreadySettled = false): void {
   if (correct) {
     sfx.play('correct');
     effectManager.playPreset('correct', bx, by);
-    if (!resourcesAlreadySettled) battle.onCorrect();
-
-    // Issue #146: 매 정답마다 기본 데미지(correctDamage: 1) 즉시 타격 및 피격 연출
-    const baseDamage = DEFAULT_CONFIG.battle.correctDamage;
-    boss.takeDamage(baseDamage);
     bossRenderer.triggerHit();
     console.log(`[DG] 정답 타격! 보스 HP: ${boss.hp}/${boss.maxHp}`);
 
-    if (boss.isDefeated) {
+    if (resolveResult.spellCast) {
+      effectManager.playPreset('cast', w * 0.5, h * 0.24);
+      castingFlash = 0.6;
+      console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);
+    }
+
+    if (resolveResult.bossDefeated) {
       const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
       starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
       setTimeout(() => showResult(true), 600);
       return;
     }
-
-    if (battle.trySpendMana()) {
-      const dmg = guardian.cast();
-      boss.takeDamage(dmg);
-      bossRenderer.triggerHit();
-      effectManager.playPreset('cast', w * 0.5, h * 0.24);
-      castingFlash = 0.6;
-      console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);
-
-      if (boss.isDefeated) {
-        const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
-        starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
-        setTimeout(() => showResult(true), 600);
-        return;
-      }
-    }
   } else {
     sfx.play('wrong');
     effectManager.playPreset('wrong', bx, by);
-    // Issue #147: 기습 타이머 제거 및 보스 공격을 오답 시 반격(-25 HP)으로 일원화
-    boss.triggerAttack();
     bossRenderer.triggerAttack();
     effectManager.playPreset('wrong', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.5);
-    if (!resourcesAlreadySettled) battle.onWrong();
     console.log(`[DG] 오답 보스 반격! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
 
-    if (!battle.isAlive) {
+    if (resolveResult.playerDefeated) {
       setTimeout(() => showResult(false), 600);
       return;
     }
   }
 
-  setTimeout(() => startRunningPhase(), 800);
+  setTimeout(() => {
+    beatRoundResolver.startNewRound(battle.totalQuestions + 1);
+    startRunningPhase();
+  }, 800);
 }
 
 function showResult(victory: boolean): void {
@@ -392,6 +433,7 @@ function showResult(victory: boolean): void {
     elapsedTime: 60,
     dwellTime: totalDwellTime,
     locomotionMode: locomotionModal.selectedMode,
+    rhythmStats: { ...beatRoundResolver.rhythmStats },
   };
 }
 
@@ -943,6 +985,31 @@ const engine = new GameEngine({
         ? skeletonAnimation.smoothedLandmarks
         : poseManager.virtualLandmarks;
 
+    // 무릎 프레이밍 및 가이드 업데이트 (Issue #198, #199, #206)
+    currentKneeFraming = kneeFramingValidator.update(
+      dt,
+      sourceLandmarks,
+      canvasManager.virtualWidth,
+      canvasManager.virtualHeight,
+    );
+    kneeFramingGuideRenderer.update(dt);
+
+    // 발 키노트 감지 (Issue #197, #206: degraded 프레이밍 시 Pose 입력 차단, 합장/정지 시 안전 가드)
+    const isSafetyGuarded = menuInput.isActive || pauseModal.isOpen;
+    footKeynoteInput.setSafetyGuarded(isSafetyGuarded);
+    const footEvents = footKeynoteDetector.update(
+      dt,
+      sourceLandmarks,
+      engine.elapsedTime,
+      {
+        isSafetyGuarded,
+        isPoseInputAllowed: currentKneeFraming.isFootKeynotePoseInputAllowed,
+      },
+    );
+    if (footEvents.length > 0) {
+      console.log(`[DG] 발 키노트 감지: ${footEvents.map(e => e.zoneId).join(', ')}`);
+    }
+
     // Issue #205: 가상 픽셀 좌표(0~1080 / 0~2160)를 정규화 좌표계(0~1)로 비파괴 변환하여 전달
     // CenterReturnGate와 AnswerZoneSelector가 정합성 있게 동작하도록 보장
     const normalizedLandmarks =
@@ -1153,6 +1220,11 @@ const engine = new GameEngine({
     // 7.6 Issue #172: 일시정지 모달 렌더링
     if (pauseModal.isOpen) {
       pauseModal.render(ctx, vw, vh);
+    }
+
+    // 7.7 Issue #199 & #206: 무릎 프레이밍 가이드 렌더링
+    if (screenMode === 'game') {
+      kneeFramingGuideRenderer.render(ctx, vw, vh, currentKneeFraming);
     }
 
     // 7.8 Issue #159 & #160: 목표 자세 실루엣 가이드 오버레이 및 첫 문제 유도 화살표
@@ -1498,6 +1570,15 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (screenMode === 'game') {
+    // 발 키노트 키보드 fallback (Z: 왼발 9, X: 중앙발 10, V: 오른발 11)
+    if (e.key === 'z' || e.key === 'Z') {
+      footKeynoteInput.fromKeyboard('leftFoot', engine.elapsedTime);
+    } else if (e.key === 'x' || e.key === 'X') {
+      footKeynoteInput.fromKeyboard('centerFoot', engine.elapsedTime);
+    } else if (e.key === 'v' || e.key === 'V') {
+      footKeynoteInput.fromKeyboard('rightFoot', engine.elapsedTime);
+    }
+
     if (questionVisible && !answerLocked && beatCoordinator.isAnswerOpen) {
       if (e.key === '1') {
         sfx.play('hover');

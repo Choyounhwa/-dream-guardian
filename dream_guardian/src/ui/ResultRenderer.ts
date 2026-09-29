@@ -11,6 +11,7 @@
 
 import { CALORIE_RATES, LOCOMOTION_CALORIE_RATES } from '../../config/posture.config.js';
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
+import type { BeatRhythmStats } from '../types/result.js';
 
 export interface ResultData {
   victory: boolean;
@@ -26,6 +27,8 @@ export interface ResultData {
   dwellTime?: number;
   /** 선택된 운동 모드 (Issue #155 / FEAT-GAME-002) */
   locomotionMode?: LocomotionMode;
+  /** BEAT MOTION 리듬 통계 (Issue #206 / #184) */
+  rhythmStats?: BeatRhythmStats;
 }
 
 export interface ResultPanelLayout {
@@ -189,13 +192,19 @@ export class ResultRenderer {
       `⚡ 소모 칼로리: ${calories.toFixed(1)} kcal`,
     ];
 
+    if (data.rhythmStats) {
+      lines.push(
+        `⭐ 리듬 별: ${data.rhythmStats.beatStarsCollected}개 (타임아웃 ${data.rhythmStats.timeoutCount}회)`,
+      );
+    }
+
     for (let i = 0; i < lines.length; i++) {
       const ly = statStartY + i * lineH;
       // 은은한 구분선 배경 바
       ctx.fillStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.015)';
       ctx.fillRect(panel.x + 40 * scaleX, ly - lineH / 2 + 6 * scaleY, panel.w - 80 * scaleX, lineH - 12 * scaleY);
 
-      ctx.fillStyle = i === 7 ? '#FFCB4D' : '#EAEAEA';
+      ctx.fillStyle = i >= 7 ? '#FFCB4D' : '#EAEAEA';
       ctx.fillText(lines[i], w / 2, ly);
     }
 

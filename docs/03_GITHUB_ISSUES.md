@@ -3850,6 +3850,38 @@ BEAT-SPEC-001
   - [x] 레거시 `AnswerSelector` 경로의 기존 동작 보존
   - [x] `npm run build` 및 전체 `npm test` 100% 통과 (48개 파일, 660/660 Pass)
 
+---
+
+### Issue #206: [INTEGRATE-BEAT-001] 완료(CLOSED) 처리된 BEAT/Keynote/Knee 모듈 6종의 main.ts 통합 및 전투 정산 단일화
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/206
+- **Labels**: `refactor`, `P0-blocker`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[INTEGRATE-BEAT-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: 완료(CLOSED) 처리된 BEAT/Keynote/Knee 모듈 6종의 main.ts 통합 및 전투 정산 단일화
+- **목적**:
+  - Issue #182, #184, #196, #197, #198, #199 미통합 모듈을 `main.ts` 게임 루프에 통합하고, 분열된 전투 정산을 `BeatRoundResolver` 단일 정산으로 일원화.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/main.ts`: `BeatRoundResolver`, `KneeFramingValidator`, `KneeFramingGuideRenderer`, `FootKeynoteDetector`, `FootKeynoteInput`, `StarCollectionInput` 통합 연결. `handleAnswer()` 자원 변경 코드 제거 및 연출 전담화.
+  - `dream_guardian/src/game/BeatRunCoordinator.ts`: `_resolveRound` 내 `battle` 직접 수정 제거, `status` ('correct' | 'wrong' | 'timeout') 콜백 전달, 키노트 시퀀스 보관/공급.
+  - `dream_guardian/src/data/index.ts`: `KeynoteCandidateDeriver` 배럴 export.
+  - `dream_guardian/src/ui/ResultRenderer.ts`: `ResultData`에 `rhythmStats` 필드 추가 및 리듬 통계 리포트 반영.
+  - `dream_guardian/tests/integration/beat-motion-integration.test.ts`: 신규 통합 테스트 7건.
+  - `dream_guardian/tests/integration/beat-run-gameplay.test.ts`, `dream_guardian/tests/unit/beat-routine-controller.test.ts`: 새 정산 계약 동기화.
+- **완료 조건 검증**:
+  - [x] `BeatRoundResolver`가 `main.ts`에 연결되고, 라운드당 `resolveRound()`가 정확히 1회만 호출됨
+  - [x] `BeatRunCoordinator._resolveRound()`에서 `battle.onCorrect/onWrong` 직접 호출 제거
+  - [x] `handleAnswer()`에서 전투 자원 변경 코드 제거 및 연출 책임만 남음
+  - [x] `resourcesAlreadySettled` 플래그 및 데드코드 분기 제거
+  - [x] 정답 1회당 마나 +25, 보스 HP -1이 정확히 1회만 반영됨(중복 정산 0건)
+  - [x] 미응답 라운드가 `timeout`으로 분류되어 `wrongAnswerCount`와 분리 집계됨
+  - [x] `KneeFramingValidator` 상태가 `degraded`일 때 Pose 기반 foot-keynote 입력 차단
+  - [x] `KneeFramingGuideRenderer`가 프레이밍 상태별 오버레이 렌더링
+  - [x] Zone 9/10/11 발 키노트 이벤트가 Pose/키보드/가상 페달 경로에서 동일 계약으로 발행됨
+  - [x] `KeynoteCandidateDeriver`가 360건 패턴에서 2~8박 후보 파생하여 코디네이터에 공급
+  - [x] 리듬 통계(`timeoutCount`, 별 판정)가 결과 화면에 표출됨
+  - [x] `npm run build` 및 전체 `npm test` 100% 통과 (49개 파일, 667/667 Pass)
+
 
 
 

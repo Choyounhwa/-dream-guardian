@@ -238,7 +238,10 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       coordinator = new BeatRunCoordinator({
         questionBank,
         battle,
-        onAnswerConfirmed: confirmedSpy,
+        onAnswerConfirmed: (choiceIdx, correct, status) => {
+          confirmedSpy(choiceIdx, correct, status);
+          if (correct) battle.onCorrect(); else battle.onWrong();
+        },
         onPhaseChange: phaseSpy,
       });
       coordinator.startRound({ chapter: 1 });
@@ -265,7 +268,7 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       expect(coordinator.phase).toBe('ROUND_RESOLVE');
       expect(coordinator.roundResolveCount).toBe(1);
       expect(confirmedSpy).toHaveBeenCalledTimes(1);
-      expect(confirmedSpy).toHaveBeenCalledWith(correctIndex, true);
+      expect(confirmedSpy).toHaveBeenCalledWith(correctIndex, true, 'correct');
       expect(battle.mana).toBe(25);
     });
 
@@ -274,7 +277,10 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       coordinator = new BeatRunCoordinator({
         questionBank,
         battle,
-        onAnswerConfirmed: confirmedSpy,
+        onAnswerConfirmed: (choiceIdx, correct, status) => {
+          confirmedSpy(choiceIdx, correct, status);
+          if (correct) battle.onCorrect(); else battle.onWrong();
+        },
       });
       coordinator.startRound({ chapter: 1 });
 
@@ -288,7 +294,7 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       expect(coordinator.phase).toBe('ROUND_RESOLVE');
       expect(coordinator.roundResolveCount).toBe(1);
       expect(confirmedSpy).toHaveBeenCalledTimes(1);
-      expect(confirmedSpy).toHaveBeenCalledWith(-1, false);
+      expect(confirmedSpy).toHaveBeenCalledWith(-1, false, 'timeout');
       expect(battle.hp).toBe(75);
     });
   });

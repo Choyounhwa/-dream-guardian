@@ -63,6 +63,17 @@
 
 ---
 
+## 🔵 2026-09-29 완료: [INTEGRATE-BEAT-001 / #206] BEAT/Keynote/Knee 6종 모듈 main.ts 통합 및 전투 정산 단일화 🟢 (전체 667/667 Pass)
+
+> Issue #182, #184, #196, #197, #198, #199 미통합 6개 모듈을 `main.ts` 프로덕션 게임 루프에 통합하고 전투 정산을 `BeatRoundResolver`로 일원화했습니다.
+> - **전투 정산 단일화**: `BeatRunCoordinator._resolveRound()`의 `battle` 직접 수정을 제거하고, `BeatRoundResolver.resolveRound(status)`를 통해서만 자원(HP/마나/보스 피해/스펠)을 단 1회 갱신. `handleAnswer()`는 연출만 전담.
+> - **Knee Framing & 가이드**: `KneeFramingValidator` 및 `KneeFramingGuideRenderer`를 `main.ts` 루프에 연결, `degraded` 상태 시 Pose 기반 foot-keynote 차단.
+> - **Foot Keynote**: `FootKeynoteDetector` 및 `FootKeynoteInput` 연결 (Z, X, V 키보드 fallback 포함).
+> - **Keynote 시퀀스 공급**: 360건 피트니스 패턴에서 2~8박 키노트 시퀀스를 파생하여 코디네이터에 공급.
+> - **리듬 통계 연동**: 별/타임아웃 리듬 통계를 `ResultData` 및 결과 화면에 표출.
+
+---
+
 ## 🔵 2026-09-29 완료: [BUG-BEAT-003 / #205] 중앙 복귀 게이트/정답존 좌표계 불일치(픽셀 vs 정규화) 해소 🟢 (전체 660/660 Pass)
 
 > `main.ts`가 `BeatRunCoordinator.update()`에 가상 픽셀 좌표(1080x2160)를 전달하여 `CenterReturnGate`와 `AnswerZoneSelector`의 정규화 좌표(0~1) 전제 임계값과 충돌하던 결함을 해결했습니다. `toNormalizedLandmarks` 순수 변환 헬퍼를 추가하여 코디네이터에 정규화 좌표를 전달하고, `AnswerZoneSelector` 생성자 주입(`isMirrored: false`)을 통해 화면 좌/우 방향성 일치를 확보했습니다.
