@@ -3866,7 +3866,7 @@ BEAT-SPEC-001
   - `dream_guardian/src/game/BeatRunCoordinator.ts`: `_resolveRound` 내 `battle` 직접 수정 제거, `status` ('correct' | 'wrong' | 'timeout') 콜백 전달, 키노트 시퀀스 보관/공급.
   - `dream_guardian/src/data/index.ts`: `KeynoteCandidateDeriver` 배럴 export.
   - `dream_guardian/src/ui/ResultRenderer.ts`: `ResultData`에 `rhythmStats` 필드 추가 및 리듬 통계 리포트 반영.
-  - `dream_guardian/tests/integration/beat-motion-integration.test.ts`: 신규 통합 테스트 7건.
+  - `dream_guardian/tests/integration/beat-motion-integration.test.ts`: 신규 통합 테스트 9건.
   - `dream_guardian/tests/integration/beat-run-gameplay.test.ts`, `dream_guardian/tests/unit/beat-routine-controller.test.ts`: 새 정산 계약 동기화.
 - **완료 조건 검증**:
   - [x] `BeatRoundResolver`가 `main.ts`에 연결되고, 라운드당 `resolveRound()`가 정확히 1회만 호출됨
@@ -3880,7 +3880,7 @@ BEAT-SPEC-001
   - [x] Zone 9/10/11 발 키노트 이벤트가 Pose/키보드/가상 페달 경로에서 동일 계약으로 발행됨
   - [x] `KeynoteCandidateDeriver`가 360건 패턴에서 2~8박 후보 파생하여 코디네이터에 공급
   - [x] 리듬 통계(`timeoutCount`, 별 판정)가 결과 화면에 표출됨
-  - [x] `npm run build` 및 전체 `npm test` 100% 통과 (49개 파일, 667/667 Pass)
+  - [x] `npm run build` 및 전체 `npm test` 100% 통과 (49개 파일, 669/669 Pass)
 
 
 

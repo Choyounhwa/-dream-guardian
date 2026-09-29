@@ -63,13 +63,13 @@
 
 ---
 
-## 🔵 2026-09-29 완료: [INTEGRATE-BEAT-001 / #206] BEAT/Keynote/Knee 6종 모듈 main.ts 통합 및 전투 정산 단일화 🟢 (전체 667/667 Pass)
+## 🔵 2026-09-29 완료: [INTEGRATE-BEAT-001 / #206] BEAT/Keynote/Knee 6종 모듈 main.ts 통합 및 전투 정산 단일화 🟢 (전체 669/669 Pass)
 
-> Issue #182, #184, #196, #197, #198, #199 미통합 6개 모듈을 `main.ts` 프로덕션 게임 루프에 통합하고 전투 정산을 `BeatRoundResolver`로 일원화했습니다.
+> Issue #182, #184, #196, #197, #198, #199 미통합 6개 모듈을 `main.ts` 프로덕션 게임 루프에 통합하고 전투 정산을 `BeatRoundResolver`로 일원화했습니다. (Issue #206 CLOSED)
 > - **전투 정산 단일화**: `BeatRunCoordinator._resolveRound()`의 `battle` 직접 수정을 제거하고, `BeatRoundResolver.resolveRound(status)`를 통해서만 자원(HP/마나/보스 피해/스펠)을 단 1회 갱신. `handleAnswer()`는 연출만 전담.
 > - **Knee Framing & 가이드**: `KneeFramingValidator` 및 `KneeFramingGuideRenderer`를 `main.ts` 루프에 연결, `degraded` 상태 시 Pose 기반 foot-keynote 차단.
-> - **Foot Keynote**: `FootKeynoteDetector` 및 `FootKeynoteInput` 연결 (Z, X, V 키보드 fallback 포함).
-> - **Keynote 시퀀스 공급**: 360건 피트니스 패턴에서 2~8박 키노트 시퀀스를 파생하여 코디네이터에 공급.
+> - **Foot Keynote & 가상 페달**: `FootKeynoteDetector` 및 `FootKeynoteInput` 연결 (Z, X, V 키보드 및 Zone 9~11 가상 페달 터치/클릭 fallback 포함).
+> - **Keynote 시퀀스 공급 및 2~8박 StarCollectionInput**: 360건 피트니스 패턴에서 2~8박 키노트 시퀀스를 파생하여 코디네이터에 공급하고, `KEYNOTE_PERFORMANCE` 2~8박에서 `StarCollectionInput`을 통한 별 판정을 `BeatRoundResolver.recordStarRating()`으로 실시간 집계 (`hasBattlePenalty: false` 불간섭 보장).
 > - **리듬 통계 연동**: 별/타임아웃 리듬 통계를 `ResultData` 및 결과 화면에 표출.
 
 ---
