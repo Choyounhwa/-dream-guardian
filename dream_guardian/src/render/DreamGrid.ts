@@ -9,14 +9,31 @@
  * - 바닥 및 천장 원근 와이어프레임과 중앙 심도 암흑 공간 연출
  */
 
+import { DEFAULT_FITNESS_ZONES, FitnessZone } from '../../config/zone.config.js';
+import {
+  Z_NEAR,
+  DELTA_Z,
+  LINE_COUNT_Z,
+  FADE_DEPTH,
+  HORIZON_RATIO,
+  FOG_START,
+  FOG_RANGE,
+  CEILING_DELTA_Z,
+  CEILING_LINE_COUNT_Z,
+} from '../../config/grid.config.js';
+import { projectDepthY, depthRatioFromY } from './GridProjection.js';
+
 export interface DreamGridConfig {
   vanishingX?: number; // 기본값: w * 0.5
-  vanishingY?: number; // 기본값: h * 0.24 (보스 위치)
+  vanishingY?: number; // 기본값: h * HORIZON_RATIO (0.24, 보스 위치)
   color?: string;
   speed?: number;
   cellAspect?: number;
   hasCeiling?: boolean;
   alpha?: number;
+  renderZoneConnections?: boolean; // 피트니스 존 연결선 렌더링 여부 (기본값: true)
+  zoneConnectionAlpha?: number; // 연결선 투명도 (기본값: 0.18)
+  zones?: readonly FitnessZone[]; // 대상 피트니스 존 목록 (기본값: DEFAULT_FITNESS_ZONES)
 }
 
 function toRgba(color: string, alpha: number): string {
@@ -88,7 +105,7 @@ export class DreamGrid {
    */
   render(ctx: CanvasRenderingContext2D, w: number, h: number, config?: DreamGridConfig): void {
     const vx = config?.vanishingX ?? w * 0.5;
-    const vy = config?.vanishingY ?? h * 0.24;
+    const vy = config?.vanishingY ?? h * HORIZON_RATIO;
     const color = config?.color ?? this._color;
     const baseAlpha = config?.alpha ?? this._alpha;
     const hasCeiling = config?.hasCeiling ?? this._hasCeiling;
@@ -109,6 +126,14 @@ export class DreamGrid {
 
     // 2. 바닥 원근 그리드 렌더링 (자연스러운 심도 페이드아웃 적용)
     this._renderFloorGrid(ctx, w, h, vx, vy, color, baseAlpha);
+
+    // 2.5 피트니스 존 연한 연결선 렌더링 (Issue #188: RENDER-TRACK-001)
+    const renderZoneConnections = config?.renderZoneConnections ?? true;
+    if (renderZoneConnections) {
+      const zoneAlpha = config?.zoneConnectionAlpha ?? 0.18;
+      const targetZones = config?.zones ?? DEFAULT_FITNESS_ZONES;
+      this._renderZoneConnections(ctx, w, h, vx, vy, color, zoneAlpha, targetZones);
+    }
 
     // 3. 천장 원근 그리드 렌더링 (옵션)
     if (hasCeiling) {
@@ -135,33 +160,29 @@ export class DreamGrid {
     const floorH = h - vy;
     if (floorH <= 0) return;
 
-    const zNear = 1.0;
-    const deltaZ = 0.18;
-    const lineCountZ = 18;
-
     // 가로선 깊이 및 Y 좌표 계산
     const hLinesY: number[] = [];
-    for (let k = 0; k < lineCountZ; k++) {
-      const z = zNear + (k - this._offset) * deltaZ;
+    for (let k = 0; k < LINE_COUNT_Z; k++) {
+      const z = Z_NEAR + (k - this._offset) * DELTA_Z;
       if (z <= 0.1) continue;
-      const y = vy + (floorH * zNear) / z;
+      const y = projectDepthY(z, vy, floorH, Z_NEAR);
       if (y >= vy && y <= h + 10) {
         hLinesY.push(y);
       }
     }
 
     // 전경(화면 하단)에서의 정방형 셀 폭 계산
-    const stepXBottom = Math.max(32, floorH * (deltaZ / (zNear + deltaZ)) * 1.8);
+    const stepXBottom = Math.max(32, floorH * (DELTA_Z / (Z_NEAR + DELTA_Z)) * 1.8);
     const colCount = Math.ceil((w * 0.5) / stepXBottom) + 2;
 
     // ── 가로(Horizontal) 라인 드로잉 (심도 소프트 페이드) ──
     for (let i = 0; i < hLinesY.length; i++) {
       const y = hLinesY[i];
-      const depthRatio = (y - vy) / floorH; // 0 (소실점) ~ 1 (하단)
+      const depthRatio = depthRatioFromY(y, vy, floorH); // 0 (소실점) ~ 1 (하단)
 
-      // 소실점 부근 16% 영역은 완전히 안개에 묻히고, 16%~45% 구간에서 부드럽게 페이드인
-      if (depthRatio < 0.16) continue;
-      const fogFactor = Math.min(1, (depthRatio - 0.16) / 0.28);
+      // 소실점 부근 영역은 완전히 안개에 묻히고, FOG_START ~ (FOG_START + FOG_RANGE) 구간에서 부드럽게 페이드인
+      if (depthRatio < FOG_START) continue;
+      const fogFactor = Math.min(1, (depthRatio - FOG_START) / FOG_RANGE);
       const lineAlpha = baseAlpha * Math.pow(fogFactor, 1.25);
       if (lineAlpha < 0.005) continue;
 
@@ -189,13 +210,12 @@ export class DreamGrid {
     ctx.strokeStyle = vertGrad;
     ctx.globalAlpha = 1;
 
-    // 소실점 중심에서 14% 떨어진 지점부터 하단으로 뻗어나감 (날카로운 꼭짓점 형성 방지)
-    const fadeDepth = 0.14;
-    const yStart = vy + floorH * fadeDepth;
+    // 소실점 중심에서 FADE_DEPTH 떨어진 지점부터 하단으로 뻗어나감 (날카로운 꼭짓점 형성 방지)
+    const yStart = vy + floorH * FADE_DEPTH;
 
     for (let j = -colCount; j <= colCount; j++) {
       const xBottom = vx + j * stepXBottom;
-      const xStart = vx + (xBottom - vx) * fadeDepth;
+      const xStart = vx + (xBottom - vx) * FADE_DEPTH;
 
       ctx.lineWidth = j === 0 ? 2.8 : 1.5;
 
@@ -220,29 +240,26 @@ export class DreamGrid {
     const ceilH = vy;
     if (ceilH <= 0) return;
 
-    const zNear = 1.0;
-    const deltaZ = 0.22;
-    const lineCountZ = 12;
-
     const hLinesY: number[] = [];
-    for (let k = 0; k < lineCountZ; k++) {
-      const z = zNear + (k - this._offset) * deltaZ;
+    for (let k = 0; k < CEILING_LINE_COUNT_Z; k++) {
+      const z = Z_NEAR + (k - this._offset) * CEILING_DELTA_Z;
       if (z <= 0.1) continue;
-      const y = vy - (ceilH * zNear) / z;
+      // 천장은 vy 위쪽이므로 -ceilH를 높이로 투영
+      const y = projectDepthY(z, vy, -ceilH, Z_NEAR);
       if (y >= -10 && y <= vy) {
         hLinesY.push(y);
       }
     }
 
-    const stepXTop = Math.max(40, ceilH * (deltaZ / (zNear + deltaZ)) * 2.2);
+    const stepXTop = Math.max(40, ceilH * (CEILING_DELTA_Z / (Z_NEAR + CEILING_DELTA_Z)) * 2.2);
     const colCount = Math.ceil((w * 0.5) / stepXTop) + 1;
 
     for (let i = 0; i < hLinesY.length; i++) {
       const y = hLinesY[i];
       const depthRatio = (vy - y) / ceilH;
 
-      if (depthRatio < 0.16) continue;
-      const fogFactor = Math.min(1, (depthRatio - 0.16) / 0.28);
+      if (depthRatio < FOG_START) continue;
+      const fogFactor = Math.min(1, (depthRatio - FOG_START) / FOG_RANGE);
       const lineAlpha = baseAlpha * Math.pow(fogFactor, 1.25);
       if (lineAlpha < 0.005) continue;
 
@@ -268,18 +285,62 @@ export class DreamGrid {
     ctx.strokeStyle = ceilGrad;
     ctx.globalAlpha = 1;
 
-    const fadeDepth = 0.14;
-    const yStart = vy - ceilH * fadeDepth;
+    const yStart = vy - ceilH * FADE_DEPTH;
 
     for (let j = -colCount; j <= colCount; j++) {
       const xTop = vx + j * stepXTop;
-      const xStart = vx + (xTop - vx) * fadeDepth;
+      const xStart = vx + (xTop - vx) * FADE_DEPTH;
 
       ctx.lineWidth = 1.2;
 
       ctx.beginPath();
       ctx.moveTo(xStart, yStart);
       ctx.lineTo(xTop, 0);
+      ctx.stroke();
+    }
+  }
+
+  /**
+   * 피트니스 존 연한 연결선 렌더링 (Issue #188: RENDER-TRACK-001)
+   * - 소실점(vx, vy)에서 각 피트니스 존 중심(cx, cy)으로 이어지는 은은한 네온 가이드 선
+   * - 소실점 부근은 0에서 점진적으로 페이드인되는 선형 그라데이션 적용
+   */
+  private _renderZoneConnections(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    vx: number,
+    vy: number,
+    color: string,
+    zoneAlpha: number,
+    zones: readonly FitnessZone[],
+  ): void {
+    if (zones.length === 0 || zoneAlpha <= 0) return;
+
+    for (let i = 0; i < zones.length; i++) {
+      const zone = zones[i];
+      const cx = (zone.x + zone.width * 0.5) * w;
+      const cy = (zone.y + zone.height * 0.5) * h;
+
+      // 1. 소실점 -> 피트니스 존 중심 원근 연결선
+      const grad = ctx.createLinearGradient(vx, vy, cx, cy);
+      grad.addColorStop(0, toRgba(color, 0));
+      grad.addColorStop(0.25, toRgba(color, zoneAlpha * 0.35));
+      grad.addColorStop(0.75, toRgba(color, zoneAlpha * 0.85));
+      grad.addColorStop(1, toRgba(color, zoneAlpha));
+
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(vx, vy);
+      ctx.lineTo(cx, cy);
+      ctx.stroke();
+
+      // 2. 피트니스 존 중심 앵커 링 (은은한 3px 원형 마커)
+      ctx.strokeStyle = toRgba(color, zoneAlpha * 0.9);
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 3, 0, Math.PI * 2);
       ctx.stroke();
     }
   }

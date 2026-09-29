@@ -3430,24 +3430,43 @@ BEAT-SPEC-001
 
 ---
 
-### Issue #192: [RENDER-KEYNOTE-001] Zone 1~5 및 Zone 9~11 비트매니아식 키노트 비주얼 렌더링 및 판정 연출
+### Issue #192: [RENDER-KEYNOTE-001] 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/192
-- **Labels**: `feature`, `P1-high`, `phase-6`
+- **Labels**: `feature`, `phase-7`, `P1-high`
 - **Milestone**: `v0.5-beat-motion`
 - **작업 ID**: `[RENDER-KEYNOTE-001]`
 - **상태**: ⚪ **대기 (승인 대기)**
-- **제목**: Zone 1~5 및 Zone 9~11 비트매니아식 키노트 비주얼 렌더링 및 판정 연출
+- **제목**: 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링
 - **목적**:
-  - 정답 위치에서 시작하여 8박 동안 Zone 1~5(손/기타)와 Zone 9~11(발/드럼)에 차례로 출현하는 비트매니아식 비트 링/노트 및 실시간 판정(PERFECT/GREAT/MISS)을 시각화한다.
+  - `KEYNOTE_PERFORMANCE` 및 `STAR_COLLECT` 페이즈에서, 그리드의 11개 피트니스 존 연결선(Zone Connection Lines)을 레일 삼아 소실점(보스 위치)에서 목표 피트니스 존 중심(1~11번 존)으로 날아오는 **별가루 악기 노트(`StarNoteRenderer`)**를 렌더링한다.
+  - 유저가 목표 타이밍(노트가 존 중심에 안착하는 순간)을 직관적으로 보고 리듬에 맞춰 자세를 취할 수 있도록 시각 가이드를 제공한다.
 - **수정 및 생성 대상**:
-  - `dream_guardian/src/render/KeynoteRenderer.ts` (신규)
-  - `dream_guardian/src/main.ts`
-  - `dream_guardian/tests/unit/keynote-renderer.test.ts`
+  - `dream_guardian/src/render/StarNoteRenderer.ts` (신규)
+  - `dream_guardian/src/render/index.ts` (배럴 export 추가)
+  - `dream_guardian/src/main.ts` (게임 렌더 루프 내 `starNoteRenderer.render()` 호출 연동)
+  - `dream_guardian/tests/unit/star-note-renderer.test.ts` (신규 Vitest TDD 슈트)
 - **구현 내용**:
-  1. 정답 위치 1박째 인트로 노트 연출: 2박 쉼 후 1박째 정답 존에 황금색 대형 포커스 링 점등.
-  2. 2~8박 키노트 순차 시각화:
-     - Zone 1~5 (상단 기타 레인): 네온 블루/퍼플 수축 타이밍 링
-     - Zone 9~11 (하단 드럼 레인): 네온 오렌지/골드 바닥 타격 펄스
+  1. **별가루 악기 노트 렌더러 (`src/render/StarNoteRenderer.ts`)**:
+     - `StarCollectionInput.currentTarget` 정보(`zoneId`, `part`, `beatIndex`, `landingTime`) 및 현재 시간(`elapsedTime`) 수신.
+     - 비행 진행도 $t = 1.0 - (\text{landingTime} - \text{elapsedTime}) / \text{travelDuration}$ (비행 시간: 0.5s = 1박) 산출.
+     - `GridProjection.projectAlongRail(vx, vy, zoneCenterX, zoneCenterY, t)`를 통해 실시간 노트 좌표 $(nx, ny)$ 및 원근 크기 배율(`scale: 0.3 → 1.2`) 계산.
+     - **시각 표현**:
+       - 4색 신체 부위별 테두리 및 글로우 (왼손: `#28E6FF`, 오른손: `#FFCB4D`, 머리: `#C889FF`, 골반: `#FF865E`).
+       - 중앙에 별/음표(★ 또는 ♪) 아이콘 렌더링.
+       - 지나간 궤적 뒤로 잔상 별가루 트레일(Stardust Trail) 파티클 점등.
+       - 안착 직전(±0.12s Perfect 판정 윈도우)에 목표 존 테두리 펄스 링 발생.
+  2. **`main.ts` 연동**:
+     - `STAR_COLLECT` 페이즈 및 `KEYNOTE_PERFORMANCE` 페이즈에서 `starNoteRenderer.render(ctx, vw, vh, ...)` 호출 (그리드 직후, 보스 이전 레이어).
+- **유지 사항**:
+  - `StarCollectionInput`의 판정 로직(Perfect/Good/Late/Miss 판정 윈도우) 유지.
+  - 기존 수집 성공 시 `effectManager.playBurst` 연출 보존.
+- **변경 금지**:
+  - `StarSequenceGenerator`, `KeynoteCandidateDeriver` 등 키노트 생성 로직.
+- **완료 조건**:
+  - [ ] `tests/unit/star-note-renderer.test.ts` 단위 테스트 100% 통과 (Red → Green).
+  - [ ] `elapsedTime == landingTime`일 때 노트 중심이 목표 존 중심과 오차 1px 이내로 일치함 검증.
+  - [ ] 타겟이 없거나 비행 시간 이전/이후일 때 불필요한 드로잉 0건.
+  - [ ] `npm run build` 및 전체 `npm test` 100% Pass.
 ---
 
 ### Issue #188: [RENDER-TRACK-001] 3D 드림 그리드 - 11개 피트니스 존 원근 연한 연결선(Zone Connection Lines) 렌더링
@@ -4040,6 +4059,86 @@ BEAT-SPEC-001
   - [x] `CenterReturnGate`와 답안 선택기 간 `setReference` 결합 제거 (`CenterReturnGate`의 스테이지 프레이밍 기능 보존).
   - [x] 골반 이동 체류 게이지 및 체류 충전음 잔재 정리.
   - [x] `npm run build` 및 전체 `npm test` 100% 통과 (51개 파일, 693개 통과).
+
+---
+
+### Issue #227: [RENDER-PROJ-001] 3D 원근 투영 및 레일 궤적 공용 모듈(GridProjection) 추출
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/227
+- **Labels**: `refactor`, `phase-7`, `P1-high`
+- **Milestone**: `v0.6-visuals-content`
+- **작업 ID**: `[RENDER-PROJ-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: 3D 원근 투영 및 레일 궤적 공용 모듈(GridProjection) 추출
+- **목적**:
+  - `DreamGrid.ts`에 인라인으로 중복 구현되어 있던 원근 투영 계산식(`y = vy + (floorH * zNear) / z`)과 하드코딩된 매직넘버(`zNear=1.0`, `deltaZ=0.18`, `fadeDepth=0.14`, `horizonRatio=0.24`)를 독립 설정 파일(`config/grid.config.ts`)과 순수 함수 모듈(`src/render/GridProjection.ts`)로 분리 추출한다.
+  - 이후 진행될 보스 장판(`HazardZoneRenderer`) 및 별가루 악기 노트(`StarNoteRenderer`)가 드림 그리드 바닥/천장 및 11개 피트니스 존 연결선과 완벽히 동기화된 3D 좌표 및 궤적을 공유하도록 수학적 기반을 확립한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/config/grid.config.ts` (신규)
+  - `dream_guardian/src/render/GridProjection.ts` (신규)
+  - `dream_guardian/src/render/index.ts` (배럴 export 추가)
+  - `dream_guardian/src/render/DreamGrid.ts` (인라인 계산식을 GridProjection 함수 호출로 대체)
+  - `dream_guardian/src/main.ts` (보스 소실점 Y 좌표 `vh * 0.24`를 `grid.config`의 `HORIZON_RATIO` 상수로 일원화)
+  - `dream_guardian/tests/unit/grid-projection.test.ts` (신규 Vitest TDD 슈트)
+- **구현 내용**:
+  1. **그리드 설정 분리 (`config/grid.config.ts`)**:
+     - `Z_NEAR = 1.0`, `DELTA_Z = 0.18`, `LINE_COUNT_Z = 18`, `FADE_DEPTH = 0.14`, `HORIZON_RATIO = 0.24`, `FOG_START = 0.16`, `FOG_RANGE = 0.28`, `CEILING_DELTA_Z = 0.22`, `CEILING_LINE_COUNT_Z = 12`
+  2. **원근 투영 유틸리티 (`src/render/GridProjection.ts`)**:
+     - `projectDepthY(z, vy, floorH, zNear)`: 깊이 $z$를 화면 Y 좌표로 투영.
+     - `depthRatioFromY(y, vy, floorH)`: 화면 Y를 정규화 깊이 비율(0: 소실점 ~ 1: 전경 하단)로 역변환.
+     - `projectAlongRail(vx, vy, targetX, targetY, progress)`: 소실점 $(vx, vy)$에서 목표 지점 $(targetX, targetY)$까지 진행도 $progress(0 \sim 1)$에 원근 가속(곡선 $t^2$)을 적용한 현재 화면 좌표 및 크기 배율(`scale`) 산출.
+     - `laneToScreenX(vx, laneOffset, depthRatio)`: 깊이 비율에 따른 가로선 폭 및 X 오프셋 계산.
+  3. **`DreamGrid.ts` 리팩터링**:
+     - 기존 인라인 투영 계산을 `GridProjection` 함수 호출로 치환 (렌더링 결과 픽셀 및 동작 100% 동일 유지).
+- **유지 사항**:
+  - 기존 3D 드림 그리드의 시각적 출력(가로/세로선 간격, 안개 감쇠, 피트니스 존 연결선).
+  - 기존 `tests/unit/dream-grid.test.ts` 테스트 통과.
+- **변경 금지**:
+  - `GameEngine`, `StateMachine`, `BeatRunCoordinator` 등 게임 플레이 로직 파일.
+- **완료 조건**:
+  - [x] `tests/unit/grid-projection.test.ts` 단위 테스트 선작성 및 100% 통과 (Red → Green).
+  - [x] `DreamGrid.ts` 리팩터링 후 기존 `tests/unit/dream-grid.test.ts` 100% 통과.
+  - [x] `npm run build` 번들 및 타입 에러 0건.
+  - [x] 전체 `npm test` 회귀 결함 0건 (기존 708개 이상 All Pass, 724개 통과).
+
+
+---
+
+### Issue #228: [RENDER-HAZARD-001] 3D 원근 그리드 바닥 보스 장판(HazardZoneRenderer) 렌더링
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/228
+- **Labels**: `feature`, `phase-7`, `P1-high`
+- **Milestone**: `v0.6-visuals-content`
+- **작업 ID**: `[RENDER-HAZARD-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 3D 원근 그리드 바닥 보스 장판(HazardZoneRenderer) 렌더링
+- **목적**:
+  - 현재 `main.ts`에 화면 중앙 고정 평면 타원으로만 단순 표시되던 보스 장판 연출을, 원근 그리드 바닥면을 따라 소실점(보스 발밑)에서 유저(화면 전경) 방향으로 입체감 있게 밀려오는 3D 원근 장판(`HazardZoneRenderer`)으로 개편한다.
+  - `PhaseAHazardController`의 5종 회피 패턴(`jump`, `left_step`, `right_step`, `balance_left`, `balance_right`)별로 차별화된 3D 레인 시각 효과를 제공한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/render/HazardZoneRenderer.ts` (신규)
+  - `dream_guardian/src/render/index.ts` (배럴 export 추가)
+  - `dream_guardian/src/main.ts` (평면 타원 링 드로잉 제거 및 `hazardZoneRenderer.render()` 호출 연동)
+  - `dream_guardian/tests/unit/hazard-zone-renderer.test.ts` (신규 Vitest TDD 슈트)
+- **구현 내용**:
+  1. **보스 장판 렌더러 (`src/render/HazardZoneRenderer.ts`)**:
+     - `render(ctx, vw, vh, state: HazardRenderState)`:
+       - `state`: `{ activePattern: PhaseAHazardPattern | null, beatProgress: number, vanishingX: number, vanishingY: number }`
+     - **패턴 1 (`jump`)**: 소실점에서 플레이어 발밑까지 전 레인을 덮으며 3D 원근으로 확산하는 붉은 충격파 파동 링 (`#FF865E`).
+     - **패턴 2 (`left_step` / `right_step`)**: 해당 좌/우 레인(Zone 9 또는 Zone 11 방향)을 타고 소실점에서 전경으로 덮쳐오는 위험 구역 네온 띠 (`#28E6FF` / `#FFCB4D`).
+     - **패턴 3 (`balance_left` / `balance_right`)**: 한쪽 발 균형 유지 구역을 밝히고 반대편 위험 레인에 가시형 바닥 펄스 점등 (`#C889FF`).
+     - `GridProjection`을 활용해 박자 진행도(`beatProgress` 0→1)에 따라 장판이 소실점에서 플레이어 쪽으로 자연스럽게 확대되며 다가오도록 투영.
+  2. **`main.ts` 연동**:
+     - `renderRunningPhase` 내부의 레거시 평면 타원(L693-703)을 제거하고 `hazardZoneRenderer.render(...)` 호출로 교체.
+     - 상단 안내 텍스트(`hazardGuide`, L668-692) 및 운동 횟수 표시는 그대로 유지.
+- **유지 사항**:
+  - `PhaseAHazardController`의 내부 판정 로직, 박자 제어 및 `recordAction` 무수정.
+  - 전투 피해량(`applyHazardDamage`) 및 처리 순서 완전 보존.
+- **변경 금지**:
+  - `BeatRunCoordinator`, `BattleState`, `PoseManager` 로직.
+- **완료 조건**:
+  - [ ] `tests/unit/hazard-zone-renderer.test.ts` 단위 테스트 100% 통과 (Red → Green).
+  - [ ] `beatProgress` 진행(0→1)에 따라 장판 위치가 소실점(상단)에서 화면 하단으로 단조 증가(원근 접근) 검증.
+  - [ ] `activePattern`이 null일 때 불필요한 드로잉 0건.
+  - [ ] `npm run build` 및 전체 `npm test` 100% Pass.
 
 
 

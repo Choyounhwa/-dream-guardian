@@ -63,6 +63,32 @@
 
 ---
 
+## 🔵 2026-09-30 완료: [RENDER-PROJ-001 / #227] 3D 원근 투영 및 레일 궤적 공용 모듈(GridProjection) 추출 🟢 (전체 724/724 Pass)
+
+> 상태: **Issue #227 완료 🟢**  
+> `DreamGrid.ts`에 인라인으로 구현되어 있던 3D 원근 투영 계산식과 매직넘버를 독립 설정 파일(`config/grid.config.ts`)과 순수 함수 유틸리티(`src/render/GridProjection.ts`)로 분리 추출했습니다.
+> - **그리드 설정 분리 (`config/grid.config.ts`)**: `Z_NEAR`, `DELTA_Z`, `LINE_COUNT_Z`, `FADE_DEPTH`, `HORIZON_RATIO`, `FOG_START`, `FOG_RANGE`, `CEILING_DELTA_Z`, `CEILING_LINE_COUNT_Z` 등 상수 일원화.
+> - **3D 원근 투영 모듈 (`src/render/GridProjection.ts`)**:
+>   - `projectDepthY(z, vy, floorH, zNear)`: 깊이 $z$를 화면 Y 좌표로 투영.
+>   - `depthRatioFromY(y, vy, floorH)`: 화면 Y를 정규화 깊이 비율(0: 소실점 ~ 1: 전경 하단)로 역변환.
+>   - `projectAlongRail(vx, vy, targetX, targetY, progress)`: 소실점 $(vx, vy)$에서 목표 지점 $(targetX, targetY)$까지 진행도에 원근 가속($t^2$)을 적용한 현재 좌표 및 크기 배율(`scale`) 산출.
+>   - `laneToScreenX(vx, laneOffset, depthRatio)`: 깊이 비율에 따른 화면 X 오프셋 계산.
+> - **기존 렌더러 리팩터링**: `DreamGrid.ts`의 인라인 투영식을 `GridProjection` 함수 호출로 치환하고, `main.ts`의 보스 소실점 Y 좌표를 `HORIZON_RATIO` 상수로 일원화.
+> - **TDD 회귀 검증**: `tests/unit/grid-projection.test.ts` (16 tests) 작성 및 54개 테스트 파일 724/724 Pass, `npm run build` 검증 완료.
+
+---
+
+## 🔵 2026-09-30 착수 대기: 3D 원근 그리드 공간 연출 후속 카드 ([#228], [#192]) ⚪
+
+> 상태: **착수 대기 ⚪**  
+> #227 완료로 공용 3D 투영 모듈(`GridProjection`)이 구축되었으므로, 보스 장판 및 피트니스 존 별가루 악기 노트를 순차적으로 연동 구현합니다.
+> - **[RENDER-HAZARD-001 / #228] 3D 원근 그리드 바닥 보스 장판(HazardZoneRenderer) 렌더링 ⚪ [1순위 착수 예정]**
+>   - `main.ts`의 단순 평면 타원 링을 소실점(보스 발밑)에서 유저(전경)로 밀려오는 3D 원근 장판(`HazardZoneRenderer`)으로 개편 및 5종 회피 패턴 시각화.
+> - **[RENDER-KEYNOTE-001 / #192] 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링 ⚪ [2순위 착수 예정]**
+>   - 소실점에서 11개 피트니스 존 연결선 레일을 따라 목표 시각(`landingTime`)에 정확히 존 중심으로 날아오는 별가루 악기 노트(`StarNoteRenderer`) 렌더링.
+
+---
+
 ## 🔵 2026-09-30 완료: [BEAT-KEYNOTE-ENGINE-001 / #210] 8박 런 직후 2박 팔 답안 선택 및 정답/오답 즉시 분기 엔진 🟢 (전체 714/714 Pass)
 
 > 상태: **Issue #210 완료 🟢**  

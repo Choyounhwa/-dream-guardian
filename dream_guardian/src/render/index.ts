@@ -15,5 +15,21 @@ export type { MagicCircleConfig, MagicCircleLayerConfig, ScalePulseConfig } from
 export { PostureGuideRenderer } from './PostureGuideRenderer.js';
 export type { SilhouettePosition } from './PostureGuideRenderer.js';
 export { KneeFramingGuideRenderer } from './KneeFramingGuideRenderer.js';
+export {
+  StardustIconRenderer,
+  drawStardustIcon,
+  drawStardustCounter,
+} from './StardustIconRenderer.js';
+export type {
+  StardustIconOptions,
+  StardustCounterOptions,
+} from './StardustIconRenderer.js';
+export {
+  projectDepthY,
+  depthRatioFromY,
+  projectAlongRail,
+  laneToScreenX,
+} from './GridProjection.js';
+export type { RailProjectionResult } from './GridProjection.js';
 
 

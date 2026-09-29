@@ -18,7 +18,13 @@ import type { GeneratedQuestion } from './question/QuestionEvaluator.js';
 import { QuestionSpeech } from './question/QuestionSpeech.js';
 import { BattleState } from './game/BattleState.js';
 import { BossController } from './game/BossController.js';
-import { GuardianSystem, BeatRunCoordinator, BeatRoundResolver } from './game/index.js';
+import {
+  GuardianSystem,
+  BeatRunCoordinator,
+  BeatRoundResolver,
+  PhaseAHazardController,
+  type PhaseAHazardPattern,
+} from './game/index.js';
 import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
 import { ResultRenderer, calcStars } from './ui/ResultRenderer.js';
@@ -36,6 +42,7 @@ import {
 import { EffectManager } from './effects/index.js';
 import {
   RunDetector,
+  JumpDetector,
   HipBounceDetector,
   HipSwayDetector,
   ArmCrossDetector,
@@ -65,6 +72,8 @@ import {
   type BottomBarSlot,
 } from './ui/index.js';
 import { getAnswerButtonLayouts, DEFAULT_FITNESS_ZONES } from '../config/zone.config.js';
+import { DEFAULT_PHASE_A_HAZARD_CONFIG } from '../config/phase-a-hazard.config.js';
+import { HORIZON_RATIO } from '../config/grid.config.js';
 import type { RoundAnswerStatus, RoundResolveResult } from './types/result.js';
 
 if (typeof document === 'undefined') {
@@ -120,6 +129,7 @@ const bossRenderer = new BossRenderer();
 const dreamGrid = new DreamGrid({ speed: 1.2, hasCeiling: true });
 const effectManager = new EffectManager(15);
 const runDetector = new RunDetector();
+const jumpDetector = new JumpDetector();
 const locomotionDetectors: Record<LocomotionMode, ILocomotionDetector> = {
   run: runDetector,
   hip_bounce: new HipBounceDetector(),
@@ -162,7 +172,7 @@ const beatRoundResolver = new BeatRoundResolver({
   guardian,
   onSpellCast: () => {
     bossRenderer.triggerHit();
-    effectManager.playPreset('cast', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.24);
+    effectManager.playPreset('cast', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * HORIZON_RATIO);
     castingFlash = 0.6;
     console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);
   },
@@ -227,6 +237,25 @@ const beatCoordinator = new BeatRunCoordinator({
   onAnswerConfirmed: (idx, _correct, status) => {
     const resolveResult = beatRoundResolver.resolveRound(status);
     handleAnswer(idx, status, resolveResult);
+  },
+});
+const phaseAHazardController = new PhaseAHazardController({
+  onBeatResolved: ({ evaded }) => {
+    if (evaded) {
+      sfx.play('shield_deflect');
+      effectManager.playBurst({
+        x: canvasManager.virtualWidth * 0.5,
+        y: canvasManager.virtualHeight * 0.76,
+        count: 10,
+        colors: ['#4DFFAA', '#FFFFFF'],
+        duration: 0.28,
+      });
+      return;
+    }
+
+    battle.applyHazardDamage(DEFAULT_PHASE_A_HAZARD_CONFIG.damagePerMiss);
+    sfx.play('player_hurt');
+    effectManager.playPreset('wrong', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.76);
   },
 });
 let settingsHoverTimer = 0;
@@ -351,6 +380,8 @@ function startRunningPhase(): void {
   answerLocked = true;
   starCollectionInput.reset();
   Object.values(locomotionDetectors).forEach((d) => d.reset());
+  jumpDetector.reset();
+  phaseAHazardController.start();
   beatCoordinator.startRound({ chapter: currentChapter, subLevel: selectedSubLevel });
   currentQuestion = beatCoordinator.currentQuestion;
   console.log(`[DG] 8박 문제 라운드 시작: ${currentQuestion?.questionText}`);
@@ -374,6 +405,7 @@ function startChapter(ch: number, subLevel?: number): void {
   castingFlash = 0;
   totalSteps = 0;
   totalDwellTime = 0;
+  phaseAHazardController.stop();
   pauseModal.close();
   xGestureDetector.reset();
   screenMode = 'game';
@@ -412,7 +444,7 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
     console.log(`[DG] 정답 타격! 보스 HP: ${boss.hp}/${boss.maxHp}`);
 
     if (resolveResult.spellCast) {
-      effectManager.playPreset('cast', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.24);
+      effectManager.playPreset('cast', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * HORIZON_RATIO);
       castingFlash = 0.6;
       console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);
     }
@@ -634,62 +666,51 @@ function renderRunningPhase(ctx: CanvasRenderingContext2D, vw: number, vh: numbe
     ctx.shadowBlur = 0;
   }
 
-  // 2. 페이즈 안내 가이드
-  const guide = hudLayer.getLocomotionGuide(locomotionModal.selectedMode);
-  const isCenter = beatCoordinator.phase === 'REST_READY';
-  const isRetry = beatCoordinator.centerReturnGate.isRetrying;
-  const title = isRetry
-    ? '⏳ 위치 안정화 연장 대기 중...'
-    : isCenter
-    ? '🌟 중앙으로 복귀하여 기준점을 맞춰주세요!'
-    : guide.title;
-  const subtitle = isCenter
-    ? '네온 게이트 중앙에 서서 잠시 멈추세요 (8박 기준점 잠금)'
-    : guide.subtitle;
+  // 2. Phase A 보스 장판 박자 안내
+  const hazard = phaseAHazardController.activePattern;
+  const hazardGuide: Record<PhaseAHazardPattern, { title: string; subtitle: string; color: string }> = {
+    left_step: { title: '왼발 피하기!', subtitle: '왼발을 들어 장판을 피하세요', color: '#28E6FF' },
+    right_step: { title: '오른발 피하기!', subtitle: '오른발을 들어 장판을 피하세요', color: '#FFCB4D' },
+    jump: { title: '양발 피하기!', subtitle: '점프해서 바닥 충격파를 넘으세요', color: '#FF865E' },
+    balance_left: { title: '왼발로 균형!', subtitle: '오른발을 들고 한발로 버티세요', color: '#C889FF' },
+    balance_right: { title: '오른발로 균형!', subtitle: '왼발을 들고 한발로 버티세요', color: '#C889FF' },
+  };
+  const guide = hazard ? hazardGuide[hazard] : {
+    title: '장판 루틴 완료!',
+    subtitle: '다음 지시를 기다리세요',
+    color: '#4DFFAA',
+  };
 
   ctx.font = 'bold 44px sans-serif';
-  ctx.fillStyle = isCenter ? '#28E6FF' : '#FFCB4D';
-  ctx.shadowColor = isCenter ? '#28E6FF' : '#FFCB4D';
+  ctx.fillStyle = guide.color;
+  ctx.shadowColor = guide.color;
   ctx.shadowBlur = 24;
-  ctx.fillText(title, cx, cy - 60);
+  ctx.fillText(guide.title, cx, cy - 60);
   ctx.shadowBlur = 0;
 
   ctx.font = 'bold 26px sans-serif';
   ctx.fillStyle = '#DDDDDD';
-  ctx.fillText(subtitle, cx, cy - 5);
+  ctx.fillText(guide.subtitle, cx, cy - 5);
 
-  // 3. 8박 진행 인디케이터 (원형 비트 점)
-  const completedExerciseBeats = beatCoordinator.completedExerciseBeats;
-  const dotRadius = 14 * scaleX;
-  const dotGap = 44 * scaleX;
-  const startX = cx - (7 * dotGap) / 2;
-  const dotY = cy + 55;
+  // 3. 현재 장판 경고 링 (8개 원형 진행 UI는 사용하지 않음)
+  const hazardPulse = 1 - phaseAHazardController.beatProgress;
+  const hazardRadius = (95 + hazardPulse * 90) * scaleX;
+  ctx.strokeStyle = guide.color;
+  ctx.lineWidth = 10 * scaleX;
+  ctx.shadowColor = guide.color;
+  ctx.shadowBlur = 24;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 150 * scaleY, hazardRadius, hazardRadius * 0.34, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
 
-  for (let i = 0; i < 8; i++) {
-    const bx = startX + i * dotGap;
-    ctx.beginPath();
-    ctx.arc(bx, dotY, dotRadius, 0, Math.PI * 2);
-    if (i < completedExerciseBeats) {
-      ctx.fillStyle = i >= 5 ? '#28E6FF' : '#FFCB4D';
-      ctx.shadowColor = i >= 5 ? '#28E6FF' : '#FFCB4D';
-      ctx.shadowBlur = 10;
-    } else {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.shadowBlur = 0;
-    }
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    ctx.font = `bold ${Math.round(16 * scaleX)}px sans-serif`;
-    ctx.fillStyle = i < completedExerciseBeats ? '#000000' : 'rgba(255, 255, 255, 0.5)';
-    ctx.fillText(`${i + 1}`, bx, dotY);
-  }
+  const dotY = cy + 260 * scaleY;
 
   // 4. 걸음 수 표시
   const countUnit = locomotionModal.selectedMode === 'run' ? '보' : '회';
   ctx.font = 'bold 32px sans-serif';
   ctx.fillStyle = '#4DFFAA';
-  ctx.fillText(`${guide.countLabel}: ${totalSteps}${countUnit}`, cx, dotY + 60);
+  ctx.fillText(`${countUnit === '보' ? '걸음' : '운동'}: ${totalSteps}${countUnit}`, cx, dotY + 60);
 
   ctx.restore();
 }
@@ -803,6 +824,12 @@ const engine = new GameEngine({
         time,
         canvasManager.virtualHeight,
       );
+      const jumped = jumpDetector.update(
+        poseManager.virtualLandmarks,
+        canvasManager.virtualHeight * 0.28,
+        canvasManager.virtualHeight,
+        dt,
+      );
       if (stepped && screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
         totalSteps++;
         beatCoordinator.recordStep();
@@ -813,6 +840,10 @@ const engine = new GameEngine({
           colors: ['#28E6FF', '#4DFFAA'],
           duration: 0.3,
         });
+      }
+      if (jumped && screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
+        phaseAHazardController.recordAction('jump');
+        sfx.play('jump_whoosh');
       }
     } else {
       skeletonAnimation.reset();
@@ -1035,6 +1066,16 @@ const engine = new GameEngine({
     );
     if (footEvents.length > 0) {
       console.log(`[DG] 발 키노트 감지: ${footEvents.map(e => e.zoneId).join(', ')}`);
+      if (gamePhase === 'running') {
+        const target = phaseAHazardController.activePattern;
+        for (const event of footEvents) {
+          if (event.foot === 'leftFoot' && (target === 'left_step' || target === 'balance_right')) {
+            phaseAHazardController.recordAction(target);
+          } else if (event.foot === 'rightFoot' && (target === 'right_step' || target === 'balance_left')) {
+            phaseAHazardController.recordAction(target);
+          }
+        }
+      }
     }
 
     // Issue #205: 가상 픽셀 좌표(0~1080 / 0~2160)를 정규화 좌표계(0~1)로 비파괴 변환하여 전달
@@ -1052,6 +1093,16 @@ const engine = new GameEngine({
     // 내부 8박 시계 및 라운드 정산(_resolveRound)이 멈추지 않도록 보장
     beatCoordinator.update(dt, normalizedLandmarks);
     currentQuestion = beatCoordinator.currentQuestion;
+    if (gamePhase === 'running' && phaseAHazardController.isActive) {
+      phaseAHazardController.update(dt);
+      if (!battle.isAlive) {
+        showResult(false);
+        return;
+      }
+      if (!phaseAHazardController.isActive && beatCoordinator.phase === 'RUN_QUESTION') {
+        phaseAHazardController.start();
+      }
+    }
 
     // 2~8박 키노트 퍼포먼스 별 수집 판정 (Issue #206, #207, #210 / StarCollectionInput 연동)
     if (beatCoordinator.phase === 'KEYNOTE_PERFORMANCE' || beatCoordinator.phase === 'STAR_COLLECT') {
@@ -1172,7 +1223,7 @@ const engine = new GameEngine({
       effectManager.render(ctx);
     } else if (screenMode === 'game') {
       const bossX = vw * 0.5;
-      const bossY = vh * 0.24;
+      const bossY = vh * HORIZON_RATIO;
       const bossRadius = Math.min(180, vw * 0.12);
 
       let gridColor = CHAPTER_COLORS[currentChapter] || '#28E6FF';
@@ -1574,6 +1625,10 @@ document.addEventListener('keydown', (e) => {
     if (screenMode === 'game' && gamePhase === 'running') {
       totalSteps++;
       beatCoordinator.recordStep();
+      if (phaseAHazardController.activePattern === 'jump') {
+        phaseAHazardController.recordAction('jump');
+        sfx.play('jump_whoosh');
+      }
       effectManager.playBurst({
         x: canvasManager.virtualWidth * 0.5,
         y: canvasManager.virtualHeight * 0.65,
@@ -1620,10 +1675,18 @@ document.addEventListener('keydown', (e) => {
     // 발 키노트 키보드 fallback (Z: 왼발 9, X: 중앙발 10, V: 오른발 11)
     if (e.key === 'z' || e.key === 'Z') {
       footKeynoteInput.fromKeyboard('leftFoot', engine.elapsedTime);
+      const target = phaseAHazardController.activePattern;
+      if (gamePhase === 'running' && (target === 'left_step' || target === 'balance_right')) {
+        phaseAHazardController.recordAction(target);
+      }
     } else if (e.key === 'x' || e.key === 'X') {
       footKeynoteInput.fromKeyboard('centerFoot', engine.elapsedTime);
     } else if (e.key === 'v' || e.key === 'V') {
       footKeynoteInput.fromKeyboard('rightFoot', engine.elapsedTime);
+      const target = phaseAHazardController.activePattern;
+      if (gamePhase === 'running' && (target === 'right_step' || target === 'balance_left')) {
+        phaseAHazardController.recordAction(target);
+      }
     }
 
     if (questionVisible && !answerLocked && beatCoordinator.isAnswerOpen) {
