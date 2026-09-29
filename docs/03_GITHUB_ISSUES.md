@@ -3259,6 +3259,54 @@ BEAT-SPEC-001
 
 ---
 
+### Issue #182: [INPUT-STAR-001] 11존 단일 별 Perfect Good Late Miss 판정
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/182
+- **Labels**: `feature`, `P1-high`, `phase-6`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[INPUT-STAR-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: 11존 단일 별 Perfect Good Late Miss 판정
+- **목적**:
+  - 정답 뒤 별 하나를 지정 부위 커서와 목표 존으로 수집하고 리듬 판정을 반환하는 입력 모델을 구현한다.
+- **수정 대상**:
+  - `dream_guardian/config/beat-motion.config.ts`
+  - `dream_guardian/src/types/star.ts`
+  - `dream_guardian/src/input/StarCollectionInput.ts`
+  - `dream_guardian/src/input/index.ts`
+  - `dream_guardian/tests/unit/star-collection-input.test.ts`
+- **구현 내용**:
+  1. **Perfect / Good / Late / Miss 타이밍 판정**:
+     - `StarTarget`의 `cursorType`/`part`, `zoneId`, `landingTime` 기준
+     - Perfect: ±0.12s 이내, Good: ±0.25s 이내, Late: ±0.40s 이내, Miss: 0.40s 초과 및 타임아웃
+  2. **차단 가드 (지정 외 커서 / 무효 존 / 중복 / 일시정지)**:
+     - 지정되지 않은 커서 진입 차단 (`cursorType !== designatedCursor`)
+     - 유효하지 않은 존 차단 (`isValidZoneForCursor(designatedCursor, zoneId)` 검증)
+     - 중복 수집 차단 (`_isCollected` 플래그로 1회 확정 후 추가 수집 차단)
+     - 일시정지 상태 차단 (`_paused === true` 시 모션/키보드/터치 전면 차단)
+  3. **좌표계 및 폴백 지원**:
+     - 11존 기본 레이아웃(`DEFAULT_FITNESS_ZONES`) 및 `CursorTracker` 정규화 좌표계 연동
+     - `fromKeyboard`, `fromTouch` 폴백 입력 및 미러(isMirrored)/Cover 뷰포트 지원
+  4. **전투 페널티 배제**:
+     - `hasBattlePenalty: false`로 별 판정 결과는 순수 리듬 통계 전용이며 전투 HP/마나/콤보에 무영향 보장
+- **유지 사항**:
+  - 4색 커서, 존 허용 매트릭스, Cover/미러 좌표, keyboard/touch fallback.
+- **변경 금지**:
+  - 별 시퀀스 생성, 렌더링, main.ts 라운드 전이, BattleState.
+- **완료 조건**:
+  - [x] 11존 및 4색 커서 조합의 유효/무효 입력을 테스트한다 (44개 전수 조합 검증)
+  - [x] 모든 타이밍 경계와 중복 수집이 테스트된다
+  - [x] Miss는 전투 페널티를 발생시키지 않는다
+- **테스트**:
+  - Vitest 26개 단위 테스트 전원 통과 (`tests/unit/star-collection-input.test.ts`), 전체 테스트 638/638 100% Pass, `npm run build` 번들 검증 완료
+- **관련 파일**:
+  - `dream_guardian/config/beat-motion.config.ts`
+  - `dream_guardian/src/types/star.ts`
+  - `dream_guardian/src/input/StarCollectionInput.ts`
+  - `dream_guardian/src/input/index.ts`
+  - `dream_guardian/tests/unit/star-collection-input.test.ts`
+
+---
+
 ### Issue #187: [BUG-BEAT-001] 달리기 페이즈 미동작 자동 8박 채움 결함 수정 및 실제 8회 운동 연동
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/187
 - **Labels**: `bug`, `P0-critical`, `phase-5`
@@ -3357,18 +3405,156 @@ BEAT-SPEC-001
   2. 2~8박 키노트 순차 시각화:
      - Zone 1~5 (상단 기타 레인): 네온 블루/퍼플 수축 타이밍 링
      - Zone 9~11 (하단 드럼 레인): 네온 오렌지/골드 바닥 타격 펄스
-  3. 판정 텍스트 및 이펙트: PERFECT, GREAT, MISS 플로팅 텍스트 및 폭죽형 파티클 버스트.
+---
+
+### Issue #188: [RENDER-TRACK-001] 3D 드림 그리드 - 11개 피트니스 존 원근 연한 연결선(Zone Connection Lines) 렌더링
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/188
+- **Labels**: `feature`, `phase-7`, `P2-medium`
+- **Milestone**: `v0.6-visuals-content`
+- **작업 ID**: `[RENDER-TRACK-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: 3D 드림 그리드 - 11개 피트니스 존 원근 연한 연결선(Zone Connection Lines) 렌더링
+- **목적**:
+  - 3D 드림 그리드 공간에서 11개 피트니스 존(Zone 1~11)이 공중에 분리되어 보이지 않고 3D 공간에 자연스럽게 정렬되도록, 그리드 소실점(Vanishing Point)으로부터 각 피트니스 존의 중심 앵커로 이어지는 은은하고 연한 네온 연결선(Faint Connection Lines)을 렌더링한다.
+  - 과일 아이템 등 불필요한 요소는 배제하고 그리드와 피트니스 존 간의 기하학적 연계선만을 깔끔하게 시각화한다.
+- **수정 대상**:
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
+- **구현 내용**:
+  1. **피트니스 존 연결선 렌더러 (`_renderZoneConnections`)**:
+     - `DEFAULT_FITNESS_ZONES`의 11개 존 위치(정규화 좌표)를 화면 좌표로 환산하여 중심점 `(cx, cy)` 산출.
+     - 소실점 `(vx, vy)`에서 각 존의 중심점 `(cx, cy)`으로 이어지는 연한 원근 연결선(Perspective Connection Lines) 렌더링.
+     - 선형 그라데이션(`LinearGradient`)을 적용하여 소실점 부근은 자연스럽게 페이드아웃되고 존 방향으로 부드럽게 이어짐.
+     - 기본 투명도는 18%(`alpha = 0.18`), 굵기는 1.2px의 부드럽고 은은한 네온 선으로 렌더링하여 게임 플레이(문제/보스/스켈레톤) 시야를 방해하지 않음.
+     - 각 피트니스 존 중심에 은은한 앵커 링 포인트(Radius 3px) 점등.
+  2. **설정 인터페이스 확장 (`DreamGridConfig`)**:
+     - `renderZoneConnections?: boolean` (기본값: `true`, 메뉴 화면에서는 `false`로 비활성화)
+     - `zoneConnectionAlpha?: number` (기본값: `0.18`)
+     - `zones?: readonly FitnessZone[]` (커스텀 존 전달 지원, 기본값: `DEFAULT_FITNESS_ZONES`)
+- **유지 사항**:
+  - 기존 3D 정방형 그리드 투영 공식, 심도 안개(Depth Fog) 및 천장 그리드 렌더링.
+  - 전체 단위/통합 테스트 100% Pass 유지.
+- **변경 금지**:
+  - 수학 문제 평가 및 TTS 로직.
+  - 전투/마나/보스 시스템.
 - **완료 조건**:
-  - [ ] 정답 위치 1박째 노트 강조 렌더링
-  - [ ] Zone 1~5(손) 및 9~11(발) 키노트 순차 수축 애니메이션
-  - [ ] 판정 텍스트 및 파티클 연동
-  - [ ] 단위/통합 테스트 100% Pass
+  - [x] 3D 드림 그리드 렌더링 시 11개 피트니스 존으로 이어지는 연한 연결선이 표시됨.
+  - [x] `renderZoneConnections: false` 설정 시 연결선 드로잉이 정상 비활성화됨.
+  - [x] `zoneConnectionAlpha` 옵션으로 연결선의 투명도를 자유롭게 조절할 수 있음.
+  - [x] Vitest 단위 테스트 10/10 및 전체 581/581 100% 통과, `npm run build` 번들 검증 완료.
+- **관련 파일**:
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
 
+---
 
+### Issue #189: [FEAT-ITEM-001] 3D 러닝 트랙 부유 과일 아이템(딸기·바나나) 렌더링 및 모션 수집 시스템
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/189
+- **Labels**: `feature`, `phase-5`, `P1-high`
+- **Milestone**: `v0.6-visuals-content`
+- **작업 ID**: `[FEAT-ITEM-001]`
+- **상태**: 🚫 **취소/종료 (Closed per user request)**
+- **사유**: 사용자 요구사항 반영 — 러닝 트랙 과일 아이템 제외 결정에 따른 카드 비활성화 및 종료.
 
+---
 
+### Issue #193: [BATTLE-BOSS-001] Phase B 보스 불협화음 장판(양손 쿵 점프 & 한손 콩콩 발짓밟기) 및 광폭화 엔진
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/193
+- **Labels**: `phase-5`, `feature`, `P1-high`
+- **Milestone**: `v0.4-gameplay-systems`
+- **작업 ID**: `[BATTLE-BOSS-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: Phase B 보스 불협화음 장판(양손 쿵 점프 & 한손 콩콩 발짓밟기) 및 광폭화 엔진
+- **목적**:
+  - 10문제 러닝(Phase A) 돌파 후 진입하는 보스 결전(Phase B)에서 보스의 지속적인 불협화음 바닥 공격 패턴(양손 쿵 점프 회피, 한손 번갈아 콩콩 적 미니언 발짓밟기) 및 보스 광폭화(Enrage) 상태 제어 엔진을 구축한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/game/BossHazardController.ts` (신규)
+  - `dream_guardian/src/game/BossController.ts`
+  - `dream_guardian/src/types/index.ts`
+  - `dream_guardian/tests/unit/boss-hazard-controller.test.ts`
+- **구현 내용**:
+  1. **보스 불협화음 장판 2대 공격 패턴**:
+     - **패턴 1 (양손 쿵 - 바닥 충격파)**: 보스가 양손을 바닥에 내리치면 전 바닥 레인에 충격파 발생. 유저가 JumpDetector를 통해 점프 성공 시 회피. 실패 시 아군 미니언 1마리 즉시 탈락.
+     - **패턴 2 (한손 번갈아 콩콩 - 적 미니언 침투)**: 보스가 한 손씩 교대로 바닥을 치며 적 그림자 미니언을 레인으로 진격시킴. 유저가 Zone 9/11 양발 교대 짓밟기(Alternating Foot Stomp) 성공 시 적 미니언 격퇴. 실패 시 아군 미니언 1마리 즉시 탈락.
+  2. **보스 광폭화 (Enrage Phase)**:
+     - 보스 체력 30% 이하 도달 시 광폭화 트리거.
+     - 공격 주기 1.5배 단축, 충격파 및 적 미니언 전진 속도 가속.
+  3. **아군 미니언 탈락 이벤트 버스 연동**:
+     - 장판/적 미니언 대처 실패 시 `MINION_CASUALTY` 이벤트를 발행하여 아군 미니언 수량 감소 트리거.
+- **완료 조건**:
+  - [ ] 보스 양손 쿵 패턴 시 Jump 감지로 회피 판정 성공
+  - [ ] 보스 한손 콩콩 패턴 시 Zone 9/11 교대 스텝으로 적 미니언 처치 성공
+  - [ ] 회피/처치 실패 시 MINION_CASUALTY 이벤트 정상 발행
+  - [ ] 보스 체력 30% 이하 시 광폭화 상태 전이 및 공격 주기 가속 검증
+  - [ ] 단위 테스트 100% 통과
 
+---
 
+### Issue #194: [MINION-TROOP-001] 아군 미니언 군단(3~13체) 실시간 증원/탈락 및 상체(Zone 1~5) 별빛 수집 마법 발사 시스템
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/194
+- **Labels**: `phase-5`, `feature`, `P1-high`
+- **Milestone**: `v0.4-gameplay-systems`
+- **작업 ID**: `[MINION-TROOP-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 아군 미니언 군단(3~13체) 실시간 증원/탈락 및 상체(Zone 1~5) 별빛 수집 마법 발사 시스템
+- **목적**:
+  - Phase A(10문제 러닝)에서 문제 정답에 따른 미니언 구출/증원(+1, 최대 13마리)과 오답 시 탈락 연출을 관리하고, Phase B(보스전)에서 상체(Zone 1~5) 별빛 수집과 연동하여 보스에게 집중 마법 탄막을 발사하는 군단 전투 화력 엔진을 구축한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/game/MinionTroopManager.ts` (신규)
+  - `dream_guardian/src/game/BattleState.ts`
+  - `dream_guardian/src/game/GuardianSystem.ts`
+  - `dream_guardian/tests/unit/minion-troop-manager.test.ts`
+- **구현 내용**:
+  1. **미니언 군단 수량 관리 (Troop Capacity)**:
+     - 초기 군단: 수호신 1 + 기본 미니언 3마리 (총 4체)
+     - Phase A 증원: 문제 정답 시 미니언 +1 (최대 13마리), 오답 시 미니언 증원 실패(바닥 함정 탈락 연출).
+     - Phase B 탈락: 보스 장판/적 미니언 대처 실패 시 아군 미니언 -1. (0마리 도달 시 수호신 단독 대치).
+  2. **상체(Zone 1~5) 별빛 수집 및 강력 마법 발사 타이밍**:
+     - Phase B에서도 Zone 1~5는 상체 손 커서로 별빛을 모으는 동일 컨셉 유지.
+     - 별빛 수집 성공: 마법 게이지 충전 및 군단 화력 배율 증가 (최대 1.5배).
+     - 별빛 수집 실패: 미니언에는 영향이 없으나, 충전 중이던 강력 마법 발사 타이밍이 빗나가거나 쿨다운 지연(딜로스).
+  3. **군단 화력 공식 (Troop DPS Calculation)**:
+     - $DPS = (10 + \text{미니언 수} \times 2) \times \text{별빛 연계 배율}$
+- **완료 조건**:
+  - [ ] 정답/오답에 따른 미니언 수량(3~13마리) 변동 정상 동작
+  - [ ] 장판 피격 시 아군 미니언 -1 차감 및 0마리 하한 클램프
+  - [ ] Zone 1~5 별빛 수집 성공 시 마법 게이지 충전 및 미수집 시 발사 딜레이 검증
+  - [ ] 단위 테스트 100% 통과
+
+---
+
+### Issue #195: [RENDER-CLIMAX-001] 3D 원근 보스 결전 연출(불협화음 장판 충격파, 적 미니언 전진, 아군 군단 마법 탄막 및 광폭화)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/195
+- **Labels**: `phase-7`, `feature`, `P2-medium`
+- **Milestone**: `v0.6-visuals-content`
+- **작업 ID**: `[RENDER-CLIMAX-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 3D 원근 보스 결전 연출(불협화음 장판 충격파, 적 미니언 전진, 아군 군단 마법 탄막 및 광폭화)
+- **목적**:
+  - 1인칭 3D 원근 시점의 DreamGrid 공간에서 보스의 2대 바닥 공격(양손 쿵 파동, 한손 콩콩 적 미니언 전진), 아군 미니언 군단의 V자 편대 및 마법 탄막 발사, 보스 광폭화 시각 효과를 렌더링한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/render/BossClimaxRenderer.ts` (신규)
+  - `dream_guardian/src/render/BossRenderer.ts`
+  - `dream_guardian/src/render/CanvasManager.ts`
+  - `dream_guardian/tests/unit/boss-climax-renderer.test.ts`
+- **구현 내용**:
+  1. **불협화음 바닥 충격파 렌더링**:
+     - 보스 양손 쿵 모션 시 소실점으로부터 유저 발밑까지 붉은 충격파 링이 3D 원근으로 확산.
+  2. **적 미니언 전진 및 짓밟기 파티클**:
+     - 한손 콩콩 모션 시 레인을 따라 전진하는 그림자 미니언 렌더링.
+     - 유저 발짓밟기(Zone 9/11) 성공 시 펑 터지는 정화 파티클 연출.
+  3. **아군 군단 V자 편대 및 마법 탄막**:
+     - 아군 미니언 수량(3~13마리)에 따라 수호신 좌우로 부유하는 V자 편대 동적 렌더링.
+     - Zone 1~5 별빛 수집 성공 시 군단에서 보스를 향해 날아가는 집중 마법 빔/미사일 렌더링.
+  4. **보스 광폭화 아우라**:
+     - 보스 HP 30% 이하 시 붉은 번개 및 왜곡 쉐이더 펄스 점등.
+- **완료 조건**:
+  - [ ] 3D 충격파 링 및 적 미니언 투영 정상 드로잉
+  - [ ] 아군 미니언 수량 변화에 따른 편대 배치 실시간 반응
+  - [ ] 별빛 수집 시 마법 발사 빔 및 보스 피격 이펙트 정상 렌더링
+  - [ ] 단위 테스트 100% 통과
 
 
 

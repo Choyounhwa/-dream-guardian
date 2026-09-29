@@ -137,12 +137,29 @@
 - 준비 구간의 중앙 기준점은 2박 내 안정 잠금하며, 미잠금 상태에서는 기존 fallback 기준점을 사용해 루프를 멈추지 않는다.
 - TDD: 미동작 고정, 8회 운동 후 준비 전이, 정확한 2박/8박 시간, 단일 정산 및 미응답 정산을 검증했다. `npm run build` 성공 및 전체 `npm test` 583/583 Pass.
 
+### #182 완료 기록 - 11존 단일 별 Perfect Good Late Miss 판정 (INPUT-STAR-001)
+
+- `StarCollectionInput`이 `StarTarget`의 지정 커서(`part`/`cursorType`), 목표 존(`zoneId`), 비트 착지 시각(`landingTime`)을 바탕으로 Perfect(±0.12s), Good(±0.25s), Late(±0.40s), Miss(초과 및 타임아웃) 판정을 수행한다.
+- 지정되지 않은 커서 진입 차단, 11존 허용 매트릭스(`isValidZoneForCursor`) 위반 차단, 중복 수집 차단(`_isCollected`), 일시정지(`_paused`) 차단을 완전 구현했다.
+- 11존 4색 커서의 44개 조합에 대한 전수 검증, 모든 타이밍 경계값, 키보드/터치 폴백 및 미러/Cover 좌표계 연동을 검증했다.
+- `hasBattlePenalty: false`로 별 판정 결과는 순수 리듬 통계 전용이며 전투 HP/마나/콤보에 일체 불간섭함을 보장했다.
+- 범위에 따라 별 시퀀스 생성, 렌더링, `main.ts` 라운드 전이, `BattleState`는 변경하지 않았다. 후속 렌더링 카드는 #183이다.
+- TDD: Red(모듈 부재) → Green(대상 26/26 Pass) → Refactor(`npm run build` 성공, 전체 `npm test` 638/638 Pass) 완료.
+
 ### #200 완료 기록 - 인게임 답안 선택 프리즈 결함 해결 (BUG-BEAT-002)
 
 - `main.ts`에서 `beatCoordinator.update(dt, sourceLandmarks)`가 `isRunning` (`gamePhase === 'running'`)에만 묶여 있어 문제/키노트 페이즈(`KEYNOTE_PERFORMANCE`) 진입 시 시간이 흐르지 않아 화면이 멈추던 회귀 결함을 해결했다.
 - `screenMode === 'game' && !pauseModal.isOpen` 상태에서 코디네이터 시간을 상시 갱신하도록 전역화하여 8박 만료 시 `_resolveRound()` 단일 정산과 다음 라운드 자동 전이가 정상 작동한다.
 - 마우스 클릭, 키보드(1, 2) 단축키, 웹캠 자세 판정을 모두 `confirmAnswerByFallback(idx)`로 일원화하고, 클릭/선택 즉시 터치 효과음(`sfx.play('hover')`) 및 버튼 테두리 점등 하이라이트를 즉각 제공하도록 조작감을 개선했다.
 - TDD: Red(미구현 시 실패) → Green(607/607 Pass) → Refactor 검증 완료.
+
+### #181 완료 기록 - CSV 기반 순차 별 안무 생성 (CHOREO-STAR-001)
+
+- `StarSequenceGenerator`가 `fitness pattern.csv`의 부위-존 쌍을 입력 순서대로 한 박당 하나의 `StarTarget`으로 분해한다.
+- 부위별 허용 존, 골반 최하단-손 최상단 Cross-Body 제약, 직전 동일 부위/동일 존 반복, 동일 부위 장거리 왕복을 생성·검증 단계에서 차단한다.
+- 남은 박 수에 맞는 가장 짧은 안전 후보를 결정적 seed 기반으로 선택하며, 맞는 후보가 없으면 직접 변환 시퀀스를 안전하게 절단한다.
+- 범위에 따라 렌더링, `main.ts` 통합, 별 타이밍 입력 판정 및 전투 수치는 변경하지 않았다. 후속 입력 카드는 #182다.
+- TDD: Red(모듈 부재) → Green(대상 5/5 Pass) → Refactor(`npm run build` 성공, 전체 `npm test` 612/612 Pass) 완료.
 
 ### 이슈 정리 결과
 

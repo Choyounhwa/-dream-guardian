@@ -15,3 +15,10 @@ export type {
   AnswerAnchorSource,
   AnswerZoneState,
 } from './AnswerZoneSelector.js';
+export { StarCollectionInput, judgeStarTiming } from './StarCollectionInput.js';
+export type {
+  StarRating,
+  StarJudgment,
+  ActiveStarTarget,
+  StarCollectionResult,
+} from './StarCollectionInput.js';

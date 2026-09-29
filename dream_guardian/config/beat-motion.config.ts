@@ -73,11 +73,48 @@ export const DEFAULT_ANSWER_ZONE_CONFIG: AnswerZoneConfig = {
   isMirrored: true,
 };
 
+export interface StarTimingWindows {
+  /** Perfect 판정 허용 오차 (초, ±0.12) */
+  perfect: number;
+  /** Good 판정 허용 오차 (초, ±0.25) */
+  good: number;
+  /** Late 판정 허용 오차 (초, ±0.40) */
+  late: number;
+}
+
+export const DEFAULT_STAR_TIMING_WINDOWS: StarTimingWindows = {
+  perfect: 0.12,
+  good: 0.25,
+  late: 0.40,
+};
+
+export interface StarCollectionConfig {
+  /** 타이밍 윈도우 설정 (Perfect, Good, Late) */
+  timingWindows: StarTimingWindows;
+  /** 기본 뷰포트 가상 너비 (기본 1080) */
+  virtualWidth: number;
+  /** 기본 뷰포트 가상 높이 (기본 2160) */
+  virtualHeight: number;
+  /** 미러(좌우 반전) 좌표계 적용 여부 (기본 false) */
+  isMirrored: boolean;
+  /** 진입 마진 허용 여부/크기 (정규화 단위, 기본 0) */
+  entryMargin: number;
+}
+
+export const DEFAULT_STAR_COLLECTION_CONFIG: StarCollectionConfig = {
+  timingWindows: DEFAULT_STAR_TIMING_WINDOWS,
+  virtualWidth: 1080,
+  virtualHeight: 2160,
+  isMirrored: false,
+  entryMargin: 0,
+};
+
 export interface BeatMotionConfig {
   bpm: number;
   beatsPerRound: number;
   centerReturn: CenterReturnConfig;
   answerZone: AnswerZoneConfig;
+  starCollection: StarCollectionConfig;
 }
 
 export const DEFAULT_BEAT_MOTION_CONFIG: BeatMotionConfig = {
@@ -85,4 +122,5 @@ export const DEFAULT_BEAT_MOTION_CONFIG: BeatMotionConfig = {
   beatsPerRound: 8,
   centerReturn: DEFAULT_CENTER_RETURN_CONFIG,
   answerZone: DEFAULT_ANSWER_ZONE_CONFIG,
+  starCollection: DEFAULT_STAR_COLLECTION_CONFIG,
 };
