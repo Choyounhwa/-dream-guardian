@@ -22,3 +22,11 @@ export type {
   ActiveStarTarget,
   StarCollectionResult,
 } from './StarCollectionInput.js';
+export { ArmReachAnswerSelector } from './ArmReachAnswerSelector.js';
+export type {
+  ArmHandType,
+  ArmCandidateStatus,
+  ArmReachAnswerResult,
+  ArmReachAnswerState,
+  ArmReachSelectCallback,
+} from './ArmReachAnswerSelector.js';

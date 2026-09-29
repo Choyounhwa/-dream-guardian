@@ -73,6 +73,30 @@ export const DEFAULT_ANSWER_ZONE_CONFIG: AnswerZoneConfig = {
   isMirrored: true,
 };
 
+export interface ArmReachAnswerConfig {
+  /** 랜드마크 최소 가시성 (기본 0.5) */
+  minVisibility: number;
+  /** 어깨 대비 최소 뻗음 거리 비율 (기본 0.25) */
+  minArmExtensionRatio: number;
+  /** 동적 뻗기 최소 수평 속도 (정규화 단위/초, 기본 0.25) */
+  dynamicMinHorizontalSpeed: number;
+  /** 수평/수직 우세 비율 (기본 1.2) */
+  horizontalDominanceRatio: number;
+  /** 점프 판정 수직 속도 상한 (정규화 단위/초, 기본 0.22) */
+  jumpVerticalSpeedThreshold: number;
+  /** 카메라 미러링 여부 (기본 false) */
+  isMirrored: boolean;
+}
+
+export const DEFAULT_ARM_REACH_ANSWER_CONFIG: ArmReachAnswerConfig = {
+  minVisibility: 0.5,
+  minArmExtensionRatio: 0.25,
+  dynamicMinHorizontalSpeed: 0.25,
+  horizontalDominanceRatio: 1.2,
+  jumpVerticalSpeedThreshold: 0.22,
+  isMirrored: false,
+};
+
 export interface StarTimingWindows {
   /** Perfect 판정 허용 오차 (초, ±0.12) */
   perfect: number;
@@ -114,6 +138,7 @@ export interface BeatMotionConfig {
   beatsPerRound: number;
   centerReturn: CenterReturnConfig;
   answerZone: AnswerZoneConfig;
+  armReachAnswer: ArmReachAnswerConfig;
   starCollection: StarCollectionConfig;
 }
 
@@ -122,5 +147,6 @@ export const DEFAULT_BEAT_MOTION_CONFIG: BeatMotionConfig = {
   beatsPerRound: 8,
   centerReturn: DEFAULT_CENTER_RETURN_CONFIG,
   answerZone: DEFAULT_ANSWER_ZONE_CONFIG,
+  armReachAnswer: DEFAULT_ARM_REACH_ANSWER_CONFIG,
   starCollection: DEFAULT_STAR_COLLECTION_CONFIG,
 };

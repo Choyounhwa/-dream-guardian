@@ -3882,6 +3882,131 @@ BEAT-SPEC-001
   - [x] 리듬 통계(`timeoutCount`, 별 판정)가 결과 화면에 표출됨
   - [x] `npm run build` 및 전체 `npm test` 100% 통과 (49개 파일, 669/669 Pass)
 
+---
+
+### Issue #207: [CLEANUP-LEGACY-001] 레거시 AnswerSelector / 신형 AnswerZoneSelector 이중 답안 판정 정리 및 중복 진입 로직 단일화
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/207
+- **Labels**: `refactor`, `P0-blocker`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[CLEANUP-LEGACY-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: 레거시 AnswerSelector / 신형 AnswerZoneSelector 이중 답안 판정 정리 및 중복 진입 로직 단일화
+- **목적**:
+  - 사용자 승인 방안 C안(역할 분리 공존)에 따라 동일 프레임 이중 답안 판정 엔진 경합을 해소하고, 1박째 정답 확정과 2~8박 키노트 판정의 역할 경계를 확립.
+- **수정 대상**:
+  - `dream_guardian/src/game/BeatRunCoordinator.ts`: 1박째 정답 확정 창 제한, `onAnswerSelected` 추가, 2박 진입 시 판정 차단
+  - `dream_guardian/src/main.ts`: 레거시 `updateFromPose` 확정 경로 제거, `enterQuestionPhase()` 단일화, 버튼 좌표 단일 소스화, 2~8박 `performanceBeat` 연동
+  - `dream_guardian/tests/integration/beat-run-gameplay.test.ts`: 1박째 한정, 2박 차단, fallback 차단, 버튼 좌표 일치 통합 테스트 4건 추가
+- **완료 조건 검증**:
+  - [x] `KEYNOTE_PERFORMANCE` 1박째에만 정답 확정이 열리고, 2박 진입 시 닫힘
+  - [x] 2~8박 키노트 판정이 HP/마나/콤보를 일체 변경하지 않음 (`hasBattlePenalty: false` 보장)
+  - [x] 2~8박 키노트 판정 결과가 리듬 통계(Perfect/Good/Late/Miss)에 정상 누적됨
+  - [x] 레거시 `AnswerSelector`의 정답 확정 경로가 제거되고, 11존 판정 자산은 키노트에서 재사용됨
+  - [x] 동일 프레임 이중 확정 경로가 제거됨
+  - [x] 문제 페이즈 진입 로직이 단일 함수로 통합됨
+  - [x] 답안 버튼 이펙트가 실제 버튼 위치(#164 좌표)와 일치함
+  - [x] 키보드(1, 2) / 마우스 클릭 fallback이 1박째 확정 경로로 정상 동작함
+  - [x] `npm run build` 및 전체 `npm test` 100% 통과 (50개 파일, 678/678 Pass)
+
+---
+
+### Issue #208: [CLEANUP-DEAD-001] 폐기된 방어 전투 시스템 잔재 및 미참조 리소스/데드코드 일괄 제거
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/208
+- **Labels**: `refactor`, `cleanup`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[CLEANUP-DEAD-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: 폐기된 방어 전투 시스템 잔재 및 미참조 리소스/데드코드 일괄 제거
+- **목적**:
+  - #143, #147, #173 등으로 폐기된 방어 전투 시스템 잔재 및 미참조 리소스를 정리하여 아키텍처 안정성 확보.
+- **수정 대상**:
+  - `SquatDetector.ts` 삭제 및 배럴 정리
+  - `BossController` 자동공격 타이머 및 `resolveAttack()` 제거
+  - `HUDLayer` 미사용 쉴드/마나 필드 정리
+  - `AnswerSelectionRenderer`의 `renderZoneBoxes` 분기 및 `RenderZoneInfo` 인터페이스 제거
+  - 미참조 파일 및 중복 CSV/이미지 리소스(약 700KB) 삭제
+- **완료 조건 검증**:
+  - [x] `SquatDetector` 및 관련 export/테스트 제거 완료
+  - [x] `BossController`의 자동공격 타이머 블록과 `resolveAttack()` 제거 완료
+  - [x] `HUDLayer` 미사용 필드 제거 완료
+  - [x] 미참조 리소스 약 700KB 삭제 및 번들 크기 축소 (206.08 kB → 204.46 kB)
+  - [x] 전체 `npm test` 100% 통과 (50개 파일, 674/674 Pass)
+
+---
+
+### Issue #210: [BEAT-KEYNOTE-ENGINE-001] 8박 런 직후 2박 팔 답안 선택 및 정답/오답 즉시 분기 엔진
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/210
+- **Labels**: `feature`, `P1-high`, `phase-6`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[BEAT-KEYNOTE-ENGINE-001]`
+- **상태**: ⚪ **대기 (착수 예정, 갱신 완료)**
+- **제목**: 8박 런 직후 2박 팔 답안 선택 및 정답/오답 즉시 분기 엔진
+- **목적**:
+  - 런 8박 완료 직후 `ANSWER_SELECT`(최대 2박)로 진입하여 `ArmReachAnswerSelector` 기반 답안 즉시 선택.
+  - 답안 선택 즉시 4초 대기 없이 시청각 피드백 출력 후 `STAR_COLLECT`(정답) vs `HAZARD_EVADE`(오답/타임아웃)로 즉각 분기.
+
+---
+
+### Issue #211: [ROUTINE-SPEC-001] 확정 게임 루틴 전체 계약 정의 및 카드 매핑 (문서 단일 기준점)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/211
+- **Labels**: `docs`, `P1-high`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[ROUTINE-SPEC-001]`
+- **상태**: ⚪ **대기 (갱신 완료)**
+- **제목**: 확정 게임 루틴 전체 계약 정의 및 카드 매핑 (문서 단일 기준점)
+- **목적**:
+  - 8박 런 직후 2박 한 팔 Zone 4/5 즉시 선택 및 정답/오답 분기 계약을 정본 문서에 일원화 동기화.
+
+---
+
+### Issue #224: [INPUT-ARM-ANSWER-001] Zone 4/5 한 팔 도달 기반 무체류 즉시 답안 선택기(ArmReachAnswerSelector) 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/224
+- **Labels**: `feature`, `P1-high`, `phase-3`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[INPUT-ARM-ANSWER-001]`
+- **상태**: 🟢 **완료 (2026-09-30)**
+- **제목**: Zone 4/5 한 팔 도달 기반 무체류 즉시 답안 선택기(ArmReachAnswerSelector) 구현
+- **목적**:
+  - 골반/머리 횡이동을 대체하여 한 팔 Zone 4(0번) 또는 Zone 5(1번) 도달 기반 무체류(0s) 즉시 선택기 구현.
+  - 정적 손 위치 즉시 선택 인정, 동적 뻗기(수평 속도 우세) 보조 검증, 양팔 동시 유효 시 미선택.
+- **완료 검증**:
+  - [x] 한 손이 Zone 4에 정지해 있으면 첫 판정 프레임에 0번이 즉시 선택된다.
+  - [x] 한 손이 Zone 5에 정지해 있으면 첫 판정 프레임에 1번이 즉시 선택된다.
+  - [x] 한 손이 중앙에서 Zone 4로 뻗으면 0번이 즉시 선택된다.
+  - [x] 한 손이 중앙에서 Zone 5로 뻗으면 1번이 즉시 선택된다.
+  - [x] 손의 색상 또는 왼손/오른손 구분이 답안 인덱스에 영향을 주지 않는다.
+  - [x] 양팔이 동시에 선택 조건을 충족하면 미선택 처리된다 (Strict Mutual Exclusion).
+  - [x] 양손이 동일한 존에 위치해도 미선택 처리된다.
+  - [x] 수직 점프 동작 중에는 답안이 오선택되지 않는다.
+  - [x] 선택 이벤트가 답안 창당 정확히 1회만 발생한다 (Idempotent Trigger).
+  - [x] `npm run build` 및 전체 `npm test` 100% 통과 (51개 파일, 701개 통과).
+
+---
+
+### Issue #225: [BATTLE-ANSWER-PENALTY-001] 오답/타임아웃 직접 피해 및 Phase A 보스 반격 제거
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/225
+- **Labels**: `feature`, `P1-high`, `phase-5`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[BATTLE-ANSWER-PENALTY-001]`
+- **상태**: ⚪ **대기 (신규 등록)**
+- **제목**: 오답/타임아웃 직접 피해 및 Phase A 보스 반격 제거
+- **목적**:
+  - 오답/타임아웃 시 플레이어 직접 HP 감소 및 Phase A 보스 직접 반격을 제거.
+  - Phase A 플레이어 피해는 오직 HAZARD_EVADE 장판/미니언 회피 실패 시에만 발생하도록 전투 책임 분리.
+
+---
+
+### Issue #226: [CLEANUP-ANSWER-INPUT-001] 골반/머리 기반 AnswerZoneSelector 및 답안 중앙 기준점 연동 제거
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/226
+- **Labels**: `refactor`, `cleanup`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[CLEANUP-ANSWER-INPUT-001]`
+- **상태**: ⚪ **대기 (신규 등록 후속)**
+- **제목**: 골반/머리 기반 AnswerZoneSelector 및 답안 중앙 기준점 연동 제거
+- **목적**:
+  - 신규 팔 선택기(#224) 및 엔진(#210) 적용 후, 더 이상 사용되지 않는 골반 횡이동 선택기 및 중앙 기준점 결합 안전하게 제거.
+
+
 
 
 
