@@ -35,6 +35,8 @@ import {
   type LocomotionMode,
 } from './motion/index.js';
 import { AnswerSelector } from './input/AnswerSelector.js';
+import { AnswerZoneSelector } from './input/AnswerZoneSelector.js';
+import { toNormalizedLandmarks } from './utils/index.js';
 import { MenuInput } from './input/MenuInput.js';
 import { SFXSynth } from './audio/SFXSynth.js';
 import { TutorialOverlay } from './ui/TutorialOverlay.js';
@@ -126,6 +128,7 @@ const xGestureDetector = new XGestureDetector();
 const beatCoordinator = new BeatRunCoordinator({
   questionBank,
   battle,
+  answerZoneSelector: new AnswerZoneSelector({ isMirrored: false }),
   speakFn: (text) => speech.speak(text),
   onPhaseChange: (phase) => {
     if (phase === 'RUN_QUESTION' || phase === 'REST_READY') {
@@ -940,9 +943,20 @@ const engine = new GameEngine({
         ? skeletonAnimation.smoothedLandmarks
         : poseManager.virtualLandmarks;
 
+    // Issue #205: 가상 픽셀 좌표(0~1080 / 0~2160)를 정규화 좌표계(0~1)로 비파괴 변환하여 전달
+    // CenterReturnGate와 AnswerZoneSelector가 정합성 있게 동작하도록 보장
+    const normalizedLandmarks =
+      sourceLandmarks.length >= 25
+        ? toNormalizedLandmarks(
+            sourceLandmarks,
+            canvasManager.virtualWidth,
+            canvasManager.virtualHeight,
+          )
+        : null;
+
     // Issue #200: 문제 페이즈(gamePhase === 'question')에서도 코디네이터에 시간(dt)을 지속 전달하여
     // 내부 8박 시계 및 라운드 정산(_resolveRound)이 멈추지 않도록 보장
-    beatCoordinator.update(dt, sourceLandmarks);
+    beatCoordinator.update(dt, normalizedLandmarks);
     currentQuestion = beatCoordinator.currentQuestion;
 
     if (beatCoordinator.isAnswerOpen && gamePhase !== 'question') {

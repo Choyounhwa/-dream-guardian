@@ -127,6 +127,13 @@ export class CenterReturnGate {
     return this._isLocked;
   }
 
+  get isInsideGate(): boolean {
+    return (
+      this._currentCenterX !== null &&
+      Math.abs(this._currentCenterX - this._config.targetX) <= this._config.toleranceX
+    );
+  }
+
   get isStable(): boolean {
     return this._isStable;
   }

@@ -9,6 +9,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BeatRunCoordinator } from '../../src/game/BeatRunCoordinator.js';
 import { QuestionBank } from '../../src/question/QuestionBank.js';
 import { BattleState } from '../../src/game/BattleState.js';
+import { AnswerZoneSelector } from '../../src/input/AnswerZoneSelector.js';
+import { toNormalizedLandmarks } from '../../src/utils/index.js';
 import { POSE_LANDMARKS, type NormalizedLandmark } from '../../src/types/index.js';
 
 /** 테스트용 랜드마크 생성 도우미 */
@@ -25,6 +27,29 @@ function createMockLandmarks(hipX = 0.50, shoulderWidth = 0.20): NormalizedLandm
   landmarks[POSE_LANDMARKS.LEFT_SHOULDER] = { x: hipX - shoulderWidth / 2, y: 0.35, z: 0, visibility: 0.9 };
   landmarks[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: hipX + shoulderWidth / 2, y: 0.35, z: 0, visibility: 0.9 };
   landmarks[POSE_LANDMARKS.NOSE] = { x: hipX, y: 0.20, z: 0, visibility: 0.9 };
+
+  return landmarks;
+}
+
+/** 1080x2160 가상 해상도 픽셀 좌표 랜드마크 생성 도우미 */
+function createMockPixelLandmarks(
+  hipX = 540,
+  shoulderWidth = 216,
+  virtualWidth = 1080,
+  virtualHeight = 2160,
+): NormalizedLandmark[] {
+  const landmarks: NormalizedLandmark[] = Array.from({ length: 33 }, () => ({
+    x: virtualWidth * 0.5,
+    y: virtualHeight * 0.5,
+    z: 0,
+    visibility: 0.9,
+  }));
+
+  landmarks[POSE_LANDMARKS.LEFT_HIP] = { x: hipX - 54, y: virtualHeight * 0.55, z: 0, visibility: 0.9 };
+  landmarks[POSE_LANDMARKS.RIGHT_HIP] = { x: hipX + 54, y: virtualHeight * 0.55, z: 0, visibility: 0.9 };
+  landmarks[POSE_LANDMARKS.LEFT_SHOULDER] = { x: hipX - shoulderWidth / 2, y: virtualHeight * 0.35, z: 0, visibility: 0.9 };
+  landmarks[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: hipX + shoulderWidth / 2, y: virtualHeight * 0.35, z: 0, visibility: 0.9 };
+  landmarks[POSE_LANDMARKS.NOSE] = { x: hipX, y: virtualHeight * 0.20, z: 0, visibility: 0.9 };
 
   return landmarks;
 }
@@ -265,6 +290,109 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       expect(confirmedSpy).toHaveBeenCalledTimes(1);
       expect(confirmedSpy).toHaveBeenCalledWith(-1, false);
       expect(battle.hp).toBe(75);
+    });
+  });
+
+  describe('8. 가상 픽셀 좌표(1080×2160) 및 정규화 변환 파이프라인 연동 회귀 검증 [BUG-BEAT-003]', () => {
+    const VW = 1080;
+    const VH = 2160;
+
+    it('가상 픽셀(540px)을 정규화 없이 직접 주입 시 결함이 재현된다 (게이트 미인식 및 timeout 잠금)', () => {
+      coordinator.startRound({ chapter: 1 });
+      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      expect(coordinator.phase).toBe('REST_READY');
+
+      const pixelLmCenter = createMockPixelLandmarks(540, 216, VW, VH);
+      // 정규화 없이 540 직접 주입 시 isInsideGate가 false
+      coordinator.update(0.1, pixelLmCenter);
+      expect(coordinator.centerReturnGate.isInsideGate).toBe(false);
+
+      // 2박 경과 시 lock 미충족으로 fallback 강제 잠금
+      for (let i = 0; i < 9; i++) {
+        coordinator.update(0.1, pixelLmCenter);
+      }
+      expect(coordinator.centerReturnGate.isLocked).toBe(true);
+      expect(coordinator.centerReturnGate.reference?.isFallback).toBe(true);
+      expect(coordinator.centerReturnGate.reference?.source).toBe('fallback');
+      // AnswerZoneSelector는 540 직접 수신 시 dx 폭주로 첫 프레임부터 즉시 left 진입
+      expect(coordinator.answerZoneSelector.state.dx).toBeLessThan(-100);
+      expect(coordinator.answerZoneSelector.state.activeZone).toBe('left');
+    });
+
+    it('toNormalizedLandmarks 및 isMirrored=false 주입 시 중앙 복귀 잠금과 답안 선택이 정상 작동한다', () => {
+      const confirmedSpy = vi.fn();
+      const zoneSelector = new AnswerZoneSelector({ isMirrored: false });
+
+      coordinator = new BeatRunCoordinator({
+        questionBank,
+        battle,
+        answerZoneSelector: zoneSelector,
+        onAnswerConfirmed: confirmedSpy,
+      });
+      coordinator.startRound({ chapter: 1 });
+
+      // 1. 8회 운동
+      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      expect(coordinator.phase).toBe('REST_READY');
+
+      // 2. 1080x2160 가상 해상도 중앙(540px) 랜드마크를 toNormalizedLandmarks로 변환 후 주입
+      const pixelLmCenter = createMockPixelLandmarks(540, 216, VW, VH);
+      for (let i = 0; i < 10; i++) {
+        const norm = toNormalizedLandmarks(pixelLmCenter, VW, VH);
+        coordinator.update(0.1, norm);
+      }
+
+      // 게이트가 정상 안정(stable)되어 개인 기준점(hip, isFallback=false)으로 잠김
+      expect(coordinator.centerReturnGate.isLocked).toBe(true);
+      expect(coordinator.centerReturnGate.reference?.isFallback).toBe(false);
+      expect(coordinator.centerReturnGate.reference?.source).toBe('hip');
+      expect(coordinator.centerReturnGate.reference?.sampleCount).toBeGreaterThanOrEqual(5);
+
+      // KEYNOTE_PERFORMANCE 진입 직후 중앙 데드존에서는 activeZone === 'none'
+      expect(coordinator.phase).toBe('KEYNOTE_PERFORMANCE');
+      expect(coordinator.isAnswerOpen).toBe(true);
+      expect(coordinator.answerZoneSelector.state.activeZone).toBe('none');
+      expect(coordinator.answerZoneSelector.state.isConfirmed).toBe(false);
+
+      // 3. 화면 좌측(300px, 300/1080 ≈ 0.278 < 0.5)으로 이동하여 0.5초 체류 시 0번(left) 확정
+      const pixelLmLeft = createMockPixelLandmarks(300, 216, VW, VH);
+      for (let i = 0; i < 5; i++) {
+        const normLeft = toNormalizedLandmarks(pixelLmLeft, VW, VH);
+        coordinator.update(0.1, normLeft);
+      }
+
+      expect(coordinator.answerZoneSelector.isConfirmed).toBe(true);
+      expect(coordinator.answerZoneSelector.confirmedZone).toBe('left');
+      expect(coordinator.selectedChoiceIndex).toBe(0);
+    });
+
+    it('toNormalizedLandmarks 변환 후 화면 우측(780px) 이동 시 1번(right)이 확정된다', () => {
+      const zoneSelector = new AnswerZoneSelector({ isMirrored: false });
+      coordinator = new BeatRunCoordinator({
+        questionBank,
+        battle,
+        answerZoneSelector: zoneSelector,
+      });
+      coordinator.startRound({ chapter: 1 });
+
+      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+
+      const pixelLmCenter = createMockPixelLandmarks(540, 216, VW, VH);
+      for (let i = 0; i < 10; i++) {
+        const norm = toNormalizedLandmarks(pixelLmCenter, VW, VH);
+        coordinator.update(0.1, norm);
+      }
+
+      // 화면 우측(780px, 780/1080 ≈ 0.722 > 0.5)으로 이동하여 0.5초 체류 시 1번(right) 확정
+      const pixelLmRight = createMockPixelLandmarks(780, 216, VW, VH);
+      for (let i = 0; i < 5; i++) {
+        const normRight = toNormalizedLandmarks(pixelLmRight, VW, VH);
+        coordinator.update(0.1, normRight);
+      }
+
+      expect(coordinator.answerZoneSelector.isConfirmed).toBe(true);
+      expect(coordinator.answerZoneSelector.confirmedZone).toBe('right');
+      expect(coordinator.selectedChoiceIndex).toBe(1);
     });
   });
 });

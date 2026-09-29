@@ -63,6 +63,12 @@
 
 ---
 
+## 🔵 2026-09-29 완료: [BUG-BEAT-003 / #205] 중앙 복귀 게이트/정답존 좌표계 불일치(픽셀 vs 정규화) 해소 🟢 (전체 660/660 Pass)
+
+> `main.ts`가 `BeatRunCoordinator.update()`에 가상 픽셀 좌표(1080x2160)를 전달하여 `CenterReturnGate`와 `AnswerZoneSelector`의 정규화 좌표(0~1) 전제 임계값과 충돌하던 결함을 해결했습니다. `toNormalizedLandmarks` 순수 변환 헬퍼를 추가하여 코디네이터에 정규화 좌표를 전달하고, `AnswerZoneSelector` 생성자 주입(`isMirrored: false`)을 통해 화면 좌/우 방향성 일치를 확보했습니다.
+
+---
+
 ## 🔵 2026-09-27 확정: BEAT MOTION 8+2+8 비트매니아식 피트니스 리듬 시스템 전환
 
 > 상태: **[BEAT-ROUTINE-001 / #190] 8+2+8 상태 전이 및 단일 정산 완료 🟢 (전체 583/583 Pass)**, 다음 착수: `#191 [AUDIO-BAND-001]`.  
@@ -768,6 +774,9 @@ npm test
 
 다음에 작업을 재개할 때 등록된 신규 이슈 카드를 다음 권장 순서대로 TDD 사이클(Red → Green → Refactor)에 맞춰 구현하시면 됩니다:
 
+0. **[FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(Mecha Stickman) 실시간 모션 아바타 구현 ([#203](https://github.com/Choyounhwa/-dream-guardian/issues/203)) ⚪ [신규 등록/승인 대기]**:
+   - 앙상한 스켈레톤(선과 점) 노출을 대체하여 화면 중앙 2/3 높이(y ≈ 0.60 ~ 0.85)에 도톰한 네온 캡슐과 관절 볼을 가진 세련된 메카 졸라맨 아바타를 배치
+   - 인체 비율 고정 순운동학(Fixed-Length FK) 및 각도 기반 회전을 통해 원근 왜곡 없는 부드러운 자세 미러링 지원
 1. **[UI-MENU-004] 홈/서브 메뉴 중앙 개방형 레이아웃 재배치 및 박스·수학유형(3배) 규격 통일 ([#161](https://github.com/Choyounhwa/-dream-guardian/issues/161))**:
    - 홈/서브 메뉴 카드 좌우 외곽 재배치(중앙 뷰포트 확보) 및 박스 크기(288x304) 통일
    - 수학 유형 텍스트 3배(78px) 확대 및 `Ch.1~5` 텍스트 제거
@@ -779,4 +788,4 @@ npm test
    - 제자리 달리기 중 전후좌우 신체 드리프트 보정(`TorsoCentroidTracker` 등)은 추후 정밀 검증 후 재개.
 
 ---
-*최종 갱신일시: 2026-09-25*
+*최종 갱신일시: 2026-09-29*

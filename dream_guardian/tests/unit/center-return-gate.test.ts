@@ -416,4 +416,25 @@ describe('CenterReturnGate - [CENTER-RETURN-001]', () => {
       expect(gate.status).toBe('idle');
     });
   });
+
+  describe('7. 좌표계 스케일 계약 검증 [BUG-BEAT-003]', () => {
+    it('정규화 좌표(0~1) 입력 시 중앙 정상 판정 및 잠금된다', () => {
+      gate.open();
+      const lmNormalized = createMockLandmarks({ hipX: 0.50 });
+      for (let i = 0; i < 9; i++) {
+        gate.update(0.05, lmNormalized);
+      }
+      expect(gate.isLocked).toBe(true);
+      expect(gate.reference?.isFallback).toBe(false);
+      expect(gate.reference?.source).toBe('hip');
+    });
+
+    it('가상 픽셀 좌표(0~1080) 직접 입력 시 게이트 진입에 실패한다', () => {
+      gate.open();
+      const lmPixel = createMockLandmarks({ hipX: 540 }); // 1080 가상 해상도 중앙
+      const result = gate.update(0.1, lmPixel);
+      expect(result.isInsideGate).toBe(false);
+      expect(gate.isStable).toBe(false);
+    });
+  });
 });

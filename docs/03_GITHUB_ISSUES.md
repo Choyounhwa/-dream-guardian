@@ -3655,29 +3655,33 @@ BEAT-SPEC-001
 - **상태**: ⚪ **대기 (승인 대기)**
 - **제목**: 스테이지 첫 진입 시 카메라 프레임 정렬 가이드 및 3초 준비 카운트다운(READY_POSITION) 구현
 - **목적**:
-  - 스테이지 첫 진입 시(챕터 및 서브레벨 선택 직후) 문제와 8박 달리기 루프가 즉각 시작되어, 사용자가 카메라 앞에서 신체 위치를 잡지 못하고 모션/키보드 오입력이 발생하는 문제를 해결한다. 문제가 출제되기 전 유저가 카메라 화각 안에서 자세를 바르게 잡고(프레임 맞추기), 안정적인 입력을 준비할 수 있는 3초 카운트다운 및 프레임 정렬 가이드 페이즈(`READY_POSITION`)를 구현한다.
+  - 스테이지 첫 진입 시(챕터 및 서브레벨 선택 직후) 문제와 8박 달리기 루프가 즉각 시작되어, 사용자가 카메라 앞에서 신체 위치를 잡지 못하고 모션/키보드 오입력이 발생하는 문제를 해결한다. 문제가 출제되기 전 유저가 카메라 화각 안에서 자세를 바르게 잡고(프레임 맞추기), 안정적인 입력을 준비할 수 있는 2단계 진입 분리 구조(프레임 비동기 대기 → BPM 3박자 동기화 카운트다운)를 구현한다.
 - **수정 및 생성 대상**:
   - `dream_guardian/src/main.ts`
   - `dream_guardian/src/render/KneeFramingGuideRenderer.ts`
+  - `dream_guardian/src/motion/KneeFramingValidator.ts`
   - `dream_guardian/src/core/StateMachine.ts`
   - `dream_guardian/src/audio/SFXSynth.ts`
   - `dream_guardian/tests/unit/stage-ready.test.ts`
 - **구현 내용**:
-  1. **스테이지 진입 준비 상태(`READY_POSITION`) 신설**:
-     - `startChapter()` 호출 시 곧바로 러닝 페이즈로 가지 않고, `startReadyPhase()`를 호출하여 준비 상태로 진입.
-     - 3초 카운트다운 타이머(`readyTimer = 3.0s`) 동작.
-  2. **카메라 신체 프레임 정렬 가이드 (Framing Guide)**:
+  1. **스테이지 진입 2단계 분리 구조 신설 (`GamePhase` 확장)**:
+     - `main.ts`의 `GamePhase`를 `'ready_frame' | 'count_in' | 'running' | 'question'`으로 체계화.
+     - `startChapter()` 호출 시 문제/러닝으로 직행하지 않고 `startReadyPhase()`를 호출하여 `ready_frame` 상태로 진입.
+  2. **Phase 1: 카메라 신체 프레임 정렬 비동기 대기 (`READY_FRAME`)**:
+     - BGM 메인 비트 정지 (잔잔한 앰비언트 대기 상태 유지).
      - 화면 중앙에 반투명 가이드 실루엣 및 정렬 박스 표시: *"카메라 앞에 서서 준비하세요!"*
-     - Pose 관절(얼굴, 어깨, 골반)이 카메라 화각 안에 정상 포착되면 가이드 테두리가 청록색(#4DFFAA)으로 점등되며 안정 상태 표시.
-  3. **입력 잠금 및 모션 감지기 제로 초기화**:
-     - 카운트다운 3초 동안은 모든 답안 선택 및 스텝 누적을 완전 잠금(Input Locked).
-     - 카운트다운 0초 도달 시점에 이동 감지기(`LocomotionDetector`) 및 비트 코디네이터(`BeatRunCoordinator`)를 0으로 깨끗하게 리셋하여, 정확히 첫 박자부터 1스텝 측정이 시작되도록 보장.
-  4. **시각 & 청각 카운트다운 연출**:
-     - 3... 2... 1... START! 대형 네온 카운트다운 애니메이션 렌더링.
-     - 1초 간격 카운트다운 비프음(`count_tick`) 및 시작 신호음(`start_whistle` or `game_start`) 재생.
-     - 카운트다운 완료 즉시 부드럽게 8박 달리기 및 문제 출제 페이즈로 전환.
-  5. **PC 디버깅 및 사용자 스킵 편의 지원**:
-     - Space 키 입력 또는 화면 클릭/터치 시 3초 카운트다운을 즉시 건너뛰고 바로 시작 가능.
+     - `KneeFramingValidator`를 연동하여 Pose 관절(머리, 어깨, 무릎) 화각이 정상 포착(`ready`)되거나, Space 키/화면 터치 스킵 시 Phase 2로 전환.
+     - 대기 중 스텝 및 답안 판정 일체 잠금(Input Locked).
+  3. **Phase 2: 곡 BPM 동기화 3박자 예비박 카운트다운 (`COUNT_IN`)**:
+     - 선택된 음악 트랙의 BPM 주기에 맞춰 비트 엔진 시동.
+     - 1박 간격(60/BPM초)으로 메트로놈 틱과 함께 3... 2... 1... START! 대형 네온 카운트다운 렌더링.
+     - 1초/1박 간격 카운트다운 비프음(`count_tick`) 및 시작 신호음 재생.
+  4. **Phase 3: 본 라운드 정박 다운비트 전환 (`RUN_QUESTION`)**:
+     - 카운트다운 0초 도달 즉시 BGM 본 트랙 다운비트 드롭과 함께 문제 텍스트 표시 및 TTS 낭독 시작.
+     - 이동 감지기(`LocomotionDetector`) 및 비트 코디네이터(`BeatRunCoordinator`)를 0으로 깨끗하게 리셋하여 정확히 첫 박자부터 1스텝 측정이 시작되도록 보장.
+  5. **PC 디버깅 및 사용자 스킵/일시정지 지원**:
+     - Space 키 입력 또는 화면 클릭/터치 시 프레임 대기를 즉시 건너뛰고 카운트인 전환 가능.
+     - 카운트다운 중 ESC 일시정지(`PauseModal`) 시 타이머 일시정지 연동.
 - **유지 사항**:
   - 8박 비트 루틴(`RUN_QUESTION` → `REST_READY` → `KEYNOTE_PERFORMANCE`) 계약 100% 보존
   - 기존 운동 모드(달리기, 골반 바운스, 스웨이, 양손 교차) 감지 인터페이스 유지
@@ -3687,10 +3691,11 @@ BEAT-SPEC-001
   - `PostureGenerator` 및 문제 출제 데이터 로직
   - 전투 HP/마나 증감 규칙
 - **완료 조건**:
-  - [ ] 챕터/단계 선택 후 문제 출제 전 3초 준비 카운트다운 화면이 먼저 표시됨
+  - [ ] 챕터/단계 선택 후 문제 출제 전 프레임 정렬 화면(Phase 1)이 먼저 표시됨
   - [ ] 사용자가 카메라 화각 안에 정상 위치할 수 있도록 신체 프레임 가이드가 시각화됨
-  - [ ] 3초 동안 잘못된 모션/스텝 입력이 누적되지 않고 클린 상태로 대기함
-  - [ ] 카운트다운 3, 2, 1 사운드 및 종료 시 START 연출과 함께 달리기/문제로 자연스럽게 전환됨
+  - [ ] 화각 정렬 완료 또는 스킵 시 해당 곡 BPM에 동기화된 3박자 카운트다운(Phase 2)이 진행됨
+  - [ ] 준비/카운트다운 동안 잘못된 모션/스텝 입력이 누적되지 않고 클린 상태로 대기함
+  - [ ] 카운트다운 종료 즉시 BGM 다운비트 드롭과 함께 달리기/문제로 자연스럽게 전환됨
   - [ ] Space/터치 스킵 및 단위 테스트 100% 통과
 - **테스트**:
   - `tests/unit/stage-ready.test.ts` (신규 타이머 및 상태 전이 단위 테스트)
@@ -3698,9 +3703,153 @@ BEAT-SPEC-001
 - **관련 파일**:
   - `dream_guardian/src/main.ts`
   - `dream_guardian/src/render/KneeFramingGuideRenderer.ts`
+  - `dream_guardian/src/motion/KneeFramingValidator.ts`
   - `dream_guardian/src/core/StateMachine.ts`
   - `dream_guardian/src/audio/SFXSynth.ts`
   - `dream_guardian/tests/unit/stage-ready.test.ts`
+
+---
+
+### Issue #203: [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(Mecha Stickman) 실시간 모션 아바타 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/203
+- **Labels**: `feature`, `P1-high`, `phase-2`
+- **Milestone**: `v0.3-vision-motion`
+- **작업 ID**: `[FEAT-SKEL-005]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 화면 중앙 2/3 높이 메카 졸라맨(Mecha Stickman) 실시간 모션 아바타 구현
+- **목적**:
+  - 앙상한 스켈레톤(선과 점) 노출로 인한 시각적 거부감과 의학/디버그 느낌을 해소한다.
+  - 화면 중앙 2/3 높이(y ≈ 0.60 ~ 0.85)에 도톰한 네온 캡슐과 관절 볼을 가진 세련된 '메카 졸라맨(Mecha Stickman)' 아바타를 배치하여, 유저가 자신의 신체 위치(손, 머리, 골반)를 직관적이고 자연스럽게 인지(Proprioception)할 수 있도록 한다.
+- **수정 대상**:
+  - `dream_guardian/config/skeleton.config.ts` (신규 생성: 메카 졸라맨 비례, 두께, 색상 설정)
+  - `dream_guardian/src/skeleton/StickmanRenderer.ts` (신규 생성: 메카 졸라맨 렌더러)
+  - `dream_guardian/src/skeleton/index.ts` (모듈 export 추가)
+  - `dream_guardian/src/main.ts` (중앙 2/3 앵커 렌더링 파이프라인 연동)
+  - `dream_guardian/src/ui/SettingsModal.ts` (설정 연동)
+  - `dream_guardian/tests/unit/stickman-renderer.test.ts` (신규 단위 테스트)
+- **구현 내용**:
+  1. **메카 졸라맨 비주얼 디자인 (Canvas 2D 프로시저럴 드로잉)**:
+     - 머리: 둥근 캡슐 헬멧 + 가로 발광 네온 바이저 슬릿(보라 #C889FF) (머리 각도 반영)
+     - 가슴/몸통: 단단한 역삼각형 실루엣 + 중앙 발광 마력 코어(호흡 펄스 연동)
+     - 팔다리: 두께감 있는 라운드 캡슐(폭 14~18px, 다크 네이비 바디 + 네온 라인)
+     - 관절: 4색 신체 커서 색상(왼손 시안, 오른손 노랑, 머리 보라, 골반 주황)을 계승한 발광 관절 볼
+     - 발밑: 드림 접지 링(마법진) 렌더링으로 지면 일체감 부여
+  2. **자연스러운 모션을 위한 고정 비례 순운동학(Fixed-Length FK)**:
+     - 상완, 전완, 몸통, 허벅지, 종아리 길이를 황금 비율로 고정하여, 카메라 각도나 원근에 따른 팔다리 왜곡/쪼그라듦 원천 차단
+     - 랜드마크 사이의 회전 각도(Math.atan2)만 추출하여 뼈대 회전 적용
+     - 급격한 노이즈 방지를 위한 각도 스무딩(Angle Damping) 적용
+  3. **화면 중앙 2/3 높이 앵커 배치**:
+     - 가상 해상도(1080x2160) 기준 X: 540(중앙), Y: 약 1450~1500 지점에 기준점을 고정하고 자세 미러링
+     - 스쿼트 시 무게중심 하강 및 무릎 벌림, 점프 시 스프링 탄성 도약 연출
+  4. **설정 모달 및 옵션 연동**:
+     - 설정 모달의 '스켈레톤 미러' 옵션과 연동하여 메카 졸라맨 ON/OFF 지원
+- **유지 사항**:
+  - 기존 4색 커서(AnswerSelectionRenderer) 및 11개 피트니스 존 판정 로직 100% 보존
+  - 8+2+8 비트매니아식 리듬 루프 및 모션 감지 계약 보존
+  - 단위 테스트 100% Pass 상태 유지
+- **변경 금지**:
+  - PoseManager 랜드마크 추출 파이프라인
+  - 수학 문제 출제 및 배틀 전투 엔진 로직
+  - 다른 레이어 UI 레이아웃
+- **완료 조건**:
+  - [ ] `config/skeleton.config.ts`에 메카 졸라맨 크기/비율/색상 정의 완료
+  - [ ] `StickmanRenderer`가 인체 고정 비례와 회전 각도를 계산하여 둥근 캡슐 및 바이저를 정상 렌더링함
+  - [ ] 신체 부위 왜곡(팔다리 늘어남/줄어듦) 없이 부드러운 자세 미러링 동작
+  - [ ] 화면 중앙 2/3 높이에 안정적으로 배치되어 UI 및 피트니스 존과 자연스럽게 조화됨
+  - [ ] `npm test` 단위 테스트 100% Pass 및 빌드 무결성 확인
+- **테스트**:
+  - `tests/unit/stickman-renderer.test.ts` 단위 테스트 작성 및 통과
+  - 로컬 서버(`npm run dev`)에서 웹캠 자세 변화(팔 들기, 스쿼트, 점프) 실시간 렌더링 검증
+- **관련 파일**:
+  - `dream_guardian/config/skeleton.config.ts`
+  - `dream_guardian/src/skeleton/StickmanRenderer.ts`
+  - `dream_guardian/src/skeleton/index.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/ui/SettingsModal.ts`
+  - `dream_guardian/tests/unit/stickman-renderer.test.ts`
+
+---
+
+### Issue #204: [BEAT-TRACK-001] 음악 트랙별 가변 박자(BPM/LoopPattern) 및 카운트인(Count-in) 연동 아키텍처 구축
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/204
+- **Labels**: `feature`, `P1-high`, `phase-6`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[BEAT-TRACK-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 음악 트랙별 가변 박자(BPM/LoopPattern) 및 카운트인(Count-in) 연동 아키텍처 구축
+- **목적**:
+  - 기존 8+2+8 비트 루프에서 하드코딩된 박자 상수(8, 2, 8) 및 초 단위 고정 설정(0.5s, 1.0s 등)을 음악 트랙 메타데이터(`MusicTrackConfig`) 기반으로 추상화하여, 곡마다 다른 BPM 및 박자 패턴(예: 8+4+8 마디 정렬 등)에 유연하게 대응한다.
+  - 또한 #202(프레임 정렬 가이드) 완료 직후 해당 트랙의 BPM에 동기화된 예비박(Count-in 3박자 메트로놈)을 시동하여, 1라운드(8박 러닝/문제)의 첫 다운비트와 1ms 오차 없이 자연스럽게 이어지는 음악적 도입 아키텍처를 확립한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/config/beat-motion.config.ts`
+  - `dream_guardian/src/types/track.ts` (신규: `MusicTrackConfig`, `LoopPattern`)
+  - `dream_guardian/src/core/RhythmEngine.ts`
+  - `dream_guardian/src/game/BeatRunCoordinator.ts`
+  - `dream_guardian/tests/unit/music-track-config.test.ts` (신규)
+- **구현 내용**:
+  1. **음악 트랙 메타데이터 인터페이스 정의 (`MusicTrackConfig`)**:
+     - `bpm`, `timeSignature: [4, 4]`
+     - `intro: { countInBeats: 3, soundType: 'metronome' | 'hihat' | 'voice' }`
+     - `loopPattern: { exerciseBeats: number, readyBeats: number, performanceBeats: number }`
+     - 챕터별 기본 트랙 프리셋(Ch.1~Ch.5) 정의
+  2. **상대 비트 비례 동적 타이밍 산출**:
+     - 고정된 초 단위 설정을 `secondsPerBeat * beats` 비례 공식으로 연동.
+     - 트랙 BPM 전환 시 `RhythmEngine`의 `secondsPerBeat = 60 / bpm` 및 `secondsPerRound` 자동 재계산.
+  3. **`BeatRunCoordinator` 트랙 설정 주입(DI) 구조 전환**:
+     - 생성자 옵션으로 `trackConfig?: MusicTrackConfig`를 주입받아 `loopPattern`을 동적으로 적용. (기본값: 기존 8+2+8 패턴 100% 하위 호환)
+  4. **카운트인(Count-in) 예비박 제어 지원**:
+     - 프레임 정렬 완료 후 본 라운드 진입 전, 트랙 BPM에 동기화된 예비박(Count-in) 진행 상태 및 이벤트 제공.
+     - 예비박 종료 즉시 1라운드(`RUN_QUESTION`) 정박 다운비트와 동시 전환.
+- **유지 사항**:
+  - 기존 8+2+8 비트 루틴 계약 및 전체 테스트 100% 호환성 보존
+  - 전투/마나/보스 시스템 및 문제 출제 로직 인터페이스 불변
+  - 키보드/마우스 Fallback 조작 유지
+- **변경 금지**:
+  - `BattleState`, `GuardianSystem`, `BossController` 전투 수치 공식
+  - 문제 CSV 파싱 및 안전 수식 평가(`safeEval`) 로직
+- **완료 조건**:
+  - [ ] 트랙별 BPM(100~140) 변경 시 1박 시간 및 라운드 시간이 정확히 재계산됨
+  - [ ] `BeatRunCoordinator`가 트랙별 loopPattern(예: 8+4+8, 8+2+8)을 동적으로 수용함
+  - [ ] 카운트인 예비박이 트랙 BPM 주기에 맞춰 정확히 발생하고 완료 즉시 본 라운드로 전이됨
+  - [ ] 단위 테스트 100% Pass 및 번들 빌드 정상 완료
+- **테스트**:
+  - `tests/unit/music-track-config.test.ts` (신규 트랙 설정 및 가변 박자 단위 테스트)
+  - `npm test` 전체 회귀 테스트 통과 검증
+- **관련 파일**:
+  - `dream_guardian/config/beat-motion.config.ts`
+  - `dream_guardian/src/types/track.ts`
+  - `dream_guardian/src/core/RhythmEngine.ts`
+  - `dream_guardian/src/game/BeatRunCoordinator.ts`
+  - `dream_guardian/tests/unit/music-track-config.test.ts`
+
+---
+
+### Issue #205: [BUG-BEAT-003] BEAT MOTION 중앙 복귀 게이트/정답존 좌표계 불일치(가상 픽셀 vs 정규화)로 인한 신형 입력 전면 무력화
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/205
+- **Labels**: `bug`, `P0-blocker`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[BUG-BEAT-003]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: BEAT MOTION 중앙 복귀 게이트/정답존 좌표계 불일치(가상 픽셀 vs 정규화)로 인한 신형 입력 전면 무력화
+- **원인 분석**:
+  - `main.ts`가 `BeatRunCoordinator.update()`에 가상 해상도 픽셀 좌표(0~1080 / 0~2160)를 전달하고 있었으나, `CenterReturnGate`와 `AnswerZoneSelector`는 정규화 좌표(0~1)를 전제로 임계값을 계산하여 게이트 잠금 실패(`forceFallbackLock` 강제 발동) 및 답안 첫 프레임 좌측 오선택 발생.
+  - 또한 가상 해상도 좌표에 카메라 미러링이 이미 적용되어 있어 `AnswerZoneSelector`의 기본 `isMirrored: true` 적용 시 좌우 방향 이중 반전 위험 존재.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/utils/index.ts`: 가상 픽셀 좌표를 정규화 좌표(0~1)로 비파괴 변환하는 `toNormalizedLandmarks` 순수 헬퍼 신설.
+  - `dream_guardian/src/motion/CenterReturnGate.ts`: `isInsideGate` getter 추가.
+  - `dream_guardian/src/main.ts`: `toNormalizedLandmarks`를 적용하여 `beatCoordinator.update()`에 정규화 좌표 전달 및 `new AnswerZoneSelector({ isMirrored: false })` 생성자 주입.
+  - `dream_guardian/tests/integration/beat-run-gameplay.test.ts`: 가상 픽셀 직접 전달 결함 재현 및 `toNormalizedLandmarks` 연동 회귀 검증 테스트 추가.
+  - `dream_guardian/tests/unit/center-return-gate.test.ts`: 정규화 vs 가상 픽셀 스케일 계약 검증 단위 테스트 추가.
+  - `dream_guardian/tests/unit/answer-zone-selector.test.ts`: 정규화 vs 가상 픽셀 및 좌/우 방향성 일치 검증 단위 테스트 추가.
+- **완료 조건 검증**:
+  - [x] 화면 중앙 정렬 시 `CenterReturnGate.isInsideGate === true`가 되고, 0.4초 안정 후 `status === 'locked'` 전이
+  - [x] 정상 추적 환경에서 `reference.isFallback === false`, `source === 'hip'`, `sampleCount >= 5` 잠금
+  - [x] `AnswerZoneSelector`가 첫 프레임에 자동 확정되지 않으며 데드존에서 `activeZone === 'none'` 유지
+  - [x] 좌/우 이동 방향과 확정된 `confirmedZone` 일치(미러 반전 없음)
+  - [x] 가상 픽셀 좌표(1080×2160 스케일) 입력 기반 회귀 테스트 추가 및 통과
+  - [x] 레거시 `AnswerSelector` 경로의 기존 동작 보존
+  - [x] `npm run build` 및 전체 `npm test` 100% 통과 (48개 파일, 660/660 Pass)
+
 
 
 

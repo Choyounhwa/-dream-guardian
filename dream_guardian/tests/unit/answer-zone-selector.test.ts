@@ -377,4 +377,35 @@ describe('AnswerZoneSelector - [ANSWER-ZONE-001]', () => {
       expect(selector.dwellProgress).toBe(0);
     });
   });
+
+  describe('8. 좌표계 스케일 계약 검증 [BUG-BEAT-003]', () => {
+    it('가상 픽셀 좌표(0~1080) 직접 입력 시 1프레임만에 비정상 좌측 진입 발생을 검증한다', () => {
+      selector.setReference(standardRef);
+      // 1080 픽셀 기준 중앙(540)을 직접 전달할 경우
+      const lmPixel = createMockLandmarks({ hipX: 540 });
+      const state = selector.update(0.1, lmPixel);
+      // 정규화 전제(1 - rawX)에 540이 들어가 dx가 -539.5로 폭주하여 첫 프레임에 좌측 진입
+      expect(state.dx).toBeLessThan(-100);
+      expect(state.activeZone).toBe('left');
+    });
+
+    it('정규화 좌표(0~1) 및 isMirrored=false 환경에서 화면 좌/우 방향이 일치한다', () => {
+      const screenSelector = new AnswerZoneSelector({ isMirrored: false });
+      screenSelector.setReference(standardRef);
+
+      // 화면 좌측(0.35, dx = -0.15)
+      const lmLeft = createMockLandmarks({ hipX: 0.35 });
+      const stateLeft = screenSelector.update(0.1, lmLeft);
+      expect(stateLeft.dx).toBeCloseTo(-0.15, 2);
+      expect(stateLeft.activeZone).toBe('left');
+
+      // 리셋 후 화면 우측(0.65, dx = +0.15)
+      screenSelector.reset();
+      screenSelector.setReference(standardRef);
+      const lmRight = createMockLandmarks({ hipX: 0.65 });
+      const stateRight = screenSelector.update(0.1, lmRight);
+      expect(stateRight.dx).toBeCloseTo(0.15, 2);
+      expect(stateRight.activeZone).toBe('right');
+    });
+  });
 });
