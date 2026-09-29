@@ -8,8 +8,7 @@
  */
 
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
-
-const BOSS_NAMES = ['', '포겟', '후다닥', '뒤죽박죽', '에라', '나이트메어'];
+import { getBossName } from '../data/bossData.js';
 
 export interface LocomotionHUDGuide {
   icon: string;
@@ -155,7 +154,7 @@ export class HUDLayer {
     ctx.fillStyle = '#FFCB4D';
     ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`Ch.${data.chapter} ${BOSS_NAMES[data.chapter] ?? ''}`, w / 2, 36);
+    ctx.fillText(`Ch.${data.chapter} ${getBossName(data.chapter)}`, w / 2, 36);
     ctx.restore();
   }
 

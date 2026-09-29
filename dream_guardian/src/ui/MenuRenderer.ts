@@ -24,7 +24,7 @@ export const CHAPTER_INFO: ChapterInfo[] = [
     name: '에메랄드 심해',
     fullName: '나비가 숨 쉬는 에메랄드 심해',
     sub: '덧셈 · 뺄셈',
-    boss: '심해 삼킴이 굴룹',
+    boss: '망각의 요괴 하얘시니',
     color: '#4DFFAA',
   },
   {
@@ -32,7 +32,7 @@ export const CHAPTER_INFO: ChapterInfo[] = [
     name: '사탕 바구니 숲',
     fullName: '별자리가 떨어진 사탕 바구니 숲',
     sub: '곱셈 · 나눗셈',
-    boss: '성운 먹깨비 네뷸라',
+    boss: '성급의 요괴 재촉새',
     color: '#28E6FF',
   },
   {
@@ -40,7 +40,7 @@ export const CHAPTER_INFO: ChapterInfo[] = [
     name: '오르골 구름 서재',
     fullName: '거꾸로 흐르는 오르골 구름 서재',
     sub: '분수',
-    boss: '태엽 삼키개 크로노스',
+    boss: '왜곡의 요괴 따돌시니',
     color: '#FFCB4D',
   },
   {
@@ -48,7 +48,7 @@ export const CHAPTER_INFO: ChapterInfo[] = [
     name: '색종이 사파리',
     fullName: '크레용 화산과 색종이 사파리',
     sub: '소수',
-    boss: '먹물 대왕 인크라켄',
+    boss: '무기력의 요괴 풀죽새',
     color: '#C889FF',
   },
   {
@@ -56,7 +56,7 @@ export const CHAPTER_INFO: ChapterInfo[] = [
     name: '은하 회전목마',
     fullName: '끝없는 기억의 은하 회전목마',
     sub: '전 영역 종합',
-    boss: '악몽의 지배자 나이트메어',
+    boss: '영원한 고립의 지배자 캄캄대왕',
     color: '#FF4444',
   },
 ];
@@ -164,7 +164,7 @@ export class MenuRenderer {
     // 슬로건
     ctx.font = `${Math.round(30 * scaleX)}px sans-serif`;
     ctx.fillStyle = '#CCCCCC';
-    ctx.fillText('알레와 함께 신비로운 꿈의 성역으로 다이빙!', w / 2, titleCenterY + 70 * scaleY);
+    ctx.fillText('깨비와 함께 신비로운 꿈의 성역으로 다이빙!', w / 2, titleCenterY + 70 * scaleY);
 
     // 1.5 운동 모드 선택 버튼
     if (state.locomotionLabel) {

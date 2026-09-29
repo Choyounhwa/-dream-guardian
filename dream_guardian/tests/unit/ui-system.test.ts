@@ -21,6 +21,55 @@ describe('HUDLayer', () => {
     const hud = new HUDLayer();
     expect(() => hud.reset()).not.toThrow();
   });
+
+  it('상단 중앙에 신규 5대 보스명(하얘시니, 재촉새, 따돌시니, 풀죽새, 캄캄대왕)을 올바르게 렌더링한다 (Issue #216 / UI-STORY-001)', () => {
+    const hud = new HUDLayer();
+    const expectedBosses: Record<number, string> = {
+      1: 'Ch.1 하얘시니',
+      2: 'Ch.2 재촉새',
+      3: 'Ch.3 따돌시니',
+      4: 'Ch.4 풀죽새',
+      5: 'Ch.5 캄캄대왕',
+    };
+
+    for (const [chStr, expectedTitle] of Object.entries(expectedBosses)) {
+      const ch = Number(chStr);
+      const textCalls: string[] = [];
+      const mockCtx = {
+        save: vi.fn(),
+        restore: vi.fn(),
+        beginPath: vi.fn(),
+        roundRect: vi.fn(),
+        fillRect: vi.fn(),
+        strokeRect: vi.fn(),
+        createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+        fillText: vi.fn((text: string) => {
+          textCalls.push(text);
+        }),
+        textAlign: '',
+        textBaseline: '',
+        font: '',
+        fillStyle: '',
+        strokeStyle: '',
+        lineWidth: 1,
+        shadowColor: '',
+        shadowBlur: 0,
+      } as unknown as CanvasRenderingContext2D;
+
+      hud.render(mockCtx, 1080, 2160, {
+        playerHp: 100,
+        playerMaxHp: 100,
+        bossHp: 10,
+        bossMaxHp: 10,
+        combo: 0,
+        chapter: ch,
+        guardianStage: 1,
+      });
+
+      expect(textCalls).toContain(expectedTitle);
+      expect(textCalls.some((t) => /포겟|후다닥|뒤죽박죽|에라|나이트메어/.test(t))).toBe(false);
+    }
+  });
 });
 
 describe('MenuRenderer', () => {
@@ -154,21 +203,26 @@ describe('MenuRenderer', () => {
     expect(menu.hitTestSub(790, 1510, w, h, 1, subLevels)).toBe(0);
   });
 
-  it('CHAPTER_INFO가 04_STORY_SOURCE_수정.md의 꿈속 탐험 테마명을 반영한다', () => {
+  it('CHAPTER_INFO가 04_STORY_SOURCE_수정.md의 꿈속 탐험 테마명 및 신규 5대 보스명을 반영한다', () => {
     expect(CHAPTER_INFO).toHaveLength(5);
     expect(CHAPTER_INFO[0].name).toBe('에메랄드 심해');
     expect(CHAPTER_INFO[0].fullName).toBe('나비가 숨 쉬는 에메랄드 심해');
+    expect(CHAPTER_INFO[0].boss).toBe('망각의 요괴 하얘시니');
     expect(CHAPTER_INFO[1].name).toBe('사탕 바구니 숲');
     expect(CHAPTER_INFO[1].fullName).toBe('별자리가 떨어진 사탕 바구니 숲');
+    expect(CHAPTER_INFO[1].boss).toBe('성급의 요괴 재촉새');
     expect(CHAPTER_INFO[2].name).toBe('오르골 구름 서재');
     expect(CHAPTER_INFO[2].fullName).toBe('거꾸로 흐르는 오르골 구름 서재');
+    expect(CHAPTER_INFO[2].boss).toBe('왜곡의 요괴 따돌시니');
     expect(CHAPTER_INFO[3].name).toBe('색종이 사파리');
     expect(CHAPTER_INFO[3].fullName).toBe('크레용 화산과 색종이 사파리');
+    expect(CHAPTER_INFO[3].boss).toBe('무기력의 요괴 풀죽새');
     expect(CHAPTER_INFO[4].name).toBe('은하 회전목마');
     expect(CHAPTER_INFO[4].fullName).toBe('끝없는 기억의 은하 회전목마');
+    expect(CHAPTER_INFO[4].boss).toBe('영원한 고립의 지배자 캄캄대왕');
   });
 
-  it('홈 메뉴 렌더링 시 꿈속 세계 탐험 타이틀과 챕터 테마명이 렌더링된다', () => {
+  it('홈 메뉴 렌더링 시 꿈속 세계 탐험 타이틀과 챕터 테마명 및 깨비 슬로건이 렌더링된다', () => {
     const menu = new MenuRenderer();
     const calls: string[] = [];
     const mockCtx = {
@@ -198,6 +252,9 @@ describe('MenuRenderer', () => {
     });
 
     expect(calls).toContain('꿈속 세계 탐험');
+    expect(calls).toContain('깨비와 함께 신비로운 꿈의 성역으로 다이빙!');
+    expect(calls).not.toContain('알레와 함께 신비로운 꿈의 성역으로 다이빙!');
+    expect(calls.some((t) => t.includes('알레'))).toBe(false);
     expect(calls).toContain('에메랄드 심해');
     expect(calls).toContain('사탕 바구니 숲');
     expect(calls).toContain('오르골 구름 서재');
@@ -517,5 +574,58 @@ describe('인게임 마젠타 컨테이너 & 마법진 & 결과 패널 (Issue #1
     const fontS = (result as unknown as { getStatFontSize(w: number): number }).getStatFontSize(1080);
     expect(lineH).toBe(74);
     expect(fontS).toBe(44);
+  });
+
+  it('결과 화면 렌더링 시 신규 5대 보스명이 정확히 출력된다 (Issue #216 / UI-STORY-001)', () => {
+    const resultRenderer = new ResultRenderer();
+    const expectedBosses: Record<number, string> = {
+      1: 'Ch.1 하얘시니',
+      2: 'Ch.2 재촉새',
+      3: 'Ch.3 따돌시니',
+      4: 'Ch.4 풀죽새',
+      5: 'Ch.5 캄캄대왕',
+    };
+
+    for (const [chStr, expectedTitle] of Object.entries(expectedBosses)) {
+      const ch = Number(chStr);
+      const textCalls: string[] = [];
+      const mockCtx = {
+        save: vi.fn(),
+        restore: vi.fn(),
+        beginPath: vi.fn(),
+        roundRect: vi.fn(),
+        fillRect: vi.fn(),
+        strokeRect: vi.fn(),
+        arc: vi.fn(),
+        fill: vi.fn(),
+        stroke: vi.fn(),
+        fillText: vi.fn((text: string) => {
+          textCalls.push(text);
+        }),
+        textAlign: '',
+        textBaseline: '',
+        font: '',
+        fillStyle: '',
+        strokeStyle: '',
+        lineWidth: 1,
+        shadowColor: '',
+        shadowBlur: 0,
+      } as unknown as CanvasRenderingContext2D;
+
+      resultRenderer.render(mockCtx, 1080, 2160, {
+        victory: true,
+        chapter: ch,
+        correctCount: 10,
+        totalQuestions: 10,
+        maxCombo: 5,
+        steps: 120,
+        squats: 15,
+        jumps: 10,
+        elapsedTime: 90,
+      });
+
+      expect(textCalls).toContain(expectedTitle);
+      expect(textCalls.some((t) => /포겟|후다닥|뒤죽박죽|에라|나이트메어/.test(t))).toBe(false);
+    }
   });
 });

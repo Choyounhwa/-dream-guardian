@@ -63,6 +63,30 @@
 
 ---
 
+## 🔵 2026-09-30 확정: 8박 런 직후 2박 한 팔 Zone 4/5 즉시 선택 및 정답/오답 즉시 분기 루틴 전면 개편
+
+> 상태: **새 요구사항에 따른 신규 카드 3건(#224, #225, #226) 등록 및 기존 카드 2건(#210, #211) 갱신 완료 ⚪ (착수 대기)**  
+> 골반/머리 횡이동에 따른 화면 이탈 및 레거시 체류시간 문제를 해결하기 위해, 런 8박 종료 직후 2박 이내에 한 팔을 Zone 4(0번) 또는 Zone 5(1번)에 두는 방식(정적 위치/동적 뻗기 무체류 즉시 선택, 양팔 동시 미선택)으로 답안 선택 시스템을 전면 혁신합니다. 또한 오답/타임아웃 시 보스 직접 반격을 삭제하고 Phase A 피해는 회피 실패 시에만 발생하도록 일원화합니다.
+
+### 신규 및 갱신 작업 카드 현황
+1. **[INPUT-ARM-ANSWER-001 / #224] Zone 4/5 한 팔 도달 기반 무체류 즉시 답안 선택기(ArmReachAnswerSelector) 구현 (신규)**
+   - 한 팔 Zone 4 = 0번, Zone 5 = 1번 고정 매핑 (손 색상 무관).
+   - 정적 정지 위치 / 동적 뻗기 모두 체류 0초 즉시 확정. 점프 수직 이동 오선택 차단.
+   - 양팔 동시 유효 시 미선택(Strict Mutual Exclusion).
+2. **[BATTLE-ANSWER-PENALTY-001 / #225] 오답/타임아웃 직접 피해 및 Phase A 보스 반격 제거 (신규)**
+   - `BeatRoundResolver`: wrong/timeout 시 `damageTaken = 0`, 보스 공격 트리거 제거.
+   - `BattleState`: `recordWrongAnswer()`, `applyHazardDamage()`, `applyMinionDamage()` 책임 분리.
+   - Phase A 플레이어 피해는 오직 `HAZARD_EVADE` 장판/미니언 회피 실패 시에만 발생.
+3. **[BEAT-KEYNOTE-ENGINE-001 / #210] 8박 런 직후 2박 팔 답안 선택 및 정답/오답 즉시 분기 엔진 (갱신)**
+   - 런 8박 완료 직후 `ANSWER_SELECT`(최대 2박/1.0s) 진입 및 버튼 표출.
+   - 4초 지연 대기 제거: 선택 즉시 시청각 피드백 + `STAR_COLLECT`(정답) vs `HAZARD_EVADE`(오답/타임아웃) 분기.
+4. **[ROUTINE-SPEC-001 / #211] 확정 게임 루틴 전체 계약 정의 및 카드 매핑 (갱신)**
+   - GDD, WBS, HANDOVER, GITHUB_ISSUES 단일 계약 동기화.
+5. **[CLEANUP-ANSWER-INPUT-001 / #226] 골반/머리 기반 AnswerZoneSelector 및 답안 중앙 기준점 연동 제거 (신규 후속)**
+   - 신규 팔 선택 안정화 후 레거시 `AnswerZoneSelector` 및 중앙 기준점 결합 안전하게 제거.
+
+---
+
 ## 🔵 2026-09-29 완료: [CLEANUP-LEGACY-001 / #207] 레거시 AnswerSelector / 신형 AnswerZoneSelector 이중 답안 판정 정리 및 역할 경계 확립 (C안) 🟢 (전체 678/678 Pass)
 
 > 사용자 승인 방안 **C안(역할 분리 공존)**에 따라 동일 프레임 이중 답안 판정 엔진 경합을 해소하고, 1박째 정답 확정과 2~8박 키노트 판정의 역할 경계를 확립했습니다. (Issue #207 완료)
@@ -88,6 +112,16 @@
 > - **개발 산출물 정리 및 .gitignore 갱신**: 개발 로그 파일 삭제 및 `.gitignore`에 `dev_server*.log`, `localhost.url` 패턴 추가.
 > - **칼로리 연동 보존**: `ResultData.squats`/`jumps` 필드에 #193 연동 예정 TODO 주석 명시.
 > - **TDD 회귀 검증**: 50개 테스트 파일 674/674 Pass 및 `npm run build` 성공.
+
+---
+
+## 🔵 2026-09-30 완료: [UI-STORY-001 / #216] 메뉴/HUD/결과 화면 텍스트 전면 교체 (수호신 '알레' → '깨비', 5대 보스명 신규 스토리 일원화) 🟢 (전체 680/680 Pass)
+
+> 메인 메뉴 슬로건의 구 수호신명('알레')을 신규 스토리 주인공 **'깨비'**로 교체하고, 인게임 HUD·결과 화면·메인 메뉴 챕터 카드의 보스명을 `src/data/bossData.ts` 단일 소스 기반 5대 불안 보스명(하얘시니, 재촉새, 따돌시니, 풀죽새, 캄캄대왕)으로 전면 일원화했습니다. (Issue #216 완료)
+> - **메인 메뉴 슬로건 교체**: `src/ui/MenuRenderer.ts`에서 `'알레와 함께 신비로운 꿈의 성역으로 다이빙!'`을 `'깨비와 함께 신비로운 꿈의 성역으로 다이빙!'`으로 교체.
+> - **중복 BOSS_NAMES 배열 제거 및 단일 소스 참조**: `src/ui/HUDLayer.ts` 및 `src/ui/ResultRenderer.ts`의 하드코딩 `BOSS_NAMES` 배열을 완전히 제거하고 `getBossName(chapter)` 호출로 단일화.
+> - **챕터 카드 보스명 일원화**: `MenuRenderer.ts`의 `CHAPTER_INFO` 내 `boss` 필드를 5대 보스명('망각의 요괴 하얘시니', '성급의 요괴 재촉새', '왜곡의 요괴 따돌시니', '무기력의 요괴 풀죽새', '영원한 고립의 지배자 캄캄대왕')으로 갱신.
+> - **TDD 단위 테스트**: `tests/unit/ui-system.test.ts`에 HUD 상단 보스명 렌더링, 결과 화면 보스명 렌더링, CHAPTER_INFO 신규 보스명 매핑, 깨비 슬로건 렌더링 단위 테스트를 선작성(Red) 후 통과(Green) 확인 (전체 50개 파일 680/680 Pass, `npm run build` 번들 무오류).
 
 ---
 

@@ -12,6 +12,7 @@
 import { CALORIE_RATES, LOCOMOTION_CALORIE_RATES } from '../../config/posture.config.js';
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import type { BeatRhythmStats } from '../types/result.js';
+import { getBossName } from '../data/bossData.js';
 
 export interface ResultData {
   victory: boolean;
@@ -78,8 +79,6 @@ export function calcStars(correctCount: number, totalQuestions: number, elapsedT
   if (accuracy >= 0.7) return 2;
   return 1;
 }
-
-const BOSS_NAMES = ['', '포겟', '후다닥', '뒤죽박죽', '에라', '나이트메어'];
 
 export class ResultRenderer {
   /**
@@ -152,7 +151,7 @@ export class ResultRenderer {
     // 챕터명: bold 42px
     ctx.font = `bold ${Math.round(42 * scaleX)}px sans-serif`;
     ctx.fillStyle = '#FFCB4D';
-    ctx.fillText(`Ch.${data.chapter} ${BOSS_NAMES[data.chapter] ?? ''}`, w / 2, titleY + 90 * scaleY);
+    ctx.fillText(`Ch.${data.chapter} ${getBossName(data.chapter)}`, w / 2, titleY + 90 * scaleY);
 
     // 별 등급 (승리 시): bold 54px
     if (data.victory) {
