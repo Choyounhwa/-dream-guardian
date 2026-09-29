@@ -3645,6 +3645,64 @@ BEAT-SPEC-001
   - `tests/unit/cursor-tracker-recipe.test.ts` 단위 테스트 검증
   - 브라우저 개발 서버(`npm run dev`)에서 1.5m 원거리 웹캠 실테스트 검증
 
+---
+
+### Issue #202: [FEAT-READY-001] 스테이지 첫 진입 시 카메라 프레임 정렬 가이드 및 3초 준비 카운트다운(READY_POSITION) 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/202
+- **Labels**: `feature`, `P1-high`, `phase-2`, `phase-6`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[FEAT-READY-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 스테이지 첫 진입 시 카메라 프레임 정렬 가이드 및 3초 준비 카운트다운(READY_POSITION) 구현
+- **목적**:
+  - 스테이지 첫 진입 시(챕터 및 서브레벨 선택 직후) 문제와 8박 달리기 루프가 즉각 시작되어, 사용자가 카메라 앞에서 신체 위치를 잡지 못하고 모션/키보드 오입력이 발생하는 문제를 해결한다. 문제가 출제되기 전 유저가 카메라 화각 안에서 자세를 바르게 잡고(프레임 맞추기), 안정적인 입력을 준비할 수 있는 3초 카운트다운 및 프레임 정렬 가이드 페이즈(`READY_POSITION`)를 구현한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/render/KneeFramingGuideRenderer.ts`
+  - `dream_guardian/src/core/StateMachine.ts`
+  - `dream_guardian/src/audio/SFXSynth.ts`
+  - `dream_guardian/tests/unit/stage-ready.test.ts`
+- **구현 내용**:
+  1. **스테이지 진입 준비 상태(`READY_POSITION`) 신설**:
+     - `startChapter()` 호출 시 곧바로 러닝 페이즈로 가지 않고, `startReadyPhase()`를 호출하여 준비 상태로 진입.
+     - 3초 카운트다운 타이머(`readyTimer = 3.0s`) 동작.
+  2. **카메라 신체 프레임 정렬 가이드 (Framing Guide)**:
+     - 화면 중앙에 반투명 가이드 실루엣 및 정렬 박스 표시: *"카메라 앞에 서서 준비하세요!"*
+     - Pose 관절(얼굴, 어깨, 골반)이 카메라 화각 안에 정상 포착되면 가이드 테두리가 청록색(#4DFFAA)으로 점등되며 안정 상태 표시.
+  3. **입력 잠금 및 모션 감지기 제로 초기화**:
+     - 카운트다운 3초 동안은 모든 답안 선택 및 스텝 누적을 완전 잠금(Input Locked).
+     - 카운트다운 0초 도달 시점에 이동 감지기(`LocomotionDetector`) 및 비트 코디네이터(`BeatRunCoordinator`)를 0으로 깨끗하게 리셋하여, 정확히 첫 박자부터 1스텝 측정이 시작되도록 보장.
+  4. **시각 & 청각 카운트다운 연출**:
+     - 3... 2... 1... START! 대형 네온 카운트다운 애니메이션 렌더링.
+     - 1초 간격 카운트다운 비프음(`count_tick`) 및 시작 신호음(`start_whistle` or `game_start`) 재생.
+     - 카운트다운 완료 즉시 부드럽게 8박 달리기 및 문제 출제 페이즈로 전환.
+  5. **PC 디버깅 및 사용자 스킵 편의 지원**:
+     - Space 키 입력 또는 화면 클릭/터치 시 3초 카운트다운을 즉시 건너뛰고 바로 시작 가능.
+- **유지 사항**:
+  - 8박 비트 루틴(`RUN_QUESTION` → `REST_READY` → `KEYNOTE_PERFORMANCE`) 계약 100% 보존
+  - 기존 운동 모드(달리기, 골반 바운스, 스웨이, 양손 교차) 감지 인터페이스 유지
+  - 키보드 및 마우스 Fallback 조작 보존
+- **변경 금지**:
+  - `BeatRunCoordinator`의 8박 리듬 계약 공식
+  - `PostureGenerator` 및 문제 출제 데이터 로직
+  - 전투 HP/마나 증감 규칙
+- **완료 조건**:
+  - [ ] 챕터/단계 선택 후 문제 출제 전 3초 준비 카운트다운 화면이 먼저 표시됨
+  - [ ] 사용자가 카메라 화각 안에 정상 위치할 수 있도록 신체 프레임 가이드가 시각화됨
+  - [ ] 3초 동안 잘못된 모션/스텝 입력이 누적되지 않고 클린 상태로 대기함
+  - [ ] 카운트다운 3, 2, 1 사운드 및 종료 시 START 연출과 함께 달리기/문제로 자연스럽게 전환됨
+  - [ ] Space/터치 스킵 및 단위 테스트 100% 통과
+- **테스트**:
+  - `tests/unit/stage-ready.test.ts` (신규 타이머 및 상태 전이 단위 테스트)
+  - 브라우저 개발 서버(`npm run dev`)에서 스테이지 진입 시 3초 대기 및 카메라 정렬 실테스트 검증
+- **관련 파일**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/render/KneeFramingGuideRenderer.ts`
+  - `dream_guardian/src/core/StateMachine.ts`
+  - `dream_guardian/src/audio/SFXSynth.ts`
+  - `dream_guardian/tests/unit/stage-ready.test.ts`
+
+
 
 
 
