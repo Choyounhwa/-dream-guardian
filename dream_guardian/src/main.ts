@@ -183,6 +183,17 @@ starCollectionInput.setViewport(
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
 
+function enterQuestionPhase(): void {
+  if (gamePhase === 'question') return;
+  gamePhase = 'question';
+  questionVisible = true;
+  answerLocked = false;
+  answerSelector.startQuestion(battle.totalQuestions + 1);
+  if (answerSelector.isFirstQuestion) {
+    postureGuideRenderer.startFirstQuestionHint(5.0);
+  }
+}
+
 const beatCoordinator = new BeatRunCoordinator({
   questionBank,
   battle,
@@ -192,14 +203,11 @@ const beatCoordinator = new BeatRunCoordinator({
     if (phase === 'RUN_QUESTION' || phase === 'REST_READY') {
       gamePhase = 'running';
     } else if (phase === 'KEYNOTE_PERFORMANCE') {
-      gamePhase = 'question';
-      questionVisible = true;
-      answerLocked = false;
-      answerSelector.startQuestion(battle.totalQuestions + 1);
-      if (answerSelector.isFirstQuestion) {
-        postureGuideRenderer.startFirstQuestionHint(5.0);
-      }
+      enterQuestionPhase();
     }
+  },
+  onAnswerSelected: (_idx) => {
+    sfx.play('hover');
   },
   onAnswerConfirmed: (idx, _correct, status) => {
     const resolveResult = beatRoundResolver.resolveRound(status);
@@ -377,15 +385,10 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
 
   console.log(`[DG] 답: ${idx} (${correct ? '정답' : '오답'}) [${status}]`);
 
-  const w = canvas.width;
-  const h = canvas.height;
-  const cx = w / 2;
-  const cy = h * 0.38 + 80;
-  const btnW = Math.min(200, w * 0.16);
-  const btnH = btnW * 0.55;
-  const gap = 50;
-  const bx = cx + (idx === 0 ? -(btnW + gap / 2) : gap / 2) + btnW / 2;
-  const by = cy + btnH / 2;
+  const buttonLayouts = getAnswerButtonLayouts(canvasManager.virtualWidth, canvasManager.virtualHeight);
+  const targetBtn = (idx === 0 || idx === 1) ? buttonLayouts[idx] : null;
+  const bx = targetBtn ? targetBtn.centerX : canvasManager.virtualWidth * 0.5;
+  const by = targetBtn ? targetBtn.y + targetBtn.height / 2 : canvasManager.virtualHeight * 0.5;
 
   if (correct) {
     sfx.play('correct');
@@ -394,7 +397,7 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
     console.log(`[DG] 정답 타격! 보스 HP: ${boss.hp}/${boss.maxHp}`);
 
     if (resolveResult.spellCast) {
-      effectManager.playPreset('cast', w * 0.5, h * 0.24);
+      effectManager.playPreset('cast', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.24);
       castingFlash = 0.6;
       console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);
     }
@@ -1036,12 +1039,12 @@ const engine = new GameEngine({
     beatCoordinator.update(dt, normalizedLandmarks);
     currentQuestion = beatCoordinator.currentQuestion;
 
-    // 2~8박 키노트 퍼포먼스 별 수집 판정 (Issue #206 / StarCollectionInput 연동)
+    // 2~8박 키노트 퍼포먼스 별 수집 판정 (Issue #206, #207 / StarCollectionInput 연동)
     if (beatCoordinator.phase === 'KEYNOTE_PERFORMANCE') {
-      const beatIdx = beatCoordinator.beatIndex;
-      if (beatIdx >= 1 && beatIdx <= 7) {
+      const beat = beatCoordinator.performanceBeat;
+      if (beat >= 2 && beat <= 8) {
         const keynotes = beatCoordinator.keynotes;
-        const keynote = keynotes[beatIdx - 1];
+        const keynote = keynotes[beat - 2];
         if (keynote && starCollectionInput.currentTarget?.beatIndex !== keynote.beat) {
           starCollectionInput.setTarget({
             patternId: keynote.patternId,
@@ -1075,48 +1078,20 @@ const engine = new GameEngine({
       }
     }
 
-    if (beatCoordinator.isAnswerOpen && gamePhase !== 'question') {
-      gamePhase = 'question';
-      questionVisible = true;
-      answerLocked = false;
-      answerSelector.startQuestion(battle.totalQuestions + 1);
-      if (answerSelector.isFirstQuestion) {
-        postureGuideRenderer.startFirstQuestionHint(5.0);
-      }
-    }
-
+    // Issue #207: 1박째 정답 확정은 BeatRunCoordinator 내부의 AnswerZoneSelector가 전담 (이중 확정 경로 제거)
+    // 체류 시간(Dwell Time) 누적 및 체류 충전음만 동기화
     if (gamePhase === 'question' && questionVisible && !answerLocked && beatCoordinator.isAnswerOpen) {
       if (menuInput.isActive) {
-        // Issue #169: 합장 중에는 답안 피트니스 존 판정 및 선택 진행을 일시 정지(Pause)하여 오답/정답 처리를 원천 방지
+        // Issue #169: 합장 중에는 체류 충전 정지
         sfx.updateDwellCharge(0);
-      } else if (poseManager.hasPose) {
-        // Issue #116: 스켈레톤 렌더링에 사용되는 보간 랜드마크(smoothedLandmarks)를 우선 사용하여
-        // 스켈레톤 관절과 4색 커서 중심 좌표가 0px 오차로 1:1 일치하도록 동기화
-        if (sourceLandmarks.length >= 25) {
-          const confirmed = answerSelector.updateFromPose(
-            sourceLandmarks,
-            undefined,
-            dt,
-            false, // virtualLandmarks 및 smoothedLandmarks는 이미 Cover 변환 및 미러링 완료됨
-            { isVirtual: true, virtualWidth: canvasManager.virtualWidth, virtualHeight: canvasManager.virtualHeight },
-          );
-
-          // Issue #135: 자세 유지 시간(Dwell Time) 누적
-          const maxProg = Math.max(answerSelector.choiceProgress[0], answerSelector.choiceProgress[1]);
-          if (maxProg > 0) {
-            totalDwellTime += dt;
-          }
-
-          // Issue #136: 체류 진행도(0~1)에 비례한 점진적 피치 상승 충전음
-          sfx.updateDwellCharge(maxProg);
-
-          if (confirmed) {
-            sfx.play('hover');
-            beatCoordinator.confirmAnswerByFallback(confirmed.confirmedIndex);
-          }
+      } else {
+        const zoneState = beatCoordinator.answerZoneSelector.state;
+        if (zoneState.activeZone !== 'none') {
+          totalDwellTime += dt;
         }
+        sfx.updateDwellCharge(zoneState.dwellProgress);
       }
-    } else if (gamePhase !== 'question' || !beatCoordinator.isAnswerOpen) {
+    } else {
       sfx.stopDwellCharge();
     }
 
@@ -1278,13 +1253,22 @@ const engine = new GameEngine({
 
     // 7.8 Issue #159 & #160: 목표 자세 실루엣 가이드 오버레이 및 첫 문제 유도 화살표
     const isQuestionPhase = screenMode === 'game' && gamePhase === 'question' && questionVisible;
+    const zoneState = beatCoordinator.answerZoneSelector.state;
+    const currentChoiceProgress: [number, number] =
+      isQuestionPhase && beatCoordinator.isAnswerOpen
+        ? [
+            zoneState.activeZone === 'left' ? zoneState.dwellProgress : 0,
+            zoneState.activeZone === 'right' ? zoneState.dwellProgress : 0,
+          ]
+        : [0, 0];
+
     if (isQuestionPhase && answerSelector.currentPlan) {
       postureGuideRenderer.renderFromPlan(
         ctx,
         vw,
         vh,
         answerSelector.currentPlan,
-        answerSelector.choiceProgress,
+        currentChoiceProgress,
         null,
         answerSelector.cursorTracker.cursors,
         answerSelector.isFirstQuestion,
@@ -1295,7 +1279,6 @@ const engine = new GameEngine({
     // (하단 바 및 모달 위에 상시 렌더링되어 호버/클릭 지원)
     if (answerSelector.cursorTracker.cursors.size > 0) {
       const activeZones = isQuestionPhase && answerSelector.currentPlan ? answerSelector.currentPlan.activeZones : [];
-      const choiceProgress: [number, number] = isQuestionPhase ? answerSelector.choiceProgress : [0, 0];
 
       // Issue #169: 합장 시 개별 손 커서(시안/노랑)를 숨기고 단일 금빛 합장 링으로 대체
       const renderCursors = new Map(answerSelector.cursorTracker.cursors.entries());
@@ -1310,7 +1293,7 @@ const engine = new GameEngine({
         vh,
         activeZones,
         renderCursors,
-        choiceProgress,
+        currentChoiceProgress,
       );
     }
 

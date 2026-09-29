@@ -12,6 +12,7 @@ import { BattleState } from '../../src/game/BattleState.js';
 import { AnswerZoneSelector } from '../../src/input/AnswerZoneSelector.js';
 import { toNormalizedLandmarks } from '../../src/utils/index.js';
 import { POSE_LANDMARKS, type NormalizedLandmark } from '../../src/types/index.js';
+import { getAnswerButtonLayouts } from '../../config/zone.config.js';
 
 /** 테스트용 랜드마크 생성 도우미 */
 function createMockLandmarks(hipX = 0.50, shoulderWidth = 0.20): NormalizedLandmark[] {
@@ -399,6 +400,103 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       expect(coordinator.answerZoneSelector.isConfirmed).toBe(true);
       expect(coordinator.answerZoneSelector.confirmedZone).toBe('right');
       expect(coordinator.selectedChoiceIndex).toBe(1);
+    });
+  });
+
+  describe('8. [CLEANUP-LEGACY-001] KEYNOTE_PERFORMANCE 1박째 정답 확정 및 2박 진입 시 판정 차단', () => {
+    it('KEYNOTE_PERFORMANCE 1박째(0~0.5s)에만 isAnswerOpen이 true이고 2박 진입(>=0.5s) 시 false가 된다', () => {
+      coordinator = new BeatRunCoordinator({ questionBank, battle });
+      coordinator.startRound({ chapter: 1 });
+
+      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      expect(coordinator.phase).toBe('REST_READY');
+
+      // 2박 준비 통과 -> KEYNOTE_PERFORMANCE 진입
+      coordinator.update(1.0);
+      expect(coordinator.phase).toBe('KEYNOTE_PERFORMANCE');
+      expect(coordinator.performanceBeat).toBe(1);
+      expect(coordinator.isAnswerOpen).toBe(true);
+
+      // 1박 내부 (0.4s 경과) -> 여전히 1박째, isAnswerOpen true
+      coordinator.update(0.4);
+      expect(coordinator.performanceBeat).toBe(1);
+      expect(coordinator.isAnswerOpen).toBe(true);
+
+      // 2박 진입 (누적 0.55s 경과) -> 2박째, isAnswerOpen false
+      coordinator.update(0.15);
+      expect(coordinator.performanceBeat).toBe(2);
+      expect(coordinator.isAnswerOpen).toBe(false);
+    });
+
+    it('2박 진입 후에는 골반 이동이나 fallback 호출로 답안을 확정할 수 없다', () => {
+      coordinator = new BeatRunCoordinator({ questionBank, battle });
+      coordinator.startRound({ chapter: 1 });
+
+      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      coordinator.update(1.0); // KEYNOTE_PERFORMANCE 진입 (0.0s)
+
+      // 1박 경과하여 2박으로 진입 (0.6s)
+      coordinator.update(0.6);
+      expect(coordinator.performanceBeat).toBeGreaterThanOrEqual(2);
+      expect(coordinator.isAnswerOpen).toBe(false);
+
+      // 2박에서 fallback 호출 시도 -> 차단되어 null 유지
+      coordinator.confirmAnswerByFallback(0);
+      expect(coordinator.selectedChoiceIndex).toBeNull();
+
+      // 2박에서 골반 이동(좌측 300px) 입력 주입 시도 -> AnswerZoneSelector 업데이트 차단되어 null 유지
+      const pixelLmLeft = createMockPixelLandmarks(300, 216, 1080, 2160);
+      for (let i = 0; i < 5; i++) {
+        const normLeft = toNormalizedLandmarks(pixelLmLeft, 1080, 2160);
+        coordinator.update(0.1, normLeft);
+      }
+      expect(coordinator.selectedChoiceIndex).toBeNull();
+      expect(coordinator.answerZoneSelector.isConfirmed).toBe(false);
+    });
+
+    it('1박째 답안 선택 시 onAnswerSelected가 1회 호출되고 즉시 isAnswerOpen이 false가 되며 이중 확정이 차단된다', () => {
+      const selectedSpy = vi.fn();
+      coordinator = new BeatRunCoordinator({
+        questionBank,
+        battle,
+        onAnswerSelected: selectedSpy,
+      });
+      coordinator.startRound({ chapter: 1 });
+
+      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      coordinator.update(1.0); // KEYNOTE_PERFORMANCE 진입
+
+      expect(coordinator.isAnswerOpen).toBe(true);
+      coordinator.confirmAnswerByFallback(0);
+
+      expect(selectedSpy).toHaveBeenCalledTimes(1);
+      expect(selectedSpy).toHaveBeenCalledWith(0);
+      expect(coordinator.selectedChoiceIndex).toBe(0);
+      expect(coordinator.isAnswerOpen).toBe(false);
+
+      // 동일/후속 프레임 재확정 시도 차단
+      coordinator.confirmAnswerByFallback(1);
+      expect(coordinator.selectedChoiceIndex).toBe(0);
+      expect(selectedSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('답안 버튼 레이아웃 getAnswerButtonLayouts(1080, 2160)의 중심 좌표가 #164 스펙(X 183.6/896.4, Y 890+height/2)과 일치한다', () => {
+      const [btn0, btn1] = getAnswerButtonLayouts(1080, 2160);
+
+      // 0번(좌측) 버튼 중심 X: ~183.6 (4번 존 중심과 일치)
+      expect(btn0.centerX).toBeCloseTo(183.6, 0);
+      // 1번(우측) 버튼 중심 X: ~896.4 (5번 존 중심과 일치)
+      expect(btn1.centerX).toBeCloseTo(896.4, 0);
+
+      // Y 시작 좌표는 890px
+      expect(btn0.y).toBe(890);
+      expect(btn1.y).toBe(890);
+
+      // 버튼 중심 Y는 890 + height / 2 (height 250px -> 1015px)
+      const centerY0 = btn0.y + btn0.height / 2;
+      const centerY1 = btn1.y + btn1.height / 2;
+      expect(centerY0).toBe(1015);
+      expect(centerY1).toBe(1015);
     });
   });
 });

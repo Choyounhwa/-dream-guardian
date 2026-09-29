@@ -63,6 +63,19 @@
 
 ---
 
+## 🔵 2026-09-29 완료: [CLEANUP-LEGACY-001 / #207] 레거시 AnswerSelector / 신형 AnswerZoneSelector 이중 답안 판정 정리 및 역할 경계 확립 (C안) 🟢 (전체 678/678 Pass)
+
+> 사용자 승인 방안 **C안(역할 분리 공존)**에 따라 동일 프레임 이중 답안 판정 엔진 경합을 해소하고, 1박째 정답 확정과 2~8박 키노트 판정의 역할 경계를 확립했습니다. (Issue #207 완료)
+> - **1박째 정답 확정 경로 단일화**: `BeatRunCoordinator.isAnswerOpen`을 `KEYNOTE_PERFORMANCE` 1박째(`performanceBeat === 1 && _selectedChoiceIndex === null`)로 한정. 2박 진입 시 `AnswerZoneSelector` 업데이트 및 fallback 확정 차단.
+> - **레거시 AnswerSelector 답안 확정 경로 정리**: `main.ts`의 `answerSelector.updateFromPose()` 기반 정답 확정 및 `confirmAnswerByFallback` 강제 조기 종료 호출을 제거. 11존 판정 자산(`PostureMatcher`, `CursorTracker` 4색 커서)은 전량 보존하여 2~8박 키노트 판정 및 커서 렌더링에 재사용.
+> - **2~8박 키노트 판정 경로 확립**: `beatCoordinator.performanceBeat` 기준 2~8박에서 `StarCollectionInput`을 활성화하고 결과를 `BeatRoundResolver.recordStarRating()`으로 리듬 통계에만 누적 (`hasBattlePenalty: false` 보장).
+> - **중복 진입 로직 단일화**: `main.ts`의 `onPhaseChange` 콜백과 `update` 폴링에 이중 기술되어 있던 문제 페이즈 진입 로직을 `enterQuestionPhase()` 단일 함수로 추출 및 단일 호출.
+> - **답안 버튼 좌표 단일 소스화**: `handleAnswer()` 내부 하드코딩 버튼 좌표를 제거하고 `getAnswerButtonLayouts(virtualWidth, virtualHeight)` 단일 소스로 일원화하여 #164 재배치 버튼 중심(X 183.6 / 896.4, Y 1015)에 이펙트 정확히 발생.
+> - **즉각 조작 피드백**: 골반 이동 또는 fallback 답안 선택 시 `onAnswerSelected` 콜백을 통해 `'hover'` 사운드 즉시 출력 및 버튼 테두리 점등 연계.
+> - **TDD 회귀 검증**: 50개 테스트 파일 678/678 Pass (신규 테스트 4건 포함), `npm run build` 성공.
+
+---
+
 ## 🔵 2026-09-29 완료: [CLEANUP-DEAD-001 / #208] 폐기된 방어 전투 시스템 잔재 및 미참조 리소스/데드코드 일괄 제거 🟢 (전체 674/674 Pass)
 
 > Issue #143, #147, #173 등으로 폐기·이관되었으나 코드와 리소스에 남아 있던 잔재를 일괄 정리했습니다. 기능 및 시각 회귀 0건, JS 번들 크기 축소(206.08 kB → 204.46 kB) 및 불필요 미참조 리소스 약 700KB를 제거했습니다. (Issue #208 완료)

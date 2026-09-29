@@ -39,6 +39,7 @@ export interface BeatRunCoordinatorOptions {
   onQuestionGenerated?: (question: GeneratedQuestion) => void;
   onPhaseChange?: (phase: BeatPhase) => void;
   onAnswerConfirmed?: (choiceIndex: number, correct: boolean, status: RoundAnswerStatus) => void;
+  onAnswerSelected?: (choiceIndex: number) => void;
 }
 
 const EXERCISE_BEATS_PER_ROUND = 8;
@@ -77,7 +78,11 @@ export class BeatRunCoordinator {
   }
 
   get isAnswerOpen(): boolean {
-    return this._phase === 'KEYNOTE_PERFORMANCE' && this._selectedChoiceIndex === null;
+    return (
+      this._phase === 'KEYNOTE_PERFORMANCE' &&
+      this.performanceBeat === 1 &&
+      this._selectedChoiceIndex === null
+    );
   }
 
   /** 현재 선택된 답안 인덱스 (0: 좌, 1: 우, 미선택 시 null) */
@@ -200,6 +205,20 @@ export class BeatRunCoordinator {
   ): void {
     if (!this._rhythmEngine.running) return;
 
+    // 1. 1박째 정답 선택 업데이트 (KEYNOTE_PERFORMANCE 진입 상태에서 1박 경과 전 dt 반영)
+    if (this._phase === 'KEYNOTE_PERFORMANCE' && this.isAnswerOpen) {
+      if (!this._answerZoneSelector.isConfirmed) {
+        const beat1Remaining = this._rhythmEngine.secondsPerBeat - this._performanceElapsed;
+        const beat1Step = Math.min(Math.max(0, dt), Math.max(0, beat1Remaining));
+        const state = this._answerZoneSelector.update(beat1Step, landmarks);
+        if (state.isConfirmed) {
+          const choiceIndex = state.confirmedZone === 'left' ? 0 : 1;
+          this._handleAnswer(choiceIndex);
+        }
+      }
+    }
+
+    // 2. 페이즈 시간원 전진
     let remainingDt = Math.max(0, dt);
     while (remainingDt > 0 && this._phase !== 'RUN_QUESTION' && this._phase !== 'ROUND_RESOLVE') {
       if (this._phase === 'REST_READY') {
@@ -227,13 +246,10 @@ export class BeatRunCoordinator {
       }
     }
 
-    if (this._phase === 'KEYNOTE_PERFORMANCE' && this.isAnswerOpen) {
+    // 3. REST_READY에서 방금 KEYNOTE_PERFORMANCE로 전이된 직후 프레임: 현재 랜드마크 상태 1회 동기화 (dt=0)
+    if (this._phase === 'KEYNOTE_PERFORMANCE' && this.isAnswerOpen && this._performanceElapsed === 0) {
       if (!this._answerZoneSelector.isConfirmed) {
-        const state = this._answerZoneSelector.update(dt, landmarks);
-        if (state.isConfirmed) {
-          const choiceIndex = state.confirmedZone === 'left' ? 0 : 1;
-          this._handleAnswer(choiceIndex);
-        }
+        this._answerZoneSelector.update(0, landmarks);
       }
     }
   }
@@ -286,6 +302,7 @@ export class BeatRunCoordinator {
   private _handleAnswer(choiceIndex: number): void {
     if (!this.isAnswerOpen || !this._currentQuestion) return;
     this._selectedChoiceIndex = choiceIndex;
+    this._options.onAnswerSelected?.(choiceIndex);
   }
 
   private _resolveRound(): void {
