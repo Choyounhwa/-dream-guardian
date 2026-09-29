@@ -63,6 +63,16 @@
 
 ---
 
+## 🔵 2026-09-29 완료: [DATA-BOSS-001 / #215] 5대 보스 데이터 단일 소스(bossData.ts) 신설 및 신규 스토리 보스명 일원화 🟢 (전체 681/681 Pass)
+
+> 신규 정본 스토리(`04_STORY_SOURCE.md`)의 5대 불안 보스명(하얘시니, 재촉새, 따돌시니, 풀죽새, 캄캄대왕)과 메타데이터(수학 영역, 음악 장르, 악기 매핑, HP, 테마 색상, 불안 인용구)를 관리하는 단일 소스 모듈을 신설했습니다. (Issue #215 완료)
+> - **단일 소스 모듈**: `src/data/bossData.ts`에 `BossMetadata` 인터페이스, `BOSS_REGISTRY` 맵, `getBossByChapter()`, `getBossName()`, `getAllBosses()` 구현.
+> - **배럴 모듈 재수출**: `src/data/index.ts`에 보스 데이터 타입 및 함수 등록.
+> - **TDD 단위 테스트**: `tests/unit/boss-data.test.ts` 12개 테스트 케이스 작성 및 100% Pass (전체 50개 파일 681/681 Pass, `npm run build` 무오류).
+> - **후속 연계**: 후속 카드(`UI-STORY-001`, `RENDER-BOSS-001`)에서 HUDLayer/ResultRenderer/MenuRenderer의 레거시 보스명을 단일 소스로 연결 예정.
+
+---
+
 ## 🔵 2026-09-29 완료: [INTEGRATE-BEAT-001 / #206] BEAT/Keynote/Knee 6종 모듈 main.ts 통합 및 전투 정산 단일화 🟢 (전체 669/669 Pass)
 
 > Issue #182, #184, #196, #197, #198, #199 미통합 6개 모듈을 `main.ts` 프로덕션 게임 루프에 통합하고 전투 정산을 `BeatRoundResolver`로 일원화했습니다. (Issue #206 CLOSED)
