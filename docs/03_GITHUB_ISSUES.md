@@ -3307,6 +3307,49 @@ BEAT-SPEC-001
 
 ---
 
+### Issue #184: [GAME-ROUND-001] BEAT MOTION 8박 종료 전투 및 리듬 통계 정산
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/184
+- **Labels**: `feature`, `P1-high`, `phase-5`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[GAME-ROUND-001]`
+- **상태**: 🟢 **완료 (Pass)**
+- **제목**: BEAT MOTION 8박 종료 전투 및 리듬 통계 정산
+- **목적**:
+  - 답 확정 즉시 처리되던 전투 결과를 답안 8박 종료 시 한 번만 처리하고, 별/리듬 통계를 전투 자원과 분리한다.
+- **수정 대상**:
+  - `dream_guardian/src/game/BeatRoundResolver.ts`
+  - `dream_guardian/src/types/result.ts`
+  - `dream_guardian/src/game/index.ts`
+  - `dream_guardian/tests/unit/beat-round-resolver.test.ts`
+- **구현 내용**:
+  1. **단일 정산 및 Idempotency Guard**:
+     - 답안 8박 종료 시점 단 1회(Single Point of Settlement) 전투 자원 정산
+     - 동일 라운드 중복 `resolveRound` 호출 시 자원 중복 변경 원천 차단
+  2. **정답 / 오답 / 타임아웃 처리**:
+     - 정답: 마나 +25, 콤보 +1, 보스 기본 피해(1), 마나 100 도달 시 스펠 시전(4)
+     - 오답: 플레이어 HP -25, 콤보 0 리셋, 보스 반격, `wrongAnswerCount` 누적
+     - 타임아웃: 플레이어 HP -25, 콤보 0 리셋, 보스 반격, `timeoutCount` 독립 누적
+  3. **별 및 리듬 통계 완전 격리**:
+     - `beatStarsCollected`, `perfectHits`, `goodHits`, `lateHits`, `missedStars`, `recoverySwayCount`를 전투 자원과 분리하여 누적 관리
+     - 별 수집 성공/실패와 무관하게 정답 시 기본 마나 +25 100% 보장
+- **유지 사항**:
+  - BattleState/BossController/Guardian의 수치 공식, 기존 챕터 별 등급 의미.
+- **변경 금지**:
+  - AnswerZoneSelector, 별 타이밍 판정, renderer, persistent storage 구현.
+- **완료 조건**:
+  - [x] 중복 resolve가 전투 자원을 두 번 바꾸지 않는다
+  - [x] 별 성공/실패가 기본 정답 마나에 영향을 주지 않는다
+  - [x] timeout은 오답 전투 결과와 구분된 통계를 남긴다
+- **테스트**:
+  - Vitest 15개 단위 테스트 전원 통과 (`tests/unit/beat-round-resolver.test.ts`), 전체 테스트 653/653 100% Pass, `npm run build` 번들 검증 완료
+- **관련 파일**:
+  - `dream_guardian/src/game/BeatRoundResolver.ts`
+  - `dream_guardian/src/types/result.ts`
+  - `dream_guardian/src/game/index.ts`
+  - `dream_guardian/tests/unit/beat-round-resolver.test.ts`
+
+---
+
 ### Issue #187: [BUG-BEAT-001] 달리기 페이즈 미동작 자동 8박 채움 결함 수정 및 실제 8회 운동 연동
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/187
 - **Labels**: `bug`, `P0-critical`, `phase-5`

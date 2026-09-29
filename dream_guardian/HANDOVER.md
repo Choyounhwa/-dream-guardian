@@ -137,6 +137,15 @@
 - 준비 구간의 중앙 기준점은 2박 내 안정 잠금하며, 미잠금 상태에서는 기존 fallback 기준점을 사용해 루프를 멈추지 않는다.
 - TDD: 미동작 고정, 8회 운동 후 준비 전이, 정확한 2박/8박 시간, 단일 정산 및 미응답 정산을 검증했다. `npm run build` 성공 및 전체 `npm test` 583/583 Pass.
 
+### #184 완료 기록 - BEAT MOTION 8박 종료 전투 및 리듬 통계 단일 정산 (GAME-ROUND-001)
+
+- `BeatRoundResolver`가 답 확정 즉시 처리되던 전투 결과를 답안 8박 종료 시점에 단 1회(`Single Point of Settlement`) 일괄 처리하도록 구현했다.
+- 정답 라운드 종료 시 마나 +25, 콤보 +1, 보스 기본 피해(1) 및 마나 100 도달 시 수호신 스펠 시전(4)을 적용한다.
+- 오답/미응답(타임아웃) 라운드 종료 시 플레이어 HP -25 및 콤보 0 리셋을 적용한다.
+- 동일 라운드 중복 `resolveRound` 호출 시 전투 자원이 중복 차감/가산되지 않는 Idempotency Guard를 확립했다.
+- 별 판정(Perfect/Good/Late/Miss) 및 회복 스웨이(`recoverySwayCount`)를 전투 자원과 격리하여 누적하고, timeout은 오답 전투 결과를 공유하되 통계상 `timeoutCount`로 독립 분리 기록한다.
+- TDD: Red(모듈 부재) → Green(대상 15/15 Pass) → Refactor(`npm run build` 성공, 전체 `npm test` 653/653 Pass) 완료.
+
 ### #182 완료 기록 - 11존 단일 별 Perfect Good Late Miss 판정 (INPUT-STAR-001)
 
 - `StarCollectionInput`이 `StarTarget`의 지정 커서(`part`/`cursorType`), 목표 존(`zoneId`), 비트 착지 시각(`landingTime`)을 바탕으로 Perfect(±0.12s), Good(±0.25s), Late(±0.40s), Miss(초과 및 타임아웃) 판정을 수행한다.
