@@ -159,21 +159,19 @@ export class BeatRoundResolver {
         this._options.onBossDefeated?.();
       }
     } else if (status === 'wrong') {
-      // 오답: HP -25, 콤보 0 리셋, wrongAnswerCount 누적
+      // 오답: 콤보 0 리셋, wrongAnswerCount 누적 (Issue #225: 직접 피해 및 보스 반격 제거)
       this._rhythmStats.wrongAnswerCount++;
-      this._battle.onWrong();
-      damageTaken = DEFAULT_CONFIG.player.wrongDamage;
-      this._boss.triggerAttack();
+      this._battle.recordWrongAnswer();
+      damageTaken = 0;
 
       if (!this._battle.isAlive) {
         this._options.onPlayerDefeated?.();
       }
     } else if (status === 'timeout') {
-      // 타임아웃(미응답): HP -25, 콤보 0 리셋, timeoutCount 누적 (wrongAnswerCount와 분리)
+      // 타임아웃(미응답): 콤보 0 리셋, timeoutCount 누적 (Issue #225: 직접 피해 및 보스 반격 제거)
       this._rhythmStats.timeoutCount++;
-      this._battle.onWrong();
-      damageTaken = DEFAULT_CONFIG.player.wrongDamage;
-      this._boss.triggerAttack();
+      this._battle.recordWrongAnswer();
+      damageTaken = 0;
 
       if (!this._battle.isAlive) {
         this._options.onPlayerDefeated?.();

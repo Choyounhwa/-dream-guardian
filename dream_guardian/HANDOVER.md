@@ -63,6 +63,18 @@
 
 ---
 
+## 🔵 2026-09-30 완료: [BATTLE-ANSWER-PENALTY-001 / #225] 오답/타임아웃 직접 피해 및 Phase A 보스 반격 제거 🟢 (전체 706/706 Pass)
+
+> 상태: **Issue #225 완료 🟢**  
+> 오답 또는 타임아웃 자체로 플레이어 HP가 차감되거나 보스가 직접 공격하는 기존 로직을 제거하고, Phase A(문제 구간) 전투 책임을 분리했습니다.
+> - **BattleState 책임 분리**: `recordWrongAnswer()`(오답/타임아웃 카운트 누적 및 콤보 0 리셋, HP 불변), `applyHazardDamage()`(장판 회피 실패 피해), `applyMinionDamage()`(미니언 피격), `applyBossMagicDamage()`(Phase B 전용 마법 피해).
+> - **BeatRoundResolver 정산 로직 수정**: `wrong` 및 `timeout` 시 `damageTaken = 0`, 플레이어 HP 100% 보존. 보스 반격(`triggerAttack`) 트리거 제거.
+> - **BossController API 확장**: Phase B 보스 마법 공격 시맨틱(`triggerMagicAttack`) 분리.
+> - **main.ts 화면 연출 수정**: 오답 시 `bossRenderer.triggerAttack()` 및 화면 중앙 피격 이펙트 제거 (오답 버튼 실패 사운드/이펙트 피드백은 유지).
+> - **TDD 회귀 검증**: 51개 테스트 파일 706/706 Pass (신규 5건 포함), `npm run build` 성공.
+
+---
+
 ## 🔵 2026-09-30 완료: [INPUT-ARM-ANSWER-001 / #224] Zone 4/5 한 팔 도달 기반 무체류 즉시 답안 선택기(ArmReachAnswerSelector) 구현 🟢 (전체 701/701 Pass)
 
 > 상태: **Issue #224 완료 🟢**  
@@ -79,7 +91,7 @@
 
 ## 🔵 2026-09-30 확정: 8박 런 직후 2박 한 팔 Zone 4/5 즉시 선택 및 정답/오답 즉시 분기 루틴 전면 개편
 
-> 상태: **새 요구사항에 따른 신규 카드 3건(#224, #225, #226) 중 #224 완료 🟢, 후속 카드(#225, #210, #211, #226) 대기**  
+> 상태: **새 요구사항에 따른 신규 카드 3건(#224, #225, #226) 중 #224, #225 완료 🟢, 후속 카드(#210, #211, #226) 대기**  
 > 골반/머리 횡이동에 따른 화면 이탈 및 레거시 체류시간 문제를 해결하기 위해, 런 8박 종료 직후 2박 이내에 한 팔을 Zone 4(0번) 또는 Zone 5(1번)에 두는 방식(정적 위치/동적 뻗기 무체류 즉시 선택, 양팔 동시 미선택)으로 답안 선택 시스템을 전면 혁신합니다. 또한 오답/타임아웃 시 보스 직접 반격을 삭제하고 Phase A 피해는 회피 실패 시에만 발생하도록 일원화합니다.
 
 ### 신규 및 갱신 작업 카드 현황
@@ -87,7 +99,7 @@
    - 한 팔 Zone 4 = 0번, Zone 5 = 1번 고정 매핑 (손 색상 무관).
    - 정적 정지 위치 / 동적 뻗기 모두 체류 0초 즉시 확정. 점프 수직 이동 오선택 차단.
    - 양팔 동시 유효 시 미선택(Strict Mutual Exclusion).
-2. **[BATTLE-ANSWER-PENALTY-001 / #225] 오답/타임아웃 직접 피해 및 Phase A 보스 반격 제거 (신규 ⚪)**
+2. **[BATTLE-ANSWER-PENALTY-001 / #225] 오답/타임아웃 직접 피해 및 Phase A 보스 반격 제거 (완료 🟢)**
    - `BeatRoundResolver`: wrong/timeout 시 `damageTaken = 0`, 보스 공격 트리거 제거.
    - `BattleState`: `recordWrongAnswer()`, `applyHazardDamage()`, `applyMinionDamage()` 책임 분리.
    - Phase A 플레이어 피해는 오직 `HAZARD_EVADE` 장판/미니언 회피 실패 시에만 발생.

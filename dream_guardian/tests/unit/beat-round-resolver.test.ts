@@ -64,8 +64,8 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
     });
   });
 
-  describe('2. 오답 라운드 종료 시 단일 정산', () => {
-    it('오답 시 플레이어 HP -25, 콤보 0 리셋, 보스 반격이 적용된다', () => {
+  describe('2. 오답 라운드 종료 시 단일 정산 (Issue #225)', () => {
+    it('오답 시 직접 HP 감소 및 보스 반격이 없고(damageTaken=0), 콤보만 0으로 리셋된다', () => {
       // 사전 콤보 2 적립
       battle.onCorrect();
       battle.onCorrect();
@@ -74,30 +74,31 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
       const res = resolver.resolveRound('wrong');
 
       expect(res.status).toBe('wrong');
-      expect(res.damageTaken).toBe(DEFAULT_CONFIG.player.wrongDamage); // 25
+      expect(res.damageTaken).toBe(0); // Issue #225: 오답 직접 피해 0
       expect(res.damageDealt).toBe(0);
       expect(res.combo).toBe(0);
 
-      expect(battle.hp).toBe(75);
+      expect(battle.hp).toBe(100); // HP 유지
       expect(battle.combo).toBe(0);
-      expect(boss.isAttacking).toBe(true);
+      expect(boss.isAttacking).toBe(false); // 보스 attacking 미전이
       expect(resolver.rhythmStats.wrongAnswerCount).toBe(1);
       expect(resolver.rhythmStats.timeoutCount).toBe(0);
     });
   });
 
-  describe('3. 타임아웃(미응답) 라운드 종료 시 단일 정산 및 오답 구분 통계', () => {
-    it('타임아웃은 HP -25와 콤보 리셋을 적용하되, 오답과 분리된 timeoutCount 통계를 남긴다', () => {
+  describe('3. 타임아웃(미응답) 라운드 종료 시 단일 정산 및 오답 구분 통계 (Issue #225)', () => {
+    it('타임아웃은 직접 HP 감소 및 보스 반격 없이 콤보만 리셋하며, 분리된 timeoutCount 통계를 남긴다', () => {
       battle.onCorrect();
       expect(battle.combo).toBe(1);
 
       const res = resolver.resolveRound('timeout');
 
       expect(res.status).toBe('timeout');
-      expect(res.damageTaken).toBe(25);
+      expect(res.damageTaken).toBe(0); // Issue #225: 타임아웃 직접 피해 0
       expect(res.combo).toBe(0);
-      expect(battle.hp).toBe(75);
+      expect(battle.hp).toBe(100); // HP 유지
       expect(battle.combo).toBe(0);
+      expect(boss.isAttacking).toBe(false);
 
       // 통계 분리 검증 (timeoutCount는 1, wrongAnswerCount는 0)
       expect(resolver.rhythmStats.timeoutCount).toBe(1);
@@ -121,14 +122,14 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
       expect(boss.hp).toBe(9); // 8로 감소하지 않음
     });
 
-    it('오답 시 동일 라운드 중복 호출해도 HP가 두 번 차감되지 않는다', () => {
+    it('오답 시 동일 라운드 중복 호출해도 통계가 두 번 가산되지 않는다', () => {
       resolver.resolveRound('wrong');
-      expect(battle.hp).toBe(75);
+      expect(battle.hp).toBe(100);
       expect(resolver.rhythmStats.wrongAnswerCount).toBe(1);
 
       // 중복 호출
       resolver.resolveRound('wrong');
-      expect(battle.hp).toBe(75); // 50으로 감소하지 않음
+      expect(battle.hp).toBe(100);
       expect(resolver.rhythmStats.wrongAnswerCount).toBe(1); // 2로 증가하지 않음
     });
 
@@ -241,11 +242,9 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
         },
       });
 
-      // HP 100 -> 4회 오답 시 0
-      for (let i = 1; i <= 4; i++) {
-        customResolver.startNewRound(i);
-        customResolver.resolveRound('wrong');
-      }
+      // 장판 피해 등으로 플레이어 HP가 0에 도달한 상태에서 라운드 정산 시 패배 감지
+      battle.applyHazardDamage(100);
+      customResolver.resolveRound('wrong');
 
       expect(battle.isAlive).toBe(false);
       expect(playerDefeatedCalled).toBe(true);
@@ -262,7 +261,7 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
     });
   });
 
-  describe('9. 혼합 라운드 시퀀스 무결성 검증', () => {
+  describe('9. 혼합 라운드 시퀀스 무결성 검증 (Issue #225)', () => {
     it('정답 -> 오답 -> 타임아웃 -> 정답 연속 진행 시 모든 자원과 통계가 일관성 있게 유지된다', () => {
       // Round 1: Correct
       const r1 = resolver.resolveRound('correct');
@@ -270,19 +269,21 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
       expect(battle.mana).toBe(25);
       expect(battle.hp).toBe(100);
 
-      // Round 2: Wrong
+      // Round 2: Wrong (HP 유지, 콤보 리셋, 통계 누적)
       resolver.startNewRound(2);
       const r2 = resolver.resolveRound('wrong');
       expect(r2.combo).toBe(0);
-      expect(battle.hp).toBe(75);
+      expect(r2.damageTaken).toBe(0);
+      expect(battle.hp).toBe(100);
       expect(resolver.rhythmStats.wrongAnswerCount).toBe(1);
       expect(resolver.rhythmStats.timeoutCount).toBe(0);
 
-      // Round 3: Timeout
+      // Round 3: Timeout (HP 유지, 콤보 리셋, 통계 누적)
       resolver.startNewRound(3);
       const r3 = resolver.resolveRound('timeout');
       expect(r3.combo).toBe(0);
-      expect(battle.hp).toBe(50);
+      expect(r3.damageTaken).toBe(0);
+      expect(battle.hp).toBe(100);
       expect(resolver.rhythmStats.wrongAnswerCount).toBe(1);
       expect(resolver.rhythmStats.timeoutCount).toBe(1);
 
@@ -291,7 +292,7 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
       const r4 = resolver.resolveRound('correct');
       expect(r4.combo).toBe(1);
       expect(battle.mana).toBe(50);
-      expect(battle.hp).toBe(50);
+      expect(battle.hp).toBe(100);
     });
   });
 });

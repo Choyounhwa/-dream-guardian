@@ -55,6 +55,11 @@ export class BossController {
     this.triggerAttack(duration);
   }
 
+  /** Phase B 전용 보스 마법 공격 트리거 (Issue #225) */
+  triggerMagicAttack(duration = 0.5): void {
+    this.triggerAttack(duration);
+  }
+
   /**
    * 매 프레임 호출: 공격 지속 시간 관리
    * @returns 항상 false (자동 기습 공격 비활성화)

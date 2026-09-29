@@ -50,6 +50,27 @@ export class BattleState {
     this._hp = Math.max(0, this._hp - DEFAULT_CONFIG.player.wrongDamage);
   }
 
+  /** 오답/타임아웃 기록: 콤보 0 리셋, 오답 카운트 누적 (HP 불변, Issue #225) */
+  recordWrongAnswer(): void {
+    this._wrongCount++;
+    this._combo = 0;
+  }
+
+  /** 장판/바닥 충격파 회피 실패 피해: HP 차감 (Issue #225) */
+  applyHazardDamage(amount = DEFAULT_CONFIG.player.wrongDamage): void {
+    this._hp = Math.max(0, this._hp - amount);
+  }
+
+  /** 미니언 공격 피격 피해: HP 차감 (Issue #225) */
+  applyMinionDamage(amount = DEFAULT_CONFIG.player.bossAttackDamage): void {
+    this._hp = Math.max(0, this._hp - amount);
+  }
+
+  /** Phase B 보스 마법 공격 피격 피해: HP 차감 (Issue #225) */
+  applyBossMagicDamage(amount = DEFAULT_CONFIG.player.bossAttackDamage): void {
+    this._hp = Math.max(0, this._hp - amount);
+  }
+
   /** 보스 공격 피격: HP -15 */
   onBossAttack(): void {
     this._hp = Math.max(0, this._hp - DEFAULT_CONFIG.player.bossAttackDamage);

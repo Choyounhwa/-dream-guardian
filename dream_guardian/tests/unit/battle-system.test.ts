@@ -37,6 +37,37 @@ describe('BattleState', () => {
     expect(bs.maxCombo).toBe(2); // 최대 콤보 기록
   });
 
+  it('recordWrongAnswer: 오답/타임아웃 카운트 누적 및 콤보 0 리셋하되 HP는 변경하지 않는다', () => {
+    const bs = new BattleState();
+    bs.onCorrect(); // combo=1
+    bs.onCorrect(); // combo=2
+    bs.recordWrongAnswer();
+    expect(bs.hp).toBe(100);
+    expect(bs.combo).toBe(0);
+    expect(bs.wrongCount).toBe(1);
+    expect(bs.maxCombo).toBe(2);
+  });
+
+  it('applyHazardDamage: 장판 회피 실패 시 지정된 수치만큼 HP가 차감된다', () => {
+    const bs = new BattleState();
+    bs.applyHazardDamage(20);
+    expect(bs.hp).toBe(80);
+    bs.applyHazardDamage(); // 기본 wrongDamage(25)
+    expect(bs.hp).toBe(55);
+  });
+
+  it('applyMinionDamage: 미니언 공격 피격 시 HP가 차감된다', () => {
+    const bs = new BattleState();
+    bs.applyMinionDamage(15);
+    expect(bs.hp).toBe(85);
+  });
+
+  it('applyBossMagicDamage: Phase B 보스 마법 공격 피격 시 HP가 차감된다', () => {
+    const bs = new BattleState();
+    bs.applyBossMagicDamage(30);
+    expect(bs.hp).toBe(70);
+  });
+
   it('HP가 0 이하로 떨어지면 isAlive가 false', () => {
     const bs = new BattleState();
     bs.onWrong(); // 75
@@ -175,6 +206,12 @@ describe('BossController', () => {
     expect(bc.isAttacking).toBe(true);
     bc.update(0.5);
     expect(bc.isAttacking).toBe(false);
+  });
+
+  it('triggerMagicAttack() Phase B 전용 마법 공격도 attacking 상태로 전이된다', () => {
+    const bc = new BossController(1);
+    bc.triggerMagicAttack(0.5);
+    expect(bc.isAttacking).toBe(true);
   });
 
   it('defeated 상태에서는 triggerAttack()을 호출해도 공격 상태가 되지 않는다', () => {

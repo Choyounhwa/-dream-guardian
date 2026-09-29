@@ -119,8 +119,8 @@ describe('Beat Motion Module Integration - [INTEGRATE-BEAT-001]', () => {
       expect(onConfirmedSpy).toHaveBeenCalledTimes(1);
       expect(onConfirmedSpy).toHaveBeenCalledWith(-1, false, 'timeout');
 
-      // timeout 처리 검증: HP -25, timeoutCount 1, wrongAnswerCount 0
-      expect(battle.hp).toBe(75);
+      // Issue #225: timeout 처리 검증 - 직접 피해 0 (HP 100 유지), timeoutCount 1, wrongAnswerCount 0
+      expect(battle.hp).toBe(100);
       expect(resolver.rhythmStats.timeoutCount).toBe(1);
       expect(resolver.rhythmStats.wrongAnswerCount).toBe(0);
     });
@@ -144,7 +144,8 @@ describe('Beat Motion Module Integration - [INTEGRATE-BEAT-001]', () => {
       coordinator.update(4.0);
 
       expect(onConfirmedSpy).toHaveBeenCalledWith(wrongIdx, false, 'wrong');
-      expect(battle.hp).toBe(75);
+      // Issue #225: 오답 직접 피해 0 (HP 100 유지), wrongAnswerCount 1, timeoutCount 0
+      expect(battle.hp).toBe(100);
       expect(resolver.rhythmStats.wrongAnswerCount).toBe(1);
       expect(resolver.rhythmStats.timeoutCount).toBe(0);
     });

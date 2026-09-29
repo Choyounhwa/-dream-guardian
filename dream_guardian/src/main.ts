@@ -411,9 +411,8 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
   } else {
     sfx.play('wrong');
     effectManager.playPreset('wrong', bx, by);
-    bossRenderer.triggerAttack();
-    effectManager.playPreset('wrong', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.5);
-    console.log(`[DG] 오답 보스 반격! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
+    // Issue #225: Phase A 오답 시 보스 직접 반격 및 화면 중앙 피격 이펙트 제거 (버튼 피드백만 유지)
+    console.log(`[DG] 오답 피드백! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
 
     if (resolveResult.playerDefeated) {
       setTimeout(() => showResult(false), 600);

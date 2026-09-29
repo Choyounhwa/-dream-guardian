@@ -3988,11 +3988,20 @@ BEAT-SPEC-001
 - **Labels**: `feature`, `P1-high`, `phase-5`
 - **Milestone**: `v0.5-beat-motion`
 - **작업 ID**: `[BATTLE-ANSWER-PENALTY-001]`
-- **상태**: ⚪ **대기 (신규 등록)**
+- **상태**: 🟢 **완료 (2026-09-30)**
 - **제목**: 오답/타임아웃 직접 피해 및 Phase A 보스 반격 제거
 - **목적**:
   - 오답/타임아웃 시 플레이어 직접 HP 감소 및 Phase A 보스 직접 반격을 제거.
   - Phase A 플레이어 피해는 오직 HAZARD_EVADE 장판/미니언 회피 실패 시에만 발생하도록 전투 책임 분리.
+- **완료 검증**:
+  - [x] 오답 선택 직후 플레이어 HP가 감소하지 않는다 (damageTaken = 0).
+  - [x] 타임아웃 직후 플레이어 HP가 감소하지 않는다 (damageTaken = 0).
+  - [x] 오답/타임아웃 직후 보스가 attacking 상태로 전이되지 않는다.
+  - [x] 오답은 wrongAnswerCount, 타임아웃은 timeoutCount에 정상 집계된다.
+  - [x] 오답/타임아웃 시 콤보는 0으로 리셋된다.
+  - [x] 장판 회피 실패 시에만 applyHazardDamage를 통해 HP가 차감된다.
+  - [x] Phase A에서 BossRenderer.triggerAttack이 호출되지 않는다.
+  - [x] `npm run build` 및 전체 `npm test` 100% 통과 (51개 파일, 706개 통과).
 
 ---
 
