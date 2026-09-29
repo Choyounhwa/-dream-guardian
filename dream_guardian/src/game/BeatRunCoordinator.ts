@@ -17,7 +17,6 @@
 
 import { RhythmEngine } from '../core/RhythmEngine.js';
 import { CenterReturnGate } from '../motion/CenterReturnGate.js';
-import { AnswerZoneSelector } from '../input/AnswerZoneSelector.js';
 import { ArmReachAnswerSelector } from '../input/ArmReachAnswerSelector.js';
 import { QuestionBank } from '../question/QuestionBank.js';
 import { BattleState } from './BattleState.js';
@@ -44,7 +43,6 @@ export interface BeatRunCoordinatorOptions {
   speakFn?: (text: string) => void;
   rhythmEngine?: RhythmEngine;
   centerReturnGate?: CenterReturnGate;
-  answerZoneSelector?: AnswerZoneSelector;
   armReachAnswerSelector?: ArmReachAnswerSelector;
   keynotes?: readonly Keynote[];
   routineMode?: BeatRoutineMode;
@@ -63,7 +61,6 @@ const PERFORMANCE_BEATS = 8;
 export class BeatRunCoordinator {
   private readonly _rhythmEngine: RhythmEngine;
   private readonly _centerReturnGate: CenterReturnGate;
-  private readonly _answerZoneSelector: AnswerZoneSelector;
   private readonly _armReachAnswerSelector: ArmReachAnswerSelector;
   private readonly _questionBank: QuestionBank;
   private readonly _options: BeatRunCoordinatorOptions;
@@ -87,7 +84,6 @@ export class BeatRunCoordinator {
     this._routineMode = options?.routineMode ?? (options?.armReachAnswerSelector ? 'arm_reach' : 'legacy');
     this._rhythmEngine = options?.rhythmEngine ?? new RhythmEngine({ bpm: 120, beatsPerRound: 8 });
     this._centerReturnGate = options?.centerReturnGate ?? new CenterReturnGate();
-    this._answerZoneSelector = options?.answerZoneSelector ?? new AnswerZoneSelector();
     this._armReachAnswerSelector =
       options?.armReachAnswerSelector ?? new ArmReachAnswerSelector({ isMirrored: false });
     this._questionBank = options?.questionBank ?? new QuestionBank();
@@ -142,10 +138,6 @@ export class BeatRunCoordinator {
 
   get centerReturnGate(): CenterReturnGate {
     return this._centerReturnGate;
-  }
-
-  get answerZoneSelector(): AnswerZoneSelector {
-    return this._answerZoneSelector;
   }
 
   get armReachAnswerSelector(): ArmReachAnswerSelector {
@@ -231,8 +223,6 @@ export class BeatRunCoordinator {
 
     // 하위 게이트/선택기 초기화
     this._centerReturnGate.reset();
-    this._answerZoneSelector.reset();
-    this._answerZoneSelector.setReference(null);
     this._armReachAnswerSelector.reset();
 
     this._options.onPhaseChange?.(this._phase);
@@ -296,21 +286,7 @@ export class BeatRunCoordinator {
       return;
     }
 
-    // ─── LEGACY ROUTINE (레거시 골반/머리 횡이동 구조) ───
-    // 1. 1박째 정답 선택 업데이트
-    if (this._phase === 'KEYNOTE_PERFORMANCE' && this.isAnswerOpen) {
-      if (!this._answerZoneSelector.isConfirmed) {
-        const beat1Remaining = this._rhythmEngine.secondsPerBeat - this._performanceElapsed;
-        const beat1Step = Math.min(Math.max(0, dt), Math.max(0, beat1Remaining));
-        const state = this._answerZoneSelector.update(beat1Step, landmarks);
-        if (state.isConfirmed) {
-          const choiceIndex = state.confirmedZone === 'left' ? 0 : 1;
-          this._handleAnswer(choiceIndex);
-        }
-      }
-    }
-
-    // 2. 페이즈 시간원 전진
+    // ─── LEGACY ROUTINE (하위 호환 전용 시간 진행 루틴) ───
     let remainingDt = Math.max(0, dt);
     while (remainingDt > 0 && this._phase !== 'RUN_QUESTION' && this._phase !== 'ROUND_RESOLVE') {
       if (this._phase === 'REST_READY') {
@@ -322,7 +298,6 @@ export class BeatRunCoordinator {
 
         if (this._readyElapsed >= READY_BEATS * this._rhythmEngine.secondsPerBeat - 1e-9) {
           if (!this._centerReturnGate.isLocked) this._centerReturnGate.forceFallbackLock();
-          this._answerZoneSelector.setReference(this._centerReturnGate.reference);
           this._phase = 'KEYNOTE_PERFORMANCE';
           this._options.onPhaseChange?.(this._phase);
         }
@@ -335,13 +310,6 @@ export class BeatRunCoordinator {
         if (this._performanceElapsed >= PERFORMANCE_BEATS * this._rhythmEngine.secondsPerBeat - 1e-9) {
           this._resolveRound();
         }
-      }
-    }
-
-    // 3. REST_READY -> KEYNOTE_PERFORMANCE 직후 프레임 동기화
-    if (this._phase === 'KEYNOTE_PERFORMANCE' && this.isAnswerOpen && this._performanceElapsed === 0) {
-      if (!this._answerZoneSelector.isConfirmed) {
-        this._answerZoneSelector.update(0, landmarks);
       }
     }
   }
@@ -383,8 +351,7 @@ export class BeatRunCoordinator {
       return;
     }
     if (this._phase === 'REST_READY') {
-      const ref = this._centerReturnGate.forceFallbackLock();
-      this._answerZoneSelector.setReference(ref);
+      this._centerReturnGate.forceFallbackLock();
       this._readyElapsed = READY_BEATS * this._rhythmEngine.secondsPerBeat;
       this._phase = 'KEYNOTE_PERFORMANCE';
       this._options.onPhaseChange?.(this._phase);
@@ -398,7 +365,6 @@ export class BeatRunCoordinator {
     if (this.isAnswerOpen) {
       const armChoice: 0 | 1 = choiceIndex === 0 ? 0 : 1;
       this._armReachAnswerSelector.selectByFallback(armChoice);
-      this._answerZoneSelector.selectByFallback(choiceIndex === 0 ? 'left' : 'right');
       this._handleAnswer(choiceIndex);
     }
   }

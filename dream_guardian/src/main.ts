@@ -48,7 +48,6 @@ import {
 } from './motion/index.js';
 import {
   AnswerSelector,
-  AnswerZoneSelector,
   ArmReachAnswerSelector,
   FootKeynoteInput,
   StarCollectionInput,
@@ -205,7 +204,6 @@ const beatCoordinator = new BeatRunCoordinator({
   questionBank,
   battle,
   armReachAnswerSelector,
-  answerZoneSelector: new AnswerZoneSelector({ isMirrored: false }),
   speakFn: (text) => speech.speak(text),
   onPhaseChange: (phase) => {
     if (phase === 'RUN_QUESTION' || phase === 'REST_READY') {
@@ -1040,7 +1038,7 @@ const engine = new GameEngine({
     }
 
     // Issue #205: 가상 픽셀 좌표(0~1080 / 0~2160)를 정규화 좌표계(0~1)로 비파괴 변환하여 전달
-    // CenterReturnGate와 AnswerZoneSelector가 정합성 있게 동작하도록 보장
+    // CenterReturnGate와 ArmReachAnswerSelector가 정합성 있게 동작하도록 보장
     const normalizedLandmarks =
       sourceLandmarks.length >= 25
         ? toNormalizedLandmarks(
@@ -1094,21 +1092,8 @@ const engine = new GameEngine({
       }
     }
 
-    // Issue #207, #210: 답안 창 개방 시 체류 시간 및 체류음 동기화
-    if ((gamePhase === 'question' || gamePhase === 'answer_select') && questionVisible && !answerLocked && beatCoordinator.isAnswerOpen) {
-      if (menuInput.isActive) {
-        // Issue #169: 합장 중에는 체류 충전 정지
-        sfx.updateDwellCharge(0);
-      } else {
-        const zoneState = beatCoordinator.answerZoneSelector.state;
-        if (zoneState.activeZone !== 'none') {
-          totalDwellTime += dt;
-        }
-        sfx.updateDwellCharge(zoneState.dwellProgress);
-      }
-    } else {
-      sfx.stopDwellCharge();
-    }
+    // Issue #207, #210, #226: 0s 무체류 팔 선택 정착으로 골반 체류 충전음 잔재 정리
+    sfx.stopDwellCharge();
 
     if (feedbackTimer > 0) feedbackTimer -= dt;
     if (castingFlash > 0) castingFlash -= dt;
@@ -1266,16 +1251,9 @@ const engine = new GameEngine({
       kneeFramingGuideRenderer.render(ctx, vw, vh, currentKneeFraming);
     }
 
-    // 7.8 Issue #159 & #160, #210: 목표 자세 실루엣 가이드 오버레이 및 첫 문제 유도 화살표
+    // 7.8 Issue #159 & #160, #210, #226: 목표 자세 실루엣 가이드 오버레이 및 첫 문제 유도 화살표
     const isQuestionPhase = screenMode === 'game' && (gamePhase === 'question' || gamePhase === 'answer_select') && questionVisible;
-    const zoneState = beatCoordinator.answerZoneSelector.state;
-    const currentChoiceProgress: [number, number] =
-      isQuestionPhase && beatCoordinator.isAnswerOpen
-        ? [
-            zoneState.activeZone === 'left' ? zoneState.dwellProgress : 0,
-            zoneState.activeZone === 'right' ? zoneState.dwellProgress : 0,
-          ]
-        : [0, 0];
+    const currentChoiceProgress: [number, number] = [0, 0];
 
     if (isQuestionPhase && answerSelector.currentPlan) {
       postureGuideRenderer.renderFromPlan(

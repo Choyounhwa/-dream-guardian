@@ -9,7 +9,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BeatRunCoordinator } from '../../src/game/BeatRunCoordinator.js';
 import { QuestionBank } from '../../src/question/QuestionBank.js';
 import { BattleState } from '../../src/game/BattleState.js';
-import { AnswerZoneSelector } from '../../src/input/AnswerZoneSelector.js';
 import { toNormalizedLandmarks } from '../../src/utils/index.js';
 import { POSE_LANDMARKS, type NormalizedLandmark } from '../../src/types/index.js';
 import { getAnswerButtonLayouts } from '../../config/zone.config.js';
@@ -169,8 +168,8 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       expect(coordinator.isAnswerOpen).toBe(true);
       expect(coordinator.phase).toBe('KEYNOTE_PERFORMANCE');
 
-      // AnswerZoneSelector에 기준점이 성공적으로 주입됨
-      const ref = coordinator.answerZoneSelector.getReference();
+      // CenterReturnGate에 기준점이 성공적으로 잠김
+      const ref = coordinator.centerReturnGate.reference;
       expect(ref).not.toBeNull();
       expect(ref?.hipX).toBeCloseTo(0.50, 2);
     });
@@ -201,7 +200,7 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       expect(coordinator.centerReturnGate.isTimedOut).toBe(true);
       expect(coordinator.centerReturnGate.isLocked).toBe(true);
       expect(coordinator.phase).toBe('KEYNOTE_PERFORMANCE');
-      expect(coordinator.answerZoneSelector.getReference()?.isFallback).toBe(true);
+      expect(coordinator.centerReturnGate.reference?.isFallback).toBe(true);
     });
   });
 
@@ -321,19 +320,14 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       expect(coordinator.centerReturnGate.isLocked).toBe(true);
       expect(coordinator.centerReturnGate.reference?.isFallback).toBe(true);
       expect(coordinator.centerReturnGate.reference?.source).toBe('fallback');
-      // AnswerZoneSelector는 540 직접 수신 시 dx 폭주로 첫 프레임부터 즉시 left 진입
-      expect(coordinator.answerZoneSelector.state.dx).toBeLessThan(-100);
-      expect(coordinator.answerZoneSelector.state.activeZone).toBe('left');
     });
 
-    it('toNormalizedLandmarks 및 isMirrored=false 주입 시 중앙 복귀 잠금과 답안 선택이 정상 작동한다', () => {
+    it('toNormalizedLandmarks 주입 시 중앙 복귀 잠금이 정상 작동한다', () => {
       const confirmedSpy = vi.fn();
-      const zoneSelector = new AnswerZoneSelector({ isMirrored: false });
 
       coordinator = new BeatRunCoordinator({
         questionBank,
         battle,
-        answerZoneSelector: zoneSelector,
         onAnswerConfirmed: confirmedSpy,
       });
       coordinator.startRound({ chapter: 1 });
@@ -355,30 +349,19 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       expect(coordinator.centerReturnGate.reference?.source).toBe('hip');
       expect(coordinator.centerReturnGate.reference?.sampleCount).toBeGreaterThanOrEqual(5);
 
-      // KEYNOTE_PERFORMANCE 진입 직후 중앙 데드존에서는 activeZone === 'none'
+      // KEYNOTE_PERFORMANCE 진입 확인
       expect(coordinator.phase).toBe('KEYNOTE_PERFORMANCE');
       expect(coordinator.isAnswerOpen).toBe(true);
-      expect(coordinator.answerZoneSelector.state.activeZone).toBe('none');
-      expect(coordinator.answerZoneSelector.state.isConfirmed).toBe(false);
 
-      // 3. 화면 좌측(300px, 300/1080 ≈ 0.278 < 0.5)으로 이동하여 0.5초 체류 시 0번(left) 확정
-      const pixelLmLeft = createMockPixelLandmarks(300, 216, VW, VH);
-      for (let i = 0; i < 5; i++) {
-        const normLeft = toNormalizedLandmarks(pixelLmLeft, VW, VH);
-        coordinator.update(0.1, normLeft);
-      }
-
-      expect(coordinator.answerZoneSelector.isConfirmed).toBe(true);
-      expect(coordinator.answerZoneSelector.confirmedZone).toBe('left');
+      // 3. fallback으로 0번 답안 확정
+      coordinator.confirmAnswerByFallback(0);
       expect(coordinator.selectedChoiceIndex).toBe(0);
     });
 
-    it('toNormalizedLandmarks 변환 후 화면 우측(780px) 이동 시 1번(right)이 확정된다', () => {
-      const zoneSelector = new AnswerZoneSelector({ isMirrored: false });
+    it('toNormalizedLandmarks 변환 후 1번(right) fallback 확정이 정상 작동한다', () => {
       coordinator = new BeatRunCoordinator({
         questionBank,
         battle,
-        answerZoneSelector: zoneSelector,
       });
       coordinator.startRound({ chapter: 1 });
 
@@ -390,15 +373,8 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
         coordinator.update(0.1, norm);
       }
 
-      // 화면 우측(780px, 780/1080 ≈ 0.722 > 0.5)으로 이동하여 0.5초 체류 시 1번(right) 확정
-      const pixelLmRight = createMockPixelLandmarks(780, 216, VW, VH);
-      for (let i = 0; i < 5; i++) {
-        const normRight = toNormalizedLandmarks(pixelLmRight, VW, VH);
-        coordinator.update(0.1, normRight);
-      }
-
-      expect(coordinator.answerZoneSelector.isConfirmed).toBe(true);
-      expect(coordinator.answerZoneSelector.confirmedZone).toBe('right');
+      expect(coordinator.phase).toBe('KEYNOTE_PERFORMANCE');
+      coordinator.confirmAnswerByFallback(1);
       expect(coordinator.selectedChoiceIndex).toBe(1);
     });
   });
@@ -428,7 +404,7 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       expect(coordinator.isAnswerOpen).toBe(false);
     });
 
-    it('2박 진입 후에는 골반 이동이나 fallback 호출로 답안을 확정할 수 없다', () => {
+    it('2박 진입 후에는 fallback 호출로 답안을 확정할 수 없다', () => {
       coordinator = new BeatRunCoordinator({ questionBank, battle });
       coordinator.startRound({ chapter: 1 });
 
@@ -443,15 +419,6 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       // 2박에서 fallback 호출 시도 -> 차단되어 null 유지
       coordinator.confirmAnswerByFallback(0);
       expect(coordinator.selectedChoiceIndex).toBeNull();
-
-      // 2박에서 골반 이동(좌측 300px) 입력 주입 시도 -> AnswerZoneSelector 업데이트 차단되어 null 유지
-      const pixelLmLeft = createMockPixelLandmarks(300, 216, 1080, 2160);
-      for (let i = 0; i < 5; i++) {
-        const normLeft = toNormalizedLandmarks(pixelLmLeft, 1080, 2160);
-        coordinator.update(0.1, normLeft);
-      }
-      expect(coordinator.selectedChoiceIndex).toBeNull();
-      expect(coordinator.answerZoneSelector.isConfirmed).toBe(false);
     });
 
     it('1박째 답안 선택 시 onAnswerSelected가 1회 호출되고 즉시 isAnswerOpen이 false가 되며 이중 확정이 차단된다', () => {

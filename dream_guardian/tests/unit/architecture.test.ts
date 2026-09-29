@@ -149,4 +149,13 @@ describe('Architecture Test', () => {
     expect(revertedRecipe.requiredCursors).toEqual(['leftHand', 'head']);
     expect(revertedRecipe.targetZoneIds).toEqual([4, 5]);
   });
+
+  it('AnswerZoneSelector 및 관련 설정이 완전히 제거되었는지 검증한다 (Issue #226 / CLEANUP-ANSWER-INPUT-001)', async () => {
+    const inputExports = await import('../../src/input/index.js');
+    expect((inputExports as any).AnswerZoneSelector).toBeUndefined();
+
+    const configExports = await import('../../config/beat-motion.config.js');
+    expect((configExports as any).DEFAULT_ANSWER_ZONE_CONFIG).toBeUndefined();
+    expect((configExports as any).DEFAULT_BEAT_MOTION_CONFIG.answerZone).toBeUndefined();
+  });
 });
