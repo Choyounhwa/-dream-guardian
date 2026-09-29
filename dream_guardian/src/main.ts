@@ -57,7 +57,7 @@ import { MenuInput } from './input/MenuInput.js';
 import { SFXSynth } from './audio/SFXSynth.js';
 import { TutorialOverlay } from './ui/TutorialOverlay.js';
 import { BottomBar, SettingsModal, LocomotionModal, PauseModal, LOCOMOTION_MODES, type BottomBarSlot } from './ui/index.js';
-import { getAnswerButtonLayouts } from '../config/zone.config.js';
+import { getAnswerButtonLayouts, DEFAULT_FITNESS_ZONES } from '../config/zone.config.js';
 import type { RoundAnswerStatus, RoundResolveResult } from './types/result.js';
 
 if (typeof document === 'undefined') {
@@ -320,6 +320,7 @@ function startRunningPhase(): void {
   gamePhase = 'running';
   questionVisible = true;
   answerLocked = true;
+  starCollectionInput.reset();
   Object.values(locomotionDetectors).forEach((d) => d.reset());
   beatCoordinator.startRound({ chapter: currentChapter, subLevel: selectedSubLevel });
   currentQuestion = beatCoordinator.currentQuestion;
@@ -335,6 +336,7 @@ function startChapter(ch: number, subLevel?: number): void {
   boss.reset(ch);
   guardian.reset();
   beatRoundResolver.reset();
+  starCollectionInput.reset();
   hudLayer.reset();
   questionBank.setLevel(ch, subLevel);
   feedbackTimer = 0;
@@ -969,11 +971,13 @@ const engine = new GameEngine({
     }
 
     if (screenMode !== 'game' || pauseModal.isOpen) {
+      starCollectionInput.setPaused(true);
       dreamGrid.update(dt, 0.8);
       effectManager.update(dt);
       sfx.stopDwellCharge();
       return;
     }
+    starCollectionInput.setPaused(false);
 
     // 드림 그리드 속도 및 8박 코디네이터 업데이트
     const isRunning = gamePhase === 'running';
@@ -1025,6 +1029,45 @@ const engine = new GameEngine({
     // 내부 8박 시계 및 라운드 정산(_resolveRound)이 멈추지 않도록 보장
     beatCoordinator.update(dt, normalizedLandmarks);
     currentQuestion = beatCoordinator.currentQuestion;
+
+    // 2~8박 키노트 퍼포먼스 별 수집 판정 (Issue #206 / StarCollectionInput 연동)
+    if (beatCoordinator.phase === 'KEYNOTE_PERFORMANCE') {
+      const beatIdx = beatCoordinator.beatIndex;
+      if (beatIdx >= 1 && beatIdx <= 7) {
+        const keynotes = beatCoordinator.keynotes;
+        const keynote = keynotes[beatIdx - 1];
+        if (keynote && starCollectionInput.currentTarget?.beatIndex !== keynote.beat) {
+          starCollectionInput.setTarget({
+            patternId: keynote.patternId,
+            part: keynote.part,
+            cursorType: keynote.part,
+            zoneId: keynote.zoneId,
+            beatIndex: keynote.beat,
+            landingTime: engine.elapsedTime + 0.25,
+          });
+        }
+
+        if (starCollectionInput.currentTarget && !starCollectionInput.isCollected) {
+          const starResult = starCollectionInput.update(engine.elapsedTime, sourceLandmarks);
+          if (starResult) {
+            beatRoundResolver.recordStarRating(starResult.rating);
+            if (starResult.collected) {
+              sfx.play('correct');
+              const targetZone = DEFAULT_FITNESS_ZONES.find((z) => z.id === starResult.zoneId);
+              if (targetZone) {
+                effectManager.playBurst({
+                  x: (targetZone.x + targetZone.width * 0.5) * canvasManager.virtualWidth,
+                  y: (targetZone.y + targetZone.height * 0.5) * canvasManager.virtualHeight,
+                  count: 8,
+                  colors: ['#FFCB4D', '#FFFFFF'],
+                  duration: 0.25,
+                });
+              }
+            }
+          }
+        }
+      }
+    }
 
     if (beatCoordinator.isAnswerOpen && gamePhase !== 'question') {
       gamePhase = 'question';
@@ -1491,6 +1534,19 @@ canvas.addEventListener('click', (e) => {
         }
       }
     }
+
+    // 가상 페달 (Zone 9, 10, 11) 터치/클릭 fallback
+    const normX = x / vw;
+    const normY = y / vh;
+    if (normY >= 0.78 && normY <= 0.94) {
+      let pedalZone: 9 | 10 | 11 | null = null;
+      if (normX >= 0.04 && normX <= 0.30) pedalZone = 9;
+      else if (normX >= 0.37 && normX <= 0.63) pedalZone = 10;
+      else if (normX >= 0.70 && normX <= 0.96) pedalZone = 11;
+      if (pedalZone) {
+        footKeynoteInput.fromVirtualPedal(pedalZone, engine.elapsedTime);
+      }
+    }
   } else if (screenMode === 'result') {
     goToMenu();
   }
@@ -1544,6 +1600,15 @@ document.addEventListener('keydown', (e) => {
         duration: 0.3,
       });
       currentQuestion = beatCoordinator.currentQuestion;
+      return;
+    } else if (screenMode === 'game' && beatCoordinator.phase === 'KEYNOTE_PERFORMANCE') {
+      const starRes = starCollectionInput.fromKeyboard(engine.elapsedTime);
+      if (starRes) {
+        beatRoundResolver.recordStarRating(starRes.rating);
+        if (starRes.collected) {
+          sfx.play('correct');
+        }
+      }
       return;
     }
   }

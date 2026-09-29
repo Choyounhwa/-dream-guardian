@@ -18,6 +18,7 @@ import { QuestionBank } from '../../src/question/QuestionBank.js';
 import { KneeFramingValidator } from '../../src/motion/KneeFramingValidator.js';
 import { FootKeynoteDetector } from '../../src/motion/FootKeynoteDetector.js';
 import { FootKeynoteInput } from '../../src/input/FootKeynoteInput.js';
+import { StarCollectionInput } from '../../src/input/StarCollectionInput.js';
 import { deriveKeynoteCandidates, createKeynoteSequence } from '../../src/data/index.js';
 import type { NormalizedLandmark } from '../../src/types/index.js';
 import type { FitnessPatternRecord } from '../../src/types/posture.js';
@@ -184,6 +185,32 @@ describe('Beat Motion Module Integration - [INTEGRATE-BEAT-001]', () => {
       });
       expect(events).toEqual([]);
     });
+
+    it('가상 페달(Zone 9, 10, 11) 입력이 정상적으로 FootKeynoteEvent를 생성한다', () => {
+      const ev9 = footInput.fromVirtualPedal(9, 1.5);
+      expect(ev9).toEqual(expect.objectContaining({
+        foot: 'leftFoot',
+        zoneId: 9,
+        source: 'virtual',
+        timestamp: 1.5,
+      }));
+
+      const ev10 = footInput.fromVirtualPedal(10, 1.6);
+      expect(ev10).toEqual(expect.objectContaining({
+        foot: 'centerFoot',
+        zoneId: 10,
+        source: 'virtual',
+        timestamp: 1.6,
+      }));
+
+      const ev11 = footInput.fromVirtualPedal(11, 1.7);
+      expect(ev11).toEqual(expect.objectContaining({
+        foot: 'rightFoot',
+        zoneId: 11,
+        source: 'virtual',
+        timestamp: 1.7,
+      }));
+    });
   });
 
   describe('3. KeynoteCandidateDeriver 배럴 export 및 시퀀스 생성', () => {
@@ -228,6 +255,34 @@ describe('Beat Motion Module Integration - [INTEGRATE-BEAT-001]', () => {
       expect(sequence.length).toBe(2);
       expect(sequence[0].beat).toBe(2);
       expect(sequence[1].beat).toBe(3);
+    });
+  });
+
+  describe('4. StarCollectionInput과 BeatRoundResolver 연동 (2~8박 키노트 판정)', () => {
+    it('별 수집 판정 결과(Perfect/Good/Late/Miss)가 BeatRoundResolver에 기록되며 전투 자원에 영향이 없다', () => {
+      const starInput = new StarCollectionInput();
+      starInput.setTarget({
+        patternId: 'S001',
+        part: 'leftHand',
+        zoneId: 4,
+        beatIndex: 2,
+        landingTime: 2.0,
+      });
+
+      // Perfect 판정 (정규화 좌표)
+      const result = starInput.evaluateCursor('leftHand', { x: 0.17, y: 0.32 }, 2.05);
+      expect(result).not.toBeNull();
+      expect(result!.rating).toBe('Perfect');
+      expect(result!.hasBattlePenalty).toBe(false);
+
+      resolver.recordStarRating(result!.rating);
+      expect(resolver.rhythmStats.perfectHits).toBe(1);
+      expect(resolver.rhythmStats.beatStarsCollected).toBe(1);
+
+      // 전투 자원(HP, 마나, 보스 HP) 불변 검증
+      expect(battle.hp).toBe(100);
+      expect(battle.mana).toBe(0);
+      expect(boss.hp).toBe(10);
     });
   });
 });
