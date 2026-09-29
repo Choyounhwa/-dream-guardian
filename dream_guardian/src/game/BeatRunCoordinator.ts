@@ -1,11 +1,11 @@
 /**
  * BeatRunCoordinator - 8박 문제 준비 라운드 및 정답존 전환 코디네이터
  *
- * BPM 120 8박 루프:
- * - RUN_QUESTION (1~5박): 문제 출제, 비블로킹 TTS 낭독, locomotion 입력 기록
- * - CENTER_RETURN (6~7박): 중앙 복귀 네온 게이트 표시, 플레이어 중심 유도
- * - CENTER_LOCK (8박): 안정 프레임 중앙값으로 RoundCenterReference 잠금
- * - ANSWER_OPEN (답안 1~k박): AnswerZoneSelector로 좌/우 선택 확정
+ * 실제 운동 8회 루프:
+ * - RUN_QUESTION (0/8~8/8): 문제 출제, 비블로킹 TTS 낭독, 실제 locomotion 입력마다 1박 기록
+ * - REST_READY (2박): 중앙 복귀 및 "READY... SET!" 준비
+ * - KEYNOTE_PERFORMANCE (8박): 첫 박 정답 선택 및 후속 키노트 퍼포먼스
+ * - ROUND_RESOLVE: 성패 결과를 한 번만 정산
  *
  * @see Issue #180 [BEAT-RUN-001]
  * @see Issue #176 [BEAT-SPEC-001]
@@ -20,7 +20,11 @@ import { generateQuestion, type GeneratedQuestion } from '../question/QuestionEv
 import type { NormalizedLandmark } from '../types/index.js';
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 
-export type BeatPhase = 'RUN_QUESTION' | 'CENTER_RETURN' | 'ANSWER_OPEN';
+export type BeatPhase =
+  | 'RUN_QUESTION'
+  | 'REST_READY'
+  | 'KEYNOTE_PERFORMANCE'
+  | 'ROUND_RESOLVE';
 
 export interface BeatRunCoordinatorOptions {
   questionBank?: QuestionBank;
@@ -34,7 +38,9 @@ export interface BeatRunCoordinatorOptions {
   onAnswerConfirmed?: (choiceIndex: number, correct: boolean) => void;
 }
 
-const SECONDS_TO_BEAT_6 = 2.5;
+const EXERCISE_BEATS_PER_ROUND = 8;
+const READY_BEATS = 2;
+const PERFORMANCE_BEATS = 8;
 
 export class BeatRunCoordinator {
   private readonly _rhythmEngine: RhythmEngine;
@@ -45,10 +51,14 @@ export class BeatRunCoordinator {
   private readonly _options: BeatRunCoordinatorOptions;
 
   private _phase: BeatPhase = 'RUN_QUESTION';
-  private _isAnswerOpen = false;
   private _currentQuestion: GeneratedQuestion | null = null;
   private _questionGeneratedCount = 0;
   private _totalSteps = 0;
+  private _completedExerciseBeats = 0;
+  private _readyElapsed = 0;
+  private _performanceElapsed = 0;
+  private _selectedChoiceIndex: number | null = null;
+  private _roundResolveCount = 0;
 
   constructor(options?: BeatRunCoordinatorOptions) {
     this._options = options ?? {};
@@ -64,7 +74,12 @@ export class BeatRunCoordinator {
   }
 
   get isAnswerOpen(): boolean {
-    return this._isAnswerOpen;
+    return this._phase === 'KEYNOTE_PERFORMANCE' && this._selectedChoiceIndex === null;
+  }
+
+  /** 현재 선택된 답안 인덱스 (0: 좌, 1: 우, 미선택 시 null) */
+  get selectedChoiceIndex(): number | null {
+    return this._selectedChoiceIndex;
   }
 
   get currentQuestion(): GeneratedQuestion | null {
@@ -99,6 +114,27 @@ export class BeatRunCoordinator {
     return this._totalSteps;
   }
 
+  /** 현재 라운드에서 실제 운동으로 완료한 비트 수 (0~8) */
+  get completedExerciseBeats(): number {
+    return this._completedExerciseBeats;
+  }
+
+  /** REST_READY 내 완료된 준비 박 수 (0~2) */
+  get readyBeat(): number {
+    return Math.min(READY_BEATS, Math.floor(this._readyElapsed / this._rhythmEngine.secondsPerBeat));
+  }
+
+  /** KEYNOTE_PERFORMANCE 내 현재 박 (1~8, 비활성 시 0) */
+  get performanceBeat(): number {
+    if (this._phase !== 'KEYNOTE_PERFORMANCE') return 0;
+    return Math.min(PERFORMANCE_BEATS, Math.floor(this._performanceElapsed / this._rhythmEngine.secondsPerBeat) + 1);
+  }
+
+  /** ROUND_RESOLVE가 실행된 횟수 (라운드당 정확히 1회) */
+  get roundResolveCount(): number {
+    return this._roundResolveCount;
+  }
+
   /**
    * 새 라운드 시작 (달리기 1박부터 시작)
    * 문제 생성 및 비블로킹 TTS는 매 run phase 시작 시 정확히 1회 실행됨
@@ -111,7 +147,11 @@ export class BeatRunCoordinator {
     this._rhythmEngine.reset();
     this._rhythmEngine.start();
     this._phase = 'RUN_QUESTION';
-    this._isAnswerOpen = false;
+    this._completedExerciseBeats = 0;
+    this._readyElapsed = 0;
+    this._performanceElapsed = 0;
+    this._selectedChoiceIndex = null;
+    this._roundResolveCount = 0;
 
     // 문제 생성 (정확히 1회)
     const record = this._questionBank.next();
@@ -149,59 +189,34 @@ export class BeatRunCoordinator {
   ): void {
     if (!this._rhythmEngine.running) return;
 
-    const prevElapsed = this._rhythmEngine.elapsedTime;
-    this._rhythmEngine.update(dt);
-    const currentElapsed = this._rhythmEngine.elapsedTime;
+    let remainingDt = Math.max(0, dt);
+    while (remainingDt > 0 && this._phase !== 'RUN_QUESTION' && this._phase !== 'ROUND_RESOLVE') {
+      if (this._phase === 'REST_READY') {
+        const remainingReady = READY_BEATS * this._rhythmEngine.secondsPerBeat - this._readyElapsed;
+        const stepDt = Math.min(remainingDt, remainingReady);
+        this._readyElapsed += stepDt;
+        this._centerReturnGate.update(stepDt, landmarks);
+        remainingDt -= stepDt;
 
-    // 1. 달리기 1~5박 (0.0s ~ 2.5s)
-    if (this._phase === 'RUN_QUESTION') {
-      this._isAnswerOpen = false;
-      if (this._rhythmEngine.totalBeats >= 5 || currentElapsed >= SECONDS_TO_BEAT_6) {
-        // 6박 진입: 중앙 복귀 네온 게이트 오픈
-        this._phase = 'CENTER_RETURN';
-        this._centerReturnGate.open({ roundIndex: this._rhythmEngine.roundIndex });
-        this._options.onPhaseChange?.('CENTER_RETURN');
-
-        // 이번 틱에서 2.5초를 초과하여 경과한 시간이 있다면 게이트에 즉시 전달
-        const timeBeforeBeat6 = Math.max(0, SECONDS_TO_BEAT_6 - prevElapsed);
-        const dtForGate = Math.max(0, dt - timeBeforeBeat6);
-        if (dtForGate > 0) {
-          this._centerReturnGate.update(dtForGate, landmarks);
-        }
-      }
-    } else if (this._phase === 'CENTER_RETURN') {
-      this._isAnswerOpen = false;
-      this._centerReturnGate.update(dt, landmarks);
-    }
-
-    // 8박 도달 검증: totalBeats >= 7 (t >= 3.5s)
-    if (this._phase === 'CENTER_RETURN') {
-      const isAtLeastBeat8 =
-        this._rhythmEngine.totalBeats >= 7 ||
-        this._centerReturnGate.isLocked ||
-        this._centerReturnGate.isTimedOut;
-
-      if (isAtLeastBeat8) {
-        // 8박 도달 시 안정 상태이면 잠금 시도
-        if (!this._centerReturnGate.isLocked && this._centerReturnGate.isStable) {
-          this._centerReturnGate.lock();
-        }
-
-        if (this._centerReturnGate.isLocked) {
-          // 기준점 정상 잠금 완료 -> answer phase 개방
-          this._phase = 'ANSWER_OPEN';
-          this._isAnswerOpen = true;
+        if (this._readyElapsed >= READY_BEATS * this._rhythmEngine.secondsPerBeat - 1e-9) {
+          if (!this._centerReturnGate.isLocked) this._centerReturnGate.forceFallbackLock();
           this._answerZoneSelector.setReference(this._centerReturnGate.reference);
-          this._options.onPhaseChange?.('ANSWER_OPEN');
+          this._phase = 'KEYNOTE_PERFORMANCE';
+          this._options.onPhaseChange?.(this._phase);
         }
-        // 미잠금 시: centerReturnGate의 retry/timeout이 자동 작동하며
-        // 오답 처리나 HP 차감 없이 연장 대기함
+      } else if (this._phase === 'KEYNOTE_PERFORMANCE') {
+        const remainingPerformance = PERFORMANCE_BEATS * this._rhythmEngine.secondsPerBeat - this._performanceElapsed;
+        const stepDt = Math.min(remainingDt, remainingPerformance);
+        this._performanceElapsed += stepDt;
+        remainingDt -= stepDt;
+
+        if (this._performanceElapsed >= PERFORMANCE_BEATS * this._rhythmEngine.secondsPerBeat - 1e-9) {
+          this._resolveRound();
+        }
       }
     }
 
-    // 3. 답안 선택 단계 (ANSWER_OPEN)
-    if (this._phase === 'ANSWER_OPEN') {
-      this._isAnswerOpen = true;
+    if (this._phase === 'KEYNOTE_PERFORMANCE' && this.isAnswerOpen) {
       if (!this._answerZoneSelector.isConfirmed) {
         const state = this._answerZoneSelector.update(dt, landmarks);
         if (state.isConfirmed) {
@@ -217,18 +232,30 @@ export class BeatRunCoordinator {
    */
   recordStep(_mode?: LocomotionMode): void {
     this._totalSteps++;
+
+    if (this._phase !== 'RUN_QUESTION' || this._completedExerciseBeats >= EXERCISE_BEATS_PER_ROUND) {
+      return;
+    }
+
+    this._completedExerciseBeats++;
+    if (this._completedExerciseBeats === EXERCISE_BEATS_PER_ROUND) {
+      this._phase = 'REST_READY';
+      this._readyElapsed = 0;
+      this._centerReturnGate.open({ roundIndex: this._rhythmEngine.roundIndex });
+      this._options.onPhaseChange?.(this._phase);
+    }
   }
 
   /**
    * 키보드/터치/클릭 비상 fallback 전이 (웹캠 미사용 환경)
    */
   triggerFallbackAdvance(): void {
-    if (this._phase === 'RUN_QUESTION' || this._phase === 'CENTER_RETURN') {
+    if (this._phase === 'REST_READY') {
       const ref = this._centerReturnGate.forceFallbackLock();
       this._answerZoneSelector.setReference(ref);
-      this._phase = 'ANSWER_OPEN';
-      this._isAnswerOpen = true;
-      this._options.onPhaseChange?.('ANSWER_OPEN');
+      this._readyElapsed = READY_BEATS * this._rhythmEngine.secondsPerBeat;
+      this._phase = 'KEYNOTE_PERFORMANCE';
+      this._options.onPhaseChange?.(this._phase);
     }
   }
 
@@ -236,7 +263,7 @@ export class BeatRunCoordinator {
    * 답안 선택 fallback 즉시 확정
    */
   confirmAnswerByFallback(choiceIndex: number): void {
-    if (this._phase === 'ANSWER_OPEN') {
+    if (this.isAnswerOpen) {
       this._answerZoneSelector.selectByFallback(choiceIndex === 0 ? 'left' : 'right');
       this._handleAnswer(choiceIndex);
     }
@@ -246,13 +273,24 @@ export class BeatRunCoordinator {
    * 정답/오답 판정 처리
    */
   private _handleAnswer(choiceIndex: number): void {
-    if (!this._currentQuestion) return;
-    const correct = choiceIndex === this._currentQuestion.correctIndex;
+    if (!this.isAnswerOpen || !this._currentQuestion) return;
+    this._selectedChoiceIndex = choiceIndex;
+  }
+
+  private _resolveRound(): void {
+    if (this._phase === 'ROUND_RESOLVE' || !this._currentQuestion) return;
+
+    const choiceIndex = this._selectedChoiceIndex;
+    const correct = choiceIndex !== null && choiceIndex === this._currentQuestion.correctIndex;
     if (correct) {
       this._battle?.onCorrect();
     } else {
       this._battle?.onWrong();
     }
-    this._options.onAnswerConfirmed?.(choiceIndex, correct);
+
+    this._phase = 'ROUND_RESOLVE';
+    this._roundResolveCount++;
+    this._options.onAnswerConfirmed?.(choiceIndex ?? -1, correct);
+    this._options.onPhaseChange?.(this._phase);
   }
 }

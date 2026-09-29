@@ -128,9 +128,9 @@ const beatCoordinator = new BeatRunCoordinator({
   battle,
   speakFn: (text) => speech.speak(text),
   onPhaseChange: (phase) => {
-    if (phase === 'RUN_QUESTION' || phase === 'CENTER_RETURN') {
+    if (phase === 'RUN_QUESTION' || phase === 'REST_READY') {
       gamePhase = 'running';
-    } else if (phase === 'ANSWER_OPEN') {
+    } else if (phase === 'KEYNOTE_PERFORMANCE') {
       gamePhase = 'question';
       questionVisible = true;
       answerLocked = false;
@@ -141,7 +141,7 @@ const beatCoordinator = new BeatRunCoordinator({
     }
   },
   onAnswerConfirmed: (idx) => {
-    handleAnswer(idx);
+    handleAnswer(idx, true);
   },
 });
 let settingsHoverTimer = 0;
@@ -297,7 +297,7 @@ function startChapter(ch: number, subLevel?: number): void {
   startRunningPhase();
 }
 
-function handleAnswer(idx: number): void {
+function handleAnswer(idx: number, resourcesAlreadySettled = false): void {
   sfx.stopDwellCharge();
   if (screenMode !== 'game') return;
   if (!currentQuestion || !questionVisible || answerLocked) return;
@@ -323,7 +323,7 @@ function handleAnswer(idx: number): void {
   if (correct) {
     sfx.play('correct');
     effectManager.playPreset('correct', bx, by);
-    battle.onCorrect();
+    if (!resourcesAlreadySettled) battle.onCorrect();
 
     // Issue #146: 매 정답마다 기본 데미지(correctDamage: 1) 즉시 타격 및 피격 연출
     const baseDamage = DEFAULT_CONFIG.battle.correctDamage;
@@ -360,7 +360,7 @@ function handleAnswer(idx: number): void {
     boss.triggerAttack();
     bossRenderer.triggerAttack();
     effectManager.playPreset('wrong', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.5);
-    battle.onWrong();
+    if (!resourcesAlreadySettled) battle.onWrong();
     console.log(`[DG] 오답 보스 반격! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
 
     if (!battle.isAlive) {
@@ -449,6 +449,23 @@ function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): vo
 
     // Issue #148 & #163: 방사형 색상 분할 버튼 렌더링 (외곽선 두께 8px로 2배 상향)
     PartIconRenderer.drawRadialAnswerButton(ctx, recipe, bx, btnY, btnW, btnH, 20 * scaleX, 8 * scaleX);
+
+    // Issue #200: 답안 선택 즉시 선택 하이라이트 테두리 점등
+    if (beatCoordinator.selectedChoiceIndex === i) {
+      ctx.save();
+      ctx.strokeStyle = '#4DFFAA';
+      ctx.lineWidth = 10 * scaleX;
+      ctx.shadowColor = '#4DFFAA';
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(bx - 3, btnY - 3, btnW + 6, btnH + 6, 22 * scaleX);
+      } else {
+        ctx.strokeRect(bx - 3, btnY - 3, btnW + 6, btnH + 6);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // 수식 폰트: bold 96px (긴 수식은 최소 60px까지 자동 축소)
     const choiceStr = String(currentQuestion.choices[i]);
@@ -546,7 +563,7 @@ function renderRunningPhase(ctx: CanvasRenderingContext2D, vw: number, vh: numbe
 
   // 2. 페이즈 안내 가이드
   const guide = hudLayer.getLocomotionGuide(locomotionModal.selectedMode);
-  const isCenter = beatCoordinator.phase === 'CENTER_RETURN';
+  const isCenter = beatCoordinator.phase === 'REST_READY';
   const isRetry = beatCoordinator.centerReturnGate.isRetrying;
   const title = isRetry
     ? '⏳ 위치 안정화 연장 대기 중...'
@@ -569,7 +586,7 @@ function renderRunningPhase(ctx: CanvasRenderingContext2D, vw: number, vh: numbe
   ctx.fillText(subtitle, cx, cy - 5);
 
   // 3. 8박 진행 인디케이터 (원형 비트 점)
-  const currentBeat = beatCoordinator.beatIndex;
+  const completedExerciseBeats = beatCoordinator.completedExerciseBeats;
   const dotRadius = 14 * scaleX;
   const dotGap = 44 * scaleX;
   const startX = cx - (7 * dotGap) / 2;
@@ -579,7 +596,7 @@ function renderRunningPhase(ctx: CanvasRenderingContext2D, vw: number, vh: numbe
     const bx = startX + i * dotGap;
     ctx.beginPath();
     ctx.arc(bx, dotY, dotRadius, 0, Math.PI * 2);
-    if (i <= currentBeat) {
+    if (i < completedExerciseBeats) {
       ctx.fillStyle = i >= 5 ? '#28E6FF' : '#FFCB4D';
       ctx.shadowColor = i >= 5 ? '#28E6FF' : '#FFCB4D';
       ctx.shadowBlur = 10;
@@ -591,7 +608,7 @@ function renderRunningPhase(ctx: CanvasRenderingContext2D, vw: number, vh: numbe
     ctx.shadowBlur = 0;
 
     ctx.font = `bold ${Math.round(16 * scaleX)}px sans-serif`;
-    ctx.fillStyle = i <= currentBeat ? '#000000' : 'rgba(255, 255, 255, 0.5)';
+    ctx.fillStyle = i < completedExerciseBeats ? '#000000' : 'rgba(255, 255, 255, 0.5)';
     ctx.fillText(`${i + 1}`, bx, dotY);
   }
 
@@ -918,36 +935,33 @@ const engine = new GameEngine({
     const speedMult = isRunning ? 2.5 : 0.8;
     dreamGrid.update(dt, speedMult);
 
-    if (isRunning) {
-      const sourceLandmarks =
-        skeletonAnimation.smoothedLandmarks.length >= 25
-          ? skeletonAnimation.smoothedLandmarks
-          : poseManager.virtualLandmarks;
+    const sourceLandmarks =
+      skeletonAnimation.smoothedLandmarks.length >= 25
+        ? skeletonAnimation.smoothedLandmarks
+        : poseManager.virtualLandmarks;
 
-      beatCoordinator.update(dt, sourceLandmarks);
-      currentQuestion = beatCoordinator.currentQuestion;
+    // Issue #200: 문제 페이즈(gamePhase === 'question')에서도 코디네이터에 시간(dt)을 지속 전달하여
+    // 내부 8박 시계 및 라운드 정산(_resolveRound)이 멈추지 않도록 보장
+    beatCoordinator.update(dt, sourceLandmarks);
+    currentQuestion = beatCoordinator.currentQuestion;
 
-      if (beatCoordinator.isAnswerOpen && gamePhase !== 'question') {
-        gamePhase = 'question';
-        questionVisible = true;
-        answerLocked = false;
-        answerSelector.startQuestion(battle.totalQuestions + 1);
-        if (answerSelector.isFirstQuestion) {
-          postureGuideRenderer.startFirstQuestionHint(5.0);
-        }
+    if (beatCoordinator.isAnswerOpen && gamePhase !== 'question') {
+      gamePhase = 'question';
+      questionVisible = true;
+      answerLocked = false;
+      answerSelector.startQuestion(battle.totalQuestions + 1);
+      if (answerSelector.isFirstQuestion) {
+        postureGuideRenderer.startFirstQuestionHint(5.0);
       }
-    } else if (gamePhase === 'question' && questionVisible && !answerLocked) {
+    }
+
+    if (gamePhase === 'question' && questionVisible && !answerLocked && beatCoordinator.isAnswerOpen) {
       if (menuInput.isActive) {
         // Issue #169: 합장 중에는 답안 피트니스 존 판정 및 선택 진행을 일시 정지(Pause)하여 오답/정답 처리를 원천 방지
         sfx.updateDwellCharge(0);
       } else if (poseManager.hasPose) {
         // Issue #116: 스켈레톤 렌더링에 사용되는 보간 랜드마크(smoothedLandmarks)를 우선 사용하여
         // 스켈레톤 관절과 4색 커서 중심 좌표가 0px 오차로 1:1 일치하도록 동기화
-        const sourceLandmarks =
-          skeletonAnimation.smoothedLandmarks.length >= 25
-            ? skeletonAnimation.smoothedLandmarks
-            : poseManager.virtualLandmarks;
-
         if (sourceLandmarks.length >= 25) {
           const confirmed = answerSelector.updateFromPose(
             sourceLandmarks,
@@ -967,11 +981,12 @@ const engine = new GameEngine({
           sfx.updateDwellCharge(maxProg);
 
           if (confirmed) {
-            handleAnswer(confirmed.confirmedIndex);
+            sfx.play('hover');
+            beatCoordinator.confirmAnswerByFallback(confirmed.confirmedIndex);
           }
         }
       }
-    } else if (gamePhase !== 'question') {
+    } else if (gamePhase !== 'question' || !beatCoordinator.isAnswerOpen) {
       sfx.stopDwellCharge();
     }
 
@@ -1015,7 +1030,7 @@ const engine = new GameEngine({
 
     // 5. 메뉴 / 인게임 / 결과 렌더링 (모두 vw, vh 가상 좌표계 기준으로 일관 드로잉)
     if (screenMode === 'menu') {
-      dreamGrid.render(ctx, vw, vh, { alpha: 0.08, color: '#28E6FF' });
+      dreamGrid.render(ctx, vw, vh, { alpha: 0.08, color: '#28E6FF', renderZoneConnections: false });
       if (menuMode === 'main') {
         const currentLoco = LOCOMOTION_MODES.find((m) => m.mode === locomotionModal.selectedMode);
         menuRenderer.render(ctx, vw, vh, {
@@ -1057,7 +1072,7 @@ const engine = new GameEngine({
 
       let gridColor = CHAPTER_COLORS[currentChapter] || '#28E6FF';
       if (gamePhase === 'running') {
-        gridColor = beatCoordinator.phase === 'CENTER_RETURN' ? '#28E6FF' : '#FF8844';
+        gridColor = beatCoordinator.phase === 'REST_READY' ? '#28E6FF' : '#FF8844';
       }
 
       dreamGrid.render(ctx, vw, vh, {
@@ -1373,7 +1388,6 @@ canvas.addEventListener('click', (e) => {
         colors: ['#28E6FF', '#FFCB4D'],
         duration: 0.3,
       });
-      beatCoordinator.triggerFallbackAdvance();
       currentQuestion = beatCoordinator.currentQuestion;
       return;
     }
@@ -1383,7 +1397,10 @@ canvas.addEventListener('click', (e) => {
       for (let i = 0; i < 2; i++) {
         const btn = buttonLayouts[i];
         if (x >= btn.x && x <= btn.x + btn.width && y >= btn.y && y <= btn.y + btn.height) {
-          handleAnswer(i);
+          if (beatCoordinator.isAnswerOpen) {
+            sfx.play('hover');
+            beatCoordinator.confirmAnswerByFallback(i);
+          }
           break;
         }
       }
@@ -1440,7 +1457,6 @@ document.addEventListener('keydown', (e) => {
         colors: ['#28E6FF', '#FFCB4D'],
         duration: 0.3,
       });
-      beatCoordinator.triggerFallbackAdvance();
       currentQuestion = beatCoordinator.currentQuestion;
       return;
     }
@@ -1468,8 +1484,15 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (screenMode === 'game') {
-    if (e.key === '1') handleAnswer(0);
-    if (e.key === '2') handleAnswer(1);
+    if (questionVisible && !answerLocked && beatCoordinator.isAnswerOpen) {
+      if (e.key === '1') {
+        sfx.play('hover');
+        beatCoordinator.confirmAnswerByFallback(0);
+      } else if (e.key === '2') {
+        sfx.play('hover');
+        beatCoordinator.confirmAnswerByFallback(1);
+      }
+    }
   } else if (screenMode === 'menu') {
     if (menuMode === 'main') {
       const n = parseInt(e.key, 10);

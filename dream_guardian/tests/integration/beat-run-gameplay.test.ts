@@ -1,7 +1,7 @@
 /**
- * beat-run-gameplay.test.ts - 자유 달리기 게이지의 8박 문제 준비 라운드 전환 통합 테스트
+ * beat-run-gameplay.test.ts - 실제 운동 8회 기반 문제 준비 라운드 전환 통합 테스트
  *
- * @see Issue #180 [BEAT-RUN-001]
+ * @see Issue #187 [BUG-BEAT-001]
  * @see Issue #176 [BEAT-SPEC-001]
  */
 
@@ -29,7 +29,7 @@ function createMockLandmarks(hipX = 0.50, shoulderWidth = 0.20): NormalizedLandm
   return landmarks;
 }
 
-describe('BeatRunCoordinator Integration - [BEAT-RUN-001]', () => {
+describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
   let coordinator: BeatRunCoordinator;
   let questionBank: QuestionBank;
   let battle: BattleState;
@@ -90,57 +90,58 @@ describe('BeatRunCoordinator Integration - [BEAT-RUN-001]', () => {
     });
   });
 
-  describe('2. 8박 이전 답안 페이즈 차단 검증', () => {
+  describe('2. 미동작 시 시간만으로 운동 비트가 전진하지 않는다', () => {
     beforeEach(() => {
       coordinator.startRound({ chapter: 1 });
     });
 
-    it('1~5박(0.0~2.5초) 동안 답안 페이즈는 닫혀 있어야 한다', () => {
+    it('장시간 정지해도 0/8 운동 비트와 RUN_QUESTION 상태를 유지한다', () => {
       const lm = createMockLandmarks(0.50);
 
-      // 1박부터 5박 직전(2.4초)까지 진행
-      for (let i = 0; i < 24; i++) {
-        coordinator.update(0.1, lm);
-        expect(coordinator.isAnswerOpen).toBe(false);
-        expect(coordinator.phase).toBe('RUN_QUESTION');
-      }
-    });
+      coordinator.update(30, lm);
 
-    it('6~7박(2.5~3.5초) 중앙 복귀 중에도 답안 페이즈는 열리지 않는다', () => {
-      const lm = createMockLandmarks(0.50);
-
-      // 2.5초 시점 (6박 진입)
-      coordinator.update(2.5, lm);
-      expect(coordinator.phase).toBe('CENTER_RETURN');
-      expect(coordinator.centerReturnGate.isOpen).toBe(true);
-      expect(coordinator.isAnswerOpen).toBe(false);
-
-      // 3.4초 시점 (7박 말)
-      coordinator.update(0.9, lm);
+      expect(coordinator.completedExerciseBeats).toBe(0);
+      expect(coordinator.phase).toBe('RUN_QUESTION');
       expect(coordinator.isAnswerOpen).toBe(false);
     });
   });
 
-  describe('3. 8박 중앙 복귀 및 기준점 잠금 후 답안 페이즈 전이', () => {
+  describe('3. 실제 운동 8회와 중앙 복귀 후 답안 페이즈 전이', () => {
     beforeEach(() => {
       coordinator.startRound({ chapter: 1 });
     });
 
-    it('중앙 복귀가 안정적으로 완료되면 8박에 기준점이 잠기고 answer phase가 열린다', () => {
+    it('운동 1회마다 정확히 1박씩 채우고 8회 완료 전에는 중앙 복귀를 시작하지 않는다', () => {
+      for (let step = 1; step <= 7; step++) {
+        coordinator.recordStep('run');
+        expect(coordinator.completedExerciseBeats).toBe(step);
+        expect(coordinator.phase).toBe('RUN_QUESTION');
+        expect(coordinator.isAnswerOpen).toBe(false);
+      }
+
+      coordinator.recordStep('run');
+      expect(coordinator.completedExerciseBeats).toBe(8);
+      expect(coordinator.phase).toBe('REST_READY');
+      expect(coordinator.centerReturnGate.isOpen).toBe(true);
+      expect(coordinator.isAnswerOpen).toBe(false);
+    });
+
+    it('8회 운동 뒤 2박 준비와 중앙 복귀 잠금이 완료되면 키노트 퍼포먼스를 연다', () => {
       const lm = createMockLandmarks(0.50);
 
-      // 1~5박 (2.5초)
-      coordinator.update(2.5, lm);
-      expect(coordinator.phase).toBe('CENTER_RETURN');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+      }
+      expect(coordinator.phase).toBe('REST_READY');
 
-      // 6~8박 (1.5초) 동안 중앙 체류 -> 총 4.0초 (8박 만료 시점)
-      for (let i = 0; i < 15; i++) {
+      // 2박(1.0초) 준비 구간 중앙 체류
+      for (let i = 0; i < 10; i++) {
         coordinator.update(0.1, lm);
       }
 
       expect(coordinator.centerReturnGate.isLocked).toBe(true);
       expect(coordinator.isAnswerOpen).toBe(true);
-      expect(coordinator.phase).toBe('ANSWER_OPEN');
+      expect(coordinator.phase).toBe('KEYNOTE_PERFORMANCE');
 
       // AnswerZoneSelector에 기준점이 성공적으로 주입됨
       const ref = coordinator.answerZoneSelector.getReference();
@@ -149,61 +150,37 @@ describe('BeatRunCoordinator Integration - [BEAT-RUN-001]', () => {
     });
   });
 
-  describe('4. 중앙 복귀 실패/지연 시 안전 연장(Retry) 및 Fallback (무피해/무오답)', () => {
+  describe('4. 준비 구간 Fallback은 무피해로 키노트 퍼포먼스를 연다', () => {
     beforeEach(() => {
       coordinator.startRound({ chapter: 1 });
     });
 
-    it('8박 시점까지 중앙 미복귀 시 오답/HP 차감 없이 retry 연장 상태로 대기한다', () => {
+    it('2박 준비 중 중앙 미복귀 시 오답/HP 차감 없이 fallback 기준점으로 전환한다', () => {
       const lmOutside = createMockLandmarks(0.20); // 중앙 외부에 체류
       const initialHp = battle.hp;
 
-      // 4.0초(8박 전체) 동안 중앙 외부 유지
-      for (let i = 0; i < 40; i++) {
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+      }
+
+      // 2박 준비 구간 동안 중앙 외부 유지
+      for (let i = 0; i < 10; i++) {
         coordinator.update(0.1, lmOutside);
       }
 
       // 오답 처리나 피해가 없어야 함
       expect(battle.hp).toBe(initialHp);
       expect(battle.wrongCount).toBe(0);
-      expect(coordinator.isAnswerOpen).toBe(false);
-      expect(coordinator.centerReturnGate.isRetrying).toBe(true);
-    });
-
-    it('연장 기간(최대 2박 = 1.0초) 중 복귀하면 정상 잠금 후 answer phase로 진입한다', () => {
-      const lmOutside = createMockLandmarks(0.20);
-      const lmCenter = createMockLandmarks(0.50);
-
-      // 4.2초까지 이탈 (retry 진입)
-      coordinator.update(4.2, lmOutside);
-      expect(coordinator.centerReturnGate.isRetrying).toBe(true);
-
-      // 연장 시간 내에 중앙으로 복귀하여 0.5초 안정 체류
-      for (let i = 0; i < 10; i++) {
-        coordinator.update(0.05, lmCenter);
-      }
-
-      expect(coordinator.centerReturnGate.isLocked).toBe(true);
       expect(coordinator.isAnswerOpen).toBe(true);
-      expect(coordinator.phase).toBe('ANSWER_OPEN');
-    });
-
-    it('최대 연장 시간 만료 시 fallback 기준점으로 강제 잠금하여 answer phase로 안전 진입한다', () => {
-      const lmOutside = createMockLandmarks(0.20);
-
-      // 4.0초(정규 8박) + 1.1초(최대 연장 2박 초과) = 5.1초 경과
-      coordinator.update(5.1, lmOutside);
-
       expect(coordinator.centerReturnGate.isTimedOut).toBe(true);
       expect(coordinator.centerReturnGate.isLocked).toBe(true);
-      expect(coordinator.isAnswerOpen).toBe(true);
-      expect(coordinator.phase).toBe('ANSWER_OPEN');
+      expect(coordinator.phase).toBe('KEYNOTE_PERFORMANCE');
       expect(coordinator.answerZoneSelector.getReference()?.isFallback).toBe(true);
     });
   });
 
   describe('5. 운동 기록(스텝) 반영', () => {
-    it('1~5박 이동 중 발생한 스텝이 운동 기록에 정확히 누적된다', () => {
+    it('운동 스텝은 누적 기록과 라운드 운동 비트에 함께 반영된다', () => {
       coordinator.startRound({ chapter: 1 });
 
       coordinator.recordStep('run');
@@ -211,33 +188,83 @@ describe('BeatRunCoordinator Integration - [BEAT-RUN-001]', () => {
       coordinator.recordStep('run');
 
       expect(coordinator.totalSteps).toBe(3);
+      expect(coordinator.completedExerciseBeats).toBe(3);
     });
   });
 
-  describe('6. Space/Click Fallback 전이 지원', () => {
-    it('Space/클릭 fallback 트리거 시 즉시 기준점을 잠그고 answer phase로 전이된다', () => {
+  describe('6. 키보드/터치 운동 fallback도 8회 운동 계약을 따른다', () => {
+    it('fallback으로 기록한 1회 운동은 답안 페이즈를 즉시 열지 않는다', () => {
       coordinator.startRound({ chapter: 1 });
       expect(coordinator.isAnswerOpen).toBe(false);
 
-      // 웹캠 미사용 환경 등에서 fallback 트리거
-      coordinator.triggerFallbackAdvance();
+      coordinator.recordStep();
 
+      expect(coordinator.completedExerciseBeats).toBe(1);
+      expect(coordinator.phase).toBe('RUN_QUESTION');
+      expect(coordinator.isAnswerOpen).toBe(false);
+    });
+  });
+
+  describe('7. 문제/키노트 페이즈 코디네이터 지속 갱신 및 답안 선택 수명주기 [BUG-BEAT-002]', () => {
+    it('문제 페이즈(KEYNOTE_PERFORMANCE)에서 시간(dt)이 지속 갱신되어 답안 확정 후 8박 만료 시 단 1회 정산된다', () => {
+      const confirmedSpy = vi.fn();
+      const phaseSpy = vi.fn();
+
+      coordinator = new BeatRunCoordinator({
+        questionBank,
+        battle,
+        onAnswerConfirmed: confirmedSpy,
+        onPhaseChange: phaseSpy,
+      });
+      coordinator.startRound({ chapter: 1 });
+
+      // 1. 8회 운동
+      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      expect(coordinator.phase).toBe('REST_READY');
+
+      // 2. 2박 호흡 (1.0s)
+      coordinator.update(1.0);
+      expect(coordinator.phase).toBe('KEYNOTE_PERFORMANCE');
       expect(coordinator.isAnswerOpen).toBe(true);
-      expect(coordinator.phase).toBe('ANSWER_OPEN');
-      expect(coordinator.answerZoneSelector.getReference()).not.toBeNull();
+
+      // 3. 1박째 또는 키노트 중 답안 선택
+      const correctIndex = coordinator.currentQuestion!.correctIndex;
+      coordinator.confirmAnswerByFallback(correctIndex);
+      expect(coordinator.selectedChoiceIndex).toBe(correctIndex);
+      expect(coordinator.isAnswerOpen).toBe(false);
+
+      // 4. 문제 페이즈(KEYNOTE_PERFORMANCE) 동안 남은 시간 갱신
+      coordinator.update(4.0);
+
+      // 5. 8박 만료 시 ROUND_RESOLVE로 전이 및 단 1회 정산 확인
+      expect(coordinator.phase).toBe('ROUND_RESOLVE');
+      expect(coordinator.roundResolveCount).toBe(1);
+      expect(confirmedSpy).toHaveBeenCalledTimes(1);
+      expect(confirmedSpy).toHaveBeenCalledWith(correctIndex, true);
+      expect(battle.mana).toBe(25);
     });
 
-    it('answer phase에서 fallback 선택(0 또는 1) 시 정답 처리가 올바르게 수행된다', () => {
+    it('답안을 선택하지 않아도 KEYNOTE_PERFORMANCE 8박 만료 시 오답으로 단 1회 정산된다', () => {
+      const confirmedSpy = vi.fn();
+      coordinator = new BeatRunCoordinator({
+        questionBank,
+        battle,
+        onAnswerConfirmed: confirmedSpy,
+      });
       coordinator.startRound({ chapter: 1 });
-      coordinator.triggerFallbackAdvance();
 
-      const correctIdx = coordinator.currentQuestion!.correctIndex;
-      const initialMana = battle.mana;
+      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      coordinator.update(1.0); // REST_READY 완료
+      expect(coordinator.phase).toBe('KEYNOTE_PERFORMANCE');
 
-      coordinator.confirmAnswerByFallback(correctIdx);
+      // 아무런 답안도 선택하지 않고 4.0초 경과
+      coordinator.update(4.0);
 
-      expect(battle.mana).toBe(initialMana + 25);
-      expect(battle.combo).toBe(1);
+      expect(coordinator.phase).toBe('ROUND_RESOLVE');
+      expect(coordinator.roundResolveCount).toBe(1);
+      expect(confirmedSpy).toHaveBeenCalledTimes(1);
+      expect(confirmedSpy).toHaveBeenCalledWith(-1, false);
+      expect(battle.hp).toBe(75);
     });
   });
 });
