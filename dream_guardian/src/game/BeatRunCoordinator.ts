@@ -3,17 +3,22 @@
  *
  * 실제 운동 8회 루프:
  * - RUN_QUESTION (0/8~8/8): 문제 출제, 비블로킹 TTS 낭독, 실제 locomotion 입력마다 1박 기록
- * - REST_READY (2박): 중앙 복귀 및 "READY... SET!" 준비
- * - KEYNOTE_PERFORMANCE (8박): 첫 박 정답 선택 및 후속 키노트 퍼포먼스
- * - ROUND_RESOLVE: 성패 결과를 한 번만 정산
+ * - ANSWER_SELECT (최대 2박/1.0s): ArmReachAnswerSelector 0s 무체류 한 팔 도달 즉시 선택
+ * - STAR_COLLECT (2~8박/3.5s): 정답 시 7개 키노트 순차 진행
+ * - HAZARD_EVADE (2~8박/3.5s): 오답/타임아웃 시 바닥 충격파 회피 진행
+ * - ROUND_RESOLVE: 분기 루틴 완료 후 단 1회 정산
  *
  * @see Issue #180 [BEAT-RUN-001]
  * @see Issue #176 [BEAT-SPEC-001]
+ * @see Issue #210 [BEAT-KEYNOTE-ENGINE-001]
+ * @see Issue #224 [INPUT-ARM-ANSWER-001]
+ * @see Issue #225 [BATTLE-ANSWER-PENALTY-001]
  */
 
 import { RhythmEngine } from '../core/RhythmEngine.js';
 import { CenterReturnGate } from '../motion/CenterReturnGate.js';
 import { AnswerZoneSelector } from '../input/AnswerZoneSelector.js';
+import { ArmReachAnswerSelector } from '../input/ArmReachAnswerSelector.js';
 import { QuestionBank } from '../question/QuestionBank.js';
 import { BattleState } from './BattleState.js';
 import { generateQuestion, type GeneratedQuestion } from '../question/QuestionEvaluator.js';
@@ -22,11 +27,16 @@ import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import type { RoundAnswerStatus } from '../types/result.js';
 import type { Keynote } from '../types/keynote.js';
 
+export type BeatRoutineMode = 'arm_reach' | 'legacy';
+
 export type BeatPhase =
   | 'RUN_QUESTION'
+  | 'ANSWER_SELECT'
+  | 'STAR_COLLECT'
+  | 'HAZARD_EVADE'
+  | 'ROUND_RESOLVE'
   | 'REST_READY'
-  | 'KEYNOTE_PERFORMANCE'
-  | 'ROUND_RESOLVE';
+  | 'KEYNOTE_PERFORMANCE';
 
 export interface BeatRunCoordinatorOptions {
   questionBank?: QuestionBank;
@@ -35,7 +45,9 @@ export interface BeatRunCoordinatorOptions {
   rhythmEngine?: RhythmEngine;
   centerReturnGate?: CenterReturnGate;
   answerZoneSelector?: AnswerZoneSelector;
+  armReachAnswerSelector?: ArmReachAnswerSelector;
   keynotes?: readonly Keynote[];
+  routineMode?: BeatRoutineMode;
   onQuestionGenerated?: (question: GeneratedQuestion) => void;
   onPhaseChange?: (phase: BeatPhase) => void;
   onAnswerConfirmed?: (choiceIndex: number, correct: boolean, status: RoundAnswerStatus) => void;
@@ -43,6 +55,8 @@ export interface BeatRunCoordinatorOptions {
 }
 
 const EXERCISE_BEATS_PER_ROUND = 8;
+const ANSWER_SELECT_BEATS = 2; // Issue #210: 최대 2박 (1.0s)
+const BRANCH_ROUTINE_BEATS = 7; // Issue #210: 2~8박 (3.5s)
 const READY_BEATS = 2;
 const PERFORMANCE_BEATS = 8;
 
@@ -50,8 +64,10 @@ export class BeatRunCoordinator {
   private readonly _rhythmEngine: RhythmEngine;
   private readonly _centerReturnGate: CenterReturnGate;
   private readonly _answerZoneSelector: AnswerZoneSelector;
+  private readonly _armReachAnswerSelector: ArmReachAnswerSelector;
   private readonly _questionBank: QuestionBank;
   private readonly _options: BeatRunCoordinatorOptions;
+  private readonly _routineMode: BeatRoutineMode;
 
   private _phase: BeatPhase = 'RUN_QUESTION';
   private _currentQuestion: GeneratedQuestion | null = null;
@@ -60,17 +76,26 @@ export class BeatRunCoordinator {
   private _completedExerciseBeats = 0;
   private _readyElapsed = 0;
   private _performanceElapsed = 0;
+  private _answerSelectElapsed = 0;
+  private _branchElapsed = 0;
   private _selectedChoiceIndex: number | null = null;
   private _roundResolveCount = 0;
   private _keynotes: readonly Keynote[] = [];
 
   constructor(options?: BeatRunCoordinatorOptions) {
     this._options = options ?? {};
+    this._routineMode = options?.routineMode ?? (options?.armReachAnswerSelector ? 'arm_reach' : 'legacy');
     this._rhythmEngine = options?.rhythmEngine ?? new RhythmEngine({ bpm: 120, beatsPerRound: 8 });
     this._centerReturnGate = options?.centerReturnGate ?? new CenterReturnGate();
     this._answerZoneSelector = options?.answerZoneSelector ?? new AnswerZoneSelector();
+    this._armReachAnswerSelector =
+      options?.armReachAnswerSelector ?? new ArmReachAnswerSelector({ isMirrored: false });
     this._questionBank = options?.questionBank ?? new QuestionBank();
     this._keynotes = options?.keynotes ? [...options.keynotes] : [];
+  }
+
+  get routineMode(): BeatRoutineMode {
+    return this._routineMode;
   }
 
   get phase(): BeatPhase {
@@ -78,11 +103,16 @@ export class BeatRunCoordinator {
   }
 
   get isAnswerOpen(): boolean {
-    return (
-      this._phase === 'KEYNOTE_PERFORMANCE' &&
-      this.performanceBeat === 1 &&
-      this._selectedChoiceIndex === null
-    );
+    if (this._phase === 'ANSWER_SELECT') {
+      return (
+        this._selectedChoiceIndex === null &&
+        this._answerSelectElapsed < ANSWER_SELECT_BEATS * this._rhythmEngine.secondsPerBeat
+      );
+    }
+    if (this._phase === 'KEYNOTE_PERFORMANCE') {
+      return this.performanceBeat === 1 && this._selectedChoiceIndex === null;
+    }
+    return false;
   }
 
   /** 현재 선택된 답안 인덱스 (0: 좌, 1: 우, 미선택 시 null) */
@@ -118,6 +148,10 @@ export class BeatRunCoordinator {
     return this._answerZoneSelector;
   }
 
+  get armReachAnswerSelector(): ArmReachAnswerSelector {
+    return this._armReachAnswerSelector;
+  }
+
   get keynotes(): readonly Keynote[] {
     return this._keynotes;
   }
@@ -140,10 +174,15 @@ export class BeatRunCoordinator {
     return Math.min(READY_BEATS, Math.floor(this._readyElapsed / this._rhythmEngine.secondsPerBeat));
   }
 
-  /** KEYNOTE_PERFORMANCE 내 현재 박 (1~8, 비활성 시 0) */
+  /** KEYNOTE_PERFORMANCE 또는 분기 루틴 내 현재 박 (1~8, 비활성 시 0) */
   get performanceBeat(): number {
-    if (this._phase !== 'KEYNOTE_PERFORMANCE') return 0;
-    return Math.min(PERFORMANCE_BEATS, Math.floor(this._performanceElapsed / this._rhythmEngine.secondsPerBeat) + 1);
+    if (this._phase === 'KEYNOTE_PERFORMANCE') {
+      return Math.min(PERFORMANCE_BEATS, Math.floor(this._performanceElapsed / this._rhythmEngine.secondsPerBeat) + 1);
+    }
+    if (this._phase === 'STAR_COLLECT' || this._phase === 'HAZARD_EVADE') {
+      return Math.min(8, Math.floor(this._branchElapsed / this._rhythmEngine.secondsPerBeat) + 2);
+    }
+    return 0;
   }
 
   /** ROUND_RESOLVE가 실행된 횟수 (라운드당 정확히 1회) */
@@ -166,6 +205,8 @@ export class BeatRunCoordinator {
     this._completedExerciseBeats = 0;
     this._readyElapsed = 0;
     this._performanceElapsed = 0;
+    this._answerSelectElapsed = 0;
+    this._branchElapsed = 0;
     this._selectedChoiceIndex = null;
     this._roundResolveCount = 0;
 
@@ -192,6 +233,7 @@ export class BeatRunCoordinator {
     this._centerReturnGate.reset();
     this._answerZoneSelector.reset();
     this._answerZoneSelector.setReference(null);
+    this._armReachAnswerSelector.reset();
 
     this._options.onPhaseChange?.(this._phase);
   }
@@ -205,7 +247,57 @@ export class BeatRunCoordinator {
   ): void {
     if (!this._rhythmEngine.running) return;
 
-    // 1. 1박째 정답 선택 업데이트 (KEYNOTE_PERFORMANCE 진입 상태에서 1박 경과 전 dt 반영)
+    if (this._routineMode === 'arm_reach') {
+      let remainingDt = Math.max(0, dt);
+
+      // 1. ANSWER_SELECT 페이즈 처리
+      if (this._phase === 'ANSWER_SELECT') {
+        if (this.isAnswerOpen) {
+          if (!this._armReachAnswerSelector.isConfirmed) {
+            this._armReachAnswerSelector.update(remainingDt, landmarks);
+            if (this._armReachAnswerSelector.isConfirmed) {
+              const choiceIndex = this._armReachAnswerSelector.confirmedChoiceIndex;
+              if (choiceIndex !== null) {
+                this._handleAnswer(choiceIndex);
+                return;
+              }
+            }
+          }
+        }
+
+        const maxAnswerTime = ANSWER_SELECT_BEATS * this._rhythmEngine.secondsPerBeat;
+        const remainingAnswerTime = maxAnswerTime - this._answerSelectElapsed;
+        const step = Math.min(remainingDt, remainingAnswerTime);
+        this._answerSelectElapsed += step;
+        remainingDt -= step;
+
+        if (this._answerSelectElapsed >= maxAnswerTime - 1e-9 && this._selectedChoiceIndex === null) {
+          // 2박 타임아웃 만료 -> HAZARD_EVADE 즉시 전이
+          this._armReachAnswerSelector.closeWindow();
+          this._selectedChoiceIndex = null;
+          this._phase = 'HAZARD_EVADE';
+          this._branchElapsed = 0;
+          this._options.onPhaseChange?.(this._phase);
+        }
+      }
+
+      // 2. 분기 루틴 처리 (STAR_COLLECT 또는 HAZARD_EVADE)
+      if (this._phase === 'STAR_COLLECT' || this._phase === 'HAZARD_EVADE') {
+        const branchMaxTime = BRANCH_ROUTINE_BEATS * this._rhythmEngine.secondsPerBeat;
+        const remainingBranch = branchMaxTime - this._branchElapsed;
+        const step = Math.min(remainingDt, remainingBranch);
+        this._branchElapsed += step;
+        remainingDt -= step;
+
+        if (this._branchElapsed >= branchMaxTime - 1e-9) {
+          this._resolveRound();
+        }
+      }
+      return;
+    }
+
+    // ─── LEGACY ROUTINE (레거시 골반/머리 횡이동 구조) ───
+    // 1. 1박째 정답 선택 업데이트
     if (this._phase === 'KEYNOTE_PERFORMANCE' && this.isAnswerOpen) {
       if (!this._answerZoneSelector.isConfirmed) {
         const beat1Remaining = this._rhythmEngine.secondsPerBeat - this._performanceElapsed;
@@ -246,7 +338,7 @@ export class BeatRunCoordinator {
       }
     }
 
-    // 3. REST_READY에서 방금 KEYNOTE_PERFORMANCE로 전이된 직후 프레임: 현재 랜드마크 상태 1회 동기화 (dt=0)
+    // 3. REST_READY -> KEYNOTE_PERFORMANCE 직후 프레임 동기화
     if (this._phase === 'KEYNOTE_PERFORMANCE' && this.isAnswerOpen && this._performanceElapsed === 0) {
       if (!this._answerZoneSelector.isConfirmed) {
         this._answerZoneSelector.update(0, landmarks);
@@ -266,10 +358,17 @@ export class BeatRunCoordinator {
 
     this._completedExerciseBeats++;
     if (this._completedExerciseBeats === EXERCISE_BEATS_PER_ROUND) {
-      this._phase = 'REST_READY';
-      this._readyElapsed = 0;
-      this._centerReturnGate.open({ roundIndex: this._rhythmEngine.roundIndex });
-      this._options.onPhaseChange?.(this._phase);
+      if (this._routineMode === 'arm_reach') {
+        this._phase = 'ANSWER_SELECT';
+        this._answerSelectElapsed = 0;
+        this._armReachAnswerSelector.openWindow();
+        this._options.onPhaseChange?.(this._phase);
+      } else {
+        this._phase = 'REST_READY';
+        this._readyElapsed = 0;
+        this._centerReturnGate.open({ roundIndex: this._rhythmEngine.roundIndex });
+        this._options.onPhaseChange?.(this._phase);
+      }
     }
   }
 
@@ -277,6 +376,12 @@ export class BeatRunCoordinator {
    * 키보드/터치/클릭 비상 fallback 전이 (웹캠 미사용 환경)
    */
   triggerFallbackAdvance(): void {
+    if (this._phase === 'RUN_QUESTION' && this._completedExerciseBeats < EXERCISE_BEATS_PER_ROUND) {
+      while (this._completedExerciseBeats < EXERCISE_BEATS_PER_ROUND) {
+        this.recordStep();
+      }
+      return;
+    }
     if (this._phase === 'REST_READY') {
       const ref = this._centerReturnGate.forceFallbackLock();
       this._answerZoneSelector.setReference(ref);
@@ -291,6 +396,8 @@ export class BeatRunCoordinator {
    */
   confirmAnswerByFallback(choiceIndex: number): void {
     if (this.isAnswerOpen) {
+      const armChoice: 0 | 1 = choiceIndex === 0 ? 0 : 1;
+      this._armReachAnswerSelector.selectByFallback(armChoice);
       this._answerZoneSelector.selectByFallback(choiceIndex === 0 ? 'left' : 'right');
       this._handleAnswer(choiceIndex);
     }
@@ -300,9 +407,17 @@ export class BeatRunCoordinator {
    * 정답/오답 판정 처리
    */
   private _handleAnswer(choiceIndex: number): void {
-    if (!this.isAnswerOpen || !this._currentQuestion) return;
+    if (!this._currentQuestion) return;
     this._selectedChoiceIndex = choiceIndex;
+    this._armReachAnswerSelector.closeWindow();
     this._options.onAnswerSelected?.(choiceIndex);
+
+    if (this._routineMode === 'arm_reach') {
+      const correct = choiceIndex === this._currentQuestion.correctIndex;
+      this._phase = correct ? 'STAR_COLLECT' : 'HAZARD_EVADE';
+      this._branchElapsed = 0;
+      this._options.onPhaseChange?.(this._phase);
+    }
   }
 
   private _resolveRound(): void {

@@ -150,6 +150,10 @@ export class ArmReachAnswerSelector {
     return this._confirmedAnswerIndex;
   }
 
+  get confirmedChoiceIndex(): 0 | 1 | null {
+    return this._confirmedAnswerIndex;
+  }
+
   get confirmedZoneId(): 4 | 5 | null {
     return this._confirmedZoneId;
   }
@@ -221,6 +225,20 @@ export class ArmReachAnswerSelector {
     this._prevBodyY = null;
     this._lastTime = null;
     this._cursorTracker.reset();
+  }
+
+  /**
+   * 답안 입력 창 개방 (리셋 및 입력 수신 시작)
+   */
+  openWindow(): void {
+    this.reset();
+  }
+
+  /**
+   * 답안 입력 창 닫기
+   */
+  closeWindow(): void {
+    // 확정 상태 보존
   }
 
   private _toScreenPoint(pt: { x: number; y: number }): { x: number; y: number } {

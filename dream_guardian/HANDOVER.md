@@ -63,6 +63,19 @@
 
 ---
 
+## 🔵 2026-09-30 완료: [BEAT-KEYNOTE-ENGINE-001 / #210] 8박 런 직후 2박 팔 답안 선택 및 정답/오답 즉시 분기 엔진 🟢 (전체 714/714 Pass)
+
+> 상태: **Issue #210 완료 🟢**  
+> RUN_QUESTION 8박 운동 완료 직후 즉시 답안 버튼을 표출하고 `ArmReachAnswerSelector`를 인게임에 연동하여, 4초 대기 없이 즉시 `STAR_COLLECT`(정답) vs `HAZARD_EVADE`(오답/타임아웃)로 분기하는 엔진을 구현 완료했습니다.
+> - **답안 버튼 즉시 출제 및 2박 제약 (`ANSWER_SELECT`)**: 8번째 스텝 완료 즉시 답안 창을 열고 `ArmReachAnswerSelector` 0s 무체류 즉시 판정 가동. 2박(1.0s) 경과 시 자동 timeout 처리.
+> - **즉각 반응 및 즉시 분기 (4초 지연 대기 제거)**: 정답 시 즉시 `STAR_COLLECT`로 전이, 오답/타임아웃 시 즉시 `HAZARD_EVADE`로 전이. 선택 후 먹통처럼 대기하던 레거시 동작 완전 제거.
+> - **정답 분기 (`STAR_COLLECT`, 2~8박)**: 7개 키노트 순차 진행(박자당 1개) 및 별 수집 판정(`StarCollectionInput`) 누적.
+> - **오답 분기 (`HAZARD_EVADE`, 2~8박)**: 키노트 미출현, 점프 회피 대기 루틴 가동.
+> - **루틴 완료 후 단 1회 정산 (`ROUND_RESOLVE`)**: 분기 루틴 완료 시점 `_resolveRound()` 1회 호출로 단일 정산 보장.
+> - **TDD 회귀 검증**: 52개 테스트 파일 714/714 Pass (`tests/integration/beat-keynote-round.test.ts` 8건 신설 포함), `npm run build` 성공.
+
+---
+
 ## 🔵 2026-09-30 완료: [BATTLE-ANSWER-PENALTY-001 / #225] 오답/타임아웃 직접 피해 및 Phase A 보스 반격 제거 🟢 (전체 706/706 Pass)
 
 > 상태: **Issue #225 완료 🟢**  
@@ -91,7 +104,7 @@
 
 ## 🔵 2026-09-30 확정: 8박 런 직후 2박 한 팔 Zone 4/5 즉시 선택 및 정답/오답 즉시 분기 루틴 전면 개편
 
-> 상태: **새 요구사항에 따른 신규 카드 3건(#224, #225, #226) 중 #224, #225 완료 🟢, 후속 카드(#210, #211, #226) 대기**  
+> 상태: **새 요구사항에 따른 신규 카드 3건(#224, #225, #226) 및 #210 중 #224, #225, #210 완료 🟢, 후속 카드(#211, #226) 대기**  
 > 골반/머리 횡이동에 따른 화면 이탈 및 레거시 체류시간 문제를 해결하기 위해, 런 8박 종료 직후 2박 이내에 한 팔을 Zone 4(0번) 또는 Zone 5(1번)에 두는 방식(정적 위치/동적 뻗기 무체류 즉시 선택, 양팔 동시 미선택)으로 답안 선택 시스템을 전면 혁신합니다. 또한 오답/타임아웃 시 보스 직접 반격을 삭제하고 Phase A 피해는 회피 실패 시에만 발생하도록 일원화합니다.
 
 ### 신규 및 갱신 작업 카드 현황
@@ -103,10 +116,10 @@
    - `BeatRoundResolver`: wrong/timeout 시 `damageTaken = 0`, 보스 공격 트리거 제거.
    - `BattleState`: `recordWrongAnswer()`, `applyHazardDamage()`, `applyMinionDamage()` 책임 분리.
    - Phase A 플레이어 피해는 오직 `HAZARD_EVADE` 장판/미니언 회피 실패 시에만 발생.
-3. **[BEAT-KEYNOTE-ENGINE-001 / #210] 8박 런 직후 2박 팔 답안 선택 및 정답/오답 즉시 분기 엔진 (갱신 ⚪)**
+3. **[BEAT-KEYNOTE-ENGINE-001 / #210] 8박 런 직후 2박 팔 답안 선택 및 정답/오답 즉시 분기 엔진 (완료 🟢)**
    - 런 8박 완료 직후 `ANSWER_SELECT`(최대 2박/1.0s) 진입 및 버튼 표출.
    - 4초 지연 대기 제거: 선택 즉시 시청각 피드백 + `STAR_COLLECT`(정답) vs `HAZARD_EVADE`(오답/타임아웃) 분기.
-4. **[ROUTINE-SPEC-001 / #211] 확정 게임 루틴 전체 계약 정의 및 카드 매핑 (갱신 ⚪)**
+4. **[ROUTINE-SPEC-001 / #211] 확정 게임 루틴 전체 계약 정의 및 카드 매핑 (대기 ⚪)**
    - GDD, WBS, HANDOVER, GITHUB_ISSUES 단일 계약 동기화.
 5. **[CLEANUP-ANSWER-INPUT-001 / #226] 골반/머리 기반 AnswerZoneSelector 및 답안 중앙 기준점 연동 제거 (신규 후속 ⚪)**
    - 신규 팔 선택 안정화 후 레거시 `AnswerZoneSelector` 및 중앙 기준점 결합 안전하게 제거.

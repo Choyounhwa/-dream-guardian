@@ -49,6 +49,7 @@ import {
 import {
   AnswerSelector,
   AnswerZoneSelector,
+  ArmReachAnswerSelector,
   FootKeynoteInput,
   StarCollectionInput,
 } from './input/index.js';
@@ -137,6 +138,12 @@ answerSelector.setViewport(
   canvasManager.virtualHeight,
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
+const armReachAnswerSelector = new ArmReachAnswerSelector({ isMirrored: false });
+armReachAnswerSelector.setViewport(
+  canvasManager.virtualWidth,
+  canvasManager.virtualHeight,
+  (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
+);
 const answerSelectionRenderer = new AnswerSelectionRenderer();
 const magicCircleRenderer = new MagicCircleRenderer();
 const postureGuideRenderer = new PostureGuideRenderer(); // Issue #173: renderZoneBoxes 기본 false (가상 영역화)
@@ -184,8 +191,8 @@ starCollectionInput.setViewport(
 );
 
 function enterQuestionPhase(): void {
-  if (gamePhase === 'question') return;
-  gamePhase = 'question';
+  if (gamePhase === 'question' || gamePhase === 'answer_select') return;
+  gamePhase = 'answer_select';
   questionVisible = true;
   answerLocked = false;
   answerSelector.startQuestion(battle.totalQuestions + 1);
@@ -197,17 +204,27 @@ function enterQuestionPhase(): void {
 const beatCoordinator = new BeatRunCoordinator({
   questionBank,
   battle,
+  armReachAnswerSelector,
   answerZoneSelector: new AnswerZoneSelector({ isMirrored: false }),
   speakFn: (text) => speech.speak(text),
   onPhaseChange: (phase) => {
     if (phase === 'RUN_QUESTION' || phase === 'REST_READY') {
       gamePhase = 'running';
-    } else if (phase === 'KEYNOTE_PERFORMANCE') {
+    } else if (phase === 'ANSWER_SELECT' || phase === 'KEYNOTE_PERFORMANCE') {
       enterQuestionPhase();
+    } else if (phase === 'STAR_COLLECT') {
+      gamePhase = 'star_collect';
+    } else if (phase === 'HAZARD_EVADE') {
+      gamePhase = 'hazard_evade';
     }
   },
-  onAnswerSelected: (_idx) => {
+  onAnswerSelected: (idx) => {
     sfx.play('hover');
+    if (idx === beatCoordinator.currentQuestion?.correctIndex) {
+      sfx.play('correct');
+    } else {
+      sfx.play('wrong');
+    }
   },
   onAnswerConfirmed: (idx, _correct, status) => {
     const resolveResult = beatRoundResolver.resolveRound(status);
@@ -269,7 +286,7 @@ function selectSubLevel(sub: number | null): void {
 // ─── 게임 상태 (FSM 대신 단순 변수 관리) ───
 type ScreenMode = 'menu' | 'game' | 'result';
 type MenuMode = 'main' | 'sub';
-type GamePhase = 'running' | 'question';
+type GamePhase = 'running' | 'question' | 'answer_select' | 'star_collect' | 'hazard_evade';
 let screenMode: ScreenMode = 'menu';
 let menuMode: MenuMode = 'main';
 let selectedChapter = 1;
@@ -1038,8 +1055,8 @@ const engine = new GameEngine({
     beatCoordinator.update(dt, normalizedLandmarks);
     currentQuestion = beatCoordinator.currentQuestion;
 
-    // 2~8박 키노트 퍼포먼스 별 수집 판정 (Issue #206, #207 / StarCollectionInput 연동)
-    if (beatCoordinator.phase === 'KEYNOTE_PERFORMANCE') {
+    // 2~8박 키노트 퍼포먼스 별 수집 판정 (Issue #206, #207, #210 / StarCollectionInput 연동)
+    if (beatCoordinator.phase === 'KEYNOTE_PERFORMANCE' || beatCoordinator.phase === 'STAR_COLLECT') {
       const beat = beatCoordinator.performanceBeat;
       if (beat >= 2 && beat <= 8) {
         const keynotes = beatCoordinator.keynotes;
@@ -1077,9 +1094,8 @@ const engine = new GameEngine({
       }
     }
 
-    // Issue #207: 1박째 정답 확정은 BeatRunCoordinator 내부의 AnswerZoneSelector가 전담 (이중 확정 경로 제거)
-    // 체류 시간(Dwell Time) 누적 및 체류 충전음만 동기화
-    if (gamePhase === 'question' && questionVisible && !answerLocked && beatCoordinator.isAnswerOpen) {
+    // Issue #207, #210: 답안 창 개방 시 체류 시간 및 체류음 동기화
+    if ((gamePhase === 'question' || gamePhase === 'answer_select') && questionVisible && !answerLocked && beatCoordinator.isAnswerOpen) {
       if (menuInput.isActive) {
         // Issue #169: 합장 중에는 체류 충전 정지
         sfx.updateDwellCharge(0);
@@ -1250,8 +1266,8 @@ const engine = new GameEngine({
       kneeFramingGuideRenderer.render(ctx, vw, vh, currentKneeFraming);
     }
 
-    // 7.8 Issue #159 & #160: 목표 자세 실루엣 가이드 오버레이 및 첫 문제 유도 화살표
-    const isQuestionPhase = screenMode === 'game' && gamePhase === 'question' && questionVisible;
+    // 7.8 Issue #159 & #160, #210: 목표 자세 실루엣 가이드 오버레이 및 첫 문제 유도 화살표
+    const isQuestionPhase = screenMode === 'game' && (gamePhase === 'question' || gamePhase === 'answer_select') && questionVisible;
     const zoneState = beatCoordinator.answerZoneSelector.state;
     const currentChoiceProgress: [number, number] =
       isQuestionPhase && beatCoordinator.isAnswerOpen
