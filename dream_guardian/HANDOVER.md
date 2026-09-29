@@ -63,6 +63,21 @@
 
 ---
 
+## 🔵 2026-09-29 완료: [CLEANUP-DEAD-001 / #208] 폐기된 방어 전투 시스템 잔재 및 미참조 리소스/데드코드 일괄 제거 🟢 (전체 674/674 Pass)
+
+> Issue #143, #147, #173 등으로 폐기·이관되었으나 코드와 리소스에 남아 있던 잔재를 일괄 정리했습니다. 기능 및 시각 회귀 0건, JS 번들 크기 축소(206.08 kB → 204.46 kB) 및 불필요 미참조 리소스 약 700KB를 제거했습니다. (Issue #208 완료)
+> - **스쿼트 방어 잔재 제거**: `SquatDetector.ts` 파일 삭제, `src/motion/index.ts` 배럴 export 제거, 관련 단위 테스트(`motion-detectors.test.ts`, `x-gesture-collision.test.ts`) 정리. (`JumpDetector`는 #193 점프 회피 재사용 확정에 따라 보존).
+> - **보스 자동공격 타이머 및 resolveAttack() 제거**: `BossController`의 `_attackInterval` 자동공격 블록 및 `resolveAttack()` 제거, 오답 반격(`triggerAttack`) 단일 경로 확립.
+> - **HUDLayer 미사용 쉴드/마나 필드 정리**: `HUDLayer._renderShield()` 및 `shieldActive`, 미사용 `mana`/`manaMax` 필드 제거, `main.ts:getHUDData()` 전달부 정리.
+> - **AnswerSelectionRenderer 정리**: #173으로 가상화된 `renderZoneBoxes` 분기 및 미사용 `RenderZoneInfo` 인터페이스 제거.
+> - **미참조 파일 및 중복 리소스 삭제**: `src/index.html`, `src/render/layers/`, `src/data/*.csv`(중복 120KB), `src/assets/img/*`(약 676KB), `img/E_Pit_cusor_*.png` 삭제.
+> - **배럴 일관성 확보**: `TutorialOverlay`를 `src/ui/index.ts`에, `SFXSynth`를 `src/audio/index.ts`에 등록하고 `main.ts` import 경로를 배럴로 통일.
+> - **개발 산출물 정리 및 .gitignore 갱신**: 개발 로그 파일 삭제 및 `.gitignore`에 `dev_server*.log`, `localhost.url` 패턴 추가.
+> - **칼로리 연동 보존**: `ResultData.squats`/`jumps` 필드에 #193 연동 예정 TODO 주석 명시.
+> - **TDD 회귀 검증**: 50개 테스트 파일 674/674 Pass 및 `npm run build` 성공.
+
+---
+
 ## 🔵 2026-09-29 완료: [DATA-BOSS-001 / #215] 5대 보스 데이터 단일 소스(bossData.ts) 신설 및 신규 스토리 보스명 일원화 🟢 (전체 681/681 Pass)
 
 > 신규 정본 스토리(`04_STORY_SOURCE.md`)의 5대 불안 보스명(하얘시니, 재촉새, 따돌시니, 풀죽새, 캄캄대왕)과 메타데이터(수학 영역, 음악 장르, 악기 매핑, HP, 테마 색상, 불안 인용구)를 관리하는 단일 소스 모듈을 신설했습니다. (Issue #215 완료)

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { HUDLayer } from '../../src/ui/HUDLayer.js';
-import { MenuRenderer } from '../../src/ui/MenuRenderer.js';
+import { MenuRenderer, CHAPTER_INFO } from '../../src/ui/MenuRenderer.js';
 import { ResultRenderer, calcCalories, calcStars } from '../../src/ui/ResultRenderer.js';
 import { AnswerSelectionRenderer } from '../../src/render/AnswerSelectionRenderer.js';
 import { PartIconRenderer } from '../../src/render/PartIconRenderer.js';
@@ -11,7 +11,7 @@ import { TutorialOverlay } from '../../src/ui/TutorialOverlay.js';
 describe('HUDLayer', () => {
   it('update()가 감쇠 보간을 수행한다', () => {
     const hud = new HUDLayer();
-    const data = { playerHp: 50, playerMaxHp: 100, bossHp: 5, bossMaxHp: 10, mana: 75, manaMax: 100, combo: 3, chapter: 1, shieldActive: false, guardianStage: 1 };
+    const data = { playerHp: 50, playerMaxHp: 100, bossHp: 5, bossMaxHp: 10, combo: 3, chapter: 1, guardianStage: 1 };
     hud.update(0.5, data);
     // 보간이 시작되었으므로 에러 없이 동작 확인
     expect(true).toBe(true);
@@ -152,6 +152,57 @@ describe('MenuRenderer', () => {
     expect(menu.hitTestSub(915, 2060, w, h, 1, subLevels)).toBe(-1);
     expect(menu.hitTestSub(290, 630, w, h, 1, subLevels)).toBe(1);
     expect(menu.hitTestSub(790, 1510, w, h, 1, subLevels)).toBe(0);
+  });
+
+  it('CHAPTER_INFO가 04_STORY_SOURCE_수정.md의 꿈속 탐험 테마명을 반영한다', () => {
+    expect(CHAPTER_INFO).toHaveLength(5);
+    expect(CHAPTER_INFO[0].name).toBe('에메랄드 심해');
+    expect(CHAPTER_INFO[0].fullName).toBe('나비가 숨 쉬는 에메랄드 심해');
+    expect(CHAPTER_INFO[1].name).toBe('사탕 바구니 숲');
+    expect(CHAPTER_INFO[1].fullName).toBe('별자리가 떨어진 사탕 바구니 숲');
+    expect(CHAPTER_INFO[2].name).toBe('오르골 구름 서재');
+    expect(CHAPTER_INFO[2].fullName).toBe('거꾸로 흐르는 오르골 구름 서재');
+    expect(CHAPTER_INFO[3].name).toBe('색종이 사파리');
+    expect(CHAPTER_INFO[3].fullName).toBe('크레용 화산과 색종이 사파리');
+    expect(CHAPTER_INFO[4].name).toBe('은하 회전목마');
+    expect(CHAPTER_INFO[4].fullName).toBe('끝없는 기억의 은하 회전목마');
+  });
+
+  it('홈 메뉴 렌더링 시 꿈속 세계 탐험 타이틀과 챕터 테마명이 렌더링된다', () => {
+    const menu = new MenuRenderer();
+    const calls: string[] = [];
+    const mockCtx = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      beginPath: vi.fn(),
+      roundRect: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      fillText: vi.fn((text: string) => {
+        calls.push(text);
+      }),
+      textAlign: '',
+      textBaseline: '',
+      font: '',
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+      shadowColor: '',
+      shadowBlur: 0,
+    } as unknown as CanvasRenderingContext2D;
+
+    menu.render(mockCtx, 1080, 2160, {
+      unlockedChapter: 5,
+      stars: { 1: 3, 2: 2, 3: 1, 4: 0, 5: 0 },
+      selectedChapter: 0,
+    });
+
+    expect(calls).toContain('꿈속 세계 탐험');
+    expect(calls).toContain('에메랄드 심해');
+    expect(calls).toContain('사탕 바구니 숲');
+    expect(calls).toContain('오르골 구름 서재');
+    expect(calls).toContain('색종이 사파리');
+    expect(calls).toContain('은하 회전목마');
   });
 });
 

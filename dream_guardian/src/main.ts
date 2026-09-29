@@ -54,9 +54,16 @@ import {
 } from './input/index.js';
 import { toNormalizedLandmarks } from './utils/index.js';
 import { MenuInput } from './input/MenuInput.js';
-import { SFXSynth } from './audio/SFXSynth.js';
-import { TutorialOverlay } from './ui/TutorialOverlay.js';
-import { BottomBar, SettingsModal, LocomotionModal, PauseModal, LOCOMOTION_MODES, type BottomBarSlot } from './ui/index.js';
+import { SFXSynth } from './audio/index.js';
+import {
+  BottomBar,
+  SettingsModal,
+  LocomotionModal,
+  PauseModal,
+  TutorialOverlay,
+  LOCOMOTION_MODES,
+  type BottomBarSlot,
+} from './ui/index.js';
 import { getAnswerButtonLayouts, DEFAULT_FITNESS_ZONES } from '../config/zone.config.js';
 import type { RoundAnswerStatus, RoundResolveResult } from './types/result.js';
 
@@ -131,7 +138,6 @@ answerSelector.setViewport(
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
 const answerSelectionRenderer = new AnswerSelectionRenderer();
-answerSelectionRenderer.renderZoneBoxes = false; // Issue #173: 사각 영역 드로잉 비활성화 (가상 영역화)
 const magicCircleRenderer = new MagicCircleRenderer();
 const postureGuideRenderer = new PostureGuideRenderer(); // Issue #173: renderZoneBoxes 기본 false (가상 영역화)
 const menuInput = new MenuInput();
@@ -431,7 +437,10 @@ function showResult(victory: boolean): void {
     correctCount: battle.correctCount,
     totalQuestions: battle.totalQuestions,
     maxCombo: battle.maxCombo,
-    steps: totalSteps, squats: 0, jumps: 0,
+    // TODO(#193): BATTLE-BOSS-001 보스 충격파 회피/짓밟기 구현 시 실제 squats/jumps 카운트 연동
+    steps: totalSteps,
+    squats: 0,
+    jumps: 0,
     elapsedTime: 60,
     dwellTime: totalDwellTime,
     locomotionMode: locomotionModal.selectedMode,
@@ -675,11 +684,8 @@ function getHUDData() {
     playerMaxHp: battle.maxHp,
     bossHp: boss.hp,
     bossMaxHp: boss.maxHp,
-    mana: battle.mana,
-    manaMax: DEFAULT_CONFIG.mana.spellCost,
     combo: battle.combo,
     chapter: currentChapter,
-    shieldActive: false,
     guardianStage: guardian.stage,
   };
 }

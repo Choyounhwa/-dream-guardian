@@ -4,7 +4,6 @@ export { HandsManager } from './HandsManager.js';
 export type { HandsManagerOptions, HandsStatus, HandPosition } from './HandsManager.js';
 export { CalibrationHelper } from './CalibrationHelper.js';
 export { RunDetector } from './RunDetector.js';
-export { SquatDetector } from './SquatDetector.js';
 export { JumpDetector } from './JumpDetector.js';
 export type { ILocomotionDetector, LocomotionMode } from './LocomotionDetector.js';
 export { HipBounceDetector } from './HipBounceDetector.js';

@@ -114,35 +114,6 @@ describe('BossController', () => {
     expect(bc.maxHp).toBe(20);
   });
 
-  it('공격 타이머 경과 후 warning → attacking 전이', () => {
-    const bc = new BossController(1, 2.0); // 2초 간격
-
-    // idle → warning
-    let attacked = bc.update(2.0);
-    expect(attacked).toBe(false);
-    expect(bc.isWarning).toBe(true);
-
-    // warning → attacking
-    attacked = bc.update(1.5);
-    expect(attacked).toBe(true);
-    expect(bc.isAttacking).toBe(true);
-  });
-
-  it('방어 성공 시 피해 0, 실패 시 -15', () => {
-    const bc = new BossController(1, 0.1);
-    bc.update(0.1); // → warning
-    bc.update(1.5); // → attacking
-
-    const blocked = bc.resolveAttack(true);
-    expect(blocked).toBe(0);
-
-    // 다시 공격
-    bc.update(0.1);
-    bc.update(1.5);
-    const hit = bc.resolveAttack(false);
-    expect(hit).toBe(15);
-  });
-
   it('takeDamage로 보스 HP를 감소시킨다', () => {
     const bc = new BossController(1);
     bc.takeDamage(4);
@@ -171,8 +142,8 @@ describe('BossController', () => {
     expect(bc.phase).toBe('idle');
   });
 
-  // Issue #147: 기습 보스 공격 타이머 제거 및 오답 반격 일원화
-  it('기본 생성 시(attackInterval 기본값 0) 기습 공격 타이머가 동작하지 않고 상시 idle을 유지한다', () => {
+  // Issue #147, #208: 기습 보스 공격 타이머 제거 및 오답 반격 일원화
+  it('생성 시 기습 공격 타이머 없이 상시 idle을 유지한다', () => {
     const bc = new BossController(1);
     for (let i = 0; i < 60; i++) {
       const attacked = bc.update(1.0);

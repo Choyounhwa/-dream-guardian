@@ -1,10 +1,10 @@
 /**
  * BossController - 보스 전투 컨트롤러
  *
- * 5종 보스 체력 관리, 주기적 공격, 스쿼트 방어 판정
+ * 5종 보스 체력 관리 및 오답 반격 모션 상태 관리
  * Ch.1~4 HP=10, Ch.5 HP=20
  *
- * @see Issue #16 (GitHub #81)
+ * @see Issue #16 (GitHub #81), #147, #208
  */
 
 import { DEFAULT_CONFIG } from '../core/Config.js';
@@ -16,24 +16,17 @@ export class BossController {
   private _maxHp: number;
   private _chapter: number;
   private _phase: BossPhase = 'idle';
-  private _attackTimer = 0;
-  private _warningTimer = 0;
   private _attackDurationTimer = 0;
-  private _attackInterval: number;
-  private _warningDuration = 1.5;
 
   /**
    * @param chapter 챕터 번호 (1~5)
-   * @param attackInterval 자동 기습 공격 주기 (초). 0이면 자동 공격 비활성화 (기본값 0, Issue #147)
    */
-  constructor(chapter = 1, attackInterval = 0) {
+  constructor(chapter = 1) {
     this._chapter = chapter;
     this._maxHp = chapter === 5
       ? DEFAULT_CONFIG.battle.bossHpNightmare
       : DEFAULT_CONFIG.battle.bossHpNormal;
     this._hp = this._maxHp;
-    this._attackInterval = attackInterval;
-    this._attackTimer = attackInterval;
   }
 
   get hp(): number { return this._hp; }
@@ -44,7 +37,7 @@ export class BossController {
   get hpPercent(): number { return this._hp / this._maxHp; }
   /** 경고 중인지 (UI에서 경고 표시용) */
   get isWarning(): boolean { return this._phase === 'warning'; }
-  /** 공격 중인지 (스쿼트 판정 타이밍 또는 오답 반격 모션) */
+  /** 공격 중인지 (오답 반격 모션) */
   get isAttacking(): boolean { return this._phase === 'attacking'; }
 
   /**
@@ -63,8 +56,8 @@ export class BossController {
   }
 
   /**
-   * 매 프레임 호출: 공격 지속 시간 및 자동 공격 타이머 관리
-   * @returns 이번 프레임에 공격이 발동되었는지 (자동 타이머 모드 전용)
+   * 매 프레임 호출: 공격 지속 시간 관리
+   * @returns 항상 false (자동 기습 공격 비활성화)
    */
   update(dt: number): boolean {
     if (this._phase === 'defeated') return false;
@@ -80,43 +73,7 @@ export class BossController {
       return false;
     }
 
-    // 자동 공격 타이머가 활성화된 경우만 동작 (attackInterval > 0)
-    if (this._attackInterval > 0) {
-      if (this._phase === 'idle') {
-        this._attackTimer -= dt;
-        if (this._attackTimer <= 0) {
-          this._phase = 'warning';
-          this._warningTimer = this._warningDuration;
-        }
-        return false;
-      }
-
-      if (this._phase === 'warning') {
-        this._warningTimer -= dt;
-        if (this._warningTimer <= 0) {
-          this._phase = 'attacking';
-          this._attackDurationTimer = 0.5;
-          return true; // 공격 발동
-        }
-        return false;
-      }
-    }
-
     return false;
-  }
-
-  /**
-   * 공격 결과 처리
-   * @param shielded 스쿼트 방어 성공 여부
-   * @returns 실제 플레이어 피해량 (방어 성공 시 0)
-   */
-  resolveAttack(shielded: boolean): number {
-    this._phase = 'idle';
-    this._attackTimer = this._attackInterval;
-    this._attackDurationTimer = 0;
-
-    if (shielded) return 0;
-    return DEFAULT_CONFIG.player.bossAttackDamage;
   }
 
   /** 보스에게 데미지 적용 */
@@ -135,8 +92,6 @@ export class BossController {
       : DEFAULT_CONFIG.battle.bossHpNormal;
     this._hp = this._maxHp;
     this._phase = 'idle';
-    this._attackTimer = this._attackInterval;
-    this._warningTimer = 0;
     this._attackDurationTimer = 0;
   }
 }

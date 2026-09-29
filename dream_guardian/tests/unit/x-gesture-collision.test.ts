@@ -4,7 +4,6 @@ import { MenuInput } from '../../src/input/MenuInput.js';
 import { AnswerSelector } from '../../src/input/AnswerSelector.js';
 import { ArmCrossDetector } from '../../src/motion/ArmCrossDetector.js';
 import { RunDetector } from '../../src/motion/RunDetector.js';
-import { SquatDetector } from '../../src/motion/SquatDetector.js';
 import { POSE_LANDMARKS, type NormalizedLandmark } from '../../src/types/index.js';
 
 function createDummyLandmarks(): NormalizedLandmark[] {
@@ -20,7 +19,6 @@ describe('X-Gesture 타 시스템 상호작용 및 무충돌 정합성 검증', 
   let menuInput: MenuInput;
   let armCrossDetector: ArmCrossDetector;
   let runDetector: RunDetector;
-  let squatDetector: SquatDetector;
   let answerSelector: AnswerSelector;
   let landmarks: NormalizedLandmark[];
 
@@ -29,7 +27,6 @@ describe('X-Gesture 타 시스템 상호작용 및 무충돌 정합성 검증', 
     menuInput = new MenuInput();
     armCrossDetector = new ArmCrossDetector();
     runDetector = new RunDetector();
-    squatDetector = new SquatDetector();
     answerSelector = new AnswerSelector();
     landmarks = createDummyLandmarks();
 
@@ -120,23 +117,7 @@ describe('X-Gesture 타 시스템 상호작용 및 무충돌 정합성 검증', 
     });
   });
 
-  describe('4. 스쿼트(Squat) 및 점프(Jump) 방어/도약 동작과의 간섭 검증', () => {
-    it('스쿼트 동작 중(어깨 하강) 양팔을 앞으로 뻗거나 내리고 있으면 X자가 발생하지 않는다', () => {
-      // 스쿼트: 어깨 하강 (baselineY: 0.30 대비 drop: 0.12 > 0.065)
-      landmarks[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.40, y: 0.42, z: 0, visibility: 0.95 };
-      landmarks[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.60, y: 0.42, z: 0, visibility: 0.95 };
-      landmarks[POSE_LANDMARKS.LEFT_WRIST] = { x: 0.35, y: 0.60, z: 0, visibility: 0.95 };
-      landmarks[POSE_LANDMARKS.RIGHT_WRIST] = { x: 0.65, y: 0.60, z: 0, visibility: 0.95 };
-
-      const isSquatStarted = squatDetector.update(landmarks, 0.30, 1.0);
-      const xRes = xDetector.update(landmarks, 0.4);
-
-      expect(squatDetector.isSquatting).toBe(true);
-      expect(isSquatStarted).toBe(true);
-      expect(xRes.isCrossing).toBe(false);
-      expect(xRes.triggered).toBe(false);
-    });
-
+  describe('4. 점프(Jump) 도약 동작과의 간섭 검증', () => {
     it('점프 동작 중(어깨 상승) 양손을 위로 들고 있으면 X자가 발생하지 않는다', () => {
       // 점프 만세: 어깨 상승 (Y: 0.20), 손목 상단 (Y: 0.05)
       landmarks[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.40, y: 0.20, z: 0, visibility: 0.95 };

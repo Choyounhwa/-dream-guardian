@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { CalibrationHelper } from '../../src/motion/CalibrationHelper.js';
 import { RunDetector } from '../../src/motion/RunDetector.js';
-import { SquatDetector } from '../../src/motion/SquatDetector.js';
 import { JumpDetector } from '../../src/motion/JumpDetector.js';
 import type { NormalizedLandmark } from '../../src/types/index.js';
 import { POSE_LANDMARKS } from '../../src/types/index.js';
@@ -10,7 +9,6 @@ import { POSE_LANDMARKS } from '../../src/types/index.js';
  * 동작 감지 단위 테스트
  * - CalibrationHelper: 보정 로직
  * - RunDetector: 달리기 걸음 감지
- * - SquatDetector: 스쿼트 감지
  * - JumpDetector: 점프 감지
  */
 
@@ -167,76 +165,6 @@ describe('RunDetector', () => {
     expect(stepped).toBe(false);
     expect(rd.isRunning).toBe(false);
     expect(rd.stepCount).toBe(0);
-  });
-});
-
-// ═══════════════════════════════════
-// SquatDetector
-// ═══════════════════════════════════
-
-describe('SquatDetector', () => {
-  it('어깨 Y가 기준선 대비 임계값 이상 하강하면 스쿼트가 감지된다', () => {
-    const sd = new SquatDetector(0.065);
-    const baseY = 400;
-    const drop = 0.066 * VH; // 임계값 초과
-
-    const started = sd.update(
-      makeLM({
-        [POSE_LANDMARKS.LEFT_SHOULDER]: { y: baseY + drop },
-        [POSE_LANDMARKS.RIGHT_SHOULDER]: { y: baseY + drop },
-      }),
-      baseY,
-      VH,
-    );
-
-    expect(started).toBe(true);
-    expect(sd.isSquatting).toBe(true);
-    expect(sd.squatCount).toBe(1);
-  });
-
-  it('임계값 미만 하강은 스쿼트로 감지되지 않는다', () => {
-    const sd = new SquatDetector(0.065);
-    const baseY = 400;
-    const drop = 0.05 * VH; // 임계값 미만
-
-    const started = sd.update(
-      makeLM({
-        [POSE_LANDMARKS.LEFT_SHOULDER]: { y: baseY + drop },
-        [POSE_LANDMARKS.RIGHT_SHOULDER]: { y: baseY + drop },
-      }),
-      baseY,
-      VH,
-    );
-
-    expect(started).toBe(false);
-    expect(sd.isSquatting).toBe(false);
-  });
-
-  it('연속 스쿼트 유지 시 카운트가 증가하지 않는다 (엣지 트리거)', () => {
-    const sd = new SquatDetector(0.065);
-    const baseY = 400;
-    const drop = 0.1 * VH;
-
-    const lm = makeLM({
-      [POSE_LANDMARKS.LEFT_SHOULDER]: { y: baseY + drop },
-      [POSE_LANDMARKS.RIGHT_SHOULDER]: { y: baseY + drop },
-    });
-
-    sd.update(lm, baseY, VH); // 시작
-    sd.update(lm, baseY, VH); // 유지
-    sd.update(lm, baseY, VH); // 유지
-
-    expect(sd.squatCount).toBe(1); // 1번만 카운트
-  });
-
-  it('reset()이 상태를 초기화한다', () => {
-    const sd = new SquatDetector(0.065);
-    sd.update(makeLM({ [POSE_LANDMARKS.LEFT_SHOULDER]: { y: 600 }, [POSE_LANDMARKS.RIGHT_SHOULDER]: { y: 600 } }), 400, VH);
-    expect(sd.squatCount).toBe(1);
-
-    sd.reset();
-    expect(sd.squatCount).toBe(0);
-    expect(sd.isSquatting).toBe(false);
   });
 });
 

@@ -15,12 +15,6 @@ import { CURSOR_COLORS, CURSOR_DIMENSIONS } from '../../config/cursor.config.js'
 import type { CursorPosition } from '../input/CursorTracker.js';
 import type { MagicCircleRenderer } from './MagicCircleRenderer.js';
 
-export interface RenderZoneInfo {
-  zone: FitnessZone;
-  isActive: boolean;
-  requiredCursors?: CursorType[];
-}
-
 /** 존별 진행도 입력 타입 (튜플, Map, Record 지원, Issue #129) */
 export type ZoneProgressInput =
   | [number, number]
@@ -30,9 +24,6 @@ export type ZoneProgressInput =
 export class AnswerSelectionRenderer {
   private _pulseTimer = 0;
   private _magicCircle: MagicCircleRenderer | null = null;
-
-  /** 사각 테두리 폴백 드로잉 활성화 여부 (Issue #173: 가상 영역화 제어, 기본값 true로 단위 테스트 호환) */
-  public renderZoneBoxes = true;
 
   /** 마법진 렌더러 주입 (선택적, Issue #143) */
   setMagicCircle(renderer: MagicCircleRenderer): void {
@@ -123,26 +114,6 @@ export class AnswerSelectionRenderer {
           ctx.stroke();
           ctx.restore();
         }
-      } else if (this.renderZoneBoxes) {
-        // Fallback (테스트 또는 이미지 미로드 시)
-        ctx.fillStyle = 'rgba(40, 230, 255, 0.08)';
-        ctx.beginPath();
-        if (ctx.roundRect) {
-          ctx.roundRect(zx, zy, zw, zh, 16);
-        } else {
-          ctx.rect(zx, zy, zw, zh);
-        }
-        ctx.fill();
-
-        // 충전 진행 시 채움 바 (Issue #129 검증 호환)
-        if (progress > 0) {
-          ctx.fillStyle = `rgba(77, 255, 170, ${0.15 + progress * 0.25})`;
-          ctx.fillRect(zx, zy + zh * (1 - progress), zw, zh * progress);
-        }
-
-        ctx.strokeStyle = progress > 0 ? '#4DFFAA' : 'rgba(40, 230, 255, 0.5)';
-        ctx.lineWidth = progress > 0 ? 3 : 1.5;
-        ctx.strokeRect(zx, zy, zw, zh);
       }
     }
   }

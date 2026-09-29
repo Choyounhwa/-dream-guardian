@@ -530,7 +530,6 @@ describe('AnswerSelectionRenderer (Issue #104)', () => {
       ),
     ).not.toThrow();
 
-    expect(ctx.strokeRect).toHaveBeenCalled();
     expect(ctx.arc).toHaveBeenCalled();
   });
 

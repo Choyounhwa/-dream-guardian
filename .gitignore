@@ -1,13 +1,38 @@
-# Dependencies and package-manager output
+# Dependencies
 node_modules/
-npm-debug.log*
-# Test coverage and build output
-coverage/
+.pnp
+.pnp.js
+
+# Production / Build output
 dist/
-# Editor and operating-system files
-.vscode/
-# Local environment files and certificates
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+dev_server*.log
+localhost.url
+
+# Environment / Local files
 .env
-.env.*
-# Local server and diagnostic output
-# Python cache from local image utilities
+.env.local
+.env.*.local
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# Agent / Temp
+.gemini/

@@ -16,7 +16,7 @@ describe('FitnessPatternLoader (Issue #122 - DATA-001)', () => {
 S001,왼손,1,X,X,X,1
 D001,왼손 + 오른손,1,3,X,X,2
 T001,왼손 + 오른손 + 머리,1,3,4,X,3
-Q001,"전신 (두 손 모아 하늘 + 바른자세 정면)",2,2,4,7,4`;
+Q001,"전신 (두 손 모아 하늘 + 바른자세 정면)",2,2,4,6,4`;
 
   it('샘플 CSV를 정상 파싱하여 레코드를 생성한다', () => {
     const records = parseFitnessPatternCSV(SAMPLE_CSV);
@@ -52,9 +52,9 @@ Q001,"전신 (두 손 모아 하늘 + 바른자세 정면)",2,2,4,7,4`;
     expect(records[3].leftHand).toBe(2);
     expect(records[3].rightHand).toBe(2);
     expect(records[3].head).toBe(4);
-    expect(records[3].hip).toBe(7);
+    expect(records[3].hip).toBe(6);
     expect(records[3].parts).toHaveLength(4);
-    expect(records[3].distinctZoneIds).toEqual([2, 4, 7]);
+    expect(records[3].distinctZoneIds).toEqual([2, 4, 6]);
   });
 
   it('빈 문자열이나 헤더만 있는 경우 빈 배열을 반환한다', () => {
@@ -276,11 +276,19 @@ Q001,"전신 (두 손 모아 하늘 + 바른자세 정면)",2,2,4,7,4`;
       expect(crossBodyViolations).toHaveLength(0);
     });
 
-    it('3개 위치의 fitness pattern.csv 파일이 모두 존재하고 360건 무오류 및 내용이 완전히 일치한다', () => {
+    it('실제 fitness pattern.csv 360건 전체에서 골반 존 7이 0건이다 (기본 직립 자세 자동 선택 방지)', () => {
+      const csvPath = path.resolve(__dirname, '../../../fitness pattern.csv');
+      const rawContent = fs.readFileSync(csvPath, 'utf-8');
+      const records = parseFitnessPatternCSV(rawContent);
+
+      const hip7Records = records.filter((r) => r.hip === 7);
+      expect(hip7Records).toHaveLength(0);
+    });
+
+    it('2개 위치의 fitness pattern.csv 파일이 모두 존재하고 360건 무오류 및 내용이 완전히 일치한다', () => {
       const paths = [
         path.resolve(__dirname, '../../../fitness pattern.csv'),
         path.resolve(__dirname, '../../public/fitness pattern.csv'),
-        path.resolve(__dirname, '../../src/data/fitness pattern.csv'),
       ];
 
       const contents: string[] = [];
@@ -298,9 +306,8 @@ Q001,"전신 (두 손 모아 하늘 + 바른자세 정면)",2,2,4,7,4`;
         expect(validation.validCount).toBe(360);
       }
 
-      // 3개 파일 내용 100% 동일 확인
+      // 2개 파일 내용 100% 동일 확인
       expect(contents[0]).toBe(contents[1]);
-      expect(contents[0]).toBe(contents[2]);
     });
   });
 });

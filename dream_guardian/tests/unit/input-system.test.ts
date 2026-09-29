@@ -133,9 +133,10 @@ describe('AnswerSelector', () => {
     expect(SHOULDER_ZONES.has(1)).toBe(false);
   });
 
-  it('엉덩이 커서는 하단존(6~11)만 사용 가능', () => {
+  it('엉덩이 커서는 하단존(6, 8, 9, 10, 11)만 사용 가능하며 직립 존(7)은 배제된다', () => {
     expect(HIP_ZONES.has(6)).toBe(true);
-    expect(HIP_ZONES.has(7)).toBe(true);
+    expect(HIP_ZONES.has(7)).toBe(false);
+    expect(HIP_ZONES.has(8)).toBe(true);
     expect(HIP_ZONES.has(10)).toBe(true);
     expect(HIP_ZONES.has(11)).toBe(true);
     expect(HIP_ZONES.has(1)).toBe(false);
@@ -310,7 +311,7 @@ describe('피트니스 존 레이아웃 무결성 (Issue #121 / Issue #149 FEAT-
     const intersection = [...HEAD_ZONES].filter((id) => HIP_ZONES.has(id));
     expect(intersection).toHaveLength(0);
     expect(HEAD_ZONES.has(7)).toBe(false); // RC-6: 머리 커서에서 존 7 제거 확인
-    expect(HIP_ZONES.has(7)).toBe(true);  // 골반 커서에서 존 7 허용 확인
+    expect(HIP_ZONES.has(7)).toBe(false); // 직립 위치 존 7 골반 커서에서 제거 확인
     expect(HIP_ZONES.has(11)).toBe(true); // Issue #149: 존 11 포함 확인
     expect(HEAD_ZONES.has(11)).toBe(false);
   });
@@ -562,12 +563,18 @@ describe('피트니스 존별/부위별 독립 진행도 렌더링 (Issue #129 /
       [7, 0.0], // 존 7은 0%
     ]);
 
+    const mockMagicCircle = {
+      isReady: true,
+      renderAtZone: vi.fn(),
+    } as any;
+    renderer.setMagicCircle(mockMagicCircle);
+
     expect(() =>
       renderer.render(mockCtx, 1080, 2160, activeZones, new Map(), progressMap),
     ).not.toThrow();
 
-    // 0% 초과인 존 1과 존 4에 대해서만 fillRect 채움 바가 2회 호출됨 (i % 2 오매핑 해소 검증)
-    expect(mockCtx.fillRect).toHaveBeenCalledTimes(2);
+    // 0% 초과인 존 1과 존 4에 대해서만 진행도 아크가 2회 호출됨 (i % 2 오매핑 해소 검증)
+    expect(mockCtx.arc).toHaveBeenCalledTimes(2);
   });
 
   it('커서가 속한 존의 진행도에 맞춰 체류 아크가 독립적으로 점등된다', () => {

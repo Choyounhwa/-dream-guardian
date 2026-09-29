@@ -51,19 +51,14 @@ export interface HUDData {
   playerMaxHp: number;
   bossHp: number;
   bossMaxHp: number;
-  mana: number;
-  manaMax: number;
   combo: number;
   chapter: number;
-  shieldActive: boolean;
   guardianStage: number;
 }
 
 export class HUDLayer {
   private _displayPlayerHp = 1;
   private _displayBossHp = 1;
-  private _displayMana = 0;
-  private _shieldAlpha = 0;
 
   /**
    * 매 프레임 호출: 부드러운 감쇠 보간
@@ -72,28 +67,18 @@ export class HUDLayer {
     const lerpSpeed = 5;
     const targetPHp = data.playerHp / data.playerMaxHp;
     const targetBHp = data.bossHp / data.bossMaxHp;
-    const targetMana = data.mana / data.manaMax;
 
     this._displayPlayerHp += (targetPHp - this._displayPlayerHp) * lerpSpeed * dt;
     this._displayBossHp += (targetBHp - this._displayBossHp) * lerpSpeed * dt;
-    this._displayMana += (targetMana - this._displayMana) * lerpSpeed * dt;
-
-    // 실드 알파
-    const targetShield = data.shieldActive ? 0.6 : 0;
-    this._shieldAlpha += (targetShield - this._shieldAlpha) * 8 * dt;
   }
 
   /**
    * Canvas에 HUD 렌더링
    */
-  render(ctx: CanvasRenderingContext2D, w: number, h: number, data: HUDData): void {
+  render(ctx: CanvasRenderingContext2D, w: number, _h: number, data: HUDData): void {
     this._renderHpBars(ctx, w, data);
     this._renderCombo(ctx, w, data);
     this._renderBossName(ctx, w, data);
-
-    if (this._shieldAlpha > 0.01) {
-      this._renderShield(ctx, w, h);
-    }
   }
 
   private _renderHpBars(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
@@ -174,19 +159,6 @@ export class HUDLayer {
     ctx.restore();
   }
 
-  private _renderShield(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-    ctx.save();
-    ctx.globalAlpha = this._shieldAlpha;
-    ctx.strokeStyle = '#28E6FF';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(w / 2, h * 0.65, Math.min(w, h) * 0.18, Math.PI, 0);
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(40,230,255,0.08)';
-    ctx.fill();
-    ctx.restore();
-  }
-
   /**
    * 선택된 운동 모드의 인게임 모션 가이드 조회 (Issue #155)
    */
@@ -197,7 +169,5 @@ export class HUDLayer {
   reset(): void {
     this._displayPlayerHp = 1;
     this._displayBossHp = 1;
-    this._displayMana = 0;
-    this._shieldAlpha = 0;
   }
 }
