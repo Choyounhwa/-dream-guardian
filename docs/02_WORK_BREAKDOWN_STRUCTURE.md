@@ -73,7 +73,7 @@ src/
 │   ├── JumpDetector.ts    # 점프 감지
 │   └── CalibrationHelper.ts  # 체형 보정
 ├── input/                 # 입력 시스템
-│   ├── AnswerZoneSelector.ts # 골반/머리 기반 좌/우 정답존 선택
+│   ├── ArmReachAnswerSelector.ts # Zone 4/5 한 팔 도달 기반 0s 무체류 즉시 답안 선택
 │   ├── StarCollectionInput.ts # 4색 커서 11존 별 수집 판정
 │   ├── MenuInput.ts       # 양손 합장 메뉴 커서 (menu-input.js 포팅)
 │   ├── KeyboardInput.ts   # 키보드 fallback
@@ -208,28 +208,30 @@ tests/
 - [ ] `ComboSystem.ts`: 연속 정답 추적, 콤보 리셋
 - [ ] 단위 테스트
 
-### 2.2 BEAT MOTION 8+2+8 비트매니아식 피트니스 리듬 시스템
-> **규약 기준**: BPM 120 (1박 0.5초), 1라운드 = 운동 8박 + 준비 2박 + 키노트 합주 8박 (총 18박 / 9.0초).  
-> 유저의 신체 움직임이 곧 음악 비트(Keysound)가 되며, 8박 운동 완충 후 2박 호흡을 거쳐 1박째 정답 위치에서 시작하는 8박 풀바디 악기 합주 퍼포먼스를 수행한다.
+### 2.2 BEAT MOTION 확정 피트니스 리듬 전투 시스템
+> **규약 기준**: BPM 120 (1박 0.5초), 8박 런 운동 후 즉시 2박 한 팔 Zone 4/5 0s 무체류 선택 및 2~8박 즉시 분기(정답: STAR_COLLECT vs 오답/미응답: HAZARD_EVADE), 루틴 만료 시 단 1회 정산.
 
 - [x] **`BEAT-SPEC-001` (#176)**: BEAT MOTION 8박 라운드 규약 및 기존 입력 전환 계약 확정
-- [x] **`BEAT-CORE-001` (#177)**: `RhythmEngine.ts` BPM 120 단일 시간원, 8박 경과/정지/재개/프레임 지연 보정
-- [x] **`CENTER-RETURN-001` (#178)**: `CenterReturnGate.ts` 6~8박 중앙 복귀 판정 및 개인 기준점 잠금, 타임아웃/재시도
-- [x] **`ANSWER-ZONE-001` (#179)**: `AnswerZoneSelector.ts` 상대 좌/우 정답존 이동 (`|dx| ≥ 0.42`), 히스테리시스(`0.30`), 0.5초 확정
-- [x] **`BEAT-RUN-001` (#180)**: 기존 자유 `RunningGauge`를 8박 이동 기록 및 문제 HUD 준비로 전환
-- [ ] **`BUG-BEAT-001` (#187)**: 달리기 페이즈 미동작 자동 8박 채움 결함 수정 및 실제 8회 운동 연동
-- [ ] **`BEAT-ROUTINE-001` (#190)**: 8박 운동 → 2박 쉼(Ready) → 8박 키노트 합주 상태 전이 컨트롤러 구현
-- [ ] **`AUDIO-BAND-001` (#191)**: 1단계 기타(Zone 1~5) + 드럼(Zone 9~11) Web Audio 합성기 및 싱크/어긋남 사운드 엔진
-- [ ] **`RENDER-KEYNOTE-001` (#192)**: Zone 1~5 및 Zone 9~11 비트매니아식 키노트 비주얼 렌더링 및 판정 연출
-- [ ] **`GAME-ROUND-001` (#184)**: 답안 8박 종료 시점 전투(HP/마나/콤보) 및 리듬 통계 단일 정산
-- [ ] **`E2E-BEAT-001` (#186)**: 전체 8+2+8 라운드 루프 통합 및 E2E 자동화 검증
-- [x] `AnswerSelector.ts`: 4색 커서, 11존 레이아웃, 집합 덮기/PartGate 안전 검증 기반 (별 수집 전환 대상)
-- [x] 피트니스 존 11개 겹침 0% 레이아웃 및 문제/답안 전용 예약 밴드 (`zone.config.ts`)
-- [x] 집합 덮기(Set Coverage: 조건 A & B) 기반 `matchPosture()` 판정 알고리즘
-- [x] `fitness pattern.csv` 360종 패턴 로더 및 C1~C7 제약 선택지 생성기
-- [x] 캘리브레이션 기준선 대비 신체 변위 검증(`PartGateEvaluator.ts`)
-- [x] `PartIconRenderer.ts`: 손/머리/골반 벡터 아이콘 및 묶음 기호(( )/|) 시각화
-- [ ] 중앙 복귀, 좌/우 정답존, 별 시퀀스, 타이밍 판정 단위/통합 테스트
+- [x] **`BEAT-CORE-001` (#177)**: `RhythmEngine.ts` BPM 120 단일 시간원
+- [x] **`CENTER-RETURN-001` (#178)**: `CenterReturnGate.ts` 중앙 복귀 게이트 및 스테이지 프레이밍
+- [x] **`BEAT-RUN-001` (#180)**: 8박 운동 스텝 및 문제 준비 라운드 전환
+- [x] **`BUG-BEAT-001` (#187)**: 달리기 미동작 대기 및 실제 8회 운동 연동
+- [x] **`INPUT-ARM-ANSWER-001` (#224)**: `ArmReachAnswerSelector.ts` Zone 4/5 한 팔 도달 기반 0s 무체류 즉시 답안 선택기
+- [x] **`BEAT-KEYNOTE-ENGINE-001` (#210)**: 8박 런 직후 2박 답안 선택 및 정답(STAR_COLLECT)/오답(HAZARD_EVADE) 즉시 분기 엔진
+- [x] **`BATTLE-ANSWER-PENALTY-001` (#225)**: 오답/타임아웃 직접 피해(HP 감소 0) 및 Phase A 보스 반격 제거, 회피 피해 분리
+- [x] **`CLEANUP-ANSWER-INPUT-001` (#226)**: 레거시 골반/머리 `AnswerZoneSelector` 및 중앙 기준점 연동 제거
+- [x] **`ROUTINE-SPEC-001` (#211)**: 확정 게임 루틴 전체 계약 정의 및 카드 매핑 문서화
+- [ ] **`RENDER-QUESTION-APPROACH-001` (#212)**: 문제 원근(소실점) 접근 연출 (첫 2박)
+- [ ] **`AUDIO-BAND-001` (#191)**: 1단계 기타(Zone 1~5) + 드럼(Zone 9~11) Web Audio 합성기 및 키노트 사운드
+- [ ] **`RENDER-KEYNOTE-001` (#192)**: Zone 1~5 및 Zone 9~11 키노트 비주얼 렌더링 및 판정 연출
+- [ ] **`MINION-TROOP-001` (#194)**: 정답 시 미니언 +1 증원 및 군단 화력
+- [ ] **`BATTLE-BOSS-001` (#193)**: 보스 결전(Phase B) 마법 공격 패턴 및 광폭화
+- [ ] **`BOSS-FEVER-001` (#213)**: 보스 결전(Phase B) 유저 피버타임 별모으기
+- [ ] **`RENDER-CLIMAX-001` (#195)**: 보스 결전 클라이맥스 연출
+- [x] `BeatRoundResolver.ts` (#184): 분기 루틴 완료 후 라운드 단 1회 정산
+- [x] 피트니스 존 11개 겹침 0% 레이아웃 (`zone.config.ts`)
+- [x] `fitness pattern.csv` 360종 패턴 로더 및 키노트 파생기 (`KeynoteCandidateDeriver.ts`)
+- [x] `PartIconRenderer.ts`: 손/머리/골반 벡터 아이콘 시각화
 
 ### 2.4 문제 출제 시스템
 - [ ] `CSVLoader.ts`: CSV 파싱, BOM 처리, fallback 내장 문제
