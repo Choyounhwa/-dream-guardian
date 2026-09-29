@@ -13,4 +13,6 @@ export type { LocomotionModeInfo } from './LocomotionModal.js';
 export { PauseModal, PAUSE_DWELL_TIME } from './PauseModal.js';
 export type { PauseAction } from './PauseModal.js';
 export { TutorialOverlay } from './TutorialOverlay.js';
+export { GestureFeedbackOverlay } from './GestureFeedbackOverlay.js';
+export type { GestureFeedbackState } from './GestureFeedbackOverlay.js';
 

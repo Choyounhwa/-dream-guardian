@@ -23,7 +23,6 @@ import {
   BeatRunCoordinator,
   BeatRoundResolver,
   PhaseAHazardController,
-  type PhaseAHazardPattern,
 } from './game/index.js';
 import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
@@ -32,12 +31,13 @@ import type { ResultData } from './ui/ResultRenderer.js';
 import {
   BossRenderer,
   DreamGrid,
-  renderMath,
   AnswerSelectionRenderer,
-  PartIconRenderer,
   MagicCircleRenderer,
   PostureGuideRenderer,
   KneeFramingGuideRenderer,
+  BeatHUDRenderer,
+  QuestionRenderer,
+  drawJoinedHandsCursor,
 } from './render/index.js';
 import { EffectManager } from './effects/index.js';
 import {
@@ -68,6 +68,7 @@ import {
   LocomotionModal,
   PauseModal,
   TutorialOverlay,
+  GestureFeedbackOverlay,
   LOCOMOTION_MODES,
   type BottomBarSlot,
 } from './ui/index.js';
@@ -164,6 +165,9 @@ const settingsModal = new SettingsModal();
 const locomotionModal = new LocomotionModal();
 const pauseModal = new PauseModal();
 const xGestureDetector = new XGestureDetector();
+const questionRenderer = new QuestionRenderer();
+const beatHUDRenderer = new BeatHUDRenderer();
+const gestureFeedbackOverlay = new GestureFeedbackOverlay();
 
 // ─── BEAT MOTION / 키노트 / 프레이밍 시스템 (Issue #206) ───
 const beatRoundResolver = new BeatRoundResolver({
@@ -505,103 +509,6 @@ function goToMenu(): void {
   menuMode = 'main';
 }
 
-// ─── 문제 렌더링 ───
-function renderQuestion(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-  if (!currentQuestion || !questionVisible) return;
-
-  const scaleX = w / 1080;
-  const scaleY = h / 2160;
-
-  ctx.save();
-
-  // 1. Issue #143 & #165: 문제영역 가상 레이아웃 영역 (사각 박스 화면 표시 제거, Y 기준 좌표계 유지)
-  const boxY = 320 * scaleY;
-
-  // 2. 문제 수식 텍스트 (Issue #167: 1.5배 대형화 132px 및 maxWidth 자동 줄바꿈)
-  const cx = w / 2;
-  const qY = boxY + 220 * scaleY;
-  const qText = currentQuestion.questionText;
-  const qLen = qText.length;
-  let qFontSize = 132 * scaleX; // 1.5배 대형화 (기존 88px -> 132px)
-  if (qLen > 10) {
-    qFontSize = Math.max(84 * scaleX, (132 - (qLen - 10) * 2.8) * scaleX);
-  }
-
-  ctx.shadowColor = 'rgba(40, 230, 255, 0.5)';
-  ctx.shadowBlur = 16 * scaleX;
-  renderMath(ctx, qText, cx, qY, {
-    fontSize: qFontSize,
-    color: '#ffffff',
-    align: 'center',
-    maxWidth: 880 * scaleX,
-    placeholderColor: '#28E6FF',
-    placeholderBgColor: 'rgba(40, 230, 255, 0.18)',
-    fractionLineColor: '#ffffff',
-  });
-  ctx.shadowBlur = 0;
-
-  // 3. 답안 버튼 2개 횡배치 (Issue #164: 4, 5번 피트니스 존 하단 수직/X축 중심 정렬)
-  const buttonLayouts = getAnswerButtonLayouts(w, h);
-
-  for (let i = 0; i < 2; i++) {
-    const btn = buttonLayouts[i];
-    const bx = btn.x;
-    const btnY = btn.y;
-    const btnW = btn.width;
-    const btnH = btn.height;
-    const plan = answerSelector.currentPlan;
-    const recipe = plan?.choices[i];
-
-    // Issue #148 & #163: 방사형 색상 분할 버튼 렌더링 (외곽선 두께 8px로 2배 상향)
-    PartIconRenderer.drawRadialAnswerButton(ctx, recipe, bx, btnY, btnW, btnH, 20 * scaleX, 8 * scaleX);
-
-    // Issue #200: 답안 선택 즉시 선택 하이라이트 테두리 점등
-    if (beatCoordinator.selectedChoiceIndex === i) {
-      ctx.save();
-      ctx.strokeStyle = '#4DFFAA';
-      ctx.lineWidth = 10 * scaleX;
-      ctx.shadowColor = '#4DFFAA';
-      ctx.shadowBlur = 18;
-      ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(bx - 3, btnY - 3, btnW + 6, btnH + 6, 22 * scaleX);
-      } else {
-        ctx.strokeRect(bx - 3, btnY - 3, btnW + 6, btnH + 6);
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // 수식 폰트: bold 96px (긴 수식은 최소 60px까지 자동 축소)
-    const choiceStr = String(currentQuestion.choices[i]);
-    const choiceLen = choiceStr.length;
-    const choiceFontSize = choiceLen > 6 ? Math.max(60 * scaleX, (96 - (choiceLen - 6) * 6) * scaleX) : 96 * scaleX;
-
-    renderMath(ctx, choiceStr, bx + btnW / 2, btnY + btnH / 2 - 20 * scaleY, {
-      fontSize: choiceFontSize,
-      color: '#FFCB4D',
-      align: 'center',
-      fractionLineColor: '#FFCB4D',
-      placeholderColor: '#FFCB4D',
-    });
-
-    // 요구 부위 아이콘 렌더링
-    if (recipe) {
-      const iconSize = 28 * scaleX;
-      PartIconRenderer.drawRequirementGroup(ctx, recipe, bx + btnW / 2, btnY + btnH - 36 * scaleY, iconSize);
-    }
-
-    // 키보드 힌트
-    ctx.font = `bold ${Math.round(22 * scaleX)}px sans-serif`;
-    ctx.fillStyle = '#AAAAAA';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`키보드 [${i + 1}]`, bx + btnW / 2, btnY + btnH + 34 * scaleY);
-  }
-
-  ctx.restore();
-}
-
 // ─── 피드백 렌더링 ───
 function renderFeedback(ctx: CanvasRenderingContext2D, w: number, h: number): void {
   if (feedbackTimer <= 0) return;
@@ -630,91 +537,6 @@ function renderFeedback(ctx: CanvasRenderingContext2D, w: number, h: number): vo
   ctx.restore();
 }
 
-// ─── 달리기 페이즈 렌더링 ───
-function renderRunningPhase(ctx: CanvasRenderingContext2D, vw: number, vh: number): void {
-  const cx = vw / 2;
-  const cy = vh * 0.52;
-
-  ctx.save();
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  const scaleX = vw / 1080;
-  const scaleY = vh / 2160;
-
-  // 1. 문제 수식 표시 (1박부터 상단 표시)
-  if (currentQuestion) {
-    const qY = 320 * scaleY + 160 * scaleY;
-    const qText = currentQuestion.questionText;
-    const qLen = qText.length;
-    let qFontSize = 110 * scaleX;
-    if (qLen > 10) {
-      qFontSize = Math.max(76 * scaleX, (110 - (qLen - 10) * 2.8) * scaleX);
-    }
-
-    ctx.shadowColor = 'rgba(40, 230, 255, 0.5)';
-    ctx.shadowBlur = 16 * scaleX;
-    renderMath(ctx, qText, cx, qY, {
-      fontSize: qFontSize,
-      color: '#ffffff',
-      align: 'center',
-      maxWidth: 880 * scaleX,
-      placeholderColor: '#28E6FF',
-      placeholderBgColor: 'rgba(40, 230, 255, 0.18)',
-      fractionLineColor: '#ffffff',
-    });
-    ctx.shadowBlur = 0;
-  }
-
-  // 2. Phase A 보스 장판 박자 안내
-  const hazard = phaseAHazardController.activePattern;
-  const hazardGuide: Record<PhaseAHazardPattern, { title: string; subtitle: string; color: string }> = {
-    left_step: { title: '왼발 피하기!', subtitle: '왼발을 들어 장판을 피하세요', color: '#28E6FF' },
-    right_step: { title: '오른발 피하기!', subtitle: '오른발을 들어 장판을 피하세요', color: '#FFCB4D' },
-    jump: { title: '양발 피하기!', subtitle: '점프해서 바닥 충격파를 넘으세요', color: '#FF865E' },
-    balance_left: { title: '왼발로 균형!', subtitle: '오른발을 들고 한발로 버티세요', color: '#C889FF' },
-    balance_right: { title: '오른발로 균형!', subtitle: '왼발을 들고 한발로 버티세요', color: '#C889FF' },
-  };
-  const guide = hazard ? hazardGuide[hazard] : {
-    title: '장판 루틴 완료!',
-    subtitle: '다음 지시를 기다리세요',
-    color: '#4DFFAA',
-  };
-
-  ctx.font = 'bold 44px sans-serif';
-  ctx.fillStyle = guide.color;
-  ctx.shadowColor = guide.color;
-  ctx.shadowBlur = 24;
-  ctx.fillText(guide.title, cx, cy - 60);
-  ctx.shadowBlur = 0;
-
-  ctx.font = 'bold 26px sans-serif';
-  ctx.fillStyle = '#DDDDDD';
-  ctx.fillText(guide.subtitle, cx, cy - 5);
-
-  // 3. 현재 장판 경고 링 (8개 원형 진행 UI는 사용하지 않음)
-  const hazardPulse = 1 - phaseAHazardController.beatProgress;
-  const hazardRadius = (95 + hazardPulse * 90) * scaleX;
-  ctx.strokeStyle = guide.color;
-  ctx.lineWidth = 10 * scaleX;
-  ctx.shadowColor = guide.color;
-  ctx.shadowBlur = 24;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy + 150 * scaleY, hazardRadius, hazardRadius * 0.34, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  const dotY = cy + 260 * scaleY;
-
-  // 4. 걸음 수 표시
-  const countUnit = locomotionModal.selectedMode === 'run' ? '보' : '회';
-  ctx.font = 'bold 32px sans-serif';
-  ctx.fillStyle = '#4DFFAA';
-  ctx.fillText(`${countUnit === '보' ? '걸음' : '운동'}: ${totalSteps}${countUnit}`, cx, dotY + 60);
-
-  ctx.restore();
-}
-
 // ─── HUD 데이터 헬퍼 ───
 function getHUDData() {
   return {
@@ -728,50 +550,6 @@ function getHUDData() {
   };
 }
 
-// ─── 양손 모으기(합장) 커서 렌더링 헬퍼 (Issue #119, #134, #169) ───
-function renderJoinedHandsCursor(
-  ctx: CanvasRenderingContext2D,
-  vw: number,
-  vh: number,
-  label: string,
-  progress: number = 0,
-): void {
-  if (!menuInput.isActive) return;
-  const mx = menuInput.cursorX * vw;
-  const my = menuInput.cursorY * vh;
-
-  ctx.save();
-  ctx.shadowColor = '#FFCB4D';
-  ctx.shadowBlur = 15;
-
-  // 외곽 합장 네온 링 (시인성 강화 펄스)
-  const pulse = Math.sin(Date.now() / 150) * 4;
-  ctx.strokeStyle = '#FFCB4D';
-  ctx.lineWidth = 3.5;
-  ctx.beginPath();
-  ctx.arc(mx, my, 34 + pulse, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // 텍스트 라벨
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 14px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(label, mx, my);
-
-  // 0.8초 호버 체류 프로그레스 아크
-  if (progress > 0) {
-    const clampedProgress = Math.min(1, Math.max(0, progress));
-    ctx.strokeStyle = '#4DFFAA';
-    ctx.lineWidth = 7;
-    ctx.shadowColor = '#4DFFAA';
-    ctx.shadowBlur = 18;
-    ctx.beginPath();
-    ctx.arc(mx, my, 50, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clampedProgress);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
 
 // ─── 게임 엔진 ───
 const engine = new GameEngine({
@@ -1240,9 +1018,21 @@ const engine = new GameEngine({
       hudLayer.render(ctx, vw, vh, getHUDData());
 
       if (gamePhase === 'running') {
-        renderRunningPhase(ctx, vw, vh);
+        beatHUDRenderer.render(ctx, vw, vh, {
+          question: currentQuestion,
+          totalSteps,
+          completedExerciseBeats: beatCoordinator.completedExerciseBeats,
+          locomotionMode: locomotionModal.selectedMode,
+          activeHazardPattern: phaseAHazardController.activePattern,
+          hazardBeatProgress: phaseAHazardController.beatProgress,
+        });
       } else {
-        renderQuestion(ctx, vw, vh);
+        questionRenderer.render(ctx, vw, vh, {
+          question: currentQuestion,
+          questionVisible,
+          selectedChoiceIndex: beatCoordinator.selectedChoiceIndex,
+          answerPlan: answerSelector.currentPlan,
+        });
         renderFeedback(ctx, vw, vh);
       }
 
@@ -1360,46 +1150,18 @@ const engine = new GameEngine({
         progress = Math.max(resultReturnTimer, settingsHoverTimer, actionHoverTimer) / MENU_HOVER_DWELL_TIME;
       }
 
-      renderJoinedHandsCursor(ctx, vw, vh, label, progress);
+      drawJoinedHandsCursor(ctx, vw, vh, menuInput.cursorX, menuInput.cursorY, label, progress);
     }
 
     // 8.8 Issue #171 & #172: X자 제스처 진행 시 상단 비주얼 피드백 표시
-    if (xGestureDetector.isCrossing && !xGestureDetector.inCooldown && !pauseModal.isOpen) {
-      ctx.save();
-      const cx = vw * 0.5;
-      const cy = vh * 0.22;
-      const prog = xGestureDetector.progress;
-
-      ctx.fillStyle = 'rgba(10, 14, 26, 0.88)';
-      ctx.strokeStyle = '#FF865E';
-      ctx.lineWidth = 3;
-      ctx.shadowColor = '#FF865E';
-      ctx.shadowBlur = 16;
-      if (ctx.roundRect) {
-        ctx.roundRect(cx - 180, cy - 40, 360, 80, 24);
-      } else {
-        ctx.rect(cx - 180, cy - 40, 360, 80);
-      }
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.font = 'bold 28px sans-serif';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const label = (screenMode === 'menu' && menuMode === 'sub') ? '✕ 홈으로 나가기...' : '⏸ 일시정지...';
-      ctx.fillText(label, cx, cy - 6);
-
-      const barW = 300 * prog;
-      ctx.fillStyle = '#4DFFAA';
-      if (ctx.roundRect) {
-        ctx.roundRect(cx - 150, cy + 22, barW, 8, 4);
-      } else {
-        ctx.rect(cx - 150, cy + 22, barW, 8);
-      }
-      ctx.fill();
-      ctx.restore();
-    }
+    gestureFeedbackOverlay.render(ctx, vw, vh, {
+      isCrossing: xGestureDetector.isCrossing,
+      inCooldown: xGestureDetector.inCooldown,
+      isPaused: pauseModal.isOpen,
+      progress: xGestureDetector.progress,
+      screenMode,
+      menuMode,
+    });
 
     // 9. Issue #137: 튜토리얼 인터랙티브 오버레이 렌더링
     if (tutorial.isVisible) {

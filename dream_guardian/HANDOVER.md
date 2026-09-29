@@ -63,6 +63,18 @@
 
 ---
 
+## 🔵 2026-09-30 완료: [REFACTOR-RENDER-001 / #209] main.ts 인라인 렌더링 코드 레이어 분리 (BeatHUDRenderer / QuestionRenderer) 🟢 (전체 734/734 Pass)
+
+> 상태: **Issue #209 완료 🟢**  
+> `main.ts`에 인라인으로 구현되어 있던 렌더링 함수(`renderRunningPhase`, `renderQuestion`, `renderJoinedHandsCursor`, X제스처 패널)를 독립 렌더/UI 레이어 모듈로 분리 추출하여 `main.ts`의 크기를 1,749줄에서 1,512줄로 대폭 감축(237줄 추출)하고 아키텍처 책임을 분리했습니다.
+> - **설정 모듈 분리 (`config/locomotion.config.ts`)**: `LOCOMOTION_HUD_GUIDES` 및 8박 인디케이터/장판 링 수치 상수(`BEAT_HUD_CONFIG`)를 config 레이어로 이전 (`HUDLayer.ts` 호환 re-export 유지).
+> - **`BeatHUDRenderer` (`src/render/BeatHUDRenderer.ts`)**: 8박 러닝 페이즈 장판 안내 및 경고 링, 스텝 카운트, 8박 도트 렌더러 추출. 후속 #192 `KeynoteRenderer`와의 렌더링 영역 충돌 해소.
+> - **`QuestionRenderer` (`src/render/QuestionRenderer.ts`)**: 상단 문제 수식 및 2개 답안 선택지 버튼 렌더러 추출. 러닝 헤더와 문제 헤더 간 중복 `renderMath` 블록을 `renderQuestionHeaderMath` 공통 헬퍼로 통합.
+> - **보조 오버레이 모듈화**: `JoinedHandsCursorRenderer.ts` (합장 링 렌더러) 및 `GestureFeedbackOverlay.ts` (X제스처 피드백 패널).
+> - **TDD 회귀 검증**: `tests/unit/beat-hud-renderer.test.ts`, `question-renderer.test.ts`, `gesture-feedback-overlay.test.ts` (10 tests) 작성 및 57개 테스트 파일 734/734 Pass, `npm run build` 번들/타입 100% 통과.
+
+---
+
 ## 🔵 2026-09-30 완료: [RENDER-PROJ-001 / #227] 3D 원근 투영 및 레일 궤적 공용 모듈(GridProjection) 추출 🟢 (전체 724/724 Pass)
 
 > 상태: **Issue #227 완료 🟢**  

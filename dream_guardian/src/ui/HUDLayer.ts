@@ -9,41 +9,13 @@
 
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import { getBossName } from '../data/bossData.js';
+import {
+  LOCOMOTION_HUD_GUIDES,
+  type LocomotionHUDGuide,
+} from '../../config/locomotion.config.js';
 
-export interface LocomotionHUDGuide {
-  icon: string;
-  title: string;
-  subtitle: string;
-  countLabel: string;
-}
-
-/** 운동 모드별 인게임 모션 가이드 문구 (Issue #155 / FEAT-GAME-002) */
-export const LOCOMOTION_HUD_GUIDES: Record<LocomotionMode, LocomotionHUDGuide> = {
-  run: {
-    icon: '🏃',
-    title: '가볍게 제자리에서 달리세요!',
-    subtitle: '발을 구르거나 [Space] / 화면을 탭하세요',
-    countLabel: '🏃 걸음 수',
-  },
-  hip_bounce: {
-    icon: '🦘',
-    title: '무릎을 굽혔다 펴며 골반을 바운스하세요!',
-    subtitle: '골반을 상하로 가볍게 바운스하거나 [Space]를 탭하세요',
-    countLabel: '🦘 바운스',
-  },
-  hip_sway: {
-    icon: '💃',
-    title: '골반을 좌우로 흔들어 코어를 자극하세요!',
-    subtitle: '골반을 좌우로 흔들거나 [Space]를 탭하세요',
-    countLabel: '💃 스웨이',
-  },
-  arm_cross: {
-    icon: '🚗',
-    title: '양손을 위아래로 교차하며 핸들을 돌리세요!',
-    subtitle: '양손을 위아래로 교차하며 펌핑하거나 [Space]를 탭하세요',
-    countLabel: '🚗 휠 펌핑',
-  },
-};
+export { LOCOMOTION_HUD_GUIDES };
+export type { LocomotionHUDGuide };
 
 export interface HUDData {
   playerHp: number;

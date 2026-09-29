@@ -3953,6 +3953,56 @@ BEAT-SPEC-001
 
 ---
 
+### Issue #209: [REFACTOR-RENDER-001] main.ts 인라인 렌더링 코드 레이어 분리 (BeatHUDRenderer / QuestionRenderer 추출)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/209
+- **Labels**: `refactor`, `phase-7`, `P1-high`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[REFACTOR-RENDER-001]`
+- **상태**: 🟢 **완료 (2026-09-30)**
+- **제목**: main.ts 인라인 렌더링 코드 레이어 분리 (BeatHUDRenderer / QuestionRenderer 추출)
+- **목적**:
+  - `main.ts`에 인라인으로 구현되어 있던 렌더링 함수(`renderRunningPhase`, `renderQuestion`, `renderJoinedHandsCursor`, X제스처 패널)를 독립 렌더/UI 레이어 모듈로 분리 추출하여 파일 비대화를 해소하고 아키텍처 책임을 정립한다.
+  - 특히 8박 러닝 HUD 영역을 `BeatHUDRenderer`로 분리하여 후속 작업인 #192 `KeynoteRenderer`와의 렌더링 영역 충돌을 해소한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/config/locomotion.config.ts` (신규)
+  - `dream_guardian/src/render/BeatHUDRenderer.ts` (신규)
+  - `dream_guardian/src/render/QuestionRenderer.ts` (신규)
+  - `dream_guardian/src/render/JoinedHandsCursorRenderer.ts` (신규)
+  - `dream_guardian/src/ui/GestureFeedbackOverlay.ts` (신규)
+  - `dream_guardian/src/render/index.ts`
+  - `dream_guardian/src/ui/index.ts`
+  - `dream_guardian/src/ui/HUDLayer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/beat-hud-renderer.test.ts` (신규)
+  - `dream_guardian/tests/unit/question-renderer.test.ts` (신규)
+  - `dream_guardian/tests/unit/gesture-feedback-overlay.test.ts` (신규)
+- **구현 내용**:
+  1. **설정 모듈 분리 (`config/locomotion.config.ts`)**:
+     - `LOCOMOTION_HUD_GUIDES` 및 8박 인디케이터/장판 링 수치 상수(`BEAT_HUD_CONFIG`) 정의.
+     - `HUDLayer.ts`에서 re-export하여 기존 테스트 및 호환성 100% 보존.
+  2. **`BeatHUDRenderer` 및 `QuestionRenderer` 추출**:
+     - 러닝 페이즈/문제 페이즈 상단 문제 수식 블록 중복을 공통 헬퍼 `renderQuestionHeaderMath`로 일원화.
+     - `renderRunningPhase()`를 `BeatHUDRenderer`로 이관하여 장판 타이틀/서브타이틀, 경고 링, 스텝 카운트, 8박 도트 렌더링 지원.
+     - `renderQuestion()`을 `QuestionRenderer`로 이관하여 문제 수식, 2개 선택지 버튼(방사형 네온 테두리, 선택 하이라이트, 키보드 힌트) 렌더링 지원.
+  3. **보조 오버레이 추출 (`GestureFeedbackOverlay` / `JoinedHandsCursorRenderer`)**:
+     - X제스처 감지 피드백 패널 및 합장 링 렌더링 분리.
+  4. **`main.ts` 연동 및 정리**:
+     - 인라인 렌더링 함수 제거로 라인 수 1749줄에서 1512줄로 대폭 감축 (237줄 추출).
+- **완료 조건 검증**:
+  - [x] `renderRunningPhase()`가 `src/render/BeatHUDRenderer.ts`로 완전 이동하고 `main.ts`에서 제거됨.
+  - [x] `renderQuestion()`이 `src/render/QuestionRenderer.ts`로 완전 이동함.
+  - [x] 중복 `renderMath` 블록이 공통 헬퍼(`renderQuestionHeaderMath`)로 통합됨.
+  - [x] 8박 인디케이터 매직넘버 및 폰트/색상이 `BEAT_HUD_CONFIG`로 외부화됨.
+  - [x] X제스처 패널이 `src/ui/GestureFeedbackOverlay.ts`로 분리됨.
+  - [x] `LOCOMOTION_HUD_GUIDES`가 `config/locomotion.config.ts`로 이관됨.
+  - [x] 신규 렌더러가 배럴에 등록되고 `main.ts` import가 통일됨.
+  - [x] `main.ts` 라인 수가 1,749줄에서 1,512줄로 유의미하게 감소함.
+  - [x] 렌더 결과가 리팩터 전과 픽셀 단위로 동일함 (시각 회귀 0건).
+  - [x] 신규 렌더러 단위 테스트 3종 작성 및 100% 통과 (Red → Green).
+  - [x] `npm run build` 및 전체 `npm test` 100% 통과 (57개 파일, 734/734 Pass).
+
+---
+
 ### Issue #210: [BEAT-KEYNOTE-ENGINE-001] 8박 런 직후 2박 팔 답안 선택 및 정답/오답 즉시 분기 엔진
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/210
 - **Labels**: `feature`, `P1-high`, `phase-6`

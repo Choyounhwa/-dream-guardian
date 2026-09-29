@@ -31,5 +31,11 @@ export {
   laneToScreenX,
 } from './GridProjection.js';
 export type { RailProjectionResult } from './GridProjection.js';
+export { BeatHUDRenderer } from './BeatHUDRenderer.js';
+export type { BeatHUDRendererOptions, BeatHUDState } from './BeatHUDRenderer.js';
+export { QuestionRenderer, renderQuestionHeaderMath } from './QuestionRenderer.js';
+export type { QuestionRenderState } from './QuestionRenderer.js';
+export { drawJoinedHandsCursor } from './JoinedHandsCursorRenderer.js';
+export type { DrawJoinedHandsCursorOptions } from './JoinedHandsCursorRenderer.js';
 
 
