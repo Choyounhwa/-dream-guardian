@@ -39,6 +39,63 @@ export class BeatTimelineRenderer {
   }
 
   /**
+   * 노트의 구조화된 부위 메타데이터를 기반으로 렌더링할 신체 레인 목록 반환 (이름/라벨 문자열 휴리스틱 배제)
+   */
+  getLanesForNote(note: TimelineTrackNote): Array<'motion' | 'leftHand' | 'rightHand' | 'hipFoot'> {
+    if (note.lane === 'motion') {
+      return ['motion'];
+    }
+
+    // 구조화된 명시적 부위 데이터 추출
+    const explicitParts: string[] = [];
+    if (Array.isArray(note.payload?.parts)) {
+      explicitParts.push(...note.payload.parts);
+    }
+    const singlePart = note.payload?.part || note.payload?.targetPart;
+    if (singlePart && !explicitParts.includes(singlePart)) {
+      explicitParts.push(singlePart);
+    }
+    if (note.payload?.choiceIndex === 0 && !explicitParts.includes('leftHand')) {
+      explicitParts.push('leftHand');
+    }
+    if (note.payload?.choiceIndex === 1 && !explicitParts.includes('rightHand')) {
+      explicitParts.push('rightHand');
+    }
+    if (note.payload?.instrument === 'foot' && !explicitParts.includes('foot')) {
+      explicitParts.push('foot');
+    }
+
+    if (explicitParts.length === 0) {
+      // 구조화된 부위가 없을 경우 기본값으로 골반/발 레인 배치 (유실 방지)
+      return ['hipFoot'];
+    }
+
+    const assignedLanes = new Set<'leftHand' | 'rightHand' | 'hipFoot'>();
+    for (const part of explicitParts) {
+      switch (part) {
+        case 'leftHand':
+          assignedLanes.add('leftHand');
+          break;
+        case 'rightHand':
+          assignedLanes.add('rightHand');
+          break;
+        case 'bothHands':
+          assignedLanes.add('leftHand');
+          assignedLanes.add('rightHand');
+          break;
+        case 'hip':
+        case 'foot':
+        case 'head':
+        default:
+          assignedLanes.add('hipFoot');
+          break;
+      }
+    }
+
+    return Array.from(assignedLanes);
+  }
+
+  /**
    * 트랙 레인 및 노트 블록 HTML 마크업 렌더링 (4줄 레인 구조)
    */
   renderTimelineTracksHTML(
@@ -50,53 +107,18 @@ export class BeatTimelineRenderer {
   ): string {
     const playheadPercent = Math.max(0, Math.min(100, (currentBeat / totalBeats) * 100));
 
-    // 4개 레인별 노트 분리
+    // 4개 레인별 노트 분리 (구조화된 신체 부위 기반)
     // 1. 모션 레인 (바운스 / 16박 안무 블록)
-    const motionNotes = notes.filter((n) => n.lane === 'motion');
+    const motionNotes = notes.filter((n) => this.getLanesForNote(n).includes('motion'));
 
-    // 2. 왼손 레인 (왼손 키노트, 0번 답안, 좌측 동작)
-    const lhNotes = notes.filter((n) => {
-      if (n.lane === 'motion') return false;
-      const part = n.payload?.part || n.payload?.targetPart;
-      return (
-        part === 'leftHand' ||
-        n.payload?.choiceIndex === 0 ||
-        n.label.includes('왼손') ||
-        n.label.includes('좌측') ||
-        n.label.includes('양손')
-      );
-    });
+    // 2. 왼손 레인 (왼손 키노트, 0번 답안 등)
+    const lhNotes = notes.filter((n) => this.getLanesForNote(n).includes('leftHand'));
 
-    // 3. 오른손 레인 (오른손 키노트, 1번 답안, 우측 동작)
-    const rhNotes = notes.filter((n) => {
-      if (n.lane === 'motion') return false;
-      const part = n.payload?.part || n.payload?.targetPart;
-      return (
-        part === 'rightHand' ||
-        n.payload?.choiceIndex === 1 ||
-        n.label.includes('오른손') ||
-        n.label.includes('우측') ||
-        n.label.includes('양손')
-      );
-    });
+    // 3. 오른손 레인 (오른손 키노트, 1번 답안 등)
+    const rhNotes = notes.filter((n) => this.getLanesForNote(n).includes('rightHand'));
 
-    // 4. 골반/발 레인 (골반 스쿼트, 힙스웨이, 발 디딤/킥, 머리/특수)
-    const hipFootNotes = notes.filter((n) => {
-      if (n.lane === 'motion') return false;
-      const part = n.payload?.part || n.payload?.targetPart;
-      return (
-        part === 'hip' ||
-        part === 'foot' ||
-        part === 'head' ||
-        n.payload?.instrument === 'foot' ||
-        n.label.includes('힙') ||
-        n.label.includes('골반') ||
-        n.label.includes('스쿼트') ||
-        n.label.includes('킥') ||
-        n.label.includes('발') ||
-        (!lhNotes.includes(n) && !rhNotes.includes(n))
-      );
-    });
+    // 4. 골반/발 레인 (골반 스쿼트, 힙스웨이, 발 디딤/킥, 머리 등)
+    const hipFootNotes = notes.filter((n) => this.getLanesForNote(n).includes('hipFoot'));
 
     const renderNoteBlock = (note: TimelineTrackNote) => {
       // 1-based startBeat: Beat 1 starts at 0%
