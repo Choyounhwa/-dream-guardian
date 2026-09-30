@@ -25,6 +25,21 @@
 
 ---
 
+## 2026-09-30 완료: [BUG-DANCE-LANE-001 / #246] 패턴 이름 키워드로 인한 신체 레인 중복 렌더링 결함 수정
+
+> #246 구현 및 단위/통합 검증 완료. `BeatTimelineRenderer.ts`의 레인 분류 로직이 구조화된 부위(`payload.part`) 외에 `note.label` 문자열의 `우측`, `좌측`, `양손`, `골반` 등의 키워드를 휴리스틱으로 검사하여, 우측 패턴(`CAT_SKY_POINT_RIGHT`)의 골반(`hip`) 및 왼손(`leftHand`) 노트(NOTE_S_1, NOTE_S_2, NOTE_S_5, NOTE_S_6)가 오른손 레인(`lane-rh`)에 2회 중복 표시되던 결함을 해결했다. 구조화된 명시적 부위 데이터(`payload.part`, `payload.targetPart`, `payload.parts`, `payload.choiceIndex`, `lane === 'motion'`)만으로 레인을 1:1 매핑하는 `getLanesForNote`를 신설하고, 라벨 문자열 검사를 완전히 제거하여 단일 부위 노트가 고유 레인에 정확히 1회만 표시되도록 개편했다.
+
+### 주요 구현 및 변경 사항
+- **구조화된 부위 기반 레인 결정 함수 도입 (`src/editor/BeatTimelineRenderer.ts`)**:
+  - `getLanesForNote(note)` 메서드를 추가하여 `payload.part`, `payload.targetPart`, `payload.parts`, `payload.choiceIndex`, `lane === 'motion'`을 기준으로 표시 레인 판정.
+  - 라벨 문자열에 의한 오인식 및 중복 배치를 원천 차단하여 이름/라벨 변경 시에도 레인이 왜곡되지 않음.
+- **TDD 검증 결과**:
+  - `tests/unit/editor-timeline-lane.test.ts` (5 tests Pass): 우측 패턴 적용 시 중복 출력 0건 및 1회 표시 검증, 이름 키워드 혼합 시에도 구조화된 부위 우선 검증, `EXTENDED_CAT_CHOREO_PATTERNS` 10종 전수 검사 100% Pass, 답안(0번/1번) 및 모션 레인 분리 검증.
+  - `tests/unit/beat-timeline-renderer.test.ts` (6 tests Pass): 기존 렌더러 기능 회귀 결함 0건.
+  - `npm run build` 번들 검증 100% 성공 & `npm test` 전체 82개 파일 963개 테스트 100% Pass.
+
+---
+
 ## 2026-09-30 완료: [BUG-DANCE-PERSIST-001 / #245] 패턴 선택 및 프로젝트 복원 시 편집 시퀀스 덮어쓰기 결함 수정
 
 > #245 구현 및 단위/통합 검증 완료. 사이드바에서 패턴 카드를 클릭하거나 패턴 메타데이터(이름, 설명)를 수정할 때마다 타임라인에 공들여 편집한 키노트 시퀀스(커스텀 비트 위치, 지속 시간, 라벨, 타깃 존 등)가 기본 템플릿으로 강제 덮어쓰여 초기화되던 치명적 결함을 해결했다. `EditorState`에서 단순 패턴 선택(`setSelectedPattern`)과 명시적 패턴 적용(`applyPatternToSequence`)을 완전 분리하고, `EditorIOHandler.importFullProjectJSON` 프로젝트 열기 시 유효성 사전 검증 후 레지스트리 전체 교체(`clear()` 후 등록)를 적용하여 이전에 삭제한 패턴이 부활하는 현상을 원천 차단했다. 또한 `PhaseSequenceEditor`에 `SequenceChangeListener`를 신설하고 `EditorState.onDocumentChange`를 도입하여, 60fps 재생/탐색(`seekBeat`)과 문서 데이터 변경을 분리함으로써 재생 중 편집 시 800ms 디바운스 자동저장이 100% 정상 발화되도록 안정화했다.
