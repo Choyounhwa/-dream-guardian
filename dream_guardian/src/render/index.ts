@@ -35,6 +35,20 @@ export { BeatHUDRenderer } from './BeatHUDRenderer.js';
 export type { BeatHUDRendererOptions, BeatHUDState } from './BeatHUDRenderer.js';
 export { QuestionRenderer, renderQuestionHeaderMath } from './QuestionRenderer.js';
 export type { QuestionRenderState } from './QuestionRenderer.js';
+export {
+  ShapeRenderer,
+  STACK_CUBE_CATALOG,
+  parseShapeCode,
+  deriveShapeFromQuestion,
+} from './ShapeRenderer.js';
+export type {
+  StackCubesShape,
+  CubeNetPoint,
+  CubeNetShape,
+  ArrowRotShape,
+  ParsedShape,
+  RenderStackCubesOptions,
+} from './ShapeRenderer.js';
 export { drawJoinedHandsCursor } from './JoinedHandsCursorRenderer.js';
 export type { DrawJoinedHandsCursorOptions } from './JoinedHandsCursorRenderer.js';
 export { QuestionApproachRenderer } from './QuestionApproachRenderer.js';

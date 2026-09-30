@@ -10,6 +10,7 @@ import type { GeneratedQuestion } from '../question/QuestionEvaluator.js';
 import { renderMath } from './MathRenderer.js';
 import { getAnswerButtonLayouts } from '../../config/zone.config.js';
 import type { QuestionRecipePlan } from '../input/RecipeGenerator.js';
+import { ShapeRenderer, deriveShapeFromQuestion } from './ShapeRenderer.js';
 
 export interface QuestionRenderState {
   question: GeneratedQuestion | null;
@@ -59,6 +60,12 @@ export function renderQuestionHeaderMath(
 }
 
 export class QuestionRenderer {
+  private _shapeRenderer = new ShapeRenderer();
+
+  get shapeRenderer(): ShapeRenderer {
+    return this._shapeRenderer;
+  }
+
   render(
     ctx: CanvasRenderingContext2D,
     w: number,
@@ -70,15 +77,26 @@ export class QuestionRenderer {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
 
+    const shape = deriveShapeFromQuestion(state.question.questionText, state.question.shapeCode);
+
     ctx.save();
 
     // 1. 문제영역 가상 레이아웃 영역 (Y 기준 좌표계 유지)
     const boxY = 320 * scaleY;
     const cx = w / 2;
-    const qY = boxY + 220 * scaleY;
+    // 도형 존재 시 문제 텍스트를 상단으로 정렬하여 중앙 3D 뷰포트 영역 확보
+    const qY = shape ? boxY + 110 * scaleY : boxY + 220 * scaleY;
 
     // 2. 문제 수식 텍스트 (Issue #167: 1.5배 대형화 132px 및 maxWidth 자동 줄바꿈)
     renderQuestionHeaderMath(ctx, state.question.questionText, cx, qY, scaleX, false);
+
+    // 2-1. 도형(쌓기나무 3D / 전개도 / 회전) 시각화 렌더링 (텍스트와 버튼 사이 중앙 비간섭 영역)
+    if (shape) {
+      const panelW = 480 * scaleX;
+      const panelH = 340 * scaleY;
+      const panelCy = 650 * scaleY;
+      this._shapeRenderer.renderShape(ctx, shape, cx, panelCy, panelW, panelH);
+    }
 
     // 3. 답안 버튼 2개 횡배치 (Issue #164 & #233: Zone 4/5 깔끔한 2버튼 레이아웃)
     const buttonLayouts = getAnswerButtonLayouts(w, h);

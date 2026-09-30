@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseCSV } from '../../src/question/CSVLoader.js';
 import { QuestionBank } from '../../src/question/QuestionBank.js';
-import { safeEval, generateQuestion, type GeneratedQuestion } from '../../src/question/QuestionEvaluator.js';
+import { safeEval, generateQuestion } from '../../src/question/QuestionEvaluator.js';
 import { mathToKorean, QuestionSpeech } from '../../src/question/QuestionSpeech.js';
 import type { QuestionRecord } from '../../src/types/index.js';
 
@@ -345,6 +345,21 @@ describe('QuestionEvaluator - generateQuestion', () => {
     const q = generateQuestion(record);
     expect(q).not.toBeNull();
     expect(q!.correctAnswer).not.toBe(q!.wrongAnswer);
+  });
+
+  it('QuestionRecord의 shapeCode가 GeneratedQuestion에 보존된다', () => {
+    const record: QuestionRecord = {
+      level: 9, subLevel: 4,
+      levelTitle: '기타', subLevelTitle: '쌓기나무',
+      questionTemplate: '[모양 A] 그림의 쌓기나무는 모두 몇 개?',
+      answerEval: '4', wrongEval: '5',
+      varA: '0', varB: '0', varC: '0', varD: '0',
+      shapeCode: "{type:'stack_cubes', grid:[[2,1],[1,0]]}",
+    };
+
+    const q = generateQuestion(record);
+    expect(q).not.toBeNull();
+    expect(q!.shapeCode).toBe("{type:'stack_cubes', grid:[[2,1],[1,0]]}");
   });
 
   it('문자열 정답 문제(비교, 분수, 이진법)를 올바르게 생성한다', () => {

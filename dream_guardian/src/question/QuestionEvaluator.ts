@@ -221,7 +221,14 @@ export function generateQuestion(record: QuestionRecord): GeneratedQuestion | nu
       ? [correctAnswer, wrongAnswer]
       : [wrongAnswer, correctAnswer];
 
-    return { questionText, correctAnswer, wrongAnswer, choices, correctIndex };
+    return {
+      questionText,
+      correctAnswer,
+      wrongAnswer,
+      choices,
+      correctIndex,
+      shapeCode: record.shapeCode,
+    };
   } catch {
     return null;
   }

@@ -1,15 +1,16 @@
-// ─── Game State (FSM 13 states) ───
+// ─── Game State (Canonical FSM 14 states / Issue #214) ───
 export type GameState =
   | 'LOADING'
   | 'MENU_MAIN'
   | 'MENU_SUB'
   | 'STORY_INTRO'
   | 'READY_POSITION'
-  | 'RUNNING'
-  | 'PLAYING'
-  | 'CORRECT'
-  | 'WRONG'
-  | 'GUARDIAN_CAST'
+  | 'RUN_QUESTION'
+  | 'ANSWER_SELECT'
+  | 'STAR_COLLECT'
+  | 'HAZARD_EVADE'
+  | 'ROUND_RESOLVE'
+  | 'BOSS_CLIMAX'
   | 'RESULT'
   | 'GAMEOVER'
   | 'ENDING_CUTSCENE';
@@ -48,6 +49,7 @@ export interface ISystem {
 export interface IStateHandler {
   enter?(): void;
   update?(dt: number): void;
+  input?(data?: unknown): void;
   render?(ctx: CanvasRenderingContext2D): void;
   exit?(): void;
 }
@@ -120,6 +122,7 @@ export interface GeneratedQuestion {
   wrongAnswer: number | string;
   choices: [number | string, number | string];
   correctIndex: number;
+  shapeCode?: string;
 }
 
 // ─── Save Data ───

@@ -25,6 +25,30 @@
 
 ---
 
+## 2026-09-30 완료: [FEAT-QUESTION-SHAPE-001 / #247] 쌓기나무(모양 A~Q 17종) 및 입체도형 전개도 시각 이미지 생성 및 QuestionRenderer 연동
+
+> #247 구현 및 단위/통합 검증 완료. `questions.csv`의 Level 9 SubLevel 4(쌓기나무 165문항) 및 SubLevel 5(주사위 전개도 문항)에서 시각 그림이 없어 텍스트만으로 정답 도출이 불가능하던 문제를 해결했다. `ShapeRenderer`를 신규 구현하여 17종 쌓기나무 모양(A~Q)의 3D 아이소메트릭 절차적 드로잉 및 주사위/정육면체 1-4-1 전개도(면 1~6, 꼭짓점 점 ㄱ~ㅂ) 렌더러를 구축했다. `GeneratedQuestion` 모델에 `shapeCode`를 보존하도록 확장하고, `QuestionRenderer`에서 도형 문제 출제 시 문제 수식 텍스트와 2개 답안 버튼 사이 중앙 비간섭 밴드(`y: 480~820px`)에 3D 뷰포트 패널을 배치하여 겹침 0%로 완벽하게 연동했다.
+
+### 주요 구현 및 변경 사항
+- **3D 아이소메트릭 쌓기나무 렌더러 및 17종 표준 카탈로그 (`src/render/ShapeRenderer.ts`)**:
+  - `STACK_CUBE_CATALOG`: 모양 A부터 Q까지 17종 표준 2D 그리드 데이터 정의 (questions.csv 정답 개수 100% 일치).
+  - `renderStackCubes()`: 정규화 3D 아이소메트릭 투영(stepX=cos30°, stepY=sin30°, cubeH) 및 화가 알고리즘(Painter's Algorithm: `(r+c)` 오름차순, `z` 오름차순)을 적용하여 깊이 정렬 완벽 보장.
+  - 고대비 네온/크리스탈 셰이딩(상단면 `#6FE3FF`, 좌측면 `#0284C7`, 우측면 `#1D4ED8`, 외곽선 `#08182B`)으로 3초 내 직관적 블록 카운팅 지원.
+  - 시점 가이드(front: 앞 ↗️, side: 옆 ↖️, top: 위 ⬇️) 화살표 및 라벨 배지 렌더링.
+- **주사위/정육면체 1-4-1 전개도 렌더러 (`src/render/ShapeRenderer.ts`)**:
+  - `renderCubeNet()`: 6개 정사각형 면 외곽 실선 및 내부 접는선 점선(`[4, 4]`) 렌더링.
+  - 대상 면(`face: 1`) 골드 하이라이트(`#FFCB4D`) 테두리 및 배경 점등.
+  - 꼭짓점 기호(`points`: 점 ㄱ, 점 ㅂ, 점 ㄹ 등) 마커 및 라벨 정확 좌표 오프셋 표출.
+- **질문 데이터 모델 확장 및 QuestionRenderer 연동 (`src/types/index.ts`, `src/question/QuestionEvaluator.ts`, `src/render/QuestionRenderer.ts`, `src/render/index.ts`)**:
+  - `GeneratedQuestion.shapeCode` 필드 추가 및 `generateQuestion()` 시 `record.shapeCode` 자동 보존.
+  - `QuestionRenderer`: 도형 문제 출제 시 수식 텍스트를 상단(`qY = 430px`)으로 정렬하고 중앙에 `480x340px` 네온 뷰포트 패널을 렌더링하여 문제 텍스트 및 좌/우 답안 버튼(Zone 4/5)과 겹침 0% 보장.
+- **TDD 검증 결과**:
+  - `tests/unit/shape-renderer.test.ts` (16 tests Pass): shapeCode 파싱, A~Q 17종 카탈로그 전수 검증, 17종 3D 아이소메트릭 렌더링, 시점 가이드, 전개도 6면/접는선/꼭짓점, QuestionRenderer 무간섭 연동 100% Pass.
+  - `tests/unit/question-system.test.ts` (42 tests Pass): shapeCode 보존 검증 포함 전체 통과.
+  - `npm run build` 번들 빌드 100% 성공 & `npm test` 전체 85개 파일 1005개 테스트 100% Pass (회귀 결함 0건).
+
+---
+
 ## 2026-09-30 완료: [BUG-HAZARD-LIFECYCLE-001 / #236] Phase A 장판을 HAZARD_EVADE 수명주기에 연결 및 단일 회피 판정·데미지 복구
 
 > #236 구현 및 단위/통합 검증 완료. `PhaseAHazardController`의 start/update/recordAction이 `RUN_QUESTION`에 무한 루프로 연결되어 달리기 중 장판이 표출되고 조기 오동작으로 체력이 깎이던 치명적 결함, 8패턴 4초와 분기 7박 3.5초의 박자 불일치, 그리고 5 HP 피해와 GDD 25 HP 피해 간의 규약 충돌을 해결했다. `RUN_QUESTION`에서 장판 시작/반복을 완전히 제거하고 `HAZARD_EVADE` 전이 시에만 `start({ roundIndex })` 1회 가동 및 퇴장 시 `stop()`하도록 수명주기를 확립했다. GDD 계약에 따라 활성 회피 3종(`left_step`, `right_step`, `jump`) 중 라운드 기반 단일 공격을 채택하고, 경고(0~2.6s) → 입력창(2.6~3.4s) → 판정(3.5s) → 정산 전이(4.0s) 타임라인과 실패 피해 25(성공 0)를 확정했다. 또한 "틀린 선행 입력은 기회를 소모하지 않고 올바른 회피 시 성공 잠금" 정책을 구현하여 조작 편의성을 극대화했으며, 발/점프/Space/터치 fallback 입력을 `HAZARD_EVADE` 상태와 일시정지 보호 하에 안전하게 연결했다.
