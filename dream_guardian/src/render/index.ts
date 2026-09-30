@@ -42,5 +42,7 @@ export type {
   QuestionApproachState,
   QuestionApproachTransform,
 } from './QuestionApproachRenderer.js';
+export { HazardZoneRenderer } from './HazardZoneRenderer.js';
+export type { HazardRenderState } from './HazardZoneRenderer.js';
 
 

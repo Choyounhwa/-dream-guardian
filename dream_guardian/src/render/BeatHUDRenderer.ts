@@ -13,6 +13,7 @@ import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import { BEAT_HUD_CONFIG } from '../../config/locomotion.config.js';
 import { renderQuestionHeaderMath } from './QuestionRenderer.js';
 import { QuestionApproachRenderer } from './QuestionApproachRenderer.js';
+import { HazardZoneRenderer } from './HazardZoneRenderer.js';
 
 export interface BeatHUDRendererOptions {
   showBeatDots?: boolean;
@@ -35,10 +36,12 @@ export interface BeatHUDState {
 export class BeatHUDRenderer {
   private _showBeatDots: boolean;
   private readonly _approachRenderer: QuestionApproachRenderer;
+  private readonly _hazardRenderer: HazardZoneRenderer;
 
   constructor(options?: BeatHUDRendererOptions) {
     this._showBeatDots = options?.showBeatDots ?? false;
     this._approachRenderer = new QuestionApproachRenderer();
+    this._hazardRenderer = new HazardZoneRenderer();
   }
 
   get showBeatDots(): boolean {
@@ -47,6 +50,10 @@ export class BeatHUDRenderer {
 
   set showBeatDots(value: boolean) {
     this._showBeatDots = value;
+  }
+
+  get hazardRenderer(): HazardZoneRenderer {
+    return this._hazardRenderer;
   }
 
   render(ctx: CanvasRenderingContext2D, vw: number, vh: number, state: BeatHUDState): void {
@@ -60,12 +67,13 @@ export class BeatHUDRenderer {
     const scaleX = vw / 1080;
     const scaleY = vh / 2160;
 
+    const vx = state.vanishingX ?? cx;
+    const vy = state.vanishingY ?? vh * 0.24;
+
     // 1. 문제 수식 헤더 표시 (Issue #212: 첫 2박 원근 접근 연출 연동)
     if (state.question) {
       const qY = 320 * scaleY + 160 * scaleY;
       const progress = state.questionApproachProgress ?? 1.0;
-      const vx = state.vanishingX ?? cx;
-      const vy = state.vanishingY ?? vh * 0.24;
 
       if (progress < 1.0) {
         this._approachRenderer.render(
@@ -112,26 +120,15 @@ export class BeatHUDRenderer {
     ctx.fillStyle = BEAT_HUD_CONFIG.TEXT_COLOR_SUBTITLE;
     ctx.fillText(guide.subtitle, cx, cy - 5);
 
-    // 3. 현재 장판 경고 링
-    const hazardPulse = 1 - (state.hazardBeatProgress ?? 0);
-    const hazardRadius =
-      (BEAT_HUD_CONFIG.HAZARD_RING_BASE_RADIUS + hazardPulse * BEAT_HUD_CONFIG.HAZARD_RING_PULSE_RANGE) * scaleX;
-    ctx.strokeStyle = guide.color;
-    ctx.lineWidth = BEAT_HUD_CONFIG.HAZARD_RING_LINE_WIDTH * scaleX;
-    ctx.shadowColor = guide.color;
-    ctx.shadowBlur = 24;
-    ctx.beginPath();
-    ctx.ellipse(
-      cx,
-      cy + 150 * scaleY,
-      hazardRadius,
-      hazardRadius * BEAT_HUD_CONFIG.HAZARD_RING_ASPECT,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+    // 3. 3D 원근 그리드 바닥 보스 장판 렌더링 (Issue #228 - RENDER-HAZARD-001)
+    if (hazard) {
+      this._hazardRenderer.render(ctx, vw, vh, {
+        activePattern: hazard,
+        beatProgress: state.hazardBeatProgress ?? 0,
+        vanishingX: vx,
+        vanishingY: vy,
+      });
+    }
 
     const dotY = cy + 260 * scaleY;
 
