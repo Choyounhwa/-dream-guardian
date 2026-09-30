@@ -25,6 +25,31 @@
 
 ---
 
+## 2026-09-30 완료: [BUG-DANCE-PERSIST-001 / #245] 패턴 선택 및 프로젝트 복원 시 편집 시퀀스 덮어쓰기 결함 수정
+
+> #245 구현 및 단위/통합 검증 완료. 사이드바에서 패턴 카드를 클릭하거나 패턴 메타데이터(이름, 설명)를 수정할 때마다 타임라인에 공들여 편집한 키노트 시퀀스(커스텀 비트 위치, 지속 시간, 라벨, 타깃 존 등)가 기본 템플릿으로 강제 덮어쓰여 초기화되던 치명적 결함을 해결했다. `EditorState`에서 단순 패턴 선택(`setSelectedPattern`)과 명시적 패턴 적용(`applyPatternToSequence`)을 완전 분리하고, `EditorIOHandler.importFullProjectJSON` 프로젝트 열기 시 유효성 사전 검증 후 레지스트리 전체 교체(`clear()` 후 등록)를 적용하여 이전에 삭제한 패턴이 부활하는 현상을 원천 차단했다. 또한 `PhaseSequenceEditor`에 `SequenceChangeListener`를 신설하고 `EditorState.onDocumentChange`를 도입하여, 60fps 재생/탐색(`seekBeat`)과 문서 데이터 변경을 분리함으로써 재생 중 편집 시 800ms 디바운스 자동저장이 100% 정상 발화되도록 안정화했다.
+
+### 주요 구현 및 변경 사항
+- **단순 선택(Selection)과 명시적 시퀀스 적용(Application) 분리 (`src/editor/EditorState.ts`)**:
+  - `setSelectedPattern(id, options)`: 타임라인 시퀀스 노트를 일체 보존하고 활성 패턴 및 draftEdits만 전환.
+  - `applyPatternToSequence(patternId?)`: 사용자가 패턴 구조를 시퀀스에 반영하길 원할 때만 명시적으로 호출하는 전용 메서드 신설.
+  - `updateCurrentPattern`: 패턴 이름/설명/존 수정 시 시퀀스 노트를 강제 재생성하지 않고 패턴 메타데이터만 갱신.
+- **프로젝트 열기 시 사전 검증 및 전체 교체(Full Replace) 보장 (`src/editor/EditorIOHandler.ts`)**:
+  - `importFullProjectJSON`: 프로젝트 패키지 패턴의 유효성을 사전 검증한 뒤, 기존 레지스트리를 `clear()`하고 로드하여 삭제된 패턴 부활 완벽 방지.
+  - 외부 패턴 라이브러리 가져오기(`importPatternLibraryJSON`)와 프로젝트 문서 열기를 명확히 분리.
+- **문서 변경과 재생 상태 분리 및 재생 중 자동저장 보장 (`src/editor/PhaseSequenceEditor.ts`, `EditorState.ts`, `main.ts`)**:
+  - `PhaseSequenceEditor.addListener`: 노트 추가/수정/삭제/리셋/가져오기 시 `SequenceChangeListener`를 통해 실시간 변경 통보.
+  - `EditorState.onDocumentChange`: 문서 변경 시에만 `triggerAutoSave`(800ms 디바운스 LocalStorage 저장) 호출.
+  - `seekBeat`에서 `notifyStateChange`를 배제하여 60fps 재생 루프 중 디바운스 타이머가 무한 취소되는 결함 해결.
+- **UI 시퀀스 적용 인터랙션 추가 (`src/editor/EditorLayout.ts`, `src/editor/main.ts`)**:
+  - 사이드바 패턴 편집 바에 `⚡ 시퀀스에 적용` (`#btn-apply-sequence`) 버튼 신설.
+- **TDD 검증 결과**:
+  - `tests/unit/editor-persistence.test.ts` (6 tests Pass): 커스텀 노트(startBeat, label, targetZones) Roundtrip 보존, 패턴 재선택/이름 수정 시 불변 보장, applyPatternToSequence 명시적 적용 검증, 삭제 패턴 부활 방지, onDocumentChange 분리 및 자동저장 보장.
+  - `tests/unit/editor-interactive-pattern.test.ts` (6 tests Pass): 명시적 연동 검증.
+  - `npm run build` 번들 검증 100% 성공 & `npm test` 전체 81개 파일 958개 테스트 100% Pass (회귀 결함 0건).
+
+---
+
 ## 2026-09-30 완료: [BUG-JUMP-BASELINE-001 / #238] 사용자 보정 기준선 기반 점프 회피 판정 연결
 
 > #238 구현 및 단위/통합 검증 완료. `main.ts`에 고정되어 있던 하드코딩 기준선(`vh * 0.28`)을 제거하고 `CalibrationHelper` 사용자 자동 보정 기준선(`baselineShoulderY`)과 연동하여 키와 카메라 거리가 다른 사용자 환경에서도 동일한 상대 상승 비율(0.065)로 공정하게 점프가 감지되도록 수정했다. 또한 `JumpDetector`에 추적 유실 및 재획득(Re-acquisition) 보호를 구축하여 첫 프레임 속도 스파이크로 인한 가짜 점프를 원천 차단하고, 보정 미완료(`isCalibrated=false`), 일시정지(`isPaused=true`), 안전가드(`isSafetyGuarded=true`) 시의 무입력 계약을 확정했다. 실제 게임 루프에서 스무딩 소스(`sourceLandmarks`) 기반으로 `PhaseAHazardController`의 점프(`jump`) 회피 판정과 시각 이펙트가 온전히 발화되도록 연결했다.
