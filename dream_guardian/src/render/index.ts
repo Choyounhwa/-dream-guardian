@@ -44,5 +44,11 @@ export type {
 } from './QuestionApproachRenderer.js';
 export { HazardZoneRenderer } from './HazardZoneRenderer.js';
 export type { HazardRenderState } from './HazardZoneRenderer.js';
+export { StarNoteRenderer } from './StarNoteRenderer.js';
+export type {
+  StarNoteRenderOptions,
+  StarNotePositionResult,
+  StarNoteRenderState,
+} from './StarNoteRenderer.js';
 
 

@@ -37,6 +37,7 @@ import {
   KneeFramingGuideRenderer,
   BeatHUDRenderer,
   QuestionRenderer,
+  StarNoteRenderer,
   drawJoinedHandsCursor,
 } from './render/index.js';
 import { EffectManager } from './effects/index.js';
@@ -167,6 +168,7 @@ const pauseModal = new PauseModal();
 const xGestureDetector = new XGestureDetector();
 const questionRenderer = new QuestionRenderer();
 const beatHUDRenderer = new BeatHUDRenderer();
+const starNoteRenderer = new StarNoteRenderer();
 const gestureFeedbackOverlay = new GestureFeedbackOverlay();
 
 // ─── BEAT MOTION / 키노트 / 프레이밍 시스템 (Issue #206) ───
@@ -1014,6 +1016,21 @@ const engine = new GameEngine({
         vanishingY: bossY,
         color: gridColor,
       });
+
+      // Issue #192: 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링
+      if (
+        gamePhase === 'star_collect' ||
+        beatCoordinator.phase === 'STAR_COLLECT' ||
+        beatCoordinator.phase === 'KEYNOTE_PERFORMANCE'
+      ) {
+        starNoteRenderer.render(ctx, vw, vh, {
+          target: starCollectionInput.currentTarget,
+          elapsedTime: engine.elapsedTime,
+          vanishingX: bossX,
+          vanishingY: bossY,
+        });
+      }
+
       bossRenderer.render(ctx, currentChapter, bossX, bossY, bossRadius, boss.phase);
       hudLayer.render(ctx, vw, vh, getHUDData());
 
