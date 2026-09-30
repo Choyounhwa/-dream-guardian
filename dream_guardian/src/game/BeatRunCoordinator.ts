@@ -54,7 +54,7 @@ export interface BeatRunCoordinatorOptions {
 
 const EXERCISE_BEATS_PER_ROUND = 8;
 const ANSWER_SELECT_BEATS = 2; // Issue #210: 최대 2박 (1.0s)
-const BRANCH_ROUTINE_BEATS = 7; // Issue #210: 2~8박 (3.5s)
+const BRANCH_ROUTINE_BEATS = 8; // Issue #210 & #235: 8박 (4.0s) - 7번째 노트(3.5s)의 만료(3.90s) 후 정산 보장
 const READY_BEATS = 2;
 const PERFORMANCE_BEATS = 8;
 

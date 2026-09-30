@@ -25,6 +25,7 @@ import {
   BeatRunCoordinator,
   BeatRoundResolver,
   PhaseAHazardController,
+  StarNoteScheduler,
 } from './game/index.js';
 import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
@@ -213,6 +214,35 @@ starCollectionInput.setViewport(
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
 
+// Issue #235: 별모으기 7개 노트 스케줄러 & 단일 결과 라우터 연동
+const starNoteScheduler = new StarNoteScheduler({ secondsPerBeat: 0.5 });
+starNoteScheduler.setViewport(
+  canvasManager.virtualWidth,
+  canvasManager.virtualHeight,
+  (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
+);
+
+starNoteScheduler.onRating((starResult) => {
+  beatRoundResolver.recordStarRating(starResult.rating);
+  if (starResult.collected) {
+    const quality: BandTimingQuality = starResult.rating === 'Perfect' ? 'sync' : 'stumble';
+    bandSynth.playZoneSound(starResult.zoneId, quality);
+    sfx.play('correct');
+    const targetZone = DEFAULT_FITNESS_ZONES.find((z) => z.id === starResult.zoneId);
+    if (targetZone) {
+      effectManager.playBurst({
+        x: (targetZone.x + targetZone.width * 0.5) * canvasManager.virtualWidth,
+        y: (targetZone.y + targetZone.height * 0.5) * canvasManager.virtualHeight,
+        count: 8,
+        colors: ['#FFCB4D', '#FFFFFF'],
+        duration: 0.25,
+      });
+    }
+  } else if (starResult.rating === 'Miss') {
+    bandSynth.playZoneSound(starResult.zoneId, 'miss');
+  }
+});
+
 // ─── 상태 머신 및 게임 상태 (Issue #214 / REFACTOR-FSM-001) ───
 type ScreenMode = 'menu' | 'game' | 'result';
 type MenuMode = 'main' | 'sub';
@@ -293,8 +323,13 @@ stateMachine.registerState('STAR_COLLECT', {
   enter: () => {
     questionVisible = false;
     answerLocked = true;
+    starNoteScheduler.start(engine.elapsedTime, {
+      roundId: beatRoundResolver.currentRoundIndex,
+      notes: beatCoordinator.keynotes,
+    });
   },
   exit: () => {
+    starNoteScheduler.reset();
     starCollectionInput.reset();
   },
 });
@@ -412,6 +447,15 @@ const phaseAHazardController = new PhaseAHazardController({
 footKeynoteInput.onEvent((event) => {
   console.log(`[DG] 발 키노트 수신: ${event.source} ${event.foot} (Zone ${event.zoneId})`);
   if (screenMode === 'game') {
+    // Issue #235: STAR_COLLECT 페이즈 발 키노트 단일 결과 라우팅 연동
+    if (
+      stateMachine.currentState === 'STAR_COLLECT' ||
+      beatCoordinator.phase === 'STAR_COLLECT' ||
+      beatCoordinator.phase === 'KEYNOTE_PERFORMANCE'
+    ) {
+      starNoteScheduler.fromFoot(event, engine.elapsedTime);
+    }
+
     if (gamePhase === 'running' || gamePhase === 'hazard_evade') {
       const target = phaseAHazardController.activePattern;
       if (event.foot === 'leftFoot' && (target === 'left_step' || target === 'balance_right')) {
@@ -534,6 +578,7 @@ function startRunningPhase(): void {
   questionVisible = true;
   answerLocked = true;
   starCollectionInput.reset();
+  starNoteScheduler.reset();
   Object.values(locomotionDetectors).forEach((d) => d.reset());
   jumpDetector.reset();
   phaseAHazardController.start();
@@ -554,6 +599,7 @@ function startChapter(ch: number, subLevel?: number): void {
   guardian.reset();
   beatRoundResolver.reset();
   starCollectionInput.reset();
+  starNoteScheduler.reset();
   hudLayer.reset();
   questionBank.setLevel(ch, subLevel);
   feedbackTimer = 0;
@@ -989,6 +1035,7 @@ const engine = new GameEngine({
       engine.pauseGame();
       beatCoordinator.pause();
       starCollectionInput.setPaused(true);
+      starNoteScheduler.setPaused(true);
       dreamGrid.update(dt, 0.8);
       effectManager.update(dt);
       sfx.stopDwellCharge();
@@ -1001,6 +1048,7 @@ const engine = new GameEngine({
       beatCoordinator.resume();
     }
     starCollectionInput.setPaused(false);
+    starNoteScheduler.setPaused(false);
 
     // 드림 그리드 속도 및 8박 코디네이터 업데이트
     const isRunning = gamePhase === 'running';
@@ -1064,47 +1112,20 @@ const engine = new GameEngine({
       }
     }
 
-    // 2~8박 키노트 퍼포먼스 별 수집 판정 (Issue #206, #207, #210 / StarCollectionInput 연동)
-    if (beatCoordinator.phase === 'KEYNOTE_PERFORMANCE' || beatCoordinator.phase === 'STAR_COLLECT') {
-      const beat = beatCoordinator.performanceBeat;
-      if (beat >= 2 && beat <= 8) {
-        const keynotes = beatCoordinator.keynotes;
-        const keynote = keynotes[beat - 2];
-        if (keynote && starCollectionInput.currentTarget?.beatIndex !== keynote.beat) {
-          starCollectionInput.setTarget({
-            patternId: keynote.patternId,
-            part: keynote.part,
-            cursorType: keynote.part,
-            zoneId: keynote.zoneId,
-            beatIndex: keynote.beat,
-            landingTime: engine.elapsedTime + 0.25,
-          });
-        }
-
-        if (starCollectionInput.currentTarget && !starCollectionInput.isCollected) {
-          const starResult = starCollectionInput.update(engine.elapsedTime, sourceLandmarks);
-          if (starResult) {
-            beatRoundResolver.recordStarRating(starResult.rating);
-            if (starResult.collected) {
-              const quality: BandTimingQuality = starResult.rating === 'Perfect' ? 'sync' : 'stumble';
-              bandSynth.playZoneSound(starResult.zoneId, quality);
-              sfx.play('correct');
-              const targetZone = DEFAULT_FITNESS_ZONES.find((z) => z.id === starResult.zoneId);
-              if (targetZone) {
-                effectManager.playBurst({
-                  x: (targetZone.x + targetZone.width * 0.5) * canvasManager.virtualWidth,
-                  y: (targetZone.y + targetZone.height * 0.5) * canvasManager.virtualHeight,
-                  count: 8,
-                  colors: ['#FFCB4D', '#FFFFFF'],
-                  duration: 0.25,
-                });
-              }
-            } else if (starResult.rating === 'Miss') {
-              bandSynth.playZoneSound(starResult.zoneId, 'miss');
-            }
-          }
-        }
+    // 2~8박 키노트 퍼포먼스 별 수집 판정 (Issue #206, #207, #210, #235 / StarNoteScheduler 연동)
+    if (
+      beatCoordinator.phase === 'KEYNOTE_PERFORMANCE' ||
+      beatCoordinator.phase === 'STAR_COLLECT' ||
+      stateMachine.currentState === 'STAR_COLLECT'
+    ) {
+      if (!starNoteScheduler.isStarted) {
+        starNoteScheduler.start(engine.elapsedTime, {
+          roundId: beatRoundResolver.currentRoundIndex,
+          notes: beatCoordinator.keynotes,
+        });
       }
+      starNoteScheduler.update(engine.elapsedTime, sourceLandmarks);
+      starCollectionInput.setTarget(starNoteScheduler.currentTarget);
     }
 
     // Issue #207, #210, #226: 0s 무체류 팔 선택 정착으로 골반 체류 충전음 잔재 정리
@@ -1201,10 +1222,11 @@ const engine = new GameEngine({
         color: gridColor,
       });
 
-      // Issue #192 & #232: 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링
+      // Issue #192, #232 & #235: 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링
       if (presentationAdapter.canRenderStarCollect(stateMachine.currentState)) {
         starNoteRenderer.render(ctx, vw, vh, {
-          target: starCollectionInput.currentTarget,
+          target: starNoteScheduler.currentTarget,
+          targets: starNoteScheduler.activeNotes,
           elapsedTime: engine.elapsedTime,
           vanishingX: bossX,
           vanishingY: bossY,
@@ -1534,6 +1556,20 @@ canvas.addEventListener('click', (e) => {
         }
       }
     }
+
+    // Issue #235: STAR_COLLECT 중 피트니스 존 터치/클릭 입력
+    if (
+      stateMachine.currentState === 'STAR_COLLECT' ||
+      beatCoordinator.phase === 'STAR_COLLECT' ||
+      beatCoordinator.phase === 'KEYNOTE_PERFORMANCE'
+    ) {
+      const hitZone = DEFAULT_FITNESS_ZONES.find(
+        (z) => normX >= z.x && normX <= z.x + z.width && normY >= z.y && normY <= z.y + z.height,
+      );
+      if (hitZone) {
+        starNoteScheduler.fromTouch(hitZone.id, engine.elapsedTime);
+      }
+    }
   } else if (screenMode === 'result') {
     goToMenu();
   }
@@ -1593,18 +1629,14 @@ document.addEventListener('keydown', (e) => {
       });
       currentQuestion = beatCoordinator.currentQuestion;
       return;
-    } else if (screenMode === 'game' && beatCoordinator.phase === 'KEYNOTE_PERFORMANCE') {
-      const starRes = starCollectionInput.fromKeyboard(engine.elapsedTime);
-      if (starRes) {
-        beatRoundResolver.recordStarRating(starRes.rating);
-        if (starRes.collected) {
-          const quality: BandTimingQuality = starRes.rating === 'Perfect' ? 'sync' : 'stumble';
-          bandSynth.playZoneSound(starRes.zoneId, quality);
-          sfx.play('correct');
-        } else if (starRes.rating === 'Miss') {
-          bandSynth.playZoneSound(starRes.zoneId, 'miss');
-        }
-      }
+    } else if (
+      screenMode === 'game' &&
+      (beatCoordinator.phase === 'KEYNOTE_PERFORMANCE' ||
+        beatCoordinator.phase === 'STAR_COLLECT' ||
+        stateMachine.currentState === 'STAR_COLLECT')
+    ) {
+      // Issue #235: Space 키보드 입력 시 StarNoteScheduler 단일 결과 라우터 연동
+      starNoteScheduler.fromKeyboard(engine.elapsedTime);
       return;
     }
   }

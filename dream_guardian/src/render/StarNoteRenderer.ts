@@ -37,7 +37,8 @@ export interface StarNotePositionResult {
 }
 
 export interface StarNoteRenderState {
-  target: (ActiveStarTarget | StarTarget) | null;
+  target?: (ActiveStarTarget | StarTarget) | null;
+  targets?: readonly (ActiveStarTarget | StarTarget)[];
   elapsedTime: number;
   vanishingX: number;
   vanishingY: number;
@@ -128,14 +129,41 @@ export class StarNoteRenderer {
     vh: number,
     state: StarNoteRenderState,
   ): void {
-    if (!state.target || state.target.landingTime === undefined) return;
+    const rawTargets = state.targets ?? (state.target ? [state.target] : []);
+    const targets = rawTargets.filter((t): t is ActiveStarTarget | StarTarget => Boolean(t && t.landingTime !== undefined));
+    if (targets.length === 0) return;
 
     const zones = state.zones ?? DEFAULT_FITNESS_ZONES;
+
+    for (const target of targets) {
+      this._renderSingleTarget(
+        ctx,
+        vw,
+        vh,
+        target,
+        state.elapsedTime,
+        state.vanishingX,
+        state.vanishingY,
+        zones,
+      );
+    }
+  }
+
+  private _renderSingleTarget(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    target: ActiveStarTarget | StarTarget,
+    elapsedTime: number,
+    vanishingX: number,
+    vanishingY: number,
+    zones: readonly FitnessZone[],
+  ): void {
     const pos = this.computeNotePosition(
-      state.target,
-      state.elapsedTime,
-      state.vanishingX,
-      state.vanishingY,
+      target,
+      elapsedTime,
+      vanishingX,
+      vanishingY,
       vw,
       vh,
       zones,
@@ -143,20 +171,20 @@ export class StarNoteRenderer {
 
     if (!pos.inFlight) return;
 
-    const targetPart = state.target.part || 'leftHand';
+    const targetPart = target.part || 'leftHand';
     const color = PART_COLORS[targetPart] || '#28E6FF';
-    const zone = zones.find((z) => z.id === state.target!.zoneId);
+    const zone = zones.find((z) => z.id === target.zoneId);
 
     ctx.save();
 
     // 1. 안착 직전(±0.12s Perfect 판정 윈도우) 목표 존 테두리 펄스 링 연출
-    const timeDiff = Math.abs(state.target.landingTime - state.elapsedTime);
+    const timeDiff = Math.abs(target.landingTime! - elapsedTime);
     if (timeDiff <= this._options.perfectWindow && zone) {
       this._renderZonePulse(ctx, vw, vh, zone, color, 1.0 - timeDiff / this._options.perfectWindow);
     }
 
     // 2. 비행 궤적 잔상 트레일 (소실점 방향 꼬리)
-    this._renderTrail(ctx, state.vanishingX, state.vanishingY, pos.x, pos.y, color, pos.scale);
+    this._renderTrail(ctx, vanishingX, vanishingY, pos.x, pos.y, color, pos.scale);
 
     // 3. 별가루 악기 노트 본체 (4색 테두리 + 글로우)
     const radius = this._options.baseRadius * pos.scale;

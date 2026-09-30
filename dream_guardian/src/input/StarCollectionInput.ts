@@ -94,6 +94,7 @@ export class StarCollectionInput {
   private readonly _zones: readonly FitnessZone[];
 
   private _target: ActiveStarTarget | null = null;
+  private _targetQueue: ActiveStarTarget[] = [];
   private _isCollected = false;
   private _paused = false;
   private _lastResult: StarCollectionResult | null = null;
@@ -127,6 +128,41 @@ export class StarCollectionInput {
   }
 
   get currentTarget(): ActiveStarTarget | null {
+    return this._target;
+  }
+
+  get targetQueue(): readonly ActiveStarTarget[] {
+    return this._targetQueue;
+  }
+
+  /**
+   * 다중 타깃 큐에 별 목표 추가
+   */
+  enqueueTarget(target: StarTarget | null, explicitLandingTime?: number): void {
+    if (!target) return;
+    const landingTime = explicitLandingTime ?? target.landingTime ?? 0;
+    const active: ActiveStarTarget = {
+      ...target,
+      landingTime,
+    };
+    this._targetQueue.push(active);
+    if (!this._target || this._isCollected) {
+      this._target = active;
+      this._isCollected = false;
+      this._lastResult = null;
+    }
+  }
+
+  /**
+   * 큐의 다음 타깃으로 전진
+   */
+  advanceQueue(): ActiveStarTarget | null {
+    if (this._targetQueue.length > 0) {
+      this._targetQueue.shift();
+    }
+    this._target = this._targetQueue.length > 0 ? this._targetQueue[0] : null;
+    this._isCollected = false;
+    this._lastResult = null;
     return this._target;
   }
 
@@ -191,6 +227,7 @@ export class StarCollectionInput {
    */
   reset(): void {
     this._target = null;
+    this._targetQueue = [];
     this._isCollected = false;
     this._lastResult = null;
     this._cursorTracker.reset();

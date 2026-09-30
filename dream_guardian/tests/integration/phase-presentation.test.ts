@@ -223,8 +223,8 @@ describe('Phase Presentation & Render Allow Matrix - [BUG-PHASE-PRESENTATION-001
       coordinator.confirmAnswerByFallback(1);
       expect(immediateFeedbackCount).toBe(1);
 
-      // 7박 분기 루틴 경과 (3.5초)
-      coordinator.update(3.5);
+      // 8박 분기 루틴 경과 (4.0초, Issue #235)
+      coordinator.update(4.0);
 
       // 지연 정산 1회 완료
       expect(delayedSettlementCount).toBe(1);

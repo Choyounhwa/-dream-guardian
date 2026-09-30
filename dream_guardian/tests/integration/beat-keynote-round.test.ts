@@ -248,8 +248,8 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
       expect(coordinator.phase).toBe('STAR_COLLECT');
       expect(onAnswerConfirmedSpy).not.toHaveBeenCalled(); // 아직 루틴 미완료
 
-      // 7박(3.5s) 경과 시 ROUND_RESOLVE 호출
-      coordinator.update(3.5);
+      // 8박(4.0s) 경과 시 ROUND_RESOLVE 호출 (Issue #235: 7번째 노트 만료 후 정산 보장)
+      coordinator.update(4.0);
 
       expect(coordinator.phase).toBe('ROUND_RESOLVE');
       expect(onAnswerConfirmedSpy).toHaveBeenCalledTimes(1);
@@ -276,8 +276,8 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
       expect(coordinator.phase).toBe('HAZARD_EVADE');
       expect(onAnswerConfirmedSpy).not.toHaveBeenCalled();
 
-      // 7박(3.5s) 경과 시 ROUND_RESOLVE
-      coordinator.update(3.5);
+      // 8박(4.0s) 경과 시 ROUND_RESOLVE (Issue #235)
+      coordinator.update(4.0);
 
       expect(coordinator.phase).toBe('ROUND_RESOLVE');
       expect(onAnswerConfirmedSpy).toHaveBeenCalledTimes(1);
@@ -302,8 +302,8 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
       expect(coordinator.phase).toBe('HAZARD_EVADE');
       expect(coordinator.selectedChoiceIndex).toBeNull();
 
-      // 7박(3.5s) 경과 시 ROUND_RESOLVE
-      coordinator.update(3.5);
+      // 8박(4.0s) 경과 시 ROUND_RESOLVE (Issue #235)
+      coordinator.update(4.0);
 
       expect(coordinator.phase).toBe('ROUND_RESOLVE');
       expect(onAnswerConfirmedSpy).toHaveBeenCalledWith(-1, false, 'timeout');
