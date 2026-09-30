@@ -83,4 +83,64 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
     expect(() => grid.render(ctx, 800, 600, { color: 'rgb(40, 230, 255)' })).not.toThrow();
     expect(() => grid.render(ctx, 800, 600, { color: 'rgba(40, 230, 255, 0.5)' })).not.toThrow();
   });
+
+  describe('피트니스 존 연한 연결선 렌더링 (Issue #188 / RENDER-TRACK-001)', () => {
+    it('renderZoneConnections=true(기본값) 시 11개 피트니스 존으로 이어지는 연결선이 렌더링된다', () => {
+      const grid = new DreamGrid();
+      const mockCtx = createMockCtx();
+      grid.render(mockCtx, 1080, 2160);
+
+      expect(mockCtx.moveTo).toHaveBeenCalled();
+      expect(mockCtx.lineTo).toHaveBeenCalled();
+      expect(mockCtx.stroke).toHaveBeenCalled();
+    });
+
+    it('renderZoneConnections=false 설정 시 피트니스 존 연결선 렌더링이 비활성화된다', () => {
+      const grid = new DreamGrid();
+      const mockCtx = createMockCtx();
+      grid.render(mockCtx, 1080, 2160, { renderZoneConnections: false, hasCeiling: false });
+
+      const mockCtxWithLines = createMockCtx();
+      grid.render(mockCtxWithLines, 1080, 2160, { renderZoneConnections: true, hasCeiling: false });
+
+      expect(vi.mocked(mockCtxWithLines.moveTo).mock.calls.length).toBeGreaterThan(
+        vi.mocked(mockCtx.moveTo).mock.calls.length,
+      );
+    });
+
+    it('zoneConnectionAlpha를 통해 연결선 투명도를 조절할 수 있다', () => {
+      const grid = new DreamGrid();
+      const mockCtx = createMockCtx();
+      expect(() =>
+        grid.render(mockCtx, 1080, 2160, {
+          zoneConnectionAlpha: 0.25,
+          renderZoneConnections: true,
+        }),
+      ).not.toThrow();
+    });
+
+    it('커스텀 zones 목록을 전달하면 해당 존들로만 연결선이 드로잉된다', () => {
+      const grid = new DreamGrid();
+      const mockCtx = createMockCtx();
+      const customZones = [
+        { id: 4, label: '좌', x: 0.04, y: 0.24, width: 0.26, height: 0.16 },
+        { id: 5, label: '우', x: 0.70, y: 0.24, width: 0.26, height: 0.16 },
+      ];
+      grid.render(mockCtx, 1080, 2160, {
+        zones: customZones,
+        renderZoneConnections: true,
+        hasCeiling: false,
+      });
+
+      const mockCtxAll = createMockCtx();
+      grid.render(mockCtxAll, 1080, 2160, {
+        renderZoneConnections: true,
+        hasCeiling: false,
+      });
+
+      expect(vi.mocked(mockCtx.moveTo).mock.calls.length).toBeLessThan(
+        vi.mocked(mockCtxAll.moveTo).mock.calls.length,
+      );
+    });
+  });
 });

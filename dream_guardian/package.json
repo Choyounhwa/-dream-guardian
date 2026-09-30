@@ -1,7 +1,7 @@
 {
   "name": "dream-guardian",
-  "version": "0.1.0",
   "private": true,
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,9 +11,9 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "puppeteer": "^25.11.0",
-    "typescript": "^5.7.0",
-    "vite": "^6.0.0",
-    "vitest": "^3.0.0"
+    "@types/node": "^22.13.9",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.7"
   }
 }

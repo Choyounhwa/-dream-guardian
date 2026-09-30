@@ -6,4 +6,6 @@ export * from './FadeEffect.js';
 export * from './BurstEffect.js';
 export * from './RadialEffect.js';
 export * from './TrailEffect.js';
+export * from './StardustEffect.js';
+export * from './StardustManager.js';
 export * from './EffectManager.js';

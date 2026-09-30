@@ -112,14 +112,14 @@ describe('PostureGenerator & Constraints C1~C7 (Issue #125 - POSE-003)', () => {
       const postureA3: AnswerPosture = {
         choiceIndex: 0,
         parts: ['leftHand', 'hip'],
-        zoneIds: [4, 7], // LH in 4, Hip in 7
+        zoneIds: [4, 10], // LH in 4, Hip in 10
         binding: 'any',
         patternId: 'C2_A3',
       };
       const postureB3: AnswerPosture = {
         choiceIndex: 1,
-        parts: ['head', 'rightHand'], // 완전 상호 배타, Head in 5, RH in 7 (총 활성존 4, 7, 5 = 3개로 C1 준수)
-        zoneIds: [5, 7],
+        parts: ['head', 'rightHand'], // 완전 상호 배타, Head in 5, RH in 10 (총 활성존 4, 10, 5 = 3개로 C1 준수)
+        zoneIds: [5, 10],
         binding: 'any',
         patternId: 'C2_B3',
       };
@@ -153,19 +153,19 @@ describe('PostureGenerator & Constraints C1~C7 (Issue #125 - POSE-003)', () => {
       // 가상 존: 머리 존 y=0.8, 골반 존 y=0.5
       const mockZones = [
         { id: 4, label: '머리하단', x: 0.1, y: 0.8, width: 0.2, height: 0.1 },
-        { id: 7, label: '골반상단', x: 0.4, y: 0.5, width: 0.2, height: 0.1 },
+        { id: 10, label: '골반상단', x: 0.4, y: 0.5, width: 0.2, height: 0.1 },
       ];
       const postureA: AnswerPosture = {
         choiceIndex: 0,
         parts: ['head', 'hip'],
-        zoneIds: [4, 7],
+        zoneIds: [4, 10],
         binding: 'any',
         patternId: 'C4_A',
       };
       const postureB: AnswerPosture = {
         choiceIndex: 1,
         parts: ['rightHand'],
-        zoneIds: [7],
+        zoneIds: [10],
         binding: 'any',
         patternId: 'C4_B',
       };
@@ -269,11 +269,11 @@ describe('PostureGenerator & Constraints C1~C7 (Issue #125 - POSE-003)', () => {
       expect(res2.valid).toBe(false);
       expect(res2.violatedConstraint).toBe('C8');
 
-      // 3. 정상 통과 케이스 1: 골반 중하단(7) + 손 최상단(2) -> C8 통과
+      // 3. 정상 통과 케이스 1: 골반 중하단(6) + 손 최상단(2) -> C8 통과
       const postureValid1: AnswerPosture = {
         choiceIndex: 0,
         parts: ['leftHand', 'hip'],
-        zoneIds: [2, 7],
+        zoneIds: [2, 6],
         binding: 'any',
         patternId: 'C8_VALID_1',
       };

@@ -153,7 +153,7 @@ export function validateFitnessPattern(record: FitnessPatternRecord): Validation
     errors.push(`머리 존(${record.head})이 허용 구역(HEAD_ZONES: 4, 5)을 벗어납니다.`);
   }
   if (record.hip !== null && !HIP_ZONES.has(record.hip)) {
-    errors.push(`골반 존(${record.hip})이 허용 구역(HIP_ZONES: 6~11)을 벗어납니다.`);
+    errors.push(`골반 존(${record.hip})이 허용 구역(HIP_ZONES: 6, 8, 9, 10, 11)을 벗어납니다.`);
   }
 
   // 7. C8 Cross-Body 물리 연동 제약 검증 (골반 9~11 시 손 1~3 차단)

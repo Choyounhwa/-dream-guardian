@@ -210,3 +210,36 @@ describe('EffectManager - Object Pooling & Lifecycle', () => {
     expect(manager.getPoolSize('burst')).toBe(300);
   });
 });
+
+describe('SFXSynth 절차적 효과음 신디사이저 (Issue #136 / AUDIO-002)', () => {
+  it('SFXSynth 인스턴스가 Node/Web 환경에서 에러 없이 초기화되고 효과음이 재생된다', async () => {
+    const { SFXSynth } = await import('../../src/audio/SFXSynth.js');
+    const sfx = new SFXSynth();
+
+    expect(() => sfx.play('correct')).not.toThrow();
+    expect(() => sfx.play('wrong')).not.toThrow();
+    expect(() => sfx.play('posture_complete')).not.toThrow();
+    expect(() => sfx.play('step_beat')).not.toThrow();
+  });
+
+  it('체류 충전음(updateDwellCharge) 및 정지(stopDwellCharge)가 안전하게 동작한다', async () => {
+    const { SFXSynth } = await import('../../src/audio/SFXSynth.js');
+    const sfx = new SFXSynth();
+
+    expect(() => sfx.updateDwellCharge(0.3)).not.toThrow();
+    expect(() => sfx.updateDwellCharge(0.8)).not.toThrow();
+    expect(() => sfx.stopDwellCharge()).not.toThrow();
+  });
+
+  it('음소거(setMuted) 설정이 정상 토글된다', async () => {
+    const { SFXSynth } = await import('../../src/audio/SFXSynth.js');
+    const sfx = new SFXSynth();
+
+    sfx.setMuted(true);
+    expect(sfx.isMuted).toBe(true);
+    expect(() => sfx.play('correct')).not.toThrow();
+
+    sfx.setMuted(false);
+    expect(sfx.isMuted).toBe(false);
+  });
+});

@@ -36,3 +36,9 @@ Thumbs.db
 
 # Agent / Temp
 .gemini/
+
+# Local-only reference material / archives (not part of the build)
+참고이미지/
+OLD 파일들/
+docs/archive/
+docs/보류/

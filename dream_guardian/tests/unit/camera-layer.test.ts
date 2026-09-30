@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { CameraLayer } from '../../src/render/CameraLayer.js';
-import type { CameraStatus } from '../../src/render/CameraLayer.js';
 
 /**
  * CameraLayer 단위 테스트

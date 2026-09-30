@@ -69,16 +69,16 @@ export const DEFAULT_CURATED_PATTERNS: AnswerPosture[] = [
   { choiceIndex: 1, parts: ['head'], zoneIds: [5], binding: 'ordered', patternId: 'P08_HEAD_R' },
 
   // Tier 3 (전신 협응 2부위: {왼손, 골반} vs {오른손, 머리})
-  { choiceIndex: 0, parts: ['leftHand', 'hip'], zoneIds: [4, 7], binding: 'any', patternId: 'P09_L_SQUAT' },
-  { choiceIndex: 1, parts: ['rightHand', 'head'], zoneIds: [8, 5], binding: 'any', patternId: 'P10_R_HEAD' },
-  { choiceIndex: 0, parts: ['head', 'leftHand'], zoneIds: [4, 1], binding: 'any', patternId: 'P11_HEAD_LH' },
-  { choiceIndex: 1, parts: ['hip', 'rightHand'], zoneIds: [7, 8], binding: 'any', patternId: 'P12_HIP_RH' },
+  { choiceIndex: 0, parts: ['leftHand', 'hip'], zoneIds: [4, 10], binding: 'any', patternId: 'P09_L_SQUAT' },
+  { choiceIndex: 1, parts: ['rightHand', 'head'], zoneIds: [4, 5], binding: 'any', patternId: 'P10_R_HEAD' },
+  { choiceIndex: 0, parts: ['head', 'leftHand'], zoneIds: [5, 8], binding: 'any', patternId: 'P11_HEAD_LH' },
+  { choiceIndex: 1, parts: ['hip', 'rightHand'], zoneIds: [10, 8], binding: 'any', patternId: 'P12_HIP_RH' },
 
   // Tier 4 (보스 피니시 2부위: 완전 색상 비공유 조합)
-  { choiceIndex: 0, parts: ['leftHand', 'hip'], zoneIds: [2, 7], binding: 'any', patternId: 'P13_FINISH_L' },
-  { choiceIndex: 1, parts: ['rightHand', 'head'], zoneIds: [2, 5], binding: 'any', patternId: 'P14_FINISH_R' },
-  { choiceIndex: 0, parts: ['leftHand', 'head'], zoneIds: [1, 4], binding: 'any', patternId: 'P15_FINISH_ALT_L' },
-  { choiceIndex: 1, parts: ['rightHand', 'hip'], zoneIds: [3, 7], binding: 'any', patternId: 'P16_FINISH_ALT_R' },
+  { choiceIndex: 0, parts: ['leftHand', 'hip'], zoneIds: [4, 10], binding: 'any', patternId: 'P13_FINISH_L' },
+  { choiceIndex: 1, parts: ['rightHand', 'head'], zoneIds: [4, 5], binding: 'any', patternId: 'P14_FINISH_R' },
+  { choiceIndex: 0, parts: ['leftHand', 'head'], zoneIds: [8, 5], binding: 'any', patternId: 'P15_FINISH_ALT_L' },
+  { choiceIndex: 1, parts: ['rightHand', 'hip'], zoneIds: [8, 10], binding: 'any', patternId: 'P16_FINISH_ALT_R' },
 ];
 
 /**
@@ -158,7 +158,7 @@ export function validatePosturePair(
         return {
           valid: false,
           violatedConstraint: 'C5',
-          reason: `골반 커서는 하단 존(HIP_ZONES: 6~11)만 사용 가능하나 존 ${zId}가 할당되었습니다.`,
+          reason: `골반 커서는 하단 존(HIP_ZONES: 6, 8, 9, 10, 11)만 사용 가능하나 존 ${zId}가 할당되었습니다.`,
         };
       }
       if (p === 'leftHand' && !LEFT_HAND_ZONES.has(zId)) {
@@ -449,7 +449,7 @@ export class PostureGenerator {
       }
       if (tier === 2) {
         // Tier 2: 머리 포함 또는 양손
-        return parts.includes('head') || (parts.includes('leftHand') && parts.includes('rightHand'));
+        return (parts.length === 1 && (parts.includes('head') || parts.includes('leftHand') || parts.includes('rightHand'))) || (parts.includes('head') && parts.length === 2);
       }
       if (tier === 3) {
         // Tier 3: 골반 포함 또는 2~3부위 전신

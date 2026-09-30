@@ -22,8 +22,20 @@
       "description": "WBS 작업 분할 구조 및 단계별 마일스톤"
     },
     "questions": {
-      "path": "E:/AIAIAIAIAI/Arithmetic Game/questions.csv",
+      "path": "questions.csv",
       "description": "전체 수학 문제 원본 CSV 데이터 (685문항, Level 1~9)"
+    },
+    "story": {
+      "path": "docs/04_STORY_SOURCE.md",
+      "description": "Dream Guardian 세계관 및 스토리 전문 (몽계, 꼬마 수호신, 4대 보스, 대사)"
+    },
+    "handover": {
+      "path": "dream_guardian/HANDOVER.md",
+      "description": "Dream Guardian 세션 간 실시간 작업 상태 및 인수인계 문서"
+    },
+    "patterns": {
+      "path": "fitness pattern.csv",
+      "description": "피트니스 패턴 원본 데이터 (360건, Single/Double/Triple/Quad)"
     }
   },
   "permission": {

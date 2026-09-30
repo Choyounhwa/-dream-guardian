@@ -18,13 +18,18 @@ export interface MenuCursorResult {
   distance: number;
 }
 
-/** 합장 감지 최대 거리 임계값 (정규화) */
-const JOIN_DISTANCE_THRESHOLD = 0.12;
+/** 합장 감지 기본 거리 임계값 (18:9 Cover 뷰포트 확대율 고려: 0.22) */
+export const DEFAULT_JOIN_DISTANCE_THRESHOLD = 0.22;
 
 export class MenuInput {
   private _active = false;
   private _x = 0.5;
   private _y = 0.5;
+  private _joinDistanceThreshold = DEFAULT_JOIN_DISTANCE_THRESHOLD;
+
+  constructor(joinThreshold = DEFAULT_JOIN_DISTANCE_THRESHOLD) {
+    this._joinDistanceThreshold = joinThreshold;
+  }
 
   get isActive(): boolean { return this._active; }
   get cursorX(): number { return this._x; }
@@ -42,7 +47,7 @@ export class MenuInput {
     const dy = leftY - rightY;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    this._active = distance < JOIN_DISTANCE_THRESHOLD;
+    this._active = distance < this._joinDistanceThreshold;
 
     if (this._active) {
       this._x = (leftX + rightX) / 2;

@@ -44,6 +44,20 @@
 
 ## Ready
 
+### [P1-High] [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(Mecha Stickman) 실시간 모션 아바타 구현 (Issue #203)
+- GitHub URL: https://github.com/Choyounhwa/-dream-guardian/issues/203
+- 분야: Skeleton / Render / UI
+- 목적: 앙상한 스켈레톤(선과 점) 노출을 대체하여 화면 중앙 2/3 높이(y ≈ 0.60 ~ 0.85)에 도톰한 네온 캡슐과 관절 볼을 가진 세련된 메카 졸라맨(Mecha Stickman) 아바타를 배치하고, 인체 비율 고정 순운동학(Fixed-Length FK)을 통해 유저의 자세를 왜곡 없이 부드럽게 미러링한다.
+- 수정 대상: `dream_guardian/config/skeleton.config.ts`, `dream_guardian/src/skeleton/StickmanRenderer.ts`, `dream_guardian/src/skeleton/index.ts`, `dream_guardian/src/main.ts`, `dream_guardian/src/ui/SettingsModal.ts`, `dream_guardian/tests/unit/stickman-renderer.test.ts`
+- 완료 조건:
+  - [ ] `config/skeleton.config.ts`에 메카 졸라맨 크기/비율/색상 정의 완료
+  - [ ] `StickmanRenderer`가 인체 고정 비례와 회전 각도를 계산하여 둥근 캡슐 및 바이저를 정상 렌더링함
+  - [ ] 신체 부위 왜곡(팔다리 늘어남/줄어듦) 없이 부드러운 자세 미러링 동작
+  - [ ] 화면 중앙 2/3 높이에 안정적으로 배치되어 UI 및 피트니스 존과 자연스럽게 조화됨
+  - [ ] `npm test` 단위 테스트 100% Pass 및 빌드 무결성 확인
+- 확인 환경: PC Chrome | iPhone Safari | 로컬 개발 서버 (`http://localhost:3000/`)
+- 관련 파일: `dream_guardian/src/skeleton/StickmanRenderer.ts`, `dream_guardian/src/main.ts`, `dream_guardian/tests/unit/stickman-renderer.test.ts`
+
 ### [P1-High] [RUN-LOOP-001] 제자리 달리기 페이즈 인게임 루프 연동 및 드림 그리드 동적 반응 구현 (Issue #112)
 - GitHub URL: https://github.com/Choyounhwa/-dream-guardian/issues/112
 - 분야: Motion / Game Loop / Render

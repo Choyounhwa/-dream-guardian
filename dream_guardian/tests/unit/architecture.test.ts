@@ -17,14 +17,14 @@ import {
 import type { GameState } from '../../src/types/index.js';
 
 describe('Architecture Test', () => {
-  it('GameState 타입이 13개 상태를 포함한다', () => {
+  it('GameState 타입이 14개 canonical 상태를 포함한다 (Issue #214 / REFACTOR-FSM-001)', () => {
     const states: GameState[] = [
       'LOADING', 'MENU_MAIN', 'MENU_SUB', 'STORY_INTRO',
-      'READY_POSITION', 'RUNNING', 'PLAYING', 'CORRECT',
-      'WRONG', 'GUARDIAN_CAST', 'RESULT', 'GAMEOVER',
-      'ENDING_CUTSCENE',
+      'READY_POSITION', 'RUN_QUESTION', 'ANSWER_SELECT', 'STAR_COLLECT',
+      'HAZARD_EVADE', 'ROUND_RESOLVE', 'BOSS_CLIMAX', 'RESULT',
+      'GAMEOVER', 'ENDING_CUTSCENE',
     ];
-    expect(states).toHaveLength(13);
+    expect(states).toHaveLength(14);
   });
 
   it('DEFAULT_CONFIG 전투 밸런스가 GDD와 일치한다', () => {
