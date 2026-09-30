@@ -16,8 +16,8 @@
 | **6. 문제 표시** | **#212** *(완료)* → **#234** *(완료)* | 문제 원근 접근 연출 및 긴 수식 너비·높이 수용 | `[✔] 완료` |
 | **7. 시청각 연결** | **#192** *(완료)* → **#228** *(완료)* → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | `[✔] 완료` |
 | **8. 정산·자원** | **#240** *(완료)* → **#242** *(완료)* | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[✔] 완료` |
-| **9. Phase B 진입** | **#241** | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | **`[▶ NEXT: #241]`** |
-| **10. Phase B 실행** | **#213** → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | `[ ] 대기` |
+| **9. Phase B 진입** | **#241** *(완료)* | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[✔] 완료` |
+| **10. Phase B 실행** | **#213** → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | **`[▶ NEXT: #213]`** |
 | **11. 판정 유연화** | **#249** → **#250** → **#251** → **#252** → **#253** → **#254** → **#255** | 팔 뻗기·존·타이밍 판정의 유저 행동 수용성 확대 | `[ ] 대기` |
 | **12. 최종 검증** | **#186** | 실제 10문제 → Phase B → 승리/패배 → 메뉴 완주 | `[ ] 대기` |
 
@@ -36,8 +36,35 @@
 > ⚠️ **#252는 구조 변경 위험 최상**: MotionIntentBus는 반드시 #249~#251 완료 후 진행하며, 버스 미주입 시 기존 직접 판정 경로로 100% 폴백되어야 한다.
 > 판정 수치는 전부 신규 `config/judgment.config.ts`로 분리하여 코드 수정 없이 튜닝 가능해야 한다 (개발 규칙 6절).
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#241 [GAME-STAGE-HANDOFF-001] Phase A 완료 후 Phase B 단 1회 인계 및 출제 차단`**  
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#213 [GAME-CLIMAX-FLOW-001] Phase B 결전 화면 전환 및 피버 모드 루프 연동`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-10-01 완료: [GAME-STAGE-HANDOFF-001 / #241] 10번째 라운드 정산 후 Phase B 진입 및 자원 단일 인계
+
+> #241 구현 및 단위/통합 검증 완료. QuestionBank 무한 출제 및 라운드 완료 후 무조건 다음 문제 예약으로 인해 Phase A 종료와 Phase B 진입이 연결되지 않던 결함을 해결했다. `StageProgressController`를 신설하여 Phase A 목표 10문제를 설정화(`DEFAULT_CONFIG.battle.phaseAQuestionCount`)하고, 정산 완료 이벤트(`handleRoundSettled`)를 기반으로 1~9번째 라운드는 다음 문제(`RUN_QUESTION`)를 정상 예약하고, 10번째 라운드 정산 완료 시점에 상태 머신을 `BOSS_CLIMAX`(Phase B)로 단 1회 전이하며 동결된 `PhaseAResourceSnapshot`을 단일 인계하도록 구축했다. 10번째 라운드에서 오답/타임아웃/장판 피격 누적으로 플레이어 HP가 0 이하가 된 경우 `GAMEOVER` 처리가 최우선하여 Phase B 인계 횟수 0회를 엄격히 보장했다. 11번째 문제 스케줄링은 0회로 원천 차단되었으며, Phase B 진입 시 플레이어 누적 자원(미니언 군단, 별가루, 체력, 마나, 콤보 등)이 일체 리셋되지 않음을 증명했다. 중복 정산 콜백, 프레임 지연, 메뉴 복귀 시 `SessionLifecycle` 연동을 통해 중복 인계 및 고아 비동기 실행을 원천 차단했다. `src/main.ts`의 `handleAnswer`, `startChapter`, `goToMenu` 및 상태 머신 `BOSS_CLIMAX` 생명주기에 실연결했다.
+
+### 주요 구현 및 변경 사항
+- **스테이지 진행 컨트롤러 (`src/game/StageProgressController.ts`, `src/game/index.ts`)**:
+  - `StageProgressController`: `maxRounds` (기본 10), `settledRoundCount`, `isPhaseAComplete`, `hasEnteredBossClimax`, `handoffCount`, `phaseBSnapshot`, `scheduledNextRoundCount` 관리.
+  - `handleRoundSettled(resolveResult, options)`:
+    - 동일 라운드 중복 호출 및 완료 후 재호출 멱등성 가드 (`ALREADY_SETTLED_ROUND`, `ALREADY_HANDED_OFF`).
+    - 플레이어 HP <= 0 시 GAMEOVER 우선 처리 및 Phase B 인계 0회 보장.
+    - 1~9번째 라운드: `NEXT_ROUND` 판정 및 `onAdvanceToNextRound` 통지.
+    - 10번째 라운드: `BOSS_CLIMAX` 판정, `stateMachine.changeState('BOSS_CLIMAX')`, `registerPhaseBReceiver` 및 `onEnterBossClimax`로 불변 스냅샷 단 1회 전달.
+    - 11번째 문제 스케줄링 차단 (정확히 0회).
+  - `reset()`: 정산 카운트, 인계 상태, 지연 타이머 초기화.
+- **메인 루프 및 상태 머신 실연결 (`src/main.ts`)**:
+  - `type GamePhase = ... | 'boss_climax'`: `BOSS_CLIMAX` 상태 전이 시 `gamePhase = 'boss_climax'` 동기화.
+  - `stateMachine.registerState('BOSS_CLIMAX', ...)`: 문제/답안 오버레이 숨김, 입력 잠금, 회피 장판 중지 등 정리 1회 보장.
+  - `stageProgressController` 인스턴스화: `beatRoundResolver`, `sessionLifecycle`, `stateMachine` 연동.
+  - `handleAnswer`: 10번째 라운드 정산 완료 후 Phase B 전환 및 11번째 출제 차단.
+  - `startChapter`, `goToMenu`: `stageProgressController.reset()` 연동.
+- **TDD 검증 결과**:
+  - `tests/unit/stage-progress-controller.test.ts` (8 tests Pass): 초기 0 라운드, 1~9 라운드 진행, 10번째 라운드 BOSS_CLIMAX 단 1회 인계, HP 0 게임오버 우선/인계 0회, 중복 멱등 차단, SessionLifecycle 취소 연동, reset() 초기화 100% Pass.
+  - `tests/integration/stage-handoff.test.ts` (4 tests Pass): 10연속 정답 경로(미니언 13, 별가루 40, 비치명 보스 HP 1 보존, 자원 리셋 0건, 11번째 출제 0), 혼합 10문제(정답 5/오답 3/타임아웃 2), 10번째 장판 피격 HP 0 게임오버 우선, 메뉴 복귀 시 비동기 인계 취소 100% Pass.
+  - `npm run build` 번들 빌드 100% 성공 & `npm test` 전체 93개 파일 1100개 테스트 100% Pass (회귀 결함 0건).
 
 ---
 

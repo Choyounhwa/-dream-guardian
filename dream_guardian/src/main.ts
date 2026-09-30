@@ -26,6 +26,7 @@ import {
   BeatRoundResolver,
   PhaseAHazardController,
   StarNoteScheduler,
+  StageProgressController,
 } from './game/index.js';
 import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
@@ -259,7 +260,7 @@ starNoteScheduler.onRating((starResult) => {
 // ─── 상태 머신 및 게임 상태 (Issue #214 / REFACTOR-FSM-001) ───
 type ScreenMode = 'menu' | 'game' | 'result';
 type MenuMode = 'main' | 'sub';
-type GamePhase = 'running' | 'question' | 'answer_select' | 'star_collect' | 'hazard_evade';
+type GamePhase = 'running' | 'question' | 'answer_select' | 'star_collect' | 'hazard_evade' | 'boss_climax';
 
 const stateMachine = new StateMachine('MENU_MAIN');
 let screenMode: ScreenMode = 'menu';
@@ -308,6 +309,8 @@ stateMachine.onTransition((from, to) => {
       gamePhase = 'star_collect';
     } else if (to === 'HAZARD_EVADE') {
       gamePhase = 'hazard_evade';
+    } else if (to === 'BOSS_CLIMAX') {
+      gamePhase = 'boss_climax';
     }
   }
 });
@@ -371,6 +374,19 @@ stateMachine.registerState('ROUND_RESOLVE', {
   },
   exit: () => {
     feedbackTimer = 0;
+  },
+});
+
+stateMachine.registerState('BOSS_CLIMAX', {
+  enter: () => {
+    questionVisible = false;
+    answerLocked = true;
+    feedbackTimer = 0;
+    armReachAnswerSelector.closeWindow();
+    phaseAHazardController.stop();
+    console.log('[DG] BOSS_CLIMAX 진입 (Phase B 결전 대기)');
+  },
+  exit: () => {
   },
 });
 
@@ -608,6 +624,28 @@ function startRunningPhase(): void {
   console.log(`[DG] 8박 문제 라운드 시작: ${currentQuestion?.questionText}`);
 }
 
+const stageProgressController = new StageProgressController({
+  maxRounds: DEFAULT_CONFIG.battle.phaseAQuestionCount ?? 10,
+  stateMachine,
+  sessionLifecycle,
+  resourceProvider: beatRoundResolver,
+  advanceDelayMs: 800,
+  onAdvanceToNextRound: (nextRound) => {
+    beatRoundResolver.startNewRound(nextRound);
+    startRunningPhase();
+  },
+  onEnterBossClimax: (snapshot) => {
+    console.log('[DG] Phase B (BOSS_CLIMAX) 진입 완료! 단일 자원 인계:', snapshot);
+  },
+  onGameOver: () => {
+    if (sessionLifecycle.claimResultTransition()) {
+      sessionLifecycle.schedule(() => {
+        showResult(false);
+      }, 600);
+    }
+  },
+});
+
 function startChapter(ch: number, subLevel?: number): void {
   if (ch < 1 || ch > 5) return;
   console.log(`[DG] Ch.${ch} SubLevel ${subLevel ?? 'ALL'} 시작`);
@@ -619,6 +657,7 @@ function startChapter(ch: number, subLevel?: number): void {
   boss.reset(ch);
   guardian.reset();
   beatRoundResolver.reset();
+  stageProgressController.reset();
   starCollectionInput.reset();
   starNoteScheduler.reset();
   hudLayer.reset();
@@ -679,6 +718,7 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
     console.log(`[DG] 오답 정산 완료! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
 
     if (resolveResult.playerDefeated) {
+      stageProgressController.handleRoundSettled(resolveResult, { immediate: true });
       if (sessionLifecycle.claimResultTransition()) {
         sessionLifecycle.schedule(() => {
           showResult(false);
@@ -688,17 +728,8 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
     }
   }
 
-  // Phase A 10문제 완료 판정 (Issue #240: 10문제 정산 완료 후 종료, 11번째 문제 미출제)
-  if (beatRoundResolver.isPhaseAComplete) {
-    console.log(`[DG] Phase A 10문제 라운드 정산 완료! (보스 처치는 Phase B 전용)`);
-    // #241 단계에서 StageProgressController 및 Phase B(BOSS_CLIMAX) 전환 연동 예정
-    return;
-  }
-
-  sessionLifecycle.schedule(() => {
-    beatRoundResolver.startNewRound(battle.totalQuestions + 1);
-    startRunningPhase();
-  }, 800);
+  // Phase A 라운드 진행 및 10번째 라운드 후 Phase B 단일 인계 (Issue #241)
+  stageProgressController.handleRoundSettled(resolveResult);
 }
 
 function showResult(victory: boolean): void {
@@ -734,6 +765,7 @@ function showResult(victory: boolean): void {
 
 function goToMenu(): void {
   sessionLifecycle.endSession();
+  stageProgressController.reset();
   sfx.stopDwellCharge();
   pauseModal.close();
   engine.resumeGame();

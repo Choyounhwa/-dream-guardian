@@ -18,6 +18,13 @@ export type {
   ScheduledStarNote,
   StarNoteSchedulerOptions,
 } from './StarNoteScheduler.js';
+export { StageProgressController } from './StageProgressController.js';
+export type {
+  StageProgressControllerOptions,
+  StageResourceProvider,
+  HandleRoundSettledOptions,
+  StageProgressDecision,
+} from './StageProgressController.js';
 export type {
   RoundAnswerStatus,
   BeatRhythmStats,
