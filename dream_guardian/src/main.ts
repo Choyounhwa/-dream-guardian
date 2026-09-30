@@ -35,8 +35,6 @@ import {
   BossRenderer,
   DreamGrid,
   AnswerSelectionRenderer,
-  MagicCircleRenderer,
-  PostureGuideRenderer,
   KneeFramingGuideRenderer,
   BeatHUDRenderer,
   QuestionRenderer,
@@ -159,8 +157,6 @@ armReachAnswerSelector.setViewport(
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
 const answerSelectionRenderer = new AnswerSelectionRenderer();
-const magicCircleRenderer = new MagicCircleRenderer();
-const postureGuideRenderer = new PostureGuideRenderer(); // Issue #173: renderZoneBoxes 기본 false (가상 영역화)
 const menuInput = new MenuInput();
 const sfx = new SFXSynth();
 const bandSynth = new BandSynthesizer();
@@ -343,10 +339,6 @@ function enterQuestionPhase(): void {
   stateMachine.changeState('ANSWER_SELECT');
   questionVisible = true;
   answerLocked = false;
-  answerSelector.startQuestion(battle.totalQuestions + 1);
-  if (answerSelector.isFirstQuestion) {
-    postureGuideRenderer.startFirstQuestionHint(5.0);
-  }
 }
 
 const beatCoordinator = new BeatRunCoordinator({
@@ -486,7 +478,6 @@ async function loadFitnessPatterns(): Promise<void> {
     if (resp.ok) {
       const text = await resp.text();
       const records = parseFitnessPatternCSV(text);
-      answerSelector.recipeGenerator.postureGenerator.setPatterns(records);
       const keynotes = createKeynoteSequence(records, 7);
       beatCoordinator.setKeynotes(keynotes);
       console.log(`[DG] ${records.length}개 피트니스 패턴 로드 완료 및 ${keynotes.length}개 2~8박 키노트 생성 완료`);
@@ -692,8 +683,6 @@ const engine = new GameEngine({
   update(dt: number): void {
     // Issue #140: 전 장면(메뉴·달리기·문제·결과) 커서 펄스 타이머 상시 갱신
     answerSelectionRenderer.update(dt);
-    magicCircleRenderer.update(dt);
-    postureGuideRenderer.update(dt);
     tutorial.update(dt);
 
     // 웹캠 비디오 프레임 추출 및 스켈레톤 보간 파이프라인
@@ -1194,7 +1183,6 @@ const engine = new GameEngine({
           question: currentQuestion,
           questionVisible,
           selectedChoiceIndex: beatCoordinator.selectedChoiceIndex,
-          answerPlan: answerSelector.currentPlan,
         });
       } else if (presentationAdapter.canRenderHazardEvade(stateMachine.currentState)) {
         presentationAdapter.renderHazardEvade(ctx, vw, vh, {
@@ -1262,28 +1250,9 @@ const engine = new GameEngine({
       kneeFramingGuideRenderer.render(ctx, vw, vh, currentKneeFraming);
     }
 
-    // 7.8 Issue #159 & #160, #210, #226, #232: 목표 자세 실루엣 가이드 오버레이 및 첫 문제 유도 화살표
-    const isQuestionPhase = screenMode === 'game' && presentationAdapter.canRenderPostureGuide(stateMachine.currentState) && questionVisible;
-    const currentChoiceProgress: [number, number] = [0, 0];
-
-    if (isQuestionPhase && answerSelector.currentPlan) {
-      postureGuideRenderer.renderFromPlan(
-        ctx,
-        vw,
-        vh,
-        answerSelector.currentPlan,
-        currentChoiceProgress,
-        null,
-        answerSelector.cursorTracker.cursors,
-        answerSelector.isFirstQuestion,
-      );
-    }
-
-    // 8. Issue #140 & #141: 전 장면(메뉴·달리기·문제·결과) 4색 스켈레톤 커서 상시 지속 렌더링
-    // (하단 바 및 모달 위에 상시 렌더링되어 호버/클릭 지원)
+    // 8. Issue #140, #141, #233: 전 장면(메뉴·달리기·문제·결과) 4색 스켈레톤 커서 상시 지속 렌더링
+    // (구형 피트니스 존 및 마법진 렌더링을 완전히 분리하고, 커서 전용 렌더링 수행)
     if (answerSelector.cursorTracker.cursors.size > 0) {
-      const activeZones = isQuestionPhase && answerSelector.currentPlan ? answerSelector.currentPlan.activeZones : [];
-
       // Issue #169: 합장 시 개별 손 커서(시안/노랑)를 숨기고 단일 금빛 합장 링으로 대체
       const renderCursors = new Map(answerSelector.cursorTracker.cursors.entries());
       if (menuInput.isActive) {
@@ -1295,9 +1264,9 @@ const engine = new GameEngine({
         ctx,
         vw,
         vh,
-        activeZones,
+        [],
         renderCursors,
-        currentChoiceProgress,
+        [0, 0],
       );
     }
 
@@ -1668,28 +1637,6 @@ async function bootstrap(): Promise<void> {
   canvasManager.resize();
   console.log(`[DG] Canvas: ${canvas.width}x${canvas.height}`);
   await Promise.all([loadQuestions(), loadFitnessPatterns()]);
-
-  // Issue #143: 3중 마법진 이미지 에셋 로드 및 AnswerSelectionRenderer 연결
-  const magicCirclePaths = ['img/E_Pit_act1.png', 'img/E_Pit_act2.png', 'img/E_Pit_act3.png'];
-  const magicImages = magicCirclePaths.map((src) => {
-    const img = new Image();
-    img.src = src;
-    return img;
-  });
-  Promise.all(magicImages.map((img) => new Promise<void>((resolve) => {
-    if (img.complete) { resolve(); return; }
-    img.onload = () => resolve();
-    img.onerror = () => { console.warn(`[DG] 마법진 이미지 로드 실패: ${img.src}`); resolve(); };
-  }))).then(() => {
-    const loaded = magicImages.filter((img) => img.complete && img.naturalWidth > 0);
-    if (loaded.length >= 3) {
-      magicCircleRenderer.setImages(loaded);
-      answerSelectionRenderer.setMagicCircle(magicCircleRenderer);
-      console.log('[DG] 마법진 이미지 3종 로드 완료');
-    } else {
-      console.warn(`[DG] 마법진 이미지 ${loaded.length}/3 로드 (일부 누락 - 마법진 비활성)`);
-    }
-  });
 
   engine.start();
   // 첫 메뉴 화면부터 웹캠 피드 및 포즈 추적 즉시 시작

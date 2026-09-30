@@ -2,6 +2,64 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 2026-09-30 완료: [AUDIT-HARDCODED-RESOURCES-001] 프로젝트 리소스 및 데이터 하드코딩 전수 감사 완료
+
+> 개발 규칙 제6절(데이터와 코드 분리) 및 제12절(UI 로직 분리)에 입각하여 클라이언트 전체(`src/`, `config/`, `public/`, `img/`)의 하드코딩 현황을 전수 조사하고, 정식 감사 보고서(`docs/07_HARDCODED_RESOURCE_AUDIT.md`)를 작성 및 동기화했다.
+
+### 주요 감사 결과 요약
+1. **UI 텍스트 및 i18n 레이어 부재 (High)**:
+   - `src/ui/MenuRenderer.ts`, `HUDLayer.ts`, `PauseModal.ts`, `LocomotionModal.ts`, `TutorialOverlay.ts`, `ResultRenderer.ts`, `BottomBar.ts`, `GestureFeedbackOverlay.ts` 전체에서 Canvas 드로잉 코드 내 한국어 문자열 하드코딩.
+   - `BossRenderer.ts` Line 373: Ch.4 보스 대사(`'포기해...'`) 하드코딩.
+2. **보스/챕터 메타데이터 중복 및 불일치 (Medium)**:
+   - `src/data/bossData.ts`의 `BOSS_REGISTRY`와 `src/ui/MenuRenderer.ts`의 `CHAPTER_INFO`가 동일한 챕터별 보스/테마 정보를 이중 관리 (SSOT 위배).
+   - `src/render/BossRenderer.ts` 내부 메서드 및 주석에 구버전 기획 명칭(`_renderForget`, `_renderHurry` 등) 잔존.
+3. **정적 이미지 에셋 경로 및 미참조(Dead) 에셋 (Medium)**:
+   - `src/main.ts` Line 1660: `magicCirclePaths` 배열 내 인라인 파일 경로 하드코딩.
+   - `dream_guardian/img/stardust/` 디렉터리에 11종의 고품질 PNG/SVG 에셋이 존재하나 코드에서 전혀 참조하지 않고, `StardustIconRenderer.ts`에서 Canvas 2D 벡터 패스로 실시간 프로시저럴 드로잉하여 중복 및 파일 방치.
+   - `guardian.png`, `protagonist.png`, `Ref_Grid2.jpg` 등 미사용 이미지 잔존.
+4. **오디오/악기 합성 데이터 하드코딩 (Medium)**:
+   - `BandSynthesizer.ts`: Zone별 일렉 기타 주파수(`GUITAR_ZONE_FREQUENCIES: 164.81Hz~293.66Hz`), 왜곡 커브 계수(`amount: 28`)가 클래스 코드에 고정. Ch.2~5 악기 데이터 미구현.
+   - `SFXSynth.ts`: 체류음(220Hz~880Hz), C5/E5/G5 화음, 볼륨 감쇠 계수가 인라인 수치로 존재.
+5. **안무/패턴 데이터 이원화 (Medium)**:
+   - `public/fitness pattern.csv`(360건 원본) 외에 `src/data/danceRoutineData.ts`에 764줄 분량의 기본/확장 안무 데이터가 TS 객체 리터럴로 하드코딩.
+6. **수학 문제 Fallback 데이터 (Low)**:
+   - `src/question/QuestionBank.ts`: `FALLBACK_QUESTIONS` 2문항이 클래스 내부 배열로 고정.
+7. **비주얼 연출 파라미터 미분리 (Low)**:
+   - `src/render/MagicCircleRenderer.ts`: 회전 속도 및 스케일 펄스 설정(`MAGIC_CIRCLE_CONFIG`)이 `config/` 외부에 위치.
+
+### 연계 후속 작업 카드 제안
+- **[CARD-DATA-001]**: UI 텍스트 딕셔너리 분리 (`config/ui-text.config.ts`)
+- **[CARD-DATA-002]**: 챕터 및 보스 메타데이터 SSOT 일원화 (`MenuRenderer` → `bossData.ts`)
+- **[CARD-RES-001]**: AssetManifest 구축 및 미참조(Dead) 에셋 정리
+- **[CARD-AUDIO-001]**: 악기 주파수 및 SFX 합성 파라미터 분리 (`config/audio.config.ts`)
+- **[CARD-DANCE-001]**: 안무 루틴 외부 데이터화 (JSON/CSV 로더 전환)
+
+*상세 감사 내역 및 파일별 라인 번호는 `docs/07_HARDCODED_RESOURCE_AUDIT.md` 참조.*
+
+---
+
+## 2026-09-30 완료: [CLEANUP-ANSWER-VIEW-001 / #233] 팔 Zone4/5 답 선택 화면의 구형 레시피·E_Pit·자세 가이드 제거
+
+> #233 구현 및 단위/통합 검증 완료. 팔 전용 Zone 4/5 2버튼 답 선택 화면에서 구형 레시피 색상 분할 및 요구부위 아이콘(`PartIconRenderer`), E_Pit 3중 마법진 에셋 로딩(`img/E_Pit_act1~3.png`), 목표 자세 실루엣 가이드 오버레이(`PostureGuideRenderer`) 및 첫 문제 화살표 힌트 호출을 프로덕션 경로에서 완전히 정리했다. 답안 버튼은 모던 반투명 네온 배경(`rgba(16, 24, 48, 0.88)`)과 좌/우 고유 네온 테두리(Zone 4 시안 / Zone 5 노랑), 선택 즉시 녹색 하이라이트(`#4DFFAA`) 및 수직 중앙 수식 정렬로 단정하게 개편되었으며, 터치 및 키보드(1, 2) fallback 입력과 별 수집 커서/레일, 메뉴 합장 입력과의 회귀 결함 0건을 확인했다.
+
+### 주요 구현 및 변경 사항
+- **`QuestionRenderer` 구형 레시피 및 요구부위 아이콘 제거 (`src/render/QuestionRenderer.ts`)**:
+  - `PartIconRenderer.drawRadialAnswerButton` 및 `drawRequirementGroup` 호출 제거.
+  - `answerPlan` 의존성을 제거하고 모던 2버튼 네온 스타일로 전환(Zone 4 시안 / Zone 5 노랑).
+  - 답 선택 즉시 하이라이트 테두리(`#4DFFAA`) 점등 및 수직 중앙 정렬 수식 렌더링 유지.
+- **`src/main.ts` 프로덕션 렌더링 및 에셋 로딩 정리**:
+  - 프로덕션 답안 경로에서 `PostureGuideRenderer` 인스턴스화, `startFirstQuestionHint`, `update`, `renderFromPlan` 호출 완전 제거.
+  - `E_Pit_act1~3.png` 마법진 이미지 로딩 파이프라인 및 `MagicCircleRenderer` 주입 제거.
+  - `AnswerSelectionRenderer` 호출 시 `activeZones`를 빈 배열(`[]`)로 전달하여 상시 4색 커서(손/머리/골반) 렌더링만 유지하고 구형 마법진 호출 원천 차단.
+  - `loadFitnessPatterns` 내 불필요한 `answerSelector.recipeGenerator.postureGenerator.setPatterns` 호출 정리.
+- **TDD 검증 결과**:
+  - `tests/integration/cleanup-answer-view.test.ts` (7 tests Pass): ANSWER_SELECT 구형 아이콘/방사형 버튼 호출 0, answerPlan 없이도 답안 버튼 및 텍스트 정상 렌더, 선택 하이라이트 유지, E_Pit 마법진 호출 0, 좌/우 버튼 레이아웃 및 1/2·터치 fallback 정상 동작, 메뉴 합장 입력 회귀 0.
+  - `npm run build` 번들 검증 100% 성공 & `npm test` 전체 78개 파일 940개 테스트 100% Pass (회귀 결함 0건).
+
+**다음 작업 대상: #234 [BUG-MATH-FIT-001] 긴 자연어·복합 수식의 화면 너비·높이 초과 수정.**
+
+---
+
 ## 2026-09-30 완료: [BUG-PHASE-PRESENTATION-001 / #232] 답 선택 즉시 피드백 및 별모으기·회피 화면의 페이즈별 연결 복구
 
 > #232 구현 및 단위/통합 검증 완료. `GameState` 기반 상태별 렌더 허용표(Render Allow Matrix)를 제공하는 `PhasePresentationAdapter`를 신설하여 `RUN_QUESTION`, `ANSWER_SELECT`, `STAR_COLLECT`, `HAZARD_EVADE`, `ROUND_RESOLVE` 간의 렌더링 충돌을 완전히 해소했다. 정답 시 별모으기 노트를 활성화하고 답안 렌더를 비활성화하며, 오답 및 타임아웃 시 3D 바닥 장판과 안내 텍스트로 구성된 회피 표시 경로를 연결했다. 또한 답안 선택 시점의 즉시 시각 피드백(버튼 폭발 이펙트, 보스 피격 애니메이션, 타이머 세팅)과 입력 잠금(`answerLocked`)을 1회 처리하고, 7박 후 지연 정산(`onAnswerConfirmed`)과 분리하여 중복 이펙트를 방지했다. `questionVisible = false` 상태에서도 정산 및 다음 라운드 예약 전이가 정상 동작함을 검증했다.

@@ -8,7 +8,6 @@
 
 import type { GeneratedQuestion } from '../question/QuestionEvaluator.js';
 import { renderMath } from './MathRenderer.js';
-import { PartIconRenderer } from './PartIconRenderer.js';
 import { getAnswerButtonLayouts } from '../../config/zone.config.js';
 import type { QuestionRecipePlan } from '../input/RecipeGenerator.js';
 
@@ -81,9 +80,8 @@ export class QuestionRenderer {
     // 2. 문제 수식 텍스트 (Issue #167: 1.5배 대형화 132px 및 maxWidth 자동 줄바꿈)
     renderQuestionHeaderMath(ctx, state.question.questionText, cx, qY, scaleX, false);
 
-    // 3. 답안 버튼 2개 횡배치 (Issue #164: 4, 5번 피트니스 존 하단 수직/X축 중심 정렬)
+    // 3. 답안 버튼 2개 횡배치 (Issue #164 & #233: Zone 4/5 깔끔한 2버튼 레이아웃)
     const buttonLayouts = getAnswerButtonLayouts(w, h);
-    const plan = state.answerPlan;
 
     for (let i = 0; i < 2; i++) {
       const btn = buttonLayouts[i];
@@ -91,12 +89,25 @@ export class QuestionRenderer {
       const btnY = btn.y;
       const btnW = btn.width;
       const btnH = btn.height;
-      const recipe = plan?.choices[i];
 
-      // Issue #148 & #163: 방사형 색상 분할 버튼 렌더링 (외곽선 두께 8px로 2배 상향)
-      PartIconRenderer.drawRadialAnswerButton(ctx, recipe, bx, btnY, btnW, btnH, 20 * scaleX, 8 * scaleX);
+      // Issue #233: 구형 방사형 레시피 색상 분할 제거 -> 모던 반투명 네온 버튼 배경
+      ctx.save();
+      ctx.fillStyle = 'rgba(16, 24, 48, 0.88)';
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(bx, btnY, btnW, btnH, 20 * scaleX);
+      } else {
+        ctx.rect(bx, btnY, btnW, btnH);
+      }
+      ctx.fill();
 
-      // Issue #200: 답안 선택 즉시 선택 하이라이트 테두리 점등
+      // 기본 네온 테두리 (좌측 Zone 4: 시안 #28E6FF, 우측 Zone 5: 노랑 #FFCB4D)
+      ctx.strokeStyle = i === 0 ? 'rgba(40, 230, 255, 0.7)' : 'rgba(255, 203, 77, 0.7)';
+      ctx.lineWidth = 6 * scaleX;
+      ctx.stroke();
+      ctx.restore();
+
+      // Issue #200 & #233: 답안 선택 즉시 녹색 선택 하이라이트 테두리 점등
       if (state.selectedChoiceIndex === i) {
         ctx.save();
         ctx.strokeStyle = '#4DFFAA';
@@ -113,24 +124,18 @@ export class QuestionRenderer {
         ctx.restore();
       }
 
-      // 수식 폰트: bold 96px (긴 수식은 최소 60px까지 자동 축소)
+      // 수식 폰트: bold 96px (긴 수식은 최소 60px까지 자동 축소, 버튼 수직 중앙 정렬)
       const choiceStr = String(state.question.choices[i]);
       const choiceLen = choiceStr.length;
       const choiceFontSize = choiceLen > 6 ? Math.max(60 * scaleX, (96 - (choiceLen - 6) * 6) * scaleX) : 96 * scaleX;
 
-      renderMath(ctx, choiceStr, bx + btnW / 2, btnY + btnH / 2 - 20 * scaleY, {
+      renderMath(ctx, choiceStr, bx + btnW / 2, btnY + btnH / 2, {
         fontSize: choiceFontSize,
         color: '#FFCB4D',
         align: 'center',
         fractionLineColor: '#FFCB4D',
         placeholderColor: '#FFCB4D',
       });
-
-      // 요구 부위 아이콘 렌더링
-      if (recipe) {
-        const iconSize = 28 * scaleX;
-        PartIconRenderer.drawRequirementGroup(ctx, recipe, bx + btnW / 2, btnY + btnH - 36 * scaleY, iconSize);
-      }
 
       // 키보드 힌트
       ctx.font = `bold ${Math.round(22 * scaleX)}px sans-serif`;
