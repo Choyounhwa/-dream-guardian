@@ -1,5 +1,47 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-09-30 확정: [SPEC-ROUTINE-VERIFY-001 / #229] Phase A 10문제 → Phase B 계약
+
+**확정:** 정답/오답/타임아웃 합계10문제의 최종판정·정산 후 Phase A 종료. 보스 처치/승리는 Phase B 전용. HP0이면 게임오버 우선,11번째 출제 금지.
+
+아래 과거 본문의 완료/대기 표시는 당시 이력이다. 현행 규범은 `docs/01_GAME_DESIGN_DOCUMENT.md`의 #229 계약과 `dream_guardian/HANDOVER.md` 최신 작업 순서를 우선한다. #229는 문서 계약 완료이며 기능 구현 완료가 아니다.
+
+### #229 결정 기록
+
+- 시간: RUN은 실제 0.5초 슬롯 8개(최소 4.0초, 미동작 대기), ANSWER는 최대 1.0초, STAR는 7노트 착지 0.5~3.5초와 마지막 Late 3.9초를 보장하고 4.0초에 정산한다.
+- 회피: 라운드당 `left_step`(왼발 들기), `right_step`(오른발 들기), `jump` 중 시드 기반 단일 공격. 입력창 2.60~3.40초, 3.50초 판정, 실패 시 -25 1회. 균형 패턴은 미채택하여 #239를 superseded 처리한다.
+- 전투: Phase A 시작 마나는 0. 정답 직접 보스 피해는 0. 마나 +25와 100 자동 소비/스펠 -4는 유지하되 Phase A 승리 전환은 금지한다. 최대 10정답/2스펠이므로 일반 보스도 최소 HP 2로 Phase B에 진입한다.
+- 자원: 미니언 시작 3·정답당 +1·최대 13. 별가루는 노트당 Perfect 4 / Good 3 / Late 2 / Miss 0으로 적립한다. #242 생성 → #241 인계 → #194 소비 순으로 소유권을 분리한다.
+- 매핑: 드럼은 Zone 9 킥, Zone 10 스네어, Zone 11 심벌로 확정한다.
+- 전환: 최종 판정과 정산 후 HP 0을 먼저 검사하고, HP가 남은 10번째 정산만 Phase B로 1회 인계한다. 11번째 문제는 출제하지 않는다.
+
+### 대체·역사화 규칙
+
+> #176/#179/#184/#187/#190/#206/#207의 `REST_READY`, `KEYNOTE_PERFORMANCE`, 골반/머리 체류 답안, 오답 스웨이·직접 피해, 정답 기본 보스 피해는 당시 이력이다. 현행 구현 요구로 복원하지 않으며 #229와 #214/#230~#242가 대체한다. 과거 카드 본문은 감사 이력 보존을 위해 삭제하지 않는다.
+
+| 신규 카드 | 범위 |
+|---|---|
+| [#229](https://github.com/Choyounhwa/-dream-guardian/issues/229) | 루틴 계약·검증 기준 정합화 |
+| [#230](https://github.com/Choyounhwa/-dream-guardian/issues/230) | 실제8박 및 중복 입력 제한 |
+| [#231](https://github.com/Choyounhwa/-dream-guardian/issues/231) | pause/세션 시간·예약 수명 |
+| [#232](https://github.com/Choyounhwa/-dream-guardian/issues/232) | 페이즈별 화면·즉시 피드백 |
+| [#233](https://github.com/Choyounhwa/-dream-guardian/issues/233) | 구형 답안 UI/E_Pit/자세가이드 제거 |
+| [#234](https://github.com/Choyounhwa/-dream-guardian/issues/234) | 긴 문제 너비·높이 맞춤 |
+| [#235](https://github.com/Choyounhwa/-dream-guardian/issues/235) | 노트 일정·판정창·최종 정산 |
+| [#236](https://github.com/Choyounhwa/-dream-guardian/issues/236) | 회피 페이즈 장판 수명주기 |
+| [#237](https://github.com/Choyounhwa/-dream-guardian/issues/237) | 발 좌표·방향·입력 전달 |
+| [#238](https://github.com/Choyounhwa/-dream-guardian/issues/238) | 점프 사용자 기준선 |
+| [#239](https://github.com/Choyounhwa/-dream-guardian/issues/239) | 조건부 균형 유지 판정 |
+| [#240](https://github.com/Choyounhwa/-dream-guardian/issues/240) | Phase A 정산/처치 책임 분리 |
+| [#241](https://github.com/Choyounhwa/-dream-guardian/issues/241) | 10번째 정산→Phase B 단일 인계 |
+| [#242](https://github.com/Choyounhwa/-dream-guardian/issues/242) | Phase A 군단·별가루 자원 모델 |
+
+기존 개정 카드: **#214, #212, #228, #192, #191, #193, #194, #213, #195, #186**. 구형 필수루틴 요구를 대체하고 실제 프로덕션 연결/브라우저/실카메라 검증을 추가했다. #194의 Phase A 자원 준비를 #242로 분리하여 #242→#241→#213→#193→#194의 순환 없는 선행관계를 구성했다.
+
+권장 순서: **#229 완료 → #186 설계 → #214 → #230 → #231 → #232 → #233 → #237 → #238 → #235 → #236 → #212 → #234 → #192 → #228 → #191 → #240 → #242 → #241 → #213 → #193 → #194 → #195 → #186 최종**. #239는 미채택으로 종료한다.
+
+검증은 구현/통합/사용자시나리오 완료를 구분한다. 과거783 Pass를 전체루틴 완료근거로 재사용하지 않는다. 종료된 #211/#210/#224/#226/#187/#190에는 후속링크를 기록하고 이력은 보존했다.
+
 > **기준 원칙**: [`Dream_Guardian_개발_규칙.md`](./Dream_Guardian_개발_규칙.md) (**2. 전체 개발 순서 17단계** & 19장 단계별 완료 기준)  
 > **기획 스펙**: [`01_GAME_DESIGN_DOCUMENT.md`](./01_GAME_DESIGN_DOCUMENT.md)  
 > **개발 방식**: 레거시 코드 포팅/이전 없음 — **완전 신규 독립 개발 (Greenfield Implementation)**  
@@ -4224,10 +4266,6 @@ BEAT-SPEC-001
   - [x] 소실점 좌표가 `DreamGrid`와 일치하여 원근감 일치.
   - [x] 진행도 1.0 이후 정면 고정 렌더 결과가 기존과 픽셀 단위로 동일.
   - [x] 단위 테스트 100% 통과 (`tests/unit/question-approach-renderer.test.ts` 12개 전건 통과, 전체 746/746 통과), `npm run build` 성공.
-
-
-
-
 
 
 
