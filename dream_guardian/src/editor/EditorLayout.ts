@@ -4,6 +4,7 @@
 
 import { EditorState, type PhaseType } from './EditorState.js';
 import type { DanceMotionType } from '../data/danceRoutineData.js';
+import { BeatTimelineRenderer } from './BeatTimelineRenderer.js';
 
 export interface TimelineMarker {
   beat: number;
@@ -18,9 +19,11 @@ export interface ValidationBadgeInfo {
 
 export class EditorLayout {
   private readonly _state: EditorState;
+  private readonly _timelineRenderer: BeatTimelineRenderer;
 
   constructor(state: EditorState) {
     this._state = state;
+    this._timelineRenderer = new BeatTimelineRenderer();
   }
 
   /**
@@ -300,19 +303,13 @@ export class EditorLayout {
           </div>
 
           <div id="timeline-tracks" class="timeline-tracks">
-            <div class="track-row track-motion">
-              <span class="track-label">모션/바운스</span>
-              <div class="track-lane" id="lane-motion"></div>
-            </div>
-            <div class="track-row track-keynote">
-              <span class="track-label">키노트/타깃</span>
-              <div class="track-lane" id="lane-keynote"></div>
-            </div>
-          </div>
-
-          <div id="timeline-playhead" class="timeline-playhead">
-            <div class="playhead-line"></div>
-            <div class="playhead-handle">▼</div>
+            ${this._timelineRenderer.renderTimelineTracksHTML(
+              routine.phase,
+              this._state.getCurrentPhaseNotes(),
+              this._state.currentBeat,
+              routine.beats,
+              this._state.selectedNoteId
+            )}
           </div>
         </div>
       </section>

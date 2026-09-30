@@ -577,53 +577,113 @@
       flex-direction: column;
       gap: 4px;
       padding-top: 6px;
+      position: relative;
     }
 
-    .track-row {
-      height: 28px;
+    .timeline-tracks-wrapper {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      width: 100%;
+    }
+
+    .timeline-lane {
+      height: 30px;
       display: flex;
       align-items: center;
       background: rgba(255, 255, 255, 0.03);
       border-radius: 4px;
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    .track-label {
+    .lane-tag {
       width: 80px;
       padding-left: 8px;
       font-size: 11px;
+      font-weight: 600;
       color: var(--text-muted);
       border-right: 1px solid var(--border-color);
+      flex-shrink: 0;
     }
 
-    .track-lane {
+    .lane-content {
       flex: 1;
       height: 100%;
       position: relative;
     }
 
-    .timeline-playhead {
+    .note-block {
+      position: absolute;
+      top: 3px;
+      bottom: 3px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 6px;
+      color: #05070f;
+      font-size: 11px;
+      font-weight: 700;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      user-select: none;
+      overflow: hidden;
+      white-space: nowrap;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .note-block:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .note-block.selected {
+      outline: 2px solid #ffffff;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
+      z-index: 5;
+    }
+
+    .note-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-right: 4px;
+    }
+
+    .note-zones {
+      font-size: 10px;
+      background: rgba(0, 0, 0, 0.35);
+      color: #ffffff;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+
+    .playhead-cursor {
       position: absolute;
       top: 0;
       bottom: 0;
-      left: 16px;
       width: 2px;
       pointer-events: none;
       z-index: 10;
+      transform: translateX(-1px);
     }
 
-    .playhead-line {
+    .playhead-pin {
+      position: absolute;
+      top: -12px;
+      left: -5px;
+      font-size: 12px;
+      color: var(--color-cyan);
+      text-shadow: 0 0 6px var(--color-cyan);
+    }
+
+    .playhead-bar {
       width: 2px;
       height: 100%;
       background: var(--color-cyan);
       box-shadow: 0 0 8px var(--color-cyan);
-    }
-
-    .playhead-handle {
-      position: absolute;
-      top: -2px;
-      left: -5px;
-      font-size: 12px;
-      color: var(--color-cyan);
     }
 
     /* Buttons */

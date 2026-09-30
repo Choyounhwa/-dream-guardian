@@ -5,6 +5,7 @@
 import { EditorState, type PhaseType } from './EditorState.js';
 import { EditorLayout } from './EditorLayout.js';
 import { EditorCanvasRenderer } from './EditorCanvasRenderer.js';
+import { AudioSyncController } from './AudioSyncController.js';
 import type { DanceMotionType } from '../data/danceRoutineData.js';
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -16,6 +17,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const state = new EditorState();
   const layout = new EditorLayout(state);
+  const audioSync = new AudioSyncController({ bpm: state.bpm, enableAudioNode: true });
 
   // 1. 전체 레이아웃 렌더링
   appContainer.innerHTML = layout.renderFullLayoutHTML();
@@ -69,6 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const newTimeline = tempDiv.firstElementChild;
       if (newTimeline) {
         timelineEl.replaceWith(newTimeline);
+        bindTimelineEvents();
       }
     }
     updatePlayhead();
@@ -76,13 +79,42 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const updatePlayhead = () => {
     const playhead = document.getElementById('timeline-playhead');
-    const ruler = document.getElementById('timeline-ruler');
-    if (playhead && ruler) {
+    const container = document.querySelector('.timeline-tracks-wrapper') as HTMLElement;
+    if (playhead && container) {
       const routine = state.getCurrentPhaseRoutine();
       const ratio = state.currentBeat / Math.max(1, routine.beats);
-      const rulerRect = ruler.getBoundingClientRect();
-      const offsetPx = ratio * rulerRect.width;
-      playhead.style.left = `${offsetPx}px`;
+      const percent = Math.max(0, Math.min(100, ratio * 100));
+      playhead.style.left = `${percent}%`;
+    }
+  };
+
+  const bindTimelineEvents = () => {
+    // 1. 노트 블록 클릭 선택
+    const noteBlocks = document.querySelectorAll('.note-block');
+    noteBlocks.forEach((block) => {
+      block.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const noteId = block.getAttribute('data-note-id');
+        if (noteId) {
+          state.setSelectedNoteId(noteId);
+          updateTimeline();
+        }
+      });
+    });
+
+    // 2. 타임라인 레인 클릭 시 비트 스크러빙
+    const tracksContainer = document.querySelector('.timeline-tracks-wrapper');
+    if (tracksContainer) {
+      tracksContainer.addEventListener('click', (e) => {
+        const rect = tracksContainer.getBoundingClientRect();
+        const clickX = (e as MouseEvent).clientX - rect.left;
+        const routine = state.getCurrentPhaseRoutine();
+        const targetBeat = Math.max(0, Math.min(routine.beats, (clickX / rect.width) * routine.beats));
+        const snapped = Math.round(targetBeat * 2) / 2; // 0.5 beat snap
+        state.seekBeat(snapped);
+        audioSync.seek(snapped);
+        updateTimeline();
+      });
     }
   };
 
@@ -213,7 +245,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const bpmInput = document.getElementById('bpm-input') as HTMLInputElement;
   if (bpmInput) {
     bpmInput.addEventListener('change', (e) => {
-      state.setBpm(parseInt((e.target as HTMLInputElement).value, 10));
+      const val = parseInt((e.target as HTMLInputElement).value, 10);
+      state.setBpm(val);
+      audioSync.setBpm(val);
     });
   }
 
@@ -221,6 +255,11 @@ window.addEventListener('DOMContentLoaded', () => {
   if (playBtn) {
     playBtn.addEventListener('click', () => {
       state.togglePlay();
+      if (state.isPlaying) {
+        audioSync.start(state.currentBeat);
+      } else {
+        audioSync.stop();
+      }
     });
   }
 
@@ -229,6 +268,8 @@ window.addEventListener('DOMContentLoaded', () => {
     stopBtn.addEventListener('click', () => {
       state.pause();
       state.seekBeat(0);
+      audioSync.stop();
+      audioSync.seek(0);
     });
   }
 
@@ -382,25 +423,21 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 초기 사이드바 이벤트 및 캔버스 렌더링
   bindSidebarEvents();
+  bindTimelineEvents();
   updateToolbar();
   updateCanvas();
 
-  // 8. 오디오 비트 재생 루프 (60fps requestAnimationFrame)
-  let lastTime = performance.now();
-  function animationLoop(time: number) {
-    const dt = (time - lastTime) / 1000;
-    lastTime = time;
-
+  // 9. 오디오 비트 재생 루프 (AudioSyncController와 실시간 동기화)
+  function animationLoop() {
     if (state.isPlaying) {
-      const secondsPerBeat = 60 / state.bpm;
-      const deltaBeats = dt / secondsPerBeat;
-      const nextBeat = state.currentBeat + deltaBeats;
+      const audioBeat = audioSync.getCurrentBeat();
       const maxBeats = state.getCurrentPhaseRoutine().beats;
 
-      if (nextBeat >= maxBeats) {
-        state.seekBeat(nextBeat % maxBeats);
+      if (audioBeat >= maxBeats) {
+        audioSync.seek(0);
+        state.seekBeat(0);
       } else {
-        state.seekBeat(nextBeat);
+        state.seekBeat(audioBeat);
       }
     }
 

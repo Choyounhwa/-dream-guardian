@@ -22,6 +22,10 @@ import {
   type BodyCursorPart,
   type DetailedPoseValidationResult,
 } from './PoseConstraintValidator.js';
+import {
+  PhaseSequenceEditor,
+  type TimelineTrackNote,
+} from './PhaseSequenceEditor.js';
 
 export type PhaseType = 'RUN_QUESTION' | 'ANSWER_SELECT' | 'STAR_COLLECT' | 'FEVER_PHASE_B';
 export type ActiveEditTool = 'inspect' | 'leftHand' | 'rightHand' | 'head' | 'hip' | 'foot';
@@ -52,12 +56,32 @@ export class EditorState {
   private _isPlaying: boolean = false;
   private _currentBeat: number = 0;
   private _activeTool: ActiveEditTool = 'inspect';
+  private _selectedNoteId: string | null = null;
   private _draftEdits: Partial<CatChoreoPattern> = {};
   private readonly _registry: DancePatternRegistry;
+  private readonly _sequenceEditor: PhaseSequenceEditor;
   private readonly _listeners: Set<EditorListener> = new Set();
 
-  constructor(initialRegistry?: DancePatternRegistry) {
+  constructor(initialRegistry?: DancePatternRegistry, initialSequenceEditor?: PhaseSequenceEditor) {
     this._registry = initialRegistry ?? new DancePatternRegistry(DEFAULT_CAT_CHOREO_PATTERNS);
+    this._sequenceEditor = initialSequenceEditor ?? new PhaseSequenceEditor();
+  }
+
+  get sequenceEditor(): PhaseSequenceEditor {
+    return this._sequenceEditor;
+  }
+
+  get selectedNoteId(): string | null {
+    return this._selectedNoteId;
+  }
+
+  setSelectedNoteId(id: string | null): void {
+    this._selectedNoteId = id;
+    this.notifyStateChange();
+  }
+
+  getCurrentPhaseNotes(): TimelineTrackNote[] {
+    return this._sequenceEditor.getNotesForPhase(this._selectedPhase);
   }
 
   get activeTool(): ActiveEditTool {
