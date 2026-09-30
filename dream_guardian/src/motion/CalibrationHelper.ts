@@ -15,12 +15,39 @@ const CALIBRATION_DURATION = 2.0;
 
 export type CalibrationStatus = 'waiting' | 'calibrating' | 'done';
 
+/**
+ * 캘리브레이션 완료 시 산출되는 신체 기준선 좌표 모음
+ * (RC-3 해결: PartGate 판정의 기준선으로 활용)
+ */
+export interface CalibrationBaseline {
+  noseX: number;
+  noseY: number;
+  shoulderX: number;
+  shoulderY: number;
+  shoulderWidth: number;
+  hipX: number;
+  hipY: number;
+}
+
 export class CalibrationHelper {
   private _status: CalibrationStatus = 'waiting';
   private _baselineShoulderY = 0;
   private _baselineHipY = 0;
+  private _baselineNoseX = 0;
+  private _baselineNoseY = 0;
+  private _baselineShoulderX = 0;
+  private _baselineShoulderWidth = 0;
+  private _baselineHipX = 0;
   private _elapsed = 0;
-  private _samples: { shoulderY: number; hipY: number }[] = [];
+  private _samples: {
+    noseX: number;
+    noseY: number;
+    shoulderX: number;
+    shoulderY: number;
+    shoulderWidth: number;
+    hipX: number;
+    hipY: number;
+  }[] = [];
   private _calibrationDuration: number;
 
   constructor(calibrationDuration = CALIBRATION_DURATION) {
@@ -39,6 +66,45 @@ export class CalibrationHelper {
   /** 보정된 엉덩이 Y 기준선 */
   get baselineHipY(): number {
     return this._baselineHipY;
+  }
+
+  /** 보정된 코 X 기준선 */
+  get baselineNoseX(): number {
+    return this._baselineNoseX;
+  }
+
+  /** 보정된 코 Y 기준선 */
+  get baselineNoseY(): number {
+    return this._baselineNoseY;
+  }
+
+  /** 보정된 어깨 너비 기준선 */
+  get baselineShoulderWidth(): number {
+    return this._baselineShoulderWidth;
+  }
+
+  /** 보정된 어깨 X 기준선 */
+  get baselineShoulderX(): number {
+    return this._baselineShoulderX;
+  }
+
+  /** 보정된 골반 X 기준선 */
+  get baselineHipX(): number {
+    return this._baselineHipX;
+  }
+
+  /** 통합 기준선 객체 (미완료 시 null) */
+  get baseline(): CalibrationBaseline | null {
+    if (this._status !== 'done') return null;
+    return {
+      noseX: this._baselineNoseX,
+      noseY: this._baselineNoseY,
+      shoulderX: this._baselineShoulderX,
+      shoulderY: this._baselineShoulderY,
+      shoulderWidth: this._baselineShoulderWidth,
+      hipX: this._baselineHipX,
+      hipY: this._baselineHipY,
+    };
   }
 
   /** 보정 완료 여부 */
@@ -70,23 +136,59 @@ export class CalibrationHelper {
     this._status = 'calibrating';
     this._elapsed += dt;
 
+    const noseX = nose.x;
+    const noseY = nose.y;
+    const shoulderX = (lShoulder.x + rShoulder.x) / 2;
     const shoulderY = (lShoulder.y + rShoulder.y) / 2;
+    const shoulderWidth = Math.abs(rShoulder.x - lShoulder.x);
+    const hipX = (lHip.x + rHip.x) / 2;
     const hipY = (lHip.y + rHip.y) / 2;
 
-    this._samples.push({ shoulderY, hipY });
+    this._samples.push({ noseX, noseY, shoulderX, shoulderY, shoulderWidth, hipX, hipY });
 
-    if (this._elapsed >= this._calibrationDuration) {
+    if (this._elapsed >= this._calibrationDuration && this._samples.length > 0) {
       // 평균 산출
+      let sumNX = 0;
+      let sumNY = 0;
+      let sumSX = 0;
       let sumSY = 0;
+      let sumSW = 0;
+      let sumHX = 0;
       let sumHY = 0;
+
       for (const s of this._samples) {
+        sumNX += s.noseX;
+        sumNY += s.noseY;
+        sumSX += s.shoulderX;
         sumSY += s.shoulderY;
+        sumSW += s.shoulderWidth;
+        sumHX += s.hipX;
         sumHY += s.hipY;
       }
-      this._baselineShoulderY = sumSY / this._samples.length;
-      this._baselineHipY = sumHY / this._samples.length;
+
+      const count = this._samples.length;
+      this._baselineNoseX = sumNX / count;
+      this._baselineNoseY = sumNY / count;
+      this._baselineShoulderX = sumSX / count;
+      this._baselineShoulderY = sumSY / count;
+      this._baselineShoulderWidth = sumSW / count;
+      this._baselineHipX = sumHX / count;
+      this._baselineHipY = sumHY / count;
+
       this._status = 'done';
     }
+  }
+
+  /** 수동 기준선 설정 (테스트 및 빠른 초기화 지원) */
+  setManualBaseline(baseline: Partial<CalibrationBaseline>): void {
+    if (baseline.shoulderY !== undefined) this._baselineShoulderY = baseline.shoulderY;
+    if (baseline.hipY !== undefined) this._baselineHipY = baseline.hipY;
+    if (baseline.noseX !== undefined) this._baselineNoseX = baseline.noseX;
+    if (baseline.noseY !== undefined) this._baselineNoseY = baseline.noseY;
+    if (baseline.shoulderX !== undefined) this._baselineShoulderX = baseline.shoulderX;
+    if (baseline.shoulderWidth !== undefined) this._baselineShoulderWidth = baseline.shoulderWidth;
+    if (baseline.hipX !== undefined) this._baselineHipX = baseline.hipX;
+    this._status = 'done';
   }
 
   /** 보정 초기화 */
@@ -94,6 +196,11 @@ export class CalibrationHelper {
     this._status = 'waiting';
     this._baselineShoulderY = 0;
     this._baselineHipY = 0;
+    this._baselineNoseX = 0;
+    this._baselineNoseY = 0;
+    this._baselineShoulderX = 0;
+    this._baselineShoulderWidth = 0;
+    this._baselineHipX = 0;
     this._elapsed = 0;
     this._samples = [];
   }

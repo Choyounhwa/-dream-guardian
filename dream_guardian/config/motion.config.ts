@@ -56,3 +56,15 @@ export const DEFAULT_FOOT_KEYNOTE_CONFIG: FootKeynoteConfig = {
   cooldownDuration: 0.3,
   rearmNeutralRatio: 0.25,
 };
+
+export interface JumpConfig {
+  threshold: number;
+  speedMin: number;
+  minVisibility: number;
+}
+
+export const DEFAULT_JUMP_CONFIG: JumpConfig = {
+  threshold: 0.065,
+  speedMin: 0.22,
+  minVisibility: 0.5,
+};

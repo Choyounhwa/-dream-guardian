@@ -11,8 +11,8 @@
 | **1. 기준 확정** | **#229** → **#186 검증 설계** | 시간·판정창·자원 정책과 전체 실패 시나리오 확정 | `[✔] 완료` |
 | **2. 진행 기반** | **#214** → **#230** → **#231** | 상태·실제 8박·일시정지·예약 처리 일치 | `[✔] 완료` |
 | **3. 답 선택 화면** | **#232** → **#233** | 선택 즉시 올바른 화면 전환, 구형 UI 제거 | `[✔] 완료` |
-| **4. 모션 입력** | **#237** *(완료)* → **#238** → *(#239 미채택)* | 발 좌표·방향·스텝, 점프 사용자 기준선 | **`[▶ NEXT: #238]`** |
-| **5. 분기 실행** | **#235** → **#236** | 별모으기 노트 일정·판정창, 회피 장판 수명주기 | `[ ] 대기` |
+| **4. 모션 입력** | **#237** *(완료)* → **#238** *(완료)* → *(#239 미채택)* | 발 좌표·방향·스텝, 점프 사용자 기준선 | `[✔] 완료` |
+| **5. 분기 실행** | **#235** → **#236** | 별모으기 노트 일정·판정창, 회피 장판 수명주기 | **`[▶ NEXT: #235]`** |
 | **6. 문제 표시** | **#212** *(완료)* → **#234** | 문제 원근 접근 연출 및 긴 수식 너비·높이 수용 | `[ ] 대기` |
 | **7. 시청각 연결** | **#192** → **#228** → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | `[✔] 모듈완료` *(통합대기)* |
 | **8. 정산·자원** | **#240** → **#242** | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[ ] 대기` |
@@ -20,8 +20,34 @@
 | **10. Phase B 실행** | **#213** → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | `[ ] 대기` |
 | **11. 최종 검증** | **#186** | 실제 10문제 → Phase B → 승리/패배 → 메뉴 완주 | `[ ] 대기` |
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#238 [BUG-JUMP-BASELINE-001] 사용자 보정 기준선 기반 점프 회피 판정 연결`**  
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#235 [BUG-STAR-SCHEDULE-001] 별모으기 노트 스케줄·판정창·마지막 정산 순서 복구`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-09-30 완료: [BUG-JUMP-BASELINE-001 / #238] 사용자 보정 기준선 기반 점프 회피 판정 연결
+
+> #238 구현 및 단위/통합 검증 완료. `main.ts`에 고정되어 있던 하드코딩 기준선(`vh * 0.28`)을 제거하고 `CalibrationHelper` 사용자 자동 보정 기준선(`baselineShoulderY`)과 연동하여 키와 카메라 거리가 다른 사용자 환경에서도 동일한 상대 상승 비율(0.065)로 공정하게 점프가 감지되도록 수정했다. 또한 `JumpDetector`에 추적 유실 및 재획득(Re-acquisition) 보호를 구축하여 첫 프레임 속도 스파이크로 인한 가짜 점프를 원천 차단하고, 보정 미완료(`isCalibrated=false`), 일시정지(`isPaused=true`), 안전가드(`isSafetyGuarded=true`) 시의 무입력 계약을 확정했다. 실제 게임 루프에서 스무딩 소스(`sourceLandmarks`) 기반으로 `PhaseAHazardController`의 점프(`jump`) 회피 판정과 시각 이펙트가 온전히 발화되도록 연결했다.
+
+### 주요 구현 및 변경 사항
+- **`JumpDetector` 사용자 기준선 및 재획득/안전 보호 개편 (`src/motion/JumpDetector.ts`, `config/motion.config.ts`)**:
+  - `JumpConfig` 및 `DEFAULT_JUMP_CONFIG` 추가 (`config/motion.config.ts`).
+  - `JumpUpdateOptions`(`isPaused`, `isSafetyGuarded`, `isCalibrated`) 도입.
+  - 추적 최초 획득 또는 유실 후 재획득(`_prevShoulderY < 0`) 시 첫 프레임 이전 위치 동기화만 수행하고 가짜 점프 원천 차단.
+  - 정규화(0~1) 및 가상 픽셀(vh) 좌표계 안전 스케일링, 프레임 튐(`dt > 0.1`) 방지.
+  - 보정 미완료(`isCalibrated === false`) 또는 `baselineY <= 0` 시 즉시 입력 차단 및 초기화.
+- **`CalibrationHelper` 수동 기준선 지원 (`src/motion/CalibrationHelper.ts`)**:
+  - `setManualBaseline` 메서드를 추가하여 테스트 및 빠른 초기화 지원.
+- **`src/main.ts` 프로덕션 입력 파이프라인 통합**:
+  - `CalibrationHelper` 인스턴스 생성 및 `sourceLandmarks` 기반 매 프레임 자동 보정 갱신.
+  - 보정 완료 시 `calibrationHelper.baselineShoulderY`를 `activeDetector`와 `jumpDetector`의 기준선으로 연결.
+  - `sourceLandmarks`(스무딩 관절)를 점프 감지 소스로 일원화.
+  - `jumped` 이벤트 발생 시 `(gamePhase === 'running' || gamePhase === 'hazard_evade')` 조건에서 `phaseAHazardController.recordAction('jump')` 정상 처리 및 버스트 이펙트 점등.
+  - 포즈 유실(`!poseManager.hasPose`) 시 `jumpDetector.reset()` 호출 추가.
+- **TDD 검증 결과**:
+  - `tests/integration/jump-baseline-contract.test.ts` (6 tests Pass): 키/거리별(400px vs 700px) 동일 상대 상승 감지, 정지/노이즈(20px) 점프 0, 재획득 가짜 점프 0, 보정 미완료 차단, 일시정지/안전가드 차단, CalibrationHelper->JumpDetector->HazardController jump 회피 전체 체인 검증.
+  - `tests/unit/motion-detectors.test.ts` (14 tests Pass): 기존 점프/달리기/스쿼트 검증 100% 유지.
+  - `npm run build` 번들 검증 100% 성공 & `npm test` 전체 80개 파일 952개 테스트 100% Pass (회귀 결함 0건).
 
 ---
 

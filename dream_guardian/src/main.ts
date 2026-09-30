@@ -45,6 +45,7 @@ import { EffectManager } from './effects/index.js';
 import {
   RunDetector,
   JumpDetector,
+  CalibrationHelper,
   HipBounceDetector,
   HipSwayDetector,
   ArmCrossDetector,
@@ -133,6 +134,7 @@ const dreamGrid = new DreamGrid({ speed: 1.2, hasCeiling: true });
 const effectManager = new EffectManager(15);
 const runDetector = new RunDetector();
 const jumpDetector = new JumpDetector();
+const calibrationHelper = new CalibrationHelper(1.0);
 const locomotionDetectors: Record<LocomotionMode, ILocomotionDetector> = {
   run: runDetector,
   hip_bounce: new HipBounceDetector(),
@@ -748,19 +750,34 @@ const engine = new GameEngine({
         }
       }
 
+      // 사용자 신체 기준선 자동 보정 (Issue #238 / BUG-JUMP-BASELINE-001)
+      if (sourceLandmarks.length >= 25 && !calibrationHelper.isDone) {
+        calibrationHelper.update(dt, sourceLandmarks);
+      }
+
+      const userBaselineY = calibrationHelper.isDone
+        ? calibrationHelper.baselineShoulderY
+        : canvasManager.virtualHeight * 0.28;
+
+      const isSafetyGuarded = menuInput.isActive || pauseModal.isOpen;
       const time = performance.now() / 1000;
       const activeDetector = getActiveLocomotionDetector();
       const stepped = activeDetector.update(
-        poseManager.virtualLandmarks,
-        canvasManager.virtualHeight * 0.28,
+        sourceLandmarks,
+        userBaselineY,
         time,
         canvasManager.virtualHeight,
       );
       const jumped = jumpDetector.update(
-        poseManager.virtualLandmarks,
-        canvasManager.virtualHeight * 0.28,
+        sourceLandmarks,
+        userBaselineY,
         canvasManager.virtualHeight,
         dt,
+        {
+          isPaused: pauseModal.isOpen,
+          isSafetyGuarded,
+          isCalibrated: calibrationHelper.isDone,
+        },
       );
       if (stepped && screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
         totalSteps++;
@@ -773,13 +790,25 @@ const engine = new GameEngine({
           duration: 0.3,
         });
       }
-      if (jumped && screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
-        phaseAHazardController.recordAction('jump');
-        sfx.play('jump_whoosh');
+      if (jumped && screenMode === 'game' && !pauseModal.isOpen) {
+        if (gamePhase === 'running' || gamePhase === 'hazard_evade') {
+          if (phaseAHazardController.activePattern === 'jump') {
+            phaseAHazardController.recordAction('jump');
+            sfx.play('jump_whoosh');
+          }
+        }
+        effectManager.playBurst({
+          x: canvasManager.virtualWidth * 0.5,
+          y: canvasManager.virtualHeight * 0.65,
+          count: 10,
+          colors: ['#28E6FF', '#FFFFFF'],
+          duration: 0.3,
+        });
       }
     } else {
       skeletonAnimation.reset();
       Object.values(locomotionDetectors).forEach((d) => d.reset());
+      jumpDetector.reset();
       menuInput.reset();
       xGestureDetector.reset();
       menuHoverItem = null;
