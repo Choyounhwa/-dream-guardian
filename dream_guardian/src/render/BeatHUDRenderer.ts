@@ -12,6 +12,7 @@ import type { PhaseAHazardPattern } from '../../config/phase-a-hazard.config.js'
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import { BEAT_HUD_CONFIG } from '../../config/locomotion.config.js';
 import { renderQuestionHeaderMath } from './QuestionRenderer.js';
+import { QuestionApproachRenderer } from './QuestionApproachRenderer.js';
 
 export interface BeatHUDRendererOptions {
   showBeatDots?: boolean;
@@ -24,13 +25,20 @@ export interface BeatHUDState {
   locomotionMode?: LocomotionMode;
   activeHazardPattern?: PhaseAHazardPattern | null;
   hazardBeatProgress?: number;
+  /** Issue #212: 첫 2박 원근 접근 진행도 (0~1) */
+  questionApproachProgress?: number;
+  /** 원근 접근 소실점 좌표 */
+  vanishingX?: number;
+  vanishingY?: number;
 }
 
 export class BeatHUDRenderer {
   private _showBeatDots: boolean;
+  private readonly _approachRenderer: QuestionApproachRenderer;
 
   constructor(options?: BeatHUDRendererOptions) {
     this._showBeatDots = options?.showBeatDots ?? false;
+    this._approachRenderer = new QuestionApproachRenderer();
   }
 
   get showBeatDots(): boolean {
@@ -52,10 +60,30 @@ export class BeatHUDRenderer {
     const scaleX = vw / 1080;
     const scaleY = vh / 2160;
 
-    // 1. 문제 수식 헤더 표시 (러닝 페이즈 110px 규격 공통 헬퍼 활용)
+    // 1. 문제 수식 헤더 표시 (Issue #212: 첫 2박 원근 접근 연출 연동)
     if (state.question) {
       const qY = 320 * scaleY + 160 * scaleY;
-      renderQuestionHeaderMath(ctx, state.question.questionText, cx, qY, scaleX, true);
+      const progress = state.questionApproachProgress ?? 1.0;
+      const vx = state.vanishingX ?? cx;
+      const vy = state.vanishingY ?? vh * 0.24;
+
+      if (progress < 1.0) {
+        this._approachRenderer.render(
+          ctx,
+          state.question.questionText,
+          cx,
+          qY,
+          scaleX,
+          {
+            progress,
+            vanishingX: vx,
+            vanishingY: vy,
+          },
+          true,
+        );
+      } else {
+        renderQuestionHeaderMath(ctx, state.question.questionText, cx, qY, scaleX, true);
+      }
     }
 
     // 2. Phase A 보스 장판 박자 안내

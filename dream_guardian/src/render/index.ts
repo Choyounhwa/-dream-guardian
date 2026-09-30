@@ -37,5 +37,10 @@ export { QuestionRenderer, renderQuestionHeaderMath } from './QuestionRenderer.j
 export type { QuestionRenderState } from './QuestionRenderer.js';
 export { drawJoinedHandsCursor } from './JoinedHandsCursorRenderer.js';
 export type { DrawJoinedHandsCursorOptions } from './JoinedHandsCursorRenderer.js';
+export { QuestionApproachRenderer } from './QuestionApproachRenderer.js';
+export type {
+  QuestionApproachState,
+  QuestionApproachTransform,
+} from './QuestionApproachRenderer.js';
 
 

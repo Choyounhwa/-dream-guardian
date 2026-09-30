@@ -186,7 +186,7 @@ export class QuestionBank {
       this._shuffle();
     }
 
-    const lastTemplate = this._lastServed.length > 0
+    const lastTemplate = this._lastServed.length > 0 && this._lastServed[this._lastServed.length - 1]
       ? this._lastServed[this._lastServed.length - 1].questionTemplate
       : null;
 

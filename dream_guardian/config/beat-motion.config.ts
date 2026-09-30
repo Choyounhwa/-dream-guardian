@@ -118,7 +118,26 @@ export interface BeatMotionConfig {
   centerReturn: CenterReturnConfig;
   armReachAnswer: ArmReachAnswerConfig;
   starCollection: StarCollectionConfig;
+  questionApproach: QuestionApproachConfig;
 }
+
+export interface QuestionApproachConfig {
+  /** 문제 원근 접근에 소요되는 박자 수 (기본 2박) */
+  approachBeats: number;
+  /** 소실점 시작 최소 크기 배율 (기본 0.15) */
+  minScale: number;
+  /** 소실점 시작 최소 불투명도 (기본 0.10) */
+  startAlpha: number;
+  /** 접근 감속 ease-out 차수 (기본 2.0 = quadratic ease out) */
+  easePower: number;
+}
+
+export const DEFAULT_QUESTION_APPROACH_CONFIG: QuestionApproachConfig = {
+  approachBeats: 2,
+  minScale: 0.15,
+  startAlpha: 0.10,
+  easePower: 2.0,
+};
 
 export const DEFAULT_BEAT_MOTION_CONFIG: BeatMotionConfig = {
   bpm: 120,
@@ -126,4 +145,5 @@ export const DEFAULT_BEAT_MOTION_CONFIG: BeatMotionConfig = {
   centerReturn: DEFAULT_CENTER_RETURN_CONFIG,
   armReachAnswer: DEFAULT_ARM_REACH_ANSWER_CONFIG,
   starCollection: DEFAULT_STAR_COLLECTION_CONFIG,
+  questionApproach: DEFAULT_QUESTION_APPROACH_CONFIG,
 };

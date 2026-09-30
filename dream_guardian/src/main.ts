@@ -1025,6 +1025,9 @@ const engine = new GameEngine({
           locomotionMode: locomotionModal.selectedMode,
           activeHazardPattern: phaseAHazardController.activePattern,
           hazardBeatProgress: phaseAHazardController.beatProgress,
+          questionApproachProgress: beatCoordinator.questionApproachProgress,
+          vanishingX: bossX,
+          vanishingY: bossY,
         });
       } else {
         questionRenderer.render(ctx, vw, vh, {

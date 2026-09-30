@@ -71,6 +71,7 @@ export class BeatRunCoordinator {
   private _questionGeneratedCount = 0;
   private _totalSteps = 0;
   private _completedExerciseBeats = 0;
+  private _runElapsed = 0;
   private _readyElapsed = 0;
   private _performanceElapsed = 0;
   private _answerSelectElapsed = 0;
@@ -183,6 +184,22 @@ export class BeatRunCoordinator {
   }
 
   /**
+   * 문제 소실점 원근 접근 진행도 (0.0: 소실점 ~ 1.0: 정면 도달)
+   * Issue #212: RUN_QUESTION 첫 2박(1.0s) 동안 0에서 1로 진행, 완료 후 1.0 유지
+   */
+  get questionApproachProgress(): number {
+    if (this._phase !== 'RUN_QUESTION') {
+      return 1.0;
+    }
+    const spb = this._rhythmEngine.secondsPerBeat || 0.5;
+    const timeProgress = this._runElapsed / (2 * spb);
+    const exerciseProgress = this._completedExerciseBeats / 2;
+    const current = Math.max(timeProgress, exerciseProgress);
+    if (!Number.isFinite(current)) return 0;
+    return Math.min(1.0, Math.max(0, current));
+  }
+
+  /**
    * 새 라운드 시작 (달리기 1박부터 시작)
    * 문제 생성 및 비블로킹 TTS는 매 run phase 시작 시 정확히 1회 실행됨
    */
@@ -195,6 +212,7 @@ export class BeatRunCoordinator {
     this._rhythmEngine.start();
     this._phase = 'RUN_QUESTION';
     this._completedExerciseBeats = 0;
+    this._runElapsed = 0;
     this._readyElapsed = 0;
     this._performanceElapsed = 0;
     this._answerSelectElapsed = 0;
@@ -236,6 +254,10 @@ export class BeatRunCoordinator {
     landmarks?: readonly NormalizedLandmark[] | null,
   ): void {
     if (!this._rhythmEngine.running) return;
+
+    if (this._phase === 'RUN_QUESTION') {
+      this._runElapsed += Math.max(0, dt);
+    }
 
     if (this._routineMode === 'arm_reach') {
       let remainingDt = Math.max(0, dt);
