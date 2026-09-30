@@ -12,16 +12,64 @@
 | **2. 진행 기반** | **#214** → **#230** → **#231** | 상태·실제 8박·일시정지·예약 처리 일치 | `[✔] 완료` |
 | **3. 답 선택 화면** | **#232** → **#233** | 선택 즉시 올바른 화면 전환, 구형 UI 제거 | `[✔] 완료` |
 | **4. 모션 입력** | **#237** *(완료)* → **#238** *(완료)* → *(#239 미채택)* | 발 좌표·방향·스텝, 점프 사용자 기준선 | `[✔] 완료` |
-| **5. 분기 실행** | **#235** *(완료)* → **#236** | 별모으기 노트 일정·판정창, 회피 장판 수명주기 | **`[▶ NEXT: #236]`** |
-| **6. 문제 표시** | **#212** *(완료)* → **#234** | 문제 원근 접근 연출 및 긴 수식 너비·높이 수용 | `[ ] 대기` |
+| **5. 분기 실행** | **#235** *(완료)* → **#236** *(완료)* | 별모으기 노트 일정·판정창, 회피 장판 수명주기 | `[✔] 완료` |
+| **6. 문제 표시** | **#212** *(완료)* → **#234** | 문제 원근 접근 연출 및 긴 수식 너비·높이 수용 | **`[▶ NEXT: #234]`** |
 | **7. 시청각 연결** | **#192** → **#228** → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | `[✔] 모듈완료` *(통합대기)* |
 | **8. 정산·자원** | **#240** → **#242** | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[ ] 대기` |
 | **9. Phase B 진입** | **#241** | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[ ] 대기` |
 | **10. Phase B 실행** | **#213** → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | `[ ] 대기` |
 | **11. 최종 검증** | **#186** | 실제 10문제 → Phase B → 승리/패배 → 메뉴 완주 | `[ ] 대기` |
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#236 [BUG-HAZARD-LIFECYCLE-001] 회피 장판 표시·판정 수명주기·데미지 복구`**  
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#234 [BUG-MATH-PRESENT-001] 문제 폰트/너비 수용 및 원근 접근 연출 복구`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-09-30 완료: [BUG-HAZARD-LIFECYCLE-001 / #236] Phase A 장판을 HAZARD_EVADE 수명주기에 연결 및 단일 회피 판정·데미지 복구
+
+> #236 구현 및 단위/통합 검증 완료. `PhaseAHazardController`의 start/update/recordAction이 `RUN_QUESTION`에 무한 루프로 연결되어 달리기 중 장판이 표출되고 조기 오동작으로 체력이 깎이던 치명적 결함, 8패턴 4초와 분기 7박 3.5초의 박자 불일치, 그리고 5 HP 피해와 GDD 25 HP 피해 간의 규약 충돌을 해결했다. `RUN_QUESTION`에서 장판 시작/반복을 완전히 제거하고 `HAZARD_EVADE` 전이 시에만 `start({ roundIndex })` 1회 가동 및 퇴장 시 `stop()`하도록 수명주기를 확립했다. GDD 계약에 따라 활성 회피 3종(`left_step`, `right_step`, `jump`) 중 라운드 기반 단일 공격을 채택하고, 경고(0~2.6s) → 입력창(2.6~3.4s) → 판정(3.5s) → 정산 전이(4.0s) 타임라인과 실패 피해 25(성공 0)를 확정했다. 또한 "틀린 선행 입력은 기회를 소모하지 않고 올바른 회피 시 성공 잠금" 정책을 구현하여 조작 편의성을 극대화했으며, 발/점프/Space/터치 fallback 입력을 `HAZARD_EVADE` 상태와 일시정지 보호 하에 안전하게 연결했다.
+
+### 주요 구현 및 변경 사항
+- **단일 회피 공격 수명주기 및 25 HP 피해 정책 확립 (`config/phase-a-hazard.config.ts`, `src/game/PhaseAHazardController.ts`)**:
+  - `damagePerMiss: 25`, `totalDuration: 4.0`, `judgmentTime: 3.5`, `warningDuration: 2.6`, `inputWindowEnd: 3.4` 적용.
+  - 활성 회피 3종(`PHASE_A_ACTIVE_HAZARD_PATTERNS`: `left_step`, `right_step`, `jump`) 단일 풀 구성 및 라운드 인덱스 매핑.
+  - `recordAction(action)`: 잘못된 선행 동작이 올바른 후속 회피를 차단하지 않으며, 올바른 동작 수행 시 `_evaded = true` 성공 잠금. 판정 시점(3.5s)에 `attackId`당 정확히 1회 결과 통보.
+  - `beatProgress`: 0.0(소실점)에서 3.5s(판정 시점)까지 1.0(전경 발밑)으로 단조 증가하도록 계산 공식 개편.
+- **`HAZARD_EVADE` 상태 수명주기 완전 일치 (`src/main.ts`)**:
+  - `startRunningPhase()` 및 `RUN_QUESTION` 렌더/업데이트 루프에서 `phaseAHazardController` 시작/재시작/입력 완벽 분리.
+  - `stateMachine.registerState('HAZARD_EVADE')` enter 시 `start({ roundIndex })` 1회 호출, exit 시 `stop()` 1회 호출.
+  - `onBeatResolved`: 성공 시 쉴드 방어음 및 파티클, 실패 시 피해 25 적용 및 피격 연출. HP 0 도달 시 `showResult(false)` 즉시 호출.
+  - 발 키노트(`footKeynoteInput.onEvent`), 점프 감지(`JumpDetector`), Space 키, 가상 페달 및 터치 fallback 입력을 `HAZARD_EVADE` 및 `!pauseModal.isOpen` 상태로 라우팅.
+  - `canRenderRunningHUD` 렌더 시 `activeHazardPattern: null`을 전달하여 달리기 중 잔여 장판 표시 원천 차단.
+- **TDD 검증 결과**:
+  - `tests/integration/phase-a-hazard-runtime.test.ts` (신규 8 tests Pass): RUN/STAR 장판 비활성 및 0피해, HAZARD 진입/퇴장 수명주기, 성공 0 vs 실패 25 피해 1회, 잘못된 선행 입력 미차단 성공 잠금 정책, pause 입력 차단, HP 0 게임오버 우선 순위, 3D beatProgress 단조 증가 검증 100% Pass.
+  - `tests/unit/phase-a-hazard-controller.test.ts` (6 tests Pass): 신규 수명주기 및 25 HP 피해 단위 검증 100% Pass.
+  - `npm run build` 번들 검증 100% 성공 & `npm test` 전체 84개 파일 988개 테스트 100% Pass.
+
+---
+
+## 2026-09-30 완료: [BUG-DANCE-DATA-001 / #244] 안무 패턴 부위 해제 후 매핑 잔존 및 발 존 검증 결함 수정
+
+> #244 구현 및 단위/통합 검증 완료. 에디터에서 `updateCurrentPattern({ leftHand: null })` 호출 시 registry 패턴의 `leftHand`는 `null`이 되지만 `partZoneMap.leftHand = 6`이 잔존하던 결함과, `updateCurrentPattern({ footZones: [1, 999] })`처럼 비허용 발 존/중복 값이 정상 데이터로 승인되던 결함을 해결했다. 4대 신체 부위 단일 정본(`leftHand`, `rightHand`, `head`, `hip`)으로부터 `partZoneMap`을 순수 재생성하는 `buildPartZoneMap` 헬퍼를 도입하여 `register` 및 `update` 시 `null`로 해제된 부위가 `partZoneMap`에서 완벽히 배제되도록 일원화했다. 또한 `config/zone.config.ts`에 `FOOT_ZONES` (Set) 및 `ALLOWED_FOOT_ZONES` (`[9, 10, 11]`)를 추가하고 `dancePatternRegistry.validate`와 `PoseConstraintValidator.validateDetailed` 양 검증 경로에 배열 형태, 정수 타입, 9/10/11 허용 범위, 중복 검사를 동일하게 구현하여 비허용 발 존이 저장되지 않도록 데이터 정합성을 확립했다.
+
+### 주요 구현 및 변경 사항
+- **단일 정본 기반 부위 매핑 재생성 함수 도입 (`src/data/danceRoutineData.ts`, `src/editor/EditorState.ts`)**:
+  - `buildPartZoneMap(pattern)` 헬퍼를 신설하여 `leftHand`, `rightHand`, `head`, `hip` 중 유효한 정수 존만 `partZoneMap`에 매핑.
+  - `DancePatternRegistry.register` 및 `update`에서 기존 `partZoneMap`을 얕은 복사로 덮어쓰지 않고 `buildPartZoneMap`을 통해 순수 재생성.
+  - `EditorState.getSelectedPattern()` 및 `updateCurrentPattern`에서도 `buildPartZoneMap`을 동기화하여 `null` 해제 시 즉시 `partZoneMap`에서 제거됨을 보장.
+- **발 디딤 존(footZones) 규격 및 검증 파이프라인 일원화 (`config/zone.config.ts`, `src/data/danceRoutineData.ts`, `src/editor/PoseConstraintValidator.ts`)**:
+  - `FOOT_ZONES` (`Set<number>([9, 10, 11])`) 및 `ALLOWED_FOOT_ZONES` (`readonly [9, 10, 11]`) 정의.
+  - `isValidZoneForCursor('foot', zoneId)` 연동 및 `PoseConstraintValidator.canAssign('foot', zoneId)`, `getAllowedZones('foot')` 지원.
+  - `validate` 및 `validateDetailed`에서 `footZones` 배열 형태 검사, 정수 타입 검사, 9/10/11 허용 구역 검사(`DISALLOWED_ZONE`), 중복 존 검사(`DUPLICATE_FOOT_ZONE`) 일관 적용.
+- **JSON 및 CSV 직렬화 왕복(Roundtrip) 무결성 보장**:
+  - 부위 해제(`leftHand: null`) 후 JSON 및 CSV로 내보내고 다시 로드해도 `partZoneMap.leftHand`가 부활하지 않고 정확히 원본 필드와 1:1 일치.
+  - 외부 CSV/JSON 파일에서 비허용 발 존이나 중복 값이 포함된 행은 파싱 검증에서 안전하게 걸러져 로드 거부.
+- **TDD 검증 결과**:
+  - `tests/unit/dance-routine-data.test.ts` (24 tests Pass): `null` 해제 시 `partZoneMap` 동기화, `register` 시 불필요 키 제거, `[1, 999]` 비허용 발 존 거부, `[9, 9]` 중복 존 거부, 비정상 타입 거부, JSON/CSV Roundtrip 100% 일치 검증.
+  - `tests/unit/pose-constraint-validator.test.ts` (8 tests Pass): `canAssign('foot', 9~11)` 허용 및 기타 존 거부, `getAllowedZones('foot')`, `validateDetailed`의 `DISALLOWED_ZONE` 및 `DUPLICATE_FOOT_ZONE` 상세 위반 정보 검증.
+  - `tests/unit/editor-state.test.ts` (25 tests Pass): `updateCurrentPattern` 부위 해제 시 레지스트리와 선택 패턴 양쪽 `partZoneMap` 동기화 및 비허용 발 존 수정 차단 검증.
+  - `tests/unit/zone-config.test.ts` (11 tests Pass): `FOOT_ZONES` 및 `isValidZoneForCursor('foot', ...)` 검증.
+  - `npm run build` 번들 검증 100% 성공 (0 errors) & `npm test` 전체 84개 파일 988개 테스트 100% Pass (회귀 결함 0건).
 
 ---
 

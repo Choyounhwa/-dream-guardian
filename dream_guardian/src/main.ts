@@ -339,7 +339,9 @@ stateMachine.registerState('HAZARD_EVADE', {
     questionVisible = false;
     answerLocked = true;
     if (!phaseAHazardController.isActive) {
-      phaseAHazardController.start();
+      phaseAHazardController.start({
+        roundIndex: beatRoundResolver.currentRoundIndex,
+      });
     }
   },
   exit: () => {
@@ -424,7 +426,7 @@ const beatCoordinator = new BeatRunCoordinator({
   },
 });
 const phaseAHazardController = new PhaseAHazardController({
-  onBeatResolved: ({ evaded }) => {
+  onBeatResolved: ({ evaded, damage }) => {
     if (evaded) {
       sfx.play('shield_deflect');
       effectManager.playBurst({
@@ -437,9 +439,13 @@ const phaseAHazardController = new PhaseAHazardController({
       return;
     }
 
-    battle.applyHazardDamage(DEFAULT_PHASE_A_HAZARD_CONFIG.damagePerMiss);
+    const appliedDamage = damage ?? DEFAULT_PHASE_A_HAZARD_CONFIG.damagePerMiss;
+    battle.applyHazardDamage(appliedDamage);
     sfx.play('player_hurt');
     effectManager.playPreset('wrong', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.76);
+    if (!battle.isAlive) {
+      showResult(false);
+    }
   },
 });
 
@@ -456,13 +462,13 @@ footKeynoteInput.onEvent((event) => {
       starNoteScheduler.fromFoot(event, engine.elapsedTime);
     }
 
-    if (gamePhase === 'running' || gamePhase === 'hazard_evade') {
+    if (stateMachine.currentState === 'HAZARD_EVADE' && !pauseModal.isOpen) {
       const target = phaseAHazardController.activePattern;
-      if (event.foot === 'leftFoot' && (target === 'left_step' || target === 'balance_right')) {
-        phaseAHazardController.recordAction(target);
-      } else if (event.foot === 'rightFoot' && (target === 'right_step' || target === 'balance_left')) {
-        phaseAHazardController.recordAction(target);
-      } else if (event.foot === 'centerFoot' && target === 'jump') {
+      if (event.foot === 'leftFoot') {
+        phaseAHazardController.recordAction(target === 'balance_right' ? 'balance_right' : 'left_step');
+      } else if (event.foot === 'rightFoot') {
+        phaseAHazardController.recordAction(target === 'balance_left' ? 'balance_left' : 'right_step');
+      } else if (event.foot === 'centerFoot') {
         phaseAHazardController.recordAction('jump');
       }
     }
@@ -581,7 +587,6 @@ function startRunningPhase(): void {
   starNoteScheduler.reset();
   Object.values(locomotionDetectors).forEach((d) => d.reset());
   jumpDetector.reset();
-  phaseAHazardController.start();
   beatCoordinator.startRound({ chapter: currentChapter, subLevel: selectedSubLevel });
   currentQuestion = beatCoordinator.currentQuestion;
   console.log(`[DG] 8박 문제 라운드 시작: ${currentQuestion?.questionText}`);
@@ -837,7 +842,7 @@ const engine = new GameEngine({
         });
       }
       if (jumped && screenMode === 'game' && !pauseModal.isOpen) {
-        if (gamePhase === 'running' || gamePhase === 'hazard_evade') {
+        if (stateMachine.currentState === 'HAZARD_EVADE') {
           if (phaseAHazardController.activePattern === 'jump') {
             phaseAHazardController.recordAction('jump');
             sfx.play('jump_whoosh');
@@ -1101,14 +1106,11 @@ const engine = new GameEngine({
     // 내부 8박 시계 및 라운드 정산(_resolveRound)이 멈추지 않도록 보장
     beatCoordinator.update(dt, normalizedLandmarks);
     currentQuestion = beatCoordinator.currentQuestion;
-    if ((gamePhase === 'running' || gamePhase === 'hazard_evade') && phaseAHazardController.isActive) {
+    if (stateMachine.currentState === 'HAZARD_EVADE' && phaseAHazardController.isActive) {
       phaseAHazardController.update(dt);
       if (!battle.isAlive) {
         showResult(false);
         return;
-      }
-      if (!phaseAHazardController.isActive && beatCoordinator.phase === 'RUN_QUESTION') {
-        phaseAHazardController.start();
       }
     }
 
@@ -1243,8 +1245,8 @@ const engine = new GameEngine({
           totalSteps,
           completedExerciseBeats: beatCoordinator.completedExerciseBeats,
           locomotionMode: locomotionModal.selectedMode,
-          activeHazardPattern: phaseAHazardController.activePattern,
-          hazardBeatProgress: phaseAHazardController.beatProgress,
+          activeHazardPattern: null,
+          hazardBeatProgress: 0,
           questionApproachProgress: beatCoordinator.questionApproachProgress,
           vanishingX: bossX,
           vanishingY: bossY,
@@ -1570,6 +1572,21 @@ canvas.addEventListener('click', (e) => {
         starNoteScheduler.fromTouch(hitZone.id, engine.elapsedTime);
       }
     }
+
+    // Issue #236: HAZARD_EVADE 중 터치/클릭 회피 fallback (좌: 왼발, 우: 오른발, 중앙: 점프)
+    if (stateMachine.currentState === 'HAZARD_EVADE' && !pauseModal.isOpen) {
+      const target = phaseAHazardController.activePattern;
+      if (target) {
+        if (normX < 0.35) {
+          phaseAHazardController.recordAction(target === 'balance_right' ? 'balance_right' : 'left_step');
+        } else if (normX > 0.65) {
+          phaseAHazardController.recordAction(target === 'balance_left' ? 'balance_left' : 'right_step');
+        } else {
+          phaseAHazardController.recordAction('jump');
+        }
+        sfx.play('hover');
+      }
+    }
   } else if (screenMode === 'result') {
     goToMenu();
   }
@@ -1616,10 +1633,6 @@ document.addEventListener('keydown', (e) => {
     if (screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
       totalSteps++;
       beatCoordinator.recordStep();
-      if (phaseAHazardController.activePattern === 'jump') {
-        phaseAHazardController.recordAction('jump');
-        sfx.play('jump_whoosh');
-      }
       effectManager.playBurst({
         x: canvasManager.virtualWidth * 0.5,
         y: canvasManager.virtualHeight * 0.65,
@@ -1628,6 +1641,26 @@ document.addEventListener('keydown', (e) => {
         duration: 0.3,
       });
       currentQuestion = beatCoordinator.currentQuestion;
+      return;
+    } else if (
+      screenMode === 'game' &&
+      stateMachine.currentState === 'HAZARD_EVADE' &&
+      !pauseModal.isOpen
+    ) {
+      const target = phaseAHazardController.activePattern;
+      if (target === 'jump') {
+        phaseAHazardController.recordAction('jump');
+        sfx.play('jump_whoosh');
+      } else if (target) {
+        phaseAHazardController.recordAction(target);
+      }
+      effectManager.playBurst({
+        x: canvasManager.virtualWidth * 0.5,
+        y: canvasManager.virtualHeight * 0.65,
+        count: 8,
+        colors: ['#28E6FF', '#FFFFFF'],
+        duration: 0.3,
+      });
       return;
     } else if (
       screenMode === 'game' &&
