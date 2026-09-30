@@ -39,7 +39,7 @@ export class BeatTimelineRenderer {
   }
 
   /**
-   * 트랙 레인 및 노트 블록 HTML 마크업 렌더링
+   * 트랙 레인 및 노트 블록 HTML 마크업 렌더링 (4줄 레인 구조)
    */
   renderTimelineTracksHTML(
     _phase: PhaseType,
@@ -50,14 +50,58 @@ export class BeatTimelineRenderer {
   ): string {
     const playheadPercent = Math.max(0, Math.min(100, (currentBeat / totalBeats) * 100));
 
-    // 레인별 노트 분리
+    // 4개 레인별 노트 분리
+    // 1. 모션 레인 (바운스 / 16박 안무 블록)
     const motionNotes = notes.filter((n) => n.lane === 'motion');
-    const keynoteNotes = notes.filter((n) => n.lane === 'keynote' || n.lane === 'answer');
+
+    // 2. 왼손 레인 (왼손 키노트, 0번 답안, 좌측 동작)
+    const lhNotes = notes.filter((n) => {
+      if (n.lane === 'motion') return false;
+      const part = n.payload?.part || n.payload?.targetPart;
+      return (
+        part === 'leftHand' ||
+        n.payload?.choiceIndex === 0 ||
+        n.label.includes('왼손') ||
+        n.label.includes('좌측') ||
+        n.label.includes('양손')
+      );
+    });
+
+    // 3. 오른손 레인 (오른손 키노트, 1번 답안, 우측 동작)
+    const rhNotes = notes.filter((n) => {
+      if (n.lane === 'motion') return false;
+      const part = n.payload?.part || n.payload?.targetPart;
+      return (
+        part === 'rightHand' ||
+        n.payload?.choiceIndex === 1 ||
+        n.label.includes('오른손') ||
+        n.label.includes('우측') ||
+        n.label.includes('양손')
+      );
+    });
+
+    // 4. 골반/발 레인 (골반 스쿼트, 힙스웨이, 발 디딤/킥, 머리/특수)
+    const hipFootNotes = notes.filter((n) => {
+      if (n.lane === 'motion') return false;
+      const part = n.payload?.part || n.payload?.targetPart;
+      return (
+        part === 'hip' ||
+        part === 'foot' ||
+        part === 'head' ||
+        n.payload?.instrument === 'foot' ||
+        n.label.includes('힙') ||
+        n.label.includes('골반') ||
+        n.label.includes('스쿼트') ||
+        n.label.includes('킥') ||
+        n.label.includes('발') ||
+        (!lhNotes.includes(n) && !rhNotes.includes(n))
+      );
+    });
 
     const renderNoteBlock = (note: TimelineTrackNote) => {
       // 1-based startBeat: Beat 1 starts at 0%
       const leftPercent = Math.max(0, Math.min(100, ((note.startBeat - 1) / totalBeats) * 100));
-      const widthPercent = Math.max(2, Math.min(100, (note.durationBeats / totalBeats) * 100));
+      const widthPercent = Math.max(3, Math.min(100, (note.durationBeats / totalBeats) * 100));
       const isSelected = selectedNoteId === note.id;
 
       return `
@@ -79,10 +123,24 @@ export class BeatTimelineRenderer {
           </div>
         </div>
 
-        <div class="timeline-lane lane-keynote" data-lane="keynote">
-          <span class="lane-tag">키노트/타깃</span>
+        <div class="timeline-lane lane-lh" data-lane="leftHand">
+          <span class="lane-tag">✋ 왼손</span>
           <div class="lane-content">
-            ${keynoteNotes.map(renderNoteBlock).join('')}
+            ${lhNotes.map(renderNoteBlock).join('')}
+          </div>
+        </div>
+
+        <div class="timeline-lane lane-rh" data-lane="rightHand">
+          <span class="lane-tag">🤚 오른손</span>
+          <div class="lane-content">
+            ${rhNotes.map(renderNoteBlock).join('')}
+          </div>
+        </div>
+
+        <div class="timeline-lane lane-hipfoot" data-lane="hipFoot">
+          <span class="lane-tag">🥋 골반/발</span>
+          <div class="lane-content">
+            ${hipFootNotes.map(renderNoteBlock).join('')}
           </div>
         </div>
 

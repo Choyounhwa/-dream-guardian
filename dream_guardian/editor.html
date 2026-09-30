@@ -496,7 +496,7 @@
 
     /* 3. Timeline */
     .editor-timeline-panel {
-      height: 140px;
+      height: 200px;
       background: var(--bg-panel);
       border-top: 1px solid var(--border-color);
       display: flex;
@@ -589,13 +589,46 @@
     }
 
     .timeline-lane {
-      height: 30px;
+      height: 28px;
       display: flex;
       align-items: center;
       background: rgba(255, 255, 255, 0.03);
       border-radius: 4px;
       position: relative;
       border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: background-color 0.15s;
+    }
+
+    .timeline-lane:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .timeline-lane.lane-motion {
+      border-left: 3px solid var(--color-purple);
+    }
+    .timeline-lane.lane-motion .lane-tag {
+      color: var(--color-purple);
+    }
+
+    .timeline-lane.lane-lh {
+      border-left: 3px solid var(--color-cyan);
+    }
+    .timeline-lane.lane-lh .lane-tag {
+      color: var(--color-cyan);
+    }
+
+    .timeline-lane.lane-rh {
+      border-left: 3px solid var(--color-yellow);
+    }
+    .timeline-lane.lane-rh .lane-tag {
+      color: var(--color-yellow);
+    }
+
+    .timeline-lane.lane-hipfoot {
+      border-left: 3px solid var(--color-orange);
+    }
+    .timeline-lane.lane-hipfoot .lane-tag {
+      color: var(--color-orange);
     }
 
     .lane-tag {

@@ -56,5 +56,39 @@ describe('BeatTimelineRenderer - 비트 타임라인 트랙 렌더러 및 스크
       expect(html).toContain('selected'); // 선택된 노트 스타일
       expect(html).toContain('playhead-cursor');
     });
+
+    it('키노트 타임라인이 4개 레인(모션, 왼손, 오른손, 골반/발)으로 분리 렌더링된다', () => {
+      const notes = sequenceEditor.getNotesForPhase('STAR_COLLECT');
+      const html = renderer.renderTimelineTracksHTML('STAR_COLLECT', notes, 2.0, 8, null);
+
+      // 4개 레인 태그 확인
+      expect(html).toContain('lane-motion');
+      expect(html).toContain('lane-lh');
+      expect(html).toContain('lane-rh');
+      expect(html).toContain('lane-hipfoot');
+
+      // 라벨 확인
+      expect(html).toContain('모션');
+      expect(html).toContain('왼손');
+      expect(html).toContain('오른손');
+      expect(html).toContain('골반');
+    });
+
+    it('각 부위별 노트(왼손, 오른손, 골반)가 해당 레인에 겹침 없이 분리 배치된다', () => {
+      const notes = sequenceEditor.getNotesForPhase('STAR_COLLECT');
+      const html = renderer.renderTimelineTracksHTML('STAR_COLLECT', notes, 2.0, 8, null);
+
+      // lane-lh 레인 안에 왼손 노트가 포함되어 있는지 검증
+      const lhLaneMatch = html.match(/class="[^"]*lane-lh[^"]*"[\s\S]*?(?=class="[^"]*timeline-lane|$)/);
+      expect(lhLaneMatch?.[0]).toContain('왼손');
+
+      // lane-rh 레인 안에 우측 스카이포인트 찌르기 노트가 포함되어 있는지 검증
+      const rhLaneMatch = html.match(/class="[^"]*lane-rh[^"]*"[\s\S]*?(?=class="[^"]*timeline-lane|$)/);
+      expect(rhLaneMatch?.[0]).toContain('스카이포인트');
+
+      // lane-hipfoot 레인 안에 골반/스쿼트 노트가 포함되어 있는지 검증
+      const hipLaneMatch = html.match(/class="[^"]*lane-hipfoot[^"]*"[\s\S]*?(?=class="[^"]*timeline-lane|$)/);
+      expect(hipLaneMatch?.[0]).toMatch(/골반|스쿼트|딥|힙/);
+    });
   });
 });
