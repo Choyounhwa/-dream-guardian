@@ -6,6 +6,7 @@ import { EditorState, type PhaseType } from './EditorState.js';
 import { EditorLayout } from './EditorLayout.js';
 import { EditorCanvasRenderer } from './EditorCanvasRenderer.js';
 import { AudioSyncController } from './AudioSyncController.js';
+import { editorIOHandler } from './EditorIOHandler.js';
 import type { DanceMotionType } from '../data/danceRoutineData.js';
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -16,6 +17,9 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   const state = new EditorState();
+  // 로컬 스토리지에 저장된 이전 작업 복원
+  editorIOHandler.loadFromLocalStorage(state);
+
   const layout = new EditorLayout(state);
   const audioSync = new AudioSyncController({ bpm: state.bpm, enableAudioNode: true });
 
@@ -311,22 +315,29 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // JSON 내보내기 버튼
-  const exportJsonBtn = document.getElementById('btn-export-json');
-  if (exportJsonBtn) {
-    exportJsonBtn.addEventListener('click', () => {
-      const json = state.registry.toJSON();
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'danceRoutineData.json';
-      a.click();
-      URL.revokeObjectURL(url);
+  // 5.1 로컬 수동 저장 버튼
+  const saveLocalBtn = document.getElementById('btn-save-local');
+  if (saveLocalBtn) {
+    saveLocalBtn.addEventListener('click', () => {
+      const saved = editorIOHandler.saveToLocalStorage(state);
+      if (saved) {
+        alert('💾 프로젝트 데이터가 브라우저 로컬 스토리지에 성공적으로 저장되었습니다!');
+      } else {
+        alert('⚠️ 저장 실패: 브라우저 스토리지를 사용할 수 없습니다.');
+      }
     });
   }
 
-  // JSON 불러오기 버튼
+  // 5.2 JSON 내보내기 버튼 (전체 프로젝트 패키지)
+  const exportJsonBtn = document.getElementById('btn-export-json');
+  if (exportJsonBtn) {
+    exportJsonBtn.addEventListener('click', () => {
+      const json = editorIOHandler.exportFullProjectJSON(state);
+      editorIOHandler.downloadFile('danceStudio_project.json', json, 'application/json');
+    });
+  }
+
+  // 5.3 JSON 불러오기 버튼
   const importJsonBtn = document.getElementById('btn-import-json');
   if (importJsonBtn) {
     importJsonBtn.addEventListener('click', () => {
@@ -339,10 +350,16 @@ window.addEventListener('DOMContentLoaded', () => {
           const reader = new FileReader();
           reader.onload = (event) => {
             const content = event.target?.result as string;
-            const res = state.registry.loadFromJSON(content);
-            alert(`JSON 불러오기 완료! (${res.loadedCount}개 패턴 로드)`);
-            updateSidebar();
-            updateCanvas();
+            const res = editorIOHandler.importFullProjectJSON(state, content);
+            if (res.success) {
+              alert(`✅ 프로젝트 JSON 로드 완료! (${res.loadedCount}개 안무 패턴 및 시퀀스 복원)`);
+              editorIOHandler.saveToLocalStorage(state);
+              updateSidebar();
+              updateTimeline();
+              updateCanvas();
+            } else {
+              alert(`❌ 로드 실패:\n${res.errors.join('\n')}`);
+            }
           };
           reader.readAsText(file);
         }
@@ -351,18 +368,53 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // CSV 내보내기 버튼
+  // 5.4 CSV 내보내기 버튼
   const exportCsvBtn = document.getElementById('btn-export-csv');
   if (exportCsvBtn) {
     exportCsvBtn.addEventListener('click', () => {
-      const csv = state.registry.toCSV();
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'danceRoutineData.csv';
-      a.click();
-      URL.revokeObjectURL(url);
+      const csv = editorIOHandler.exportCSV(state);
+      editorIOHandler.downloadFile('danceRoutineData.csv', csv, 'text/csv;charset=utf-8;');
+    });
+  }
+
+  // 5.5 CSV 불러오기 버튼
+  const importCsvBtn = document.getElementById('btn-import-csv');
+  if (importCsvBtn) {
+    importCsvBtn.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.csv';
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const content = event.target?.result as string;
+            const res = editorIOHandler.importCSV(state, content);
+            if (res.success) {
+              alert(`✅ 패턴 CSV 로드 완료! (${res.loadedCount}개 패턴 등록)`);
+              editorIOHandler.saveToLocalStorage(state);
+              updateSidebar();
+              updateCanvas();
+            } else {
+              alert(`❌ CSV 로드 실패:\n${res.errors.join('\n')}`);
+            }
+          };
+          reader.readAsText(file);
+        }
+      };
+      input.click();
+    });
+  }
+
+  // 5.6 기본값 초기화 버튼
+  const resetDefaultsBtn = document.getElementById('btn-reset-defaults');
+  if (resetDefaultsBtn) {
+    resetDefaultsBtn.addEventListener('click', () => {
+      if (confirm('모든 안무 패턴과 시퀀스를 기본 설정값으로 초기화하시겠습니까?\n(로컬 저장 데이터가 삭제됩니다)')) {
+        editorIOHandler.clearLocalStorage();
+        location.reload();
+      }
     });
   }
 
@@ -414,18 +466,29 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 8. 상태 변경 리스너 등록
+  // 8. 상태 변경 리스너 등록 & LocalStorage 디바운스 자동 저장
+  let autoSaveTimer: any = null;
+  const triggerAutoSave = () => {
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+      editorIOHandler.saveToLocalStorage(state);
+    }, 800);
+  };
+
   state.addListener({
     onStateChange: () => {
       updateHeader();
       updateToolbar();
+      triggerAutoSave();
     },
     onPatternChange: () => {
       updateSidebar();
       updateCanvas();
+      triggerAutoSave();
     },
     onPhaseChange: () => {
       updateTimeline();
+      triggerAutoSave();
     },
     onPlayStateChange: () => {
       updateHeader();

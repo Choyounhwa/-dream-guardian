@@ -80,9 +80,12 @@ export class EditorLayout {
 
         <div class="header-right">
           <button id="btn-new-pattern" class="btn btn-accent">+ 새 패턴</button>
-          <button id="btn-export-json" class="btn btn-outline">JSON 내보내기</button>
-          <button id="btn-import-json" class="btn btn-outline">JSON 불러오기</button>
-          <button id="btn-export-csv" class="btn btn-outline">CSV 내보내기</button>
+          <button id="btn-save-local" class="btn btn-primary" title="로컬 브라우저 저장">💾 저장</button>
+          <button id="btn-export-json" class="btn btn-outline" title="전체 프로젝트 JSON 파일 다운로드">JSON 내보내기</button>
+          <button id="btn-import-json" class="btn btn-outline" title="프로젝트 JSON 파일 불러오기">JSON 불러오기</button>
+          <button id="btn-export-csv" class="btn btn-outline" title="패턴 CSV 다운로드">CSV 내보내기</button>
+          <button id="btn-import-csv" class="btn btn-outline" title="패턴 CSV 불러오기">CSV 불러오기</button>
+          <button id="btn-reset-defaults" class="btn btn-ghost" title="기본값으로 복원">↺ 초기화</button>
           <a href="./index.html" class="btn btn-ghost" target="_blank">🎮 게임 실행</a>
         </div>
       </header>
