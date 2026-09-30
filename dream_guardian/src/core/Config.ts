@@ -46,6 +46,7 @@ export const DEFAULT_CONFIG: GameConfig = {
     stardustReward: DEFAULT_BATTLE_CONFIG.stardustReward,
     fever: DEFAULT_BATTLE_CONFIG.fever,
     bossHazard: DEFAULT_BATTLE_CONFIG.bossHazard,
+    troopCombat: DEFAULT_BATTLE_CONFIG.troopCombat,
   },
   motion: {
     squatThreshold: 0.065,

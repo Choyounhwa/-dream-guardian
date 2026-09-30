@@ -17,7 +17,7 @@
 | **7. 시청각 연결** | **#192** *(완료)* → **#228** *(완료)* → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | `[✔] 완료` |
 | **8. 정산·자원** | **#240** *(완료)* → **#242** *(완료)* | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[✔] 완료` |
 | **9. Phase B 진입** | **#241** *(완료)* | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[✔] 완료` |
-| **10. Phase B 실행** | **#213** *(완료)* → **#193** *(완료)* → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | **`[▶ NEXT: #194]`** |
+| **10. Phase B 실행** | **#213** *(완료)* → **#193** *(완료)* → **#194** *(완료)* → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | **`[▶ NEXT: #195]`** |
 | **11. 판정 유연화** | **#249** → **#250** → **#251** → **#252** → **#253** → **#254** → **#255** | 팔 뻗기·존·타이밍 판정의 유저 행동 수용성 확대 | `[ ] 대기` |
 | **12. 최종 검증** | **#186** | 실제 10문제 → Phase B → 승리/패배 → 메뉴 완주 | `[ ] 대기` |
 
@@ -36,8 +36,47 @@
 > ⚠️ **#252는 구조 변경 위험 최상**: MotionIntentBus는 반드시 #249~#251 완료 후 진행하며, 버스 미주입 시 기존 직접 판정 경로로 100% 폴백되어야 한다.
 > 판정 수치는 전부 신규 `config/judgment.config.ts`로 분리하여 코드 수정 없이 튜닝 가능해야 한다 (개발 규칙 6절).
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#194 [MINION-TROOP-001] 아군 미니언 군단(3~13체) 실시간 증원/탈락 및 상체(Zone 1~5) 별빛 수집 마법 발사 시스템`**  
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#195 [RENDER-CLIMAX-001] 3D 원근 보스 결전 연출(불협화음 장판 충격파, 적 미니언 전진, 아군 군단 마법 탄막 및 광폭화)`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-10-01 완료: [MINION-TROOP-001 / #194] Phase B 인계 자원 소비·미니언 군단 화력·피격 탈락 연결
+
+> #194 구현 및 단위/통합 검증 완료. Phase A 정산으로부터 인계된 미니언 군단 수량(3~13체)과 별가루 자원을 Zero-Reset 없이 Phase B(BOSS_CLIMAX) 결전에 승계하고, 상체(Zone 1~5) 별빛 수집과 연동되는 게이지 충전·쿨다운·DPS 화력 공식·별가루 소비형 강화 탄막 및 #193 피격 탈락(0마리 하한 클램프)을 완벽히 구축·연결했다.
+> 군단 화력 공식 `(baseDamage + minionCount * damagePerMinion + bonusDamage) * gaugeMultiplier`를 준수하며(`baseDamage: 10`, `damagePerMinion: 2`, `maxGaugeMultiplier: 1.5`, `stardustCost: 5`, `stardustBonusDamage: 10`), 미니언이 전멸(0마리)해도 수호신 단독 대치로 10 기본 화력을 보장한다.
+> 상체(Zone 1~5) 별빛 수집 성공 시 게이지 배율이 +0.1 충전(최대 1.5배)되며, Miss 발생 시 쿨다운 지연(0.5초 딜레이) 가산 및 게이지가 감쇠된다. 별가루 보유 잔량이 5 이상일 때 소비에 성공하여 강화 탄막을 발사하며, 잔량 부족 시 오버드래프트 거부·음수 거부·동일 멱등키 중복 차단이 철저히 보장된다.
+> 보스에게 `bossController.takeDamage(damage)`로 치명 피해를 입히며, 보스 처치(체력 0 이하) 시 탄막 발사가 즉시 중단된다. `src/main.ts`의 Phase B 진입(`stageProgressController.onEnterBossClimax`), 메인 update 루프, 별 수집 판정 라우팅, 보스 피격 연출(`bossRenderer.triggerHit`, `sfx.play('correct')`, 'cast' 이펙트)에 실연결했다.
+
+### 주요 구현 및 변경 사항
+- **군단 화력 밸런스 설정 분리 (`config/battle.config.ts`, `src/core/Config.ts`, `src/types/index.ts`)**:
+  - `TroopCombatConfig` 및 `DEFAULT_TROOP_COMBAT_CONFIG` 추가 (`baseDamage: 10`, `damagePerMinion: 2`, `baseGaugeMultiplier: 1.0`, `maxGaugeMultiplier: 1.5`, `gaugePerStar: 0.1`, `cooldown: 1.0`, `missPenaltyDelay: 0.5`, `stardustCost: 5`, `stardustBonusDamage: 10`).
+  - `BattleConfig.troopCombat`, `GameConfig.battle.troopCombat` 및 `DEFAULT_BATTLE_CONFIG.troopCombat` 연동.
+  - `EventMap`에 `troop:barrage`, `troop:stardust_consumed` 추가.
+- **수호신 시스템 강화 마법 API 추가 (`src/game/GuardianSystem.ts`)**:
+  - `castEnhanced(bonusDamage = 0): number` 메서드 추가: 별가루 소비형 강화 마법 시전 및 수호신 성장 연계.
+- **아군 미니언 군단 매니저 Phase B 전투·화력 엔진 완성 (`src/game/MinionTroopManager.ts`)**:
+  - `startPhaseB(snapshot)`: 스냅샷으로부터 미니언 수와 별가루를 온전히 인계(Zero-Reset Guard).
+  - `computeDamage(gaugeMultiplier, isEnhanced)`: 승인된 DPS 화력 공식 엄격 준수.
+  - `recordStarRating(rating, zoneId)`: Zone 1~5 상체 별빛 수집 시 게이지 +0.1(최대 1.5배), Miss 시 0.5초 쿨다운 지연 및 게이지 감쇠.
+  - `consumeStardust(amount, idempotencyKey)`: 자원 지갑(`PhaseAResourceManager`) 연계 또는 로컬 지갑 차감, 오버드래프트 거부, 음수/NaN 거부, 중복 멱등키 방지.
+  - `fireBarrage(options)`: 보스 치명 피해 부여(`bossController.takeDamage`), 쿨다운 재설정, `troop:barrage` 이벤트 발행, 보스 처치 시 자동 사격 중단.
+  - `update(dt, options)`: 쿨다운 타이머 감쇠 및 자동 탄막 발사 루프.
+  - `setBossController`, `setResourceManager`, `setEventBus` 의존성 주입 지원.
+- **PhaseAResourceManager 연동 (`src/game/PhaseAResourceManager.ts`)**:
+  - 인스턴스화 시 `troopManager.setResourceManager(this)` 및 `bossController` 자동 주입.
+- **실게임 런타임 연결 (`src/main.ts`)**:
+  - `beatRoundResolver.resourceManager.troopManager.setEventBus(eventBus)`, `setBossController(boss)`.
+  - `eventBus.on('troop:barrage')`: 보스 피격 애니메이션(`bossRenderer.triggerHit`), 타격/캐스팅 이펙트, 효과음 트리거.
+  - `starNoteScheduler.onRating`: Phase B에서 `troopManager.recordStarRating(starResult.rating, starResult.zoneId)` 동기 호출.
+  - `BOSS_CLIMAX` 진입/퇴장: `stageProgressController.onEnterBossClimax`에서 `troopManager.startPhaseB(snapshot)` 호출, `exit` 시 `stop()`.
+  - 메인 update 루프: `BOSS_CLIMAX` 중 `troopManager.update(dt, { autoConsumeStardust: true })` 호출.
+
+### 검증 결과
+- `tests/unit/minion-troop-combat.test.ts` (18 tests Pass): Phase B 인계 자원 보존(Zero-Reset 방지), 군단 화력 공식(DPS), 0마리 수호신 단독 대치(10), 커스텀 설정 반영, 게이지 충전(최대 1.5배) 및 Zone 1~5 검증, Miss 0.5초 쿨다운 지연 및 감쇠, 별가루 소비 강화 탄막(30), 오버드래프트 거부, 비정상 수치 거부, 멱등키 중복 차단, 피격 탈락 하한 클램프(0마리) 및 화력 즉각 갱신, 보스 치명 피해, 보스 처치 즉시 사격 중단, update 루프 자동 발사 100% Pass.
+- `tests/unit/minion-troop-manager.test.ts` (18 tests Pass): Phase A + Phase B 전영역 통합 100% Pass.
+- `tests/integration/troop-combat.test.ts` (1 test Pass): Phase A 10문제 정산(7정답 3오답) -> 자원 스냅샷 인계 -> Phase B 게이지 충전 -> 보스 충격파 피격 미니언 탈락(10->9) -> 화력 재계산 -> 별가루 소비 강화 탄막 -> 보스 격파 -> 사격 중단 전과정 통합 검증 100% Pass.
+- 전체 테스트: **100개 파일, 1169개 테스트 100% Pass**, `npm run build` TypeScript 검사 0 에러 & Vite 번들 검증 완료.
 
 ---
 

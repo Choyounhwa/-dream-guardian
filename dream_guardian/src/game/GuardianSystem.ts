@@ -67,6 +67,18 @@ export class GuardianSystem {
     return DEFAULT_CONFIG.battle.spellDamage;
   }
 
+  /**
+   * 별가루 소비형 강화 수호신 마법 시전 (Issue #194)
+   * @param bonusDamage 추가 데미지
+   */
+  castEnhanced(bonusDamage = 0): number {
+    this._castCount++;
+    this._isCasting = true;
+    this._castTimer = this._castDuration;
+    this._updateStage();
+    return DEFAULT_CONFIG.battle.spellDamage + bonusDamage;
+  }
+
   /** 성장 단계 갱신 */
   private _updateStage(): void {
     if (this._castCount >= STAGE_THRESHOLDS[4]) {

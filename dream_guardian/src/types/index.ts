@@ -1,4 +1,4 @@
-import type { FeverConfig, BossHazardConfig } from '../../config/battle.config.js';
+import type { FeverConfig, BossHazardConfig, TroopCombatConfig } from '../../config/battle.config.js';
 
 // ─── Game State (Canonical FSM 14 states / Issue #214) ───
 export type GameState =
@@ -42,6 +42,8 @@ export interface EventMap {
   'MINION_CASUALTY': { remainingMinions: number; attackType?: string };
   'boss:hazard_resolved': { attackType: string; evaded: boolean; damage: number };
   'boss:hazard_start': { attackType: string; warningDuration: number };
+  'troop:barrage': { damage: number; minionCount: number; gaugeMultiplier: number; isEnhanced: boolean };
+  'troop:stardust_consumed': { amount: number; remainingStardust: number };
 }
 
 // ─── System Lifecycle Interface ───
@@ -90,6 +92,7 @@ export interface GameConfig {
     };
     fever?: FeverConfig;
     bossHazard?: BossHazardConfig;
+    troopCombat?: TroopCombatConfig;
   };
   motion: {
     squatThreshold: number;

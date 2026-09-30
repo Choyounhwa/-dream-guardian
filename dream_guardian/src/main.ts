@@ -226,10 +226,23 @@ starNoteScheduler.setViewport(
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
 
-// Issue #213 & #193: 전역 이벤트 버스 및 Phase B 컨트롤러 인스턴스 참조 선언
+// Issue #213 & #193 & #194: 전역 이벤트 버스 및 Phase B 컨트롤러 인스턴스 참조 선언
 const eventBus = new EventBus();
 let bossFeverController: BossFeverController;
 let bossHazardController: BossHazardController;
+
+// Issue #194: 미니언 군단 매니저 의존성 주입 및 탄막 발사 연출 연결
+beatRoundResolver.resourceManager.troopManager.setEventBus(eventBus);
+beatRoundResolver.resourceManager.troopManager.setBossController(boss);
+eventBus.on('troop:barrage', (info) => {
+  bossRenderer.triggerHit();
+  effectManager.playPreset(
+    info.isEnhanced ? 'cast' : 'correct',
+    canvasManager.virtualWidth * 0.5,
+    canvasManager.virtualHeight * 0.35,
+  );
+  sfx.play('correct');
+});
 
 // Issue #191: 노트결과 ID 기준 중복 방지 (1회 재생 보장)
 const playedNoteAudioIds = new Set<string>();
@@ -245,12 +258,16 @@ starNoteScheduler.onRating((starResult) => {
     playedNoteAudioIds.add(noteId);
   }
 
-  // Issue #213 & #240: Phase A(별가루 축적)와 Phase B(보스 치명 타격) 책임 분리
+  // Issue #213 & #240 & #194: Phase A(별가루 축적)와 Phase B(피버 타격 및 군단 게이지 충전) 연동
   if (
     stateMachine.currentState === 'BOSS_CLIMAX' ||
     (bossFeverController && bossFeverController.isActive)
   ) {
     bossFeverController.recordRating(starResult, noteId);
+    beatRoundResolver.resourceManager.troopManager.recordStarRating(
+      starResult.rating,
+      starResult.zoneId,
+    );
   } else {
     beatRoundResolver.recordStarRating(starResult.rating, noteId);
   }
@@ -407,6 +424,9 @@ stateMachine.registerState('BOSS_CLIMAX', {
     if (bossHazardController && !bossHazardController.isActive) {
       bossHazardController.start();
     }
+    if (!beatRoundResolver.resourceManager.troopManager.isActive) {
+      beatRoundResolver.resourceManager.troopManager.startPhaseB();
+    }
     console.log('[DG] BOSS_CLIMAX 진입 (Phase B 결전 실행)');
   },
   exit: () => {
@@ -416,6 +436,7 @@ stateMachine.registerState('BOSS_CLIMAX', {
     if (bossHazardController) {
       bossHazardController.stop();
     }
+    beatRoundResolver.resourceManager.troopManager.stop();
   },
 });
 
@@ -725,6 +746,7 @@ const stageProgressController = new StageProgressController({
   },
   onEnterBossClimax: (snapshot) => {
     console.log('[DG] Phase B (BOSS_CLIMAX) 진입 완료! 단일 자원 인계:', snapshot);
+    beatRoundResolver.resourceManager.troopManager.startPhaseB(snapshot);
     bossFeverController.start(engine.elapsedTime, snapshot);
     bossHazardController.start();
   },
@@ -1301,6 +1323,10 @@ const engine = new GameEngine({
       // Issue #193: Phase B 보스 패턴 공격 타이머 및 회피/피격 판정 갱신
       if (bossHazardController && !pauseModal.isOpen) {
         bossHazardController.update(dt);
+      }
+      // Issue #194: Phase B 아군 미니언 군단 자동 탄막 쿨다운 및 화력 투사
+      if (!pauseModal.isOpen) {
+        beatRoundResolver.resourceManager.troopManager.update(dt, { autoConsumeStardust: true });
       }
     }
 

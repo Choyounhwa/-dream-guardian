@@ -49,6 +49,10 @@ export class PhaseAResourceManager {
   constructor(options?: PhaseAResourceManagerOptions) {
     this._troopManager =
       options?.troopManager ?? new MinionTroopManager(options?.troopConfig);
+    this._troopManager.setResourceManager(this);
+    if (options?.boss) {
+      this._troopManager.setBossController(options.boss);
+    }
     this._stardustReward =
       options?.stardustReward ?? DEFAULT_BATTLE_CONFIG.stardustReward;
     this._battle = options?.battle;
