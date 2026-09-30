@@ -30,6 +30,7 @@ import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
 import { ResultRenderer, calcStars } from './ui/ResultRenderer.js';
 import type { ResultData } from './ui/ResultRenderer.js';
+import { PhasePresentationAdapter } from './ui/PhasePresentationAdapter.js';
 import {
   BossRenderer,
   DreamGrid,
@@ -171,6 +172,7 @@ const pauseModal = new PauseModal();
 const xGestureDetector = new XGestureDetector();
 const questionRenderer = new QuestionRenderer();
 const beatHUDRenderer = new BeatHUDRenderer();
+const presentationAdapter = new PhasePresentationAdapter(beatHUDRenderer.hazardRenderer);
 const starNoteRenderer = new StarNoteRenderer();
 const gestureFeedbackOverlay = new GestureFeedbackOverlay();
 const sessionLifecycle = new SessionLifecycle();
@@ -303,6 +305,9 @@ stateMachine.registerState('HAZARD_EVADE', {
   enter: () => {
     questionVisible = false;
     answerLocked = true;
+    if (!phaseAHazardController.isActive) {
+      phaseAHazardController.start();
+    }
   },
   exit: () => {
     phaseAHazardController.stop();
@@ -311,6 +316,7 @@ stateMachine.registerState('HAZARD_EVADE', {
 
 stateMachine.registerState('ROUND_RESOLVE', {
   enter: () => {
+    questionVisible = false;
     answerLocked = true;
   },
   exit: () => {
@@ -363,10 +369,23 @@ const beatCoordinator = new BeatRunCoordinator({
   },
   onAnswerSelected: (idx) => {
     sfx.play('hover');
-    if (idx === beatCoordinator.currentQuestion?.correctIndex) {
+    answerLocked = true;
+    const correct = idx === beatCoordinator.currentQuestion?.correctIndex;
+    feedbackCorrect = correct;
+    feedbackTimer = 0.8;
+
+    const buttonLayouts = getAnswerButtonLayouts(canvasManager.virtualWidth, canvasManager.virtualHeight);
+    const targetBtn = (idx === 0 || idx === 1) ? buttonLayouts[idx] : null;
+    const bx = targetBtn ? targetBtn.centerX : canvasManager.virtualWidth * 0.5;
+    const by = targetBtn ? targetBtn.y + targetBtn.height / 2 : canvasManager.virtualHeight * 0.5;
+
+    if (correct) {
       sfx.play('correct');
+      effectManager.playPreset('correct', bx, by);
+      bossRenderer.triggerHit();
     } else {
       sfx.play('wrong');
+      effectManager.playPreset('wrong', bx, by);
     }
   },
   onAnswerConfirmed: (idx, _correct, status) => {
@@ -541,23 +560,11 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
 
   answerLocked = true; // 연속 입력 방지
   const correct = status === 'correct';
-  feedbackCorrect = correct;
-  feedbackTimer = 0.8;
   questionVisible = false;
 
-  console.log(`[DG] 답: ${idx} (${correct ? '정답' : '오답'}) [${status}]`);
-
-  const buttonLayouts = getAnswerButtonLayouts(canvasManager.virtualWidth, canvasManager.virtualHeight);
-  const targetBtn = (idx === 0 || idx === 1) ? buttonLayouts[idx] : null;
-  const bx = targetBtn ? targetBtn.centerX : canvasManager.virtualWidth * 0.5;
-  const by = targetBtn ? targetBtn.y + targetBtn.height / 2 : canvasManager.virtualHeight * 0.5;
+  console.log(`[DG] 라운드 정산 완료: 답 ${idx} (${correct ? '정답' : '오답'}) [${status}]`);
 
   if (correct) {
-    sfx.play('correct');
-    effectManager.playPreset('correct', bx, by);
-    bossRenderer.triggerHit();
-    console.log(`[DG] 정답 타격! 보스 HP: ${boss.hp}/${boss.maxHp}`);
-
     if (resolveResult.spellCast) {
       effectManager.playPreset('cast', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * HORIZON_RATIO);
       castingFlash = 0.6;
@@ -575,10 +582,12 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
       return;
     }
   } else {
-    sfx.play('wrong');
-    effectManager.playPreset('wrong', bx, by);
-    // Issue #225: Phase A 오답 시 보스 직접 반격 및 화면 중앙 피격 이펙트 제거 (버튼 피드백만 유지)
-    console.log(`[DG] 오답 피드백! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
+    if (status === 'timeout') {
+      sfx.play('wrong');
+      feedbackCorrect = false;
+      feedbackTimer = 0.8;
+    }
+    console.log(`[DG] 오답 정산 완료! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
 
     if (resolveResult.playerDefeated) {
       if (sessionLifecycle.claimResultTransition()) {
@@ -1006,7 +1015,7 @@ const engine = new GameEngine({
     // 내부 8박 시계 및 라운드 정산(_resolveRound)이 멈추지 않도록 보장
     beatCoordinator.update(dt, normalizedLandmarks);
     currentQuestion = beatCoordinator.currentQuestion;
-    if (gamePhase === 'running' && phaseAHazardController.isActive) {
+    if ((gamePhase === 'running' || gamePhase === 'hazard_evade') && phaseAHazardController.isActive) {
       phaseAHazardController.update(dt);
       if (!battle.isAlive) {
         showResult(false);
@@ -1154,12 +1163,8 @@ const engine = new GameEngine({
         color: gridColor,
       });
 
-      // Issue #192: 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링
-      if (
-        gamePhase === 'star_collect' ||
-        beatCoordinator.phase === 'STAR_COLLECT' ||
-        beatCoordinator.phase === 'KEYNOTE_PERFORMANCE'
-      ) {
+      // Issue #192 & #232: 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링
+      if (presentationAdapter.canRenderStarCollect(stateMachine.currentState)) {
         starNoteRenderer.render(ctx, vw, vh, {
           target: starCollectionInput.currentTarget,
           elapsedTime: engine.elapsedTime,
@@ -1171,7 +1176,8 @@ const engine = new GameEngine({
       bossRenderer.render(ctx, currentChapter, bossX, bossY, bossRadius, boss.phase);
       hudLayer.render(ctx, vw, vh, getHUDData());
 
-      if (gamePhase === 'running') {
+      // Issue #232: GameState 기반 상태별 렌더 허용표(Render Allow Matrix) 적용
+      if (presentationAdapter.canRenderRunningHUD(stateMachine.currentState)) {
         beatHUDRenderer.render(ctx, vw, vh, {
           question: currentQuestion,
           totalSteps,
@@ -1183,16 +1189,23 @@ const engine = new GameEngine({
           vanishingX: bossX,
           vanishingY: bossY,
         });
-      } else {
+      } else if (presentationAdapter.canRenderQuestion(stateMachine.currentState)) {
         questionRenderer.render(ctx, vw, vh, {
           question: currentQuestion,
           questionVisible,
           selectedChoiceIndex: beatCoordinator.selectedChoiceIndex,
           answerPlan: answerSelector.currentPlan,
         });
-        renderFeedback(ctx, vw, vh);
+      } else if (presentationAdapter.canRenderHazardEvade(stateMachine.currentState)) {
+        presentationAdapter.renderHazardEvade(ctx, vw, vh, {
+          activePattern: phaseAHazardController.activePattern,
+          beatProgress: phaseAHazardController.beatProgress,
+          vanishingX: bossX,
+          vanishingY: bossY,
+        });
       }
 
+      renderFeedback(ctx, vw, vh);
       effectManager.render(ctx);
     } else if (screenMode === 'result' && resultData) {
       resultRenderer.render(ctx, vw, vh, resultData);
@@ -1249,8 +1262,8 @@ const engine = new GameEngine({
       kneeFramingGuideRenderer.render(ctx, vw, vh, currentKneeFraming);
     }
 
-    // 7.8 Issue #159 & #160, #210, #226: 목표 자세 실루엣 가이드 오버레이 및 첫 문제 유도 화살표
-    const isQuestionPhase = screenMode === 'game' && (gamePhase === 'question' || gamePhase === 'answer_select') && questionVisible;
+    // 7.8 Issue #159 & #160, #210, #226, #232: 목표 자세 실루엣 가이드 오버레이 및 첫 문제 유도 화살표
+    const isQuestionPhase = screenMode === 'game' && presentationAdapter.canRenderPostureGuide(stateMachine.currentState) && questionVisible;
     const currentChoiceProgress: [number, number] = [0, 0];
 
     if (isQuestionPhase && answerSelector.currentPlan) {
@@ -1473,7 +1486,7 @@ canvas.addEventListener('click', (e) => {
       currentQuestion = beatCoordinator.currentQuestion;
       return;
     }
-    if (questionVisible && currentQuestion && !answerLocked) {
+    if (presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked) && currentQuestion) {
       const buttonLayouts = getAnswerButtonLayouts(vw, vh);
 
       for (let i = 0; i < 2; i++) {
@@ -1601,7 +1614,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'z' || e.key === 'Z') {
       footKeynoteInput.fromKeyboard('leftFoot', engine.elapsedTime);
       const target = phaseAHazardController.activePattern;
-      if (gamePhase === 'running' && (target === 'left_step' || target === 'balance_right')) {
+      if ((gamePhase === 'running' || gamePhase === 'hazard_evade') && (target === 'left_step' || target === 'balance_right')) {
         phaseAHazardController.recordAction(target);
       }
     } else if (e.key === 'x' || e.key === 'X') {
@@ -1609,12 +1622,12 @@ document.addEventListener('keydown', (e) => {
     } else if (e.key === 'v' || e.key === 'V') {
       footKeynoteInput.fromKeyboard('rightFoot', engine.elapsedTime);
       const target = phaseAHazardController.activePattern;
-      if (gamePhase === 'running' && (target === 'right_step' || target === 'balance_left')) {
+      if ((gamePhase === 'running' || gamePhase === 'hazard_evade') && (target === 'right_step' || target === 'balance_left')) {
         phaseAHazardController.recordAction(target);
       }
     }
 
-    if (questionVisible && !answerLocked && beatCoordinator.isAnswerOpen) {
+    if (presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked) && beatCoordinator.isAnswerOpen) {
       if (e.key === '1') {
         sfx.play('hover');
         beatCoordinator.confirmAnswerByFallback(0);
@@ -1690,4 +1703,4 @@ if (document.readyState === 'loading') {
   bootstrap();
 }
 
-export { stateMachine, sessionLifecycle };
+export { stateMachine, sessionLifecycle, presentationAdapter };

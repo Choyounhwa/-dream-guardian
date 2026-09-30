@@ -15,4 +15,6 @@ export type { PauseAction } from './PauseModal.js';
 export { TutorialOverlay } from './TutorialOverlay.js';
 export { GestureFeedbackOverlay } from './GestureFeedbackOverlay.js';
 export type { GestureFeedbackState } from './GestureFeedbackOverlay.js';
+export { PhasePresentationAdapter } from './PhasePresentationAdapter.js';
+export type { HazardEvadePresentationState } from './PhasePresentationAdapter.js';
 

@@ -2,6 +2,32 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 2026-09-30 완료: [BUG-PHASE-PRESENTATION-001 / #232] 답 선택 즉시 피드백 및 별모으기·회피 화면의 페이즈별 연결 복구
+
+> #232 구현 및 단위/통합 검증 완료. `GameState` 기반 상태별 렌더 허용표(Render Allow Matrix)를 제공하는 `PhasePresentationAdapter`를 신설하여 `RUN_QUESTION`, `ANSWER_SELECT`, `STAR_COLLECT`, `HAZARD_EVADE`, `ROUND_RESOLVE` 간의 렌더링 충돌을 완전히 해소했다. 정답 시 별모으기 노트를 활성화하고 답안 렌더를 비활성화하며, 오답 및 타임아웃 시 3D 바닥 장판과 안내 텍스트로 구성된 회피 표시 경로를 연결했다. 또한 답안 선택 시점의 즉시 시각 피드백(버튼 폭발 이펙트, 보스 피격 애니메이션, 타이머 세팅)과 입력 잠금(`answerLocked`)을 1회 처리하고, 7박 후 지연 정산(`onAnswerConfirmed`)과 분리하여 중복 이펙트를 방지했다. `questionVisible = false` 상태에서도 정산 및 다음 라운드 예약 전이가 정상 동작함을 검증했다.
+
+### 주요 구현 및 변경 사항
+- **`PhasePresentationAdapter` 화면 표시 어댑터 구축 (`src/ui/PhasePresentationAdapter.ts`, `src/ui/index.ts`)**:
+  - `canRenderRunningHUD(state)`: `RUN_QUESTION` 및 `REST_READY`에서만 허용.
+  - `canRenderQuestion(state)`: `ANSWER_SELECT`에서만 허용.
+  - `canRenderStarCollect(state)`: `STAR_COLLECT` 및 `KEYNOTE_PERFORMANCE`에서만 허용.
+  - `canRenderHazardEvade(state)`: `HAZARD_EVADE`에서만 허용.
+  - `canRenderPostureGuide(state)`: `ANSWER_SELECT`에서만 허용.
+  - `isAnswerInputAllowed(state, isAnswerLocked)`: `ANSWER_SELECT && !isAnswerLocked`일 때만 허용.
+  - `renderHazardEvade(ctx, vw, vh, state)`: 패턴별(점프, 좌/우측 스텝, 외발 균형) 안내 타이틀/서브타이틀 및 3D 바닥 장판 위임 렌더링.
+- **`src/main.ts` 프로덕션 렌더링 및 생명주기 연결**:
+  - `stateMachine.registerState('HAZARD_EVADE')` 진입 시 `phaseAHazardController.start()` 및 퇴장 시 `stop()`.
+  - 메인 루프 업데이트 시 `gamePhase === 'running' || gamePhase === 'hazard_evade'` 조건으로 장판 진행도 및 충돌 판정 연결.
+  - `onAnswerSelected(idx)`: 답 선택 즉시 1회 SFX, 버튼 폭발 프리셋, 보스 피격 애니메이션, 피드백 타이머 점등 및 `answerLocked = true` 즉시 잠금.
+  - `handleAnswer`: 지연 정산 결과(스펠 캐스팅, 승리/패배, 다음 라운드 지연 시작)만 담당하고 중복 버튼 이펙트 제거.
+  - 터치 및 키보드('1', '2') fallback 입력에 `presentationAdapter.isAnswerInputAllowed` 가드 적용.
+- **TDD 검증 결과**:
+  - `tests/integration/phase-presentation.test.ts` (10 tests Pass): 상태별 렌더 허용표, 정답→별 렌더 활성/답안 렌더 비활성, 오답/타임아웃→회피 표시 경로, 선택 직후 1회 피드백 및 선택 입력 잠금, `questionVisible = false` 상태 정산 및 다음 상태 정상 전이.
+  - `tests/unit/phase-presentation-adapter.test.ts` (7 tests Pass): 어댑터 전 메서드 및 렌더 위임 검증.
+  - `npm run build` 번들 검증 100% 성공 & `npm test` 전체 77개 파일 933개 테스트 100% Pass (회귀 결함 0건).
+
+**다음 작업 대상: #233 [CLEANUP-ANSWER-VIEW-001] 팔 Zone4/5 답 선택 화면의 구형 레시피·E_Pit·자세 가이드 제거.**
+
 ## 2026-09-30 완료: [BUG-SESSION-EXIT-001 / #231] 일시정지·메뉴·결과 전환의 게임 시간 및 예약 수명 통일
 
 > #231 구현 및 단위/통합 검증 완료. pause 상태에서 게임 활성 시간(`GameEngine._elapsedTime`)이 증가하던 결함을 해결하여 pause 2초 후에도 노트·장판·비트 진행도가 완벽히 동일하도록 시간 계약을 통일했다. 또한 `SessionLifecycle`을 도입하여 세션 종료 및 메뉴 복귀 시 비동기 타이머(`setTimeout`)를 일괄 취소/세대 토큰(sessionId)으로 무효화하고, 승패 결과 화면 전환 권한을 단일화하여 중복 콜백 및 고아 재시작을 원천 차단했다.
