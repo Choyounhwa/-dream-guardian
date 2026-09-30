@@ -17,7 +17,7 @@
 | **7. 시청각 연결** | **#192** *(완료)* → **#228** *(완료)* → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | `[✔] 완료` |
 | **8. 정산·자원** | **#240** *(완료)* → **#242** *(완료)* | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[✔] 완료` |
 | **9. Phase B 진입** | **#241** *(완료)* | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[✔] 완료` |
-| **10. Phase B 실행** | **#213** *(완료)* → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | **`[▶ NEXT: #193]`** |
+| **10. Phase B 실행** | **#213** *(완료)* → **#193** *(완료)* → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | **`[▶ NEXT: #194]`** |
 | **11. 판정 유연화** | **#249** → **#250** → **#251** → **#252** → **#253** → **#254** → **#255** | 팔 뻗기·존·타이밍 판정의 유저 행동 수용성 확대 | `[ ] 대기` |
 | **12. 최종 검증** | **#186** | 실제 10문제 → Phase B → 승리/패배 → 메뉴 완주 | `[ ] 대기` |
 
@@ -36,8 +36,40 @@
 > ⚠️ **#252는 구조 변경 위험 최상**: MotionIntentBus는 반드시 #249~#251 완료 후 진행하며, 버스 미주입 시 기존 직접 판정 경로로 100% 폴백되어야 한다.
 > 판정 수치는 전부 신규 `config/judgment.config.ts`로 분리하여 코드 수정 없이 튜닝 가능해야 한다 (개발 규칙 6절).
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#193 [BATTLE-BOSS-001] Phase B 보스 패턴 공격(충격파·화염구) 및 스쿼트·점프 회피 구현`**  
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#194 [MINION-TROOP-001] 아군 미니언 군단(3~13체) 실시간 증원/탈락 및 상체(Zone 1~5) 별빛 수집 마법 발사 시스템`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-10-01 완료: [BATTLE-BOSS-001 / #193] Phase B 전용 보스 충격파·교대 짓밟기·광폭화 실행 연결
+
+> #193 구현 및 단위/통합 검증 완료. Phase B(BOSS_CLIMAX) 결전에 진입했을 때만 가동되는 보스 패턴 공격 및 광폭화 엔진 `BossHazardController`를 신설하고 실제 런타임에 완벽히 연결했다. Phase A 러닝 중에는 보스 공격 타이머가 동작하지 않아 0회 공격을 철저히 보장한다.
+> 보스의 2대 패턴 공격(양손 쿵 'dual_slam' 충격파 - jump 회피, 한손 콩콩 'alternating_stomp_left'/'alternating_stomp_right' 적 미니언 침투 - step_left/step_right/Zone 9/11 회피)을 제공하며, 회피 성공 시 피해 0/미니언 손실 0, 회피 실패(Hit) 시 플레이어 HP 15 차감, 피버 콤보 0 리셋(`bossFeverController.onPlayerHit`), 아군 미니언 1체 탈락(`minionTroopManager.removeMinion`, 0마리 하한 클램프), `MINION_CASUALTY` 이벤트 발행을 멱등하게 단 1회 수행한다.
+> 보스 체력이 30% 이하 도달 시 광폭화가 단 1회 발동하여 공격 주기가 1.5배 단축된다. 일시정지 시 타이머가 동결되며, 보스 격파 또는 플레이어 사망 시 즉시 공격이 정지된다.
+> `src/main.ts`의 `BOSS_CLIMAX` 진입/퇴장, 메인 루프 update, 카메라 점프 감지(`jumpDetector`), 발 키노트(`footKeynoteInput`), 키보드(Space, Z, V, X) 및 터치(Zone 9/10/11) 회피 입력 라우팅, `ResultData` 점프 카운트(`totalJumps`)에 실연결했다.
+
+### 주요 구현 및 변경 사항
+- **보스 결전 공격 및 광폭화 설정 분리 (`config/battle.config.ts`, `src/core/Config.ts`, `src/types/index.ts`)**:
+  - `BossHazardConfig` 및 `DEFAULT_BOSS_HAZARD_CONFIG` 추가 (`attackInterval: 5.0`, `warningDuration: 1.5`, `activeDuration: 1.0`, `damage: 15`, `enrageHpRatio: 0.3`, `enrageSpeedMultiplier: 1.5`, `minionCasualtyCount: 1`).
+  - `EventMap`에 `boss:enrage`, `MINION_CASUALTY`, `minion:casualty`, `boss:hazard_resolved`, `boss:hazard_start` 추가.
+- **아군 미니언 군단 모델 하한 탈락 메서드 추가 (`src/game/MinionTroopManager.ts`)**:
+  - `removeMinion(count = 1): number` 추가: 피격 시 미니언 감소 및 0마리 하한 클램프.
+- **BossHazardController 구현 (`src/game/BossHazardController.ts`, `src/game/index.ts`)**:
+  - 생명주기: start/stop/pause/resume/reset 완비.
+  - 공격 패턴: `dual_slam`, `alternating_stomp_left`, `alternating_stomp_right` 순환/스케줄링.
+  - 회피 입력 매칭: `recordAction(action)` 점프, 왼발, 오른발, 발 키노트 존 ID 매핑.
+  - 멱등적 단일 정산: `_resolveAttack()`을 통해 단 1회 판정 및 이벤트 버스/콜백 발행.
+  - 광폭화: 보스 체력 비율 30% 이하 시 단 1회 트리거 및 주기 단축.
+- **실게임 런타임 연결 (`src/main.ts`)**:
+  - `BOSS_CLIMAX` 진입 시 `bossHazardController.start()`, 퇴장 시 `bossHazardController.stop()`.
+  - 메인 update 루프에서 `BOSS_CLIMAX` 중 `bossHazardController.update(dt)` 실행.
+  - 점프, 발 키노트, 키보드, 터치 회피 입력 연동 및 `totalJumps` 칼로리/결과 연동.
+
+### 검증 결과
+- `tests/unit/boss-hazard-controller.test.ts` (14 tests Pass): 초기 비활성, start/stop/pause/resume 생명주기, 점프 회피, 왼발/오른발 회피, 회피 성공 피해 0/미니언 보존, 회피 실패 피해 15/콤보 0 리셋/미니언 -1/MINION_CASUALTY 이벤트, 0마리 하한 클램프, 멱등 단일 판정, 체력 30% 광폭화 및 1.5배 단축, 보스 처치 즉시 정지, 플레이어 사망 즉시 정지 100% Pass.
+- `tests/integration/phase-b-boss-attack.test.ts` (3 tests Pass): Phase A 0회 공격 보장, Phase B 진입 후 피버 누적-점프 회피-피격 미니언 탈락-광폭화 가속-처치 종료 전 과정 통합 검증 100% Pass.
+- `tests/unit/phase-a-resources.test.ts` (17 tests Pass): `removeMinion` 하한 클램프 포함 100% Pass.
+- 전체 테스트: **97개 파일, 1132개 테스트 100% Pass**, `npm run build` TypeScript 검사 0 에러 Pass.
 
 ---
 
