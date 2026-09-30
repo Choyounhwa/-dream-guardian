@@ -1264,6 +1264,9 @@ const engine = new GameEngine({
           beatProgress: phaseAHazardController.beatProgress,
           vanishingX: bossX,
           vanishingY: bossY,
+          isEvaded: phaseAHazardController.isEvaded,
+          isResolved: phaseAHazardController.isResolved,
+          performedAction: phaseAHazardController.performedAction,
         });
       }
 

@@ -84,4 +84,62 @@ describe('PhasePresentationAdapter Unit Tests - [BUG-PHASE-PRESENTATION-001 / #2
       }),
     );
   });
+
+  function createMockCtx(): CanvasRenderingContext2D {
+    return {
+      save: vi.fn(),
+      restore: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      closePath: vi.fn(),
+      ellipse: vi.fn(),
+      arc: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      fillText: vi.fn(),
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+      font: '',
+      textAlign: '',
+      textBaseline: '',
+      shadowColor: '',
+      shadowBlur: 0,
+    } as unknown as CanvasRenderingContext2D;
+  }
+
+  it('renderHazardEvade는 isResolved=true 및 isEvaded=true일 때 회피 성공 텍스트와 패턴 식별명을 표출한다 (Issue #228)', () => {
+    const mockCtx = createMockCtx();
+
+    adapter.renderHazardEvade(mockCtx, 1080, 2160, {
+      activePattern: 'left_step',
+      beatProgress: 1.0,
+      vanishingX: 540,
+      vanishingY: 518,
+      isResolved: true,
+      isEvaded: true,
+    });
+
+    const calls = vi.mocked(mockCtx.fillText).mock.calls.map((c) => String(c[0]));
+    expect(calls.some((txt) => txt.includes('회피 성공') || txt.includes('DODGED'))).toBe(true);
+    expect(calls.some((txt) => txt.includes('왼발') || txt.includes('left_step'))).toBe(true);
+  });
+
+  it('renderHazardEvade는 isResolved=true 및 isEvaded=false일 때 피격 실패 텍스트와 데미지를 표출한다 (Issue #228)', () => {
+    const mockCtx = createMockCtx();
+
+    adapter.renderHazardEvade(mockCtx, 1080, 2160, {
+      activePattern: 'jump',
+      beatProgress: 1.0,
+      vanishingX: 540,
+      vanishingY: 518,
+      isResolved: true,
+      isEvaded: false,
+    });
+
+    const calls = vi.mocked(mockCtx.fillText).mock.calls.map((c) => String(c[0]));
+    expect(calls.some((txt) => txt.includes('회피 실패') || txt.includes('HIT'))).toBe(true);
+    expect(calls.some((txt) => txt.includes('25') || txt.includes('피격'))).toBe(true);
+  });
 });

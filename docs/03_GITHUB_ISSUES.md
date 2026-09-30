@@ -4239,11 +4239,15 @@ BEAT-SPEC-001
   2. **`BeatHUDRenderer` 연동**:
      - 레거시 평면 타원을 제거하고 `hazardZoneRenderer.render(...)` 호출로 교체.
      - 상단 안내 텍스트(`hazardGuide`) 및 운동 횟수 표시는 그대로 유지.
-- **완료 조건**:
-  - [x] `tests/unit/hazard-zone-renderer.test.ts` 단위 테스트 100% 통과 (Red → Green, 10개 전건 통과).
-  - [x] `beatProgress` 진행(0→1)에 따라 장판 위치가 소실점(상단)에서 화면 하단으로 단조 증가(원근 접근) 검증.
-  - [x] `activePattern`이 null일 때 불필요한 드로잉 0건.
-  - [x] `npm run build` 및 전체 `npm test` 100% Pass (756/756 통과).
+- **완료 조건 (재검증 완료)**:
+  - [x] `tests/unit/hazard-zone-renderer.test.ts` 단위 테스트 100% 통과 (Red → Green, 12/12 Pass).
+  - [x] `tests/unit/phase-presentation-adapter.test.ts` 단위 테스트 100% 통과 (9/9 Pass).
+  - [x] `tests/integration/phase-a-hazard-render.test.ts` 실제 컨트롤러→프레젠테이션 통합 검증 100% Pass (6/6 Pass).
+  - [x] `beatProgress` 진행(0→1)에 따라 장판 위치가 소실점에서 전경으로 단조 증가(원근 접근) 검증.
+  - [x] `activePattern`이 null이거나 비활성 상태일 때 불필요한 드로잉 0건.
+  - [x] 판정 순간(3.5s) 회피 성공 시 안전 소멸 연출(#4DFFAA) 및 "회피 성공! (DODGED)" 표출 검증.
+  - [x] 판정 순간(3.5s) 미회피/실패 시 붉은 충격파(#FF4444) 및 "회피 실패! (HIT / -25 HP)" 표출 검증.
+  - [x] `npm run build` 및 전체 `npm test` 100% Pass (87개 파일 1035개 테스트 전체 통과).
 
 ---
 

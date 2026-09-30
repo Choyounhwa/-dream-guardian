@@ -17,6 +17,9 @@ export interface HazardEvadePresentationState {
   beatProgress: number; // 0.0 ~ 1.0
   vanishingX: number;
   vanishingY: number;
+  isEvaded?: boolean;
+  isResolved?: boolean;
+  performedAction?: PhaseAHazardPattern | null;
 }
 
 export class PhasePresentationAdapter {
@@ -82,18 +85,30 @@ export class PhasePresentationAdapter {
     state: HazardEvadePresentationState,
   ): void {
     const hazard = state.activePattern;
-    const hazardGuide: Record<PhaseAHazardPattern, { title: string; subtitle: string; color: string }> = {
-      left_step: { title: '왼발 피하기!', subtitle: '왼발을 들어 장판을 피하세요', color: '#28E6FF' },
-      right_step: { title: '오른발 피하기!', subtitle: '오른발을 들어 장판을 피하세요', color: '#FFCB4D' },
-      jump: { title: '양발 피하기!', subtitle: '점프해서 바닥 충격파를 넘으세요', color: '#FF865E' },
-      balance_left: { title: '왼발로 균형!', subtitle: '오른발을 들고 한발로 버티세요', color: '#C889FF' },
-      balance_right: { title: '오른발로 균형!', subtitle: '왼발을 들고 한발로 버티세요', color: '#C889FF' },
+    const hazardGuide: Record<PhaseAHazardPattern, { title: string; subtitle: string; color: string; actionName: string }> = {
+      left_step: { title: '왼발 피하기!', subtitle: '왼발을 들어 장판을 피하세요', color: '#28E6FF', actionName: '왼발' },
+      right_step: { title: '오른발 피하기!', subtitle: '오른발을 들어 장판을 피하세요', color: '#FFCB4D', actionName: '오른발' },
+      jump: { title: '양발 피하기!', subtitle: '점프해서 바닥 충격파를 넘으세요', color: '#FF865E', actionName: '양발/점프' },
+      balance_left: { title: '왼발로 균형!', subtitle: '오른발을 들고 한발로 버티세요', color: '#C889FF', actionName: '왼발 균형' },
+      balance_right: { title: '오른발로 균형!', subtitle: '왼발을 들고 한발로 버티세요', color: '#C889FF', actionName: '오른발 균형' },
     };
-    const guide = hazard ? hazardGuide[hazard] : {
-      title: '위험 회피 중!',
-      subtitle: '바닥 장판을 피하세요',
-      color: '#FF4444',
-    };
+
+    let title = hazard ? hazardGuide[hazard].title : '위험 회피 중!';
+    let subtitle = hazard ? hazardGuide[hazard].subtitle : '바닥 장판을 피하세요';
+    let color = hazard ? hazardGuide[hazard].color : '#FF4444';
+
+    if (state.isResolved) {
+      const actionName = hazard ? hazardGuide[hazard].actionName : '';
+      if (state.isEvaded) {
+        title = '회피 성공! (DODGED)';
+        subtitle = `[${actionName}] 공격을 완벽하게 피했습니다!`;
+        color = '#4DFFAA';
+      } else {
+        title = '회피 실패! (HIT)';
+        subtitle = `[${actionName}] 장판에 피격되었습니다 (-25 HP)`;
+        color = '#FF4444';
+      }
+    }
 
     const cx = vw * 0.5;
     const cy = vh * 0.38;
@@ -103,15 +118,15 @@ export class PhasePresentationAdapter {
     ctx.textBaseline = 'middle';
 
     ctx.font = 'bold 44px sans-serif';
-    ctx.fillStyle = guide.color;
-    ctx.shadowColor = guide.color;
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
     ctx.shadowBlur = 24;
-    ctx.fillText(guide.title, cx, cy - 60);
+    ctx.fillText(title, cx, cy - 60);
     ctx.shadowBlur = 0;
 
     ctx.font = 'bold 26px sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.fillText(guide.subtitle, cx, cy - 5);
+    ctx.fillText(subtitle, cx, cy - 5);
 
     if (hazard) {
       this._hazardZoneRenderer.render(ctx, vw, vh, {
@@ -119,6 +134,8 @@ export class PhasePresentationAdapter {
         beatProgress: state.beatProgress,
         vanishingX: state.vanishingX,
         vanishingY: state.vanishingY,
+        isResolved: state.isResolved,
+        isEvaded: state.isEvaded,
       });
     }
 

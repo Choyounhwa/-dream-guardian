@@ -14,7 +14,7 @@
 | **4. 모션 입력** | **#237** *(완료)* → **#238** *(완료)* → *(#239 미채택)* | 발 좌표·방향·스텝, 점프 사용자 기준선 | `[✔] 완료` |
 | **5. 분기 실행** | **#235** *(완료)* → **#236** *(완료)* | 별모으기 노트 일정·판정창, 회피 장판 수명주기 | `[✔] 완료` |
 | **6. 문제 표시** | **#212** *(완료)* → **#234** *(완료)* | 문제 원근 접근 연출 및 긴 수식 너비·높이 수용 | `[✔] 완료` |
-| **7. 시청각 연결** | **#192** *(완료)* → **#228** → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | **`[▶ NEXT: #228]`** |
+| **7. 시청각 연결** | **#192** *(완료)* → **#228** *(완료)* → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | **`[▶ NEXT: #191]`** |
 | **8. 정산·자원** | **#240** → **#242** | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[ ] 대기` |
 | **9. Phase B 진입** | **#241** | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[ ] 대기` |
 | **10. Phase B 실행** | **#213** → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | `[ ] 대기` |
@@ -36,8 +36,30 @@
 > ⚠️ **#252는 구조 변경 위험 최상**: MotionIntentBus는 반드시 #249~#251 완료 후 진행하며, 버스 미주입 시 기존 직접 판정 경로로 100% 폴백되어야 한다.
 > 판정 수치는 전부 신규 `config/judgment.config.ts`로 분리하여 코드 수정 없이 튜닝 가능해야 한다 (개발 규칙 6절).
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#228 [RENDER-HAZARD-001] 실제 회피 패턴·박자 기반 3D 바닥 장판 원근 렌더링 및 경고-입력-판정 표시 재검증`**  
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#191 [AUDIO-SYNTH-BAND-001] Web Audio 밴드 신디사이저·신체 부위별 악기 음향 및 판정 피드백 동기화 재검증`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-10-01 완료: [RENDER-HAZARD-001 / #228] 회피 페이즈 전용 3D 장판 렌더링 및 판정 시각 동기화 재검증
+
+> #228 구현 및 단위/통합 검증 완료. `HazardZoneRenderer`가 렌더링되더라도 판정 순간(3.5s)에 유저가 올바른 회피를 수행했는지 또는 피격되었는지에 대한 시각 피드백이 없어 결과와 대상 패턴을 식별할 수 없던 결함, 그리고 `BeatHUDRenderer`에 과거 프로토타입 잔재로 남아있던 상시 '장판 루틴 완료!' 텍스트가 러닝 페이즈 화면 중앙에 불필요하게 노출되던 화면 간섭 결함을 해결했다. `HazardZoneRenderer`에 `isResolved` 및 `isEvaded` 상태를 연동하여 회피 성공 시 에메랄드/시안 안전 소멸 펄스(`#4DFFAA`)를, 피격 실패 시 바닥 전면을 강타하는 붉은 충격파/폭발 임팩트(`#FF4444`)를 렌더링하도록 개편했다. 또한 `PhasePresentationAdapter.renderHazardEvade`에서 판정 순간 대상 패턴명과 함께 `회피 성공! (DODGED)` 또는 `회피 실패! (HIT / -25 HP)` 상태 배지를 표출하도록 구축하였으며, `src/main.ts`의 `phaseAHazardController` 상태를 완벽히 연동했다. 신규 통합 테스트 `tests/integration/phase-a-hazard-render.test.ts`를 통해 0~3.5s 원근 전진, 3.5s 판정 시점의 성공/실패 시각 분기, 4.0s 종료 시 0건 드로잉, 페이즈별 렌더 격리를 100% 검증했다.
+
+### 주요 구현 및 변경 사항
+- **판정 순간(3.5s) 성공 vs 실패 3D 임팩트 시각화 (`src/render/HazardZoneRenderer.ts`)**:
+  - `HazardRenderState`에 `isResolved?: boolean`, `isEvaded?: boolean` 필드 추가.
+  - 회피 성공 시(`isResolved && isEvaded`): 점프 링, 스텝 레인, 균형 플랫폼 모두 안전 소멸 에메랄드/시안 글로우(`rgb(77, 255, 170)`) 드로잉.
+  - 피격 실패 시(`isResolved && !isEvaded`): 선두 충격파 림 선폭 1.5배 증폭 및 위험 붉은색(`rgb(255, 68, 68)`) 강렬한 폭발 임팩트 렌더링.
+- **판정 결과 텍스트 및 대상 패턴 식별 피드백 (`src/ui/PhasePresentationAdapter.ts`, `src/main.ts`)**:
+  - `HazardEvadePresentationState`에 `isEvaded?: boolean`, `isResolved?: boolean`, `performedAction?: PhaseAHazardPattern | null` 필드 추가.
+  - 판정 완료 시 타이틀 `회피 성공! (DODGED)` / `회피 실패! (HIT)` 및 서브타이틀 `[대상패턴]` 식별 안내 표출.
+  - `src/main.ts`의 렌더 루프에서 `phaseAHazardController`의 판정 상태(`isEvaded`, `isResolved`, `performedAction`)를 실시간 주입.
+- **TDD 검증 및 실제 브라우저 캡처 결과**:
+  - `tests/unit/hazard-zone-renderer.test.ts` (12 tests Pass): 단조 전진, 패턴별 색상/레인, 성공 안전 소멸, 실패 붉은 임팩트 검증 포함 100% Pass.
+  - `tests/unit/phase-presentation-adapter.test.ts` (9 tests Pass): 회피 성공/실패 결과 텍스트 및 패턴 식별명 표출 검증 포함 100% Pass.
+  - `tests/integration/phase-a-hazard-render.test.ts` (6 tests Pass): 컨트롤러 수명주기 연동, 3.5s 판정 성공/실패 분기, 4.0s 종료 후 0건 드로잉, 페이즈 격리 검증 100% Pass.
+  - `npm run build` 번들 빌드 100% 성공 & `npm test` 전체 87개 파일 1035개 테스트 100% Pass (회귀 결함 0건).
+  - Chrome headless 실제 브라우저 캡처 완료 (`hazard_zone_verify.png`): 1. 접근 단계(65% 전진) → 2. 회피 성공(DODGED 안전 소멸) → 3. 회피 실패(HIT 붉은 임팩트) 3개 캔버스 정상 표출 확인.
 
 ---
 

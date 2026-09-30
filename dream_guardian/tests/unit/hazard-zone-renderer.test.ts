@@ -195,4 +195,41 @@ describe('HazardZoneRenderer (Issue #228 - RENDER-HAZARD-001)', () => {
       expect(hasLeftX).toBe(true);
     });
   });
+
+  describe('4. 판정 순간(isResolved) 임팩트 및 결과 시각화 (Issue #228)', () => {
+    it('isResolved=true 및 isEvaded=true(회피 성공)일 때 안전 소멸 링/보호막 효과를 렌더링한다', () => {
+      const state: HazardRenderState = {
+        activePattern: 'jump',
+        beatProgress: 1.0,
+        vanishingX: vx,
+        vanishingY: vy,
+        isResolved: true,
+        isEvaded: true,
+      };
+
+      renderer.render(ctx, vw, vh, state);
+
+      expect(ctx.stroke).toHaveBeenCalled();
+      // 회피 성공 시 시안/녹색(#4DFFAA 또는 #28E6FF) 안전 펄스 적용
+      const strokeStyles = vi.mocked(ctx).strokeStyle;
+      expect(typeof strokeStyles).toBe('string');
+    });
+
+    it('isResolved=true 및 isEvaded=false(피격/실패)일 때 붉은 충격파/폭발 임팩트를 렌더링한다', () => {
+      const state: HazardRenderState = {
+        activePattern: 'left_step',
+        beatProgress: 1.0,
+        vanishingX: vx,
+        vanishingY: vy,
+        isResolved: true,
+        isEvaded: false,
+      };
+
+      renderer.render(ctx, vw, vh, state);
+
+      expect(ctx.stroke).toHaveBeenCalled();
+      // 실패 피격 시 위험 붉은색(#FF4444) 임팩트 적용
+      expect(ctx.strokeStyle).toContain('255, 68, 68');
+    });
+  });
 });

@@ -18,6 +18,8 @@ export interface HazardRenderState {
   beatProgress: number; // 0.0 ~ 1.0
   vanishingX: number;
   vanishingY: number;
+  isResolved?: boolean;
+  isEvaded?: boolean;
 }
 
 export class HazardZoneRenderer {
@@ -56,19 +58,19 @@ export class HazardZoneRenderer {
 
     switch (state.activePattern) {
       case 'jump':
-        this._renderJumpShockwave(ctx, vw, vh, vx, vy, frontY, depthRatio, p);
+        this._renderJumpShockwave(ctx, vw, vh, vx, vy, frontY, depthRatio, p, state.isResolved, state.isEvaded);
         break;
       case 'left_step':
-        this._renderStepLaneHazard(ctx, vw, vh, vx, vy, frontY, depthRatio, 'left');
+        this._renderStepLaneHazard(ctx, vw, vh, vx, vy, frontY, depthRatio, 'left', state.isResolved, state.isEvaded);
         break;
       case 'right_step':
-        this._renderStepLaneHazard(ctx, vw, vh, vx, vy, frontY, depthRatio, 'right');
+        this._renderStepLaneHazard(ctx, vw, vh, vx, vy, frontY, depthRatio, 'right', state.isResolved, state.isEvaded);
         break;
       case 'balance_left':
-        this._renderBalanceHazard(ctx, vw, vh, vx, vy, frontY, depthRatio, 'left');
+        this._renderBalanceHazard(ctx, vw, vh, vx, vy, frontY, depthRatio, 'left', state.isResolved, state.isEvaded);
         break;
       case 'balance_right':
-        this._renderBalanceHazard(ctx, vw, vh, vx, vy, frontY, depthRatio, 'right');
+        this._renderBalanceHazard(ctx, vw, vh, vx, vy, frontY, depthRatio, 'right', state.isResolved, state.isEvaded);
         break;
     }
 
@@ -87,15 +89,36 @@ export class HazardZoneRenderer {
     frontY: number,
     depthRatio: number,
     progress: number,
+    isResolved?: boolean,
+    isEvaded?: boolean,
   ): void {
     const rx = vw * (0.18 + 0.44 * depthRatio);
     const ry = rx * 0.26; // 3D 바닥 평면 투영 타원비
 
     ctx.save();
-    ctx.strokeStyle = 'rgb(255, 134, 94)'; // #FF865E
-    ctx.shadowColor = 'rgba(255, 134, 94, 0.8)';
-    ctx.shadowBlur = 24;
-    ctx.lineWidth = 8 + 6 * depthRatio;
+
+    let strokeColor = 'rgb(255, 134, 94)'; // #FF865E
+    let shadowColor = 'rgba(255, 134, 94, 0.8)';
+    let fillColor = `rgba(255, 134, 94, ${0.08 + 0.14 * depthRatio})`;
+
+    if (isResolved) {
+      if (isEvaded) {
+        // 회피 성공: 안전 소멸 에메랄드/시안 링 (#4DFFAA)
+        strokeColor = 'rgb(77, 255, 170)';
+        shadowColor = 'rgba(77, 255, 170, 0.9)';
+        fillColor = 'rgba(77, 255, 170, 0.15)';
+      } else {
+        // 피격 실패: 강렬한 위험 붉은색 임팩트 (#FF4444)
+        strokeColor = 'rgb(255, 68, 68)';
+        shadowColor = 'rgba(255, 68, 68, 0.95)';
+        fillColor = 'rgba(255, 68, 68, 0.28)';
+      }
+    }
+
+    ctx.strokeStyle = strokeColor;
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = isResolved ? 32 : 24;
+    ctx.lineWidth = (8 + 6 * depthRatio) * (isResolved && !isEvaded ? 1.5 : 1.0);
 
     // 1. 메인 충격파 링
     ctx.beginPath();
@@ -103,7 +126,7 @@ export class HazardZoneRenderer {
     ctx.stroke();
 
     // 2. 바닥면 내부 글로우 채우기
-    ctx.fillStyle = `rgba(255, 134, 94, ${0.08 + 0.14 * depthRatio})`;
+    ctx.fillStyle = fillColor;
     ctx.fill();
 
     // 3. 뒤따라오는 보조 리플 링 (펄스 효과)
@@ -112,7 +135,7 @@ export class HazardZoneRenderer {
       const subRx = rx * 0.72;
       const subRy = ry * 0.72;
       ctx.lineWidth = 4 + 3 * subRatio;
-      ctx.strokeStyle = 'rgba(255, 134, 94, 0.6)';
+      ctx.strokeStyle = isResolved && !isEvaded ? 'rgba(255, 68, 68, 0.7)' : 'rgba(255, 134, 94, 0.6)';
       ctx.beginPath();
       ctx.ellipse(vx, frontY - ry * 0.4, subRx, subRy, 0, 0, Math.PI * 2);
       ctx.stroke();
@@ -133,10 +156,22 @@ export class HazardZoneRenderer {
     frontY: number,
     depthRatio: number,
     side: 'left' | 'right',
+    isResolved?: boolean,
+    isEvaded?: boolean,
   ): void {
     const isLeft = side === 'left';
-    const mainColor = isLeft ? 'rgb(40, 230, 255)' : 'rgb(255, 203, 77)';
-    const baseRgba = isLeft ? 'rgba(40, 230, 255, ' : 'rgba(255, 203, 77, ';
+    let mainColor = isLeft ? 'rgb(40, 230, 255)' : 'rgb(255, 203, 77)';
+    let baseRgba = isLeft ? 'rgba(40, 230, 255, ' : 'rgba(255, 203, 77, ';
+
+    if (isResolved) {
+      if (isEvaded) {
+        mainColor = 'rgb(77, 255, 170)';
+        baseRgba = 'rgba(77, 255, 170, ';
+      } else {
+        mainColor = 'rgb(255, 68, 68)';
+        baseRgba = 'rgba(255, 68, 68, ';
+      }
+    }
 
     // 레인 중심 X 오프셋 (전경 기준 화면 ±35% 위치)
     const laneOffsetSign = isLeft ? -1 : 1;
@@ -156,9 +191,9 @@ export class HazardZoneRenderer {
 
     ctx.save();
     ctx.strokeStyle = mainColor;
-    ctx.lineWidth = 6 + 4 * depthRatio;
+    ctx.lineWidth = (6 + 4 * depthRatio) * (isResolved && !isEvaded ? 1.4 : 1.0);
     ctx.shadowColor = mainColor;
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = isResolved ? 30 : 20;
 
     // 1. 위험 구역 사다리꼴 바닥면
     ctx.beginPath();
@@ -173,7 +208,7 @@ export class HazardZoneRenderer {
     ctx.stroke();
 
     // 2. 전방 충격파 림 (위험 구역 선두 테두리 강조)
-    ctx.lineWidth = 8 + 6 * depthRatio;
+    ctx.lineWidth = (8 + 6 * depthRatio) * (isResolved && !isEvaded ? 1.5 : 1.0);
     ctx.beginPath();
     ctx.moveTo(botX1, frontY);
     ctx.lineTo(botX2, frontY);
@@ -194,13 +229,19 @@ export class HazardZoneRenderer {
     frontY: number,
     depthRatio: number,
     safeSide: 'left' | 'right',
+    isResolved?: boolean,
+    isEvaded?: boolean,
   ): void {
     const isSafeLeft = safeSide === 'left';
-    const mainColor = 'rgb(200, 137, 255)'; // #C889FF
+    const mainColor = isResolved
+      ? isEvaded
+        ? 'rgb(77, 255, 170)'
+        : 'rgb(255, 68, 68)'
+      : 'rgb(200, 137, 255)'; // #C889FF
     const dangerSide = isSafeLeft ? 'right' : 'left';
 
     // 1. 위험한 반대편 레인에 가시형 위험 띠 드로잉
-    this._renderStepLaneHazard(ctx, vw, vh, vx, vy, frontY, depthRatio, dangerSide);
+    this._renderStepLaneHazard(ctx, vw, vh, vx, vy, frontY, depthRatio, dangerSide, isResolved, isEvaded);
 
     // 2. 안전한 지탱 측 발밑에 보라색 균형 유지 플랫폼 링 드로잉
     const safeOffsetSign = isSafeLeft ? -1 : 1;
@@ -220,7 +261,7 @@ export class HazardZoneRenderer {
     ctx.ellipse(safeCenterX, frontY, safeRx, safeRy, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.fillStyle = `rgba(200, 137, 255, ${0.15 + 0.15 * depthRatio})`;
+    ctx.fillStyle = isResolved && isEvaded ? 'rgba(77, 255, 170, 0.25)' : `rgba(200, 137, 255, ${0.15 + 0.15 * depthRatio})`;
     ctx.fill();
 
     ctx.restore();
