@@ -193,4 +193,111 @@ describe('MathRenderer - measureMath & renderMath (Issue #114)', () => {
       expect(wrapRes.width).toBeLessThanOrEqual(singleRes.width);
     });
   });
+
+  describe('긴 자연어·복합 수식의 화면 너비·높이 초과 수정 (Issue #234 / BUG-MATH-FIT-001)', () => {
+    it('긴 한글 단일 text 토큰이 maxWidth보다 큰 경우 문자 fallback으로 분리되어 모든 줄의 너비가 maxWidth 이하가 된다', () => {
+      const ctx = createMockCtx();
+      // 단일 text 토큰 (공백 없음, 17자 = 170px)
+      const text = '매우길고긴한글단일텍스트토큰입니다';
+      const tokens = parseMath(text);
+      expect(tokens).toHaveLength(1);
+      expect(tokens[0].type).toBe('text');
+
+      const maxWidth = 50; // 5글자 폭(50px) -> 5+5+5+2 = 4줄
+      const lines = wrapMathTokens(ctx, tokens, { fontSize: 32 }, maxWidth);
+
+      expect(lines.length).toBeGreaterThanOrEqual(4);
+      for (const line of lines) {
+        const lineDim = measureMath(ctx, line, { fontSize: 32 });
+        expect(lineDim.width).toBeLessThanOrEqual(maxWidth);
+      }
+    });
+
+    it('어절(단어) 단위 우선 분리 및 공백 없는 긴 단어는 문자 fallback으로 분리한다', () => {
+      const ctx = createMockCtx();
+      const text = '위에서 보았을 때 보이는 정사각형 수는?';
+      const tokens = parseMath(text);
+      const maxWidth = 80;
+
+      const lines = wrapMathTokens(ctx, tokens, { fontSize: 32 }, maxWidth);
+      expect(lines.length).toBeGreaterThanOrEqual(3);
+
+      for (const line of lines) {
+        const lineDim = measureMath(ctx, line, { fontSize: 32 });
+        expect(lineDim.width).toBeLessThanOrEqual(maxWidth);
+      }
+
+      // 문자 유실 0 검증: 공백 제외 모든 문자가 순서대로 보존되어야 함
+      const reconstructedChars = lines
+        .flatMap((line) =>
+          line.map((t) => (t.type === 'text' ? t.text : ''))
+        )
+        .join('')
+        .replace(/\s+/g, '');
+      const originalChars = text.replace(/\s+/g, '');
+      expect(reconstructedChars).toBe(originalChars);
+    });
+
+    it('줄바꿈 시 문자 유실 0 보장 및 분수·루트·지수·빈칸 구조를 보존한다', () => {
+      const ctx = createMockCtx();
+      const text = '[ ? ] + 1 2/3 - √16 × 5² = 정답을구하세요';
+      const tokens = parseMath(text);
+      const maxWidth = 100;
+
+      const lines = wrapMathTokens(ctx, tokens, { fontSize: 32 }, maxWidth);
+
+      // 모든 줄의 너비가 maxWidth 이하인지 확인
+      for (const line of lines) {
+        const lineDim = measureMath(ctx, line, { fontSize: 32 });
+        expect(lineDim.width).toBeLessThanOrEqual(maxWidth);
+      }
+
+      // 토큰 타입 보존 확인
+      const allTokens = lines.flat();
+      expect(allTokens.some((t) => t.type === 'placeholder' && t.label === '?')).toBe(true);
+      expect(allTokens.some((t) => t.type === 'fraction' && t.whole === '1' && t.num === '2' && t.den === '3')).toBe(true);
+      expect(allTokens.some((t) => t.type === 'sqrt' && t.radicand === '16')).toBe(true);
+      expect(allTokens.some((t) => t.type === 'power' && t.base === '5' && t.exp === '2')).toBe(true);
+
+      // 한글 텍스트 보존 확인
+      const reconstructedKorean = allTokens
+        .filter((t) => t.type === 'text')
+        .map((t) => (t as { type: 'text'; text: string }).text)
+        .join('');
+      expect(reconstructedKorean).toContain('정답을구하세요');
+    });
+
+    it('maxHeight 및 minFontSize 옵션 제공 시 실제 측정 높이를 제한하여 폰트를 자동 축소한다', () => {
+      const ctx = createMockCtx();
+      const text = '1층 위에 겹쳐 쌓은 나무(2·3층)는 모두 몇 개일까요? [ ? ] 개';
+
+      // 큰 fontSize(100)로 maxHeight(150) 지정
+      const res = renderMath(ctx, text, 100, 100, {
+        fontSize: 100,
+        maxWidth: 240,
+        maxHeight: 150,
+        minFontSize: 40,
+      });
+
+      expect(res.height).toBeLessThanOrEqual(150);
+      expect(res.width).toBeLessThanOrEqual(240);
+    });
+
+    it('긴 답안 수식/텍스트가 버튼 경계(maxWidth, maxHeight) 내에 완벽히 수용된다', () => {
+      const ctx = createMockCtx();
+      const longChoice = '화살표(➡️)를 시계방향 360° 회전';
+      const btnW = 280;
+      const btnH = 200;
+
+      const res = renderMath(ctx, longChoice, 140, 100, {
+        fontSize: 80,
+        maxWidth: btnW - 30,
+        maxHeight: btnH - 30,
+        minFontSize: 30,
+      });
+
+      expect(res.width).toBeLessThanOrEqual(btnW - 30);
+      expect(res.height).toBeLessThanOrEqual(btnH - 30);
+    });
+  });
 });

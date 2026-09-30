@@ -19,6 +19,13 @@ export interface QuestionRenderState {
   answerPlan?: QuestionRecipePlan | null;
 }
 
+export interface QuestionHeaderMathOptions {
+  hasShape?: boolean;
+  maxHeight?: number;
+  maxWidth?: number;
+  minFontSize?: number;
+}
+
 /**
  * 상단 문제 수식 텍스트 렌더링 공통 헬퍼
  * @param ctx 캔버스 2D 컨텍스트
@@ -27,6 +34,7 @@ export interface QuestionRenderState {
  * @param qY 기준 Y 좌표
  * @param scaleX 가상 X 스케일 비율
  * @param isRunningPhase 러닝 페이즈 여부 (러닝 페이즈는 110px 기본, 문제 풀이 페이즈는 132px 기본)
+ * @param options 너비/높이/폰트 제약 옵션
  */
 export function renderQuestionHeaderMath(
   ctx: CanvasRenderingContext2D,
@@ -35,28 +43,36 @@ export function renderQuestionHeaderMath(
   qY: number,
   scaleX: number,
   isRunningPhase: boolean = false,
-): void {
+  options?: QuestionHeaderMathOptions,
+): { width: number; height: number } {
   const qLen = questionText.length;
   const baseSize = isRunningPhase ? 110 : 132;
-  const minSize = isRunningPhase ? 76 : 84;
+  const minSize = options?.minFontSize ?? (isRunningPhase ? 60 : (options?.hasShape ? 44 : 64));
 
   let qFontSize = baseSize * scaleX;
   if (qLen > 10) {
     qFontSize = Math.max(minSize * scaleX, (baseSize - (qLen - 10) * 2.8) * scaleX);
   }
 
+  const defaultMaxHeight = options?.hasShape ? 150 * scaleX : (isRunningPhase ? 220 * scaleX : 340 * scaleX);
+  const maxHeight = options?.maxHeight ?? defaultMaxHeight;
+  const maxWidth = options?.maxWidth ?? 880 * scaleX;
+
   ctx.shadowColor = 'rgba(40, 230, 255, 0.5)';
   ctx.shadowBlur = 16 * scaleX;
-  renderMath(ctx, questionText, cx, qY, {
+  const result = renderMath(ctx, questionText, cx, qY, {
     fontSize: qFontSize,
     color: '#ffffff',
     align: 'center',
-    maxWidth: 880 * scaleX,
+    maxWidth,
+    maxHeight,
+    minFontSize: minSize * scaleX,
     placeholderColor: '#28E6FF',
     placeholderBgColor: 'rgba(40, 230, 255, 0.18)',
     fractionLineColor: '#ffffff',
   });
   ctx.shadowBlur = 0;
+  return result;
 }
 
 export class QuestionRenderer {
@@ -84,11 +100,14 @@ export class QuestionRenderer {
     // 1. 문제영역 가상 레이아웃 영역 (Y 기준 좌표계 유지)
     const boxY = 320 * scaleY;
     const cx = w / 2;
-    // 도형 존재 시 문제 텍스트를 상단으로 정렬하여 중앙 3D 뷰포트 영역 확보
-    const qY = shape ? boxY + 110 * scaleY : boxY + 220 * scaleY;
+    // 도형 존재 시 문제 텍스트를 상단으로 정렬하여 중앙 3D 뷰포트 영역(480~820px)과 겹침 0% 보장
+    const qY = shape ? boxY + 70 * scaleY : boxY + 220 * scaleY;
 
-    // 2. 문제 수식 텍스트 (Issue #167: 1.5배 대형화 132px 및 maxWidth 자동 줄바꿈)
-    renderQuestionHeaderMath(ctx, state.question.questionText, cx, qY, scaleX, false);
+    // 2. 문제 수식 텍스트 (Issue #167 & #234: 긴 자연어/복합 수식 높이 및 너비 안전 수용)
+    renderQuestionHeaderMath(ctx, state.question.questionText, cx, qY, scaleX, false, {
+      hasShape: Boolean(shape),
+      maxHeight: shape ? 140 * scaleY : 320 * scaleY,
+    });
 
     // 2-1. 도형(쌓기나무 3D / 전개도 / 회전) 시각화 렌더링 (텍스트와 버튼 사이 중앙 비간섭 영역)
     if (shape) {
@@ -142,15 +161,18 @@ export class QuestionRenderer {
         ctx.restore();
       }
 
-      // 수식 폰트: bold 96px (긴 수식은 최소 60px까지 자동 축소, 버튼 수직 중앙 정렬)
+      // 수식 폰트: bold 96px (긴 수식은 최소 32px까지 자동 축소, 버튼 경계 내 안전 수용)
       const choiceStr = String(state.question.choices[i]);
       const choiceLen = choiceStr.length;
-      const choiceFontSize = choiceLen > 6 ? Math.max(60 * scaleX, (96 - (choiceLen - 6) * 6) * scaleX) : 96 * scaleX;
+      const choiceFontSize = choiceLen > 6 ? Math.max(50 * scaleX, (96 - (choiceLen - 6) * 5) * scaleX) : 96 * scaleX;
 
       renderMath(ctx, choiceStr, bx + btnW / 2, btnY + btnH / 2, {
         fontSize: choiceFontSize,
         color: '#FFCB4D',
         align: 'center',
+        maxWidth: btnW - 32 * scaleX,
+        maxHeight: btnH - 32 * scaleY,
+        minFontSize: Math.round(32 * scaleX),
         fractionLineColor: '#FFCB4D',
         placeholderColor: '#FFCB4D',
       });

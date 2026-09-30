@@ -261,6 +261,8 @@ export interface MathRenderOptions {
   align?: 'left' | 'center' | 'right';
   baseline?: 'top' | 'middle' | 'bottom';
   maxWidth?: number;
+  maxHeight?: number;
+  minFontSize?: number;
   lineHeight?: number;
 }
 

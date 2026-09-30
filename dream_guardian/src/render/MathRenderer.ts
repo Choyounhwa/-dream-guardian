@@ -259,7 +259,30 @@ export function measureMath(
 }
 
 /**
- * 수식 토큰 스트림을 maxWidth 기준으로 단어/연산자 경계에서 줄바꿈 (Issue #167 / RENDER-MATH-002)
+ * 인접한 text 토큰을 하나로 병합
+ */
+function mergeLineTextTokens(line: MathToken[]): MathToken[] {
+  const merged: MathToken[] = [];
+  for (const token of line) {
+    if (token.type === 'text') {
+      if (token.text.length === 0) continue;
+      if (merged.length > 0 && merged[merged.length - 1].type === 'text') {
+        (merged[merged.length - 1] as { type: 'text'; text: string }).text += token.text;
+      } else {
+        merged.push({ type: 'text', text: token.text });
+      }
+    } else {
+      merged.push(token);
+    }
+  }
+  return merged;
+}
+
+/**
+ * 수식 토큰 스트림을 maxWidth 기준으로 단어/연산자/문자 경계에서 줄바꿈 (Issue #167, Issue #234)
+ * - text 토큰: 어절(공백) 우선 분리, maxWidth 초과 시 문자 단위 fallback 분리
+ * - math 토큰(fraction, sqrt, power 등): 구조 보존 (분리 불가 원자 단위)
+ * - 문자 유실 0 보장
  */
 export function wrapMathTokens(
   ctx: CanvasRenderingContext2D,
@@ -274,31 +297,103 @@ export function wrapMathTokens(
   let currentLine: MathToken[] = [];
   let currentLineWidth = 0;
 
+  const pushCurrentLine = () => {
+    if (currentLine.length > 0) {
+      lines.push(mergeLineTextTokens(currentLine));
+      currentLine = [];
+      currentLineWidth = 0;
+    }
+  };
+
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
-    const dim = measureToken(ctx, token, options);
 
-    // 공백 텍스트만 있는 토큰 처리
-    const isWhitespaceOnly = token.type === 'text' && token.text.trim().length === 0;
-
-    // 현재 줄이 비어있지 않고, 새 토큰 추가 시 maxWidth를 초과하는 경우
-    if (currentLine.length > 0 && currentLineWidth + dim.width > maxWidth && !isWhitespaceOnly) {
-      lines.push(currentLine);
-      currentLine = [token];
-      currentLineWidth = dim.width;
-    } else {
-      // 줄의 맨 앞에 오는 불필요한 공백 제거
-      if (currentLine.length === 0 && isWhitespaceOnly) {
-        continue;
+    // 1. Math 원자 토큰 (fraction, sqrt, power, subscript, placeholder, operator)
+    if (token.type !== 'text') {
+      const dim = measureToken(ctx, token, options);
+      if (currentLine.length > 0 && currentLineWidth + dim.width > maxWidth) {
+        pushCurrentLine();
       }
       currentLine.push(token);
       currentLineWidth += dim.width;
+      continue;
+    }
+
+    // 2. Text 토큰: 어절 우선 및 문자 단위 fallback 분리
+    const rawText = token.text;
+    if (!rawText) continue;
+
+    const segments = rawText.split(/(\s+)/).filter((s) => s.length > 0);
+
+    for (let si = 0; si < segments.length; si++) {
+      const segment = segments[si];
+      const isSpace = /^\s+$/.test(segment);
+
+      if (isSpace) {
+        if (currentLine.length === 0) continue;
+
+        const spDim = measureToken(ctx, { type: 'text', text: segment }, options);
+        if (currentLineWidth + spDim.width <= maxWidth) {
+          currentLine.push({ type: 'text', text: segment });
+          currentLineWidth += spDim.width;
+        } else {
+          pushCurrentLine();
+        }
+        continue;
+      }
+
+      const wordDim = measureToken(ctx, { type: 'text', text: segment }, options);
+
+      // Case 1: 현재 줄에 단어 전체가 수용되는 경우
+      if (currentLineWidth + wordDim.width <= maxWidth) {
+        currentLine.push({ type: 'text', text: segment });
+        currentLineWidth += wordDim.width;
+        continue;
+      }
+
+      // Case 2: 현재 줄에 안 들어가지만 줄이 비어있지 않은 경우 -> 새 줄로 시도 (어절 우선)
+      if (currentLine.length > 0) {
+        pushCurrentLine();
+      }
+
+      // Case 3: 빈 새 줄에서 단어 전체가 들어가는 경우
+      if (wordDim.width <= maxWidth) {
+        currentLine.push({ type: 'text', text: segment });
+        currentLineWidth = wordDim.width;
+        continue;
+      }
+
+      // Case 4: 단어 단독으로도 maxWidth 초과 시 문자 단위 fallback 분리
+      const chars = Array.from(segment);
+      let charChunk = '';
+      let charChunkWidth = 0;
+
+      for (let ci = 0; ci < chars.length; ci++) {
+        const ch = chars[ci];
+        const chDim = measureToken(ctx, { type: 'text', text: ch }, options);
+
+        if (currentLineWidth + chDim.width > maxWidth && (currentLine.length > 0 || charChunk.length > 0)) {
+          if (charChunk.length > 0) {
+            currentLine.push({ type: 'text', text: charChunk });
+          }
+          pushCurrentLine();
+          charChunk = ch;
+          charChunkWidth = chDim.width;
+          currentLineWidth = chDim.width;
+        } else {
+          charChunk += ch;
+          charChunkWidth += chDim.width;
+          currentLineWidth += chDim.width;
+        }
+      }
+
+      if (charChunk.length > 0) {
+        currentLine.push({ type: 'text', text: charChunk });
+      }
     }
   }
 
-  if (currentLine.length > 0) {
-    lines.push(currentLine);
-  }
+  pushCurrentLine();
 
   return lines.length > 0 ? lines : [tokens];
 }
@@ -472,7 +567,7 @@ function renderSingleMathLine(
 }
 
 /**
- * 캔버스에 수식 토큰 렌더링 (maxWidth 지정 시 자동 줄바꿈 지원, Issue #167)
+ * 캔버스에 수식 토큰 렌더링 (maxWidth 및 maxHeight 지정 시 자동 줄바꿈 및 크기 조정 지원, Issue #167, Issue #234)
  */
 export function renderMath(
   ctx: CanvasRenderingContext2D,
@@ -484,21 +579,46 @@ export function renderMath(
   const tokens = typeof input === 'string' ? parseMath(input) : input;
   if (tokens.length === 0) return { width: 0, height: 0 };
 
-  const fs = options.fontSize;
-  const maxWidth = options.maxWidth;
+  let currentOptions = { ...options };
+  let fs = currentOptions.fontSize;
+  const maxWidth = currentOptions.maxWidth;
+  const maxHeight = currentOptions.maxHeight;
+  const minFontSize = currentOptions.minFontSize || Math.round(fs * 0.4);
+
+  // maxHeight 제약이 있는 경우, 실측 높이가 maxHeight를 초과하면 fontSize를 점진적으로 줄임
+  if (maxHeight && maxHeight > 0) {
+    let iterations = 0;
+    while (fs > minFontSize && iterations < 10) {
+      iterations++;
+      const lines = maxWidth && maxWidth > 0 ? wrapMathTokens(ctx, tokens, currentOptions, maxWidth) : [tokens];
+      const lineH = currentOptions.lineHeight || Math.round(fs * 1.45);
+      const measuredH = lines.length <= 1 ? fs : (lines.length - 1) * lineH + fs;
+
+      if (measuredH <= maxHeight) {
+        break;
+      }
+
+      // 축소 비율 계산 (최소 2px 이상 감소)
+      const ratio = Math.max(0.7, maxHeight / measuredH);
+      const nextFs = Math.max(minFontSize, Math.min(fs - 2, Math.floor(fs * ratio)));
+      if (nextFs >= fs) break;
+      fs = nextFs;
+      currentOptions = { ...currentOptions, fontSize: fs };
+    }
+  }
 
   // 줄바꿈이 불필요하거나 maxWidth 미지정인 경우 단일 행 렌더링
   if (!maxWidth || maxWidth <= 0) {
-    return renderSingleMathLine(ctx, tokens, x, y, options);
+    return renderSingleMathLine(ctx, tokens, x, y, currentOptions);
   }
 
-  const lines = wrapMathTokens(ctx, tokens, options, maxWidth);
+  const lines = wrapMathTokens(ctx, tokens, currentOptions, maxWidth);
   if (lines.length <= 1) {
-    return renderSingleMathLine(ctx, lines[0] || tokens, x, y, options);
+    return renderSingleMathLine(ctx, lines[0] || tokens, x, y, currentOptions);
   }
 
   // 여러 줄로 분할된 경우 수직 중앙 정렬
-  const lineH = options.lineHeight || Math.round(fs * 1.45);
+  const lineH = currentOptions.lineHeight || Math.round(fs * 1.45);
   const totalH = (lines.length - 1) * lineH + fs;
   const startY = y - totalH / 2 + fs / 2;
 
@@ -506,7 +626,7 @@ export function renderMath(
   for (let li = 0; li < lines.length; li++) {
     const lineTokens = lines[li];
     const curY = startY + li * lineH;
-    const lineDim = renderSingleMathLine(ctx, lineTokens, x, curY, options);
+    const lineDim = renderSingleMathLine(ctx, lineTokens, x, curY, currentOptions);
     if (lineDim.width > maxW) maxW = lineDim.width;
   }
 
