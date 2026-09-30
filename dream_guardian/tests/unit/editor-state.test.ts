@@ -241,6 +241,32 @@ describe('EditorState - 피트니스 안무 및 타임라인 에디터 상태 �
       expect(detailed.violations.length).toBeGreaterThan(0);
       expect(detailed.crossBodyViolationLines.length).toBeGreaterThan(0);
     });
+
+    it('[BUG-DANCE-DATA-001 / #244] updateCurrentPattern으로 부위 해제 시 partZoneMap 동기화 및 비허용 발 존 차단', () => {
+      // 1. 부위 해제 시 레지스트리 및 getSelectedPattern의 partZoneMap에서 leftHand가 제거됨
+      expect(state.getSelectedPattern()?.leftHand).toBe(6);
+      expect(state.getSelectedPattern()?.partZoneMap.leftHand).toBe(6);
+
+      const res = state.updateCurrentPattern({ leftHand: null });
+      expect(res.valid).toBe(true);
+
+      const sel = state.getSelectedPattern();
+      expect(sel?.leftHand).toBeNull();
+      expect(sel?.partZoneMap.leftHand).toBeUndefined();
+      expect('leftHand' in (sel?.partZoneMap ?? {})).toBe(false);
+
+      const inRegistry = state.registry.get(state.selectedPatternId);
+      expect(inRegistry?.leftHand).toBeNull();
+      expect(inRegistry?.partZoneMap.leftHand).toBeUndefined();
+      expect('leftHand' in (inRegistry?.partZoneMap ?? {})).toBe(false);
+
+      // 2. 비허용 발 존([1, 999]) 수정 시 valid: false 및 레지스트리 미반영
+      const badFootRes = state.updateCurrentPattern({ footZones: [1, 999] });
+      expect(badFootRes.valid).toBe(false);
+      expect(badFootRes.errors.length).toBeGreaterThan(0);
+      // 레지스트리는 이전 정상 footZones([9, 11])를 유지해야 함
+      expect(state.registry.get(state.selectedPatternId)?.footZones).toEqual([9, 11]);
+    });
   });
 
   describe('6. Phase 4 신규 기능: 실시간 안무 시뮬레이션 프레임 연동', () => {

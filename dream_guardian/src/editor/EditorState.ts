@@ -5,6 +5,7 @@
 import {
   DancePatternRegistry,
   EXTENDED_CAT_CHOREO_PATTERNS,
+  buildPartZoneMap,
   type CatChoreoPattern,
   type PatternValidationResult,
   type QuestionPhaseRoutine,
@@ -160,10 +161,14 @@ export class EditorState {
   getSelectedPattern(): CatChoreoPattern | null {
     const base = this._registry.get(this._selectedPatternId);
     if (!base) return null;
-    return {
+    const merged = {
       ...base,
       ...this._draftEdits,
       footZones: this._draftEdits.footZones ?? base.footZones,
+    };
+    return {
+      ...merged,
+      partZoneMap: buildPartZoneMap(merged),
     };
   }
 
@@ -211,10 +216,14 @@ export class EditorState {
     if (!current) {
       return { valid: false, errors: ['선택된 패턴이 없습니다.'] };
     }
-    const candidate: CatChoreoPattern = {
+    const candidateBase = {
       ...current,
       ...partial,
       footZones: partial.footZones ? [...partial.footZones] : current.footZones,
+    };
+    const candidate: CatChoreoPattern = {
+      ...candidateBase,
+      partZoneMap: buildPartZoneMap(candidateBase),
     };
     const val = this._registry.validate(candidate);
     this._draftEdits = { ...this._draftEdits, ...partial };
@@ -236,11 +245,7 @@ export class EditorState {
       };
     }
 
-    const partZoneMap: Partial<Record<BodyPart, number>> = { ...(input.partZoneMap ?? {}) };
-    if (input.leftHand !== null) partZoneMap.leftHand = input.leftHand;
-    if (input.rightHand !== null) partZoneMap.rightHand = input.rightHand;
-    if (input.head !== null) partZoneMap.head = input.head;
-    if (input.hip !== null) partZoneMap.hip = input.hip;
+    const partZoneMap = buildPartZoneMap(input);
 
     const fullPattern: CatChoreoPattern = {
       ...input,

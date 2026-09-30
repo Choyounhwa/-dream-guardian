@@ -78,9 +78,10 @@ export const HEAD_ZONES = new Set<number>([4, 5]);
 export const SHOULDER_ZONES = new Set<number>([4, 5, 6, 7, 8]);
 
 /**
- * 엉덩이/골반 커서 사용 가능 존 (하단 및 스쿼트 존 6, 7, 8, 9, 10, 11)
+ * 엉덩이/골반 커서 사용 가능 존 (하단 및 스쿼트 존 6, 8, 9, 10, 11)
+ * 존 7(중하)은 기본 직립 자세 시 골반 자연 체류 위치이므로 출제 즉시 자동 선택되는 현상을 방지하기 위해 제외
  */
-export const HIP_ZONES = new Set<number>([6, 7, 8, 9, 10, 11]);
+export const HIP_ZONES = new Set<number>([6, 8, 9, 10, 11]);
 
 /**
  * 왼손 커서 사용 가능 존 (전 존 1~11 허용, Issue #156)
@@ -93,6 +94,14 @@ export const LEFT_HAND_ZONES = new Set<number>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1
 export const RIGHT_HAND_ZONES = new Set<number>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 
 /**
+ * 발(Foot) 사용 가능 디딤 존 (하단 존 9, 10, 11 한정, Issue #244 / BUG-DANCE-DATA-001)
+ */
+export const FOOT_ZONES = new Set<number>([9, 10, 11]);
+
+/** 호환성 및 순서 보장을 위한 허용 발 존 배열 */
+export const ALLOWED_FOOT_ZONES: readonly number[] = Object.freeze([9, 10, 11]);
+
+/**
  * Cross-Body 물리 연동 제약 검증:
  * 골반이 최하단(존 9, 10, 11)일 때 손이 최상단(존 1, 2, 3)에 위치하는 비현실적 자세 차단 (Issue #156)
  */
@@ -103,7 +112,7 @@ export function isCrossBodyViolation(handZone: number, hipZone: number): boolean
 }
 
 /**
- * 특정 커서가 특정 피트니스 존에 유효한지 검증 (Issue #156)
+ * 특정 커서가 특정 피트니스 존에 유효한지 검증 (Issue #156, Issue #244)
  */
 export function isValidZoneForCursor(cursor: string, zoneId: number): boolean {
   if (cursor === 'head') return HEAD_ZONES.has(zoneId);
@@ -111,6 +120,7 @@ export function isValidZoneForCursor(cursor: string, zoneId: number): boolean {
   if (cursor === 'leftHand') return LEFT_HAND_ZONES.has(zoneId);
   if (cursor === 'rightHand') return RIGHT_HAND_ZONES.has(zoneId);
   if (cursor === 'shoulder') return SHOULDER_ZONES.has(zoneId);
+  if (cursor === 'foot') return FOOT_ZONES.has(zoneId);
   return false;
 }
 

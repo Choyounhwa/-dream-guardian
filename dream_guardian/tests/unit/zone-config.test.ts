@@ -5,6 +5,8 @@ import {
   HIP_ZONES,
   LEFT_HAND_ZONES,
   RIGHT_HAND_ZONES,
+  FOOT_ZONES,
+  ALLOWED_FOOT_ZONES,
   isCrossBodyViolation,
   isValidZoneForCursor,
   getAnswerButtonLayouts,
@@ -80,8 +82,18 @@ describe('Zone Config & Cursor-Zone Matrix (Issue #156 / FEAT-ZONE-003)', () => 
       expect(isValidZoneForCursor('head', 7)).toBe(false);
     });
 
-    it('골반은 6~11만 유효하다', () => {
+    it('골반(hip)은 6, 8, 9, 10, 11만 유효하며 직립 중하단 존(7)은 배제된다', () => {
+      expect(HIP_ZONES.has(6)).toBe(true);
+      expect(HIP_ZONES.has(8)).toBe(true);
+      expect(HIP_ZONES.has(9)).toBe(true);
+      expect(HIP_ZONES.has(10)).toBe(true);
+      expect(HIP_ZONES.has(11)).toBe(true);
+      // 기본 직립 위치인 7번 존 배제 확인
+      expect(HIP_ZONES.has(7)).toBe(false);
+      expect(isValidZoneForCursor('hip', 7)).toBe(false);
+
       expect(isValidZoneForCursor('hip', 6)).toBe(true);
+      expect(isValidZoneForCursor('hip', 10)).toBe(true);
       expect(isValidZoneForCursor('hip', 11)).toBe(true);
       expect(isValidZoneForCursor('hip', 4)).toBe(false);
       expect(isValidZoneForCursor('hip', 5)).toBe(false);
@@ -92,6 +104,18 @@ describe('Zone Config & Cursor-Zone Matrix (Issue #156 / FEAT-ZONE-003)', () => 
         expect(isValidZoneForCursor('leftHand', z)).toBe(true);
         expect(isValidZoneForCursor('rightHand', z)).toBe(true);
       }
+    });
+
+    it('발(foot)은 9, 10, 11만 유효하다 (Issue #244 / BUG-DANCE-DATA-001)', () => {
+      expect(FOOT_ZONES.size).toBe(3);
+      expect(Array.from(ALLOWED_FOOT_ZONES)).toEqual([9, 10, 11]);
+      expect(isValidZoneForCursor('foot', 9)).toBe(true);
+      expect(isValidZoneForCursor('foot', 10)).toBe(true);
+      expect(isValidZoneForCursor('foot', 11)).toBe(true);
+      expect(isValidZoneForCursor('foot', 1)).toBe(false);
+      expect(isValidZoneForCursor('foot', 4)).toBe(false);
+      expect(isValidZoneForCursor('foot', 7)).toBe(false);
+      expect(isValidZoneForCursor('foot', 8)).toBe(false);
     });
   });
 

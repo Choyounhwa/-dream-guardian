@@ -260,5 +260,123 @@ describe('DanceRoutineData - 피트니스존 고양이 안무 루틴 데이터',
       registry.reset();
       expect(registry.getAll()).toHaveLength(4);
     });
+
+    describe('[BUG-DANCE-DATA-001 / #244] 부위 해제 후 매핑 동기화 및 발 존 유효성 검증', () => {
+      it('부위 해제(null 지정) 시 partZoneMap에서도 해당 키가 완벽히 제거된다', () => {
+        const registry = new DancePatternRegistry();
+        // CAT_LOW_BOUNCE는 leftHand: 6, rightHand: 8, hip: 10
+        expect(registry.get('CAT_LOW_BOUNCE')?.leftHand).toBe(6);
+        expect(registry.get('CAT_LOW_BOUNCE')?.partZoneMap.leftHand).toBe(6);
+
+        const updateRes = registry.update('CAT_LOW_BOUNCE', { leftHand: null });
+        expect(updateRes.valid).toBe(true);
+
+        const updated = registry.get('CAT_LOW_BOUNCE');
+        expect(updated?.leftHand).toBeNull();
+        expect(updated?.partZoneMap.leftHand).toBeUndefined();
+        expect('leftHand' in (updated?.partZoneMap ?? {})).toBe(false);
+        expect(updated?.partZoneMap).toEqual({ rightHand: 8, hip: 10 });
+      });
+
+      it('신규 등록(register) 시에도 null 부위는 partZoneMap에 포함되지 않는다', () => {
+        const registry = new DancePatternRegistry();
+        const pattern: CatChoreoPattern = {
+          id: 'TEST_PARTIAL_NULL',
+          name: '일부 부위 null 패턴',
+          description: '테스트',
+          motionType: 'center_clasp',
+          leftHand: null,
+          rightHand: 5,
+          head: null,
+          hip: 8,
+          footZones: [10],
+          partZoneMap: { leftHand: 999, rightHand: 5, hip: 8 } as any, // 잘못된 이전 매핑 전달 가정
+        };
+
+        const res = registry.register(pattern);
+        expect(res.valid).toBe(true);
+        const registered = registry.get('TEST_PARTIAL_NULL');
+        expect(registered?.leftHand).toBeNull();
+        expect(registered?.partZoneMap.leftHand).toBeUndefined();
+        expect(registered?.partZoneMap).toEqual({ rightHand: 5, hip: 8 });
+      });
+
+      it('발 디딤 존(footZones)이 9, 10, 11 이외의 존(예: [1, 999])을 포함하면 검증에 실패한다', () => {
+        const registry = new DancePatternRegistry();
+        const invalidPattern: Partial<CatChoreoPattern> = {
+          id: 'TEST_INVALID_FOOT',
+          name: '비허용 발 존',
+          leftHand: 4,
+          rightHand: 5,
+          footZones: [1, 999],
+        };
+
+        const val = registry.validate(invalidPattern);
+        expect(val.valid).toBe(false);
+        expect(val.errors.some((e) => e.includes('1') && e.includes('발'))).toBe(true);
+        expect(val.errors.some((e) => e.includes('999') && e.includes('발'))).toBe(true);
+
+        // update 시도시에도 거부되어야 함
+        const updateRes = registry.update('CAT_LOW_BOUNCE', { footZones: [1, 999] });
+        expect(updateRes.valid).toBe(false);
+        expect(registry.get('CAT_LOW_BOUNCE')?.footZones).toEqual([9, 11]);
+      });
+
+      it('발 디딤 존(footZones)에 중복된 존(예: [9, 9])이 있으면 검증에 실패한다', () => {
+        const registry = new DancePatternRegistry();
+        const dupPattern: Partial<CatChoreoPattern> = {
+          id: 'TEST_DUP_FOOT',
+          name: '중복 발 존',
+          leftHand: 4,
+          rightHand: 5,
+          footZones: [9, 9],
+        };
+
+        const val = registry.validate(dupPattern);
+        expect(val.valid).toBe(false);
+        expect(val.errors.some((e) => e.includes('중복'))).toBe(true);
+      });
+
+      it('발 디딤 존(footZones)에 비정상 타입(문자열/NaN 등)이 들어오면 검증에 실패한다', () => {
+        const registry = new DancePatternRegistry();
+        const badTypePattern: any = {
+          id: 'TEST_BAD_TYPE_FOOT',
+          name: '잘못된 타입 발 존',
+          leftHand: 4,
+          rightHand: 5,
+          footZones: ['invalid', NaN],
+        };
+
+        const val = registry.validate(badTypePattern);
+        expect(val.valid).toBe(false);
+      });
+
+      it('JSON 및 CSV 왕복(Roundtrip) 후에도 partZoneMap과 footZones가 일치한다', () => {
+        const registry = new DancePatternRegistry();
+        registry.update('CAT_LOW_BOUNCE', { leftHand: null, footZones: [10] });
+
+        // JSON Roundtrip
+        const json = registry.toJSON();
+        const jsonRegistry = new DancePatternRegistry([]);
+        const jsonRes = jsonRegistry.loadFromJSON(json);
+        expect(jsonRes.loadedCount).toBe(4);
+        const jsonLowBounce = jsonRegistry.get('CAT_LOW_BOUNCE');
+        expect(jsonLowBounce?.leftHand).toBeNull();
+        expect(jsonLowBounce?.partZoneMap.leftHand).toBeUndefined();
+        expect(jsonLowBounce?.partZoneMap).toEqual({ rightHand: 8, hip: 10 });
+        expect(jsonLowBounce?.footZones).toEqual([10]);
+
+        // CSV Roundtrip
+        const csv = registry.toCSV();
+        const csvRegistry = new DancePatternRegistry([]);
+        const csvRes = csvRegistry.loadFromCSV(csv);
+        expect(csvRes.loadedCount).toBe(4);
+        const csvLowBounce = csvRegistry.get('CAT_LOW_BOUNCE');
+        expect(csvLowBounce?.leftHand).toBeNull();
+        expect(csvLowBounce?.partZoneMap.leftHand).toBeUndefined();
+        expect(csvLowBounce?.partZoneMap).toEqual({ rightHand: 8, hip: 10 });
+        expect(csvLowBounce?.footZones).toEqual([10]);
+      });
+    });
   });
 });

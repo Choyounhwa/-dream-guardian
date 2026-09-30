@@ -15,7 +15,34 @@
 
 import type { Keynote, KeynotePart, KeynoteInstrument } from '../types/keynote.js';
 import type { BodyPart, FitnessPatternRecord } from '../types/posture.js';
-import { isCrossBodyViolation, isValidZoneForCursor } from '../../config/zone.config.js';
+import { isCrossBodyViolation, isValidZoneForCursor, ALLOWED_FOOT_ZONES } from '../../config/zone.config.js';
+
+export { ALLOWED_FOOT_ZONES };
+
+/**
+ * 안무 패턴의 4대 신체 부위 단일 정본으로부터 partZoneMap을 순수 재생성하는 헬퍼 (Issue #244 / BUG-DANCE-DATA-001)
+ */
+export function buildPartZoneMap(pattern: {
+  leftHand?: number | null;
+  rightHand?: number | null;
+  head?: number | null;
+  hip?: number | null;
+}): Partial<Record<BodyPart, number>> {
+  const map: Partial<Record<BodyPart, number>> = {};
+  if (pattern.leftHand !== null && pattern.leftHand !== undefined) {
+    map.leftHand = pattern.leftHand;
+  }
+  if (pattern.rightHand !== null && pattern.rightHand !== undefined) {
+    map.rightHand = pattern.rightHand;
+  }
+  if (pattern.head !== null && pattern.head !== undefined) {
+    map.head = pattern.head;
+  }
+  if (pattern.hip !== null && pattern.hip !== undefined) {
+    map.hip = pattern.hip;
+  }
+  return map;
+}
 
 export type DanceMotionType =
   | 'low_bounce'
@@ -255,6 +282,27 @@ export class DancePatternRegistry {
       }
     }
 
+    if (pattern.footZones !== undefined) {
+      if (!Array.isArray(pattern.footZones)) {
+        errors.push('발 존(footZones)은 배열 형태여야 합니다.');
+      } else {
+        const seen = new Set<number>();
+        for (const fz of pattern.footZones) {
+          if (typeof fz !== 'number' || isNaN(fz) || !Number.isInteger(fz)) {
+            errors.push(`발 존 값은 정수여야 합니다. (입력값: ${fz})`);
+            continue;
+          }
+          if (!ALLOWED_FOOT_ZONES.includes(fz)) {
+            errors.push(`발 존 ${fz}은(는) 유효하지 않은 존입니다. (발은 Zone 9, 10, 11만 허용됩니다)`);
+          }
+          if (seen.has(fz)) {
+            errors.push(`발 존에 중복된 존(Zone ${fz})이 포함되어 있습니다.`);
+          }
+          seen.add(fz);
+        }
+      }
+    }
+
     return {
       valid: errors.length === 0,
       errors,
@@ -270,11 +318,7 @@ export class DancePatternRegistry {
       return val;
     }
 
-    const partZoneMap: Partial<Record<BodyPart, number>> = { ...(pattern.partZoneMap ?? {}) };
-    if (pattern.leftHand !== null) partZoneMap.leftHand = pattern.leftHand;
-    if (pattern.rightHand !== null) partZoneMap.rightHand = pattern.rightHand;
-    if (pattern.head !== null) partZoneMap.head = pattern.head;
-    if (pattern.hip !== null) partZoneMap.hip = pattern.hip;
+    const partZoneMap = buildPartZoneMap(pattern);
 
     this._patterns.set(pattern.id, {
       ...pattern,
@@ -294,18 +338,19 @@ export class DancePatternRegistry {
       return { valid: false, errors: [`패턴 ID "${id}"을(를) 찾을 수 없습니다.`] };
     }
 
-    const merged: CatChoreoPattern = {
+    const candidate = {
       ...existing,
       ...partial,
       id: existing.id,
-      footZones: partial.footZones ? [...partial.footZones] : existing.footZones,
-      partZoneMap: partial.partZoneMap ? { ...partial.partZoneMap } : { ...existing.partZoneMap },
+      footZones:
+        partial.footZones !== undefined
+          ? (partial.footZones ? [...partial.footZones] : [])
+          : existing.footZones,
     };
-
-    if (merged.leftHand !== null) merged.partZoneMap.leftHand = merged.leftHand;
-    if (merged.rightHand !== null) merged.partZoneMap.rightHand = merged.rightHand;
-    if (merged.head !== null) merged.partZoneMap.head = merged.head;
-    if (merged.hip !== null) merged.partZoneMap.hip = merged.hip;
+    const merged: CatChoreoPattern = {
+      ...candidate,
+      partZoneMap: buildPartZoneMap(candidate),
+    };
 
     const val = this.validate(merged);
     if (!val.valid) {

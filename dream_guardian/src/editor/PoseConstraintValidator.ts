@@ -8,7 +8,7 @@
  * - Cross-Body 제약: 골반 9~11 위치 시 손이 상단 1~3에 위치 불가 (isCrossBodyViolation)
  */
 
-import { isCrossBodyViolation, isValidZoneForCursor } from '../../config/zone.config.js';
+import { isCrossBodyViolation, isValidZoneForCursor, ALLOWED_FOOT_ZONES } from '../../config/zone.config.js';
 import type { CatChoreoPattern } from '../data/danceRoutineData.js';
 
 export type BodyCursorPart = 'leftHand' | 'rightHand' | 'head' | 'hip';
@@ -47,7 +47,12 @@ export const CURSOR_RULES: Record<BodyCursorPart, CursorRuleDefinition> = {
   },
 };
 
-export type PoseViolationType = 'CROSS_BODY_VIOLATION' | 'DISALLOWED_ZONE' | 'NO_PART_ASSIGNED';
+export type PoseViolationType =
+  | 'CROSS_BODY_VIOLATION'
+  | 'DISALLOWED_ZONE'
+  | 'NO_PART_ASSIGNED'
+  | 'INVALID_FOOT_ZONE'
+  | 'DUPLICATE_FOOT_ZONE';
 
 export interface PoseViolationDetail {
   type: PoseViolationType;
@@ -72,7 +77,10 @@ export class PoseConstraintValidator {
   /**
    * 특정 부위가 지정된 피트니스 존에 배치 가능한지 사전 판정
    */
-  canAssign(part: BodyCursorPart, zoneId: number): boolean {
+  canAssign(part: BodyCursorPart | 'foot', zoneId: number): boolean {
+    if (part === 'foot') {
+      return ALLOWED_FOOT_ZONES.includes(zoneId);
+    }
     const rule = CURSOR_RULES[part];
     if (!rule) return false;
     return rule.allowedZones.includes(zoneId) && isValidZoneForCursor(part, zoneId);
@@ -81,8 +89,11 @@ export class PoseConstraintValidator {
   /**
    * 해당 부위의 허용 피트니스 존 목록 반환
    */
-  getAllowedZones(part: BodyCursorPart): number[] {
-    return CURSOR_RULES[part]?.allowedZones ?? [];
+  getAllowedZones(part: BodyCursorPart | 'foot'): number[] {
+    if (part === 'foot') {
+      return [...ALLOWED_FOOT_ZONES];
+    }
+    return CURSOR_RULES[part as BodyCursorPart]?.allowedZones ?? [];
   }
 
   /**
@@ -175,6 +186,46 @@ export class PoseConstraintValidator {
           handZone: rh,
           hipZone: hip,
         });
+      }
+    }
+
+    // 4. 발 디딤 존(footZones) 검증 (Issue #244 / BUG-DANCE-DATA-001)
+    if (pattern.footZones !== undefined) {
+      if (!Array.isArray(pattern.footZones)) {
+        violations.push({
+          type: 'INVALID_FOOT_ZONE',
+          part: 'foot',
+          message: '발 존(footZones)은 배열 형태여야 합니다.',
+        });
+      } else {
+        const seen = new Set<number>();
+        for (const fz of pattern.footZones) {
+          if (typeof fz !== 'number' || isNaN(fz) || !Number.isInteger(fz)) {
+            violations.push({
+              type: 'INVALID_FOOT_ZONE',
+              part: 'foot',
+              message: `발 존 값은 정수여야 합니다. (입력값: ${fz})`,
+            });
+            continue;
+          }
+          if (!this.canAssign('foot', fz)) {
+            violations.push({
+              type: 'DISALLOWED_ZONE',
+              part: 'foot',
+              zoneId: fz,
+              message: `발(Zone ${fz})은 허용되지 않은 존입니다. (발은 Zone 9, 10, 11만 허용됩니다)`,
+            });
+          }
+          if (seen.has(fz)) {
+            violations.push({
+              type: 'DUPLICATE_FOOT_ZONE',
+              part: 'foot',
+              zoneId: fz,
+              message: `발 존에 중복된 존(Zone ${fz})이 포함되어 있습니다.`,
+            });
+          }
+          seen.add(fz);
+        }
       }
     }
 

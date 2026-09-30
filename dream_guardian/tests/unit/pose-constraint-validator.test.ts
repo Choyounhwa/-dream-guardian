@@ -124,5 +124,39 @@ describe('PoseConstraintValidator - 신체 커서 물리 제약 및 검증기 (P
       expect(result.valid).toBe(false);
       expect(result.violations[0].type).toBe('NO_PART_ASSIGNED');
     });
+
+    it('[BUG-DANCE-DATA-001 / #244] 발 디딤 존(foot)의 canAssign 및 validateDetailed 상세 검증', () => {
+      // 1. canAssign('foot', zoneId)
+      expect(validator.canAssign('foot', 9)).toBe(true);
+      expect(validator.canAssign('foot', 10)).toBe(true);
+      expect(validator.canAssign('foot', 11)).toBe(true);
+      expect(validator.canAssign('foot', 1)).toBe(false);
+      expect(validator.canAssign('foot', 999)).toBe(false);
+
+      // 2. getAllowedZones('foot')
+      expect(validator.getAllowedZones('foot')).toEqual([9, 10, 11]);
+
+      // 3. validateDetailed with invalid footZones
+      const badFootPattern: Partial<CatChoreoPattern> = {
+        id: 'BAD_FOOT_PATTERN',
+        leftHand: 6,
+        footZones: [1, 999],
+      };
+      const badResult = validator.validateDetailed(badFootPattern);
+      expect(badResult.valid).toBe(false);
+      const footViolations = badResult.violations.filter((v) => v.part === 'foot');
+      expect(footViolations.length).toBe(2);
+      expect(footViolations.every((v) => v.type === 'DISALLOWED_ZONE')).toBe(true);
+
+      // 4. validateDetailed with duplicate footZones
+      const dupFootPattern: Partial<CatChoreoPattern> = {
+        id: 'DUP_FOOT_PATTERN',
+        leftHand: 6,
+        footZones: [9, 9],
+      };
+      const dupResult = validator.validateDetailed(dupFootPattern);
+      expect(dupResult.valid).toBe(false);
+      expect(dupResult.violations.some((v) => v.part === 'foot' && v.message.includes('중복'))).toBe(true);
+    });
   });
 });
