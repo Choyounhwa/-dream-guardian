@@ -26,6 +26,11 @@ import {
   PhaseSequenceEditor,
   type TimelineTrackNote,
 } from './PhaseSequenceEditor.js';
+import {
+  choreoPoseSimulator,
+  ChoreoPoseSimulator,
+  type SimulatedPoseFrame,
+} from './ChoreoPoseSimulator.js';
 
 export type PhaseType = 'RUN_QUESTION' | 'ANSWER_SELECT' | 'STAR_COLLECT' | 'FEVER_PHASE_B';
 export type ActiveEditTool = 'inspect' | 'leftHand' | 'rightHand' | 'head' | 'hip' | 'foot';
@@ -57,9 +62,11 @@ export class EditorState {
   private _currentBeat: number = 0;
   private _activeTool: ActiveEditTool = 'inspect';
   private _selectedNoteId: string | null = null;
+  private _showSimulation: boolean = true;
   private _draftEdits: Partial<CatChoreoPattern> = {};
   private readonly _registry: DancePatternRegistry;
   private readonly _sequenceEditor: PhaseSequenceEditor;
+  private readonly _simulator: ChoreoPoseSimulator = choreoPoseSimulator;
   private readonly _listeners: Set<EditorListener> = new Set();
 
   constructor(initialRegistry?: DancePatternRegistry, initialSequenceEditor?: PhaseSequenceEditor) {
@@ -78,6 +85,30 @@ export class EditorState {
   setSelectedNoteId(id: string | null): void {
     this._selectedNoteId = id;
     this.notifyStateChange();
+  }
+
+  get showSimulation(): boolean {
+    return this._showSimulation;
+  }
+
+  setShowSimulation(show: boolean): void {
+    this._showSimulation = show;
+    this.notifyStateChange();
+  }
+
+  toggleSimulation(): void {
+    this._showSimulation = !this._showSimulation;
+    this.notifyStateChange();
+  }
+
+  computeCurrentPoseFrame(): SimulatedPoseFrame {
+    return this._simulator.computeLiveFrame({
+      phase: this._selectedPhase,
+      currentBeat: this._currentBeat,
+      selectedPattern: this.getSelectedPattern(),
+      notes: this.getCurrentPhaseNotes(),
+      registry: this._registry,
+    });
   }
 
   getCurrentPhaseNotes(): TimelineTrackNote[] {

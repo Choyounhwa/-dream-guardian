@@ -242,6 +242,9 @@ export class EditorLayout {
             <button class="tool-btn tool-foot ${activeTool === 'foot' ? 'active' : ''}" data-tool="foot">🦶 발 (#10B981)</button>
           </div>
           <div class="mode-toggles">
+            <button id="btn-toggle-simulation" class="btn btn-sm ${this._state.showSimulation ? 'btn-accent' : 'btn-secondary'}">
+              ${this._state.showSimulation ? '💃 시뮬레이션: ON' : '🧍 시뮬레이션: OFF'}
+            </button>
             <span class="active-pattern-label">${selected ? `현재 패턴: <strong>${selected.name}</strong>` : ''}</span>
           </div>
         </div>

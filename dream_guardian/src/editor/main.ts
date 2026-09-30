@@ -132,10 +132,25 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const updateCanvas = (hoveredZoneId?: number | null) => {
     if (canvasRenderer) {
+      const simulatedFrame = state.computeCurrentPoseFrame();
       canvasRenderer.render(state.getSelectedPattern(), {
         hoveredZoneId: hoveredZoneId ?? null,
         activeTool: state.activeTool,
         validation: state.getDetailedValidation(),
+        simulatedFrame,
+        showSkeleton: state.showSimulation,
+      });
+    }
+  };
+
+  const bindWorkspaceEvents = () => {
+    const toggleSimBtn = document.getElementById('btn-toggle-simulation');
+    if (toggleSimBtn) {
+      toggleSimBtn.addEventListener('click', () => {
+        state.toggleSimulation();
+        toggleSimBtn.className = `btn btn-sm ${state.showSimulation ? 'btn-accent' : 'btn-secondary'}`;
+        toggleSimBtn.textContent = state.showSimulation ? '💃 시뮬레이션: ON' : '🧍 시뮬레이션: OFF';
+        updateCanvas();
       });
     }
   };
@@ -423,6 +438,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 초기 사이드바 이벤트 및 캔버스 렌더링
   bindSidebarEvents();
+  bindWorkspaceEvents();
   bindTimelineEvents();
   updateToolbar();
   updateCanvas();
@@ -439,6 +455,7 @@ window.addEventListener('DOMContentLoaded', () => {
       } else {
         state.seekBeat(audioBeat);
       }
+      updateCanvas();
     }
 
     requestAnimationFrame(animationLoop);

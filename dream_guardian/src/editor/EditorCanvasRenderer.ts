@@ -9,6 +9,7 @@ import {
   type DetailedPoseValidationResult,
 } from './PoseConstraintValidator.js';
 import type { ActiveEditTool } from './EditorState.js';
+import type { SimulatedPoseFrame } from './ChoreoPoseSimulator.js';
 
 export const PART_COLORS = {
   leftHand: '#28E6FF',
@@ -22,6 +23,8 @@ export interface CanvasRenderOptions {
   hoveredZoneId?: number | null;
   activeTool?: ActiveEditTool;
   validation?: DetailedPoseValidationResult;
+  simulatedFrame?: SimulatedPoseFrame;
+  showSkeleton?: boolean;
 }
 
 export class EditorCanvasRenderer {
@@ -63,6 +66,8 @@ export class EditorCanvasRenderer {
     const hoveredZoneId = options.hoveredZoneId ?? null;
     const activeTool = options.activeTool ?? 'inspect';
     const validation = options.validation;
+    const simulatedFrame = options.simulatedFrame;
+    const showSkeleton = options.showSkeleton ?? true;
 
     // 1. 배경 클리어 및 배경 그리드 렌더링
     ctx.clearRect(0, 0, w, h);
@@ -113,24 +118,32 @@ export class EditorCanvasRenderer {
         zone,
         w,
         h,
-        pattern,
+        simulatedFrame?.activePattern ?? pattern,
         hoveredZoneId === zone.id,
         activeTool,
         isAllowed
       );
     }
 
-    // 4. 신체 스켈레톤 연결선 (시각적 포즈 안내)
-    if (pattern) {
+    // 4. 실시간 활성 존 펄스 렌더링 (타깃 존 하이라이트)
+    if (simulatedFrame && simulatedFrame.targetZones.length > 0) {
+      this.renderActiveZonePulse(ctx, simulatedFrame.targetZones, w, h, simulatedFrame.isDip);
+    }
+
+    // 5. 신체 스켈레톤 마네킹 또는 가이드라인 렌더링
+    if (simulatedFrame && showSkeleton) {
+      this.renderSkeletonMannequin(ctx, simulatedFrame, w, h);
+      this.renderSimulationInfoOverlay(ctx, simulatedFrame, w, h);
+    } else if (pattern) {
       this.renderBodyGuideLines(ctx, pattern, w, h);
     }
 
-    // 5. Cross-Body 물리 제약 위반 경고선 및 배지 렌더링
+    // 6. Cross-Body 물리 제약 위반 경고선 및 배지 렌더링
     if (validation && !validation.valid) {
       this.renderValidationWarnings(ctx, validation, w, h);
     }
 
-    // 6. 상단 활성 도구 인디케이터 배지
+    // 7. 상단 활성 도구 인디케이터 배지
     this.renderActiveToolBadge(ctx, activeTool, w);
   }
 
@@ -295,6 +308,222 @@ export class EditorCanvasRenderer {
       ctx.lineTo(rhCenter.x, rhCenter.y);
       ctx.stroke();
     }
+
+    ctx.restore();
+  }
+
+  /**
+   * 실시간 활성 존 펄스 렌더링 (비트 타깃 존 하이라이트)
+   */
+  private renderActiveZonePulse(
+    ctx: CanvasRenderingContext2D,
+    targetZones: number[],
+    canvasW: number,
+    canvasH: number,
+    isDip: boolean
+  ): void {
+    ctx.save();
+    for (const zoneId of targetZones) {
+      const zone = DEFAULT_FITNESS_ZONES.find((z) => z.id === zoneId);
+      if (!zone) continue;
+
+      const zx = zone.x * canvasW;
+      const zy = zone.y * canvasH;
+      const zw = zone.width * canvasW;
+      const zh = zone.height * canvasH;
+
+      // 외곽 펄스 글로우
+      ctx.strokeStyle = isDip ? '#FF865E' : '#FFCB4D';
+      ctx.lineWidth = 3.5;
+      ctx.shadowColor = isDip ? '#FF865E' : '#FFCB4D';
+      ctx.shadowBlur = 15;
+      ctx.strokeRect(zx - 2, zy - 2, zw + 4, zh + 4);
+
+      // 내부 은은한 채움
+      ctx.fillStyle = isDip ? 'rgba(255, 134, 94, 0.2)' : 'rgba(255, 203, 77, 0.15)';
+      ctx.fillRect(zx, zy, zw, zh);
+
+      // 타깃 존 라벨
+      ctx.fillStyle = isDip ? '#FF865E' : '#FFCB4D';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'top';
+      ctx.fillText('TARGET ★', zx + zw - 8, zy + 8);
+    }
+    ctx.restore();
+  }
+
+  /**
+   * 실시간 포즈 스켈레톤 마네킹 렌더링
+   */
+  private renderSkeletonMannequin(
+    ctx: CanvasRenderingContext2D,
+    frame: SimulatedPoseFrame,
+    canvasW: number,
+    canvasH: number
+  ): void {
+    const jp = frame.jointPositions;
+    const toPx = (pt: { x: number; y: number }) => ({
+      x: pt.x * canvasW,
+      y: pt.y * canvasH,
+    });
+
+    const headPx = toPx(jp.head);
+    const hipPx = toPx(jp.hip);
+    const lhPx = toPx(jp.leftHand);
+    const rhPx = toPx(jp.rightHand);
+    const lfPx = toPx(jp.leftFoot);
+    const rfPx = toPx(jp.rightFoot);
+
+    // 목/어깨 중심점
+    const neckPx = {
+      x: (headPx.x + hipPx.x) / 2,
+      y: headPx.y + (hipPx.y - headPx.y) * 0.28,
+    };
+
+    ctx.save();
+
+    // 1. 뼈대 연결선 (Bones)
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // 척추: 머리 -> 목 -> 골반
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.beginPath();
+    ctx.moveTo(headPx.x, headPx.y);
+    ctx.lineTo(neckPx.x, neckPx.y);
+    ctx.lineTo(hipPx.x, hipPx.y);
+    ctx.stroke();
+
+    // 왼팔: 목 -> 왼손
+    ctx.strokeStyle = 'rgba(40, 230, 255, 0.8)';
+    ctx.beginPath();
+    ctx.moveTo(neckPx.x, neckPx.y);
+    ctx.lineTo(lhPx.x, lhPx.y);
+    ctx.stroke();
+
+    // 오른팔: 목 -> 오른손
+    ctx.strokeStyle = 'rgba(255, 203, 77, 0.8)';
+    ctx.beginPath();
+    ctx.moveTo(neckPx.x, neckPx.y);
+    ctx.lineTo(rhPx.x, rhPx.y);
+    ctx.stroke();
+
+    // 왼다리: 골반 -> 왼발
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.7)';
+    ctx.beginPath();
+    ctx.moveTo(hipPx.x, hipPx.y);
+    ctx.lineTo(lfPx.x, lfPx.y);
+    ctx.stroke();
+
+    // 오른다리: 골반 -> 오른발
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.7)';
+    ctx.beginPath();
+    ctx.moveTo(hipPx.x, hipPx.y);
+    ctx.lineTo(rfPx.x, rfPx.y);
+    ctx.stroke();
+
+    // 2. 관절 마커 (Joints)
+    // 2.1 머리 (Cat Silhouette Head)
+    ctx.fillStyle = PART_COLORS.head;
+    ctx.shadowColor = PART_COLORS.head;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(headPx.x, headPx.y, 16, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 고양이 귀 모양 (Cat Ears)
+    ctx.fillStyle = '#E4BFFF';
+    ctx.beginPath();
+    ctx.moveTo(headPx.x - 14, headPx.y - 8);
+    ctx.lineTo(headPx.x - 20, headPx.y - 24);
+    ctx.lineTo(headPx.x - 4, headPx.y - 14);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(headPx.x + 14, headPx.y - 8);
+    ctx.lineTo(headPx.x + 20, headPx.y - 24);
+    ctx.lineTo(headPx.x + 4, headPx.y - 14);
+    ctx.closePath();
+    ctx.fill();
+
+    // 2.2 골반 다이아몬드 (Hip Diamond)
+    ctx.fillStyle = PART_COLORS.hip;
+    ctx.shadowColor = PART_COLORS.hip;
+    ctx.shadowBlur = 12;
+    const dSize = 14;
+    ctx.beginPath();
+    ctx.moveTo(hipPx.x, hipPx.y - dSize);
+    ctx.lineTo(hipPx.x + dSize, hipPx.y);
+    ctx.lineTo(hipPx.x, hipPx.y + dSize);
+    ctx.lineTo(hipPx.x - dSize, hipPx.y);
+    ctx.closePath();
+    ctx.fill();
+
+    // 2.3 왼손 / 오른손
+    ctx.fillStyle = PART_COLORS.leftHand;
+    ctx.shadowColor = PART_COLORS.leftHand;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(lhPx.x, lhPx.y, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = PART_COLORS.rightHand;
+    ctx.shadowColor = PART_COLORS.rightHand;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(rhPx.x, rhPx.y, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2.4 발 (Feet)
+    ctx.fillStyle = PART_COLORS.foot;
+    ctx.shadowColor = PART_COLORS.foot;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(lfPx.x, lfPx.y, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(rfPx.x, rfPx.y, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  /**
+   * 실시간 안무 액션/바운스 상태 오버레이 (Bottom Center)
+   */
+  private renderSimulationInfoOverlay(
+    ctx: CanvasRenderingContext2D,
+    frame: SimulatedPoseFrame,
+    canvasW: number,
+    canvasH: number
+  ): void {
+    ctx.save();
+    const actionLabel = frame.isDip ? '🔻 DOWNSQUAT DIP' : '🔺 REBOUND & BOUNCE';
+    const patternName = frame.activePattern.name;
+    const noteLabel = frame.activeNote ? `[${frame.activeNote.label}]` : '';
+
+    const text = `${patternName}  |  ${actionLabel} ${noteLabel}`;
+    ctx.font = 'bold 12px sans-serif';
+    const textW = ctx.measureText ? ctx.measureText(text).width : 200;
+    const pad = 12;
+    const boxW = textW + pad * 2;
+    const boxH = 26;
+    const boxX = (canvasW - boxW) / 2;
+    const boxY = canvasH - boxH - 12;
+
+    ctx.fillStyle = 'rgba(10, 12, 22, 0.85)';
+    ctx.strokeStyle = frame.isDip ? '#FF865E' : '#28E6FF';
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+    ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+    ctx.fillStyle = frame.isDip ? '#FF865E' : '#28E6FF';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvasW / 2, boxY + boxH / 2);
 
     ctx.restore();
   }

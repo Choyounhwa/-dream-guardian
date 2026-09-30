@@ -242,4 +242,25 @@ describe('EditorState - 피트니스 안무 및 타임라인 에디터 상태 �
       expect(detailed.crossBodyViolationLines.length).toBeGreaterThan(0);
     });
   });
+
+  describe('6. Phase 4 신규 기능: 실시간 안무 시뮬레이션 프레임 연동', () => {
+    it('기본 showSimulation은 true이며, 토글할 수 있다', () => {
+      expect(state.showSimulation).toBe(true);
+      state.toggleSimulation();
+      expect(state.showSimulation).toBe(false);
+      state.setShowSimulation(true);
+      expect(state.showSimulation).toBe(true);
+    });
+
+    it('computeCurrentPoseFrame()이 현재 비트 및 페이즈의 관절/바운스 프레임을 정확히 산출한다', () => {
+      state.setSelectedPhase('RUN_QUESTION');
+      state.seekBeat(2.0);
+      const frame = state.computeCurrentPoseFrame();
+      expect(frame.phase).toBe('RUN_QUESTION');
+      expect(frame.currentBeat).toBe(2.0);
+      expect(frame.isDip).toBe(true);
+      expect(frame.jointPositions.head).toBeDefined();
+      expect(frame.jointPositions.hip).toBeDefined();
+    });
+  });
 });

@@ -137,4 +137,47 @@ describe('EditorCanvasRenderer - 11개 피트니스 존 및 포즈 시각화 (Ph
     // 경고 텍스트 렌더링 호출 확인
     expect(mockCtx.fillText).toHaveBeenCalled();
   });
+
+  it('simulatedFrame(실시간 안무 프레임) 전달 시 스켈레톤 마네킹 및 활성 존 펄스를 렌더링한다', () => {
+    const mockCtx = createMockCtx();
+    const mockCanvas = {
+      getContext: vi.fn(() => mockCtx),
+      width: 800,
+      height: 600,
+    } as unknown as HTMLCanvasElement;
+
+    const renderer = new EditorCanvasRenderer(mockCanvas);
+    const pattern = DEFAULT_CAT_CHOREO_PATTERNS[0];
+
+    const simulatedFrame = {
+      phase: 'RUN_QUESTION' as const,
+      currentBeat: 2.0,
+      activePattern: pattern,
+      activeNote: null,
+      motionType: 'low_bounce' as const,
+      bounceOffset: 0.35,
+      targetZones: [6, 8, 10],
+      jointPositions: {
+        head: { x: 0.5, y: 0.25 },
+        hip: { x: 0.5, y: 0.7 },
+        leftHand: { x: 0.17, y: 0.66 },
+        rightHand: { x: 0.83, y: 0.66 },
+        leftFoot: { x: 0.17, y: 0.86 },
+        rightFoot: { x: 0.83, y: 0.86 },
+      },
+      isDip: true,
+    };
+
+    expect(() => {
+      renderer.render(pattern, {
+        simulatedFrame,
+        showSkeleton: true,
+      });
+    }).not.toThrow();
+
+    // arc(관절 원), lineTo(뼈대), fillText(dip 라벨 등) 호출 검증
+    expect(mockCtx.arc).toHaveBeenCalled();
+    expect(mockCtx.lineTo).toHaveBeenCalled();
+    expect(mockCtx.fillText).toHaveBeenCalled();
+  });
 });
