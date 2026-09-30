@@ -131,6 +131,18 @@ export class RhythmEngine {
     return (this.beatIndex + this.beatProgress) / this._beatsPerRound;
   }
 
+  /** 현재 경과 시간에 따른 비트 슬롯 번호 (0, 1, 2, ...) */
+  get currentSlot(): number {
+    if (this._secondsPerBeat <= 0) return 0;
+    return Math.floor(this._elapsedTime / this._secondsPerBeat);
+  }
+
+  /** 지정된 시점(초)의 비트 슬롯 번호 산출 */
+  getSlotAt(time: number): number {
+    if (this._secondsPerBeat <= 0) return 0;
+    return Math.floor(time / this._secondsPerBeat);
+  }
+
   /** 엔진 실행 중 여부 */
   get running(): boolean {
     return this._running;

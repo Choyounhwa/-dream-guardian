@@ -71,6 +71,8 @@ export class BeatRunCoordinator {
   private _questionGeneratedCount = 0;
   private _totalSteps = 0;
   private _completedExerciseBeats = 0;
+  private _lastExercisedSlot = -1;
+  private _targetSlotEndElapsed: number | null = null;
   private _runElapsed = 0;
   private _readyElapsed = 0;
   private _performanceElapsed = 0;
@@ -153,6 +155,21 @@ export class BeatRunCoordinator {
     this._keynotes = [...keynotes];
   }
 
+  /** 일시정지 (시간 진행 및 박자 일시 정지) */
+  pause(): void {
+    this._rhythmEngine.pause();
+  }
+
+  /** 일시정지 해제 */
+  resume(): void {
+    this._rhythmEngine.resume();
+  }
+
+  /** 일시정지 여부 */
+  get isPaused(): boolean {
+    return this._rhythmEngine.paused;
+  }
+
   get totalSteps(): number {
     return this._totalSteps;
   }
@@ -185,18 +202,20 @@ export class BeatRunCoordinator {
 
   /**
    * 문제 소실점 원근 접근 진행도 (0.0: 소실점 ~ 1.0: 정면 도달)
-   * Issue #212: RUN_QUESTION 첫 2박(1.0s) 동안 0에서 1로 진행, 완료 후 1.0 유지
+   * Issue #212 & #230: RUN_QUESTION 첫 2박(1.0s) 동안 0에서 1로 진행, 완료 후 1.0 유지
+   * - 실제 활성 경과 시간(_runElapsed) 기반으로 진행 (빠른 운동으로 조기 완료 불가)
+   * - 일시정지(pause) 시간 제외
    */
   get questionApproachProgress(): number {
     if (this._phase !== 'RUN_QUESTION') {
       return 1.0;
     }
     const spb = this._rhythmEngine.secondsPerBeat || 0.5;
-    const timeProgress = this._runElapsed / (2 * spb);
-    const exerciseProgress = this._completedExerciseBeats / 2;
-    const current = Math.max(timeProgress, exerciseProgress);
-    if (!Number.isFinite(current)) return 0;
-    return Math.min(1.0, Math.max(0, current));
+    const approachDuration = 2 * spb;
+    if (approachDuration <= 0) return 1.0;
+    const timeProgress = this._runElapsed / approachDuration;
+    if (!Number.isFinite(timeProgress)) return 0;
+    return Math.min(1.0, Math.max(0, timeProgress));
   }
 
   /**
@@ -212,6 +231,8 @@ export class BeatRunCoordinator {
     this._rhythmEngine.start();
     this._phase = 'RUN_QUESTION';
     this._completedExerciseBeats = 0;
+    this._lastExercisedSlot = -1;
+    this._targetSlotEndElapsed = null;
     this._runElapsed = 0;
     this._readyElapsed = 0;
     this._performanceElapsed = 0;
@@ -253,15 +274,33 @@ export class BeatRunCoordinator {
     dt: number,
     landmarks?: readonly NormalizedLandmark[] | null,
   ): void {
-    if (!this._rhythmEngine.running) return;
+    if (!this._rhythmEngine.running || this._rhythmEngine.paused) return;
 
+    const validDt = Math.max(0, dt);
+    this._rhythmEngine.update(validDt);
+
+    let remainingDt = validDt;
+
+    // 0. RUN_QUESTION 페이즈 처리
     if (this._phase === 'RUN_QUESTION') {
-      this._runElapsed += Math.max(0, dt);
+      if (this._targetSlotEndElapsed !== null) {
+        const timeUntilEnd = this._targetSlotEndElapsed - this._runElapsed;
+        if (timeUntilEnd <= remainingDt + 1e-9) {
+          const step = Math.max(0, timeUntilEnd);
+          this._runElapsed += step;
+          remainingDt -= step;
+          this._transitionFromRunQuestion();
+        } else {
+          this._runElapsed += remainingDt;
+          remainingDt = 0;
+        }
+      } else {
+        this._runElapsed += remainingDt;
+        remainingDt = 0;
+      }
     }
 
     if (this._routineMode === 'arm_reach') {
-      let remainingDt = Math.max(0, dt);
-
       // 1. ANSWER_SELECT 페이즈 처리
       if (this._phase === 'ANSWER_SELECT') {
         if (this.isAnswerOpen) {
@@ -309,7 +348,6 @@ export class BeatRunCoordinator {
     }
 
     // ─── LEGACY ROUTINE (하위 호환 전용 시간 진행 루틴) ───
-    let remainingDt = Math.max(0, dt);
     while (remainingDt > 0 && this._phase !== 'RUN_QUESTION' && this._phase !== 'ROUND_RESOLVE') {
       if (this._phase === 'REST_READY') {
         const remainingReady = READY_BEATS * this._rhythmEngine.secondsPerBeat - this._readyElapsed;
@@ -337,39 +375,66 @@ export class BeatRunCoordinator {
   }
 
   /**
+   * 8개 유효 운동 슬롯 완료 후 다음 페이즈로 전이
+   */
+  private _transitionFromRunQuestion(): void {
+    if (this._routineMode === 'arm_reach') {
+      this._phase = 'ANSWER_SELECT';
+      this._answerSelectElapsed = 0;
+      this._armReachAnswerSelector.openWindow();
+      this._options.onPhaseChange?.(this._phase);
+    } else {
+      this._phase = 'REST_READY';
+      this._readyElapsed = 0;
+      this._centerReturnGate.open({ roundIndex: this._rhythmEngine.roundIndex });
+      this._options.onPhaseChange?.(this._phase);
+    }
+  }
+
+  /**
    * 스텝 발생 기록
+   *
+   * Issue #230 [BUG-BEAT-CLOCK-001]:
+   * - 실제 활성 게임 시계 기반 비트 슬롯 진행
+   * - 한 슬롯당 유효 운동 최대 1회 인정, 동일 슬롯 중복 입력 불인정
+   * - totalSteps(원시 입력 누적)와 completedExerciseBeats(유효 슬롯 박자) 분리
+   * - 8번째 유효 운동 인정 후 즉시 전환하지 않고, 8번째 슬롯의 종료 경계에서 전환
    */
   recordStep(_mode?: LocomotionMode): void {
+    if (!this._rhythmEngine.running || this._rhythmEngine.paused) {
+      return;
+    }
+
     this._totalSteps++;
 
     if (this._phase !== 'RUN_QUESTION' || this._completedExerciseBeats >= EXERCISE_BEATS_PER_ROUND) {
       return;
     }
 
+    const spb = this._rhythmEngine.secondsPerBeat || 0.5;
+    const currentSlot = Math.floor(this._runElapsed / spb);
+
+    if (this._lastExercisedSlot === currentSlot) {
+      // 동일 슬롯 중복 입력 차단 (totalSteps만 증가하고 유효 박수는 유지)
+      return;
+    }
+
+    this._lastExercisedSlot = currentSlot;
     this._completedExerciseBeats++;
+
     if (this._completedExerciseBeats === EXERCISE_BEATS_PER_ROUND) {
-      if (this._routineMode === 'arm_reach') {
-        this._phase = 'ANSWER_SELECT';
-        this._answerSelectElapsed = 0;
-        this._armReachAnswerSelector.openWindow();
-        this._options.onPhaseChange?.(this._phase);
-      } else {
-        this._phase = 'REST_READY';
-        this._readyElapsed = 0;
-        this._centerReturnGate.open({ roundIndex: this._rhythmEngine.roundIndex });
-        this._options.onPhaseChange?.(this._phase);
-      }
+      // 8번째 유효 슬롯 인정됨: 전환 목표 시점은 해당 8번째 슬롯 종료 경계
+      this._targetSlotEndElapsed = (currentSlot + 1) * spb;
     }
   }
 
   /**
    * 키보드/터치/클릭 비상 fallback 전이 (웹캠 미사용 환경)
+   * Issue #230: while 루프 우회 차단. 단일 recordStep 호출로 슬롯 규칙 준수
    */
   triggerFallbackAdvance(): void {
-    if (this._phase === 'RUN_QUESTION' && this._completedExerciseBeats < EXERCISE_BEATS_PER_ROUND) {
-      while (this._completedExerciseBeats < EXERCISE_BEATS_PER_ROUND) {
-        this.recordStep();
-      }
+    if (this._phase === 'RUN_QUESTION') {
+      this.recordStep();
       return;
     }
     if (this._phase === 'REST_READY') {

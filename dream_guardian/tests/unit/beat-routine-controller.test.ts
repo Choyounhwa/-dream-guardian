@@ -50,8 +50,14 @@ describe('BeatRunCoordinator - BEAT-ROUTINE-001', () => {
   });
 
   it('moves to a fixed two-beat REST_READY segment immediately after the eighth exercise', () => {
-    for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+    for (let i = 0; i < 7; i++) {
+      coordinator.recordStep('run');
+      coordinator.update(0.5);
+    }
+    coordinator.recordStep('run');
+    expect(coordinator.phase).toBe('RUN_QUESTION');
 
+    coordinator.update(0.5); // 8번째 슬롯 종료 후 전이
     expect(coordinator.phase).toBe('REST_READY');
     expect(coordinator.readyBeat).toBe(0);
 
@@ -65,7 +71,10 @@ describe('BeatRunCoordinator - BEAT-ROUTINE-001', () => {
   });
 
   it('keeps the keynote performance open for exactly eight beats and resolves once', () => {
-    for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+    for (let i = 0; i < 8; i++) {
+      coordinator.recordStep('run');
+      coordinator.update(0.5);
+    }
     coordinator.update(1.0);
 
     coordinator.update(3.99);
@@ -81,7 +90,10 @@ describe('BeatRunCoordinator - BEAT-ROUTINE-001', () => {
   });
 
   it('defers a correct answer resource settlement until the keynote segment resolves', () => {
-    for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+    for (let i = 0; i < 8; i++) {
+      coordinator.recordStep('run');
+      coordinator.update(0.5);
+    }
     coordinator.update(1.0);
 
     const correctIndex = coordinator.currentQuestion!.correctIndex;
@@ -97,7 +109,10 @@ describe('BeatRunCoordinator - BEAT-ROUTINE-001', () => {
   });
 
   it('settles a missing first-beat answer as one wrong answer at performance end', () => {
-    for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+    for (let i = 0; i < 8; i++) {
+      coordinator.recordStep('run');
+      coordinator.update(0.5);
+    }
     coordinator.update(5.0);
 
     expect(coordinator.phase).toBe('ROUND_RESOLVE');

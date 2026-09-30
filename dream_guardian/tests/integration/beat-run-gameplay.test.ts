@@ -142,10 +142,13 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
         expect(coordinator.completedExerciseBeats).toBe(step);
         expect(coordinator.phase).toBe('RUN_QUESTION');
         expect(coordinator.isAnswerOpen).toBe(false);
+        coordinator.update(0.5);
       }
 
       coordinator.recordStep('run');
       expect(coordinator.completedExerciseBeats).toBe(8);
+      expect(coordinator.phase).toBe('RUN_QUESTION');
+      coordinator.update(0.5);
       expect(coordinator.phase).toBe('REST_READY');
       expect(coordinator.centerReturnGate.isOpen).toBe(true);
       expect(coordinator.isAnswerOpen).toBe(false);
@@ -156,6 +159,7 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
 
       for (let i = 0; i < 8; i++) {
         coordinator.recordStep('run');
+        coordinator.update(0.5);
       }
       expect(coordinator.phase).toBe('REST_READY');
 
@@ -186,6 +190,7 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
 
       for (let i = 0; i < 8; i++) {
         coordinator.recordStep('run');
+        coordinator.update(0.5);
       }
 
       // 2박 준비 구간 동안 중앙 외부 유지
@@ -209,7 +214,9 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       coordinator.startRound({ chapter: 1 });
 
       coordinator.recordStep('run');
+      coordinator.update(0.5);
       coordinator.recordStep('run');
+      coordinator.update(0.5);
       coordinator.recordStep('run');
 
       expect(coordinator.totalSteps).toBe(3);
@@ -247,7 +254,10 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       coordinator.startRound({ chapter: 1 });
 
       // 1. 8회 운동
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
       expect(coordinator.phase).toBe('REST_READY');
 
       // 2. 2박 호흡 (1.0s)
@@ -284,7 +294,10 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       });
       coordinator.startRound({ chapter: 1 });
 
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
       coordinator.update(1.0); // REST_READY 완료
       expect(coordinator.phase).toBe('KEYNOTE_PERFORMANCE');
 
@@ -305,7 +318,10 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
 
     it('가상 픽셀(540px)을 정규화 없이 직접 주입 시 결함이 재현된다 (게이트 미인식 및 timeout 잠금)', () => {
       coordinator.startRound({ chapter: 1 });
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
       expect(coordinator.phase).toBe('REST_READY');
 
       const pixelLmCenter = createMockPixelLandmarks(540, 216, VW, VH);
@@ -333,7 +349,10 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       coordinator.startRound({ chapter: 1 });
 
       // 1. 8회 운동
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
       expect(coordinator.phase).toBe('REST_READY');
 
       // 2. 1080x2160 가상 해상도 중앙(540px) 랜드마크를 toNormalizedLandmarks로 변환 후 주입
@@ -365,7 +384,10 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       });
       coordinator.startRound({ chapter: 1 });
 
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
 
       const pixelLmCenter = createMockPixelLandmarks(540, 216, VW, VH);
       for (let i = 0; i < 10; i++) {
@@ -384,7 +406,10 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       coordinator = new BeatRunCoordinator({ questionBank, battle });
       coordinator.startRound({ chapter: 1 });
 
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
       expect(coordinator.phase).toBe('REST_READY');
 
       // 2박 준비 통과 -> KEYNOTE_PERFORMANCE 진입
@@ -408,7 +433,10 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       coordinator = new BeatRunCoordinator({ questionBank, battle });
       coordinator.startRound({ chapter: 1 });
 
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
       coordinator.update(1.0); // KEYNOTE_PERFORMANCE 진입 (0.0s)
 
       // 1박 경과하여 2박으로 진입 (0.6s)
@@ -430,7 +458,10 @@ describe('BeatRunCoordinator Integration - [BUG-BEAT-001]', () => {
       });
       coordinator.startRound({ chapter: 1 });
 
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
       coordinator.update(1.0); // KEYNOTE_PERFORMANCE 진입
 
       expect(coordinator.isAnswerOpen).toBe(true);

@@ -5,6 +5,7 @@
 
 import { DEFAULT_CONFIG } from './core/Config.js';
 import { GameEngine } from './core/GameEngine.js';
+import { StateMachine } from './core/StateMachine.js';
 import { CanvasManager } from './render/CanvasManager.js';
 import { CameraLayer } from './render/CameraLayer.js';
 import { PoseManager } from './motion/PoseManager.js';
@@ -206,9 +207,128 @@ starCollectionInput.setViewport(
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
 
+// ─── 상태 머신 및 게임 상태 (Issue #214 / REFACTOR-FSM-001) ───
+type ScreenMode = 'menu' | 'game' | 'result';
+type MenuMode = 'main' | 'sub';
+type GamePhase = 'running' | 'question' | 'answer_select' | 'star_collect' | 'hazard_evade';
+
+const stateMachine = new StateMachine('MENU_MAIN');
+let screenMode: ScreenMode = 'menu';
+let menuMode: MenuMode = 'main';
+let selectedChapter = 1;
+let selectedSubLevel: number | undefined = undefined;
+let gamePhase: GamePhase = 'running';
+let totalSteps = 0;
+let totalDwellTime = 0; // Issue #135: 누적 자세 유지 시간 (초)
+let currentChapter = 1;
+let currentQuestion: GeneratedQuestion | null = null;
+let feedbackTimer = 0;
+let feedbackCorrect = false;
+let questionVisible = false;
+let answerLocked = false; // 답 연속 입력 방지
+let resultData: ResultData | null = null;
+let unlockedChapter = 5;
+let starsMap: Record<number, number> = {};
+let castingFlash = 0;
+
+// StateMachine 단방향 전환 통지 및 상태 동기화
+stateMachine.onTransition((from, to) => {
+  console.log(`[DG] StateMachine 전환: ${from} → ${to}`);
+  if (to === 'MENU_MAIN') {
+    screenMode = 'menu';
+    menuMode = 'main';
+  } else if (to === 'MENU_SUB') {
+    screenMode = 'menu';
+    menuMode = 'sub';
+  } else if (to === 'RESULT' || to === 'GAMEOVER') {
+    screenMode = 'result';
+  } else if (
+    to === 'RUN_QUESTION' ||
+    to === 'ANSWER_SELECT' ||
+    to === 'STAR_COLLECT' ||
+    to === 'HAZARD_EVADE' ||
+    to === 'ROUND_RESOLVE' ||
+    to === 'BOSS_CLIMAX'
+  ) {
+    screenMode = 'game';
+    if (to === 'RUN_QUESTION' || to === 'ROUND_RESOLVE') {
+      gamePhase = 'running';
+    } else if (to === 'ANSWER_SELECT') {
+      gamePhase = 'answer_select';
+    } else if (to === 'STAR_COLLECT') {
+      gamePhase = 'star_collect';
+    } else if (to === 'HAZARD_EVADE') {
+      gamePhase = 'hazard_evade';
+    }
+  }
+});
+
+// 상태별 enter/exit 생명주기 및 리소스 정리 등록 (입력·타겟·장판 정리 1회 보장)
+stateMachine.registerState('RUN_QUESTION', {
+  enter: () => {
+    questionVisible = true;
+    answerLocked = true;
+  },
+});
+
+stateMachine.registerState('ANSWER_SELECT', {
+  enter: () => {
+    questionVisible = true;
+    answerLocked = false;
+    armReachAnswerSelector.openWindow();
+  },
+  exit: () => {
+    answerLocked = true;
+    armReachAnswerSelector.closeWindow();
+  },
+});
+
+stateMachine.registerState('STAR_COLLECT', {
+  enter: () => {
+    questionVisible = false;
+    answerLocked = true;
+  },
+  exit: () => {
+    starCollectionInput.reset();
+  },
+});
+
+stateMachine.registerState('HAZARD_EVADE', {
+  enter: () => {
+    questionVisible = false;
+    answerLocked = true;
+  },
+  exit: () => {
+    phaseAHazardController.stop();
+  },
+});
+
+stateMachine.registerState('ROUND_RESOLVE', {
+  enter: () => {
+    answerLocked = true;
+  },
+  exit: () => {
+    feedbackTimer = 0;
+  },
+});
+
+stateMachine.registerState('MENU_MAIN', {
+  enter: () => {
+    sfx.stopDwellCharge();
+    menuInput.reset();
+    pauseModal.close();
+  },
+});
+
+stateMachine.registerState('MENU_SUB', {
+  enter: () => {
+    menuInput.reset();
+  },
+});
+
 function enterQuestionPhase(): void {
-  if (gamePhase === 'question' || gamePhase === 'answer_select') return;
-  gamePhase = 'answer_select';
+  if (stateMachine.currentState === 'ANSWER_SELECT') return;
+  stateMachine.changeState('ANSWER_SELECT');
   questionVisible = true;
   answerLocked = false;
   answerSelector.startQuestion(battle.totalQuestions + 1);
@@ -224,13 +344,15 @@ const beatCoordinator = new BeatRunCoordinator({
   speakFn: (text) => speech.speak(text),
   onPhaseChange: (phase) => {
     if (phase === 'RUN_QUESTION' || phase === 'REST_READY') {
-      gamePhase = 'running';
+      stateMachine.changeState('RUN_QUESTION');
     } else if (phase === 'ANSWER_SELECT' || phase === 'KEYNOTE_PERFORMANCE') {
       enterQuestionPhase();
     } else if (phase === 'STAR_COLLECT') {
-      gamePhase = 'star_collect';
+      stateMachine.changeState('STAR_COLLECT');
     } else if (phase === 'HAZARD_EVADE') {
-      gamePhase = 'hazard_evade';
+      stateMachine.changeState('HAZARD_EVADE');
+    } else if (phase === 'ROUND_RESOLVE') {
+      stateMachine.changeState('ROUND_RESOLVE');
     }
   },
   onAnswerSelected: (idx) => {
@@ -242,6 +364,7 @@ const beatCoordinator = new BeatRunCoordinator({
     }
   },
   onAnswerConfirmed: (idx, _correct, status) => {
+    stateMachine.changeState('ROUND_RESOLVE');
     const resolveResult = beatRoundResolver.resolveRound(status);
     handleAnswer(idx, status, resolveResult);
   },
@@ -285,7 +408,7 @@ let resultReturnTimer = 0; // Issue #134: 결과 화면 양손 모으기 복귀 
 function selectChapter(ch: number): void {
   if (ch > 0 && ch <= unlockedChapter) {
     selectedChapter = ch;
-    menuMode = 'sub';
+    stateMachine.changeState('MENU_SUB');
     menuHoverItem = null;
     menuHoverTimer = 0;
     menuInput.reset();
@@ -307,7 +430,7 @@ function selectSubLevel(sub: number | null): void {
   menuInput.reset();
   if (sub === -1) {
     sfx.play('hover');
-    menuMode = 'main';
+    stateMachine.changeState('MENU_MAIN');
   } else if (sub === 0) {
     sfx.play('start');
     startChapter(selectedChapter, undefined);
@@ -316,28 +439,6 @@ function selectSubLevel(sub: number | null): void {
     startChapter(selectedChapter, sub);
   }
 }
-
-// ─── 게임 상태 (FSM 대신 단순 변수 관리) ───
-type ScreenMode = 'menu' | 'game' | 'result';
-type MenuMode = 'main' | 'sub';
-type GamePhase = 'running' | 'question' | 'answer_select' | 'star_collect' | 'hazard_evade';
-let screenMode: ScreenMode = 'menu';
-let menuMode: MenuMode = 'main';
-let selectedChapter = 1;
-let selectedSubLevel: number | undefined = undefined;
-let gamePhase: GamePhase = 'running';
-let totalSteps = 0;
-let totalDwellTime = 0; // Issue #135: 누적 자세 유지 시간 (초)
-let currentChapter = 1;
-let currentQuestion: GeneratedQuestion | null = null;
-let feedbackTimer = 0;
-let feedbackCorrect = false;
-let questionVisible = false;
-let answerLocked = false; // 답 연속 입력 방지
-let resultData: ResultData | null = null;
-let unlockedChapter = 5;
-let starsMap: Record<number, number> = {};
-let castingFlash = 0;
 
 const CHAPTER_COLORS = ['', '#4DFFAA', '#28E6FF', '#FFCB4D', '#C889FF', '#FF4444'];
 
@@ -382,7 +483,7 @@ async function ensureCameraStarted(): Promise<void> {
 
 // ─── 게임 플로우 ───
 function startRunningPhase(): void {
-  gamePhase = 'running';
+  stateMachine.changeState('RUN_QUESTION');
   questionVisible = true;
   answerLocked = true;
   starCollectionInput.reset();
@@ -415,7 +516,6 @@ function startChapter(ch: number, subLevel?: number): void {
   phaseAHazardController.stop();
   pauseModal.close();
   xGestureDetector.reset();
-  screenMode = 'game';
   ensureCameraStarted().catch(() => {});
 
   // Issue #137: 첫 플레이 시 튜토리얼 자동 표시
@@ -429,7 +529,7 @@ function startChapter(ch: number, subLevel?: number): void {
 function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: RoundResolveResult): void {
   sfx.stopDwellCharge();
   if (screenMode !== 'game') return;
-  if (!currentQuestion || !questionVisible || answerLocked) return;
+  if (!currentQuestion) return;
 
   answerLocked = true; // 연속 입력 방지
   const correct = status === 'correct';
@@ -459,7 +559,10 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
     if (resolveResult.bossDefeated) {
       const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
       starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
-      setTimeout(() => showResult(true), 600);
+      setTimeout(() => {
+        stateMachine.changeState('RESULT');
+        showResult(true);
+      }, 600);
       return;
     }
   } else {
@@ -469,7 +572,10 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
     console.log(`[DG] 오답 피드백! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
 
     if (resolveResult.playerDefeated) {
-      setTimeout(() => showResult(false), 600);
+      setTimeout(() => {
+        stateMachine.changeState('GAMEOVER');
+        showResult(false);
+      }, 600);
       return;
     }
   }
@@ -485,7 +591,7 @@ function showResult(victory: boolean): void {
   if (victory) sfx.play('posture_complete');
   else sfx.play('wrong');
   console.log(`[DG] ${victory ? '승리' : '패배'}`);
-  screenMode = 'result';
+  stateMachine.changeState(victory ? 'RESULT' : 'GAMEOVER');
   resultReturnTimer = 0;
   resultData = {
     victory,
@@ -508,8 +614,7 @@ function goToMenu(): void {
   sfx.stopDwellCharge();
   pauseModal.close();
   console.log('[DG] 메뉴 복귀');
-  screenMode = 'menu';
-  menuMode = 'main';
+  stateMachine.changeState('MENU_MAIN');
 }
 
 // ─── 피드백 렌더링 ───
@@ -806,11 +911,15 @@ const engine = new GameEngine({
     }
 
     if (screenMode !== 'game' || pauseModal.isOpen) {
+      beatCoordinator.pause();
       starCollectionInput.setPaused(true);
       dreamGrid.update(dt, 0.8);
       effectManager.update(dt);
       sfx.stopDwellCharge();
       return;
+    }
+    if (beatCoordinator.isPaused) {
+      beatCoordinator.resume();
     }
     starCollectionInput.setPaused(false);
 
@@ -1328,7 +1437,7 @@ canvas.addEventListener('click', (e) => {
       selectSubLevel(chosen);
     }
   } else if (screenMode === 'game') {
-    if (gamePhase === 'running') {
+    if (gamePhase === 'running' && !pauseModal.isOpen) {
       totalSteps++;
       beatCoordinator.recordStep();
       effectManager.playBurst({
@@ -1410,7 +1519,8 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (e.code === 'Space') {
-    if (screenMode === 'game' && gamePhase === 'running') {
+    if (e.repeat) return;
+    if (screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
       totalSteps++;
       beatCoordinator.recordStep();
       if (phaseAHazardController.activePattern === 'jump') {
@@ -1556,3 +1666,5 @@ if (document.readyState === 'loading') {
 } else {
   bootstrap();
 }
+
+export { stateMachine };

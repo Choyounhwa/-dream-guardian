@@ -76,7 +76,10 @@ describe('Beat Motion Module Integration - [INTEGRATE-BEAT-001]', () => {
       });
 
       coordinator.startRound({ chapter: 1 });
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
       coordinator.update(1.0); // REST_READY 완료
 
       const correctIdx = coordinator.currentQuestion!.correctIndex;
@@ -110,7 +113,10 @@ describe('Beat Motion Module Integration - [INTEGRATE-BEAT-001]', () => {
       });
 
       coordinator.startRound({ chapter: 1 });
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
       coordinator.update(1.0);
 
       // 아무것도 선택하지 않고 4.0초 경과
@@ -136,7 +142,10 @@ describe('Beat Motion Module Integration - [INTEGRATE-BEAT-001]', () => {
       });
 
       coordinator.startRound({ chapter: 1 });
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
       coordinator.update(1.0);
 
       const wrongIdx = coordinator.currentQuestion!.correctIndex === 0 ? 1 : 0;

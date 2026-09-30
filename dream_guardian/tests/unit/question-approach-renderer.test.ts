@@ -207,10 +207,12 @@ describe('QuestionApproachRenderer (Issue #212 - RENDER-QUESTION-APPROACH-001)',
       coordinator.startRound();
 
       coordinator.recordStep();
+      coordinator.update(0.5);
       expect(coordinator.completedExerciseBeats).toBe(1);
       expect(coordinator.questionApproachProgress).toBeGreaterThanOrEqual(0.5);
 
       coordinator.recordStep();
+      coordinator.update(0.5);
       expect(coordinator.completedExerciseBeats).toBe(2);
       expect(coordinator.questionApproachProgress).toBe(1.0);
     });
@@ -218,7 +220,11 @@ describe('QuestionApproachRenderer (Issue #212 - RENDER-QUESTION-APPROACH-001)',
     it('RUN_QUESTION 페이즈가 아닐 때는 항상 1.0을 반환한다', () => {
       const coordinator = createReadyCoordinator();
       coordinator.startRound();
-      coordinator.triggerFallbackAdvance(); // 8박 스텝 완료 -> ANSWER_SELECT
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep();
+        coordinator.update(0.5);
+      }
+      expect(coordinator.phase).not.toBe('RUN_QUESTION');
       expect(coordinator.questionApproachProgress).toBe(1.0);
     });
   });

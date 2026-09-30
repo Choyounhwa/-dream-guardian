@@ -2,6 +2,66 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 2026-09-30 완료: [BUG-BEAT-CLOCK-001 / #230] 러닝 실제 8박 종료 보장 및 동일 박 중복 입력 차단
+
+> #230 구현 및 단위/통합 검증 완료. 실제 활성 게임 시계 기반으로 0.5초 비트 슬롯을 진행하고, 한 슬롯당 유효 운동 최대 1회 인정(동일 슬롯 중복 입력 및 연타 차단), totalSteps와 completedExerciseBeats 분리, 8번째 유효 슬롯 종료 경계(4.0s) 도달 전 조기 전환 금지, triggerFallbackAdvance 루프 우회 차단 및 Space e.repeat 차단을 완료했다.
+
+### 주요 구현 및 변경 사항
+- **실제 활성 게임 시계 비트 슬롯 진행 (`src/game/BeatRunCoordinator.ts`)**:
+  - `_lastExercisedSlot` 및 `_targetSlotEndElapsed` 상태 도입.
+  - `recordStep()`에서 `Math.floor(_runElapsed / spb)`로 슬롯 번호를 계산하여 동일 슬롯 중복 입력 시 유효 박자 카운트를 방어(`totalSteps`만 증가).
+  - 8번째 유효 운동이 인정되어도 즉시 전환하지 않고, 해당 8번째 슬롯의 종료 경계(`_targetSlotEndElapsed = (currentSlot + 1) * spb`, BPM 120 기준 4.0s)를 설정.
+  - `update()` 시 실제 활성 경과 시간이 `_targetSlotEndElapsed`에 도달할 때만 다음 페이즈(`ANSWER_SELECT` 또는 `REST_READY`)로 전이.
+  - 30초 무동작 시 운동 입력 없이는 0/8을 유지하며 가짜 입력이나 자동 전환 일체 차단.
+- **RhythmEngine 시간 갱신 연동 및 슬롯 유틸리티 (`src/core/RhythmEngine.ts`)**:
+  - `currentSlot` getter 및 `getSlotAt(time)` 메서드 추가.
+  - `BeatRunCoordinator.update()`에서 `this._rhythmEngine.update(dt)`를 지속 호출하여 비트 인덱스 및 시간원 동기화 보장.
+- **문제 원근 접근 진행도 계약 현행화 (`src/game/BeatRunCoordinator.ts`)**:
+  - 운동 횟수로 조기 점프하던 기존 버그를 제거하고 첫 2박(1.0s) 실제 활성 시간 소비 계약(`_runElapsed / (2 * spb)`)으로 진행도 공급.
+  - 일시정지(`pause()`, `resume()`) 시간 누적 완전 제외.
+- **fallback 루프 우회 및 Space repeat 차단 (`src/game/BeatRunCoordinator.ts`, `src/main.ts`)**:
+  - `triggerFallbackAdvance()` 내부의 `while` 루프를 제거하고 슬롯 규칙에 맞게 단일 `recordStep()` 호출로 전환.
+  - `main.ts`의 Space 키 핸들러에 `if (e.repeat) return;` 및 `!pauseModal.isOpen` 가드 적용.
+  - `pauseModal` 상태와 `beatCoordinator.pause()` / `resume()` 양방향 동기화.
+- **설정 분리 (`config/beat-motion.config.ts`)**:
+  - `RunQuestionConfig` 및 `DEFAULT_RUN_QUESTION_CONFIG` (8 exerciseBeats, 2 approachBeats) 정의 및 `DEFAULT_BEAT_MOTION_CONFIG`에 통합.
+- **TDD 검증 결과**:
+  - `tests/unit/beat-clock-slot.test.ts` (10 tests Pass): t=0 8회 동기 입력 시 조기 전환 차단, 3.999s 이전 전환 차단 및 4.000s 경계 전환, 30초 무동작 0/8, 슬롯 중복 불인정, lag spike 가짜 입력 없음, 2회 빠른 운동 1초 전 접근 불가, pause 시간 제외, fallback 루프 우회 차단, RhythmEngine 시간 갱신.
+  - `tests/unit/question-approach-renderer.test.ts` (12 tests Pass).
+  - `tests/unit/beat-routine-controller.test.ts` (5 tests Pass).
+  - `tests/integration/beat-keynote-round.test.ts` (8 tests Pass).
+  - `tests/integration/beat-motion-integration.test.ts` (9 tests Pass).
+  - `tests/integration/beat-run-gameplay.test.ts` (17 tests Pass).
+  - `tests/integration/state-machine-lifecycle.test.ts` (7 tests Pass).
+  - `npm run build` 번들 검증 100% 성공 & `npm test` 전체 74개 파일 910개 테스트 100% Pass (회귀 결함 0건).
+
+**다음 작업 대상: #231 [BUG-CLOCK-PAUSE-001] pause-aware 활성 시계 단일화 및 세션 만료 예약 정리.**
+
+## 2026-09-30 완료: [REFACTOR-FSM-001 / #214] 현행 라운드·Phase B 상태 모델 단일화 및 프로덕션 실행 경로 연결
+
+> #214 구현 및 단위/통합 검증 완료. 현행 14개 canonical 상태 모델을 정의하고, StateMachine이 전이 검증/생명주기/리소스 정리 인터페이스를 단일 소유하도록 단일화하여 실제 `src/main.ts` 프로덕션 경로에 연결했다.
+
+### 주요 구현 및 변경 사항
+- **14개 Canonical GameState 현행화 (`src/types/index.ts`)**:
+  - `LOADING`, `MENU_MAIN`, `MENU_SUB`, `STORY_INTRO`, `READY_POSITION`, `RUN_QUESTION`, `ANSWER_SELECT`, `STAR_COLLECT`, `HAZARD_EVADE`, `ROUND_RESOLVE`, `BOSS_CLIMAX`, `RESULT`, `GAMEOVER`, `ENDING_CUTSCENE`.
+  - 상태 핸들러 인터페이스(`IStateHandler`)에 `input?(data?: unknown): void` 추가로 상태별 enter/update/input/render/exit 전 라이프사이클 계약 완성.
+- **StateMachine 현행 전이맵 및 생명주기 리소스 정리 (`src/core/StateMachine.ts`)**:
+  - `RUN_QUESTION → ANSWER_SELECT → STAR_COLLECT / HAZARD_EVADE → ROUND_RESOLVE → RUN_QUESTION / BOSS_CLIMAX / GAMEOVER / RESULT` 단방향 전이 규칙 엄격화 및 비허용 역주행·단계 건너뛰기 차단.
+  - 상태 상충 방지 및 상태 질의 헬퍼 메서드 추가: `isPhaseA()`, `isPhaseB()`, `isMenu()`, `isResult()`, `isAnswerOpen()`, `isQuestionVisible()`, `isStarCollect()`, `isHazardEvade()`.
+  - 상태 진입(enter) 및 종료(exit) 시 등록된 핸들러 1회 호출 보장.
+- **`src/main.ts` StateMachine 단일 소유권 및 단방향 상태 동기화**:
+  - `const stateMachine = new StateMachine('MENU_MAIN');` 도입.
+  - `stateMachine.onTransition`을 통해 `screenMode`와 `gamePhase`를 canonical 상태에 일치하도록 단방향 자동 동기화.
+  - 각 상태별 리소스 정리 핸들러 등록: `ANSWER_SELECT` exit 시 `armReachAnswerSelector.closeWindow()`, `HAZARD_EVADE` exit 시 `phaseAHazardController.stop()`, `STAR_COLLECT` exit 시 `starCollectionInput.reset()`.
+  - `handleAnswer`에서 UI 플래그(`!questionVisible || answerLocked`)가 정산 권한을 임의로 차단하던 문제를 제거하고 `stateMachine.isPhaseA()` 기반으로 정산 생명주기 분리.
+- **TDD 검증 결과**:
+  - `tests/unit/state-machine.test.ts` (17 tests Pass): 14개 canonical 상태 전이, 비허용 차단, enter/exit 1회 실행, 상태 질의 일관성.
+  - `tests/integration/state-machine-lifecycle.test.ts` (7 tests Pass): StateMachine과 BeatRunCoordinator 연동, 진입/종료 시 리소스 정리 인터페이스 1회 실행, 상충 상태(STAR_COLLECT 중 답안 열림 등) 차단.
+  - `tests/unit/architecture.test.ts`: 14개 canonical GameState 아키텍처 검증 Pass.
+  - `npm run build` 번들 성공 & `npm test` 전체 73개 파일 898개 테스트 100% Pass (회귀 결함 0건).
+
+**다음 작업 대상: #230 [BUG-BEAT-CLOCK-001] 러닝 실제 8박 종료 보장 및 동일 박 중복 입력 차단.**
+
 ## 2026-09-30 완료: [E2E-BEAT-001 / #186] 설계 단계 (최종 실행 대기)
 
 > #186 전체 카드는 아직 OPEN이다. 이번 단계는 #229 계약을 실제 `index.html → src/main.ts` 프로덕션 경로로 검증할 종단 실패 시나리오와 fixture 계약만 확정했다. 테스트 코드, 브라우저 러너, 프로덕션 코드는 변경하지 않았으며 최종 E2E Pass를 주장하지 않는다.

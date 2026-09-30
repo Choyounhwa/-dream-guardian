@@ -136,23 +136,29 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
   });
 
   describe('1. 8번째 운동 직후 ANSWER_SELECT 진입 및 2박 제약', () => {
-    it('8번째 운동(recordStep) 직후 ANSWER_SELECT 페이즈로 즉시 진입하고 isAnswerOpen이 true가 된다', () => {
+    it('8번째 운동(recordStep) 후 8번째 슬롯 종료(4.0s)에서 ANSWER_SELECT 페이즈로 진입하고 isAnswerOpen이 true가 된다', () => {
       coordinator.startRound({ chapter: 1 });
       for (let i = 0; i < 7; i++) {
         coordinator.recordStep('run');
+        coordinator.update(0.5);
         expect(coordinator.phase).toBe('RUN_QUESTION');
         expect(coordinator.isAnswerOpen).toBe(false);
       }
 
       coordinator.recordStep('run'); // 8번째 스텝!
       expect(coordinator.completedExerciseBeats).toBe(8);
+      expect(coordinator.phase).toBe('RUN_QUESTION');
+      coordinator.update(0.5); // 8번째 슬롯 종료
       expect(coordinator.phase).toBe('ANSWER_SELECT');
       expect(coordinator.isAnswerOpen).toBe(true);
     });
 
     it('답안 입력 창은 최대 2박(1.0초) 동안만 열리며, 2박 초과 시 timeout 처리되어 HAZARD_EVADE로 자동 분기한다', () => {
       coordinator.startRound({ chapter: 1 });
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
       expect(coordinator.phase).toBe('ANSWER_SELECT');
 
       // 0.8초 경과 (아직 열려 있음)
@@ -170,7 +176,10 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
   describe('2. ArmReachAnswerSelector 한 팔 Zone 4/5 즉시 선택 및 정답/오답 즉시 분기', () => {
     it('한 손이 Zone 4에 있으면 0번이 즉시 선택되고 정답일 경우 STAR_COLLECT로 즉시 분기한다', () => {
       coordinator.startRound({ chapter: 1 });
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
 
       const correctIndex = coordinator.currentQuestion!.correctIndex;
       // Zone 4는 0번 선택
@@ -191,7 +200,10 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
 
     it('한 손이 Zone 5에 정지해 둔 상태(정적 입력)에서도 첫 프레임에 1번이 즉시 선택된다', () => {
       coordinator.startRound({ chapter: 1 });
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
 
       const poseZone5 = createMockPose({ rightWrist: ZONE_5_CENTER });
       coordinator.update(0.016, poseZone5);
@@ -203,7 +215,10 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
 
     it('양팔이 동시에 Zone 4와 5에 걸치면 미선택 상태를 유지한다', () => {
       coordinator.startRound({ chapter: 1 });
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
 
       const bothArmsPose = createMockPose({
         leftWrist: ZONE_4_CENTER,
@@ -221,7 +236,10 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
   describe('3. 즉각 분기 및 4초 대기 제거 / 루틴 종료 시 단 1회 정산', () => {
     it('정답 선택 즉시 STAR_COLLECT로 전이되며, 7박 경과 후 ROUND_RESOLVE에서 단 1회 정산된다', () => {
       coordinator.startRound({ chapter: 1 });
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
 
       const correctIdx = coordinator.currentQuestion!.correctIndex;
       coordinator.confirmAnswerByFallback(correctIdx);
@@ -246,7 +264,10 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
 
     it('오답 선택 즉시 HAZARD_EVADE로 전이되며, 플레이어 HP는 감소하지 않고 ROUND_RESOLVE에서 1회 정산된다', () => {
       coordinator.startRound({ chapter: 1 });
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
 
       const wrongIdx = coordinator.currentQuestion!.correctIndex === 0 ? 1 : 0;
       coordinator.confirmAnswerByFallback(wrongIdx);
@@ -270,7 +291,10 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
 
     it('타임아웃(미응답) 시 즉시 HAZARD_EVADE로 전이되고, HP 차감 없이 timeoutCount에 정상 집계된다', () => {
       coordinator.startRound({ chapter: 1 });
-      for (let i = 0; i < 8; i++) coordinator.recordStep('run');
+      for (let i = 0; i < 8; i++) {
+        coordinator.recordStep('run');
+        coordinator.update(0.5);
+      }
 
       // 2박(1.0s) 미응답 경과
       coordinator.update(1.0);

@@ -112,6 +112,18 @@ export const DEFAULT_STAR_COLLECTION_CONFIG: StarCollectionConfig = {
   entryMargin: 0,
 };
 
+export interface RunQuestionConfig {
+  /** 라운드당 필요한 유효 운동 박자 수 (기본 8) */
+  exerciseBeats: number;
+  /** 문제 접근에 소요되는 계약 박자 수 (기본 2) */
+  approachBeats: number;
+}
+
+export const DEFAULT_RUN_QUESTION_CONFIG: RunQuestionConfig = {
+  exerciseBeats: 8,
+  approachBeats: 2,
+};
+
 export interface BeatMotionConfig {
   bpm: number;
   beatsPerRound: number;
@@ -119,6 +131,7 @@ export interface BeatMotionConfig {
   armReachAnswer: ArmReachAnswerConfig;
   starCollection: StarCollectionConfig;
   questionApproach: QuestionApproachConfig;
+  runQuestion: RunQuestionConfig;
 }
 
 export interface QuestionApproachConfig {
@@ -146,4 +159,5 @@ export const DEFAULT_BEAT_MOTION_CONFIG: BeatMotionConfig = {
   armReachAnswer: DEFAULT_ARM_REACH_ANSWER_CONFIG,
   starCollection: DEFAULT_STAR_COLLECTION_CONFIG,
   questionApproach: DEFAULT_QUESTION_APPROACH_CONFIG,
+  runQuestion: DEFAULT_RUN_QUESTION_CONFIG,
 };
