@@ -20,6 +20,9 @@ export {
 
 export {
   CAT_CHOREO_PATTERNS,
+  DEFAULT_CAT_CHOREO_PATTERNS,
+  DancePatternRegistry,
+  dancePatternRegistry,
   QUESTION_PHASE_ROUTINE,
   ANSWER_PHASE_ROUTINE,
   STAR_COLLECT_ROUTINE,
@@ -29,6 +32,8 @@ export {
   getDanceRoutineForPhase,
   type CatChoreoPattern,
   type DanceMotionType,
+  type PatternValidationResult,
+  type PatternLoadResult,
   type QuestionPhaseNote,
   type QuestionPhaseRoutine,
   type AnswerChoiceNote,

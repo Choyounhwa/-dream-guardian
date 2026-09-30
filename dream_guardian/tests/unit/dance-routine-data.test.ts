@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   CAT_CHOREO_PATTERNS,
+  DEFAULT_CAT_CHOREO_PATTERNS,
+  DancePatternRegistry,
+  dancePatternRegistry,
   QUESTION_PHASE_ROUTINE,
   ANSWER_PHASE_ROUTINE,
   STAR_COLLECT_ROUTINE,
@@ -8,6 +11,7 @@ import {
   getDanceKeynotesForStarCollection,
   getDancePatternRecords,
   getDanceRoutineForPhase,
+  type CatChoreoPattern,
 } from '../../src/data/danceRoutineData.js';
 import {
   isCrossBodyViolation,
@@ -144,6 +148,117 @@ describe('DanceRoutineData - 피트니스존 고양이 안무 루틴 데이터',
       expect(getDanceRoutineForPhase('STAR_COLLECT')).toBe(STAR_COLLECT_ROUTINE);
       expect(getDanceRoutineForPhase('KEYNOTE_PERFORMANCE')).toBe(STAR_COLLECT_ROUTINE);
       expect(getDanceRoutineForPhase('FEVER_PHASE_B')).toBe(FEVER_PHASE_B_ROUTINE);
+    });
+  });
+
+  describe('7. DancePatternRegistry - 동적 패턴 등록, 수정, 삭제, 직렬화 검증', () => {
+    it('초기화 시 기본 4대 패턴을 포함하며 DEFAULT_CAT_CHOREO_PATTERNS 및 싱글톤 인스턴스와 일치한다', () => {
+      const registry = new DancePatternRegistry();
+      expect(registry.getAll()).toHaveLength(4);
+      expect(registry.has('CAT_LOW_BOUNCE')).toBe(true);
+      expect(DEFAULT_CAT_CHOREO_PATTERNS).toHaveLength(4);
+      expect(dancePatternRegistry.getAll()).toHaveLength(4);
+    });
+
+    it('새로운 안무 패턴을 성공적으로 추가/등록할 수 있다', () => {
+      const registry = new DancePatternRegistry();
+      const newPattern: CatChoreoPattern = {
+        id: 'CAT_CLAP_HIGH',
+        name: '하이 클랩 & 점프 준비',
+        description: '양손을 머리 위로 모아 박수',
+        motionType: 'center_clasp',
+        leftHand: 2,
+        rightHand: 2,
+        head: null,
+        hip: 8,
+        footZones: [9, 11],
+        partZoneMap: { leftHand: 2, rightHand: 2, hip: 8 },
+      };
+
+      const result = registry.register(newPattern);
+      expect(result.valid).toBe(true);
+      expect(registry.has('CAT_CLAP_HIGH')).toBe(true);
+      expect(registry.getAll()).toHaveLength(5);
+      expect(registry.get('CAT_CLAP_HIGH')?.name).toBe('하이 클랩 & 점프 준비');
+    });
+
+    it('신체 물리 제약(Cross-Body 위반)이 있는 패턴 등록을 차단한다', () => {
+      const registry = new DancePatternRegistry();
+      const invalidPattern: CatChoreoPattern = {
+        id: 'INVALID_PATTERN',
+        name: '위반 패턴 (골반 최하단 + 손 최상단)',
+        description: '위반',
+        motionType: 'low_bounce',
+        leftHand: 1, // 1~3 최상단
+        rightHand: 8,
+        head: null,
+        hip: 10, // 9~11 최하단
+        footZones: [],
+        partZoneMap: { leftHand: 1, rightHand: 8, hip: 10 },
+      };
+
+      const result = registry.register(invalidPattern);
+      expect(result.valid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(registry.has('INVALID_PATTERN')).toBe(false);
+    });
+
+    it('존재하는 패턴의 정보를 동적으로 수정(update)할 수 있다', () => {
+      const registry = new DancePatternRegistry();
+      const updateResult = registry.update('CAT_LOW_BOUNCE', {
+        name: '익스트림 로우바운스',
+        description: '더 깊숙이 내려앉는 딥 스쿼트 바운스',
+      });
+
+      expect(updateResult.valid).toBe(true);
+      const updated = registry.get('CAT_LOW_BOUNCE');
+      expect(updated?.name).toBe('익스트림 로우바운스');
+      expect(updated?.description).toBe('더 깊숙이 내려앉는 딥 스쿼트 바운스');
+      // 기존 필드 유지 확인
+      expect(updated?.leftHand).toBe(6);
+    });
+
+    it('패턴을 삭제(unregister)할 수 있다', () => {
+      const registry = new DancePatternRegistry();
+      const removed = registry.unregister('CAT_LOW_BOUNCE');
+      expect(removed).toBe(true);
+      expect(registry.has('CAT_LOW_BOUNCE')).toBe(false);
+      expect(registry.getAll()).toHaveLength(3);
+    });
+
+    it('JSON 직렬화 및 역직렬화(loadFromJSON)로 외부 데이터를 동적 로드할 수 있다', () => {
+      const registry = new DancePatternRegistry();
+      const json = registry.toJSON();
+      expect(typeof json).toBe('string');
+
+      const customRegistry = new DancePatternRegistry([]);
+      expect(customRegistry.getAll()).toHaveLength(0);
+
+      const loadResult = customRegistry.loadFromJSON(json);
+      expect(loadResult.loadedCount).toBe(4);
+      expect(customRegistry.getAll()).toHaveLength(4);
+      expect(customRegistry.has('CAT_SKY_POINT_RIGHT')).toBe(true);
+    });
+
+    it('CSV 텍스트(toCSV / loadFromCSV)로 외부 데이터를 동적 로드할 수 있다', () => {
+      const registry = new DancePatternRegistry();
+      const csv = registry.toCSV();
+      expect(csv).toContain('ID,NAME,DESCRIPTION,MOTION_TYPE,LEFT_HAND,RIGHT_HAND,HEAD,HIP,FOOT_ZONES');
+      expect(csv).toContain('CAT_LOW_BOUNCE');
+
+      const customRegistry = new DancePatternRegistry([]);
+      const loadResult = customRegistry.loadFromCSV(csv);
+      expect(loadResult.loadedCount).toBe(4);
+      expect(customRegistry.get('CAT_CENTER_CLASP')?.leftHand).toBe(4);
+    });
+
+    it('reset() 호출 시 기본 4대 패턴으로 복원된다', () => {
+      const registry = new DancePatternRegistry();
+      registry.clear();
+      expect(registry.getAll()).toHaveLength(0);
+
+      registry.reset();
+      expect(registry.getAll()).toHaveLength(4);
     });
   });
 });

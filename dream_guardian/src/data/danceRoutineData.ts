@@ -1,5 +1,5 @@
 /**
- * danceRoutineData.ts - 고양이 그루브 안무 기반 피트니스존 노트 및 루틴 데이터
+ * danceRoutineData.ts - 고양이 그루브 안무 기반 피트니스존 노트 및 동적 루틴 데이터 레지스트리
  *
  * Groove Pop / Jazzhop 음악 안무 분석 기반 4대 핵심 동작 및 페이즈별 루틴:
  * 1. 로우바운스 & 오픈스텝 (Low Bounce & Open Step: Zone 6, 8, 10 / 발 9, 11)
@@ -7,15 +7,15 @@
  * 3. 냥냥 가슴모으기 & 힙스웨이 (Center Clasp: Zone 4, 5, 8 / 발 10)
  * 4. 좌측 스카이포인트 & 크로스탭 (Left Sky Point: Zone 1, 6, 8 / 발 11)
  *
- * 페이즈 매핑:
- * - 문제 페이즈: 8박 로우바운스 리듬 모션 (Dip & Rebound)
- * - 답선택 페이즈: 2박 좌우 선택 (Zone 4 - 0번, Zone 5 - 1번)
- * - 별모으기 페이즈: 2~8박 로우바운스 + 우측 스카이포인트 키노트 시퀀스
- * - 피버/페이즈B: 4개 안무 패턴 순환 16박 풀루프 안무 루틴
+ * 동적 데이터화 기능:
+ * - DancePatternRegistry: 패턴 추가(register), 수정(update), 삭제(unregister), 조회(get/getAll)
+ * - 유효성 검증: 신체 물리 제약(isCrossBodyViolation) 및 피트니스 존 유효성(isValidZoneForCursor) 자동 검증
+ * - 데이터 직렬화: JSON (toJSON/loadFromJSON) 및 CSV (toCSV/loadFromCSV) 동적 입출력 지원
  */
 
 import type { Keynote, KeynotePart, KeynoteInstrument } from '../types/keynote.js';
 import type { BodyPart, FitnessPatternRecord } from '../types/posture.js';
+import { isCrossBodyViolation, isValidZoneForCursor } from '../../config/zone.config.js';
 
 export type DanceMotionType =
   | 'low_bounce'
@@ -36,57 +36,360 @@ export interface CatChoreoPattern {
   readonly partZoneMap: Partial<Record<BodyPart, number>>;
 }
 
-/** 4대 핵심 고양이 안무 패턴 원본 정의 */
-export const CAT_CHOREO_PATTERNS: readonly CatChoreoPattern[] = Object.freeze([
+/** 4대 핵심 고양이 안무 기본 패턴 원본 데이터 */
+export const DEFAULT_CAT_CHOREO_PATTERNS: readonly CatChoreoPattern[] = Object.freeze([
   Object.freeze({
     id: 'CAT_LOW_BOUNCE',
     name: '로우바운스 & 오픈스텝 (Low Bounce)',
     description: '양손을 하단으로 뻗고 무릎을 굽혀 골반을 낮추는 탄력 바운스',
-    motionType: 'low_bounce',
+    motionType: 'low_bounce' as DanceMotionType,
     leftHand: 6,
     rightHand: 8,
     head: null,
     hip: 10,
-    footZones: [9, 11],
-    partZoneMap: { leftHand: 6, rightHand: 8, hip: 10 },
+    footZones: Object.freeze([9, 11]),
+    partZoneMap: Object.freeze({ leftHand: 6, rightHand: 8, hip: 10 }),
   }),
   Object.freeze({
     id: 'CAT_SKY_POINT_RIGHT',
     name: '우측 스카이포인트 & 크로스탭 (Right Sky Point)',
     description: '오른손을 하늘 높이 찌르고 왼손은 허리 지지, 반대쪽 발 교차 탭',
-    motionType: 'sky_point_right',
+    motionType: 'sky_point_right' as DanceMotionType,
     leftHand: 6,
     rightHand: 3,
     head: null,
     hip: 8,
-    footZones: [9],
-    partZoneMap: { leftHand: 6, rightHand: 3, hip: 8 },
+    footZones: Object.freeze([9]),
+    partZoneMap: Object.freeze({ leftHand: 6, rightHand: 3, hip: 8 }),
   }),
   Object.freeze({
     id: 'CAT_CENTER_CLASP',
     name: '냥냥 가슴모으기 & 힙스웨이 (Center Clasp & Sway)',
     description: '양손을 가슴 앞으로 모으고 골반을 부드럽게 튕기는 힙 스웨이',
-    motionType: 'center_clasp',
+    motionType: 'center_clasp' as DanceMotionType,
     leftHand: 4,
     rightHand: 5,
     head: 4,
     hip: 8,
-    footZones: [10],
-    partZoneMap: { leftHand: 4, rightHand: 5, head: 4, hip: 8 },
+    footZones: Object.freeze([10]),
+    partZoneMap: Object.freeze({ leftHand: 4, rightHand: 5, head: 4, hip: 8 }),
   }),
   Object.freeze({
     id: 'CAT_SKY_POINT_LEFT',
     name: '좌측 스카이포인트 & 크로스탭 (Left Sky Point)',
     description: '왼손을 하늘 높이 찌르고 오른손은 허리 지지, 반대쪽 발 교차 탭',
-    motionType: 'sky_point_left',
+    motionType: 'sky_point_left' as DanceMotionType,
     leftHand: 1,
     rightHand: 8,
     head: null,
     hip: 6,
-    footZones: [11],
-    partZoneMap: { leftHand: 1, rightHand: 8, hip: 6 },
+    footZones: Object.freeze([11]),
+    partZoneMap: Object.freeze({ leftHand: 1, rightHand: 8, hip: 6 }),
   }),
 ]);
+
+/** 하위 호환성을 위한 CAT_CHOREO_PATTERNS 별칭 */
+export const CAT_CHOREO_PATTERNS: readonly CatChoreoPattern[] = DEFAULT_CAT_CHOREO_PATTERNS;
+
+export interface PatternValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+export interface PatternLoadResult {
+  loadedCount: number;
+  errors: string[];
+}
+
+/**
+ * DancePatternRegistry - 안무 패턴 동적 등록/수정/삭제/직렬화 관리 클래스
+ */
+export class DancePatternRegistry {
+  private readonly _patterns = new Map<string, CatChoreoPattern>();
+
+  constructor(initialPatterns: readonly CatChoreoPattern[] = DEFAULT_CAT_CHOREO_PATTERNS) {
+    for (const pattern of initialPatterns) {
+      this._patterns.set(pattern.id, { ...pattern });
+    }
+  }
+
+  /**
+   * 패턴의 유효성(신체 물리 제약 및 허용 피트니스 존) 검증
+   */
+  validate(pattern: Partial<CatChoreoPattern>): PatternValidationResult {
+    const errors: string[] = [];
+
+    if (!pattern.id || pattern.id.trim() === '') {
+      errors.push('패턴 ID는 필수이며 비어있을 수 없습니다.');
+    }
+
+    const lh = pattern.leftHand ?? null;
+    const rh = pattern.rightHand ?? null;
+    const head = pattern.head ?? null;
+    const hip = pattern.hip ?? null;
+
+    if (lh === null && rh === null && head === null && hip === null) {
+      errors.push('최소 1개 이상의 신체 부위 존이 지정되어야 합니다.');
+    }
+
+    if (lh !== null && !isValidZoneForCursor('leftHand', lh)) {
+      errors.push(`왼손 존 ${lh}은(는) 유효하지 않은 존입니다.`);
+    }
+    if (rh !== null && !isValidZoneForCursor('rightHand', rh)) {
+      errors.push(`오른손 존 ${rh}은(는) 유효하지 않은 존입니다.`);
+    }
+    if (head !== null && !isValidZoneForCursor('head', head)) {
+      errors.push(`머리 존 ${head}은(는) 유효하지 않은 존입니다.`);
+    }
+    if (hip !== null && !isValidZoneForCursor('hip', hip)) {
+      errors.push(`골반 존 ${hip}은(는) 유효하지 않은 존입니다.`);
+    }
+
+    if (hip !== null) {
+      if (lh !== null && isCrossBodyViolation(lh, hip)) {
+        errors.push(`신체 물리 제약 위반 (Cross-Body): 왼손(Zone ${lh})과 골반(Zone ${hip}) 조합은 불가능합니다.`);
+      }
+      if (rh !== null && isCrossBodyViolation(rh, hip)) {
+        errors.push(`신체 물리 제약 위반 (Cross-Body): 오른손(Zone ${rh})과 골반(Zone ${hip}) 조합은 불가능합니다.`);
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  }
+
+  /**
+   * 신규 안무 패턴 등록 또는 교체
+   */
+  register(pattern: CatChoreoPattern): PatternValidationResult {
+    const val = this.validate(pattern);
+    if (!val.valid) {
+      return val;
+    }
+
+    const partZoneMap: Partial<Record<BodyPart, number>> = { ...(pattern.partZoneMap ?? {}) };
+    if (pattern.leftHand !== null) partZoneMap.leftHand = pattern.leftHand;
+    if (pattern.rightHand !== null) partZoneMap.rightHand = pattern.rightHand;
+    if (pattern.head !== null) partZoneMap.head = pattern.head;
+    if (pattern.hip !== null) partZoneMap.hip = pattern.hip;
+
+    this._patterns.set(pattern.id, {
+      ...pattern,
+      footZones: pattern.footZones ? [...pattern.footZones] : [],
+      partZoneMap,
+    });
+
+    return { valid: true, errors: [] };
+  }
+
+  /**
+   * 기존 안무 패턴 속성 동적 수정
+   */
+  update(id: string, partial: Partial<CatChoreoPattern>): PatternValidationResult {
+    const existing = this._patterns.get(id);
+    if (!existing) {
+      return { valid: false, errors: [`패턴 ID "${id}"을(를) 찾을 수 없습니다.`] };
+    }
+
+    const merged: CatChoreoPattern = {
+      ...existing,
+      ...partial,
+      id: existing.id,
+      footZones: partial.footZones ? [...partial.footZones] : existing.footZones,
+      partZoneMap: partial.partZoneMap ? { ...partial.partZoneMap } : { ...existing.partZoneMap },
+    };
+
+    if (merged.leftHand !== null) merged.partZoneMap.leftHand = merged.leftHand;
+    if (merged.rightHand !== null) merged.partZoneMap.rightHand = merged.rightHand;
+    if (merged.head !== null) merged.partZoneMap.head = merged.head;
+    if (merged.hip !== null) merged.partZoneMap.hip = merged.hip;
+
+    const val = this.validate(merged);
+    if (!val.valid) {
+      return val;
+    }
+
+    this._patterns.set(id, merged);
+    return { valid: true, errors: [] };
+  }
+
+  /**
+   * 안무 패턴 삭제
+   */
+  unregister(id: string): boolean {
+    return this._patterns.delete(id);
+  }
+
+  /**
+   * 특정 안무 패턴 조회
+   */
+  get(id: string): CatChoreoPattern | undefined {
+    const p = this._patterns.get(id);
+    return p ? { ...p } : undefined;
+  }
+
+  /**
+   * 등록된 모든 안무 패턴 배열 반환
+   */
+  getAll(): CatChoreoPattern[] {
+    return Array.from(this._patterns.values()).map((p) => ({ ...p }));
+  }
+
+  /**
+   * 특정 패턴 존재 여부 확인
+   */
+  has(id: string): boolean {
+    return this._patterns.has(id);
+  }
+
+  /**
+   * 모든 패턴 비우기
+   */
+  clear(): void {
+    this._patterns.clear();
+  }
+
+  /**
+   * 기본 4대 안무 패턴으로 초기화
+   */
+  reset(): void {
+    this._patterns.clear();
+    for (const pattern of DEFAULT_CAT_CHOREO_PATTERNS) {
+      this._patterns.set(pattern.id, { ...pattern });
+    }
+  }
+
+  /**
+   * JSON 문자열로 직렬화 내보내기
+   */
+  toJSON(): string {
+    return JSON.stringify(this.getAll(), null, 2);
+  }
+
+  /**
+   * JSON 문자열로부터 패턴 배열을 파싱하여 동적 등록
+   */
+  loadFromJSON(jsonString: string): PatternLoadResult {
+    const errors: string[] = [];
+    let loadedCount = 0;
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (!Array.isArray(parsed)) {
+        return { loadedCount: 0, errors: ['JSON 데이터는 배열 형태여야 합니다.'] };
+      }
+      for (const item of parsed) {
+        const res = this.register(item);
+        if (res.valid) {
+          loadedCount++;
+        } else {
+          errors.push(`패턴 "${item.id ?? 'unknown'}": ${res.errors.join(', ')}`);
+        }
+      }
+    } catch (e: any) {
+      errors.push(`JSON 파싱 실패: ${e?.message ?? String(e)}`);
+    }
+    return { loadedCount, errors };
+  }
+
+  /**
+   * CSV 포맷으로 직렬화 내보내기
+   */
+  toCSV(): string {
+    const header = 'ID,NAME,DESCRIPTION,MOTION_TYPE,LEFT_HAND,RIGHT_HAND,HEAD,HIP,FOOT_ZONES';
+    const lines = [header];
+    for (const p of this.getAll()) {
+      const lh = p.leftHand ?? 'X';
+      const rh = p.rightHand ?? 'X';
+      const hd = p.head ?? 'X';
+      const hp = p.hip ?? 'X';
+      const fz = p.footZones && p.footZones.length > 0 ? p.footZones.join('|') : 'X';
+      const cleanName = `"${p.name.replace(/"/g, '""')}"`;
+      const cleanDesc = `"${p.description.replace(/"/g, '""')}"`;
+      lines.push(`${p.id},${cleanName},${cleanDesc},${p.motionType},${lh},${rh},${hd},${hp},${fz}`);
+    }
+    return lines.join('\n');
+  }
+
+  /**
+   * CSV 포맷 문자열로부터 파싱하여 동적 등록
+   */
+  loadFromCSV(csvText: string): PatternLoadResult {
+    const errors: string[] = [];
+    let loadedCount = 0;
+    const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length < 2) {
+      return { loadedCount: 0, errors: ['CSV 내용이 비어있거나 헤더만 있습니다.'] };
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+      const row = parseSimpleCSVLine(lines[i]);
+      if (row.length < 9) {
+        errors.push(`Line ${i + 1}: 필드 수 부족 (최소 9개 필요)`);
+        continue;
+      }
+      const [id, name, description, motionType, lhStr, rhStr, hdStr, hpStr, fzStr] = row;
+      const parseZ = (s: string) => (s === 'X' || s === 'x' || s.trim() === '' ? null : parseInt(s.trim(), 10));
+      const footZones =
+        fzStr === 'X' || fzStr === 'x' || fzStr.trim() === ''
+          ? []
+          : fzStr
+              .split('|')
+              .map((s) => parseInt(s.trim(), 10))
+              .filter((n) => !isNaN(n));
+
+      const pattern: CatChoreoPattern = {
+        id: id.trim(),
+        name: name.trim(),
+        description: description.trim(),
+        motionType: motionType.trim() as DanceMotionType,
+        leftHand: parseZ(lhStr),
+        rightHand: parseZ(rhStr),
+        head: parseZ(hdStr),
+        hip: parseZ(hpStr),
+        footZones,
+        partZoneMap: {},
+      };
+
+      const res = this.register(pattern);
+      if (res.valid) {
+        loadedCount++;
+      } else {
+        errors.push(`Line ${i + 1} (${id}): ${res.errors.join(', ')}`);
+      }
+    }
+
+    return { loadedCount, errors };
+  }
+}
+
+/** 기본 싱글톤 레지스트리 인스턴스 */
+export const dancePatternRegistry = new DancePatternRegistry(DEFAULT_CAT_CHOREO_PATTERNS);
+
+function parseSimpleCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result;
+}
 
 export interface QuestionPhaseNote {
   beat: number;
@@ -297,10 +600,12 @@ export function getDanceKeynotesForStarCollection(): Keynote[] {
 }
 
 /**
- * 4대 패턴을 FitnessPatternRecord 규격으로 변환
+ * 등록된 패턴들을 FitnessPatternRecord 규격으로 변환
  */
-export function getDancePatternRecords(): FitnessPatternRecord[] {
-  return CAT_CHOREO_PATTERNS.map((pattern) => {
+export function getDancePatternRecords(
+  registry: DancePatternRegistry = dancePatternRegistry,
+): FitnessPatternRecord[] {
+  return registry.getAll().map((pattern) => {
     const parts: BodyPart[] = [];
     const zoneIds: number[] = [];
 
