@@ -127,7 +127,14 @@ export class EditorCanvasRenderer {
 
     // 4. 실시간 활성 존 펄스 렌더링 (타깃 존 하이라이트)
     if (simulatedFrame && simulatedFrame.targetZones.length > 0) {
-      this.renderActiveZonePulse(ctx, simulatedFrame.targetZones, w, h, simulatedFrame.isDip);
+      this.renderActiveZonePulse(
+        ctx,
+        simulatedFrame.targetZones,
+        w,
+        h,
+        simulatedFrame.isDip,
+        simulatedFrame.activeNote
+      );
     }
 
     // 5. 신체 스켈레톤 마네킹 또는 가이드라인 렌더링
@@ -320,7 +327,8 @@ export class EditorCanvasRenderer {
     targetZones: number[],
     canvasW: number,
     canvasH: number,
-    isDip: boolean
+    isDip: boolean,
+    activeNote?: any
   ): void {
     ctx.save();
     for (const zoneId of targetZones) {
@@ -349,6 +357,15 @@ export class EditorCanvasRenderer {
       ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
       ctx.fillText('TARGET ★', zx + zw - 8, zy + 8);
+
+      // 활성 키노트 액션 라벨 (중앙 하단)
+      if (activeNote && activeNote.label) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`★ ${activeNote.label}`, zx + zw / 2, zy + zh - 6);
+      }
     }
     ctx.restore();
   }

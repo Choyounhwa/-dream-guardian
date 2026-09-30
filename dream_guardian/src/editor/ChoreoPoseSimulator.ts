@@ -81,8 +81,8 @@ export class ChoreoPoseSimulator {
     // 4. 타깃 피트니스 존 목록 결정
     const targetZones = this.resolveTargetZones(phase, activeNote, activePattern);
 
-    // 5. 부위별 관절 좌표 계산 (바운스 오프셋 반영)
-    const jointPositions = this.calculateJointPositions(activePattern, bounceOffset);
+    // 5. 부위별 관절 좌표 계산 (바운스 오프셋 및 키노트 타깃 도달 반영)
+    const jointPositions = this.calculateJointPositions(activePattern, bounceOffset, activeNote);
 
     return {
       phase,
@@ -204,7 +204,8 @@ export class ChoreoPoseSimulator {
    */
   private calculateJointPositions(
     pattern: CatChoreoPattern,
-    bounceOffset: number
+    bounceOffset: number,
+    activeNote?: TimelineTrackNote | null
   ): SimulatedPoseFrame['jointPositions'] {
     const yShift = bounceOffset * 0.08;
 
@@ -216,10 +217,29 @@ export class ChoreoPoseSimulator {
     const defaultLF: JointPoint = { x: 0.38, y: 0.86 };
     const defaultRF: JointPoint = { x: 0.62, y: 0.86 };
 
-    const headPos = this.getZoneCenter(pattern.head) ?? defaultHead;
-    const hipPos = this.getZoneCenter(pattern.hip) ?? defaultHip;
-    const lhPos = this.getZoneCenter(pattern.leftHand) ?? defaultLH;
-    const rhPos = this.getZoneCenter(pattern.rightHand) ?? defaultRH;
+    let headPos = this.getZoneCenter(pattern.head) ?? defaultHead;
+    let hipPos = this.getZoneCenter(pattern.hip) ?? defaultHip;
+    let lhPos = this.getZoneCenter(pattern.leftHand) ?? defaultLH;
+    let rhPos = this.getZoneCenter(pattern.rightHand) ?? defaultRH;
+
+    // 활성 키노트 노트가 특정 신체 부위 및 타깃 존을 가리킬 때 동적 도달 반영
+    if (activeNote) {
+      const notePart = activeNote.payload?.part || activeNote.payload?.targetPart;
+      const targetZoneId =
+        activeNote.targetZones && activeNote.targetZones.length > 0
+          ? activeNote.targetZones[0]
+          : activeNote.payload?.zoneId;
+
+      if (notePart && targetZoneId) {
+        const targetCenter = this.getZoneCenter(targetZoneId);
+        if (targetCenter) {
+          if (notePart === 'leftHand') lhPos = targetCenter;
+          else if (notePart === 'rightHand') rhPos = targetCenter;
+          else if (notePart === 'head') headPos = targetCenter;
+          else if (notePart === 'hip') hipPos = targetCenter;
+        }
+      }
+    }
 
     // 발 위치: footZones 기반
     let lfPos = defaultLF;

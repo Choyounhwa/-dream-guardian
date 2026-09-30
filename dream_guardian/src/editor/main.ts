@@ -93,7 +93,7 @@ window.addEventListener('DOMContentLoaded', () => {
   };
 
   const bindTimelineEvents = () => {
-    // 1. 노트 블록 클릭 선택
+    // 1. 노트 블록 클릭 선택 및 해당 비트 즉시 탐색
     const noteBlocks = document.querySelectorAll('.note-block');
     noteBlocks.forEach((block) => {
       block.addEventListener('click', (e) => {
@@ -101,7 +101,14 @@ window.addEventListener('DOMContentLoaded', () => {
         const noteId = block.getAttribute('data-note-id');
         if (noteId) {
           state.setSelectedNoteId(noteId);
+          const currentNotes = state.getCurrentPhaseNotes();
+          const targetNote = currentNotes.find((n) => n.id === noteId);
+          if (targetNote) {
+            state.seekBeat(targetNote.startBeat);
+            audioSync.seek(targetNote.startBeat);
+          }
           updateTimeline();
+          updateCanvas();
         }
       });
     });
@@ -118,6 +125,7 @@ window.addEventListener('DOMContentLoaded', () => {
         state.seekBeat(snapped);
         audioSync.seek(snapped);
         updateTimeline();
+        updateCanvas();
       });
     }
   };
