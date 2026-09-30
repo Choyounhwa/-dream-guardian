@@ -118,15 +118,42 @@ describe('BeatTimelineRenderer Lane Assignment (#246 / BUG-DANCE-LANE-001)', () 
       expect(rhLane).not.toContain('data-note-id="NOTE_A_0"');
     });
 
-    it('RUN_QUESTION 및 FEVER_PHASE_B의 motion 노트는 오직 lane-motion에만 렌더링된다', () => {
+    it('RUN_QUESTION의 rebound(상승/핸즈)는 lane-lh, dip(스쿼트/하강)은 lane-hipfoot 고유 레인에 정확히 1회씩 렌더링된다', () => {
       state.setSelectedPhase('RUN_QUESTION');
       const qNotes = state.getCurrentPhaseNotes();
       const qHtml = renderer.renderTimelineTracksHTML('RUN_QUESTION', qNotes, 0, 8, null);
 
+      const lhLane = qHtml.match(/class="[^"]*lane-lh[^"]*"[\s\S]*?(?=class="[^"]*timeline-lane|$)/)?.[0];
+      const hipLane = qHtml.match(/class="[^"]*lane-hipfoot[^"]*"[\s\S]*?(?=class="[^"]*timeline-lane|$)/)?.[0];
       const motionLane = qHtml.match(/class="[^"]*lane-motion[^"]*"[\s\S]*?(?=class="[^"]*timeline-lane|$)/)?.[0];
-      const otherLanes = qHtml.replace(/class="[^"]*lane-motion[^"]*"[\s\S]*?(?=class="[^"]*timeline-lane|$)/, '');
 
+      // 홀수 박 (rebound) -> lane-lh (Cyan 핸즈 고유 레인)
+      expect(lhLane).toContain('data-note-id="NOTE_Q_1"');
+      expect(lhLane).toContain('data-note-id="NOTE_Q_3"');
+      expect(lhLane).toContain('data-note-id="NOTE_Q_5"');
+      expect(lhLane).toContain('data-note-id="NOTE_Q_7"');
+
+      // 짝수 박 (dip) -> lane-hipfoot (Orange 골반/스쿼트 고유 레인)
+      expect(hipLane).toContain('data-note-id="NOTE_Q_2"');
+      expect(hipLane).toContain('data-note-id="NOTE_Q_4"');
+      expect(hipLane).toContain('data-note-id="NOTE_Q_6"');
+      expect(hipLane).toContain('data-note-id="NOTE_Q_8"');
+
+      // 고유 레인에 배치되었으므로 일반 모션 레인에는 중복되지 않음
       for (const note of qNotes) {
+        expect(motionLane).not.toContain(`data-note-id="${note.id}"`);
+      }
+    });
+
+    it('FEVER_PHASE_B의 전신 안무 블록은 오직 lane-motion에만 렌더링된다', () => {
+      state.setSelectedPhase('FEVER_PHASE_B');
+      const fNotes = state.getCurrentPhaseNotes();
+      const fHtml = renderer.renderTimelineTracksHTML('FEVER_PHASE_B', fNotes, 0, 16, null);
+
+      const motionLane = fHtml.match(/class="[^"]*lane-motion[^"]*"[\s\S]*?(?=class="[^"]*timeline-lane|$)/)?.[0];
+      const otherLanes = fHtml.replace(/class="[^"]*lane-motion[^"]*"[\s\S]*?(?=class="[^"]*timeline-lane|$)/, '');
+
+      for (const note of fNotes) {
         expect(motionLane).toContain(`data-note-id="${note.id}"`);
         expect(otherLanes).not.toContain(`data-note-id="${note.id}"`);
       }

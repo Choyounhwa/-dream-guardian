@@ -42,16 +42,16 @@ export class BeatTimelineRenderer {
    * 노트의 구조화된 부위 메타데이터를 기반으로 렌더링할 신체 레인 목록 반환 (이름/라벨 문자열 휴리스틱 배제)
    */
   getLanesForNote(note: TimelineTrackNote): Array<'motion' | 'leftHand' | 'rightHand' | 'hipFoot'> {
-    if (note.lane === 'motion') {
-      return ['motion'];
-    }
-
-    // 구조화된 명시적 부위 데이터 추출
+    // 1. 구조화된 명시적 부위 데이터 추출
     const explicitParts: string[] = [];
     if (Array.isArray(note.payload?.parts)) {
       explicitParts.push(...note.payload.parts);
     }
-    const singlePart = note.payload?.part || note.payload?.targetPart;
+    const singlePart =
+      note.payload?.part ||
+      note.payload?.targetPart ||
+      (note.payload?.action === 'dip' ? 'hip' : note.payload?.action === 'rebound' ? 'leftHand' : note.payload?.primaryPart);
+
     if (singlePart && !explicitParts.includes(singlePart)) {
       explicitParts.push(singlePart);
     }
@@ -65,34 +65,38 @@ export class BeatTimelineRenderer {
       explicitParts.push('foot');
     }
 
-    if (explicitParts.length === 0) {
-      // 구조화된 부위가 없을 경우 기본값으로 골반/발 레인 배치 (유실 방지)
-      return ['hipFoot'];
-    }
-
-    const assignedLanes = new Set<'leftHand' | 'rightHand' | 'hipFoot'>();
-    for (const part of explicitParts) {
-      switch (part) {
-        case 'leftHand':
-          assignedLanes.add('leftHand');
-          break;
-        case 'rightHand':
-          assignedLanes.add('rightHand');
-          break;
-        case 'bothHands':
-          assignedLanes.add('leftHand');
-          assignedLanes.add('rightHand');
-          break;
-        case 'hip':
-        case 'foot':
-        case 'head':
-        default:
-          assignedLanes.add('hipFoot');
-          break;
+    if (explicitParts.length > 0) {
+      const assignedLanes = new Set<'leftHand' | 'rightHand' | 'hipFoot'>();
+      for (const part of explicitParts) {
+        switch (part) {
+          case 'leftHand':
+            assignedLanes.add('leftHand');
+            break;
+          case 'rightHand':
+            assignedLanes.add('rightHand');
+            break;
+          case 'bothHands':
+            assignedLanes.add('leftHand');
+            assignedLanes.add('rightHand');
+            break;
+          case 'hip':
+          case 'foot':
+          case 'head':
+          default:
+            assignedLanes.add('hipFoot');
+            break;
+        }
       }
+      return Array.from(assignedLanes);
     }
 
-    return Array.from(assignedLanes);
+    // 2. 부위가 지정되지 않은 전신 안무 블록(FEVER_PHASE_B 등)은 모션 레인에 배치
+    if (note.lane === 'motion') {
+      return ['motion'];
+    }
+
+    // 기본 폴백 (유실 방지)
+    return ['hipFoot'];
   }
 
   /**

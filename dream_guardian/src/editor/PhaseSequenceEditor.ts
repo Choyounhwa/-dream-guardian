@@ -51,7 +51,11 @@ export class PhaseSequenceEditor {
       label: `${n.action}: ${n.description}`,
       color: n.action === 'dip' ? '#FF865E' : '#28E6FF',
       targetZones: [...n.targetZones],
-      payload: { action: n.action, primaryPart: n.primaryPart },
+      payload: {
+        action: n.action,
+        part: n.action === 'dip' ? 'hip' : 'leftHand',
+        primaryPart: n.primaryPart,
+      },
     }));
     this._phaseNotes.set('RUN_QUESTION', qNotes);
 
@@ -171,7 +175,12 @@ export class PhaseSequenceEditor {
         label: isDip ? `dip: ${pattern.name} (하강 스쿼트)` : `rebound: ${pattern.name} (상승 탄력)`,
         color: isDip ? '#FF865E' : '#28E6FF',
         targetZones: isDip ? [lh, rh, hp] : [lh, rh],
-        payload: { action: isDip ? 'dip' : 'rebound', primaryPart: 'hip', patternId: pattern.id },
+        payload: {
+          action: isDip ? 'dip' : 'rebound',
+          part: isDip ? 'hip' : 'leftHand',
+          primaryPart: 'hip',
+          patternId: pattern.id,
+        },
       });
     }
     this._phaseNotes.set('RUN_QUESTION', qNotes);
