@@ -72,6 +72,15 @@ export interface GameConfig {
     bossHpNightmare: number;
     phaseAQuestionCount?: number;
     phaseAMinBossHp?: number;
+    initialMinions?: number;
+    maxMinions?: number;
+    minionsPerCorrect?: number;
+    stardustReward?: {
+      Perfect: number;
+      Good: number;
+      Late: number;
+      Miss: number;
+    };
   };
   motion: {
     squatThreshold: number;

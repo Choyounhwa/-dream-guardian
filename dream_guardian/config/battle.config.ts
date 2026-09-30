@@ -5,6 +5,13 @@
  * @see GDD 3.1 전투 시스템 스펙
  */
 
+export interface StardustRewardConfig {
+  Perfect: number;
+  Good: number;
+  Late: number;
+  Miss: number;
+}
+
 export interface BattleConfig {
   /** 정답 시 보스 기본 피해량 */
   correctDamage: number;
@@ -28,6 +35,19 @@ export interface BattleConfig {
   manaCorrectReward: number;
   /** 수호신 스펠 시전 필요 마나 */
   spellCost: number;
+  /** Phase A 시작 시 기본 미니언 수 (기본 3) */
+  initialMinions: number;
+  /** Phase A 미니언 최대 수량 (기본 13: 초기 3 + 정답 10) */
+  maxMinions: number;
+  /** 정답 당 미니언 증원 수 (기본 1) */
+  minionsPerCorrect: number;
+  /** 별 등급별 별가루 획득량 (Perfect 4, Good 3, Late 2, Miss 0) */
+  stardustReward: {
+    Perfect: number;
+    Good: number;
+    Late: number;
+    Miss: number;
+  };
 }
 
 export const DEFAULT_BATTLE_CONFIG: BattleConfig = {
@@ -42,4 +62,13 @@ export const DEFAULT_BATTLE_CONFIG: BattleConfig = {
   bossAttackDamage: 15,
   manaCorrectReward: 25,
   spellCost: 100,
+  initialMinions: 3,
+  maxMinions: 13,
+  minionsPerCorrect: 1,
+  stardustReward: {
+    Perfect: 4,
+    Good: 3,
+    Late: 2,
+    Miss: 0,
+  },
 };

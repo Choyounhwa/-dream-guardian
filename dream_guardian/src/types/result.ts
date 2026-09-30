@@ -85,6 +85,10 @@ export interface PhaseAResourceSnapshot {
   readonly totalSettledQuestions: number;
   readonly guardianStage: number;
   readonly guardianCastCount: number;
+  readonly minionCount: number;
+  readonly guardianCount: number;
+  readonly stardust: number;
+  readonly totalStardustEarned: number;
   readonly rhythmStats: Readonly<BeatRhythmStats>;
   readonly isPhaseAComplete: boolean;
   readonly isPlayerDefeated: boolean;

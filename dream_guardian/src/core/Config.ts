@@ -40,6 +40,10 @@ export const DEFAULT_CONFIG: GameConfig = {
     bossHpNightmare: DEFAULT_BATTLE_CONFIG.bossHpNightmare,
     phaseAQuestionCount: DEFAULT_BATTLE_CONFIG.phaseAQuestionCount,
     phaseAMinBossHp: DEFAULT_BATTLE_CONFIG.phaseAMinBossHp,
+    initialMinions: DEFAULT_BATTLE_CONFIG.initialMinions,
+    maxMinions: DEFAULT_BATTLE_CONFIG.maxMinions,
+    minionsPerCorrect: DEFAULT_BATTLE_CONFIG.minionsPerCorrect,
+    stardustReward: DEFAULT_BATTLE_CONFIG.stardustReward,
   },
   motion: {
     squatThreshold: 0.065,

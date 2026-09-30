@@ -236,7 +236,7 @@ starNoteScheduler.onRating((starResult) => {
     playedNoteAudioIds.add(noteId);
   }
 
-  beatRoundResolver.recordStarRating(starResult.rating);
+  beatRoundResolver.recordStarRating(starResult.rating, noteId);
   if (starResult.collected) {
     const quality: BandTimingQuality = starResult.rating === 'Perfect' ? 'sync' : 'stumble';
     bandSynth.playZoneSound(starResult.zoneId, quality);

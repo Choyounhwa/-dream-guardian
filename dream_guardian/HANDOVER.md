@@ -15,8 +15,8 @@
 | **5. 분기 실행** | **#235** *(완료)* → **#236** *(완료)* | 별모으기 노트 일정·판정창, 회피 장판 수명주기 | `[✔] 완료` |
 | **6. 문제 표시** | **#212** *(완료)* → **#234** *(완료)* | 문제 원근 접근 연출 및 긴 수식 너비·높이 수용 | `[✔] 완료` |
 | **7. 시청각 연결** | **#192** *(완료)* → **#228** *(완료)* → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | `[✔] 완료` |
-| **8. 정산·자원** | **#240** *(완료)* → **#242** | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | **`[▶ NEXT: #242]`** |
-| **9. Phase B 진입** | **#241** | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[ ] 대기` |
+| **8. 정산·자원** | **#240** *(완료)* → **#242** *(완료)* | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[✔] 완료` |
+| **9. Phase B 진입** | **#241** | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | **`[▶ NEXT: #241]`** |
 | **10. Phase B 실행** | **#213** → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | `[ ] 대기` |
 | **11. 판정 유연화** | **#249** → **#250** → **#251** → **#252** → **#253** → **#254** → **#255** | 팔 뻗기·존·타이밍 판정의 유저 행동 수용성 확대 | `[ ] 대기` |
 | **12. 최종 검증** | **#186** | 실제 10문제 → Phase B → 승리/패배 → 메뉴 완주 | `[ ] 대기` |
@@ -36,8 +36,34 @@
 > ⚠️ **#252는 구조 변경 위험 최상**: MotionIntentBus는 반드시 #249~#251 완료 후 진행하며, 버스 미주입 시 기존 직접 판정 경로로 100% 폴백되어야 한다.
 > 판정 수치는 전부 신규 `config/judgment.config.ts`로 분리하여 코드 수정 없이 튜닝 가능해야 한다 (개발 규칙 6절).
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#242 [GAME-PHASE-A-RESOURCES-001] Phase A 미니언·별가루 자원 모델 및 인계 스냅샷`**  
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#241 [GAME-STAGE-HANDOFF-001] Phase A 완료 후 Phase B 단 1회 인계 및 출제 차단`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-10-01 완료: [GAME-PHASE-A-RESOURCES-001 / #242] Phase A 미니언·별가루 자원 모델 및 인계 스냅샷
+
+> #242 구현 및 단위/통합 검증 완료. #194에 혼재되어 있던 Phase A 군단 증원 및 별가루 자원 축적 로직을 Phase B 공격/DPS 소비 엔진과 완전히 분리하여 #241 단일 인계와의 순환 의존을 방지했다. `MinionTroopManager`를 신설하여 초기 군단(기본 미니언 3 + 수호신 1 = 총 4체), 정답 정산 1회당 미니언 +1 증원(최대 13마리 상한 클램프), 오답(wrong)/타임아웃(timeout) 시 미니언 증원 0(기존 군단 및 수호신 100% 보존) 및 roundId 기준 멱등 정산(중복 콜백 시 증원 0)을 완비했다. `PhaseAResourceManager`를 통해 별 수집 통계와 소비 가능한 별가루 잔량을 엄격히 분리하고, 승인된 판정 등급별 별가루(Perfect 4, Good 3, Late 2, Miss 0) 적립 및 noteId 기준 중복 적립 원천 차단을 구축했다. 별 0개(전부 Miss)여도 기본 정답 보상(마나 +25, 콤보 +1, 미니언 +1)은 정상 지급되도록 보장했다. 소비 API 계약 `consumeStardust(amount, idempotencyKey)`을 정의하여 잔량 초과 거부, 음수/0/NaN/Infinity 비정상치 거부, 동일 idempotencyKey 중복 차감 차단을 구현했다. Phase B 인계 불변 스냅샷 인터페이스 `PhaseAResourceSnapshot`에 `minionCount`, `guardianCount`, `stardust`, `totalStardustEarned`를 추가하고 `Object.freeze` 불변 객체로 제공하며 읽기/취득 시 내부 상태 reset이 발생하지 않음을 증명했다. `BeatRoundResolver` 및 `src/main.ts`의 실제 노트 평가 및 정산 루프에 실연결하여 목(mock) 지갑이 아닌 실제 런타임 누적을 검증했다.
+
+### 주요 구현 및 변경 사항
+- **자원 설정 분리 (`config/battle.config.ts`, `src/core/Config.ts`, `src/types/index.ts`)**:
+  - `DEFAULT_BATTLE_CONFIG`: `initialMinions: 3`, `maxMinions: 13`, `minionsPerCorrect: 1`, `stardustReward: { Perfect: 4, Good: 3, Late: 2, Miss: 0 }` 분리 및 `StardustRewardConfig` export.
+- **아군 미니언 군단 모델 (`src/game/MinionTroopManager.ts`)**:
+  - 초기 미니언 3마리 + 수호신 1체 (총 4체) 관리.
+  - `onRoundSettled(status, roundId)`: 정답 시 미니언 +1 (최대 13마리 클램프). 오답/타임아웃 시 증원 0 및 기존 군단 보존. roundId 캐시를 통한 멱등성 보장.
+- **별가루 자원 및 통합 매니저 (`src/game/PhaseAResourceManager.ts`)**:
+  - 별가루 잔량(`stardust`)과 누적 획득량(`totalStardustEarned`) 분리.
+  - `recordStarRating(rating, noteId)`: 판정별 별가루 적립 및 noteId 중복 적립 차단.
+  - `consumeStardust(amount, idempotencyKey)`: 잔량 초과 거부, 음수/비정상값 거부, 동일 키 중복 차감 방지 API 계약.
+  - `createSnapshot()` / `getResourceSnapshot()`: 동결된 `PhaseAResourceSnapshot` 생성 (호출 시 내부 상태 불변 및 리셋 0건).
+- **실제 정산기 및 메인 루프 실연결 (`src/game/BeatRoundResolver.ts`, `src/main.ts`)**:
+  - `BeatRoundResolver`에 `PhaseAResourceManager` 내장 및 `resourceManager`, `minionCount`, `stardust` 게터 제공.
+  - `resolveRound` 실행 시 `resourceManager.onRoundSettled` 연동, `recordStarRating` 시 noteId 전달 연동, `getResourceSnapshot()`에 미니언/별가루 데이터 동결 포함, `reset()` 연동.
+  - `src/main.ts`: `starNoteScheduler.onRating`에서 `noteId`를 `beatRoundResolver.recordStarRating(starResult.rating, noteId)`로 안전 전달.
+- **TDD 검증 결과**:
+  - `tests/unit/phase-a-resources.test.ts` (16 tests Pass): 초기 3+1, 정답당 +1, 13 상한, 오답/타임아웃 보존, roundId 멱등성, 등급별 별가루, noteId 중복 방지, 잔량 초과/음수/idempotencyKey 소비 거부, 불변 스냅샷 상태 보존 100% Pass.
+  - `tests/integration/phase-a-resources.test.ts` (7 tests Pass): `BeatRoundResolver` 실연결 미니언 증원, 중복 정산 방어, 10연속 정답 13마리 상한, 별가루 적립/멱등성, 별 0개 기본 보상 정상, 10문제 최종 스냅샷 인계 데이터 완전성, 소비 API 연동 100% Pass.
+  - `npm run build` 번들 빌드 100% 성공 & `npm test` 전체 91개 파일 1088개 테스트 100% Pass (회귀 결함 0건).
 
 ---
 

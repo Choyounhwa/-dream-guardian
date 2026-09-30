@@ -19,6 +19,7 @@ import { DEFAULT_CONFIG } from '../core/Config.js';
 import { BattleState } from './BattleState.js';
 import { BossController } from './BossController.js';
 import { GuardianSystem } from './GuardianSystem.js';
+import { PhaseAResourceManager } from './PhaseAResourceManager.js';
 import {
   type BeatRhythmStats,
   type PhaseAResourceSnapshot,
@@ -32,6 +33,7 @@ export interface BeatRoundResolverOptions {
   battle?: BattleState;
   boss?: BossController;
   guardian?: GuardianSystem;
+  resourceManager?: PhaseAResourceManager;
   onSpellCast?: (damage: number) => void;
   onBossDefeated?: () => void;
   onPlayerDefeated?: () => void;
@@ -47,6 +49,7 @@ export class BeatRoundResolver {
   private readonly _battle: BattleState;
   private readonly _boss: BossController;
   private readonly _guardian: GuardianSystem;
+  private readonly _resourceManager: PhaseAResourceManager;
   private readonly _options: BeatRoundResolverOptions;
   private readonly _nonLethalPhaseA: boolean;
   private readonly _minBossHp: number;
@@ -65,6 +68,13 @@ export class BeatRoundResolver {
     this._battle = this._options.battle ?? new BattleState();
     this._boss = this._options.boss ?? new BossController();
     this._guardian = this._options.guardian ?? new GuardianSystem();
+    this._resourceManager =
+      this._options.resourceManager ??
+      new PhaseAResourceManager({
+        battle: this._battle,
+        boss: this._boss,
+        guardian: this._guardian,
+      });
     this._nonLethalPhaseA = this._options.nonLethalPhaseA ?? true;
     this._minBossHp = this._options.minBossHp ?? (DEFAULT_CONFIG.battle.phaseAMinBossHp ?? 1);
     this._maxPhaseARounds = this._options.maxPhaseARounds ?? (DEFAULT_CONFIG.battle.phaseAQuestionCount ?? 10);
@@ -80,6 +90,18 @@ export class BeatRoundResolver {
 
   get guardian(): GuardianSystem {
     return this._guardian;
+  }
+
+  get resourceManager(): PhaseAResourceManager {
+    return this._resourceManager;
+  }
+
+  get minionCount(): number {
+    return this._resourceManager.minionCount;
+  }
+
+  get stardust(): number {
+    return this._resourceManager.stardust;
   }
 
   get rhythmStats(): Readonly<BeatRhythmStats> {
@@ -123,9 +145,9 @@ export class BeatRoundResolver {
   }
 
   /**
-   * 별 리듬 판정 등급 누적 (전투 자원과 완전 분리)
+   * 별 리듬 판정 등급 누적 (전투 자원과 완전 분리 및 별가루 자원 적립)
    */
-  recordStarRating(rating: StarRating): void {
+  recordStarRating(rating: StarRating, noteId?: string | number): void {
     switch (rating) {
       case 'Perfect':
         this._rhythmStats.perfectHits++;
@@ -143,6 +165,7 @@ export class BeatRoundResolver {
         this._rhythmStats.missedStars++;
         break;
     }
+    this._resourceManager.recordStarRating(rating, noteId);
   }
 
   /**
@@ -172,6 +195,7 @@ export class BeatRoundResolver {
     }
 
     this._settledRoundIds.add(effectiveRoundId);
+    this._resourceManager.onRoundSettled(status, effectiveRoundId);
 
     let manaGained = 0;
     let damageDealt = 0;
@@ -262,6 +286,10 @@ export class BeatRoundResolver {
       totalSettledQuestions: this._settledRoundIds.size,
       guardianStage: this._guardian.stage,
       guardianCastCount: this._guardian.castCount,
+      minionCount: this._resourceManager.minionCount,
+      guardianCount: this._resourceManager.guardianCount,
+      stardust: this._resourceManager.stardust,
+      totalStardustEarned: this._resourceManager.totalStardustEarned,
       rhythmStats: Object.freeze({ ...this._rhythmStats }),
       isPhaseAComplete: this.isPhaseAComplete,
       isPlayerDefeated: !this._battle.isAlive,
@@ -277,6 +305,7 @@ export class BeatRoundResolver {
     this._battle.reset();
     this._boss.reset();
     this._guardian.reset();
+    this._resourceManager.reset();
     this._rhythmStats = createDefaultRhythmStats();
     this._currentRoundIndex = 1;
     this._isRoundSettled = false;
