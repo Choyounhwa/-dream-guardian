@@ -7,6 +7,7 @@ import { EditorLayout } from './EditorLayout.js';
 import { EditorCanvasRenderer } from './EditorCanvasRenderer.js';
 import { AudioSyncController } from './AudioSyncController.js';
 import { editorIOHandler } from './EditorIOHandler.js';
+import type { BodyCursorPart } from './PoseConstraintValidator.js';
 import type { DanceMotionType } from '../data/danceRoutineData.js';
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -442,34 +443,130 @@ window.addEventListener('DOMContentLoaded', () => {
   };
   bindToolButtons();
 
-  // 7. 캔버스 인터랙션 (호버 및 클릭 존 직접 할당)
+  // 7. 캔버스 인터랙션 (커서 직접 클릭 선택, 드래그&드롭, 피트니스존 이동)
   if (canvas && canvasRenderer) {
-    canvas.addEventListener('mousemove', (e) => {
+    let isDragging = false;
+    let draggedPart: BodyCursorPart | 'foot' | null = null;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    const getCanvasCoords = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY,
+      };
+    };
+
+    canvas.addEventListener('mousedown', (e) => {
+      const { x, y } = getCanvasCoords(e);
+      const hitCursor = canvasRenderer?.hitTestCursor(
+        x,
+        y,
+        state.getSelectedPattern(),
+        state.computeCurrentPoseFrame()
+      );
+
+      if (hitCursor) {
+        isDragging = true;
+        draggedPart = hitCursor;
+        dragStartX = x;
+        dragStartY = y;
+        state.setActiveTool(hitCursor);
+        updateToolbar();
+        canvas.style.cursor = 'grabbing';
+
+        canvasRenderer?.render(state.getSelectedPattern(), {
+          hoveredZoneId: canvasRenderer?.hitTestZone(x, y),
+          activeTool: hitCursor,
+          validation: state.getDetailedValidation(),
+          simulatedFrame: state.computeCurrentPoseFrame(),
+          showSkeleton: state.showSimulation,
+          dragState: { part: hitCursor, x, y },
+        });
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const { x, y } = getCanvasCoords(e);
       const zoneId = canvasRenderer?.hitTestZone(x, y) ?? null;
-      updateCanvas(zoneId);
+
+      if (isDragging && draggedPart) {
+        canvas.style.cursor = 'grabbing';
+        canvasRenderer?.render(state.getSelectedPattern(), {
+          hoveredZoneId: zoneId,
+          activeTool: draggedPart,
+          validation: state.getDetailedValidation(),
+          simulatedFrame: state.computeCurrentPoseFrame(),
+          showSkeleton: state.showSimulation,
+          dragState: { part: draggedPart, x, y },
+        });
+      } else {
+        const hitCursor = canvasRenderer?.hitTestCursor(
+          x,
+          y,
+          state.getSelectedPattern(),
+          state.computeCurrentPoseFrame()
+        );
+        canvas.style.cursor = hitCursor ? 'grab' : state.activeTool !== 'inspect' ? 'crosshair' : 'default';
+        updateCanvas(zoneId);
+      }
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+      if (isDragging && draggedPart) {
+        const { x, y } = getCanvasCoords(e);
+        const distMoved = Math.hypot(x - dragStartX, y - dragStartY);
+        const zoneId = canvasRenderer?.hitTestZone(x, y);
+
+        // 일정 거리 이상 드래그 후 존 위에서 뗐을 때 해당 존으로 커서 이동 할당
+        if (distMoved > 12 && zoneId !== null && zoneId !== undefined) {
+          state.assignPartToZone(draggedPart, zoneId);
+          updateSidebar();
+        }
+
+        isDragging = false;
+        draggedPart = null;
+        canvas.style.cursor = 'default';
+        updateCanvas(zoneId);
+      }
     });
 
     canvas.addEventListener('mouseleave', () => {
+      if (isDragging) {
+        isDragging = false;
+        draggedPart = null;
+      }
       updateCanvas(null);
     });
 
     canvas.addEventListener('click', (e) => {
-      if (state.activeTool === 'inspect') return;
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
-      const zoneId = canvasRenderer?.hitTestZone(x, y);
-      if (zoneId !== null && zoneId !== undefined) {
-        state.assignPartToZone(state.activeTool, zoneId);
-        updateSidebar();
-        updateCanvas(zoneId);
+      const { x, y } = getCanvasCoords(e);
+      const hitCursor = canvasRenderer?.hitTestCursor(
+        x,
+        y,
+        state.getSelectedPattern(),
+        state.computeCurrentPoseFrame()
+      );
+
+      // 1. 신체 커서를 클릭한 경우 -> 해당 부위 선택
+      if (hitCursor) {
+        state.setActiveTool(hitCursor);
+        updateToolbar();
+        updateCanvas();
+        return;
+      }
+
+      // 2. 부위가 선택된 상태에서 피트니스 존을 클릭한 경우 -> 해당 존으로 이동 할당
+      if (state.activeTool !== 'inspect') {
+        const zoneId = canvasRenderer?.hitTestZone(x, y);
+        if (zoneId !== null && zoneId !== undefined) {
+          state.assignPartToZone(state.activeTool, zoneId);
+          updateSidebar();
+          updateCanvas(zoneId);
+        }
       }
     });
   }

@@ -150,19 +150,6 @@ export class EditorLayout {
 
     return `
       <aside class="editor-sidebar">
-        <section class="sidebar-section">
-          <div class="section-title">
-            <span>안무 패턴 목록 (${patterns.length})</span>
-          </div>
-          <div class="sidebar-action-bar">
-            <button id="btn-duplicate-pattern" class="btn btn-sm btn-secondary" title="현재 선택된 패턴 복제">📑 패턴 복제</button>
-            <button id="btn-delete-pattern" class="btn btn-sm btn-danger" title="현재 패턴 삭제" ${patterns.length <= 1 ? 'disabled' : ''}>🗑 삭제</button>
-          </div>
-          <div class="pattern-list">
-            ${patternCards}
-          </div>
-        </section>
-
         <section class="sidebar-section pattern-details-section">
           <div class="section-title">
             <span>패턴 속성 편집</span>
@@ -221,6 +208,19 @@ export class EditorLayout {
               : `<div class="empty-state">선택된 패턴이 없습니다.</div>`
           }
         </section>
+
+        <section class="sidebar-section">
+          <div class="section-title">
+            <span>안무 패턴 목록 (${patterns.length})</span>
+          </div>
+          <div class="sidebar-action-bar">
+            <button id="btn-duplicate-pattern" class="btn btn-sm btn-secondary" title="현재 선택된 패턴 복제">📑 패턴 복제</button>
+            <button id="btn-delete-pattern" class="btn btn-sm btn-danger" title="현재 패턴 삭제" ${patterns.length <= 1 ? 'disabled' : ''}>🗑 삭제</button>
+          </div>
+          <div class="pattern-list">
+            ${patternCards}
+          </div>
+        </section>
       </aside>
     `.trim();
   }
@@ -258,7 +258,7 @@ export class EditorLayout {
 
         <div class="workspace-footer">
           <div class="legend-group">
-            <span class="legend-title">신체 커서 범례:</span>
+            <span class="legend-title">신체 커서:</span>
             <span class="legend-item cursor-lh"><span class="dot"></span> 왼손 (#28E6FF)</span>
             <span class="legend-item cursor-rh"><span class="dot"></span> 오른손 (#FFCB4D)</span>
             <span class="legend-item cursor-head"><span class="dot"></span> 머리 (#C889FF)</span>
@@ -266,7 +266,7 @@ export class EditorLayout {
             <span class="legend-item cursor-foot"><span class="dot"></span> 발 (#10B981)</span>
           </div>
           <div class="legend-info">
-            * 배치 도구를 선택한 뒤 캔버스의 피트니스 존을 클릭하면 해당 부위가 즉시 할당/해제됩니다.
+            💡 <strong>직관적 조작:</strong> 캔버스의 신체 커서를 마우스로 드래그하여 피트니스 존에 놓거나, 커서를 클릭 후 이동할 피트니스 존을 클릭하세요!
           </div>
         </div>
       </main>

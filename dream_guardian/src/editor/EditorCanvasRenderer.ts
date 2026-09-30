@@ -8,6 +8,7 @@ import {
   CURSOR_RULES,
   type DetailedPoseValidationResult,
 } from './PoseConstraintValidator.js';
+import type { BodyCursorPart } from './PoseConstraintValidator.js';
 import type { ActiveEditTool } from './EditorState.js';
 import type { SimulatedPoseFrame } from './ChoreoPoseSimulator.js';
 
@@ -19,12 +20,19 @@ export const PART_COLORS = {
   foot: '#10B981',
 } as const;
 
+export interface DragState {
+  part: BodyCursorPart | 'foot';
+  x: number;
+  y: number;
+}
+
 export interface CanvasRenderOptions {
   hoveredZoneId?: number | null;
   activeTool?: ActiveEditTool;
   validation?: DetailedPoseValidationResult;
   simulatedFrame?: SimulatedPoseFrame;
   showSkeleton?: boolean;
+  dragState?: DragState | null;
 }
 
 export class EditorCanvasRenderer {
@@ -150,7 +158,12 @@ export class EditorCanvasRenderer {
       this.renderValidationWarnings(ctx, validation, w, h);
     }
 
-    // 7. 상단 활성 도구 인디케이터 배지
+    // 7. 커서 드래그 앤 드롭 중인 경우 드래그 프리뷰 렌더링
+    if (options.dragState) {
+      this.renderDragPreview(ctx, options.dragState, hoveredZoneId, w, h);
+    }
+
+    // 8. 상단 활성 도구 인디케이터 배지
     this.renderActiveToolBadge(ctx, activeTool, w);
   }
 
@@ -669,6 +682,143 @@ export class EditorCanvasRenderer {
       default:
         return '#8e9bb5';
     }
+  }
+
+  /**
+   * 커서 드래그 앤 드롭 이동 중 시각 피드백 렌더링
+   */
+  private renderDragPreview(
+    ctx: CanvasRenderingContext2D,
+    drag: DragState,
+    hoveredZoneId: number | null,
+    canvasW: number,
+    canvasH: number
+  ): void {
+    const color = this.getToolColor(drag.part);
+    ctx.save();
+
+    // 테더 연결선 (몸체 중심 -> 드래그 커서)
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(canvasW / 2, canvasH * 0.55);
+    ctx.lineTo(drag.x, drag.y);
+    ctx.stroke();
+
+    // 드래그 중인 커서 원형 핸들
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.arc(drag.x, drag.y, 20, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // 커서 명칭 라벨
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    const label = `${this.getToolLabel(drag.part)} ${hoveredZoneId ? `➔ Zone ${hoveredZoneId}` : ''}`;
+    ctx.fillText(label, drag.x, drag.y - 24);
+
+    ctx.restore();
+  }
+
+  /**
+   * 캔버스 좌표(px)가 특정 신체 커서(머리, 왼손, 오른손, 골반, 발) 근처인지 판정
+   */
+  hitTestCursor(
+    canvasX: number,
+    canvasY: number,
+    pattern?: CatChoreoPattern | null,
+    simulatedFrame?: SimulatedPoseFrame | null
+  ): BodyCursorPart | 'foot' | null {
+    const w = this._canvas.width;
+    const h = this._canvas.height;
+    const hitRadius = 35; // 클릭 판정 반경
+
+    const getZoneCenterPx = (zoneId: number | null | undefined): { x: number; y: number } | null => {
+      if (zoneId === null || zoneId === undefined) return null;
+      const z = DEFAULT_FITNESS_ZONES.find((zone) => zone.id === zoneId);
+      if (!z) return null;
+      return {
+        x: (z.x + z.width / 2) * w,
+        y: (z.y + z.height / 2) * h,
+      };
+    };
+
+    let headPt = { x: 0.5 * w, y: 0.2 * h };
+    let hipPt = { x: 0.5 * w, y: 0.65 * h };
+    let lhPt = { x: 0.35 * w, y: 0.5 * h };
+    let rhPt = { x: 0.65 * w, y: 0.5 * h };
+    let lfPt = { x: 0.38 * w, y: 0.86 * h };
+    let rfPt = { x: 0.62 * w, y: 0.86 * h };
+
+    if (simulatedFrame) {
+      headPt = { x: simulatedFrame.jointPositions.head.x * w, y: simulatedFrame.jointPositions.head.y * h };
+      hipPt = { x: simulatedFrame.jointPositions.hip.x * w, y: simulatedFrame.jointPositions.hip.y * h };
+      lhPt = { x: simulatedFrame.jointPositions.leftHand.x * w, y: simulatedFrame.jointPositions.leftHand.y * h };
+      rhPt = { x: simulatedFrame.jointPositions.rightHand.x * w, y: simulatedFrame.jointPositions.rightHand.y * h };
+      lfPt = { x: simulatedFrame.jointPositions.leftFoot.x * w, y: simulatedFrame.jointPositions.leftFoot.y * h };
+      rfPt = { x: simulatedFrame.jointPositions.rightFoot.x * w, y: simulatedFrame.jointPositions.rightFoot.y * h };
+    } else if (pattern) {
+      headPt = getZoneCenterPx(pattern.head) ?? headPt;
+      hipPt = getZoneCenterPx(pattern.hip) ?? hipPt;
+      lhPt = getZoneCenterPx(pattern.leftHand) ?? lhPt;
+      rhPt = getZoneCenterPx(pattern.rightHand) ?? rhPt;
+      if (pattern.footZones && pattern.footZones.length > 0) {
+        if (pattern.footZones.includes(9)) lfPt = getZoneCenterPx(9) ?? lfPt;
+        if (pattern.footZones.includes(11)) rfPt = getZoneCenterPx(11) ?? rfPt;
+        if (pattern.footZones.includes(10)) {
+          const z10 = getZoneCenterPx(10);
+          if (z10) {
+            lfPt = { x: z10.x - 0.06 * w, y: z10.y };
+            rfPt = { x: z10.x + 0.06 * w, y: z10.y };
+          }
+        }
+      }
+    }
+
+    const dist = (p: { x: number; y: number }) => Math.hypot(canvasX - p.x, canvasY - p.y);
+
+    // 판정 우선순위: 손 -> 머리 -> 골반 -> 발 (패턴에 존이 실제 할당되어 있거나 시뮬레이션 프레임이 있는 경우만)
+    if (simulatedFrame) {
+      if (dist(lhPt) <= hitRadius) return 'leftHand';
+      if (dist(rhPt) <= hitRadius) return 'rightHand';
+      if (dist(headPt) <= hitRadius) return 'head';
+      if (dist(hipPt) <= hitRadius) return 'hip';
+      if (dist(lfPt) <= hitRadius || dist(rfPt) <= hitRadius) return 'foot';
+    } else if (pattern) {
+      if (pattern.leftHand !== null && pattern.leftHand !== undefined) {
+        const pt = getZoneCenterPx(pattern.leftHand);
+        if (pt && dist(pt) <= hitRadius) return 'leftHand';
+      }
+      if (pattern.rightHand !== null && pattern.rightHand !== undefined) {
+        const pt = getZoneCenterPx(pattern.rightHand);
+        if (pt && dist(pt) <= hitRadius) return 'rightHand';
+      }
+      if (pattern.head !== null && pattern.head !== undefined) {
+        const pt = getZoneCenterPx(pattern.head);
+        if (pt && dist(pt) <= hitRadius) return 'head';
+      }
+      if (pattern.hip !== null && pattern.hip !== undefined) {
+        const pt = getZoneCenterPx(pattern.hip);
+        if (pt && dist(pt) <= hitRadius) return 'hip';
+      }
+      if (pattern.footZones && pattern.footZones.length > 0) {
+        for (const fz of pattern.footZones) {
+          const pt = getZoneCenterPx(fz);
+          if (pt && dist(pt) <= hitRadius) return 'foot';
+        }
+      }
+    }
+
+    return null;
   }
 
   /**

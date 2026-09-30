@@ -4,7 +4,7 @@
 
 import {
   DancePatternRegistry,
-  DEFAULT_CAT_CHOREO_PATTERNS,
+  EXTENDED_CAT_CHOREO_PATTERNS,
   type CatChoreoPattern,
   type PatternValidationResult,
   type QuestionPhaseRoutine,
@@ -70,8 +70,12 @@ export class EditorState {
   private readonly _listeners: Set<EditorListener> = new Set();
 
   constructor(initialRegistry?: DancePatternRegistry, initialSequenceEditor?: PhaseSequenceEditor) {
-    this._registry = initialRegistry ?? new DancePatternRegistry(DEFAULT_CAT_CHOREO_PATTERNS);
+    this._registry = initialRegistry ?? new DancePatternRegistry(EXTENDED_CAT_CHOREO_PATTERNS);
     this._sequenceEditor = initialSequenceEditor ?? new PhaseSequenceEditor();
+    const initPattern = this._registry.get(this._selectedPatternId);
+    if (initPattern) {
+      this._sequenceEditor.syncWithPattern(initPattern);
+    }
   }
 
   get sequenceEditor(): PhaseSequenceEditor {
@@ -177,6 +181,7 @@ export class EditorState {
     }
     this._selectedPatternId = id;
     this._draftEdits = {};
+    this._sequenceEditor.syncWithPattern(pattern);
     this.notifyPatternChange(pattern);
     this.notifyStateChange();
     return true;
@@ -198,6 +203,8 @@ export class EditorState {
     if (val.valid) {
       this._registry.update(this._selectedPatternId, partial);
     }
+    // 수정된 패턴 정보로 타임라인 키노트 시퀀스 실시간 갱신
+    this._sequenceEditor.syncWithPattern(candidate);
     this.notifyPatternChange(this.getSelectedPattern());
     this.notifyStateChange();
     return val;
