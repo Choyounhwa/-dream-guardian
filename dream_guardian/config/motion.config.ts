@@ -47,6 +47,7 @@ export interface FootKeynoteConfig {
   movementThreshold: number;
   cooldownDuration: number;
   rearmNeutralRatio: number;
+  virtualHeight?: number;
 }
 
 export const DEFAULT_FOOT_KEYNOTE_CONFIG: FootKeynoteConfig = {

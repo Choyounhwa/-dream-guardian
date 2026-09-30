@@ -2,6 +2,57 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+---
+
+## 🧭 11단계 로드맵 진행 현황 (SSOT)
+
+| 단계 | 순서 | 완료 목표 | 상태 |
+|---|---|---|:---:|
+| **1. 기준 확정** | **#229** → **#186 검증 설계** | 시간·판정창·자원 정책과 전체 실패 시나리오 확정 | `[✔] 완료` |
+| **2. 진행 기반** | **#214** → **#230** → **#231** | 상태·실제 8박·일시정지·예약 처리 일치 | `[✔] 완료` |
+| **3. 답 선택 화면** | **#232** → **#233** | 선택 즉시 올바른 화면 전환, 구형 UI 제거 | `[✔] 완료` |
+| **4. 모션 입력** | **#237** *(완료)* → **#238** → *(#239 미채택)* | 발 좌표·방향·스텝, 점프 사용자 기준선 | **`[▶ NEXT: #238]`** |
+| **5. 분기 실행** | **#235** → **#236** | 별모으기 노트 일정·판정창, 회피 장판 수명주기 | `[ ] 대기` |
+| **6. 문제 표시** | **#212** *(완료)* → **#234** | 문제 원근 접근 연출 및 긴 수식 너비·높이 수용 | `[ ] 대기` |
+| **7. 시청각 연결** | **#192** → **#228** → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | `[✔] 모듈완료` *(통합대기)* |
+| **8. 정산·자원** | **#240** → **#242** | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[ ] 대기` |
+| **9. Phase B 진입** | **#241** | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[ ] 대기` |
+| **10. Phase B 실행** | **#213** → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | `[ ] 대기` |
+| **11. 최종 검증** | **#186** | 실제 10문제 → Phase B → 승리/패배 → 메뉴 완주 | `[ ] 대기` |
+
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#238 [BUG-JUMP-BASELINE-001] 사용자 보정 기준선 기반 점프 회피 판정 연결`**  
+> 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-09-30 완료: [BUG-MOTION-COORDINATE-001 / #237] 발 이벤트 정규화 좌표·발 들기 방향·입력 전달 계약 수정
+
+> #237 구현 및 단위/통합 검증 완료. `FootKeynoteDetector`의 구형 무릎 다운→업 반등(Dip) 판정 오류를 상단 발들기(Knee Lift UP: `baseline - y >= movementThreshold`)로 전면 개편하고, 바닥 중립 복귀(`distanceToBaseline <= neutralThreshold`) 후 재무장(`armed = true`)되는 연속 입력 계약을 확정했다. 또한 `main.ts`에서 가상 픽셀 좌표(0~1080/0~2160)가 detector에 직접 전달되어 0.05px 미세 노이즈에도 오인식되던 결함을 `toNormalizedLandmarks` 정규화 좌표계 선행 변환 및 `virtualHeight` 경계 검증으로 완벽 차단했다. `FootKeynoteInput`에 `onEvent` 및 `routeEvent` 공통 라우터를 도입하여 Pose(knee-proxy), 키보드('Z', 'X', 'V'), 가상 페달(Zone 9~11 터치/클릭) 반환 이벤트가 1건도 버려지지 않고 `PhaseAHazardController` 회피 판정과 시각 이펙트로 100% 안전하게 라우팅되도록 일원화했다.
+
+### 주요 구현 및 변경 사항
+- **`FootKeynoteDetector` 발들기 방향 및 중립 복귀 계약 개편 (`src/motion/FootKeynoteDetector.ts`)**:
+  - 구형 무릎 다운(`delta > 0`) 후 상승 반등 로직을 제거하고, 기저선 대비 실제 상승(`baseline - y >= movementThreshold`) 시 발들기 이벤트 즉시 트리거.
+  - 트리거 후 공중 체류 시 중복 발화 차단, 쿨다운 경과 및 바닥 중립 복귀(`Math.abs(y - baseline) <= neutralThreshold`) 시에만 재무장(`armed = true`) 보장.
+  - 가상 높이(`virtualHeight`) 옵션 지원 및 비정규화 픽셀 랜드마크(y > 1.5) 주입 시 노이즈 오인식 원천 차단.
+- **`FootKeynoteInput` 공통 라우터 구축 (`src/input/FootKeynoteInput.ts`)**:
+  - `onEvent(listener)` 구독 및 `routeEvent(event)` 디스패처 메서드 신설.
+  - `fromKeyboard` 및 `fromVirtualPedal` 호출 시 반환 이벤트를 즉시 라우터로 전달하여 이벤트 버려짐 0건 달성.
+  - `isSafetyGuarded` 시 Pose/키보드/가상 페달 일체 무입력 보장.
+- **`src/main.ts` 프로덕션 입력 파이프라인 통합**:
+  - `toNormalizedLandmarks` 정규화 좌표 변환을 `footKeynoteDetector.update` 호출 이전으로 전진 배치.
+  - `footKeynoteInput.onEvent` 리스너를 등록하여 `phaseAHazardController`의 좌/우 발 스텝(`left_step`, `right_step`) 및 점프(`jump`), 한발 균형(`balance_left`, `balance_right`) 회피 판정과 Zone 9~11 버스트 파티클 이펙트 일원화.
+  - 키보드 및 가상 페달 터치/클릭 핸들러에서 공통 라우터를 경유하도록 연결.
+- **TDD 검증 결과**:
+  - `tests/integration/foot-coordinate-contract.test.ts` (6 tests Pass): 발들기 UP 직접 감지 및 다운 무시, 공중 체류 중복 차단 및 중립 복귀 재무장, 0.05px 픽셀 노이즈 차단 및 실 발들기 감지, onEvent 공통 라우터 100% 전달 및 버려짐 0, Safety guard 차단, Cover 투영→프레이밍→정규화→감지→라우터→해저드 컨트롤러 전체 체인 검증.
+  - `tests/unit/foot-keynote-detector.test.ts` (5 tests Pass): 발들기 UP 감지, 양발 동시(Zone 10), 미러 환경 해부학적 매핑 유지, 추적유실/가드 리셋, 쿨다운/중립 재무장.
+  - `tests/unit/foot-keynote-input.test.ts` (2 tests Pass): 공통 계약 전달, 경계 외/가드 차단.
+  - `tests/integration/beat-motion-integration.test.ts` (9 tests Pass): 프레이밍 연동 및 안전가드 회귀 0.
+  - `npm run build` 번들 검증 100% 성공 & `npm test` 전체 79개 파일 946개 테스트 100% Pass (회귀 결함 0건).
+
+**다음 작업 대상: #238 [BUG-JUMP-BASELINE-001] 사용자 보정 기준선 기반 점프 회피 판정 연결.**
+
+---
+
 ## 2026-09-30 완료: [AUDIT-HARDCODED-RESOURCES-001] 프로젝트 리소스 및 데이터 하드코딩 전수 감사 완료
 
 > 개발 규칙 제6절(데이터와 코드 분리) 및 제12절(UI 로직 분리)에 입각하여 클라이언트 전체(`src/`, `config/`, `public/`, `img/`)의 하드코딩 현황을 전수 조사하고, 정식 감사 보고서(`docs/07_HARDCODED_RESOURCE_AUDIT.md`)를 작성 및 동기화했다.

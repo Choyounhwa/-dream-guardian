@@ -12,18 +12,18 @@ export interface FootKeynoteDetectorOptions extends Partial<FootKeynoteConfig> {
 export interface FootKeynoteUpdateOptions {
   isSafetyGuarded?: boolean;
   isPoseInputAllowed?: boolean;
+  virtualHeight?: number;
 }
 
 interface KneeState {
   baseline: number | null;
   previous: number | null;
   peak: number | null;
-  descending: boolean;
   armed: boolean;
 }
 
 function createKneeState(): KneeState {
-  return { baseline: null, previous: null, peak: null, descending: false, armed: true };
+  return { baseline: null, previous: null, peak: null, armed: true };
 }
 
 export class FootKeynoteDetector {
@@ -57,14 +57,30 @@ export class FootKeynoteDetector {
       return [];
     }
 
+    const vh = options?.virtualHeight ?? this._config.virtualHeight;
+    let leftY = left.y;
+    let rightY = right.y;
+
+    if (vh && vh > 0) {
+      if (leftY > 1.5 || rightY > 1.5) {
+        leftY = leftY / vh;
+        rightY = rightY / vh;
+      }
+    } else if (leftY > 1.5 || rightY > 1.5) {
+      // 픽셀 좌표가 주어졌으나 가상 높이가 없어 정규화할 수 없는 경우 노이즈 오인식 차단
+      this.reset();
+      this._resynchronizeNextFrame = true;
+      return [];
+    }
+
     if (this._resynchronizeNextFrame || this._left.baseline === null || this._right.baseline === null) {
-      this._initialize(left.y, right.y);
+      this._initialize(leftY, rightY);
       this._resynchronizeNextFrame = false;
       return [];
     }
 
-    const leftTriggered = this._updateKnee(this._left, left.y, timestamp);
-    const rightTriggered = this._updateKnee(this._right, right.y, timestamp);
+    const leftTriggered = this._updateKnee(this._left, leftY, timestamp);
+    const rightTriggered = this._updateKnee(this._right, rightY, timestamp);
     if (!leftTriggered && !rightTriggered) return [];
 
     this._cooldownUntil = timestamp + this._config.cooldownDuration;
@@ -85,31 +101,35 @@ export class FootKeynoteDetector {
   }
 
   private _initialize(leftY: number, rightY: number): void {
-    this._left = { ...createKneeState(), baseline: leftY, previous: leftY };
-    this._right = { ...createKneeState(), baseline: rightY, previous: rightY };
+    this._left = { baseline: leftY, previous: leftY, peak: null, armed: true };
+    this._right = { baseline: rightY, previous: rightY, peak: null, armed: true };
   }
 
   private _updateKnee(state: KneeState, y: number, timestamp: number): boolean {
     const baseline = state.baseline!;
-    const previous = state.previous!;
-    const neutralDistance = Math.abs(y - baseline);
     const neutralThreshold = this._config.movementThreshold * this._config.rearmNeutralRatio;
-    if (!state.armed && timestamp >= this._cooldownUntil && neutralDistance <= neutralThreshold) {
+    const distanceToBaseline = Math.abs(y - baseline);
+
+    // 1. 중립 복귀 시 재무장 (발을 바닥에 내리고 쿨다운 경과 후)
+    if (!state.armed && timestamp >= this._cooldownUntil && distanceToBaseline <= neutralThreshold) {
       state.armed = true;
       state.peak = null;
-      state.descending = false;
     }
 
-    const delta = y - previous;
+    // 2. 중립 상태에서 기저선 적응 필터
+    if (state.armed && distanceToBaseline <= neutralThreshold) {
+      state.baseline = baseline * 0.9 + y * 0.1;
+    }
+
+    // 3. 발들기(Knee Lift UP) 판정: 화면 상단 방향(y 감소)으로 movementThreshold 이상 상승
+    const lift = state.baseline! - y;
     let triggered = false;
+
     if (state.armed && timestamp >= this._cooldownUntil) {
-      if (delta > 0) {
-        state.descending = true;
-        state.peak = Math.max(state.peak ?? y, y);
-      } else if (state.descending && delta < 0 && state.peak !== null && state.peak - y >= this._config.movementThreshold) {
+      if (lift >= this._config.movementThreshold) {
         triggered = true;
         state.armed = false;
-        state.descending = false;
+        state.peak = y;
       }
     }
 

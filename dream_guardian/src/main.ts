@@ -405,6 +405,35 @@ const phaseAHazardController = new PhaseAHazardController({
     effectManager.playPreset('wrong', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.76);
   },
 });
+
+// ─── 발 키노트 공통 라우터 (Issue #237 / BUG-MOTION-COORDINATE-001) ───
+footKeynoteInput.onEvent((event) => {
+  console.log(`[DG] 발 키노트 수신: ${event.source} ${event.foot} (Zone ${event.zoneId})`);
+  if (screenMode === 'game') {
+    if (gamePhase === 'running' || gamePhase === 'hazard_evade') {
+      const target = phaseAHazardController.activePattern;
+      if (event.foot === 'leftFoot' && (target === 'left_step' || target === 'balance_right')) {
+        phaseAHazardController.recordAction(target);
+      } else if (event.foot === 'rightFoot' && (target === 'right_step' || target === 'balance_left')) {
+        phaseAHazardController.recordAction(target);
+      } else if (event.foot === 'centerFoot' && target === 'jump') {
+        phaseAHazardController.recordAction('jump');
+      }
+    }
+
+    const targetZone = DEFAULT_FITNESS_ZONES.find((z) => z.id === event.zoneId);
+    if (targetZone) {
+      effectManager.playBurst({
+        x: (targetZone.x + targetZone.width * 0.5) * canvasManager.virtualWidth,
+        y: (targetZone.y + targetZone.height * 0.5) * canvasManager.virtualHeight,
+        count: 6,
+        colors: ['#28E6FF', '#FFCB4D'],
+        duration: 0.25,
+      });
+    }
+  }
+});
+
 let settingsHoverTimer = 0;
 let actionHoverTimer = 0;
 
@@ -963,34 +992,8 @@ const engine = new GameEngine({
     );
     kneeFramingGuideRenderer.update(dt);
 
-    // 발 키노트 감지 (Issue #197, #206: degraded 프레이밍 시 Pose 입력 차단, 합장/정지 시 안전 가드)
-    const isSafetyGuarded = menuInput.isActive || pauseModal.isOpen;
-    footKeynoteInput.setSafetyGuarded(isSafetyGuarded);
-    const footEvents = footKeynoteDetector.update(
-      dt,
-      sourceLandmarks,
-      engine.elapsedTime,
-      {
-        isSafetyGuarded,
-        isPoseInputAllowed: currentKneeFraming.isFootKeynotePoseInputAllowed,
-      },
-    );
-    if (footEvents.length > 0) {
-      console.log(`[DG] 발 키노트 감지: ${footEvents.map(e => e.zoneId).join(', ')}`);
-      if (gamePhase === 'running') {
-        const target = phaseAHazardController.activePattern;
-        for (const event of footEvents) {
-          if (event.foot === 'leftFoot' && (target === 'left_step' || target === 'balance_right')) {
-            phaseAHazardController.recordAction(target);
-          } else if (event.foot === 'rightFoot' && (target === 'right_step' || target === 'balance_left')) {
-            phaseAHazardController.recordAction(target);
-          }
-        }
-      }
-    }
-
-    // Issue #205: 가상 픽셀 좌표(0~1080 / 0~2160)를 정규화 좌표계(0~1)로 비파괴 변환하여 전달
-    // CenterReturnGate와 ArmReachAnswerSelector가 정합성 있게 동작하도록 보장
+    // Issue #205 & #237: 가상 픽셀 좌표(0~1080 / 0~2160)를 정규화 좌표계(0~1)로 비파괴 변환하여 전달
+    // CenterReturnGate, ArmReachAnswerSelector, FootKeynoteDetector가 정합성 있게 동작하도록 보장
     const normalizedLandmarks =
       sourceLandmarks.length >= 25
         ? toNormalizedLandmarks(
@@ -999,6 +1002,23 @@ const engine = new GameEngine({
             canvasManager.virtualHeight,
           )
         : null;
+
+    // 발 키노트 감지 (Issue #197, #206, #237: 정규화 좌표 전달, 프레이밍/합장/pause 안전 가드 및 공통 라우터 경유)
+    const isSafetyGuarded = menuInput.isActive || pauseModal.isOpen;
+    footKeynoteInput.setSafetyGuarded(isSafetyGuarded);
+    const footEvents = footKeynoteDetector.update(
+      dt,
+      normalizedLandmarks,
+      engine.elapsedTime,
+      {
+        isSafetyGuarded,
+        isPoseInputAllowed: currentKneeFraming.isFootKeynotePoseInputAllowed,
+        virtualHeight: 1,
+      },
+    );
+    for (const event of footEvents) {
+      footKeynoteInput.routeEvent(event);
+    }
 
     // Issue #200: 문제 페이즈(gamePhase === 'question')에서도 코디네이터에 시간(dt)을 지속 전달하여
     // 내부 8박 시계 및 라운드 정산(_resolveRound)이 멈추지 않도록 보장
@@ -1470,7 +1490,7 @@ canvas.addEventListener('click', (e) => {
       }
     }
 
-    // 가상 페달 (Zone 9, 10, 11) 터치/클릭 fallback
+    // 가상 페달 (Zone 9, 10, 11) 터치/클릭 fallback (Issue #237: 반환 이벤트 버려짐 방지 및 공통 라우터 경유)
     const normX = x / vw;
     const normY = y / vh;
     if (normY >= 0.78 && normY <= 0.94) {
@@ -1479,7 +1499,10 @@ canvas.addEventListener('click', (e) => {
       else if (normX >= 0.37 && normX <= 0.63) pedalZone = 10;
       else if (normX >= 0.70 && normX <= 0.96) pedalZone = 11;
       if (pedalZone) {
-        footKeynoteInput.fromVirtualPedal(pedalZone, engine.elapsedTime);
+        const ev = footKeynoteInput.fromVirtualPedal(pedalZone, engine.elapsedTime);
+        if (ev) {
+          sfx.play('hover');
+        }
       }
     }
   } else if (screenMode === 'result') {
@@ -1579,21 +1602,13 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (screenMode === 'game') {
-    // 발 키노트 키보드 fallback (Z: 왼발 9, X: 중앙발 10, V: 오른발 11)
+    // 발 키노트 키보드 fallback (Z: 왼발 9, X: 중앙발 10, V: 오른발 11) - Issue #237: 공통 라우터 경유
     if (e.key === 'z' || e.key === 'Z') {
       footKeynoteInput.fromKeyboard('leftFoot', engine.elapsedTime);
-      const target = phaseAHazardController.activePattern;
-      if ((gamePhase === 'running' || gamePhase === 'hazard_evade') && (target === 'left_step' || target === 'balance_right')) {
-        phaseAHazardController.recordAction(target);
-      }
     } else if (e.key === 'x' || e.key === 'X') {
       footKeynoteInput.fromKeyboard('centerFoot', engine.elapsedTime);
     } else if (e.key === 'v' || e.key === 'V') {
       footKeynoteInput.fromKeyboard('rightFoot', engine.elapsedTime);
-      const target = phaseAHazardController.activePattern;
-      if ((gamePhase === 'running' || gamePhase === 'hazard_evade') && (target === 'right_step' || target === 'balance_left')) {
-        phaseAHazardController.recordAction(target);
-      }
     }
 
     if (presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked) && beatCoordinator.isAnswerOpen) {
