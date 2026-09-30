@@ -11,6 +11,10 @@
 import type { ActiveStarTarget } from '../input/StarCollectionInput.js';
 import type { StarTarget } from '../types/star.js';
 import { DEFAULT_FITNESS_ZONES, type FitnessZone } from '../../config/zone.config.js';
+import {
+  DEFAULT_STAR_TIMING_WINDOWS,
+  type StarTimingWindows,
+} from '../../config/beat-motion.config.js';
 import { projectAlongRail } from './GridProjection.js';
 
 export interface StarNoteRenderOptions {
@@ -22,10 +26,12 @@ export interface StarNoteRenderOptions {
   maxScale?: number;
   /** 기준 반지름 (px, 기본값 28) */
   baseRadius?: number;
-  /** Perfect 판정 허용 시간 (초, 기본값 0.12s) */
+  /** Perfect 판정 허용 시간 (초, 기본값 DEFAULT_STAR_TIMING_WINDOWS.perfect = 0.12s) */
   perfectWindow?: number;
-  /** Late 판정 종료 허용 시간 (초, 기본값 0.25s) */
+  /** Late 판정 종료 허용 시간 (초, 기본값 DEFAULT_STAR_TIMING_WINDOWS.late = 0.40s) */
   lateWindow?: number;
+  /** 타이밍 윈도우 설정 일괄 연동 */
+  timingWindows?: Partial<StarTimingWindows>;
 }
 
 export interface StarNotePositionResult {
@@ -43,6 +49,7 @@ export interface StarNoteRenderState {
   vanishingX: number;
   vanishingY: number;
   zones?: readonly FitnessZone[];
+  isPaused?: boolean;
 }
 
 const PART_COLORS: Record<string, string> = {
@@ -51,27 +58,37 @@ const PART_COLORS: Record<string, string> = {
   head: '#C889FF',
   shoulder: '#C889FF',
   hip: '#FF865E',
+  foot: '#FF865E',
 };
 
 export class StarNoteRenderer {
-  private readonly _options: Required<StarNoteRenderOptions>;
+  private readonly _options: Required<Omit<StarNoteRenderOptions, 'timingWindows'>>;
 
   constructor(options?: StarNoteRenderOptions) {
+    const timing = options?.timingWindows;
     this._options = {
       travelDuration: options?.travelDuration ?? 0.5,
       minScale: options?.minScale ?? 0.3,
       maxScale: options?.maxScale ?? 1.2,
       baseRadius: options?.baseRadius ?? 28,
-      perfectWindow: options?.perfectWindow ?? 0.12,
-      lateWindow: options?.lateWindow ?? 0.25,
+      perfectWindow: options?.perfectWindow ?? timing?.perfect ?? DEFAULT_STAR_TIMING_WINDOWS.perfect,
+      lateWindow: options?.lateWindow ?? timing?.late ?? DEFAULT_STAR_TIMING_WINDOWS.late,
     };
+  }
+
+  get options(): Readonly<Required<Omit<StarNoteRenderOptions, 'timingWindows'>>> {
+    return this._options;
   }
 
   /**
    * 실시간 노트 좌표 및 비행 상태 계산
    */
   computeNotePosition(
-    target: StarTarget & { landingTime?: number },
+    target: (StarTarget | ActiveStarTarget) & {
+      landingTime?: number;
+      resolved?: boolean;
+      isCollected?: boolean;
+    },
     elapsedTime: number,
     vx: number,
     vy: number,
@@ -79,6 +96,17 @@ export class StarNoteRenderer {
     vh: number,
     zones: readonly FitnessZone[] = DEFAULT_FITNESS_ZONES,
   ): StarNotePositionResult {
+    // 1. 이미 수집/판정 완료된 노트(resolved / isCollected)는 비행 중단
+    if (target.resolved || target.isCollected) {
+      return {
+        x: vx,
+        y: vy,
+        scale: this._options.minScale,
+        progress: 0,
+        inFlight: false,
+      };
+    }
+
     const landingTime = target.landingTime ?? 0;
     const timeRemaining = landingTime - elapsedTime;
     const travelDuration = this._options.travelDuration;
@@ -130,7 +158,10 @@ export class StarNoteRenderer {
     state: StarNoteRenderState,
   ): void {
     const rawTargets = state.targets ?? (state.target ? [state.target] : []);
-    const targets = rawTargets.filter((t): t is ActiveStarTarget | StarTarget => Boolean(t && t.landingTime !== undefined));
+    const targets = rawTargets.filter(
+      (t): t is ActiveStarTarget | StarTarget =>
+        Boolean(t && t.landingTime !== undefined && !(t as any).resolved && !(t as any).isCollected)
+    );
     if (targets.length === 0) return;
 
     const zones = state.zones ?? DEFAULT_FITNESS_ZONES;
@@ -206,7 +237,8 @@ export class StarNoteRenderer {
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('★', pos.x, pos.y);
+    const icon = (target as any).icon ?? ((target as any).instrument === 'foot' ? '♪' : '★');
+    ctx.fillText(icon, pos.x, pos.y);
 
     ctx.restore();
     ctx.restore();

@@ -1232,6 +1232,7 @@ const engine = new GameEngine({
           elapsedTime: engine.elapsedTime,
           vanishingX: bossX,
           vanishingY: bossY,
+          isPaused: engine.paused || starNoteScheduler.isPaused,
         });
       }
 

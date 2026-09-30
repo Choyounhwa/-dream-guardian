@@ -3519,11 +3519,14 @@ BEAT-SPEC-001
   - 기존 수집 성공 시 `effectManager.playBurst` 연출 보존.
 - **변경 금지**:
   - `StarSequenceGenerator`, `KeynoteCandidateDeriver` 등 키노트 생성 로직.
-- **완료 조건**:
-  - [ ] `tests/unit/star-note-renderer.test.ts` 단위 테스트 100% 통과 (Red → Green).
-  - [ ] `elapsedTime == landingTime`일 때 노트 중심이 목표 존 중심과 오차 1px 이내로 일치함 검증.
-  - [ ] 타겟이 없거나 비행 시간 이전/이후일 때 불필요한 드로잉 0건.
-  - [ ] `npm run build` 및 전체 `npm test` 100% Pass.
+- **완료 조건 (재검증 완료)**:
+  - [x] `tests/unit/star-note-renderer.test.ts` 단위 테스트 100% 통과 (Red → Green, 15/15 Pass).
+  - [x] `tests/integration/star-note-schedule-render.test.ts` 실제 스케줄→렌더 통합 검증 100% Pass (7/7 Pass).
+  - [x] `elapsedTime == landingTime`일 때 노트 중심이 목표 존 중심과 오차 1px 이내로 일치함 검증.
+  - [x] Late 판정 윈도우(0.40s) 일치 및 7번째 마지막 노트의 13.90s 만료 시점까지 렌더링 유지 검증.
+  - [x] 수집 완료(resolved/isCollected) 즉시 렌더링 제거 및 비행 외 상태 드로잉 0건.
+  - [x] STAR_COLLECT 페이즈 화면 가림(Occlusion 0%) 및 일시정지(Pause) 동기화 검증.
+  - [x] `npm run build` 및 전체 `npm test` 100% Pass (86개 파일 1025개 테스트 전체 통과).
 ---
 
 ### Issue #188: [RENDER-TRACK-001] 3D 드림 그리드 - 11개 피트니스 존 원근 연한 연결선(Zone Connection Lines) 렌더링
@@ -4274,6 +4277,101 @@ BEAT-SPEC-001
   - [x] 소실점 좌표가 `DreamGrid`와 일치하여 원근감 일치.
   - [x] 진행도 1.0 이후 정면 고정 렌더 결과가 기존과 픽셀 단위로 동일.
   - [x] 단위 테스트 100% 통과 (`tests/unit/question-approach-renderer.test.ts` 12개 전건 통과, 전체 746/746 통과), `npm run build` 성공.
+
+---
+
+### Issue #247: [FEAT-QUESTION-SHAPE-001] 쌓기나무(모양 A~Q 17종) 및 입체도형 전개도 시각 이미지 생성 및 QuestionRenderer 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/247
+- **Labels**: `feature`, `phase-7`, `P1-high`
+- **Milestone**: `v0.6-visuals-content`
+- **작업 ID**: `[FEAT-QUESTION-SHAPE-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 쌓기나무(모양 A~Q 17종) 및 입체도형 전개도 시각 이미지 생성 및 QuestionRenderer 연동
+- **목적**:
+  - `questions.csv`의 Level 9 SubLevel 4(쌓기나무 165문항) 및 SubLevel 5(전개도 문항)는 시각적 그림 없이 텍스트만으로는 정답을 도출하는 것이 물리적으로 불가능함.
+  - 17종 쌓기나무 모양(A~Q)과 주사위/정육면체 전개도의 규격화된 절차적 아이소메트릭 3D/2D Canvas 렌더러(또는 벡터 이미지 에셋)를 구축하고, 해당 문제가 출제될 때 문제 영역에 시각 이미지를 선명하게 렌더링하여 플레이어가 7초 이내에 직관적으로 답을 찾을 수 있도록 지원한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/render/ShapeRenderer.ts` (신규: 17종 쌓기나무 아이소메트릭 블록 및 전개도 드로잉 엔진)
+  - `dream_guardian/src/render/QuestionRenderer.ts` (문제 출제 시 `[모양 X]` 또는 ShapeCode 감지하여 이미지 동시 렌더링)
+  - `dream_guardian/src/render/index.ts` (배럴 export 추가)
+  - `dream_guardian/tests/unit/shape-renderer.test.ts` (신규: 17종 모양 데이터 무결성 및 전개도 드로잉 TDD 단위 테스트)
+- **구현 내용**:
+  1. **쌓기나무 17종(A~Q) 3D 아이소메트릭 데이터 모델 및 드로잉 로직**:
+     - 모양 A~Q의 3차원 그리드 높이 맵(`number[][]`, 예: 1층/2층/3층 블록 배치) 정의.
+     - Canvas 2D 아이소메트릭 투영 드로잉(윗면 `#F3E8FF`, 앞면 `#C889FF`, 우측면 `#9333EA` 등 음영 큐브 렌더링).
+     - 원거리 가독성을 위한 굵은 외곽선(2~3px) 및 고대비 블록 구분선 적용.
+  2. **주사위/정육면체 전개도 데이터 모델 및 드로잉 로직**:
+     - 표준 T자형 6면 전개도(면 번호 1~6, 꼭짓점 기호 ㄱ~ㅂ) 렌더링.
+     - 전개도 문제 출제 시 정확한 기호와 숫자가 각 면/꼭짓점에 배치되도록 드로잉.
+  3. **`QuestionRenderer` 화면 배치 연동**:
+     - 문제 템플릿의 `[모양 A~Q]` 또는 `shapeCode`를 자동 감지하여, 문제 텍스트 우측 또는 상단에 적정 비율(180×180px)로 렌더링.
+     - 18:9 와이드 해상도 및 문제 카드 영역 내부 오버플로 없이 정렬.
+- **유지 사항**:
+  - 기존 수학 수식 렌더러(`MathRenderer.ts`) 및 문제 원근 접근 연출(`QuestionApproachRenderer.ts`).
+  - 기존 문제 텍스트 및 2지선다 답안 카드 렌더링.
+- **변경 금지**:
+  - `QuestionBank`, `QuestionEvaluator` 평가 로직.
+  - 기존 전투, 모션, 리듬 루프.
+- **완료 조건**:
+  - [ ] 모양 A부터 Q까지 17종의 쌓기나무가 아이소메트릭 블록으로 정확한 개수/층수로 렌더링됨.
+  - [ ] 주사위 전개도(면 1~6, 꼭짓점 ㄱ~ㅂ)가 명확한 외곽선과 기호로 렌더링됨.
+  - [ ] 쌓기나무/전개도 문제 출제 시 문제 화면에 해당 이미지가 겹침 없이 선명하게 표시됨.
+  - [ ] `shape-renderer.test.ts` 단위 테스트 100% 통과 (Red → Green) 및 전체 `npm test` 무결성 검증.
+- **테스트**:
+  - `tests/unit/shape-renderer.test.ts` 17종 모양 데이터 및 전개도 매핑 단위 테스트.
+  - 브라우저 인게임 확인 (Ch.5 세부단계 5 기타/쌓기나무 진입 테스트).
+- **관련 파일**:
+  - `dream_guardian/src/render/ShapeRenderer.ts`
+  - `dream_guardian/src/render/QuestionRenderer.ts`
+  - `dream_guardian/tests/unit/shape-renderer.test.ts`
+
+---
+
+### Issue #248: [DATA-QUESTION-COMPAT-001] 7초 암산 최적화를 위한 2자릿수 복합 연산 및 2진수·분수 호환수(Friendly Numbers) 데이터 변형
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/248
+- **Labels**: `data`, `phase-4`, `P1-high`
+- **Milestone**: `v0.4-gameplay-systems`
+- **작업 ID**: `[DATA-QUESTION-COMPAT-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 7초 암산 최적화를 위한 2자릿수 복합 연산 및 2진수·분수 호환수(Friendly Numbers) 데이터 변형
+- **목적**:
+  - BPM 120 (1박 0.5초) 기준 문제 출제(8박/4초) + 답 선택(2박/1초) 등 약 5~7초의 빠른 피트니스 템포에서, 복잡한 2자리 임의 곱셈(`43 × 29`), 복잡한 세 자리 혼합 덧뺄셈, 통분이 까다로운 분수, 5~6자리 임의 2진수 변환 등은 신체 활동 중 7초 이내 암산이 불가능함.
+  - 2자릿수 연산의 두 번째 수를 10진수 또는 호환수(2·5의 배수, 25, 50 등)로 변형하고, 덧뺄셈은 합/차가 딱 떨어지는 보수, 분수는 배수 관계 분모, 제곱/2진수는 직관적인 어림수로 재정의하여 7초 내 쾌적한 암산과 정답 선택이 가능하도록 데이터 풀을 최적화한다.
+- **수정 대상**:
+  - `questions.csv` (원본: `E:\AIAIAIAIAI\Arithmetic Game\questions.csv`)
+  - `dream_guardian/src/question/QuestionEvaluator.ts` (필요 시 호환수 헬퍼 보강)
+  - `dream_guardian/tests/unit/question-system.test.ts` (호환수 데이터 검증 단위 테스트 추가)
+- **구현 내용**:
+  1. **Level 2 (곱나눗셈 - 두자리 & 복합곱)**:
+     - 두자리 곱셈: `rand(12,89) × rand(3,9)` → 두 번째 수를 10진수/호환수(`pick(2, 4, 5, 10, 20)`) 또는 일의 자리가 0/5인 수로 변형.
+     - 복합곱: `rand(12,45) × rand(11,35)` → `rand(12,45) × pick(10, 20, 25, 30, 40, 50)` 또는 두 자리 × 10진수로 변형하여 암산 가능 범위로 한정.
+  2. **Level 1 (덧뺄셈 - 혼합 2 & 복합비교)**:
+     - 3단 덧뺄셈: 세 수 중 두 수의 합이 100, 200 등 딱 떨어지는 호환수(Friendly Numbers)가 되도록 변수 생성식 개편 (예: `A=120`, `B=80`, `C=35` → `(120+80)-35=165`).
+     - 복합비교: 양변의 차이가 명확하게 어림되거나 양변의 한쪽이 10단위로 정렬되도록 조정.
+  3. **Level 3 (분수 - 덧뺄셈 2)**:
+     - `1/{A} + 1/{B}`에서 무작위 서로소 분모(5와 11 등) 대신 배수 관계 분모(2와 4, 3과 6, 4와 8, 5와 10 등) 또는 분모 곱이 20 이하인 직관적 분수로 한정.
+  4. **Level 5 & 6 (제곱 2 & 2진수)**:
+     - 11~25 임의 제곱: 일의 자리가 0, 1, 5인 수(`11, 15, 20, 21, 25`) 또는 20²과의 차이 등 어림이 쉬운 수 위주로 구성.
+     - 2진수: 5~6자리 임의 2진수 연산을 2의 거듭제곱(4, 8, 16, 32, 64) 및 `1010₍₂₎`, `1100₍₂₎` 등 친화적 패턴으로 변형.
+  5. **전수 검증**:
+     - 수정된 685문항 CSV 전체가 `QuestionEvaluator`에서 100% 정상 평가되며 NaN 및 정답-오답 중복이 0건임을 100회 시뮬레이션으로 전수 검증.
+- **유지 사항**:
+  - 전체 9개 Level 및 SubLevel 카테고리 구조 및 문항 총 수.
+  - 기존 `QuestionBank` 로직 및 safeEval 보안 화이트리스트.
+- **변경 금지**:
+  - 문제 CSV 컬럼 구조 (Level, SubLevel, LevelTitle, SubLevelTitle, QuestionTemplate, AnswerEval, WrongEval, VarA, VarB, VarC, VarD, ShapeCode).
+  - 전투, 리듬, 모션 시스템.
+- **완료 조건**:
+  - [ ] 7초 이내 암산 불가했던 60개 고난도 문항의 변수 규칙이 10진수/호환수/어림수로 전면 개편됨.
+  - [ ] 모든 문항의 `ansEval`과 `wrongEval`이 100% 정상 작동하며 100회 시뮬레이션에서 오류 0건.
+  - [ ] 전체 `npm test` 100% Pass 및 `npm run build` 검증 완료.
+- **테스트**:
+  - `tests/unit/question-system.test.ts` 내 변형된 호환수 문제 생성 및 정답/오답 분별 단위 테스트.
+  - 685문항 전수 시뮬레이션(100회) 무결성 테스트.
+- **관련 파일**:
+  - `questions.csv`
+  - `dream_guardian/src/question/QuestionEvaluator.ts`
+  - `dream_guardian/tests/unit/question-system.test.ts`
 
 
 

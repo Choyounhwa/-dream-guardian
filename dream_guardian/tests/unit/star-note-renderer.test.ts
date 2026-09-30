@@ -100,13 +100,32 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
       expect(pos.progress).toBeLessThan(0);
     });
 
-    it('판정 시간 만료 이후(elapsedTime > landingTime + 0.25s)일 때 inFlight=false를 반환한다', () => {
+    it('Late 판정 윈도우 내부(landingTime <= elapsedTime <= landingTime + 0.40s)일 때 inFlight=true를 유지한다 (Issue #192)', () => {
+      // 0.35s 경과는 0.40s lateWindow 이내이므로 노트가 계속 표시되어야 함
       const pos = renderer.computeNotePosition(target, landingTime + 0.35, vx, vy, vw, vh);
+      expect(pos.inFlight).toBe(true);
+      expect(pos.scale).toBeCloseTo(1.2, 2);
+      expect(Math.abs(pos.x - zone4CenterX)).toBeLessThan(1.0);
+      expect(Math.abs(pos.y - zone4CenterY)).toBeLessThan(1.0);
+    });
+
+    it('Late 판정 만료 이후(elapsedTime > landingTime + 0.40s)일 때 inFlight=false를 반환한다 (Issue #192)', () => {
+      const pos = renderer.computeNotePosition(target, landingTime + 0.45, vx, vy, vw, vh);
       expect(pos.inFlight).toBe(false);
+    });
+
+    it('수집 완료(resolved=true 또는 isCollected=true)된 노트는 inFlight=false를 반환한다 (Issue #192)', () => {
+      const resolvedTarget = { ...target, resolved: true };
+      const posResolved = renderer.computeNotePosition(resolvedTarget as any, landingTime, vx, vy, vw, vh);
+      expect(posResolved.inFlight).toBe(false);
+
+      const collectedTarget = { ...target, isCollected: true };
+      const posCollected = renderer.computeNotePosition(collectedTarget as any, landingTime, vx, vy, vw, vh);
+      expect(posCollected.inFlight).toBe(false);
     });
   });
 
-  describe('2. 타겟 부재 및 비행 외 상태의 렌더링 무동작 검증', () => {
+  describe('2. 타겟 부재, 수집 완료 및 비행 외 상태의 렌더링 무동작 검증', () => {
     it('target이 null일 때 캔버스에 어떤 드로잉도 하지 않는다', () => {
       const state: StarNoteRenderState = {
         target: null,
@@ -121,6 +140,60 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
       expect(ctx.fill).not.toHaveBeenCalled();
       expect(ctx.fillText).not.toHaveBeenCalled();
       expect(ctx.arc).not.toHaveBeenCalled();
+    });
+
+    it('수집 완료(resolved=true 또는 isCollected=true)된 단일 타겟은 캔버스에 어떤 드로잉도 하지 않는다 (Issue #192)', () => {
+      const target: ActiveStarTarget = {
+        patternId: 'p1',
+        part: 'leftHand',
+        zoneId: 4,
+        beatIndex: 1,
+        landingTime: 4.0,
+        resolved: true,
+      } as any;
+
+      renderer.render(ctx, vw, vh, {
+        target,
+        elapsedTime: 4.0,
+        vanishingX: vx,
+        vanishingY: vy,
+      });
+
+      expect(ctx.stroke).not.toHaveBeenCalled();
+      expect(ctx.fill).not.toHaveBeenCalled();
+      expect(ctx.fillText).not.toHaveBeenCalled();
+    });
+
+    it('targets 목록 중 이미 resolved된 노트는 제외하고 미해결 노트만 렌더링한다 (Issue #192)', () => {
+      const noteResolved: ActiveStarTarget = {
+        patternId: 'p1',
+        part: 'leftHand',
+        zoneId: 4,
+        beatIndex: 1,
+        landingTime: 4.0,
+        resolved: true,
+      } as any;
+
+      const noteActive: ActiveStarTarget = {
+        patternId: 'p2',
+        part: 'rightHand',
+        zoneId: 5,
+        beatIndex: 2,
+        landingTime: 4.5,
+        resolved: false,
+      } as any;
+
+      renderer.render(ctx, vw, vh, {
+        targets: [noteResolved, noteActive],
+        elapsedTime: 4.3, // noteActive(4.5s)는 비행 중 (4.0 ~ 4.5)
+        vanishingX: vx,
+        vanishingY: vy,
+      });
+
+      // noteActive(rightHand, #FFCB4D)만 렌더링되어야 함
+      expect(ctx.stroke).toHaveBeenCalled();
+      expect(ctx.strokeStyle).toContain('FFCB4D');
+      expect(ctx.strokeStyle).not.toContain('28E6FF'); // leftHand는 안 그려짐
     });
 
     it('비행 시간 이전(아직 출현 전)일 때 어떤 드로잉도 하지 않는다', () => {

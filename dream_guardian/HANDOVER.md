@@ -4,7 +4,7 @@
 
 ---
 
-## 🧭 11단계 로드맵 진행 현황 (SSOT)
+## 🧭 12단계 로드맵 진행 현황 (SSOT)
 
 | 단계 | 순서 | 완료 목표 | 상태 |
 |---|---|---|:---:|
@@ -14,14 +14,56 @@
 | **4. 모션 입력** | **#237** *(완료)* → **#238** *(완료)* → *(#239 미채택)* | 발 좌표·방향·스텝, 점프 사용자 기준선 | `[✔] 완료` |
 | **5. 분기 실행** | **#235** *(완료)* → **#236** *(완료)* | 별모으기 노트 일정·판정창, 회피 장판 수명주기 | `[✔] 완료` |
 | **6. 문제 표시** | **#212** *(완료)* → **#234** *(완료)* | 문제 원근 접근 연출 및 긴 수식 너비·높이 수용 | `[✔] 완료` |
-| **7. 시청각 연결** | **#192** → **#228** → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | **`[▶ NEXT: #192]`** |
+| **7. 시청각 연결** | **#192** *(완료)* → **#228** → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | **`[▶ NEXT: #228]`** |
 | **8. 정산·자원** | **#240** → **#242** | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[ ] 대기` |
 | **9. Phase B 진입** | **#241** | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[ ] 대기` |
 | **10. Phase B 실행** | **#213** → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | `[ ] 대기` |
-| **11. 최종 검증** | **#186** | 실제 10문제 → Phase B → 승리/패배 → 메뉴 완주 | `[ ] 대기` |
+| **11. 판정 유연화** | **#249** → **#250** → **#251** → **#252** → **#253** → **#254** → **#255** | 팔 뻗기·존·타이밍 판정의 유저 행동 수용성 확대 | `[ ] 대기` |
+| **12. 최종 검증** | **#186** | 실제 10문제 → Phase B → 승리/패배 → 메뉴 완주 | `[ ] 대기` |
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#192 [RENDER-KEYNOTE-001] 실제 별 스케줄 기반 레일 비행·판정창·페이즈 표시 재검증`**  
+### 📎 11단계 세부 (판정 유연화 / INPUT-TOLERANCE 시리즈)
+
+| 카드 | 제목 | 선행 조건 | 상태 |
+|---|---|---|:---:|
+| **#249** | [INPUT-TOLERANCE-001] 팔 뻗기 가중 신뢰도 스코어링 및 양팔 우세 판정 | 없음 (`config/judgment.config.ts` 신설) | `[ ] 대기` |
+| **#250** | [INPUT-TOLERANCE-002] 존 소프트 경계(히스테리시스·자석 존·체격 정규화) | #249 | `[ ] 대기` |
+| **#251** | [INPUT-TOLERANCE-003] 타이밍 관용(선행 버퍼·후행 유예·감쇠 홀드·유실 동결) | #249 | `[ ] 대기` |
+| **#252** | [INPUT-TOLERANCE-004] MotionIntentBus 및 페이즈별 동작 소유권·불응기 | #249·#250·#251 | `[ ] 대기` |
+| **#253** | [INPUT-TOLERANCE-005] 집합 덮기 조건 B 시간 누적 완화·Cross-Body 정합성 | #250 | `[ ] 대기` |
+| **#254** | [INPUT-TOLERANCE-006] 니어미스 적응형 관용 및 개인 기준선 캘리브레이션 | #249·#250 | `[ ] 대기` |
+| **#255** | [INPUT-TOLERANCE-007] 부분 진행도 시각화 및 판정 실패 사유 피드백 | #249 (#254 권장) | `[ ] 대기` |
+
+> ⚠️ **#252는 구조 변경 위험 최상**: MotionIntentBus는 반드시 #249~#251 완료 후 진행하며, 버스 미주입 시 기존 직접 판정 경로로 100% 폴백되어야 한다.
+> 판정 수치는 전부 신규 `config/judgment.config.ts`로 분리하여 코드 수정 없이 튜닝 가능해야 한다 (개발 규칙 6절).
+
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#228 [RENDER-HAZARD-001] 실제 회피 패턴·박자 기반 3D 바닥 장판 원근 렌더링 및 경고-입력-판정 표시 재검증`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-10-01 완료: [RENDER-KEYNOTE-001 / #192] 실제 별 스케줄 기반 레일 비행·판정창·페이즈 표시 재검증
+
+> #192 구현 및 단위/통합 검증 완료. `StarNoteRenderer`의 Late 판정 만료창이 0.25초로 고정되어 입력 엔진의 Late 창(0.40초)보다 0.15초 조기 소멸하여 플레이어가 Late 판정 범위 내에 있음에도 노트가 화면에서 먼저 사라지던 불일치 결함, 노트 수집 성공(`resolved: true` 또는 `isCollected: true`) 상태가 렌더러에 반영되지 않아 수집 후에도 판정 만료까지 노트가 공중에 잔존하던 결함, 그리고 7번째 마지막 노트(3.5s 착지)가 Late 허용창(3.90s) 종료 전 조기 비가시화되던 결함을 해결했다. `DEFAULT_STAR_TIMING_WINDOWS.late` (0.40s) 및 `perfect` (0.12s)를 `StarNoteRenderer`의 기본값 및 설정 인터페이스와 완전히 일치시키고, `computeNotePosition` 및 `render`에서 `resolved/isCollected` 노트를 즉시 비행 제외(`inFlight: false`) 및 드로잉 0건으로 차단하도록 구현했다. 또한 실제 스케줄러(`StarNoteScheduler`)와 연동된 `tests/integration/star-note-schedule-render.test.ts`를 신규 구축하여 1번~7번 노트의 소실점 출발(0.5s 비행, scale 0.3→1.2), 목표 존 안착(오차 1px 이내), 수집 즉시 제거, 0.40s Late 윈도우 유지 및 7번째 마지막 노트의 13.90s 만료 시점 보장, 그리고 `STAR_COLLECT` 페이즈 시 Question/HUD 화면 가림 0% 및 일시정지(pause) 고정 좌표 안정성을 완벽히 검증했다.
+
+### 주요 구현 및 변경 사항
+- **Late 판정창(0.40s) 및 Perfect 판정창(0.12s) 설정 일치 (`src/render/StarNoteRenderer.ts`, `config/beat-motion.config.ts`)**:
+  - `StarNoteRenderOptions`에 `timingWindows?: Partial<StarTimingWindows>` 도입.
+  - 기본 `lateWindow`를 구형 0.25s에서 `DEFAULT_STAR_TIMING_WINDOWS.late` (0.40s)로 개편.
+  - 기본 `perfectWindow`를 `DEFAULT_STAR_TIMING_WINDOWS.perfect` (0.12s)로 개편.
+  - 7번째 마지막 노트(3.5s 착지)가 3.90s까지 온전히 렌더링 유지되어 판정창 만료 및 4.00s `isComplete` 정산과 100% 동기화.
+- **수집 완료(`resolved`/`isCollected`) 즉시 렌더링 제거 파이프라인 (`src/render/StarNoteRenderer.ts`)**:
+  - `computeNotePosition`: `target.resolved || target.isCollected` 검사를 최우선 수행하여 수집/해결 완료된 노트는 즉시 `inFlight: false` 반환.
+  - `render`: `targets` 목록에서 `(t as any).resolved` 및 `(t as any).isCollected` 대상을 1차 필터링하여 드로잉 호출 0건 보장.
+  - 부위별 악기 아이콘 연동: `instrument === 'foot'`인 발 노트는 `♪` (음표), 손 노트는 `★` (별)로 직관적 렌더링.
+- **`main.ts` 렌더 루프 및 일시정지(pause) 안전 연동 (`src/main.ts`)**:
+  - `starNoteRenderer.render` 호출 시 `isPaused: engine.paused || starNoteScheduler.isPaused` 전달.
+  - 일시정지 중 게임 활성 시간(`engine.elapsedTime`) 정지 시 모든 비행 중인 별 노트의 좌표와 크기가 정확히 고정되어 시각적 드리프트 0건 달성.
+  - `presentationAdapter` 기반 상태별 렌더 허용표에 따라 `STAR_COLLECT` 페이즈에서는 `canRenderQuestion = false`, `canRenderRunningHUD = false`, `canRenderHazardEvade = false`로 문제 헤더나 러닝 HUD에 의한 화면 가림 0% 보장.
+- **TDD 검증 및 실제 브라우저 캡처 결과**:
+  - `tests/unit/star-note-renderer.test.ts` (15 tests Pass): 0.40s Late 윈도우 유지, 만료 후 inFlight=false, resolved/isCollected 즉시 제거, 드로잉 0건 검증 포함 100% Pass.
+  - `tests/integration/star-note-schedule-render.test.ts` (7 tests Pass): 실제 7노트 스케줄러 연동 비행, Zone 10 안착 1px 이내 오차, 발 입력 수집 즉시 제거, 7번째 마지막 노트 13.90s 보장, 화면 가림 0% 및 pause 고정 검증 포함 100% Pass.
+  - `npm run build` 번들 빌드 100% 성공 & `npm test` 전체 86개 파일 1025개 테스트 100% Pass (회귀 결함 0건).
+  - Chrome headless 실제 브라우저 캡처 완료 (`star_collect_verify.png`): 10.25s(비행 중) → 10.50s(안착 및 펄스) → 10.80s(Late 유지) 3개 캔버스 정상 표출 확인.
 
 ---
 
