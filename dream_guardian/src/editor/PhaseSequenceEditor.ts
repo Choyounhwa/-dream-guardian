@@ -28,8 +28,11 @@ export interface TimelineTrackNote {
   payload?: Record<string, any>;
 }
 
+export type SequenceChangeListener = (phase: PhaseType) => void;
+
 export class PhaseSequenceEditor {
   private readonly _phaseNotes: Map<PhaseType, TimelineTrackNote[]> = new Map();
+  private readonly _listeners: Set<SequenceChangeListener> = new Set();
 
   constructor() {
     this.initDefaultSequences();
@@ -172,6 +175,32 @@ export class PhaseSequenceEditor {
       });
     }
     this._phaseNotes.set('RUN_QUESTION', qNotes);
+    this.notifyChange('STAR_COLLECT');
+    this.notifyChange('RUN_QUESTION');
+  }
+
+  /**
+   * 시퀀스 변경 리스너 등록
+   */
+  addListener(listener: SequenceChangeListener): void {
+    this._listeners.add(listener);
+  }
+
+  /**
+   * 시퀀스 변경 리스너 제거
+   */
+  removeListener(listener: SequenceChangeListener): void {
+    this._listeners.delete(listener);
+  }
+
+  private notifyChange(phase: PhaseType): void {
+    for (const listener of this._listeners) {
+      try {
+        listener(phase);
+      } catch (e) {
+        console.error('[PhaseSequenceEditor] Listener error:', e);
+      }
+    }
   }
 
   /**
@@ -184,6 +213,7 @@ export class PhaseSequenceEditor {
     }
     list.push({ ...note, targetZones: [...note.targetZones] });
     this._phaseNotes.set(phase, list);
+    this.notifyChange(phase);
     return true;
   }
 
@@ -203,6 +233,7 @@ export class PhaseSequenceEditor {
       targetZones: partial.targetZones ? [...partial.targetZones] : list[idx].targetZones,
       payload: { ...(list[idx].payload ?? {}), ...(partial.payload ?? {}) },
     };
+    this.notifyChange(phase);
     return true;
   }
 
@@ -218,6 +249,7 @@ export class PhaseSequenceEditor {
       return false;
     }
     this._phaseNotes.set(phase, nextList);
+    this.notifyChange(phase);
     return true;
   }
 
@@ -228,6 +260,7 @@ export class PhaseSequenceEditor {
     const freshEditor = new PhaseSequenceEditor();
     const defaultNotes = freshEditor.getNotesForPhase(phase);
     this._phaseNotes.set(phase, defaultNotes);
+    this.notifyChange(phase);
   }
 
   /**
@@ -260,6 +293,7 @@ export class PhaseSequenceEditor {
         return false;
       }
       this._phaseNotes.set(phase, parsed.notes);
+      this.notifyChange(phase);
       return true;
     } catch {
       return false;

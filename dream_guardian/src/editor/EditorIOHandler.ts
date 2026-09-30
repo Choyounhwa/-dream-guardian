@@ -70,7 +70,7 @@ export class EditorIOHandler {
   }
 
   /**
-   * 프로젝트 전체 데이터 JSON 불러오기
+   * 프로젝트 전체 데이터 JSON 불러오기 (프로젝트 열기: 전체 교체)
    */
   importFullProjectJSON(state: EditorState, jsonStr: string): IOResult {
     try {
@@ -85,18 +85,36 @@ export class EditorIOHandler {
         };
       }
 
-      // 1. 패턴 등록
-      let loadedPatterns = 0;
+      // 1. 패턴 유효성 사전 검증
+      const validPatterns: CatChoreoPattern[] = [];
       for (const pattern of pkg.patterns) {
-        const res = state.registry.register(pattern);
-        if (res.valid) {
-          loadedPatterns++;
+        const val = state.registry.validate(pattern);
+        if (val.valid) {
+          validPatterns.push(pattern);
         } else {
-          errors.push(`패턴 "${pattern.id}" 로드 실패: ${res.errors.join(', ')}`);
+          errors.push(`패턴 "${pattern.id}" 유효성 검증 실패: ${val.errors.join(', ')}`);
         }
       }
 
-      // 2. 시퀀스 노트 복원
+      if (validPatterns.length === 0) {
+        return {
+          success: false,
+          loadedCount: 0,
+          errors: ['유효한 안무 패턴이 없습니다.', ...errors],
+        };
+      }
+
+      // 2. 프로젝트 열기: 사전 검증 완료 후 기존 레지스트리 전체 교체 (삭제된 패턴 부활 방지)
+      state.registry.clear();
+      let loadedPatterns = 0;
+      for (const pattern of validPatterns) {
+        const res = state.registry.register(pattern);
+        if (res.valid) {
+          loadedPatterns++;
+        }
+      }
+
+      // 3. 시퀀스 노트 복원
       if (pkg.sequences) {
         const phases: PhaseType[] = ['RUN_QUESTION', 'ANSWER_SELECT', 'STAR_COLLECT', 'FEVER_PHASE_B'];
         for (const phase of phases) {
@@ -107,7 +125,7 @@ export class EditorIOHandler {
         }
       }
 
-      // 3. 메타데이터 적용
+      // 4. 메타데이터 및 선택 상태 복원 (선택 복원은 시퀀스를 덮어쓰지 않음)
       if (typeof pkg.bpm === 'number') {
         state.setBpm(pkg.bpm);
       }
@@ -116,6 +134,8 @@ export class EditorIOHandler {
       }
       if (pkg.selectedPatternId && state.registry.get(pkg.selectedPatternId)) {
         state.setSelectedPattern(pkg.selectedPatternId);
+      } else if (validPatterns.length > 0) {
+        state.setSelectedPattern(validPatterns[0].id);
       }
 
       return {
@@ -130,6 +150,18 @@ export class EditorIOHandler {
         errors: [`JSON 파싱 오류: ${e.message || e}`],
       };
     }
+  }
+
+  /**
+   * 외부 안무 패턴 라이브러리 JSON 불러오기 (기존 프로젝트/시퀀스를 유지하고 패턴만 병합 등록)
+   */
+  importPatternLibraryJSON(state: EditorState, jsonStr: string): IOResult {
+    const res = state.registry.loadFromJSON(jsonStr);
+    return {
+      success: res.loadedCount > 0,
+      loadedCount: res.loadedCount,
+      errors: res.errors,
+    };
   }
 
   /**

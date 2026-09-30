@@ -38,15 +38,15 @@ describe('Editor Interactive Pattern Enhancements (Issue User Feedback)', () => 
     });
   });
 
-  describe('2. 모션별 키노트 타임라인 동적 변화 및 연동 (Req 2)', () => {
-    it('패턴을 변경하면 타임라인의 키노트 시퀀스가 해당 모션에 맞게 동적으로 갱신된다', () => {
+  describe('2. 모션별 키노트 타임라인 동적 변화 및 명시적 연동 (Req 2)', () => {
+    it('패턴을 명시적으로 적용(applyPatternToSequence)하면 타임라인의 키노트 시퀀스가 해당 모션에 맞게 동적으로 갱신된다', () => {
       // 1. 초기 CAT_LOW_BOUNCE (low_bounce)
-      state.setSelectedPattern('CAT_LOW_BOUNCE');
+      state.applyPatternToSequence('CAT_LOW_BOUNCE');
       const lowNotes = state.getCurrentPhaseNotes();
       expect(lowNotes.length).toBeGreaterThan(0);
 
-      // 2. 우측 스카이포인트 패턴으로 변경
-      state.setSelectedPattern('CAT_SKY_POINT_RIGHT');
+      // 2. 우측 스카이포인트 패턴으로 명시적 적용
+      state.applyPatternToSequence('CAT_SKY_POINT_RIGHT');
       const skyNotes = state.getCurrentPhaseNotes();
       expect(skyNotes.length).toBeGreaterThan(0);
 
@@ -57,10 +57,11 @@ describe('Editor Interactive Pattern Enhancements (Issue User Feedback)', () => 
       expect(lowZones).not.toEqual(skyZones);
     });
 
-    it('패턴의 피트니스 존을 수정하면 타임라인의 해당 키노트 타깃 존도 실시간 동기화된다', () => {
-      state.setSelectedPattern('CAT_SKY_POINT_RIGHT');
-      // 우측 손을 Zone 3 -> Zone 2로 수정
+    it('패턴의 피트니스 존을 수정 후 명시적 적용 시 타임라인의 해당 키노트 타깃 존도 동기화된다', () => {
+      state.applyPatternToSequence('CAT_SKY_POINT_RIGHT');
+      // 우측 손을 Zone 3 -> Zone 2로 수정 후 명시적 적용
       state.updateCurrentPattern({ rightHand: 2 });
+      state.applyPatternToSequence();
 
       const notes = state.getCurrentPhaseNotes();
       const rightHandNote = notes.find((n) => n.payload?.part === 'rightHand' || n.targetZones.includes(2));

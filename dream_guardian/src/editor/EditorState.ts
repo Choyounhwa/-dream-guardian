@@ -52,6 +52,7 @@ export interface EditorListener {
   onPhaseChange?: (phase: PhaseType) => void;
   onPlayStateChange?: (isPlaying: boolean) => void;
   onBeatUpdate?: (beat: number) => void;
+  onDocumentChange?: () => void;
 }
 
 export class EditorState {
@@ -72,10 +73,10 @@ export class EditorState {
   constructor(initialRegistry?: DancePatternRegistry, initialSequenceEditor?: PhaseSequenceEditor) {
     this._registry = initialRegistry ?? new DancePatternRegistry(EXTENDED_CAT_CHOREO_PATTERNS);
     this._sequenceEditor = initialSequenceEditor ?? new PhaseSequenceEditor();
-    const initPattern = this._registry.get(this._selectedPatternId);
-    if (initPattern) {
-      this._sequenceEditor.syncWithPattern(initPattern);
-    }
+    this._sequenceEditor.addListener(() => {
+      this.notifyDocumentChange();
+      this.notifyStateChange();
+    });
   }
 
   get sequenceEditor(): PhaseSequenceEditor {
@@ -174,7 +175,24 @@ export class EditorState {
     return this._registry.validate(selected);
   }
 
-  setSelectedPattern(id: string): boolean {
+  setSelectedPattern(id: string, options?: { applyToSequence?: boolean }): boolean {
+    const pattern = this._registry.get(id);
+    if (!pattern) {
+      return false;
+    }
+    this._selectedPatternId = id;
+    this._draftEdits = {};
+    if (options?.applyToSequence) {
+      this._sequenceEditor.syncWithPattern(pattern);
+      this.notifyDocumentChange();
+    }
+    this.notifyPatternChange(pattern);
+    this.notifyStateChange();
+    return true;
+  }
+
+  applyPatternToSequence(patternId?: string): boolean {
+    const id = patternId ?? this._selectedPatternId;
     const pattern = this._registry.get(id);
     if (!pattern) {
       return false;
@@ -183,6 +201,7 @@ export class EditorState {
     this._draftEdits = {};
     this._sequenceEditor.syncWithPattern(pattern);
     this.notifyPatternChange(pattern);
+    this.notifyDocumentChange();
     this.notifyStateChange();
     return true;
   }
@@ -203,9 +222,8 @@ export class EditorState {
     if (val.valid) {
       this._registry.update(this._selectedPatternId, partial);
     }
-    // 수정된 패턴 정보로 타임라인 키노트 시퀀스 실시간 갱신
-    this._sequenceEditor.syncWithPattern(candidate);
     this.notifyPatternChange(this.getSelectedPattern());
+    this.notifyDocumentChange();
     this.notifyStateChange();
     return val;
   }
@@ -235,6 +253,7 @@ export class EditorState {
       this._selectedPatternId = fullPattern.id;
       this._draftEdits = {};
       this.notifyPatternChange(fullPattern);
+      this.notifyDocumentChange();
       this.notifyStateChange();
     }
     return res;
@@ -303,6 +322,7 @@ export class EditorState {
     this._selectedPatternId = remaining[0].id;
     this._draftEdits = {};
     this.notifyPatternChange(this.getSelectedPattern());
+    this.notifyDocumentChange();
     this.notifyStateChange();
     return true;
   }
@@ -315,6 +335,7 @@ export class EditorState {
   setBpm(bpm: number): void {
     const clamped = Math.max(40, Math.min(240, Math.round(bpm)));
     this._bpm = clamped;
+    this.notifyDocumentChange();
     this.notifyStateChange();
   }
 
@@ -391,7 +412,6 @@ export class EditorState {
     const clamped = Math.max(0, Math.min(maxBeats, beat));
     this._currentBeat = clamped;
     this.notifyBeatUpdate(clamped);
-    this.notifyStateChange();
   }
 
   addListener(listener: EditorListener): void {
@@ -400,6 +420,12 @@ export class EditorState {
 
   removeListener(listener: EditorListener): void {
     this._listeners.delete(listener);
+  }
+
+  private notifyDocumentChange(): void {
+    for (const listener of this._listeners) {
+      listener.onDocumentChange?.();
+    }
   }
 
   private notifyStateChange(): void {

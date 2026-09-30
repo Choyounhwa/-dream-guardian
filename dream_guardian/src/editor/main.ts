@@ -181,6 +181,16 @@ window.addEventListener('DOMContentLoaded', () => {
       });
     });
 
+    // 패턴 시퀀스 명시적 적용 버튼
+    const applySeqBtn = document.getElementById('btn-apply-sequence');
+    if (applySeqBtn) {
+      applySeqBtn.addEventListener('click', () => {
+        state.applyPatternToSequence();
+        updateTimeline();
+        updateCanvas();
+      });
+    }
+
     // 패턴 복제 버튼
     const dupBtn = document.getElementById('btn-duplicate-pattern');
     if (dupBtn) {
@@ -581,19 +591,19 @@ window.addEventListener('DOMContentLoaded', () => {
   };
 
   state.addListener({
+    onDocumentChange: () => {
+      triggerAutoSave();
+    },
     onStateChange: () => {
       updateHeader();
       updateToolbar();
-      triggerAutoSave();
     },
     onPatternChange: () => {
       updateSidebar();
       updateCanvas();
-      triggerAutoSave();
     },
     onPhaseChange: () => {
       updateTimeline();
-      triggerAutoSave();
     },
     onPlayStateChange: () => {
       updateHeader();

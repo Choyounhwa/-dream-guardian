@@ -214,6 +214,7 @@ export class EditorLayout {
             <span>안무 패턴 목록 (${patterns.length})</span>
           </div>
           <div class="sidebar-action-bar">
+            <button id="btn-apply-sequence" class="btn btn-sm btn-outline" title="현재 패턴을 타임라인 시퀀스에 적용">⚡ 시퀀스에 적용</button>
             <button id="btn-duplicate-pattern" class="btn btn-sm btn-secondary" title="현재 선택된 패턴 복제">📑 패턴 복제</button>
             <button id="btn-delete-pattern" class="btn btn-sm btn-danger" title="현재 패턴 삭제" ${patterns.length <= 1 ? 'disabled' : ''}>🗑 삭제</button>
           </div>
