@@ -221,9 +221,10 @@ tests/
 - [x] **`BATTLE-ANSWER-PENALTY-001` (#225)**: 오답/타임아웃 직접 피해(HP 감소 0) 및 Phase A 보스 반격 제거, 회피 피해 분리
 - [x] **`CLEANUP-ANSWER-INPUT-001` (#226)**: 레거시 골반/머리 `AnswerZoneSelector` 및 중앙 기준점 연동 제거
 - [x] **`ROUTINE-SPEC-001` (#211)**: 확정 게임 루틴 전체 계약 정의 및 카드 매핑 문서화
-- [ ] **`RENDER-QUESTION-APPROACH-001` (#212)**: 문제 원근(소실점) 접근 연출 (첫 2박)
-- [ ] **`AUDIO-BAND-001` (#191)**: 1단계 기타(Zone 1~5) + 드럼(Zone 9~11) Web Audio 합성기 및 키노트 사운드
-- [ ] **`RENDER-KEYNOTE-001` (#192)**: Zone 1~5 및 Zone 9~11 키노트 비주얼 렌더링 및 판정 연출
+- [x] **`RENDER-QUESTION-APPROACH-001` (#212)**: 문제 원근(소실점) 접근 연출 (첫 2박)
+- [x] **`RENDER-HAZARD-001` (#228)**: 3D 원근 그리드 바닥 보스 장판(HazardZoneRenderer) 렌더링
+- [x] **`AUDIO-BAND-001` (#191)**: 1단계 기타(Zone 1~5) + 드럼(Zone 9~11) Web Audio 합성기 및 키노트 사운드
+- [x] **`RENDER-KEYNOTE-001` (#192)**: Zone 1~5 및 Zone 9~11 키노트 비주얼 렌더링 및 판정 연출
 - [ ] **`MINION-TROOP-001` (#194)**: 정답 시 미니언 +1 증원 및 군단 화력
 - [ ] **`BATTLE-BOSS-001` (#193)**: 보스 결전(Phase B) 마법 공격 패턴 및 광폭화
 - [ ] **`BOSS-FEVER-001` (#213)**: 보스 결전(Phase B) 유저 피버타임 별모으기

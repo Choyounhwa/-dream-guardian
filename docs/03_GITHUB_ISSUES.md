@@ -3405,28 +3405,30 @@ BEAT-SPEC-001
 - **Labels**: `feature`, `P1-high`, `phase-6`
 - **Milestone**: `v0.5-beat-motion`
 - **작업 ID**: `[AUDIO-BAND-001]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (2026-09-30)**
 - **제목**: 1단계 기타(Zone 1~5) + 드럼(Zone 9~11) Web Audio 합성기 및 싱크/어긋남 사운드 엔진
 - **목적**:
   - 비트매니아/DJMAX 스타일의 실시간 키사운드 시스템을 구축하여, 유저의 손(기타)/발(드럼) 터치 시 역동적인 악기 사운드를 합성하고, 박자 이탈 시 어긋남(Stumble/Glitch) 피드백을 제공한다.
 - **수정 및 생성 대상**:
   - `dream_guardian/src/audio/SFXSynth.ts`
   - `dream_guardian/src/audio/BandSynthesizer.ts` (신규)
+  - `dream_guardian/src/audio/index.ts` (배럴 export 추가)
+  - `dream_guardian/src/main.ts` (키노트 수집 및 키보드 입력 연동)
   - `dream_guardian/tests/unit/band-synthesizer.test.ts`
 - **구현 내용**:
   1. 1단계(Ch.1) 록 앙상블 절차적 사운드 합성:
-     - 손 (Zone 1~5): 일렉 기타 리드/리프/파워코드 왜곡(Overdrive) 사운드
-     - 발 (Zone 9~11): 록 드럼 킥, 스네어, 하이햇/크래시 타격음
+     - 손 (Zone 1~5): 일렉 기타 리드/리프/파워코드 왜곡(Overdrive) 사운드 (WaveShaper 28x)
+     - 발 (Zone 9~11): 록 드럼 킥(130Hz->45Hz), 스네어(노이즈버퍼+톤), 하이햇/크래시(하이패스 노이즈)
   2. 정박(Sync) / 엇박(Stumble) 음향 메커니즘:
      - 정박(±0.12s): 풍성한 100% 게인 클린 믹싱
      - 엇박(±0.25s): 피치 벤드 글리치, 프렛 스크래치(Fret Scratch), 림샷 둔탁음
      - 무동작(Miss): 메인 악기 트랙 음소거(Mute) 및 둔탁한 가이드 메트로놈 잔존
   3. 2박 Ready 카운트다운 사운드 (READY... SET!)
 - **완료 조건**:
-  - [ ] Zone 1~5 손 터치 시 기타 음원 실시간 합성 출력
-  - [ ] Zone 9~11 발 터치 시 드럼 음원 실시간 합성 출력
-  - [ ] 엇박 및 미스 시 청각적 어긋남(Stumble) 연출 검증
-  - [ ] 단위 테스트 100% Pass
+  - [x] Zone 1~5 손 터치 시 기타 음원 실시간 합성 출력
+  - [x] Zone 9~11 발 터치 시 드럼 음원 실시간 합성 출력
+  - [x] 엇박 및 미스 시 청각적 어긋남(Stumble) 연출 검증
+  - [x] 단위 테스트 100% Pass (16개 전건 통과, 전체 783/783 통과)
 
 ---
 
@@ -3435,7 +3437,7 @@ BEAT-SPEC-001
 - **Labels**: `feature`, `phase-7`, `P1-high`
 - **Milestone**: `v0.5-beat-motion`
 - **작업 ID**: `[RENDER-KEYNOTE-001]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (2026-09-30)**
 - **제목**: 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링
 - **목적**:
   - `KEYNOTE_PERFORMANCE` 및 `STAR_COLLECT` 페이즈에서, 그리드의 11개 피트니스 존 연결선(Zone Connection Lines)을 레일 삼아 소실점(보스 위치)에서 목표 피트니스 존 중심(1~11번 존)으로 날아오는 **별가루 악기 노트(`StarNoteRenderer`)**를 렌더링한다.
@@ -3457,6 +3459,11 @@ BEAT-SPEC-001
        - 안착 직전(±0.12s Perfect 판정 윈도우)에 목표 존 테두리 펄스 링 발생.
   2. **`main.ts` 연동**:
      - `STAR_COLLECT` 페이즈 및 `KEYNOTE_PERFORMANCE` 페이즈에서 `starNoteRenderer.render(ctx, vw, vh, ...)` 호출 (그리드 직후, 보스 이전 레이어).
+- **완료 조건**:
+  - [x] `tests/unit/star-note-renderer.test.ts` 단위 테스트 100% 통과 (Red → Green).
+  - [x] `elapsedTime == landingTime`일 때 노트 중심이 목표 존 중심과 오차 1px 이내로 일치함 검증.
+  - [x] 타겟이 없거나 비행 시간 이전/이후일 때 불필요한 드로잉 0건.
+  - [x] `npm run build` 및 전체 `npm test` 100% Pass (11개 전건 통과, 전체 767/767 통과).
 - **유지 사항**:
   - `StarCollectionInput`의 판정 로직(Perfect/Good/Late/Miss 판정 윈도우) 유지.
   - 기존 수집 성공 시 `effectManager.playBurst` 연출 보존.
@@ -4158,7 +4165,7 @@ BEAT-SPEC-001
 - **Labels**: `feature`, `phase-7`, `P1-high`
 - **Milestone**: `v0.6-visuals-content`
 - **작업 ID**: `[RENDER-HAZARD-001]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (2026-09-30)**
 - **제목**: 3D 원근 그리드 바닥 보스 장판(HazardZoneRenderer) 렌더링
 - **목적**:
   - 현재 `main.ts`에 화면 중앙 고정 평면 타원으로만 단순 표시되던 보스 장판 연출을, 원근 그리드 바닥면을 따라 소실점(보스 발밑)에서 유저(화면 전경) 방향으로 입체감 있게 밀려오는 3D 원근 장판(`HazardZoneRenderer`)으로 개편한다.
@@ -4166,7 +4173,7 @@ BEAT-SPEC-001
 - **수정 및 생성 대상**:
   - `dream_guardian/src/render/HazardZoneRenderer.ts` (신규)
   - `dream_guardian/src/render/index.ts` (배럴 export 추가)
-  - `dream_guardian/src/main.ts` (평면 타원 링 드로잉 제거 및 `hazardZoneRenderer.render()` 호출 연동)
+  - `dream_guardian/src/render/BeatHUDRenderer.ts` (보스 장판 연동)
   - `dream_guardian/tests/unit/hazard-zone-renderer.test.ts` (신규 Vitest TDD 슈트)
 - **구현 내용**:
   1. **보스 장판 렌더러 (`src/render/HazardZoneRenderer.ts`)**:
@@ -4176,19 +4183,48 @@ BEAT-SPEC-001
      - **패턴 2 (`left_step` / `right_step`)**: 해당 좌/우 레인(Zone 9 또는 Zone 11 방향)을 타고 소실점에서 전경으로 덮쳐오는 위험 구역 네온 띠 (`#28E6FF` / `#FFCB4D`).
      - **패턴 3 (`balance_left` / `balance_right`)**: 한쪽 발 균형 유지 구역을 밝히고 반대편 위험 레인에 가시형 바닥 펄스 점등 (`#C889FF`).
      - `GridProjection`을 활용해 박자 진행도(`beatProgress` 0→1)에 따라 장판이 소실점에서 플레이어 쪽으로 자연스럽게 확대되며 다가오도록 투영.
-  2. **`main.ts` 연동**:
-     - `renderRunningPhase` 내부의 레거시 평면 타원(L693-703)을 제거하고 `hazardZoneRenderer.render(...)` 호출로 교체.
-     - 상단 안내 텍스트(`hazardGuide`, L668-692) 및 운동 횟수 표시는 그대로 유지.
-- **유지 사항**:
-  - `PhaseAHazardController`의 내부 판정 로직, 박자 제어 및 `recordAction` 무수정.
-  - 전투 피해량(`applyHazardDamage`) 및 처리 순서 완전 보존.
-- **변경 금지**:
-  - `BeatRunCoordinator`, `BattleState`, `PoseManager` 로직.
+  2. **`BeatHUDRenderer` 연동**:
+     - 레거시 평면 타원을 제거하고 `hazardZoneRenderer.render(...)` 호출로 교체.
+     - 상단 안내 텍스트(`hazardGuide`) 및 운동 횟수 표시는 그대로 유지.
 - **완료 조건**:
-  - [ ] `tests/unit/hazard-zone-renderer.test.ts` 단위 테스트 100% 통과 (Red → Green).
-  - [ ] `beatProgress` 진행(0→1)에 따라 장판 위치가 소실점(상단)에서 화면 하단으로 단조 증가(원근 접근) 검증.
-  - [ ] `activePattern`이 null일 때 불필요한 드로잉 0건.
-  - [ ] `npm run build` 및 전체 `npm test` 100% Pass.
+  - [x] `tests/unit/hazard-zone-renderer.test.ts` 단위 테스트 100% 통과 (Red → Green, 10개 전건 통과).
+  - [x] `beatProgress` 진행(0→1)에 따라 장판 위치가 소실점(상단)에서 화면 하단으로 단조 증가(원근 접근) 검증.
+  - [x] `activePattern`이 null일 때 불필요한 드로잉 0건.
+  - [x] `npm run build` 및 전체 `npm test` 100% Pass (756/756 통과).
+
+---
+
+### Issue #212: [RENDER-QUESTION-APPROACH-001] 문제 출제 첫 2박 원근 접근(소실점 → 정면) 연출 렌더링
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/212
+- **Labels**: `feature`, `phase-7`, `P1-high`
+- **Milestone**: `v0.5-beat-motion`
+- **작업 ID**: `[RENDER-QUESTION-APPROACH-001]`
+- **상태**: 🟢 **완료 (2026-09-30)**
+- **제목**: 문제 출제 첫 2박 원근 접근(소실점 → 정면) 연출 렌더링
+- **목적**:
+  - 확정 기획 루틴상 문제 출제 8박 중 **처음 2박 동안 수학 문제가 3D 원근 소실점에서 정면으로 천천히 다가오는 연출**을 구현.
+  - `GridProjection` 및 소실점 좌표계를 공유하여 문제 텍스트에 ease-out 원근 접근 애니메이션 적용.
+- **수정 및 생성 대상**:
+  - `dream_guardian/src/render/QuestionApproachRenderer.ts` (신규)
+  - `dream_guardian/config/beat-motion.config.ts` (`DEFAULT_QUESTION_APPROACH_CONFIG` 분리)
+  - `dream_guardian/src/render/BeatHUDRenderer.ts` (연동)
+  - `dream_guardian/src/game/BeatRunCoordinator.ts` (`questionApproachProgress` 연동)
+  - `dream_guardian/src/render/index.ts` (배럴 export 추가)
+  - `dream_guardian/tests/unit/question-approach-renderer.test.ts` (신규 Vitest TDD 슈트)
+- **구현 내용**:
+  1. **원근 스케일 및 위치 보간 (`QuestionApproachRenderer`)**:
+     - 진행도 `t`(0~1)에 따라 소실점 `(vx, vy)` → 정면 고정 좌표로 보간.
+     - 폰트 크기 `minScale`(0.15) → `1.0`(정면), 투명도 `startAlpha`(0.10) → `1.0` quadratic ease-out 감속 보간.
+     - `progress >= 1.0` 도달 이후는 변환 행렬 없이 기존 렌더링을 100% 동일하게 직접 호출하여 픽셀 동일성 보장.
+  2. **진행도 공급 (`BeatRunCoordinator.questionApproachProgress`)**:
+     - `RUN_QUESTION` 첫 2박(1.0초) 동안 0에서 1로 진행, 완료 후 1.0 유지.
+- **완료 조건**:
+  - [x] `RUN_QUESTION` 첫 2박 동안 문제가 소실점에서 정면으로 다가오는 애니메이션 렌더링.
+  - [x] 스케일·위치·투명도가 진행도(0~1)에 연동되어 부드럽게 보간.
+  - [x] 소실점 좌표가 `DreamGrid`와 일치하여 원근감 일치.
+  - [x] 진행도 1.0 이후 정면 고정 렌더 결과가 기존과 픽셀 단위로 동일.
+  - [x] 단위 테스트 100% 통과 (`tests/unit/question-approach-renderer.test.ts` 12개 전건 통과, 전체 746/746 통과), `npm run build` 성공.
+
 
 
 

@@ -90,14 +90,55 @@
 
 ---
 
-## 🔵 2026-09-30 착수 대기: 3D 원근 그리드 공간 연출 후속 카드 ([#228], [#192]) ⚪
+## 🔵 2026-09-30 완료: [AUDIO-BAND-001 / #191] 1단계 기타(Zone 1~5) + 드럼(Zone 9~11) Web Audio 합성기 및 싱크/어긋남 사운드 엔진 🟢 (전체 783/783 Pass)
 
-> 상태: **착수 대기 ⚪**  
-> #227 완료로 공용 3D 투영 모듈(`GridProjection`)이 구축되었으므로, 보스 장판 및 피트니스 존 별가루 악기 노트를 순차적으로 연동 구현합니다.
-> - **[RENDER-HAZARD-001 / #228] 3D 원근 그리드 바닥 보스 장판(HazardZoneRenderer) 렌더링 ⚪ [1순위 착수 예정]**
->   - `main.ts`의 단순 평면 타원 링을 소실점(보스 발밑)에서 유저(전경)로 밀려오는 3D 원근 장판(`HazardZoneRenderer`)으로 개편 및 5종 회피 패턴 시각화.
-> - **[RENDER-KEYNOTE-001 / #192] 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링 ⚪ [2순위 착수 예정]**
->   - 소실점에서 11개 피트니스 존 연결선 레일을 따라 목표 시각(`landingTime`)에 정확히 존 중심으로 날아오는 별가루 악기 노트(`StarNoteRenderer`) 렌더링.
+> 상태: **Issue #191 완료 🟢**  
+> 비트매니아/DJMAX 스타일의 실시간 키사운드 시스템(`BandSynthesizer`)을 구축하여, 손(Zone 1~5, 일렉 기타)과 발(Zone 9~11, 드럼)에 대응하는 역동적인 절차적 록 앙상블 음원을 합성하고, 판정 타이밍에 따른 싱크/어긋남 피드백을 연동했습니다.
+> - **일렉 기타 합성 (`Zone 1~5`)**: WaveShaper 28x 왜곡 커브 기반 오버드라이브/디스토션 기타 사운드 (Zone 1: E3, Zone 2: G3, Zone 3: A3, Zone 4: C4, Zone 5: D4).
+> - **록 드럼 합성 (`Zone 9~11`)**: Zone 9 록 드럼 킥(Kick, 130Hz→45Hz 피치 강하), Zone 10 스네어(Snare, 노이즈 버퍼 + 스네어 톤), Zone 11 크래시/하이햇(Cymbal, 하이패스 필터링 노이즈).
+> - **싱크/어긋남 음향 메커니즘**:
+>   - 정박(`sync` / Perfect): 100% 게인의 풍성한 록 앙상블 사운드.
+>   - 엇박(`stumble` / Good, Late): 피치 벤드 글리치, 디튠 및 게인 감쇠 적용.
+>   - 무동작(`miss` / Miss): 메인 악기 음소거 및 둔탁한 메트로놈 틱음 출력.
+> - **2박 준비 카운트다운 사운드**: 1박 `READY`(440Hz 도깨비 비프), 2박 `SET`(880Hz→1046Hz 상승 톤).
+> - **TDD 회귀 검증**: `tests/unit/band-synthesizer.test.ts` (16 tests) 작성 및 61개 테스트 파일 783/783 Pass, `npm run build` 성공.
+
+---
+
+## 🔵 2026-09-30 완료: [RENDER-KEYNOTE-001 / #192] 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링 🟢 (전체 767/767 Pass)
+
+> 상태: **Issue #192 완료 🟢**  
+> `KEYNOTE_PERFORMANCE` 및 `STAR_COLLECT` 페이즈에서 그리드의 11개 피트니스 존 연결선을 레일 삼아 소실점에서 목표 피트니스 존 중심으로 비행하는 별가루 악기 노트(`StarNoteRenderer`)를 구현 완료했습니다.
+> - **그리드 레일 원근 비행**: `StarCollectionInput.currentTarget` 및 착지 시각(`landingTime`) 연동, 1박(0.5초) 동안 원근 가속 비행(`scale: 0.3 → 1.2`) 및 안착 시점 1px 이내 오차 정밀 일치.
+> - **4색 신체 부위 테두리 및 비주얼**: 왼손 `#28E6FF`, 오른손 `#FFCB4D`, 머리 `#C889FF`, 골반 `#FF865E` 테두리/글로우와 중앙 `★` 아이콘, 소실점 방향 별가루 잔상 트레일.
+> - **Perfect 윈도우(±0.12s) 목표 존 펄스 링**: 안착 직전 유저가 박자에 맞춰 동작을 취할 수 있도록 목표 피트니스 존에 강조 테두리 펄스 링 표출.
+> - **인게임 렌더 루프 연동**: `main.ts`에서 그리드 직후, 보스 이전 레이어로 `starNoteRenderer.render()` 호출.
+> - **TDD 회귀 검증**: `tests/unit/star-note-renderer.test.ts` (11 tests) 작성 및 60개 테스트 파일 767/767 Pass, `npm run build` 성공.
+
+---
+
+## 🔵 2026-09-30 완료: [RENDER-HAZARD-001 / #228] 3D 원근 그리드 바닥 보스 장판(HazardZoneRenderer) 렌더링 🟢 (전체 756/756 Pass)
+
+> 상태: **Issue #228 완료 🟢**  
+> 단순 평면 타원 링으로 표시되던 보스 장판 연출을 원근 그리드 바닥면을 따라 소실점(보스 발밑)에서 유저(전경) 방향으로 밀려오는 3D 원근 장판(`HazardZoneRenderer`)으로 개편했습니다.
+> - **5종 회피 패턴 3D 시각화**:
+>   - `jump`: 소실점에서 전경 발밑까지 전 레인을 덮으며 3D 원근으로 확산하는 붉은 충격파 파동 링 (`#FF865E`).
+>   - `left_step` / `right_step`: 해당 좌/우 레인(Zone 9 또는 Zone 11 방향)을 타고 소실점에서 전경으로 밀려오는 위험 네온 띠 (`#28E6FF` / `#FFCB4D`).
+>   - `balance_left` / `balance_right`: 외발 지탱 구역 점등 및 반대편 위험 레인 가시 펄스 (`#C889FF`).
+> - **단조 증가 원근 가속**: `computeHazardFrontY(beatProgress, vanishingY, vh)`를 통해 박자 진행도(0→1)에 따라 소실점에서 화면 전경(92% 높이)까지 입체감 있게 접근.
+> - **HUD 레이어 연동**: `BeatHUDRenderer` 내부에서 `HazardZoneRenderer`를 위임 호출.
+> - **TDD 회귀 검증**: `tests/unit/hazard-zone-renderer.test.ts` (10 tests) 작성 및 59개 테스트 파일 756/756 Pass, `npm run build` 성공.
+
+---
+
+## 🔵 2026-09-30 완료: [RENDER-QUESTION-APPROACH-001 / #212] 문제 출제 첫 2박 원근 접근(소실점 → 정면) 연출 렌더링 🟢 (전체 746/746 Pass)
+
+> 상태: **Issue #212 완료 🟢**  
+> 문제 출제 첫 2박(1.0초) 동안 수학 문제가 3D 원근 소실점에서 정면 헤더로 부드럽게 다가오는 연출(`QuestionApproachRenderer`)을 구현 완료했습니다.
+> - **원근 스케일/위치 보간**: 소실점 `(vanishingX, vanishingY)`에서 정면 좌표까지 quadratic ease-out 곡선으로 매끄러운 감속 접근(scale: 0.15 → 1.0, alpha: 0.10 → 1.0).
+> - **정면 고정 픽셀 동일성 보장**: `progress >= 1.0` 도달 이후 6박 동안은 변환 행렬 없이 기존 렌더링을 100% 동일하게 직접 호출하여 시각적 회귀 완전 차단.
+> - **진행도 연동**: `BeatRunCoordinator.questionApproachProgress`를 신설하여 `RUN_QUESTION` 첫 2박 동안 실시간 접근 진행도를 `BeatHUDRenderer`에 공급.
+> - **TDD 회귀 검증**: `tests/unit/question-approach-renderer.test.ts` (12 tests) 작성 및 58개 테스트 파일 746/746 Pass, `npm run build` 성공.
 
 ---
 
