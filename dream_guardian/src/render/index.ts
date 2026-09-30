@@ -64,5 +64,11 @@ export type {
   StarNotePositionResult,
   StarNoteRenderState,
 } from './StarNoteRenderer.js';
+export { BossClimaxRenderer } from './BossClimaxRenderer.js';
+export type {
+  BossClimaxRenderState,
+  BossClimaxHazardState,
+  MinionPosition,
+} from './BossClimaxRenderer.js';
 
 

@@ -17,15 +17,15 @@
 | **7. 시청각 연결** | **#192** *(완료)* → **#228** *(완료)* → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | `[✔] 완료` |
 | **8. 정산·자원** | **#240** *(완료)* → **#242** *(완료)* | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[✔] 완료` |
 | **9. Phase B 진입** | **#241** *(완료)* | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[✔] 완료` |
-| **10. Phase B 실행** | **#213** *(완료)* → **#193** *(완료)* → **#194** *(완료)* → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | **`[▶ NEXT: #195]`** |
-| **11. 판정 유연화** | **#249** → **#250** → **#251** → **#252** → **#253** → **#254** → **#255** | 팔 뻗기·존·타이밍 판정의 유저 행동 수용성 확대 | `[ ] 대기` |
+| **10. Phase B 실행** | **#213** *(완료)* → **#193** *(완료)* → **#194** *(완료)* → **#195** *(완료)* | 피버·보스 공격·군단 화력·결전 화면 연결 | `[✔] 완료` |
+| **11. 판정 유연화** | **#249** → **#250** → **#251** → **#252** → **#253** → **#254** → **#255** | 팔 뻗기·존·타이밍 판정의 유저 행동 수용성 확대 | **`[▶ NEXT: #249]`** |
 | **12. 최종 검증** | **#186** | 실제 10문제 → Phase B → 승리/패배 → 메뉴 완주 | `[ ] 대기` |
 
 ### 📎 11단계 세부 (판정 유연화 / INPUT-TOLERANCE 시리즈)
 
 | 카드 | 제목 | 선행 조건 | 상태 |
 |---|---|---|:---:|
-| **#249** | [INPUT-TOLERANCE-001] 팔 뻗기 가중 신뢰도 스코어링 및 양팔 우세 판정 | 없음 (`config/judgment.config.ts` 신설) | `[ ] 대기` |
+| **#249** | [INPUT-TOLERANCE-001] 팔 뻗기 가중 신뢰도 스코어링 및 양팔 우세 판정 | 없음 (`config/judgment.config.ts` 신설) | `[▶ NEXT]` |
 | **#250** | [INPUT-TOLERANCE-002] 존 소프트 경계(히스테리시스·자석 존·체격 정규화) | #249 | `[ ] 대기` |
 | **#251** | [INPUT-TOLERANCE-003] 타이밍 관용(선행 버퍼·후행 유예·감쇠 홀드·유실 동결) | #249 | `[ ] 대기` |
 | **#252** | [INPUT-TOLERANCE-004] MotionIntentBus 및 페이즈별 동작 소유권·불응기 | #249·#250·#251 | `[ ] 대기` |
@@ -36,8 +36,30 @@
 > ⚠️ **#252는 구조 변경 위험 최상**: MotionIntentBus는 반드시 #249~#251 완료 후 진행하며, 버스 미주입 시 기존 직접 판정 경로로 100% 폴백되어야 한다.
 > 판정 수치는 전부 신규 `config/judgment.config.ts`로 분리하여 코드 수정 없이 튜닝 가능해야 한다 (개발 규칙 6절).
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#195 [RENDER-CLIMAX-001] 3D 원근 보스 결전 연출(불협화음 장판 충격파, 적 미니언 전진, 아군 군단 마법 탄막 및 광폭화)`**  
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#249 [INPUT-TOLERANCE-001] 팔 뻗기 가중 신뢰도 스코어링 및 양팔 우세 판정`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-10-01 완료: [RENDER-CLIMAX-001 / #195] 3D 원근 보스 결전 연출(불협화음 장판 충격파, 적 미니언 전진, 아군 군단 마법 탄막 및 광폭화)
+
+> #195 구현 및 단위/통합 검증 완료. 1인칭 3D 원근 시점의 DreamGrid 공간에서 Phase B 보스 결전(`BOSS_CLIMAX`) 시각 연출을 담당하는 `BossClimaxRenderer`를 구현하고, 실제 Phase B 전투 상태 기반 충격파·그림자 미니언 전진·아군 V자 편대·마법 탄막·보스 30% 광폭화 및 HUD 오버레이를 완벽히 시각화했다.
+> - **불협화음 장판 충격파 & 레인 투영**:
+>   - `hazard.activePattern === 'dual_slam'`: 소실점(vy)에서 전경 발밑까지 3D 원근 타원 가속으로 확산하는 붉은 충격파 파동 링 및 JUMP 가이드 드로잉.
+>   - `hazard.activePattern === 'alternating_stomp_left' / 'alternating_stomp_right'`: 소실점에서 좌측/우측 레인(Zone 9 / Zone 11)을 타고 전진하는 그림자 미니언 및 짓밟기 유도 안내선 드로잉.
+>   - `hazard.isResolved`: 회피 성공 시 에메랄드 글로우(`EVADED!`), 실패 피격 시 붉은 폭발 피드백(`HIT! -15 HP`) 연출.
+> - **아군 미니언 군단 V자 편대**:
+>   - 전경 중앙 수호신(Stage 1~4 단계별 날개 및 후광) 좌우로 부유하는 V자 편대 좌표를 `minionCount`(0..13)에 따라 동적 대칭 계산. 0마리 시 수호신 단독 대치.
+> - **아군 군단 마법 탄막 (Magic Barrage)**:
+>   - `barrageActive` 및 `barrageProgress`에 따라 미니언 편대와 수호신으로부터 소실점 보스를 향해 날아가는 별빛 마법 투사체 및 보스 위치(p >= 0.85) 폭발 플래시 연출.
+> - **보스 광폭화 아우라**:
+>   - `isEnraged` 활성화 시 보스 주변에 회전하는 붉은 코로나 광선 스파이크 및 펄스 화염 아우라 점등.
+> - **Phase B 전용 상태 HUD**:
+>   - 보스 HP 게이지, 광폭화 배지, 피버 콤보 카운터(`🔥 FEVER xN`), 아군 군단 수(`👥 군단: N/13`), 별가루 잔량(`★ 별가루: N`)을 상하단 여백에 깔끔히 배치하여 중앙 키노트 및 커서 판정을 일체 방해하지 않음.
+> - **순수 프리젠테이션 격리 & main.ts 실연결**:
+>   - 상태 불변성(Immutability) 보장 및 게임 밸런스 무계산 원칙 준수.
+>   - `src/main.ts`의 `screenMode === 'game'` 루프에서 `stateMachine.currentState === 'BOSS_CLIMAX'` 시 DreamGrid 이후, HUD 이전에 `bossClimaxRenderer.render` 호출 연결. 문제/답안 오버레이 0% 은닉 보장.
+> - **TDD 검증**: 단위 테스트 14건 (`tests/unit/boss-climax-renderer.test.ts`), 통합 테스트 4건 (`tests/integration/boss-climax-render.test.ts`) 신규 작성 및 전체 테스트 102개 파일 1,187건 100% Pass 완료.
 
 ---
 
@@ -1035,10 +1057,10 @@
 | 8 | 별모으기 2~8박 (키노트 렌더/오디오) | #192 (렌더) / #191 (오디오) | ⚪ 대기 |
 | 9 | 미니언 증원 (+1) | #194 `MINION-TROOP-001` | ⚪ 대기 |
 | 10 | 라운드 단일 정산 | #184 `BeatRoundResolver` | 🟢 #206 통합 완료 |
-| 11 | 보스 결전 — 보스 마법 공격 패턴 | #193 `BATTLE-BOSS-001` | ⚪ 대기 |
-| 12 | 보스 결전 — 미니언 군단 화력 | #194 `MINION-TROOP-001` | ⚪ 대기 |
-| 13 | 보스 결전 — 유저 피버타임 별모으기 | #213 `BOSS-FEVER-001` | ⚪ 등록 완료 |
-| 14 | 보스 결전 연출 | #195 `RENDER-CLIMAX-001` | ⚪ 대기 |
+| 11 | 보스 결전 — 보스 마법 공격 패턴 | #193 `BATTLE-BOSS-001` | 🟢 완료 |
+| 12 | 보스 결전 — 미니언 군단 화력 | #194 `MINION-TROOP-001` | 🟢 완료 |
+| 13 | 보스 결전 — 유저 피버타임 별모으기 | #213 `BOSS-FEVER-001` | 🟢 완료 |
+| 14 | 보스 결전 연출 | #195 `RENDER-CLIMAX-001` | 🟢 완료 |
 | 15 | **레거시 골반/머리 선택기 제거** | #226 `CLEANUP-ANSWER-INPUT-001` | 🟢 완료 |
 
 ---
@@ -1264,9 +1286,9 @@
 
 | 작업 ID | GitHub Issue | 제목 | 핵심 모듈 | 상태 |
 |---|---|---|---|:---:|
-| `BATTLE-BOSS-001` | [#193](https://github.com/Choyounhwa/-dream-guardian/issues/193) | Phase B 보스 불협화음 장판(양손 쿵 점프 & 한손 콩콩 발짓밟기) 및 광폭화 엔진 | `BossHazardController.ts`, `BossController.ts` | ⚪ 대기 |
-| `MINION-TROOP-001` | [#194](https://github.com/Choyounhwa/-dream-guardian/issues/194) | 아군 미니언 군단(3~13체) 실시간 증원/탈락 및 상체(Zone 1~5) 별빛 수집 마법 발사 시스템 | `MinionTroopManager.ts`, `BattleState.ts` | ⚪ 대기 |
-| `RENDER-CLIMAX-001` | [#195](https://github.com/Choyounhwa/-dream-guardian/issues/195) | 3D 원근 보스 결전 연출(불협화음 장판 충격파, 적 미니언 전진, 아군 군단 마법 탄막 및 광폭화) | `BossClimaxRenderer.ts`, `CanvasManager.ts` | ⚪ 대기 |
+| `BATTLE-BOSS-001` | [#193](https://github.com/Choyounhwa/-dream-guardian/issues/193) | Phase B 보스 불협화음 장판(양손 쿵 점프 & 한손 콩콩 발짓밟기) 및 광폭화 엔진 | `BossHazardController.ts`, `BossController.ts` | 🟢 완료 |
+| `MINION-TROOP-001` | [#194](https://github.com/Choyounhwa/-dream-guardian/issues/194) | 아군 미니언 군단(3~13체) 실시간 증원/탈락 및 상체(Zone 1~5) 별빛 수집 마법 발사 시스템 | `MinionTroopManager.ts`, `BattleState.ts` | 🟢 완료 |
+| `RENDER-CLIMAX-001` | [#195](https://github.com/Choyounhwa/-dream-guardian/issues/195) | 3D 원근 보스 결전 연출(불협화음 장판 충격파, 적 미니언 전진, 아군 군단 마법 탄막 및 광폭화) | `BossClimaxRenderer.ts`, `CanvasManager.ts` | 🟢 완료 |
 
 
 

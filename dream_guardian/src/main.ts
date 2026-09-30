@@ -44,6 +44,7 @@ import {
   BeatHUDRenderer,
   QuestionRenderer,
   StarNoteRenderer,
+  BossClimaxRenderer,
   drawJoinedHandsCursor,
 } from './render/index.js';
 import { EffectManager } from './effects/index.js';
@@ -177,6 +178,7 @@ const questionRenderer = new QuestionRenderer();
 const beatHUDRenderer = new BeatHUDRenderer();
 const presentationAdapter = new PhasePresentationAdapter(beatHUDRenderer.hazardRenderer);
 const starNoteRenderer = new StarNoteRenderer();
+const bossClimaxRenderer = new BossClimaxRenderer();
 const gestureFeedbackOverlay = new GestureFeedbackOverlay();
 const sessionLifecycle = new SessionLifecycle();
 
@@ -231,10 +233,14 @@ const eventBus = new EventBus();
 let bossFeverController: BossFeverController;
 let bossHazardController: BossHazardController;
 
-// Issue #194: 미니언 군단 매니저 의존성 주입 및 탄막 발사 연출 연결
+// Issue #194 & #195: 미니언 군단 매니저 의존성 주입 및 탄막 발사 연출 연결
+let climaxBarrageTimer = 0;
+const CLIMAX_BARRAGE_DURATION = 0.8;
+
 beatRoundResolver.resourceManager.troopManager.setEventBus(eventBus);
 beatRoundResolver.resourceManager.troopManager.setBossController(boss);
 eventBus.on('troop:barrage', (info) => {
+  climaxBarrageTimer = CLIMAX_BARRAGE_DURATION;
   bossRenderer.triggerHit();
   effectManager.playPreset(
     info.isEnhanced ? 'cast' : 'correct',
@@ -775,6 +781,7 @@ function startChapter(ch: number, subLevel?: number): void {
   if (bossHazardController) {
     bossHazardController.reset();
   }
+  climaxBarrageTimer = 0;
   starCollectionInput.reset();
   starNoteScheduler.reset();
   hudLayer.reset();
@@ -891,6 +898,7 @@ function goToMenu(): void {
   if (bossHazardController) {
     bossHazardController.reset();
   }
+  climaxBarrageTimer = 0;
   sfx.stopDwellCharge();
   pauseModal.close();
   engine.resumeGame();
@@ -1335,6 +1343,7 @@ const engine = new GameEngine({
 
     if (feedbackTimer > 0) feedbackTimer -= dt;
     if (castingFlash > 0) castingFlash -= dt;
+    if (climaxBarrageTimer > 0) climaxBarrageTimer = Math.max(0, climaxBarrageTimer - dt);
     guardian.update(dt);
     bossRenderer.update(dt);
     effectManager.update(dt);
@@ -1433,6 +1442,35 @@ const engine = new GameEngine({
           vanishingX: bossX,
           vanishingY: bossY,
           isPaused: engine.paused || starNoteScheduler.isPaused,
+        });
+      }
+
+      // Issue #195: Phase B 보스 결전(BOSS_CLIMAX) 충격파·군단·피버·광폭화 시각화 (DreamGrid 이후, HUD 이전)
+      if (stateMachine.currentState === 'BOSS_CLIMAX') {
+        const hazardState =
+          bossHazardController && bossHazardController.isAttacking
+            ? {
+                activePattern: bossHazardController.currentAttack,
+                progress: bossHazardController.attackProgress,
+                isResolved: bossHazardController.attackState === 'resolved',
+                isEvaded: bossHazardController.isEvaded,
+              }
+            : null;
+
+        bossClimaxRenderer.render(ctx, vw, vh, {
+          bossHp: boss.hp,
+          bossMaxHp: boss.maxHp,
+          isEnraged: bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3),
+          minionCount: beatRoundResolver.resourceManager.troopManager.minionCount,
+          guardianStage: guardian.stage,
+          stardust: beatRoundResolver.resourceManager.stardust,
+          feverCombo: bossFeverController ? bossFeverController.feverCombo : 0,
+          hazard: hazardState,
+          barrageActive: climaxBarrageTimer > 0,
+          barrageProgress: climaxBarrageTimer > 0 ? 1 - (climaxBarrageTimer / CLIMAX_BARRAGE_DURATION) : 0,
+          elapsedTime: engine.elapsedTime,
+          vanishingX: bossX,
+          vanishingY: bossY,
         });
       }
 
