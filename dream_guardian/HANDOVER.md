@@ -14,8 +14,8 @@
 | **4. 모션 입력** | **#237** *(완료)* → **#238** *(완료)* → *(#239 미채택)* | 발 좌표·방향·스텝, 점프 사용자 기준선 | `[✔] 완료` |
 | **5. 분기 실행** | **#235** *(완료)* → **#236** *(완료)* | 별모으기 노트 일정·판정창, 회피 장판 수명주기 | `[✔] 완료` |
 | **6. 문제 표시** | **#212** *(완료)* → **#234** *(완료)* | 문제 원근 접근 연출 및 긴 수식 너비·높이 수용 | `[✔] 완료` |
-| **7. 시청각 연결** | **#192** *(완료)* → **#228** *(완료)* → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | **`[▶ NEXT: #191]`** |
-| **8. 정산·자원** | **#240** → **#242** | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[ ] 대기` |
+| **7. 시청각 연결** | **#192** *(완료)* → **#228** *(완료)* → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | `[✔] 완료` |
+| **8. 정산·자원** | **#240** → **#242** | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | **`[▶ NEXT: #240]`** |
 | **9. Phase B 진입** | **#241** | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[ ] 대기` |
 | **10. Phase B 실행** | **#213** → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | `[ ] 대기` |
 | **11. 판정 유연화** | **#249** → **#250** → **#251** → **#252** → **#253** → **#254** → **#255** | 팔 뻗기·존·타이밍 판정의 유저 행동 수용성 확대 | `[ ] 대기` |
@@ -36,8 +36,31 @@
 > ⚠️ **#252는 구조 변경 위험 최상**: MotionIntentBus는 반드시 #249~#251 완료 후 진행하며, 버스 미주입 시 기존 직접 판정 경로로 100% 폴백되어야 한다.
 > 판정 수치는 전부 신규 `config/judgment.config.ts`로 분리하여 코드 수정 없이 튜닝 가능해야 한다 (개발 규칙 6절).
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#191 [AUDIO-SYNTH-BAND-001] Web Audio 밴드 신디사이저·신체 부위별 악기 음향 및 판정 피드백 동기화 재검증`**  
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#240 [SPEC-PHASEA-SETTLE-001] Phase A 정산 책임 분리 및 비치명 피해/마나 소비 정합화`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-10-01 완료: [AUDIO-BAND-001 / #191] 실제 노트·장판·Web Audio 밴드 음향 동기화 재검증
+
+> #191 구현 및 단위/통합 검증 완료. `BandSynthesizer`의 파워코드 및 스네어톤 설명과 실제 오디오 노드 구성이 불일치하여 파워코드 존(Zone 1~3)에서 단일 오실레이터만 생성되거나 스네어 존(Zone 10)에서 노이즈 버퍼만 재생되고 바디 펀치 톤 오실레이터가 누락되던 결함, 노트결과 ID 기준 중복 방지 캐시가 없어 이벤트 중복 시 동일 노트 음향이 중복 격발될 수 있던 결함, 그리고 `SFXSynth`와 `BandSynthesizer` 간 `AudioContext` 인스턴스 공유 및 `suspend()`/`resume()`/`close()` 생명주기 제어가 부재하던 결함을 해결했다. `config/audio.config.ts`를 신설하여 일렉 기타 주파수, 파워코드 5도 비율(1.5), 왜곡 계수(28), 록 드럼 파라미터(Kick, Snare 톤+노이즈, Cymbal 필터), 미스 틱, 레디/셋 파라미터를 완전 분리했다. `BandSynthesizer`에서 Zone 1~3은 근음+5도 화음 듀얼 오실레이터로, Zone 10 스네어는 노이즈 버퍼와 톤 오실레이터(180Hz→80Hz) 동시 합성으로 개편하고 `suspend/resume/close` 생명주기 API를 완비했다. `SFXSynth` 역시 외부 `AudioContext` 주입 옵션 및 생명주기를 지원하여 두 신디사이저가 단일 `AudioContext`를 공유하도록 구축했다. 또한 `src/main.ts`에 `playedNoteAudioIds` 중복 방지 세트를 도입하여 노트결과 ID당 정확히 1회 재생 및 무입력 Miss 누락 0건을 보장했다. 신규 통합 테스트 `tests/integration/audio-band-integration.test.ts`를 통해 손/발/Space/터치 실입력 연동(Perfect sync, Good/Late stumble, Miss tick), 7노트 혼합 루틴 누락 0건, 장판 회피 성공(`shield_deflect`) 및 피격(`player_hurt` & -25 HP) 음향 연동, 음소거 및 AudioContext 생명주기를 100% 검증했다.
+
+### 주요 구현 및 변경 사항
+- **오디오 설정값 완전 분리 (`config/audio.config.ts`, `src/core/Config.ts`)**:
+  - `DEFAULT_BAND_AUDIO_CONFIG`: Zone 1~8 기타 주파수, 파워코드 존(`[1, 2, 3]`), 5도 비율(`1.5`), WaveShaper 왜곡 계수(`28`), 록 드럼(Kick, Snare 노이즈+톤, Cymbal), 미스 틱(120Hz), 레디/셋 톤 파라미터 분리.
+- **파워코드 화음 및 스네어톤 듀얼 합성 (`src/audio/BandSynthesizer.ts`)**:
+  - `playGuitarZone`: Zone 1~3 파워코드 타격 시 근음(`freq`) 및 5도 화음(`freq * 1.5`) 2개 sawtooth 오실레이터를 WaveShaper 왜곡기에 동시 공급. Zone 4~5는 단일 리드 오실레이터 출력.
+  - `playDrumZone`: Zone 10 스네어 타격 시 노이즈 버퍼와 함께 스네어 톤 오실레이터(180Hz→80Hz 지수 하강)를 동시 트리거하여 풍부한 록 스네어 바디 펀치감 형성.
+  - 구형 `REST_READY` 상태 폐기(#229)에 따라 `playReadyCount`는 정규 루프 미채택(Unused)으로 주석 명시 및 유틸리티 보존.
+  - `suspend()`, `resume()`, `close()` 비동기 생명주기 관리 메서드 추가.
+- **AudioContext 인스턴스 공유 및 음향 수명주기 제어 (`src/audio/SFXSynth.ts`, `src/main.ts`)**:
+  - `SFXSynth` 생성자에 `options?: SFXSynthOptions` 지원 및 `audioContext` getter 노출.
+  - `src/main.ts`에서 `new BandSynthesizer({ audioContext: sfx.audioContext ?? undefined })`로 단일 AudioContext 공유 확립 (브라우저 컨텍스트 누수 방지).
+  - `playedNoteAudioIds` 세트를 연동하여 노트당 정확히 1회 오디오 재생 보장 및 `STAR_COLLECT` 진입/퇴장 및 러닝 시작 시 안전 초기화.
+- **TDD 검증 결과**:
+  - `tests/unit/band-synthesizer.test.ts` (22 tests Pass): 파워코드 2개 오실레이터, 리드 1개 오실레이터, 스네어 노이즈+톤 오실레이터, suspend/resume/close, SFXSynth 공유 포함 100% Pass.
+  - `tests/integration/audio-band-integration.test.ts` (12 tests Pass): 손/발/Space/터치 밴드 키사운드 실시간 디스패치, 7노트 혼합(3 hit + 4 miss) 누락 0건, 장판 회피 성공(`shield_deflect`) 및 피격(`player_hurt` & -25 HP), 음소거 및 suspend/resume 포함 100% Pass.
+  - `npm run build` 번들 빌드 100% 성공 & `npm test` 전체 88개 파일 1053개 테스트 100% Pass (회귀 결함 0건).
 
 ---
 

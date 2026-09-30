@@ -5,6 +5,7 @@ export * from '../../config/zone.config.js';
 export * from '../../config/cursor.config.js';
 export * from '../../config/posture.config.js';
 export * from '../../config/motion.config.js';
+export * from '../../config/audio.config.js';
 
 /**
  * 18:9 고정 종횡비 해상도 프리셋

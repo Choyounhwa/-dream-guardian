@@ -116,6 +116,34 @@ describe('BandSynthesizer (Issue #191 - AUDIO-BAND-001)', () => {
       expect(mockCtx.createWaveShaper).toHaveBeenCalled();
     });
 
+    it('Zone 1~3(파워코드)은 근음과 5도 화음을 위해 2개의 오실레이터를 생성한다', () => {
+      mockCtx = createMockAudioContext();
+      synth = new BandSynthesizer({ audioContext: mockCtx });
+
+      synth.playGuitarZone(1, 'sync');
+      expect(mockCtx.createOscillator).toHaveBeenCalledTimes(2);
+
+      const osc1 = vi.mocked(mockCtx.createOscillator).mock.results[0].value;
+      const osc2 = vi.mocked(mockCtx.createOscillator).mock.results[1].value;
+      expect(osc1.frequency.setValueAtTime).toHaveBeenCalledWith(
+        expect.closeTo(GUITAR_ZONE_FREQUENCIES[1], 1),
+        expect.any(Number),
+      );
+      // 5도 화음 (약 1.5배 주파수)
+      expect(osc2.frequency.setValueAtTime).toHaveBeenCalledWith(
+        expect.closeTo(GUITAR_ZONE_FREQUENCIES[1] * 1.5, 1),
+        expect.any(Number),
+      );
+    });
+
+    it('Zone 4~5(리드)는 단일 오실레이터를 생성한다', () => {
+      mockCtx = createMockAudioContext();
+      synth = new BandSynthesizer({ audioContext: mockCtx });
+
+      synth.playGuitarZone(4, 'sync');
+      expect(mockCtx.createOscillator).toHaveBeenCalledTimes(1);
+    });
+
     it('playZoneSound(1..5) 호출 시 playGuitarZone으로 분기한다', () => {
       const spy = vi.spyOn(synth, 'playGuitarZone');
       synth.playZoneSound(4, 'sync');
@@ -130,10 +158,12 @@ describe('BandSynthesizer (Issue #191 - AUDIO-BAND-001)', () => {
       expect(mockCtx.createGain).toHaveBeenCalled();
     });
 
-    it('Zone 10 터치 시 스네어(Snare) 노이즈 버퍼를 합성한다', () => {
+    it('Zone 10 터치 시 스네어(Snare) 노이즈 버퍼와 톤 오실레이터를 동시 합성한다', () => {
       synth.playDrumZone(10, 'sync');
       expect(mockCtx.createBuffer).toHaveBeenCalled();
       expect(mockCtx.createBufferSource).toHaveBeenCalled();
+      // 스네어 톤(오실레이터)도 동시에 생성되어 펀치감을 형성
+      expect(mockCtx.createOscillator).toHaveBeenCalled();
     });
 
     it('Zone 11 터치 시 크래시/하이햇(Cymbal) 금속성 필터를 합성한다', () => {
@@ -197,6 +227,36 @@ describe('BandSynthesizer (Issue #191 - AUDIO-BAND-001)', () => {
       synth.playReadyCount(1);
 
       expect(mockCtx.createOscillator).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('7. AudioContext 생명주기 제어 (suspend / resume / close)', () => {
+    it('suspend() 호출 시 AudioContext가 일시 중지된다', async () => {
+      (mockCtx as any).suspend = vi.fn().mockResolvedValue(undefined);
+      await synth.suspend();
+      expect((mockCtx as any).suspend).toHaveBeenCalled();
+    });
+
+    it('resume() 호출 시 AudioContext가 재개된다', async () => {
+      await synth.resume();
+      expect(mockCtx.resume).toHaveBeenCalled();
+    });
+
+    it('close() 호출 시 AudioContext가 정리된다', async () => {
+      (mockCtx as any).close = vi.fn().mockResolvedValue(undefined);
+      await synth.close();
+      expect((mockCtx as any).close).toHaveBeenCalled();
+    });
+  });
+
+  describe('8. SFXSynth와 AudioContext 공유', () => {
+    it('SFXSynth의 audioContext를 BandSynthesizer에 주입하여 공유할 수 있다', async () => {
+      const { SFXSynth } = await import('../../src/audio/SFXSynth.js');
+      const sfx = new SFXSynth({ audioContext: mockCtx });
+      const band = new BandSynthesizer({ audioContext: sfx.audioContext ?? undefined });
+
+      expect(band.audioContext).toBe(mockCtx);
+      expect(sfx.audioContext).toBe(mockCtx);
     });
   });
 });

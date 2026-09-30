@@ -162,7 +162,7 @@ armReachAnswerSelector.setViewport(
 const answerSelectionRenderer = new AnswerSelectionRenderer();
 const menuInput = new MenuInput();
 const sfx = new SFXSynth();
-const bandSynth = new BandSynthesizer();
+const bandSynth = new BandSynthesizer({ audioContext: sfx.audioContext ?? undefined });
 const tutorial = new TutorialOverlay();
 const bottomBar = new BottomBar();
 const settingsModal = new SettingsModal();
@@ -222,7 +222,20 @@ starNoteScheduler.setViewport(
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
 
+// Issue #191: 노트결과 ID 기준 중복 방지 (1회 재생 보장)
+const playedNoteAudioIds = new Set<string>();
+
 starNoteScheduler.onRating((starResult) => {
+  const noteId = starResult.target
+    ? (starResult.target as any).id
+    : `note_${starResult.timestamp}_${starResult.zoneId}`;
+  if (noteId) {
+    if (playedNoteAudioIds.has(noteId)) {
+      return;
+    }
+    playedNoteAudioIds.add(noteId);
+  }
+
   beatRoundResolver.recordStarRating(starResult.rating);
   if (starResult.collected) {
     const quality: BandTimingQuality = starResult.rating === 'Perfect' ? 'sync' : 'stumble';
@@ -323,6 +336,7 @@ stateMachine.registerState('STAR_COLLECT', {
   enter: () => {
     questionVisible = false;
     answerLocked = true;
+    playedNoteAudioIds.clear();
     starNoteScheduler.start(engine.elapsedTime, {
       roundId: beatRoundResolver.currentRoundIndex,
       notes: beatCoordinator.keynotes,
@@ -331,6 +345,7 @@ stateMachine.registerState('STAR_COLLECT', {
   exit: () => {
     starNoteScheduler.reset();
     starCollectionInput.reset();
+    playedNoteAudioIds.clear();
   },
 });
 
@@ -583,6 +598,7 @@ function startRunningPhase(): void {
   stateMachine.changeState('RUN_QUESTION');
   questionVisible = true;
   answerLocked = true;
+  playedNoteAudioIds.clear();
   starCollectionInput.reset();
   starNoteScheduler.reset();
   Object.values(locomotionDetectors).forEach((d) => d.reset());

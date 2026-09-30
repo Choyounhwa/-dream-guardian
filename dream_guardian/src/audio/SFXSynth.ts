@@ -26,14 +26,24 @@ export type SFXType =
   | 'metronome_weak'
   | 'beat_tick';
 
+export interface SFXSynthOptions {
+  audioContext?: AudioContext;
+  muted?: boolean;
+}
+
 export class SFXSynth {
   private _audioCtx: AudioContext | null = null;
   private _dwellOsc: OscillatorNode | null = null;
   private _dwellGain: GainNode | null = null;
   private _muted = false;
 
-  constructor() {
-    this._initContext();
+  constructor(options?: SFXSynthOptions) {
+    this._muted = options?.muted ?? false;
+    if (options?.audioContext) {
+      this._audioCtx = options.audioContext;
+    } else {
+      this._initContext();
+    }
   }
 
   private _initContext(): void {
@@ -48,6 +58,10 @@ export class SFXSynth {
     }
   }
 
+  get audioContext(): AudioContext | null {
+    return this._audioCtx;
+  }
+
   get isMuted(): boolean {
     return this._muted;
   }
@@ -56,6 +70,25 @@ export class SFXSynth {
     this._muted = muted;
     if (muted) {
       this.stopDwellCharge();
+    }
+  }
+
+  async suspend(): Promise<void> {
+    if (this._audioCtx && typeof this._audioCtx.suspend === 'function') {
+      await this._audioCtx.suspend();
+    }
+  }
+
+  async resume(): Promise<void> {
+    if (this._audioCtx && typeof this._audioCtx.resume === 'function') {
+      await this._audioCtx.resume();
+    }
+  }
+
+  async close(): Promise<void> {
+    this.stopDwellCharge();
+    if (this._audioCtx && typeof this._audioCtx.close === 'function') {
+      await this._audioCtx.close();
     }
   }
 
