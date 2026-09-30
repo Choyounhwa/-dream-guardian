@@ -25,6 +25,22 @@
 
 ---
 
+## 2026-09-30 완료: [BUG-DANCE-LANE-001 / #246] 문제 페이즈(RUN_QUESTION) 바운스(rebound/dip) 고유 레인 매핑 보완
+
+> #246 후속 보완 구현 및 단위/통합 검증 완료. `editor.html` 초기 진입 화면인 문제 페이즈(RUN_QUESTION)에서 8박 바운스 노트들(`NOTE_Q_1`~`NOTE_Q_8`)이 `lane: 'motion'` 설정으로 인해 신체 고유 레인(`왼손`, `오른손`, `골반/발`)에 배치되지 못하고 일반 `모션` 레인에만 갇혀 있던 결함을 해결했다. `PhaseSequenceEditor`에서 `dip`(Down 스쿼트)은 `part: 'hip'`, `rebound`(Up 리바운드)는 `part: 'leftHand'`(Cyan 테마)로 구조화된 부위 메타데이터를 명시하고, `BeatTimelineRenderer.getLanesForNote`에서 구조화된 부위를 최우선 판정하도록 개편하여 홀수 박 리바운드(Cyan)는 `✋ 왼손`, 짝수 박 딥(Orange)은 `🥋 골반/발` 고유 레인에 정확히 1회씩 교차 배치되도록 완성했다.
+
+### 주요 구현 및 변경 사항
+- **문제 페이즈(RUN_QUESTION) 명시적 신체 부위 매핑 (`src/editor/PhaseSequenceEditor.ts`)**:
+  - `initDefaultSequences` 및 `syncWithPattern`에서 `action === 'dip'`은 `part: 'hip'`, `action === 'rebound'`는 `part: 'leftHand'`로 명시적 부위 속성 주입.
+- **구조화된 부위 우선 레인 판정 (`src/editor/BeatTimelineRenderer.ts`)**:
+  - `getLanesForNote`: `part`, `targetPart`, `primaryPart`, `action` 순으로 구조화된 부위를 추출하여 고유 레인 우선 배정.
+  - 부위가 지정되지 않은 전신 안무 블록(`FEVER_PHASE_B`)만 `lane-motion`에 배치.
+- **TDD 검증 결과**:
+  - `tests/unit/editor-timeline-lane.test.ts` (6 tests Pass): `rebound`는 `lane-lh`, `dip`은 `lane-hipfoot` 고유 레인 1회 배치 및 `lane-motion` 중복 방지 검증 포함 100% Pass.
+  - `npm run build` 번들 검증 100% 성공 & `npm test` 전체 85개 파일 1006개 테스트 100% Pass.
+
+---
+
 ## 2026-09-30 완료: [FEAT-QUESTION-SHAPE-001 / #247] 쌓기나무(모양 A~Q 17종) 및 입체도형 전개도 시각 이미지 생성 및 QuestionRenderer 연동
 
 > #247 구현 및 단위/통합 검증 완료. `questions.csv`의 Level 9 SubLevel 4(쌓기나무 165문항) 및 SubLevel 5(주사위 전개도 문항)에서 시각 그림이 없어 텍스트만으로 정답 도출이 불가능하던 문제를 해결했다. `ShapeRenderer`를 신규 구현하여 17종 쌓기나무 모양(A~Q)의 3D 아이소메트릭 절차적 드로잉 및 주사위/정육면체 1-4-1 전개도(면 1~6, 꼭짓점 점 ㄱ~ㅂ) 렌더러를 구축했다. `GeneratedQuestion` 모델에 `shapeCode`를 보존하도록 확장하고, `QuestionRenderer`에서 도형 문제 출제 시 문제 수식 텍스트와 2개 답안 버튼 사이 중앙 비간섭 밴드(`y: 480~820px`)에 3D 뷰포트 패널을 배치하여 겹침 0%로 완벽하게 연동했다.
