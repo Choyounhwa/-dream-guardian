@@ -2,6 +2,32 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 2026-09-30 완료: [BUG-SESSION-EXIT-001 / #231] 일시정지·메뉴·결과 전환의 게임 시간 및 예약 수명 통일
+
+> #231 구현 및 단위/통합 검증 완료. pause 상태에서 게임 활성 시간(`GameEngine._elapsedTime`)이 증가하던 결함을 해결하여 pause 2초 후에도 노트·장판·비트 진행도가 완벽히 동일하도록 시간 계약을 통일했다. 또한 `SessionLifecycle`을 도입하여 세션 종료 및 메뉴 복귀 시 비동기 타이머(`setTimeout`)를 일괄 취소/세대 토큰(sessionId)으로 무효화하고, 승패 결과 화면 전환 권한을 단일화하여 중복 콜백 및 고아 재시작을 원천 차단했다.
+
+### 주요 구현 및 변경 사항
+- **`SessionLifecycle` 비동기 예약 관리 모듈 구축 (`src/core/SessionLifecycle.ts`, `src/core/index.ts`)**:
+  - 세션 고유 식별자(`sessionId`) 및 `pendingTimeouts` 관리.
+  - `startSession()`, `endSession()`, `cancelAllReservations()`를 통해 세션 종료/메뉴 복귀 시 모든 예약 일괄 취소.
+  - `schedule(cb, delayMs)`로 현재 세션 ID가 일치할 때만 실행되도록 콜백 보호.
+  - `claimResultTransition()`을 통한 단 1회 결과 전환 권한 단일 소유화(중복 승패 콜백 및 후속 예약 즉시 무효화).
+- **`GameEngine` pause-aware 게임 활성 시간 분리 (`src/core/GameEngine.ts`)**:
+  - `pauseGame()` / `resumeGame()` 및 `isGamePaused` 도입.
+  - 메인 루프에서 UI/모달 호버 감지(`update(dt)`)는 정상 실행하되, `_gamePaused` 상태에서는 `_elapsedTime` 누적을 중단하여 2초간 정지 후에도 게임 시간 진행도가 0ms 증가하도록 통일.
+  - `resumeGame()` 시 `_lastTimestamp = -1`로 리셋하여 일시정지 해제 직후 dt 스파이크 완전 방어.
+- **`src/main.ts` 세션 수명 주기 및 결과 전환 통합**:
+  - `beatRoundResolver`의 중복 승패 콜백(`onBossDefeated`, `onPlayerDefeated`)을 `sessionLifecycle.claimResultTransition()`으로 단일화.
+  - `startChapter()`에서 `sessionLifecycle.startSession()` 호출로 이전 세션 잔여 예약 완전 정리.
+  - `goToMenu()`에서 `sessionLifecycle.endSession()` 호출로 다음 라운드 지연 시작(`800ms`) 취소 보장.
+  - `showResult()`에서 `sessionLifecycle.cancelAllReservations()` 및 액션 차단(`answerLocked`, `phaseAHazardController.stop()`, `beatCoordinator.pause()`, `engine.pauseGame()`).
+- **TDD 검증 결과**:
+  - `tests/integration/session-lifecycle.test.ts` (5 tests Pass): pause 2초 후 노트/장판/비트 진행도 동일, 다음 라운드 예약 후 메뉴 복귀 시 재시작 차단, 재시작 새 세션에 이전 결과 영향 0, 승패 콜백 중복 시 결과 1회 전환, 잔여 예약 자동 취소.
+  - `tests/unit/game-engine.test.ts` (11 tests Pass): `pauseGame()` 시 update() 유지 및 elapsedTime 정지 검증.
+  - `npm run build` 번들 검증 100% 성공 & `npm test` 전체 75개 파일 916개 테스트 100% Pass (회귀 결함 0건).
+
+**다음 작업 대상: #232 [FEAT-ROUTINE-SCREEN-001] 선택/별/회피 화면 렌더링 연결.**
+
 ## 2026-09-30 완료: [BUG-BEAT-CLOCK-001 / #230] 러닝 실제 8박 종료 보장 및 동일 박 중복 입력 차단
 
 > #230 구현 및 단위/통합 검증 완료. 실제 활성 게임 시계 기반으로 0.5초 비트 슬롯을 진행하고, 한 슬롯당 유효 운동 최대 1회 인정(동일 슬롯 중복 입력 및 연타 차단), totalSteps와 completedExerciseBeats 분리, 8번째 유효 슬롯 종료 경계(4.0s) 도달 전 조기 전환 금지, triggerFallbackAdvance 루프 우회 차단 및 Space e.repeat 차단을 완료했다.

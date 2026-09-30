@@ -6,6 +6,7 @@
 import { DEFAULT_CONFIG } from './core/Config.js';
 import { GameEngine } from './core/GameEngine.js';
 import { StateMachine } from './core/StateMachine.js';
+import { SessionLifecycle } from './core/SessionLifecycle.js';
 import { CanvasManager } from './render/CanvasManager.js';
 import { CameraLayer } from './render/CameraLayer.js';
 import { PoseManager } from './motion/PoseManager.js';
@@ -172,6 +173,7 @@ const questionRenderer = new QuestionRenderer();
 const beatHUDRenderer = new BeatHUDRenderer();
 const starNoteRenderer = new StarNoteRenderer();
 const gestureFeedbackOverlay = new GestureFeedbackOverlay();
+const sessionLifecycle = new SessionLifecycle();
 
 // ─── BEAT MOTION / 키노트 / 프레이밍 시스템 (Issue #206) ───
 const beatRoundResolver = new BeatRoundResolver({
@@ -185,12 +187,16 @@ const beatRoundResolver = new BeatRoundResolver({
     console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);
   },
   onBossDefeated: () => {
-    const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
-    starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
-    setTimeout(() => showResult(true), 600);
+    if (sessionLifecycle.claimResultTransition()) {
+      const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
+      starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
+      sessionLifecycle.schedule(() => showResult(true), 600);
+    }
   },
   onPlayerDefeated: () => {
-    setTimeout(() => showResult(false), 600);
+    if (sessionLifecycle.claimResultTransition()) {
+      sessionLifecycle.schedule(() => showResult(false), 600);
+    }
   },
 });
 
@@ -498,6 +504,8 @@ function startRunningPhase(): void {
 function startChapter(ch: number, subLevel?: number): void {
   if (ch < 1 || ch > 5) return;
   console.log(`[DG] Ch.${ch} SubLevel ${subLevel ?? 'ALL'} 시작`);
+  sessionLifecycle.startSession();
+  engine.resumeGame();
   currentChapter = ch;
   selectedSubLevel = subLevel;
   battle.reset();
@@ -557,12 +565,13 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
     }
 
     if (resolveResult.bossDefeated) {
-      const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
-      starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
-      setTimeout(() => {
-        stateMachine.changeState('RESULT');
-        showResult(true);
-      }, 600);
+      if (sessionLifecycle.claimResultTransition()) {
+        const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
+        starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
+        sessionLifecycle.schedule(() => {
+          showResult(true);
+        }, 600);
+      }
       return;
     }
   } else {
@@ -572,27 +581,35 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
     console.log(`[DG] 오답 피드백! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
 
     if (resolveResult.playerDefeated) {
-      setTimeout(() => {
-        stateMachine.changeState('GAMEOVER');
-        showResult(false);
-      }, 600);
+      if (sessionLifecycle.claimResultTransition()) {
+        sessionLifecycle.schedule(() => {
+          showResult(false);
+        }, 600);
+      }
       return;
     }
   }
 
-  setTimeout(() => {
+  sessionLifecycle.schedule(() => {
     beatRoundResolver.startNewRound(battle.totalQuestions + 1);
     startRunningPhase();
   }, 800);
 }
 
 function showResult(victory: boolean): void {
+  sessionLifecycle.cancelAllReservations();
   sfx.stopDwellCharge();
   if (victory) sfx.play('posture_complete');
   else sfx.play('wrong');
   console.log(`[DG] ${victory ? '승리' : '패배'}`);
   stateMachine.changeState(victory ? 'RESULT' : 'GAMEOVER');
   resultReturnTimer = 0;
+  answerLocked = true;
+  questionVisible = false;
+  armReachAnswerSelector.closeWindow();
+  phaseAHazardController.stop();
+  beatCoordinator.pause();
+  engine.pauseGame();
   resultData = {
     victory,
     chapter: currentChapter,
@@ -611,8 +628,10 @@ function showResult(victory: boolean): void {
 }
 
 function goToMenu(): void {
+  sessionLifecycle.endSession();
   sfx.stopDwellCharge();
   pauseModal.close();
+  engine.resumeGame();
   console.log('[DG] 메뉴 복귀');
   stateMachine.changeState('MENU_MAIN');
 }
@@ -911,12 +930,16 @@ const engine = new GameEngine({
     }
 
     if (screenMode !== 'game' || pauseModal.isOpen) {
+      engine.pauseGame();
       beatCoordinator.pause();
       starCollectionInput.setPaused(true);
       dreamGrid.update(dt, 0.8);
       effectManager.update(dt);
       sfx.stopDwellCharge();
       return;
+    }
+    if (engine.isGamePaused) {
+      engine.resumeGame();
     }
     if (beatCoordinator.isPaused) {
       beatCoordinator.resume();
@@ -1667,4 +1690,4 @@ if (document.readyState === 'loading') {
   bootstrap();
 }
 
-export { stateMachine };
+export { stateMachine, sessionLifecycle };

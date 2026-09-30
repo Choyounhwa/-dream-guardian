@@ -20,6 +20,7 @@ const MAX_DELTA_MS = 200;
 export class GameEngine {
   private _running = false;
   private _paused = false;
+  private _gamePaused = false;
   private _lastTimestamp = -1;
   private _rafId = 0;
   private _elapsedTime = 0;
@@ -104,11 +105,30 @@ export class GameEngine {
     this._lastTimestamp = -1; // 다음 프레임에서 기준점 리셋
   }
 
+  /** 게임 활성 일시정지 (루프/UI는 동작하나 게임 활성 시간 elapsedTime 정지) */
+  pauseGame(): void {
+    this._gamePaused = true;
+  }
+
+  /** 게임 활성 재개 (타임스탬프 리셋으로 델타 스파이크 방지) */
+  resumeGame(): void {
+    if (this._gamePaused) {
+      this._gamePaused = false;
+      this._lastTimestamp = -1;
+    }
+  }
+
+  /** 게임 활성 일시정지 상태 여부 */
+  get isGamePaused(): boolean {
+    return this._gamePaused;
+  }
+
   /** 누적 시간 및 프레임 카운터 초기화 */
   reset(): void {
     this._elapsedTime = 0;
     this._frameCount = 0;
     this._lastTimestamp = -1;
+    this._gamePaused = false;
   }
 
   /** rAF 콜백 (arrow function으로 this 바인딩 보장) */
@@ -145,7 +165,9 @@ export class GameEngine {
 
     const dt = deltaMs / 1000; // 초 단위 변환
 
-    this._elapsedTime += dt;
+    if (!this._gamePaused) {
+      this._elapsedTime += dt;
+    }
     this._frameCount++;
 
     // update → render 파이프라인

@@ -173,6 +173,37 @@ describe('GameEngine', () => {
     expect(engine.elapsedTime).toBeCloseTo(0.2, 5);
   });
 
+  it('pauseGame() 중에는 update()가 계속 호출되지만 elapsedTime은 누적되지 않는다', () => {
+    const raf = createMockRAF();
+    const update = vi.fn();
+    const engine = new GameEngine({ update, render: vi.fn() }, {
+      requestFrame: raf.requestFrame,
+      cancelFrame: raf.cancelFrame,
+    });
+
+    engine.start();
+    raf.tick(0);
+    raf.tick(100); // dt=0.1
+    expect(engine.elapsedTime).toBeCloseTo(0.1, 5);
+
+    engine.pauseGame();
+    expect(engine.isGamePaused).toBe(true);
+
+    raf.tick(200); // dt=0.1, update는 호출되나 elapsedTime은 누적되지 않음
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(engine.elapsedTime).toBeCloseTo(0.1, 5);
+
+    raf.tick(2100); // 1.9초 경과
+    expect(engine.elapsedTime).toBeCloseTo(0.1, 5);
+
+    engine.resumeGame();
+    expect(engine.isGamePaused).toBe(false);
+
+    raf.tick(2200); // resume 직후 첫 틱
+    raf.tick(2300); // dt=0.1
+    expect(engine.elapsedTime).toBeCloseTo(0.2, 5);
+  });
+
   it('stop() 후에는 프레임이 더 이상 진행되지 않는다', () => {
     const raf = createMockRAF();
     const update = vi.fn();
