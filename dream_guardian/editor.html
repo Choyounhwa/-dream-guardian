@@ -138,10 +138,16 @@
       font-size: 13px;
       font-weight: 700;
       color: var(--color-yellow);
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+    }
+
+    .sidebar-action-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
     }
 
     .section-subtitle {
@@ -335,13 +341,82 @@
     }
 
     .workspace-toolbar {
-      height: 38px;
+      height: 42px;
       padding: 0 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid var(--border-color);
-      background: rgba(21, 24, 39, 0.5);
+      background: rgba(21, 24, 39, 0.7);
+    }
+
+    .tool-selector-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tool-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-right: 4px;
+    }
+
+    .tool-btn {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .tool-btn:hover {
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .tool-btn.active {
+      border-color: #ffffff;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+    }
+
+    .tool-btn.tool-lh.active {
+      border-color: var(--color-cyan);
+      background: rgba(40, 230, 255, 0.2);
+      color: var(--color-cyan);
+      box-shadow: 0 0 10px rgba(40, 230, 255, 0.3);
+    }
+
+    .tool-btn.tool-rh.active {
+      border-color: var(--color-yellow);
+      background: rgba(255, 203, 77, 0.2);
+      color: var(--color-yellow);
+      box-shadow: 0 0 10px rgba(255, 203, 77, 0.3);
+    }
+
+    .tool-btn.tool-head.active {
+      border-color: var(--color-purple);
+      background: rgba(200, 137, 255, 0.2);
+      color: var(--color-purple);
+      box-shadow: 0 0 10px rgba(200, 137, 255, 0.3);
+    }
+
+    .tool-btn.tool-hip.active {
+      border-color: var(--color-orange);
+      background: rgba(255, 134, 94, 0.2);
+      color: var(--color-orange);
+      box-shadow: 0 0 10px rgba(255, 134, 94, 0.3);
+    }
+
+    .tool-btn.tool-foot.active {
+      border-color: var(--color-green);
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--color-green);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
     }
 
     .workspace-title {
@@ -413,6 +488,7 @@
     .cursor-rh .dot { background: var(--color-yellow); }
     .cursor-head .dot { background: var(--color-purple); }
     .cursor-hip .dot { background: var(--color-orange); }
+    .cursor-foot .dot { background: var(--color-green); }
 
     .legend-info {
       color: var(--text-muted);
@@ -582,6 +658,21 @@
       color: white;
     }
     .btn-secondary:hover { background: #4B5563; }
+
+    .btn-danger {
+      background: #DC2626;
+      color: white;
+    }
+    .btn-danger:hover { background: #B91C1C; }
+    .btn-danger:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
 
     .btn-accent {
       background: #6366F1;

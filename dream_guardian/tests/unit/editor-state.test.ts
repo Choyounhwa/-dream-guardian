@@ -187,4 +187,59 @@ describe('EditorState - 피트니스 안무 및 타임라인 에디터 상태 �
       expect(listener.onPlayStateChange).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('5. Phase 2 신규 기능: 활성 편집 도구(ActiveTool) 및 존 인터랙션', () => {
+    it('기본 activeTool은 "inspect"이며, 부위별 도구로 변경할 수 있다', () => {
+      expect(state.activeTool).toBe('inspect');
+      state.setActiveTool('leftHand');
+      expect(state.activeTool).toBe('leftHand');
+      state.setActiveTool('hip');
+      expect(state.activeTool).toBe('hip');
+    });
+
+    it('assignPartToZone()으로 현재 패턴의 특정 부위에 피트니스 존을 즉시 할당한다', () => {
+      state.assignPartToZone('leftHand', 4);
+      expect(state.getSelectedPattern()?.leftHand).toBe(4);
+
+      // 이미 할당된 존을 다시 클릭하면 해제(null)된다
+      state.assignPartToZone('leftHand', 4);
+      expect(state.getSelectedPattern()?.leftHand).toBeNull();
+    });
+
+    it('assignPartToZone()으로 발 디딤 존(foot)을 토글(추가/제거)할 수 있다', () => {
+      // CAT_LOW_BOUNCE는 초기 footZones: [9, 11]
+      state.assignPartToZone('foot', 10); // 10 추가
+      expect(state.getSelectedPattern()?.footZones).toContain(10);
+
+      state.assignPartToZone('foot', 10); // 10 제거
+      expect(state.getSelectedPattern()?.footZones).not.toContain(10);
+    });
+
+    it('duplicateCurrentPattern()으로 현재 패턴을 복제할 수 있다', () => {
+      const origId = state.selectedPatternId;
+      const dup = state.duplicateCurrentPattern();
+      expect(dup).not.toBeNull();
+      expect(dup?.id).toBe(`${origId}_COPY`);
+      expect(state.selectedPatternId).toBe(`${origId}_COPY`);
+      expect(state.getPatterns().some((p) => p.id === `${origId}_COPY`)).toBe(true);
+    });
+
+    it('deleteCurrentPattern()으로 패턴을 삭제하고 남은 패턴을 선택한다', () => {
+      const initCount = state.getPatterns().length;
+      state.duplicateCurrentPattern(); // 복제해서 1개 추가
+      expect(state.getPatterns().length).toBe(initCount + 1);
+
+      const deleted = state.deleteCurrentPattern();
+      expect(deleted).toBe(true);
+      expect(state.getPatterns().length).toBe(initCount);
+    });
+
+    it('getDetailedValidation()이 PoseConstraintValidator를 통해 상세 위반 정보를 제공한다', () => {
+      state.updateCurrentPattern({ hip: 10, leftHand: 1 });
+      const detailed = state.getDetailedValidation();
+      expect(detailed.valid).toBe(false);
+      expect(detailed.violations.length).toBeGreaterThan(0);
+      expect(detailed.crossBodyViolationLines.length).toBeGreaterThan(0);
+    });
+  });
 });

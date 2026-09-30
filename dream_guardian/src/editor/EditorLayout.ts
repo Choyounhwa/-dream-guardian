@@ -148,6 +148,10 @@ export class EditorLayout {
           <div class="section-title">
             <span>안무 패턴 목록 (${patterns.length})</span>
           </div>
+          <div class="sidebar-action-bar">
+            <button id="btn-duplicate-pattern" class="btn btn-sm btn-secondary" title="현재 선택된 패턴 복제">📑 패턴 복제</button>
+            <button id="btn-delete-pattern" class="btn btn-sm btn-danger" title="현재 패턴 삭제" ${patterns.length <= 1 ? 'disabled' : ''}>🗑 삭제</button>
+          </div>
           <div class="pattern-list">
             ${patternCards}
           </div>
@@ -220,11 +224,20 @@ export class EditorLayout {
    */
   renderWorkspaceHTML(): string {
     const selected = this._state.getSelectedPattern();
+    const activeTool = this._state.activeTool;
 
     return `
       <main class="editor-workspace">
         <div class="workspace-toolbar">
-          <span class="workspace-title">11개 피트니스 존 및 포즈 캔버스</span>
+          <div class="tool-selector-group">
+            <span class="tool-label">배치 도구:</span>
+            <button class="tool-btn ${activeTool === 'inspect' ? 'active' : ''}" data-tool="inspect">🔍 조회</button>
+            <button class="tool-btn tool-lh ${activeTool === 'leftHand' ? 'active' : ''}" data-tool="leftHand">✋ 왼손 (#28E6FF)</button>
+            <button class="tool-btn tool-rh ${activeTool === 'rightHand' ? 'active' : ''}" data-tool="rightHand">🤚 오른손 (#FFCB4D)</button>
+            <button class="tool-btn tool-head ${activeTool === 'head' ? 'active' : ''}" data-tool="head">👤 머리 (#C889FF)</button>
+            <button class="tool-btn tool-hip ${activeTool === 'hip' ? 'active' : ''}" data-tool="hip">🥋 골반 (#FF865E)</button>
+            <button class="tool-btn tool-foot ${activeTool === 'foot' ? 'active' : ''}" data-tool="foot">🦶 발 (#10B981)</button>
+          </div>
           <div class="mode-toggles">
             <span class="active-pattern-label">${selected ? `현재 패턴: <strong>${selected.name}</strong>` : ''}</span>
           </div>
@@ -241,9 +254,10 @@ export class EditorLayout {
             <span class="legend-item cursor-rh"><span class="dot"></span> 오른손 (#FFCB4D)</span>
             <span class="legend-item cursor-head"><span class="dot"></span> 머리 (#C889FF)</span>
             <span class="legend-item cursor-hip"><span class="dot"></span> 골반 (#FF865E)</span>
+            <span class="legend-item cursor-foot"><span class="dot"></span> 발 (#10B981)</span>
           </div>
           <div class="legend-info">
-            * 피트니스 존(Zone 1~11)을 클릭하여 현재 선택된 부위의 좌표를 즉시 할당하거나 변경할 수 있습니다.
+            * 배치 도구를 선택한 뒤 캔버스의 피트니스 존을 클릭하면 해당 부위가 즉시 할당/해제됩니다.
           </div>
         </div>
       </main>
@@ -313,7 +327,7 @@ export class EditorLayout {
     if (!selected) {
       return { status: 'valid', message: '선택된 패턴 없음', errors: [] };
     }
-    const result = this._state.getValidationStatus();
+    const result = this._state.getDetailedValidation();
     if (result.valid) {
       return {
         status: 'valid',
@@ -324,7 +338,7 @@ export class EditorLayout {
     return {
       status: 'invalid',
       message: '⚠️ 제약 위반 경고',
-      errors: result.errors,
+      errors: result.violations.map((v) => v.message),
     };
   }
 

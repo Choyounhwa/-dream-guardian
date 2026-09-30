@@ -86,9 +86,25 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const updateCanvas = () => {
+  const updateToolbar = () => {
+    const toolBtns = document.querySelectorAll('.tool-btn');
+    toolBtns.forEach((btn) => {
+      const tool = btn.getAttribute('data-tool');
+      if (tool === state.activeTool) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  };
+
+  const updateCanvas = (hoveredZoneId?: number | null) => {
     if (canvasRenderer) {
-      canvasRenderer.render(state.getSelectedPattern());
+      canvasRenderer.render(state.getSelectedPattern(), {
+        hoveredZoneId: hoveredZoneId ?? null,
+        activeTool: state.activeTool,
+        validation: state.getDetailedValidation(),
+      });
     }
   };
 
@@ -104,6 +120,24 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       });
     });
+
+    // 패턴 복제 버튼
+    const dupBtn = document.getElementById('btn-duplicate-pattern');
+    if (dupBtn) {
+      dupBtn.addEventListener('click', () => {
+        state.duplicateCurrentPattern();
+      });
+    }
+
+    // 패턴 삭제 버튼
+    const delBtn = document.getElementById('btn-delete-pattern');
+    if (delBtn) {
+      delBtn.addEventListener('click', () => {
+        if (confirm('현재 선택된 패턴을 삭제하시겠습니까?')) {
+          state.deleteCurrentPattern();
+        }
+      });
+    }
 
     // 패턴 속성 입력 이벤트
     const nameInput = document.getElementById('pattern-name-input') as HTMLInputElement;
@@ -276,7 +310,23 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 6. 캔버스 클릭 시 인터랙션 (호버 및 클릭 존 선택)
+  // 6. 배치 도구(Tool) 버튼 이벤트 바인딩
+  const bindToolButtons = () => {
+    const toolBtns = document.querySelectorAll('.tool-btn');
+    toolBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tool = btn.getAttribute('data-tool');
+        if (tool) {
+          state.setActiveTool(tool as any);
+          updateToolbar();
+          updateCanvas();
+        }
+      });
+    });
+  };
+  bindToolButtons();
+
+  // 7. 캔버스 인터랙션 (호버 및 클릭 존 직접 할당)
   if (canvas && canvasRenderer) {
     canvas.addEventListener('mousemove', (e) => {
       const rect = canvas.getBoundingClientRect();
@@ -285,18 +335,34 @@ window.addEventListener('DOMContentLoaded', () => {
       const x = (e.clientX - rect.left) * scaleX;
       const y = (e.clientY - rect.top) * scaleY;
       const zoneId = canvasRenderer?.hitTestZone(x, y) ?? null;
-      canvasRenderer?.render(state.getSelectedPattern(), zoneId);
+      updateCanvas(zoneId);
     });
 
     canvas.addEventListener('mouseleave', () => {
-      canvasRenderer?.render(state.getSelectedPattern(), null);
+      updateCanvas(null);
+    });
+
+    canvas.addEventListener('click', (e) => {
+      if (state.activeTool === 'inspect') return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      const zoneId = canvasRenderer?.hitTestZone(x, y);
+      if (zoneId !== null && zoneId !== undefined) {
+        state.assignPartToZone(state.activeTool, zoneId);
+        updateSidebar();
+        updateCanvas(zoneId);
+      }
     });
   }
 
-  // 7. 상태 변경 리스너 등록
+  // 8. 상태 변경 리스너 등록
   state.addListener({
     onStateChange: () => {
       updateHeader();
+      updateToolbar();
     },
     onPatternChange: () => {
       updateSidebar();
@@ -316,6 +382,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 초기 사이드바 이벤트 및 캔버스 렌더링
   bindSidebarEvents();
+  updateToolbar();
   updateCanvas();
 
   // 8. 오디오 비트 재생 루프 (60fps requestAnimationFrame)

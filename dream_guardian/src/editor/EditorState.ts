@@ -17,8 +17,14 @@ import {
   FEVER_PHASE_B_ROUTINE,
 } from '../data/danceRoutineData.js';
 import type { BodyPart } from '../types/posture.js';
+import {
+  poseConstraintValidator,
+  type BodyCursorPart,
+  type DetailedPoseValidationResult,
+} from './PoseConstraintValidator.js';
 
 export type PhaseType = 'RUN_QUESTION' | 'ANSWER_SELECT' | 'STAR_COLLECT' | 'FEVER_PHASE_B';
+export type ActiveEditTool = 'inspect' | 'leftHand' | 'rightHand' | 'head' | 'hip' | 'foot';
 
 export type CreatePatternInput = Omit<CatChoreoPattern, 'partZoneMap'> & {
   partZoneMap?: Partial<Record<BodyPart, number>>;
@@ -45,12 +51,22 @@ export class EditorState {
   private _selectedPhase: PhaseType = 'RUN_QUESTION';
   private _isPlaying: boolean = false;
   private _currentBeat: number = 0;
+  private _activeTool: ActiveEditTool = 'inspect';
   private _draftEdits: Partial<CatChoreoPattern> = {};
   private readonly _registry: DancePatternRegistry;
   private readonly _listeners: Set<EditorListener> = new Set();
 
   constructor(initialRegistry?: DancePatternRegistry) {
     this._registry = initialRegistry ?? new DancePatternRegistry(DEFAULT_CAT_CHOREO_PATTERNS);
+  }
+
+  get activeTool(): ActiveEditTool {
+    return this._activeTool;
+  }
+
+  setActiveTool(tool: ActiveEditTool): void {
+    this._activeTool = tool;
+    this.notifyStateChange();
   }
 
   get bpm(): number {
@@ -160,6 +176,78 @@ export class EditorState {
       this.notifyStateChange();
     }
     return res;
+  }
+
+  assignPartToZone(part: BodyCursorPart | 'foot', zoneId: number): PatternValidationResult {
+    const current = this.getSelectedPattern();
+    if (!current) {
+      return { valid: false, errors: ['선택된 패턴이 없습니다.'] };
+    }
+
+    if (part === 'foot') {
+      const existing = current.footZones ? [...current.footZones] : [];
+      const nextFootZones = existing.includes(zoneId)
+        ? existing.filter((z) => z !== zoneId)
+        : [...existing, zoneId];
+      return this.updateCurrentPattern({ footZones: nextFootZones });
+    }
+
+    const currentVal = current[part];
+    const nextVal = currentVal === zoneId ? null : zoneId;
+    return this.updateCurrentPattern({ [part]: nextVal });
+  }
+
+  duplicateCurrentPattern(): CatChoreoPattern | null {
+    const current = this.getSelectedPattern();
+    if (!current) return null;
+
+    let candidateId = `${current.id}_COPY`;
+    let count = 1;
+    while (this._registry.get(candidateId)) {
+      count++;
+      candidateId = `${current.id}_COPY_${count}`;
+    }
+
+    const res = this.createNewPattern({
+      id: candidateId,
+      name: `${current.name} (복제본)`,
+      description: current.description,
+      motionType: current.motionType,
+      leftHand: current.leftHand,
+      rightHand: current.rightHand,
+      head: current.head,
+      hip: current.hip,
+      footZones: current.footZones ? [...current.footZones] : [],
+      partZoneMap: current.partZoneMap ? { ...current.partZoneMap } : {},
+    });
+
+    if (res.valid) {
+      return this.getSelectedPattern();
+    }
+    return null;
+  }
+
+  deleteCurrentPattern(): boolean {
+    const all = this.getPatterns();
+    if (all.length <= 1) {
+      return false; // 최소 1개는 유지
+    }
+
+    const idToDelete = this._selectedPatternId;
+    const unregistered = this._registry.unregister(idToDelete);
+    if (!unregistered) return false;
+
+    const remaining = this.getPatterns();
+    this._selectedPatternId = remaining[0].id;
+    this._draftEdits = {};
+    this.notifyPatternChange(this.getSelectedPattern());
+    this.notifyStateChange();
+    return true;
+  }
+
+  getDetailedValidation(): DetailedPoseValidationResult {
+    const selected = this.getSelectedPattern();
+    return poseConstraintValidator.validateDetailed(selected ?? {});
   }
 
   setBpm(bpm: number): void {

@@ -74,4 +74,67 @@ describe('EditorCanvasRenderer - 11개 피트니스 존 및 포즈 시각화 (Ph
     const emptyZone = renderer.hitTestZone(400, 300);
     expect(emptyZone).toBeNull();
   });
+
+  it('activeTool(예: head) 지정 시 허용 존 강조 및 미리보기를 렌더링한다', () => {
+    const mockCtx = createMockCtx();
+    const mockCanvas = {
+      getContext: vi.fn(() => mockCtx),
+      width: 800,
+      height: 600,
+    } as unknown as HTMLCanvasElement;
+
+    const renderer = new EditorCanvasRenderer(mockCanvas);
+    const pattern = DEFAULT_CAT_CHOREO_PATTERNS[0];
+
+    expect(() => {
+      renderer.render(pattern, {
+        hoveredZoneId: 4,
+        activeTool: 'head',
+      });
+    }).not.toThrow();
+
+    expect(mockCtx.fillRect).toHaveBeenCalled();
+  });
+
+  it('Cross-Body 위반이 있을 때 경고 시각화(경고선 및 뱃지)를 렌더링한다', () => {
+    const mockCtx = createMockCtx();
+    const mockCanvas = {
+      getContext: vi.fn(() => mockCtx),
+      width: 800,
+      height: 600,
+    } as unknown as HTMLCanvasElement;
+
+    const renderer = new EditorCanvasRenderer(mockCanvas);
+    const invalidPattern = {
+      ...DEFAULT_CAT_CHOREO_PATTERNS[0],
+      leftHand: 1,
+      hip: 10,
+    };
+
+    expect(() => {
+      renderer.render(invalidPattern, {
+        validation: {
+          valid: false,
+          violations: [
+            {
+              type: 'CROSS_BODY_VIOLATION',
+              part: 'leftHand',
+              zoneId: 1,
+              message: 'Cross-Body 위반',
+            },
+          ],
+          crossBodyViolationLines: [
+            {
+              handPart: 'leftHand',
+              handZone: 1,
+              hipZone: 10,
+            },
+          ],
+        },
+      });
+    }).not.toThrow();
+
+    // 경고 텍스트 렌더링 호출 확인
+    expect(mockCtx.fillText).toHaveBeenCalled();
+  });
 });
