@@ -1,3 +1,5 @@
+import type { FeverConfig } from '../../config/battle.config.js';
+
 // ─── Game State (Canonical FSM 14 states / Issue #214) ───
 export type GameState =
   | 'LOADING'
@@ -81,6 +83,7 @@ export interface GameConfig {
       Late: number;
       Miss: number;
     };
+    fever?: FeverConfig;
   };
   motion: {
     squatThreshold: number;

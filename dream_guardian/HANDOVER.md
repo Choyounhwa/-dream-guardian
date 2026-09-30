@@ -17,7 +17,7 @@
 | **7. 시청각 연결** | **#192** *(완료)* → **#228** *(완료)* → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | `[✔] 완료` |
 | **8. 정산·자원** | **#240** *(완료)* → **#242** *(완료)* | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[✔] 완료` |
 | **9. Phase B 진입** | **#241** *(완료)* | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[✔] 완료` |
-| **10. Phase B 실행** | **#213** → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | **`[▶ NEXT: #213]`** |
+| **10. Phase B 실행** | **#213** *(완료)* → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | **`[▶ NEXT: #193]`** |
 | **11. 판정 유연화** | **#249** → **#250** → **#251** → **#252** → **#253** → **#254** → **#255** | 팔 뻗기·존·타이밍 판정의 유저 행동 수용성 확대 | `[ ] 대기` |
 | **12. 최종 검증** | **#186** | 실제 10문제 → Phase B → 승리/패배 → 메뉴 완주 | `[ ] 대기` |
 
@@ -36,8 +36,37 @@
 > ⚠️ **#252는 구조 변경 위험 최상**: MotionIntentBus는 반드시 #249~#251 완료 후 진행하며, 버스 미주입 시 기존 직접 판정 경로로 100% 폴백되어야 한다.
 > 판정 수치는 전부 신규 `config/judgment.config.ts`로 분리하여 코드 수정 없이 튜닝 가능해야 한다 (개발 규칙 6절).
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#213 [GAME-CLIMAX-FLOW-001] Phase B 결전 화면 전환 및 피버 모드 루프 연동`**  
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#193 [BATTLE-BOSS-001] Phase B 보스 패턴 공격(충격파·화염구) 및 스쿼트·점프 회피 구현`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-10-01 완료: [BOSS-FEVER-001 / #213] 10문제 종료 후 Phase B 연속 별모으기·콤보 보스타격 실게임 연결
+
+> #213 구현 및 단위/통합 검증 완료. 10문제 종료 후 StageProgressController로부터 Phase B(BOSS_CLIMAX)로 진입한 뒤, 수학 문제를 중단하고 무제한 별노트 시퀀스를 연속 생성/순환하며 피버 콤보 누적과 등급 가중치 기반 치명 보스 타격을 수행하는 `BossFeverController`를 신설하고 실제 런타임에 연결했다. Phase A의 별 수집이 보스 HP에 전혀 영향을 주지 않는 것(별가루 축적 전용)과 달리, Phase B의 피버 별 수집은 성공 판정(Perfect/Good/Late) 시 콤보 +1을 누적하고 설정 기반 공식(`baseDamage * ratingWeight * comboMultiplier`, 최대 3.0배 상한 클램프)으로 계산된 피해를 `bossController.takeDamage(damage)`로 직접 가해 보스를 처치할 수 있도록 구현했다. 미입력 또는 Miss 발생 시 피버 콤보는 0으로 즉시 리셋되며 피해량은 0이다. 손(Zone 1~5)과 발(Zone 9~11)을 모두 활용하는 기본 피버 시퀀스를 제공하고, 시퀀스 완료 시 다음 시퀀스를 중단 없이 이어붙여 무제한으로 별노트를 제공하도록 구축했다. #193 보스 피격 연동 규약으로 `onPlayerHit()` 및 `resetCombo()`를 제공하여 피격 시 피버 콤보가 즉시 리셋되도록 보장했다. 보스 체력이 0 이하가 되면 피버 루프를 정지하고 `RESULT` (승리)로 단 1회 전이하며 피버 통계(`BossFeverStats`)를 제공하고, 플레이어 체력이 0 이하가 되면 `GAMEOVER`로 단 1회 전이한다. `src/main.ts`의 `BOSS_CLIMAX` 진입/퇴장, `starNoteScheduler.onRating` 라우팅 분기, 키보드/터치/발 입력 및 메인 루프 update에 실연결했다.
+
+### 주요 구현 및 변경 사항
+- **피버 밸런스 설정 분리 (`config/battle.config.ts`, `src/core/Config.ts`, `src/types/index.ts`)**:
+  - `FeverConfig`: `baseDamage: 1`, `ratingWeights: { Perfect: 1.5, Good: 1.0, Late: 0.5, Miss: 0 }`, `comboMultiplierStep: 0.1`, `maxComboMultiplier: 3.0` 분리 및 `DEFAULT_BATTLE_CONFIG.fever` 추가.
+  - `DEFAULT_CONFIG.battle.fever` 및 `GameConfig.battle.fever` 타입/상수 연동.
+- **피버 컨트롤러 구현 (`src/game/BossFeverController.ts`, `src/game/index.ts`)**:
+  - `BossFeverController`: `start(startTime, snapshot)`, `stop()`, `reset()`, `recordRating(rating, noteId)`, `computeDamage(rating, combo)`, `update(currentTime, landmarks, ...)`, `onPlayerHit()`, `resetCombo()`, `getStats(isVictory)` 완비.
+  - `DEFAULT_FEVER_PATTERNS`: 손 Zone 1~5(1: 좌상, 2: 중앙상, 3: 우상, 4: 좌중, 5: 우중) 및 발 Zone 9~11(9: 좌발, 10: 중앙/골반, 11: 우발) 균형 배치.
+  - 시퀀스 연속 순환 루프: 현재 시퀀스 완료 시 다음 시퀀스를 이어붙여 끊김 없는 무제한 별노트 스트림 유지.
+  - 종결 판정: 보스 HP <= 0 시 RESULT(승리) 1회 전이 및 `onVictory` 통지, 플레이어 HP <= 0 시 GAMEOVER 1회 전이 및 `onGameOver` 통지.
+- **전투 상태 및 프레젠테이션 어댑터 연동 (`src/game/BattleState.ts`, `src/ui/PhasePresentationAdapter.ts`)**:
+  - `BattleState`: `feverCombo` 상태, `incrementFeverCombo()`, `resetFeverCombo()` 추가.
+  - `PhasePresentationAdapter.canRenderStarCollect`: `BOSS_CLIMAX` 상태에서도 별노트 렌더링을 허용하도록 확장.
+- **메인 루프 및 입력 실연결 (`src/main.ts`)**:
+  - `BOSS_CLIMAX` 상태 진입 시 `bossFeverController.start(...)` 및 퇴장 시 `stop()`.
+  - `starNoteScheduler.onRating`: `BOSS_CLIMAX` 상태에서 `bossFeverController.recordRating(starResult, noteId)`로 자동 라우팅.
+  - 발 키노트(`footKeynoteInput`), 화면 터치(`canvas.addEventListener`), Space 키보드(`document.addEventListener`)에 `BOSS_CLIMAX` 지원 추가.
+  - `engine.update`: `BOSS_CLIMAX` 중 `bossFeverController.update(...)` 호출 및 타깃 동기화.
+  - `startChapter`, `goToMenu`: `bossFeverController.reset()` 초기화 연동.
+- **TDD 검증 결과**:
+  - `tests/unit/boss-fever-controller.test.ts` (10 tests Pass): 초기 설정 로드, start 활성화/스냅샷 보존, 콤보 누적 및 보스 치명 피해, 중복 noteId 멱등성, Miss 콤보 0 리셋 및 피해 0, 콤보 배율 상한(3.0) 클램프, #193 피격 리셋(`onPlayerHit`), 보스 처치 승리(RESULT) 1회 전이, 플레이어 패배(GAMEOVER) 1회 전이, 손 1~5/발 9~11 시퀀스 생성 100% Pass.
+  - `tests/integration/boss-fever-integration.test.ts` (4 tests Pass): 10문제 정산 완료 후 Phase B 인계/피버 1회 시작/11번째 출제 0회, Phase A 별 수집 보스 피해 0 vs Phase B 보스 즉시 타격 분리, 연속 시퀀스 2회 이상 자동 순환/무입력 Miss/콤보 리셋, Phase B 보스 처치 승리(RESULT) 완주 100% Pass.
+  - `npm run build` 번들 빌드 100% 성공 & `npm test` 전체 95개 파일 1114개 테스트 100% Pass (회귀 결함 0건).
 
 ---
 

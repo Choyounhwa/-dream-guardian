@@ -25,6 +25,11 @@ export type {
   HandleRoundSettledOptions,
   StageProgressDecision,
 } from './StageProgressController.js';
+export { BossFeverController, DEFAULT_FEVER_PATTERNS } from './BossFeverController.js';
+export type {
+  BossFeverStats,
+  BossFeverControllerOptions,
+} from './BossFeverController.js';
 export type {
   RoundAnswerStatus,
   BeatRhythmStats,

@@ -48,10 +48,14 @@ export class PhasePresentationAdapter {
   }
 
   /**
-   * 별모으기 노트 렌더링 허용 여부 (STAR_COLLECT 및 KEYNOTE_PERFORMANCE에서 허용)
+   * 별모으기 노트 렌더링 허용 여부 (STAR_COLLECT, KEYNOTE_PERFORMANCE 및 Phase B 결전 BOSS_CLIMAX 허용)
    */
   canRenderStarCollect(state: GameState): boolean {
-    return state === 'STAR_COLLECT' || (state as string) === 'KEYNOTE_PERFORMANCE';
+    return (
+      state === 'STAR_COLLECT' ||
+      (state as string) === 'KEYNOTE_PERFORMANCE' ||
+      state === 'BOSS_CLIMAX'
+    );
   }
 
   /**

@@ -44,6 +44,7 @@ export const DEFAULT_CONFIG: GameConfig = {
     maxMinions: DEFAULT_BATTLE_CONFIG.maxMinions,
     minionsPerCorrect: DEFAULT_BATTLE_CONFIG.minionsPerCorrect,
     stardustReward: DEFAULT_BATTLE_CONFIG.stardustReward,
+    fever: DEFAULT_BATTLE_CONFIG.fever,
   },
   motion: {
     squatThreshold: 0.065,

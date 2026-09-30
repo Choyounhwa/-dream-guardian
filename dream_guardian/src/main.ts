@@ -27,6 +27,7 @@ import {
   PhaseAHazardController,
   StarNoteScheduler,
   StageProgressController,
+  BossFeverController,
 } from './game/index.js';
 import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
@@ -223,6 +224,9 @@ starNoteScheduler.setViewport(
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
 
+// Issue #213: Phase B 피버 컨트롤러 인스턴스 참조 선언
+let bossFeverController: BossFeverController;
+
 // Issue #191: 노트결과 ID 기준 중복 방지 (1회 재생 보장)
 const playedNoteAudioIds = new Set<string>();
 
@@ -237,7 +241,15 @@ starNoteScheduler.onRating((starResult) => {
     playedNoteAudioIds.add(noteId);
   }
 
-  beatRoundResolver.recordStarRating(starResult.rating, noteId);
+  // Issue #213 & #240: Phase A(별가루 축적)와 Phase B(보스 치명 타격) 책임 분리
+  if (
+    stateMachine.currentState === 'BOSS_CLIMAX' ||
+    (bossFeverController && bossFeverController.isActive)
+  ) {
+    bossFeverController.recordRating(starResult, noteId);
+  } else {
+    beatRoundResolver.recordStarRating(starResult.rating, noteId);
+  }
   if (starResult.collected) {
     const quality: BandTimingQuality = starResult.rating === 'Perfect' ? 'sync' : 'stumble';
     bandSynth.playZoneSound(starResult.zoneId, quality);
@@ -384,9 +396,15 @@ stateMachine.registerState('BOSS_CLIMAX', {
     feedbackTimer = 0;
     armReachAnswerSelector.closeWindow();
     phaseAHazardController.stop();
-    console.log('[DG] BOSS_CLIMAX 진입 (Phase B 결전 대기)');
+    if (bossFeverController && !bossFeverController.isActive) {
+      bossFeverController.start(engine.elapsedTime);
+    }
+    console.log('[DG] BOSS_CLIMAX 진입 (Phase B 결전 실행)');
   },
   exit: () => {
+    if (bossFeverController) {
+      bossFeverController.stop();
+    }
   },
 });
 
@@ -484,9 +502,10 @@ const phaseAHazardController = new PhaseAHazardController({
 footKeynoteInput.onEvent((event) => {
   console.log(`[DG] 발 키노트 수신: ${event.source} ${event.foot} (Zone ${event.zoneId})`);
   if (screenMode === 'game') {
-    // Issue #235: STAR_COLLECT 페이즈 발 키노트 단일 결과 라우팅 연동
+    // Issue #235 & #213: STAR_COLLECT 및 BOSS_CLIMAX 페이즈 발 키노트 단일 결과 라우팅 연동
     if (
       stateMachine.currentState === 'STAR_COLLECT' ||
+      stateMachine.currentState === 'BOSS_CLIMAX' ||
       beatCoordinator.phase === 'STAR_COLLECT' ||
       beatCoordinator.phase === 'KEYNOTE_PERFORMANCE'
     ) {
@@ -624,6 +643,32 @@ function startRunningPhase(): void {
   console.log(`[DG] 8박 문제 라운드 시작: ${currentQuestion?.questionText}`);
 }
 
+// Issue #213: Phase B 보스 결전 및 연속 별모으기 피버 컨트롤러 인스턴스화
+bossFeverController = new BossFeverController({
+  battleState: battle,
+  bossController: boss,
+  stateMachine,
+  scheduler: starNoteScheduler,
+  config: DEFAULT_CONFIG.battle.fever,
+  secondsPerBeat: 0.5,
+  onVictory: (stats) => {
+    console.log('[DG] Phase B 보스 격파 승리! 통계:', stats);
+    showResult(true);
+  },
+  onGameOver: (stats) => {
+    console.log('[DG] Phase B 플레이어 패배... 통계:', stats);
+    showResult(false);
+  },
+  onDamageDealt: () => {
+    bossRenderer.triggerHit();
+    effectManager.playPreset(
+      'correct',
+      canvasManager.virtualWidth * 0.5,
+      canvasManager.virtualHeight * 0.35,
+    );
+  },
+});
+
 const stageProgressController = new StageProgressController({
   maxRounds: DEFAULT_CONFIG.battle.phaseAQuestionCount ?? 10,
   stateMachine,
@@ -636,6 +681,7 @@ const stageProgressController = new StageProgressController({
   },
   onEnterBossClimax: (snapshot) => {
     console.log('[DG] Phase B (BOSS_CLIMAX) 진입 완료! 단일 자원 인계:', snapshot);
+    bossFeverController.start(engine.elapsedTime, snapshot);
   },
   onGameOver: () => {
     if (sessionLifecycle.claimResultTransition()) {
@@ -658,6 +704,7 @@ function startChapter(ch: number, subLevel?: number): void {
   guardian.reset();
   beatRoundResolver.reset();
   stageProgressController.reset();
+  bossFeverController.reset();
   starCollectionInput.reset();
   starNoteScheduler.reset();
   hudLayer.reset();
@@ -766,6 +813,7 @@ function showResult(victory: boolean): void {
 function goToMenu(): void {
   sessionLifecycle.endSession();
   stageProgressController.reset();
+  bossFeverController.reset();
   sfx.stopDwellCharge();
   pauseModal.close();
   engine.resumeGame();
@@ -1182,6 +1230,13 @@ const engine = new GameEngine({
         });
       }
       starNoteScheduler.update(engine.elapsedTime, sourceLandmarks);
+      starCollectionInput.setTarget(starNoteScheduler.currentTarget);
+    } else if (
+      stateMachine.currentState === 'BOSS_CLIMAX' ||
+      (bossFeverController && bossFeverController.isActive)
+    ) {
+      // Issue #213: Phase B 무제한 피버 루프 갱신 및 커서 판정
+      bossFeverController.update(engine.elapsedTime, sourceLandmarks);
       starCollectionInput.setTarget(starNoteScheduler.currentTarget);
     }
 
@@ -1618,9 +1673,10 @@ canvas.addEventListener('click', (e) => {
       }
     }
 
-    // Issue #235: STAR_COLLECT 중 피트니스 존 터치/클릭 입력
+    // Issue #235 & #213: STAR_COLLECT 및 BOSS_CLIMAX 중 피트니스 존 터치/클릭 입력
     if (
       stateMachine.currentState === 'STAR_COLLECT' ||
+      stateMachine.currentState === 'BOSS_CLIMAX' ||
       beatCoordinator.phase === 'STAR_COLLECT' ||
       beatCoordinator.phase === 'KEYNOTE_PERFORMANCE'
     ) {
@@ -1725,9 +1781,10 @@ document.addEventListener('keydown', (e) => {
       screenMode === 'game' &&
       (beatCoordinator.phase === 'KEYNOTE_PERFORMANCE' ||
         beatCoordinator.phase === 'STAR_COLLECT' ||
-        stateMachine.currentState === 'STAR_COLLECT')
+        stateMachine.currentState === 'STAR_COLLECT' ||
+        stateMachine.currentState === 'BOSS_CLIMAX')
     ) {
-      // Issue #235: Space 키보드 입력 시 StarNoteScheduler 단일 결과 라우터 연동
+      // Issue #235 & #213: Space 키보드 입력 시 StarNoteScheduler 단일 결과 라우터 연동
       starNoteScheduler.fromKeyboard(engine.elapsedTime);
       return;
     }

@@ -12,6 +12,22 @@ export interface StardustRewardConfig {
   Miss: number;
 }
 
+export interface FeverConfig {
+  /** 피버 별 수집 성공 시 기본 피해량 (기본: 1) */
+  baseDamage: number;
+  /** 판정 등급별 가중치 (Perfect 1.5, Good 1.0, Late 0.5, Miss 0) */
+  ratingWeights: {
+    Perfect: number;
+    Good: number;
+    Late: number;
+    Miss: number;
+  };
+  /** 콤보 1회당 증가 배율 (기본: 0.1) */
+  comboMultiplierStep: number;
+  /** 콤보 최대 배율 상한 (기본: 3.0) */
+  maxComboMultiplier: number;
+}
+
 export interface BattleConfig {
   /** 정답 시 보스 기본 피해량 */
   correctDamage: number;
@@ -48,6 +64,8 @@ export interface BattleConfig {
     Late: number;
     Miss: number;
   };
+  /** Phase B 피버 모드 및 보스 타격 밸런스 설정 (Issue #213) */
+  fever: FeverConfig;
 }
 
 export const DEFAULT_BATTLE_CONFIG: BattleConfig = {
@@ -70,5 +88,16 @@ export const DEFAULT_BATTLE_CONFIG: BattleConfig = {
     Good: 3,
     Late: 2,
     Miss: 0,
+  },
+  fever: {
+    baseDamage: 1,
+    ratingWeights: {
+      Perfect: 1.5,
+      Good: 1.0,
+      Late: 0.5,
+      Miss: 0,
+    },
+    comboMultiplierStep: 0.1,
+    maxComboMultiplier: 3.0,
   },
 };

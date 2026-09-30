@@ -15,6 +15,7 @@ export class BattleState {
   private _mana = 0;
   private _combo = 0;
   private _maxCombo = 0;
+  private _feverCombo = 0;
   private _correctCount = 0;
   private _wrongCount = 0;
 
@@ -28,6 +29,7 @@ export class BattleState {
   get mana(): number { return this._mana; }
   get combo(): number { return this._combo; }
   get maxCombo(): number { return this._maxCombo; }
+  get feverCombo(): number { return this._feverCombo; }
   get correctCount(): number { return this._correctCount; }
   get wrongCount(): number { return this._wrongCount; }
   get totalQuestions(): number { return this._correctCount + this._wrongCount; }
@@ -85,6 +87,17 @@ export class BattleState {
     return false;
   }
 
+  /** 피버 콤보 1 증가 후 반환 (Issue #213) */
+  incrementFeverCombo(): number {
+    this._feverCombo++;
+    return this._feverCombo;
+  }
+
+  /** 피버 콤보 0 리셋 (Issue #213, #193) */
+  resetFeverCombo(): void {
+    this._feverCombo = 0;
+  }
+
   /** HP를 직접 설정 (외부 이벤트용) */
   setHp(value: number): void {
     this._hp = Math.max(0, Math.min(this._maxHp, value));
@@ -96,6 +109,7 @@ export class BattleState {
     this._mana = 0;
     this._combo = 0;
     this._maxCombo = 0;
+    this._feverCombo = 0;
     this._correctCount = 0;
     this._wrongCount = 0;
   }
