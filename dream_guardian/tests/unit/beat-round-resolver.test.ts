@@ -209,7 +209,7 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
   });
 
   describe('8. 콜백 및 패배/승리 조건 감지', () => {
-    it('보스 격파 시 onBossDefeated 콜백이 트리거된다', () => {
+    it('Phase A 기본 모드(nonLethal)에서는 10연속 정답에도 보스 HP가 1로 보존되어 onBossDefeated가 호출되지 않는다', () => {
       let bossDefeatedCalled = false;
       const customResolver = new BeatRoundResolver({
         battle,
@@ -224,6 +224,29 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
       for (let i = 1; i <= 10; i++) {
         customResolver.startNewRound(i);
         customResolver.resolveRound('correct');
+      }
+
+      expect(boss.hp).toBe(1);
+      expect(boss.isDefeated).toBe(false);
+      expect(bossDefeatedCalled).toBe(false);
+    });
+
+    it('nonLethalPhaseA: false 지정 시에는 보스 격파 시 onBossDefeated 콜백이 트리거된다', () => {
+      let bossDefeatedCalled = false;
+      const lethalResolver = new BeatRoundResolver({
+        battle,
+        boss,
+        guardian,
+        nonLethalPhaseA: false,
+        onBossDefeated: () => {
+          bossDefeatedCalled = true;
+        },
+      });
+
+      // 보스 HP 10 -> 10회 정답
+      for (let i = 1; i <= 10; i++) {
+        lethalResolver.startNewRound(i);
+        lethalResolver.resolveRound('correct');
         if (boss.isDefeated) break;
       }
 
@@ -293,6 +316,53 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
       expect(r4.combo).toBe(1);
       expect(battle.mana).toBe(50);
       expect(battle.hp).toBe(100);
+    });
+  });
+
+  describe('10. Phase A 책임 분리 및 자원 스냅샷 (Issue #240)', () => {
+    it('roundId 파라미터를 통한 멱등적 정산 및 중복 콜백 방어', () => {
+      resolver.startNewRound(1);
+      const res1 = resolver.resolveRound('correct', 'round-01');
+      expect(res1.manaGained).toBe(25);
+      expect(battle.mana).toBe(25);
+
+      // 동일 roundId로 3번 더 호출
+      resolver.resolveRound('correct', 'round-01');
+      resolver.resolveRound('correct', 'round-01');
+      resolver.resolveRound('wrong', 'round-01');
+
+      expect(battle.mana).toBe(25);
+      expect(battle.combo).toBe(1);
+      expect(battle.correctCount).toBe(1);
+      expect(battle.wrongCount).toBe(0);
+      expect(resolver.settledRoundCount).toBe(1);
+    });
+
+    it('10문제 완료 시 isPhaseAComplete가 true가 된다', () => {
+      for (let i = 1; i <= 9; i++) {
+        resolver.startNewRound(i);
+        resolver.resolveRound('correct', i);
+        expect(resolver.isPhaseAComplete).toBe(false);
+      }
+      resolver.startNewRound(10);
+      resolver.resolveRound('correct', 10);
+      expect(resolver.isPhaseAComplete).toBe(true);
+      expect(resolver.settledRoundCount).toBe(10);
+    });
+
+    it('getResourceSnapshot은 동결된 불변 스냅샷을 반환한다', () => {
+      resolver.startNewRound(1);
+      resolver.resolveRound('correct', 1);
+
+      const snap = resolver.getResourceSnapshot();
+      expect(snap.playerHp).toBe(100);
+      expect(snap.playerMana).toBe(25);
+      expect(snap.combo).toBe(1);
+      expect(snap.correctCount).toBe(1);
+      expect(snap.totalSettledQuestions).toBe(1);
+      expect(snap.isBossDefeated).toBe(false);
+      expect(snap.bossHp).toBeGreaterThanOrEqual(1);
+      expect(Object.isFrozen(snap)).toBe(true);
     });
   });
 });

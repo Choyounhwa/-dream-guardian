@@ -81,12 +81,24 @@ export class BossController {
     return false;
   }
 
-  /** 보스에게 데미지 적용 */
-  takeDamage(amount: number): void {
-    this._hp = Math.max(0, this._hp - amount);
+  /**
+   * 보스에게 데미지 적용
+   * @param amount 피해량
+   * @param options minHp: 체력 하한선 (Phase A 비치명 피해 시 1 지정)
+   */
+  takeDamage(amount: number, options?: { minHp?: number }): void {
+    const minHp = options?.minHp ?? 0;
+    this._hp = Math.max(minHp, this._hp - amount);
     if (this._hp <= 0) {
       this._phase = 'defeated';
     }
+  }
+
+  /**
+   * 비치명 피해 적용 (Phase A 전용, 최소 HP 1 보장)
+   */
+  takeNonLethalDamage(amount: number, minHp = 1): void {
+    this.takeDamage(amount, { minHp });
   }
 
   /** 초기화 */

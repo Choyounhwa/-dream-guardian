@@ -64,3 +64,30 @@ export function createDefaultRhythmStats(): BeatRhythmStats {
     recoverySwayCount: 0,
   };
 }
+
+/**
+ * Phase A 완료 및 상태 인계용 불변 자원 스냅샷 인터페이스
+ * @see Issue #240 [BATTLE-PHASE-A-SETTLEMENT-001]
+ * @see Issue #241 [GAME-STAGE-HANDOFF-001]
+ */
+export interface PhaseAResourceSnapshot {
+  readonly playerHp: number;
+  readonly maxPlayerHp: number;
+  readonly playerMana: number;
+  readonly bossHp: number;
+  readonly maxBossHp: number;
+  readonly bossChapter: number;
+  readonly combo: number;
+  readonly maxCombo: number;
+  readonly correctCount: number;
+  readonly wrongCount: number;
+  readonly timeoutCount: number;
+  readonly totalSettledQuestions: number;
+  readonly guardianStage: number;
+  readonly guardianCastCount: number;
+  readonly rhythmStats: Readonly<BeatRhythmStats>;
+  readonly isPhaseAComplete: boolean;
+  readonly isPlayerDefeated: boolean;
+  readonly isBossDefeated: boolean;
+  readonly timestamp: number;
+}

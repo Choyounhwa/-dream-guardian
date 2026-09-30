@@ -70,6 +70,8 @@ export interface GameConfig {
     spellDamage: number;
     bossHpNormal: number;
     bossHpNightmare: number;
+    phaseAQuestionCount?: number;
+    phaseAMinBossHp?: number;
   };
   motion: {
     squatThreshold: number;

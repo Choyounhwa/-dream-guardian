@@ -436,7 +436,7 @@ const beatCoordinator = new BeatRunCoordinator({
   },
   onAnswerConfirmed: (idx, _correct, status) => {
     stateMachine.changeState('ROUND_RESOLVE');
-    const resolveResult = beatRoundResolver.resolveRound(status);
+    const resolveResult = beatRoundResolver.resolveRound(status, beatRoundResolver.currentRoundIndex);
     handleAnswer(idx, status, resolveResult);
   },
 });
@@ -686,6 +686,13 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
       }
       return;
     }
+  }
+
+  // Phase A 10문제 완료 판정 (Issue #240: 10문제 정산 완료 후 종료, 11번째 문제 미출제)
+  if (beatRoundResolver.isPhaseAComplete) {
+    console.log(`[DG] Phase A 10문제 라운드 정산 완료! (보스 처치는 Phase B 전용)`);
+    // #241 단계에서 StageProgressController 및 Phase B(BOSS_CLIMAX) 전환 연동 예정
+    return;
   }
 
   sessionLifecycle.schedule(() => {

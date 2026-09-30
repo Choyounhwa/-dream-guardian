@@ -15,7 +15,7 @@
 | **5. 분기 실행** | **#235** *(완료)* → **#236** *(완료)* | 별모으기 노트 일정·판정창, 회피 장판 수명주기 | `[✔] 완료` |
 | **6. 문제 표시** | **#212** *(완료)* → **#234** *(완료)* | 문제 원근 접근 연출 및 긴 수식 너비·높이 수용 | `[✔] 완료` |
 | **7. 시청각 연결** | **#192** *(완료)* → **#228** *(완료)* → **#191** | 실제 노트·장판·Web Audio 밴드 음향 동기화 | `[✔] 완료` |
-| **8. 정산·자원** | **#240** → **#242** | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | **`[▶ NEXT: #240]`** |
+| **8. 정산·자원** | **#240** *(완료)* → **#242** | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | **`[▶ NEXT: #242]`** |
 | **9. Phase B 진입** | **#241** | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[ ] 대기` |
 | **10. Phase B 실행** | **#213** → **#193** → **#194** → **#195** | 피버·보스 공격·군단 화력·결전 화면 연결 | `[ ] 대기` |
 | **11. 판정 유연화** | **#249** → **#250** → **#251** → **#252** → **#253** → **#254** → **#255** | 팔 뻗기·존·타이밍 판정의 유저 행동 수용성 확대 | `[ ] 대기` |
@@ -36,8 +36,33 @@
 > ⚠️ **#252는 구조 변경 위험 최상**: MotionIntentBus는 반드시 #249~#251 완료 후 진행하며, 버스 미주입 시 기존 직접 판정 경로로 100% 폴백되어야 한다.
 > 판정 수치는 전부 신규 `config/judgment.config.ts`로 분리하여 코드 수정 없이 튜닝 가능해야 한다 (개발 규칙 6절).
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#240 [SPEC-PHASEA-SETTLE-001] Phase A 정산 책임 분리 및 비치명 피해/마나 소비 정합화`**  
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#242 [GAME-PHASE-A-RESOURCES-001] Phase A 미니언·별가루 자원 모델 및 인계 스냅샷`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-10-01 완료: [BATTLE-PHASE-A-SETTLEMENT-001 / #240] Phase A 보상 정산과 Phase B 보스 처치 책임 분리
+
+> #240 구현 및 단위/통합 검증 완료. `BeatRoundResolver`가 정답당 보스 -1 데미지 및 마나 100 도달 시 스펠 -4 데미지를 무제한 적용하여 Ch.1~4 일반 보스(HP 10)가 6번째 정답에 조기 격파되고 Phase A가 비정상 승리 처리되던 결함, 동일 roundId에 대한 중복 콜백 수신 시 마나/콤보/정답수가 중복 가산되던 결함, 그리고 Phase A 종료 시점의 불변 자원 스냅샷 인터페이스 부재를 해결했다. `config/battle.config.ts`를 신설하여 `phaseAQuestionCount: 10`, `phaseAMinBossHp: 1`을 완전히 분리하고, `BossController`에 `options?: { minHp?: number }` 및 `takeNonLethalDamage()`를 도입했다. `BeatRoundResolver`에 `nonLethalPhaseA: true`와 `minBossHp: 1` 기본 정책을 적용하여 Phase A 동안 10연속 정답을 달성해도 보스 HP가 1 미만으로 떨어지지 않도록 보장하고 조기 승리 전이를 차단했다. 또한 `_settledRoundIds` 및 `_roundResults` 캐시를 구축하여 roundId 기준 멱등적(Idempotent) 단일 정산(중복 콜백 시 마나·콤보·문제수 중복 가산 0)을 완비했다. 별 0개(올 Miss)여도 정답 기본 보상(마나 +25, 콤보 +1)이 보장되며, 오답/타임아웃은 완료 문제 1개로 정상 집계하되 플레이어 직접 피해는 0으로 유지했다. 플레이어 HP가 0에 도달할 경우 Phase A 완료보다 게임오버가 우선하도록 보장하였고, `getResourceSnapshot()`을 통해 동결된(Object.freeze) `PhaseAResourceSnapshot`을 제공하도록 구축했다. `src/main.ts`에서는 10문제 완료 시 11번째 문제 출제를 차단하고 Phase B 연동을 대기하도록 제어했다.
+
+### 주요 구현 및 변경 사항
+- **전투 설정 분리 및 규격화 (`config/battle.config.ts`, `src/core/Config.ts`, `src/types/index.ts`)**:
+  - `DEFAULT_BATTLE_CONFIG`: `phaseAQuestionCount: 10`, `phaseAMinBossHp: 1`, `bossHpNormal: 10`, `bossHpNightmare: 20`, `correctDamage: 1`, `spellDamage: 4`, `playerMaxHp: 100`, `wrongDamage: 25`, `bossAttackDamage: 15`, `manaCorrectReward: 25`, `spellCost: 100` 분리.
+- **보스 비치명 피해 지원 (`src/game/BossController.ts`)**:
+  - `takeDamage(amount: number, options?: { minHp?: number })`: 체력 하한선 옵션 도입 (`this._hp = Math.max(minHp, this._hp - amount)`).
+  - `takeNonLethalDamage(amount: number, minHp = 1)` 헬퍼 메서드 추가. Phase B 처치 인터페이스(`takeDamage(amount)`) 100% 호환 보존.
+- **Phase A 책임 분리 및 멱등 정산 (`src/game/BeatRoundResolver.ts`)**:
+  - `nonLethalPhaseA: true`, `minBossHp: 1`, `maxPhaseARounds: 10` 기본 적용: 10연속 정답에도 보스 HP 1 보장, `bossDefeated: false`, `onBossDefeated` 미발생 (조기 승리 0건).
+  - `roundId?: number | string` 파라미터 지원 및 `_settledRoundIds`, `_roundResults` 연동: 동일 roundId 중복 콜백 시 마나/콤보/문제수 중복 가산 0 보장.
+  - `isPhaseAComplete`, `settledRoundCount`, `maxPhaseARounds` getter 제공.
+  - `getResourceSnapshot(): PhaseAResourceSnapshot` 불변(Object.freeze) 스냅샷 생성 지원.
+- **메인 루프 11번째 문제 출제 차단 (`src/main.ts`)**:
+  - `beatCoordinator.onAnswerConfirmed`에서 `beatRoundResolver.currentRoundIndex`를 roundId로 안전 전달.
+  - `handleAnswer`에서 `beatRoundResolver.isPhaseAComplete` 감지 시 11번째 문제 스케줄링 차단 및 Phase B 대기.
+- **TDD 검증 결과**:
+  - `tests/unit/beat-round-resolver.test.ts` (19 tests Pass): 10연속 정답 비치명 보존, lethal 모드 호환, roundId 멱등성, 10문제 완료 판정, 불변 스냅샷 검증 100% Pass.
+  - `tests/integration/phase-a-settlement.test.ts` (8 tests Pass): 10연속 정답 조기 승리 0건, 중복 콜백 방어, 지연 콜백 격리, 별 0개 기본 보상, 오답 직접피해 0, HP 0 게임오버 우선순위, 10문제 혼합 완주 불변 스냅샷 100% Pass.
+  - `npm run build` 번들 빌드 100% 성공 & `npm test` 전체 89개 파일 1065개 테스트 100% Pass (회귀 결함 0건).
 
 ---
 

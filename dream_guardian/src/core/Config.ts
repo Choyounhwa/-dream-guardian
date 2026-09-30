@@ -1,11 +1,13 @@
 import type { GameConfig } from '../types/index.js';
 import { POSTURE_TIMING_CONFIG } from '../../config/posture.config.js';
+import { DEFAULT_BATTLE_CONFIG } from '../../config/battle.config.js';
 
 export * from '../../config/zone.config.js';
 export * from '../../config/cursor.config.js';
 export * from '../../config/posture.config.js';
 export * from '../../config/motion.config.js';
 export * from '../../config/audio.config.js';
+export * from '../../config/battle.config.js';
 
 /**
  * 18:9 고정 종횡비 해상도 프리셋
@@ -23,19 +25,21 @@ export const RESOLUTION_18_9 = {
  */
 export const DEFAULT_CONFIG: GameConfig = {
   player: {
-    maxHp: 100,
-    wrongDamage: 25,
-    bossAttackDamage: 15,
+    maxHp: DEFAULT_BATTLE_CONFIG.playerMaxHp,
+    wrongDamage: DEFAULT_BATTLE_CONFIG.wrongDamage,
+    bossAttackDamage: DEFAULT_BATTLE_CONFIG.bossAttackDamage,
   },
   mana: {
-    correctReward: 25,
-    spellCost: 100,
+    correctReward: DEFAULT_BATTLE_CONFIG.manaCorrectReward,
+    spellCost: DEFAULT_BATTLE_CONFIG.spellCost,
   },
   battle: {
-    correctDamage: 1,
-    spellDamage: 4,
-    bossHpNormal: 10,
-    bossHpNightmare: 20,
+    correctDamage: DEFAULT_BATTLE_CONFIG.correctDamage,
+    spellDamage: DEFAULT_BATTLE_CONFIG.spellDamage,
+    bossHpNormal: DEFAULT_BATTLE_CONFIG.bossHpNormal,
+    bossHpNightmare: DEFAULT_BATTLE_CONFIG.bossHpNightmare,
+    phaseAQuestionCount: DEFAULT_BATTLE_CONFIG.phaseAQuestionCount,
+    phaseAMinBossHp: DEFAULT_BATTLE_CONFIG.phaseAMinBossHp,
   },
   motion: {
     squatThreshold: 0.065,
