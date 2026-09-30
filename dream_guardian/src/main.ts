@@ -62,7 +62,7 @@ import {
 } from './input/index.js';
 import { toNormalizedLandmarks } from './utils/index.js';
 import { MenuInput } from './input/MenuInput.js';
-import { SFXSynth } from './audio/index.js';
+import { SFXSynth, BandSynthesizer, type BandTimingQuality } from './audio/index.js';
 import {
   BottomBar,
   SettingsModal,
@@ -160,6 +160,7 @@ const magicCircleRenderer = new MagicCircleRenderer();
 const postureGuideRenderer = new PostureGuideRenderer(); // Issue #173: renderZoneBoxes 기본 false (가상 영역화)
 const menuInput = new MenuInput();
 const sfx = new SFXSynth();
+const bandSynth = new BandSynthesizer();
 const tutorial = new TutorialOverlay();
 const bottomBar = new BottomBar();
 const settingsModal = new SettingsModal();
@@ -906,6 +907,8 @@ const engine = new GameEngine({
           if (starResult) {
             beatRoundResolver.recordStarRating(starResult.rating);
             if (starResult.collected) {
+              const quality: BandTimingQuality = starResult.rating === 'Perfect' ? 'sync' : 'stumble';
+              bandSynth.playZoneSound(starResult.zoneId, quality);
               sfx.play('correct');
               const targetZone = DEFAULT_FITNESS_ZONES.find((z) => z.id === starResult.zoneId);
               if (targetZone) {
@@ -917,6 +920,8 @@ const engine = new GameEngine({
                   duration: 0.25,
                 });
               }
+            } else if (starResult.rating === 'Miss') {
+              bandSynth.playZoneSound(starResult.zoneId, 'miss');
             }
           }
         }
@@ -1277,6 +1282,7 @@ canvas.addEventListener('click', (e) => {
     } else if (action === 'sound') {
       settingsModal.soundEnabled = !settingsModal.soundEnabled;
       sfx.setMuted(!settingsModal.soundEnabled);
+      bandSynth.setMuted(!settingsModal.soundEnabled);
       if (settingsModal.soundEnabled) sfx.play('correct');
     }
     return;
@@ -1425,7 +1431,11 @@ document.addEventListener('keydown', (e) => {
       if (starRes) {
         beatRoundResolver.recordStarRating(starRes.rating);
         if (starRes.collected) {
+          const quality: BandTimingQuality = starRes.rating === 'Perfect' ? 'sync' : 'stumble';
+          bandSynth.playZoneSound(starRes.zoneId, quality);
           sfx.play('correct');
+        } else if (starRes.rating === 'Miss') {
+          bandSynth.playZoneSound(starRes.zoneId, 'miss');
         }
       }
       return;
