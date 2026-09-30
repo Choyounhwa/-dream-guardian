@@ -30,6 +30,16 @@ export type {
   BossFeverStats,
   BossFeverControllerOptions,
 } from './BossFeverController.js';
+export { BossHazardController, DEFAULT_BOSS_HAZARD_PATTERNS } from './BossHazardController.js';
+export type {
+  BossHazardAttackType,
+  BossHazardState,
+  BossHazardResult,
+  BossHazardStartOptions,
+  BossHazardControllerOptions,
+} from './BossHazardController.js';
+export { MinionTroopManager } from './MinionTroopManager.js';
+export type { MinionTroopConfig } from './MinionTroopManager.js';
 export type {
   RoundAnswerStatus,
   BeatRhythmStats,

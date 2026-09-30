@@ -28,6 +28,33 @@ export interface FeverConfig {
   maxComboMultiplier: number;
 }
 
+export interface BossHazardConfig {
+  /** 공격 간격 (초, 기본: 5.0) */
+  attackInterval: number;
+  /** 경고(전조) 시간 (초, 기본: 1.5) */
+  warningDuration: number;
+  /** 판정/활성 시간 (초, 기본: 1.0) */
+  activeDuration: number;
+  /** 피격 시 플레이어 피해량 (기본: 15) */
+  damage: number;
+  /** 광폭화 발동 체력 비율 (기본: 0.3 = 30%) */
+  enrageHpRatio: number;
+  /** 광폭화 시 공격 속도 가속 배율 (기본: 1.5 = 간격 / 1.5) */
+  enrageSpeedMultiplier: number;
+  /** 피격 시 아군 미니언 탈락 수량 (기본: 1) */
+  minionCasualtyCount: number;
+}
+
+export const DEFAULT_BOSS_HAZARD_CONFIG: BossHazardConfig = {
+  attackInterval: 5.0,
+  warningDuration: 1.5,
+  activeDuration: 1.0,
+  damage: 15,
+  enrageHpRatio: 0.3,
+  enrageSpeedMultiplier: 1.5,
+  minionCasualtyCount: 1,
+};
+
 export interface BattleConfig {
   /** 정답 시 보스 기본 피해량 */
   correctDamage: number;
@@ -66,6 +93,8 @@ export interface BattleConfig {
   };
   /** Phase B 피버 모드 및 보스 타격 밸런스 설정 (Issue #213) */
   fever: FeverConfig;
+  /** Phase B 보스 패턴 공격 및 광폭화 설정 (Issue #193) */
+  bossHazard: BossHazardConfig;
 }
 
 export const DEFAULT_BATTLE_CONFIG: BattleConfig = {
@@ -100,4 +129,5 @@ export const DEFAULT_BATTLE_CONFIG: BattleConfig = {
     comboMultiplierStep: 0.1,
     maxComboMultiplier: 3.0,
   },
+  bossHazard: DEFAULT_BOSS_HAZARD_CONFIG,
 };

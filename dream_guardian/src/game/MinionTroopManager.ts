@@ -99,6 +99,17 @@ export class MinionTroopManager {
   }
 
   /**
+   * 미니언 탈락/감소 (0마리 하한 클램프, Issue #193, #194)
+   * @param count 탈락할 미니언 수 (기본 1)
+   * @returns 갱신된 미니언 수
+   */
+  removeMinion(count = 1): number {
+    if (count <= 0) return this._minionCount;
+    this._minionCount = Math.max(0, this._minionCount - count);
+    return this._minionCount;
+  }
+
+  /**
    * 상태 초기화 (초기 3마리로 복원 및 정산 기록 초기화)
    */
   reset(): void {

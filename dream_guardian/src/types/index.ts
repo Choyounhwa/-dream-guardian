@@ -1,4 +1,4 @@
-import type { FeverConfig } from '../../config/battle.config.js';
+import type { FeverConfig, BossHazardConfig } from '../../config/battle.config.js';
 
 // ─── Game State (Canonical FSM 14 states / Issue #214) ───
 export type GameState =
@@ -37,6 +37,11 @@ export interface EventMap {
   'shield:activate': undefined;
   'shield:deactivate': undefined;
   'combo:update': { combo: number };
+  'boss:enrage': { hp: number; maxHp: number };
+  'minion:casualty': { remainingMinions: number; attackType?: string };
+  'MINION_CASUALTY': { remainingMinions: number; attackType?: string };
+  'boss:hazard_resolved': { attackType: string; evaded: boolean; damage: number };
+  'boss:hazard_start': { attackType: string; warningDuration: number };
 }
 
 // ─── System Lifecycle Interface ───
@@ -84,6 +89,7 @@ export interface GameConfig {
       Miss: number;
     };
     fever?: FeverConfig;
+    bossHazard?: BossHazardConfig;
   };
   motion: {
     squatThreshold: number;

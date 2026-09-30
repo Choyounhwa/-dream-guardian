@@ -74,6 +74,16 @@ describe('Phase A 미니언 및 별가루 자원 모델 단위 테스트 (Issue 
       expect(troopManager.minionCount).toBe(3);
       expect(troopManager.guardianCount).toBe(1);
     });
+
+    it('removeMinion 호출 시 미니언 수가 감소하며 0마리 하한 클램프된다 (#193, #194)', () => {
+      troopManager.removeMinion(1);
+      expect(troopManager.minionCount).toBe(2);
+      expect(troopManager.totalTroopCount).toBe(3);
+
+      troopManager.removeMinion(5);
+      expect(troopManager.minionCount).toBe(0);
+      expect(troopManager.totalTroopCount).toBe(1); // 수호신 1마리 보존
+    });
   });
 
   describe('2. PhaseAResourceManager - 별가루 적립 및 중복 방지', () => {

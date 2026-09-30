@@ -18,6 +18,7 @@ import { parseCSV } from './question/CSVLoader.js';
 import { parseFitnessPatternCSV, createKeynoteSequence } from './data/index.js';
 import type { GeneratedQuestion } from './question/QuestionEvaluator.js';
 import { QuestionSpeech } from './question/QuestionSpeech.js';
+import { EventBus } from './core/EventBus.js';
 import { BattleState } from './game/BattleState.js';
 import { BossController } from './game/BossController.js';
 import {
@@ -28,6 +29,7 @@ import {
   StarNoteScheduler,
   StageProgressController,
   BossFeverController,
+  BossHazardController,
 } from './game/index.js';
 import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
@@ -224,8 +226,10 @@ starNoteScheduler.setViewport(
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
 
-// Issue #213: Phase B 피버 컨트롤러 인스턴스 참조 선언
+// Issue #213 & #193: 전역 이벤트 버스 및 Phase B 컨트롤러 인스턴스 참조 선언
+const eventBus = new EventBus();
 let bossFeverController: BossFeverController;
+let bossHazardController: BossHazardController;
 
 // Issue #191: 노트결과 ID 기준 중복 방지 (1회 재생 보장)
 const playedNoteAudioIds = new Set<string>();
@@ -281,6 +285,7 @@ let selectedChapter = 1;
 let selectedSubLevel: number | undefined = undefined;
 let gamePhase: GamePhase = 'running';
 let totalSteps = 0;
+let totalJumps = 0;
 let totalDwellTime = 0; // Issue #135: 누적 자세 유지 시간 (초)
 let currentChapter = 1;
 let currentQuestion: GeneratedQuestion | null = null;
@@ -399,11 +404,17 @@ stateMachine.registerState('BOSS_CLIMAX', {
     if (bossFeverController && !bossFeverController.isActive) {
       bossFeverController.start(engine.elapsedTime);
     }
+    if (bossHazardController && !bossHazardController.isActive) {
+      bossHazardController.start();
+    }
     console.log('[DG] BOSS_CLIMAX 진입 (Phase B 결전 실행)');
   },
   exit: () => {
     if (bossFeverController) {
       bossFeverController.stop();
+    }
+    if (bossHazardController) {
+      bossHazardController.stop();
     }
   },
 });
@@ -520,6 +531,17 @@ footKeynoteInput.onEvent((event) => {
         phaseAHazardController.recordAction(target === 'balance_left' ? 'balance_left' : 'right_step');
       } else if (event.foot === 'centerFoot') {
         phaseAHazardController.recordAction('jump');
+      }
+    }
+
+    // Issue #193: BOSS_CLIMAX 중 발 키노트 입력 시 보스 공격(교대 짓밟기/충격파) 회피 판정 연동
+    if (stateMachine.currentState === 'BOSS_CLIMAX' && !pauseModal.isOpen && bossHazardController) {
+      if (event.foot === 'leftFoot') {
+        bossHazardController.recordAction('step_left');
+      } else if (event.foot === 'rightFoot') {
+        bossHazardController.recordAction('step_right');
+      } else if (event.foot === 'centerFoot') {
+        bossHazardController.recordAction('jump');
       }
     }
 
@@ -669,6 +691,28 @@ bossFeverController = new BossFeverController({
   },
 });
 
+// Issue #193: Phase B 전용 보스 공격·충격파·광폭화 컨트롤러 인스턴스화
+bossHazardController = new BossHazardController({
+  battleState: battle,
+  bossController: boss,
+  bossFeverController,
+  minionTroopManager: beatRoundResolver.resourceManager.troopManager,
+  eventBus,
+  config: DEFAULT_CONFIG.battle.bossHazard,
+  onAttackStart: (attackType) => {
+    console.log(`[DG] Phase B 보스 패턴 공격 개시: ${attackType}`);
+  },
+  onHazardResolved: (result) => {
+    if (result.evaded) {
+      console.log(`[DG] 보스 공격 회피 성공! (${result.attackType})`);
+      sfx.play('posture_complete');
+    } else {
+      console.log(`[DG] 보스 공격 피격! (${result.attackType}) 피해: ${result.damage}, 잔여 미니언: ${result.remainingMinions}`);
+      sfx.play('wrong');
+    }
+  },
+});
+
 const stageProgressController = new StageProgressController({
   maxRounds: DEFAULT_CONFIG.battle.phaseAQuestionCount ?? 10,
   stateMachine,
@@ -682,6 +726,7 @@ const stageProgressController = new StageProgressController({
   onEnterBossClimax: (snapshot) => {
     console.log('[DG] Phase B (BOSS_CLIMAX) 진입 완료! 단일 자원 인계:', snapshot);
     bossFeverController.start(engine.elapsedTime, snapshot);
+    bossHazardController.start();
   },
   onGameOver: () => {
     if (sessionLifecycle.claimResultTransition()) {
@@ -705,6 +750,9 @@ function startChapter(ch: number, subLevel?: number): void {
   beatRoundResolver.reset();
   stageProgressController.reset();
   bossFeverController.reset();
+  if (bossHazardController) {
+    bossHazardController.reset();
+  }
   starCollectionInput.reset();
   starNoteScheduler.reset();
   hudLayer.reset();
@@ -714,6 +762,7 @@ function startChapter(ch: number, subLevel?: number): void {
   answerLocked = true;
   castingFlash = 0;
   totalSteps = 0;
+  totalJumps = 0;
   totalDwellTime = 0;
   phaseAHazardController.stop();
   pauseModal.close();
@@ -791,6 +840,9 @@ function showResult(victory: boolean): void {
   questionVisible = false;
   armReachAnswerSelector.closeWindow();
   phaseAHazardController.stop();
+  if (bossHazardController) {
+    bossHazardController.stop();
+  }
   beatCoordinator.pause();
   engine.pauseGame();
   resultData = {
@@ -799,10 +851,10 @@ function showResult(victory: boolean): void {
     correctCount: battle.correctCount,
     totalQuestions: battle.totalQuestions,
     maxCombo: battle.maxCombo,
-    // TODO(#193): BATTLE-BOSS-001 보스 충격파 회피/짓밟기 구현 시 실제 squats/jumps 카운트 연동
+    // Issue #193: BATTLE-BOSS-001 보스 충격파 회피/짓밟기 실제 steps/jumps 카운트 연동
     steps: totalSteps,
     squats: 0,
-    jumps: 0,
+    jumps: totalJumps,
     elapsedTime: 60,
     dwellTime: totalDwellTime,
     locomotionMode: locomotionModal.selectedMode,
@@ -814,6 +866,9 @@ function goToMenu(): void {
   sessionLifecycle.endSession();
   stageProgressController.reset();
   bossFeverController.reset();
+  if (bossHazardController) {
+    bossHazardController.reset();
+  }
   sfx.stopDwellCharge();
   pauseModal.close();
   engine.resumeGame();
@@ -945,9 +1000,14 @@ const engine = new GameEngine({
         });
       }
       if (jumped && screenMode === 'game' && !pauseModal.isOpen) {
+        totalJumps++;
         if (stateMachine.currentState === 'HAZARD_EVADE') {
           if (phaseAHazardController.activePattern === 'jump') {
             phaseAHazardController.recordAction('jump');
+            sfx.play('jump_whoosh');
+          }
+        } else if (stateMachine.currentState === 'BOSS_CLIMAX' && bossHazardController) {
+          if (bossHazardController.recordAction('jump')) {
             sfx.play('jump_whoosh');
           }
         }
@@ -1238,6 +1298,10 @@ const engine = new GameEngine({
       // Issue #213: Phase B 무제한 피버 루프 갱신 및 커서 판정
       bossFeverController.update(engine.elapsedTime, sourceLandmarks);
       starCollectionInput.setTarget(starNoteScheduler.currentTarget);
+      // Issue #193: Phase B 보스 패턴 공격 타이머 및 회피/피격 판정 갱신
+      if (bossHazardController && !pauseModal.isOpen) {
+        bossHazardController.update(dt);
+      }
     }
 
     // Issue #207, #210, #226: 0s 무체류 팔 선택 정착으로 골반 체류 충전음 잔재 정리
@@ -1685,6 +1749,15 @@ canvas.addEventListener('click', (e) => {
       );
       if (hitZone) {
         starNoteScheduler.fromTouch(hitZone.id, engine.elapsedTime);
+        if (stateMachine.currentState === 'BOSS_CLIMAX' && bossHazardController && !pauseModal.isOpen) {
+          if (hitZone.id === 9) {
+            bossHazardController.recordAction('step_left');
+          } else if (hitZone.id === 11) {
+            bossHazardController.recordAction('step_right');
+          } else if (hitZone.id === 10) {
+            bossHazardController.recordAction('jump');
+          }
+        }
       }
     }
 
@@ -1786,6 +1859,10 @@ document.addEventListener('keydown', (e) => {
     ) {
       // Issue #235 & #213: Space 키보드 입력 시 StarNoteScheduler 단일 결과 라우터 연동
       starNoteScheduler.fromKeyboard(engine.elapsedTime);
+      if (stateMachine.currentState === 'BOSS_CLIMAX' && bossHazardController && !pauseModal.isOpen) {
+        totalJumps++;
+        bossHazardController.recordAction('jump');
+      }
       return;
     }
   }
