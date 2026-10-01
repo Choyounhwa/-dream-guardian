@@ -39,6 +39,55 @@ export const PARTICLE_CONFIG = {
   DEFAULT_BURST_DURATION: 0.6,
 } as const;
 
+export const ANSWER_EFFECT_CONFIG = {
+  correct: {
+    baseCount: 35,
+    colors: ['#4DFFAA', '#28E6FF', '#FFFFFF', '#A6FFDF'],
+    duration: 0.8,
+    speedMin: 120,
+    speedMax: 320,
+    sizeMin: 4,
+    sizeMax: 8,
+    shapes: ['star', 'spark'] as ParticleShape[],
+  },
+  combo5: {
+    count: 20,
+    colors: ['#FFCB4D', '#FFAA00', '#FFFFFF', '#FF8800'],
+    duration: 0.8,
+    speedMin: 140,
+    speedMax: 340,
+    sizeMin: 3.5,
+    sizeMax: 7.5,
+    shapes: ['spark', 'star'] as ParticleShape[],
+  },
+  combo10Multiplier: {
+    count: 2,
+    size: 1.5,
+  },
+  wrong: {
+    flashColor: '#FF4444',
+    flashDuration: 0.3,
+    flashMaxAlpha: 0.4,
+    particleCount: 20,
+    colors: ['#FF4444', '#FF2222', '#CC1111', '#FF8888'],
+    duration: 0.5,
+  },
+  timeout: {
+    count: 24,
+    colors: ['#888888', '#AAAAAA', '#666666', '#CCCCCC', '#777777'],
+    duration: 0.5,
+    speedMin: 30,
+    speedMax: 110,
+    sizeMin: 12,
+    sizeMax: 24,
+    endSizeMin: 20,
+    endSizeMax: 48,
+    startAlpha: 0.7,
+    endAlpha: 0,
+    shape: 'circle' as ParticleShape,
+  },
+} as const;
+
 export const PARTICLE_PRESETS: Record<ParticlePresetName, ParticlePresetConfig> = {
   /** 정답 시 에메랄드(#4DFFAA) + 시안(#28E6FF) 별빛 버스트 */
   correctBurst: {

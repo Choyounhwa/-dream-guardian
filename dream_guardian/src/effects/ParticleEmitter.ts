@@ -80,6 +80,10 @@ export class ParticleEmitter {
     return this._active.length;
   }
 
+  get activeParticles(): readonly Particle[] {
+    return this._active;
+  }
+
   get poolCount(): number {
     return this._pool.length;
   }

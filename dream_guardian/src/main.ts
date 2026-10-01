@@ -47,7 +47,7 @@ import {
   BossClimaxRenderer,
   drawJoinedHandsCursor,
 } from './render/index.js';
-import { EffectManager } from './effects/index.js';
+import { EffectManager, wireAnswerVFX } from './effects/index.js';
 import {
   RunDetector,
   JumpDetector,
@@ -139,6 +139,7 @@ const resultRenderer = new ResultRenderer();
 const bossRenderer = new BossRenderer();
 const dreamGrid = new DreamGrid({ speed: 1.2, hasCeiling: true });
 const effectManager = new EffectManager(15);
+effectManager.setViewport(canvasManager.virtualWidth, canvasManager.virtualHeight);
 const runDetector = new RunDetector();
 const jumpDetector = new JumpDetector();
 const calibrationHelper = new CalibrationHelper(1.0);
@@ -258,6 +259,14 @@ eventBus.on('troop:barrage', (info) => {
 // Issue #265 (A11Y-004): 보스 광폭화 시 TTS 음성 경고 연동
 eventBus.on('boss:enrage', () => {
   speech.speakFeedback('boss_enrage');
+});
+
+// Issue #274 (VFX-002): 정답/오답/타임아웃 판정 이펙트 이벤트 연동
+wireAnswerVFX(eventBus, effectManager, {
+  getCoordinates: () => ({
+    x: canvasManager.virtualWidth * 0.5,
+    y: canvasManager.virtualHeight * 0.5,
+  }),
 });
 
 // Issue #191: 노트결과 ID 기준 중복 방지 (1회 재생 보장)
@@ -510,13 +519,17 @@ const beatCoordinator = new BeatRunCoordinator({
 
     if (correct) {
       sfx.play('correct');
+      effectManager.playAnswerEffect('correct', bx, by, battle.combo + 1);
       effectManager.playPreset('correct', bx, by);
       bossRenderer.triggerHit();
       speech.speakFeedback('correct');
+      eventBus.emit('answer:correct', { mana: battle.mana, combo: battle.combo + 1 });
     } else {
       sfx.play('wrong');
+      effectManager.playAnswerEffect('wrong', bx, by);
       effectManager.playPreset('wrong', bx, by);
       speech.speakFeedback('wrong');
+      eventBus.emit('answer:wrong', { hp: battle.hp });
     }
   },
   onAnswerConfirmed: (idx, _correct, status) => {
@@ -855,6 +868,12 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
       speech.speakFeedback('wrong');
       feedbackCorrect = false;
       feedbackTimer = 0.8;
+      effectManager.playAnswerEffect(
+        'timeout',
+        canvasManager.virtualWidth * 0.5,
+        canvasManager.virtualHeight * 0.5,
+      );
+      (eventBus as any).emit('answer:timeout');
     }
     console.log(`[DG] 오답 정산 완료! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
 
@@ -1453,7 +1472,7 @@ const engine = new GameEngine({
         ctx.textAlign = 'center';
         ctx.fillText('⚠️ 카메라 권한 차단됨 (1~5번 키 또는 화면 클릭으로 플레이 가능)', vw / 2, vh * 0.88);
       }
-      effectManager.render(ctx);
+      effectManager.render(ctx, vw, vh);
     } else if (screenMode === 'game') {
       const bossX = vw * 0.5;
       const bossY = vh * HORIZON_RATIO;
@@ -1558,10 +1577,10 @@ const engine = new GameEngine({
       }
 
       renderFeedback(ctx, vw, vh);
-      effectManager.render(ctx);
+      effectManager.render(ctx, vw, vh);
     } else if (screenMode === 'result' && resultData) {
       resultRenderer.render(ctx, vw, vh, resultData);
-      effectManager.render(ctx);
+      effectManager.render(ctx, vw, vh);
     }
 
     // 6. Issue #141: 공통 하단 고정 바 (Yellow Bar) 렌더링

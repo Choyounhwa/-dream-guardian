@@ -76,8 +76,8 @@
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
 | 18 | **#273** | [VFX-001] 파티클 엔진 기반 시스템 구축 (EffectManager) | 없음 | `[✔] 완료` |
-| 19 | **#274** | [VFX-002] 정답/오답 판정 이펙트 연결 | #273 | `[▶ NEXT]` |
-| 20 | **#275** | [VFX-003] 수호신 스펠 캐스트 이펙트 | #273 | `[ ] 대기` |
+| 19 | **#274** | [VFX-002] 정답/오답 판정 이펙트 연결 | #273 | `[✔] 완료` |
+| 20 | **#275** | [VFX-003] 수호신 스펠 캐스트 이펙트 | #273 | `[▶ NEXT]` |
 | 21 | **#276** | [VFX-004] 스켈레톤 시각 이펙트 강화 | #273 | `[ ] 대기` |
 | 22 | **#277** | [VFX-005] 승리/패배 결과 화면 연출 이펙트 | #273 | `[ ] 대기` |
 | 23 | **#278** | [VFX-006] UI 전환 애니메이션 | #273 | `[ ] 대기` |
@@ -99,6 +99,42 @@
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
 
 ---
+
+## 2026-10-01 완료: [VFX-002 / #274] 정답/오답 판정 이펙트 연결 (별 버스트/적색 플래시/콤보 화염)
+
+> #274 구현 및 TDD 사이클 전수 통과 완료. 정답, 오답, 타임아웃 판정 시각 효과(VFX-002)를 구현하고 `EffectManager`, `config/effect.config.ts`, `src/main.ts`에 완전 연동하였습니다.
+> - **신규/수정 파일 및 내용**:
+>   1. `config/effect.config.ts`:
+>      - `ANSWER_EFFECT_CONFIG` 신설:
+>        - `correct`: baseCount 35, colors(['#4DFFAA', '#28E6FF', '#FFFFFF', '#A6FFDF']), duration 0.8s, shapes(['star', 'spark'])
+>        - `combo5`: count 20, colors(['#FFCB4D', '#FFAA00', '#FFFFFF', '#FF8800']), duration 0.8s, shapes(['spark', 'star'])
+>        - `combo10Multiplier`: count 2x, size 1.5x
+>        - `wrong`: flashColor '#FF4444', flashDuration 0.3s, particleCount 20, duration 0.5s
+>        - `timeout`: count 24, colors(['#888888', '#AAAAAA', ...]), duration 0.5s, shape 'circle'
+>   2. `src/effects/ParticleEmitter.ts`:
+>      - `get activeParticles(): readonly Particle[]` 추가하여 파티클 속성 검증 지원
+>   3. `src/effects/EffectManager.ts`:
+>      - 플래시 오버레이 필드(`_flashColor`, `_flashDuration`, `_flashTimer`, `_flashMaxAlpha`) 및 게터/트리거 함수(`triggerFlash`, `isFlashActive`, `flashAlpha`, `flashTimer`, `flashColor`) 구현
+>      - 뷰포트 설정(`setViewport`, `viewportWidth`, `viewportHeight`) 지원
+>      - `playAnswerEffect(result, x, y, combo)` 구현:
+>        - `correct`: 30~50개 에메랄드/시안 별/스파크 버스트(0.8초), 콤보 5+ 시 골드 화염/스파크 추가 방출, 콤보 10+ 시 개수 2배(70개+) 및 크기 1.5배 스케일업
+>        - `wrong`: 0.3초 적색(#FF4444) 전체 화면 플래시 오버레이(페이드아웃) 및 적색 비네팅 파티클 방출
+>        - `timeout`: 0.5초 회색(#888888) 안개/스모크 파티클 확산 방출
+>      - `update(dt)` 및 `render(ctx, width?, height?)`, `clear()`에 플래시 오버레이 렌더링/업데이트/정리 완비
+>      - `wireAnswerVFX(eventBus, effectManager, options)` 헬퍼 함수 구현 및 export: EventBus 이벤트(`answer:correct`, `answer:wrong`, `answer:timeout`) 연동 및 100ms 디바운스 지원
+>   4. `src/main.ts`:
+>      - 시작 시 `effectManager.setViewport(canvasManager.virtualWidth, canvasManager.virtualHeight)` 연결
+>      - `wireAnswerVFX(eventBus, effectManager, ...)`로 전역 이벤트 버스 연동
+>      - `onAnswerSelected`: 정답 시 `playAnswerEffect('correct', bx, by, battle.combo + 1)`, 오답 시 `playAnswerEffect('wrong', bx, by)` 호출 및 이벤트 발행
+>      - `handleAnswer`: 타임아웃 시 `playAnswerEffect('timeout', ...)` 호출 및 이벤트 발행
+>      - 화면 렌더링 루프에서 `effectManager.render(ctx, vw, vh)`로 플래시 오버레이 및 파티클 화면 크기 맞춤 렌더링
+>   5. 단위 테스트 신설:
+>      - `tests/unit/vfx-answer.test.ts`: 설정 검증, 정답 버스트 및 콤보 5+/10+ 차등 검증, 오답 플래시 오버레이/페이드아웃/렌더링 검증, 타임아웃 안개 파티클 검증, EventBus 연동 시뮬레이션 검증 등 11/11 Pass
+>   6. 전체 검증:
+>      - `npm run build`: tsc 타입 체크 및 vite 프로덕션 빌드 성공
+>      - `npm test`: 134개 테스트 파일, 1,572개 단위/통합 테스트 100% Pass
+>
+> ---
 
 ## 2026-10-01 완료: [A11Y-004 / #265] 저시력 모드 커서/HP바/게이지 확대 및 음성 피드백 강화
 

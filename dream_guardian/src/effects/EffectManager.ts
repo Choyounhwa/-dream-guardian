@@ -32,10 +32,21 @@ import {
 import {
   PARTICLE_PRESETS,
   type ParticlePresetName,
+  ANSWER_EFFECT_CONFIG,
 } from '../../config/effect.config.js';
+import type { EventBus } from '../core/EventBus.js';
 
 export class EffectManager {
   private _active: IVisualEffect[] = [];
+
+  // 적색/오버레이 플래시 관리 (VFX-002 / Issue #274)
+  private _flashColor: string = '#FF4444';
+  private _flashDuration: number = 0.3;
+  private _flashTimer: number = 0;
+  private _flashMaxAlpha: number = 0.4;
+  private _viewportWidth: number = 1280;
+  private _viewportHeight: number = 720;
+  private _lastAnswerEffectTime: number = 0;
 
   // 타입별 객체 풀 (7종 기본 비주얼 이펙트)
   private _poolGlow: GlowEffect[] = [];
@@ -69,6 +80,47 @@ export class EffectManager {
       this._poolRadial.push(new RadialEffect());
       this._poolTrail.push(new TrailEffect());
     }
+  }
+
+  setViewport(width: number, height: number): void {
+    this._viewportWidth = width;
+    this._viewportHeight = height;
+  }
+
+  get viewportWidth(): number {
+    return this._viewportWidth;
+  }
+
+  get viewportHeight(): number {
+    return this._viewportHeight;
+  }
+
+  get isFlashActive(): boolean {
+    return this._flashTimer > 0;
+  }
+
+  get flashAlpha(): number {
+    if (this._flashTimer <= 0 || this._flashDuration <= 0) return 0;
+    return Math.min(1, Math.max(0, (this._flashTimer / this._flashDuration) * this._flashMaxAlpha));
+  }
+
+  get flashTimer(): number {
+    return this._flashTimer;
+  }
+
+  get flashColor(): string {
+    return this._flashColor;
+  }
+
+  get lastAnswerEffectTime(): number {
+    return this._lastAnswerEffectTime;
+  }
+
+  triggerFlash(color = '#FF4444', duration = 0.3, maxAlpha = 0.4): void {
+    this._flashColor = color;
+    this._flashDuration = duration;
+    this._flashTimer = duration;
+    this._flashMaxAlpha = maxAlpha;
   }
 
   get particleEmitter(): ParticleEmitter {
@@ -297,9 +349,162 @@ export class EffectManager {
   }
 
   /**
+   * 정답/오답/타임아웃 판정 시각 효과 재생 (VFX-002 / Issue #274)
+   *
+   * @param result 'correct' | 'wrong' | 'timeout'
+   * @param x 이펙트 중심 X좌표
+   * @param y 이펙트 중심 Y좌표
+   * @param combo 현재 콤보 수
+   */
+  playAnswerEffect(
+    result: 'correct' | 'wrong' | 'timeout',
+    x: number,
+    y: number,
+    combo: number = 0,
+  ): void {
+    this._lastAnswerEffectTime = Date.now();
+
+    if (result === 'correct') {
+      const isCombo10 = combo >= 10;
+      const isCombo5 = combo >= 5;
+
+      const baseCfg = ANSWER_EFFECT_CONFIG.correct;
+      const baseCount = baseCfg.baseCount;
+      const count = isCombo10 ? baseCount * ANSWER_EFFECT_CONFIG.combo10Multiplier.count : baseCount;
+      const sizeScale = isCombo10 ? ANSWER_EFFECT_CONFIG.combo10Multiplier.size : 1.0;
+
+      // 에메랄드(#4DFFAA) + 시안(#28E6FF) 별/스파크 파티클 30~50개 방사형 버스트 (수명 0.8초)
+      this._emitter.burst({
+        x,
+        y,
+        count,
+        colors: [...baseCfg.colors],
+        speedMin: baseCfg.speedMin,
+        speedMax: baseCfg.speedMax,
+        sizeMin: baseCfg.sizeMin * sizeScale,
+        sizeMax: baseCfg.sizeMax * sizeScale,
+        endSizeMin: 0,
+        endSizeMax: 1.5 * sizeScale,
+        duration: baseCfg.duration,
+        gravity: 60,
+        drag: 0.95,
+        shapes: [...baseCfg.shapes],
+        vRotMin: -3,
+        vRotMax: 3,
+        startAlpha: 1,
+        endAlpha: 0,
+      });
+
+      // 콤보 >= 5: 골드(#FFCB4D) 화염/스파크 추가 방출
+      if (isCombo5) {
+        const comboCfg = ANSWER_EFFECT_CONFIG.combo5;
+        const flameCount = isCombo10 ? 30 : comboCfg.count;
+        this._emitter.burst({
+          x,
+          y,
+          count: flameCount,
+          colors: [...comboCfg.colors],
+          speedMin: comboCfg.speedMin,
+          speedMax: comboCfg.speedMax,
+          sizeMin: comboCfg.sizeMin * sizeScale,
+          sizeMax: comboCfg.sizeMax * sizeScale,
+          endSizeMin: 0,
+          endSizeMax: 1.2 * sizeScale,
+          duration: comboCfg.duration,
+          gravity: 40,
+          drag: 0.94,
+          shapes: [...comboCfg.shapes],
+          vRotMin: -4,
+          vRotMax: 4,
+          startAlpha: 1,
+          endAlpha: 0,
+        });
+      }
+    } else if (result === 'wrong') {
+      const wrongCfg = ANSWER_EFFECT_CONFIG.wrong;
+      // 화면 전체 적색(#FF4444) 플래시 오버레이 (0.3초 페이드아웃)
+      this.triggerFlash(wrongCfg.flashColor, wrongCfg.flashDuration, wrongCfg.flashMaxAlpha);
+
+      // 적색 비네팅 파티클 및 오답 파티클 방출
+      this._emitter.burst({
+        x,
+        y,
+        count: wrongCfg.particleCount,
+        colors: [...wrongCfg.colors],
+        speedMin: 80,
+        speedMax: 220,
+        sizeMin: 4,
+        sizeMax: 8,
+        endSizeMin: 0,
+        endSizeMax: 2,
+        duration: wrongCfg.duration,
+        gravity: 80,
+        drag: 0.94,
+        shape: 'circle',
+        startAlpha: 1,
+        endAlpha: 0,
+      });
+
+      // 가장자리 적색 비네팅 파티클
+      const vw = this._viewportWidth || 1280;
+      const vh = this._viewportHeight || 720;
+      const edgeOffsets = [
+        { x: vw * 0.08, y: vh * 0.08 },
+        { x: vw * 0.92, y: vh * 0.08 },
+        { x: vw * 0.08, y: vh * 0.92 },
+        { x: vw * 0.92, y: vh * 0.92 },
+      ];
+      for (const pos of edgeOffsets) {
+        this._emitter.burst({
+          x: pos.x,
+          y: pos.y,
+          count: 3,
+          colors: ['#FF4444', '#990000', '#FF2222'],
+          speedMin: 30,
+          speedMax: 90,
+          sizeMin: 5,
+          sizeMax: 12,
+          endSizeMin: 0,
+          endSizeMax: 3,
+          duration: wrongCfg.duration,
+          drag: 0.92,
+          shape: 'circle',
+          startAlpha: 0.8,
+          endAlpha: 0,
+        });
+      }
+    } else if (result === 'timeout') {
+      const timeoutCfg = ANSWER_EFFECT_CONFIG.timeout;
+      // 회색(#888888) 안개/스모크 파티클 확산 (0.5초)
+      this._emitter.burst({
+        x,
+        y,
+        count: timeoutCfg.count,
+        colors: [...timeoutCfg.colors],
+        speedMin: timeoutCfg.speedMin,
+        speedMax: timeoutCfg.speedMax,
+        sizeMin: timeoutCfg.sizeMin,
+        sizeMax: timeoutCfg.sizeMax,
+        endSizeMin: timeoutCfg.endSizeMin,
+        endSizeMax: timeoutCfg.endSizeMax,
+        duration: timeoutCfg.duration,
+        gravity: -20,
+        drag: 0.92,
+        shape: timeoutCfg.shape,
+        startAlpha: timeoutCfg.startAlpha,
+        endAlpha: timeoutCfg.endAlpha,
+      });
+    }
+  }
+
+  /**
    * 매 프레임 업데이트: 기본 이펙트 풀 반환 및 파티클 이미터 업데이트
    */
   update(dt: number): void {
+    if (this._flashTimer > 0) {
+      this._flashTimer = Math.max(0, this._flashTimer - dt);
+    }
+
     let i = 0;
     while (i < this._active.length) {
       const effect = this._active[i];
@@ -320,7 +525,20 @@ export class EffectManager {
   /**
    * 모든 활성 이펙트 및 파티클 렌더링
    */
-  render(ctx: CanvasRenderingContext2D): void {
+  render(ctx: CanvasRenderingContext2D, width?: number, height?: number): void {
+    if (this._flashTimer > 0) {
+      const alpha = this.flashAlpha;
+      if (alpha > 0.001) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = this._flashColor;
+        const w = width ?? (ctx.canvas?.width || this._viewportWidth);
+        const h = height ?? (ctx.canvas?.height || this._viewportHeight);
+        ctx.fillRect(0, 0, w, h);
+        ctx.restore();
+      }
+    }
+
     for (let i = 0; i < this._active.length; i++) {
       this._active[i].render(ctx);
     }
@@ -331,6 +549,7 @@ export class EffectManager {
    * 전체 이펙트 및 파티클 초기화 및 풀 반환
    */
   clear(): void {
+    this._flashTimer = 0;
     for (let i = 0; i < this._active.length; i++) {
       const effect = this._active[i];
       effect.reset();
@@ -351,4 +570,59 @@ export class EffectManager {
       case 'trail': this._poolTrail.push(effect as TrailEffect); break;
     }
   }
+}
+
+export interface AnswerVFXOptions {
+  getCoordinates?: (type: 'correct' | 'wrong' | 'timeout') => { x: number; y: number };
+  debounceMs?: number;
+}
+
+export function wireAnswerVFX(
+  eventBus: EventBus | { on: (event: any, handler: any) => void; off?: (event: any, handler: any) => void },
+  effectManager: EffectManager,
+  options?: AnswerVFXOptions,
+): () => void {
+  const debounceMs = options?.debounceMs ?? 100;
+
+  const onCorrect = (data?: { mana?: number; combo?: number }) => {
+    const now = Date.now();
+    if (now - effectManager.lastAnswerEffectTime < debounceMs) return;
+    const coords = options?.getCoordinates?.('correct') ?? {
+      x: effectManager.viewportWidth * 0.5,
+      y: effectManager.viewportHeight * 0.5,
+    };
+    effectManager.playAnswerEffect('correct', coords.x, coords.y, data?.combo ?? 0);
+  };
+
+  const onWrong = (_data?: { hp?: number }) => {
+    const now = Date.now();
+    if (now - effectManager.lastAnswerEffectTime < debounceMs) return;
+    const coords = options?.getCoordinates?.('wrong') ?? {
+      x: effectManager.viewportWidth * 0.5,
+      y: effectManager.viewportHeight * 0.5,
+    };
+    effectManager.playAnswerEffect('wrong', coords.x, coords.y);
+  };
+
+  const onTimeout = () => {
+    const now = Date.now();
+    if (now - effectManager.lastAnswerEffectTime < debounceMs) return;
+    const coords = options?.getCoordinates?.('timeout') ?? {
+      x: effectManager.viewportWidth * 0.5,
+      y: effectManager.viewportHeight * 0.5,
+    };
+    effectManager.playAnswerEffect('timeout', coords.x, coords.y);
+  };
+
+  (eventBus as any).on('answer:correct', onCorrect);
+  (eventBus as any).on('answer:wrong', onWrong);
+  (eventBus as any).on('answer:timeout', onTimeout);
+
+  return () => {
+    if (typeof (eventBus as any).off === 'function') {
+      (eventBus as any).off('answer:correct', onCorrect);
+      (eventBus as any).off('answer:wrong', onWrong);
+      (eventBus as any).off('answer:timeout', onTimeout);
+    }
+  };
 }
