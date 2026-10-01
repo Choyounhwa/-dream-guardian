@@ -1,12 +1,20 @@
 import { describe, it, expect, vi } from 'vitest';
 import { DreamGrid } from '../../src/render/DreamGrid.js';
 import {
+  HORIZON_RATIO,
   LONGITUDINAL_COLOR,
   TRANSVERSE_COLOR,
   CENTER_SPINE_COLOR,
   CROSSING_NODE_COLOR,
   PANEL_DEPTH_START,
   PANEL_BG_COLOR,
+  TRANSVERSE_MAX_WIDTH,
+  TRANSVERSE_MIN_WIDTH,
+  LONGITUDINAL_MAX_WIDTH,
+  LONGITUDINAL_MIN_WIDTH,
+  CENTER_SPINE_MAX_WIDTH,
+  CENTER_SPINE_GLOW_WIDTH,
+  CENTER_SPINE_CORE_WIDTH,
   DEFAULT_GRID_CONFIG,
 } from '../../config/grid.config.js';
 
@@ -188,53 +196,67 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
   });
 
   describe('Issue #282: [FEAT-GRID-002] SFX 런웨이 원근 드림 그리드 비주얼 전면 개편', () => {
-    it('grid.config.ts에 SFX 런웨이 전용 상수들이 정의되어 있다', () => {
-      expect(LONGITUDINAL_COLOR).toBe('#28E6FF');
-      expect(TRANSVERSE_COLOR).toBe('#FF8844');
-      expect(CENTER_SPINE_COLOR).toBe('#C8F5FF');
+    it('grid.config.ts에 SFX 런웨이 전용 지평선, 색상, 두께 상수들이 정의되어 있다', () => {
+      expect(HORIZON_RATIO).toBe(0.56);
+      expect(LONGITUDINAL_COLOR).toBe('#00E5FF');
+      expect(TRANSVERSE_COLOR).toBe('#FF7A28');
+      expect(CENTER_SPINE_COLOR).toBe('#E0F7FF');
       expect(CROSSING_NODE_COLOR).toBe('#FFFFFF');
-      expect(PANEL_DEPTH_START).toBe(0.55);
-      expect(PANEL_BG_COLOR).toBe('rgba(10, 16, 32, 0.45)');
-      expect(DEFAULT_GRID_CONFIG.LONGITUDINAL_COLOR).toBe('#28E6FF');
-      expect(DEFAULT_GRID_CONFIG.TRANSVERSE_COLOR).toBe('#FF8844');
-      expect(DEFAULT_GRID_CONFIG.CENTER_SPINE_COLOR).toBe('#C8F5FF');
+      expect(PANEL_DEPTH_START).toBe(0.50);
+      expect(PANEL_BG_COLOR).toBe('rgba(6, 10, 18, 0.90)');
+
+      expect(TRANSVERSE_MAX_WIDTH).toBe(6.0);
+      expect(TRANSVERSE_MIN_WIDTH).toBe(1.0);
+      expect(LONGITUDINAL_MAX_WIDTH).toBe(4.5);
+      expect(LONGITUDINAL_MIN_WIDTH).toBe(0.8);
+      expect(CENTER_SPINE_MAX_WIDTH).toBe(8.0);
+      expect(CENTER_SPINE_GLOW_WIDTH).toBe(12.0);
+      expect(CENTER_SPINE_CORE_WIDTH).toBe(3.5);
+
+      expect(DEFAULT_GRID_CONFIG.HORIZON_RATIO).toBe(0.56);
+      expect(DEFAULT_GRID_CONFIG.LONGITUDINAL_COLOR).toBe('#00E5FF');
+      expect(DEFAULT_GRID_CONFIG.TRANSVERSE_COLOR).toBe('#FF7A28');
+      expect(DEFAULT_GRID_CONFIG.CENTER_SPINE_COLOR).toBe('#E0F7FF');
       expect(DEFAULT_GRID_CONFIG.CROSSING_NODE_COLOR).toBe('#FFFFFF');
-      expect(DEFAULT_GRID_CONFIG.PANEL_DEPTH_START).toBe(0.55);
-      expect(DEFAULT_GRID_CONFIG.PANEL_BG_COLOR).toBe('rgba(10, 16, 32, 0.45)');
+      expect(DEFAULT_GRID_CONFIG.PANEL_DEPTH_START).toBe(0.50);
+      expect(DEFAULT_GRID_CONFIG.PANEL_BG_COLOR).toBe('rgba(6, 10, 18, 0.90)');
     });
 
     it('DreamGrid 인스턴스가 듀얼 네온 및 SFX 런웨이 기본 설정을 보유한다', () => {
       const grid = new DreamGrid();
-      expect(grid.longitudinalColor).toBe('#28E6FF');
-      expect(grid.transverseColor).toBe('#FF8844');
-      expect(grid.centerSpineColor).toBe('#C8F5FF');
+      expect(grid.longitudinalColor).toBe('#00E5FF');
+      expect(grid.transverseColor).toBe('#FF7A28');
+      expect(grid.centerSpineColor).toBe('#E0F7FF');
       expect(grid.crossingNodeColor).toBe('#FFFFFF');
-      expect(grid.panelDepthStart).toBe(0.55);
-      expect(grid.panelBgColor).toBe('rgba(10, 16, 32, 0.45)');
+      expect(grid.panelDepthStart).toBe(0.50);
+      expect(grid.panelBgColor).toBe('rgba(6, 10, 18, 0.90)');
     });
 
-    it('가로선(Transverse)은 네온 오렌지(#FF8844) 색상으로 렌더링된다', () => {
+    it('가로선(Transverse)은 네온 오렌지(#FF7A28) 및 2-Pass 순백 코어(#FFF8F0)로 렌더링된다', () => {
       const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
       const mockCtx = createMockCtx();
       grid.render(mockCtx, 1920, 1080);
 
-      expect(mockCtx.strokeStyles.includes('#FF8844')).toBe(true);
+      expect(mockCtx.strokeStyles.includes('#FF7A28')).toBe(true);
+      expect(mockCtx.strokeStyles.includes('#FFF8F0')).toBe(true);
     });
 
-    it('중앙 척추선(Center Spine, j===0) 렌더링 시 3.5px 코어가 드로잉된다', () => {
+    it('중앙 척추선(Center Spine) 렌더링 시 외곽 글로우(12px), 미드 글로우(8px), 순백 코어(3.5px)가 드로잉된다', () => {
       const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
       const mockCtx = createMockCtx();
       grid.render(mockCtx, 1920, 1080);
 
+      expect(mockCtx.lineWidths.includes(12.0)).toBe(true);
+      expect(mockCtx.lineWidths.includes(8.0)).toBe(true);
       expect(mockCtx.lineWidths.includes(3.5)).toBe(true);
     });
 
-    it('전경 패널 음영(Modular Panel Grooves, depthRatio >= 0.55) 영역에 메탈릭 패널 fill이 적용된다', () => {
+    it('전경 패널 음영(Modular Panel Grooves, depthRatio >= 0.50) 영역에 메탈릭 패널 fill이 적용된다', () => {
       const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
       const mockCtx = createMockCtx();
       grid.render(mockCtx, 1920, 1080);
 
-      expect(mockCtx.fillStyles.includes('rgba(10, 16, 32, 0.45)')).toBe(true);
+      expect(mockCtx.fillStyles.includes('rgba(6, 10, 18, 0.90)')).toBe(true);
       expect(mockCtx.closePath).toHaveBeenCalled();
       expect(mockCtx.fill).toHaveBeenCalled();
     });
@@ -297,7 +319,7 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
       const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
 
       const mockCtxDefault = createMockCtx();
-      grid.render(mockCtxDefault, 1920, 1080, { panelDepthStart: 0.55 });
+      grid.render(mockCtxDefault, 1920, 1080, { panelDepthStart: 0.50 });
       const fillCountDefault = vi.mocked(mockCtxDefault.fill).mock.calls.length;
 
       const mockCtxDeep = createMockCtx();

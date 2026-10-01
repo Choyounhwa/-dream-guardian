@@ -27,6 +27,13 @@ import {
   CROSSING_NODE_SECONDARY_COLOR,
   PANEL_DEPTH_START,
   PANEL_BG_COLOR,
+  TRANSVERSE_MAX_WIDTH,
+  TRANSVERSE_MIN_WIDTH,
+  LONGITUDINAL_MAX_WIDTH,
+  LONGITUDINAL_MIN_WIDTH,
+  CENTER_SPINE_MAX_WIDTH,
+  CENTER_SPINE_GLOW_WIDTH,
+  CENTER_SPINE_CORE_WIDTH,
 } from '../../config/grid.config.js';
 import { projectDepthY, depthRatioFromY } from './GridProjection.js';
 
@@ -370,7 +377,7 @@ export class DreamGrid {
       }
     }
 
-    // ── 2. 가로(Transverse) 네온 오렌지/앰버 라인 (심도 소프트 페이드) ──
+    // ── 2. 가로(Transverse) 네온 오렌지/앰버 라인 (2-Pass 발광: 외곽 네온 글로우 + 중심 순백 코어) ──
     for (let i = 0; i < hLinesY.length; i++) {
       const y = hLinesY[i];
       const depthRatio = depthRatioFromY(y, vy, floorH); // 0 (소실점) ~ 1 (하단)
@@ -381,18 +388,33 @@ export class DreamGrid {
       if (lineAlpha < 0.005) continue;
 
       const halfW = (w * 0.5 + 50) * depthRatio;
+      const lineWidth = TRANSVERSE_MIN_WIDTH + (TRANSVERSE_MAX_WIDTH - TRANSVERSE_MIN_WIDTH) * Math.pow(depthRatio, 1.4);
 
+      // Pass 1: 외곽 네온 오렌지/앰버 글로우 라인
       ctx.strokeStyle = transColor;
       ctx.globalAlpha = Math.min(1, lineAlpha);
-      ctx.lineWidth = Math.max(1.2, depthRatio * 2.8);
+      ctx.lineWidth = lineWidth;
 
       ctx.beginPath();
       ctx.moveTo(vx - halfW, y);
       ctx.lineTo(vx + halfW, y);
       ctx.stroke();
+
+      // Pass 2: 전경(depthRatio >= 0.35) 중심 순백색/소프트 옐로우 코어 라인
+      if (depthRatio >= 0.35 && lineAlpha > 0.05) {
+        const coreAlpha = Math.min(1, lineAlpha * 1.6);
+        ctx.strokeStyle = '#FFF8F0';
+        ctx.globalAlpha = coreAlpha;
+        ctx.lineWidth = Math.max(1.0, lineWidth * 0.35);
+
+        ctx.beginPath();
+        ctx.moveTo(vx - halfW, y);
+        ctx.lineTo(vx + halfW, y);
+        ctx.stroke();
+      }
     }
 
-    // ── 3. 세로(Longitudinal) 네온 시안 방사선 드로잉 ──
+    // ── 3. 세로(Longitudinal) 네온 시안 방사선 드로잉 (2-Pass 발광) ──
     const vertGrad = ctx.createLinearGradient(0, h, 0, vy);
     vertGrad.addColorStop(0, toRgba(longColor, baseAlpha));
     vertGrad.addColorStop(0.45, toRgba(longColor, baseAlpha * 0.85));
@@ -411,7 +433,9 @@ export class DreamGrid {
       const xBottom = vx + j * stepXBottom;
       const xStart = vx + (xBottom - vx) * FADE_DEPTH;
 
-      ctx.lineWidth = 1.5;
+      // 외곽 시안 네온 라인
+      ctx.strokeStyle = vertGrad;
+      ctx.lineWidth = LONGITUDINAL_MIN_WIDTH + (LONGITUDINAL_MAX_WIDTH - LONGITUDINAL_MIN_WIDTH) * 0.7;
 
       ctx.beginPath();
       ctx.moveTo(xStart, yStart);
@@ -419,21 +443,30 @@ export class DreamGrid {
       ctx.stroke();
     }
 
-    // 3-b. 중앙 척추선(Center Spine, j === 0): 시안 글로우 + 3.5px 청백색 코어 특수 드로잉
-    const spineGlowGrad = ctx.createLinearGradient(0, h, 0, vy);
-    spineGlowGrad.addColorStop(0, toRgba(longColor, Math.min(1, baseAlpha * 1.5)));
-    spineGlowGrad.addColorStop(0.45, toRgba(longColor, baseAlpha * 0.8));
-    spineGlowGrad.addColorStop(0.72, toRgba(longColor, baseAlpha * 0.25));
-    spineGlowGrad.addColorStop(0.86, toRgba(longColor, 0));
-    spineGlowGrad.addColorStop(1, toRgba(longColor, 0));
+    // 3-b. 중앙 척추선(Center Spine, j === 0): 3-Pass 초고휘도 레이저 라인 (외곽 12px 글로우, 8px 미드 글로우, 3.5px 순백 코어)
+    const spineOuterGrad = ctx.createLinearGradient(0, h, 0, vy);
+    spineOuterGrad.addColorStop(0, toRgba(longColor, Math.min(1, baseAlpha * 1.8)));
+    spineOuterGrad.addColorStop(0.45, toRgba(longColor, baseAlpha * 0.9));
+    spineOuterGrad.addColorStop(0.72, toRgba(longColor, baseAlpha * 0.3));
+    spineOuterGrad.addColorStop(0.86, toRgba(longColor, 0));
+    spineOuterGrad.addColorStop(1, toRgba(longColor, 0));
 
-    ctx.strokeStyle = spineGlowGrad;
-    ctx.lineWidth = 6.0;
+    // Pass 1: 외곽 12px 시안 소프트 글로우
+    ctx.strokeStyle = spineOuterGrad;
+    ctx.lineWidth = CENTER_SPINE_GLOW_WIDTH;
     ctx.beginPath();
     ctx.moveTo(vx, yStart);
     ctx.lineTo(vx, h);
     ctx.stroke();
 
+    // Pass 2: 미드 8px 인텐스 시안 빔
+    ctx.lineWidth = CENTER_SPINE_MAX_WIDTH;
+    ctx.beginPath();
+    ctx.moveTo(vx, yStart);
+    ctx.lineTo(vx, h);
+    ctx.stroke();
+
+    // Pass 3: 중심 3.5px 순백색 레이저 코어
     const spineCoreGrad = ctx.createLinearGradient(0, h, 0, vy);
     spineCoreGrad.addColorStop(0, toRgba(spineColor, Math.min(1, baseAlpha * 2.8)));
     spineCoreGrad.addColorStop(0.45, toRgba(spineColor, Math.min(1, baseAlpha * 2.0)));
@@ -442,7 +475,7 @@ export class DreamGrid {
     spineCoreGrad.addColorStop(1, toRgba(spineColor, 0));
 
     ctx.strokeStyle = spineCoreGrad;
-    ctx.lineWidth = 3.5;
+    ctx.lineWidth = CENTER_SPINE_CORE_WIDTH;
     ctx.beginPath();
     ctx.moveTo(vx, yStart);
     ctx.lineTo(vx, h);

@@ -22,22 +22,22 @@ describe('GridProjection & grid.config (Issue #227 / RENDER-PROJ-001)', () => {
   describe('grid.config 상수 정의 검증', () => {
     it('요구된 3D 원근 투영 및 안개 상수들이 올바른 값으로 정의되어 있다', () => {
       expect(Z_NEAR).toBe(1.0);
-      expect(DELTA_Z).toBe(0.18);
-      expect(LINE_COUNT_Z).toBe(18);
+      expect(DELTA_Z).toBe(0.20);
+      expect(LINE_COUNT_Z).toBe(16);
       expect(FADE_DEPTH).toBe(0.14);
-      expect(HORIZON_RATIO).toBe(0.24);
-      expect(FOG_START).toBe(0.16);
-      expect(FOG_RANGE).toBe(0.28);
+      expect(HORIZON_RATIO).toBe(0.56);
+      expect(FOG_START).toBe(0.10);
+      expect(FOG_RANGE).toBe(0.32);
       expect(CEILING_DELTA_Z).toBe(0.22);
       expect(CEILING_LINE_COUNT_Z).toBe(12);
 
       expect(GRID_CONFIG.Z_NEAR).toBe(1.0);
-      expect(GRID_CONFIG.DELTA_Z).toBe(0.18);
-      expect(GRID_CONFIG.LINE_COUNT_Z).toBe(18);
+      expect(GRID_CONFIG.DELTA_Z).toBe(0.20);
+      expect(GRID_CONFIG.LINE_COUNT_Z).toBe(16);
       expect(GRID_CONFIG.FADE_DEPTH).toBe(0.14);
-      expect(GRID_CONFIG.HORIZON_RATIO).toBe(0.24);
-      expect(GRID_CONFIG.FOG_START).toBe(0.16);
-      expect(GRID_CONFIG.FOG_RANGE).toBe(0.28);
+      expect(GRID_CONFIG.HORIZON_RATIO).toBe(0.56);
+      expect(GRID_CONFIG.FOG_START).toBe(0.10);
+      expect(GRID_CONFIG.FOG_RANGE).toBe(0.32);
       expect(GRID_CONFIG.CEILING_DELTA_Z).toBe(0.22);
       expect(GRID_CONFIG.CEILING_LINE_COUNT_Z).toBe(12);
     });

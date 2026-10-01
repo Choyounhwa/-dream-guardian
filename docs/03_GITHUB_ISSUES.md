@@ -4551,16 +4551,247 @@ BEAT-SPEC-001
   - [x] 발밑에 자연스러운 타원형 지면 접지 그림자가 드로잉됨
   - [x] 양손 끝단 네온 포인트로 좌/우 손 구분이 명확함
   - [x] `npm test` 단위 테스트 100% Pass 및 빌드 정상 완료
-  - [ ] 발밑에 자연스러운 타원형 지면 접지 그림자가 드로잉됨
-  - [ ] 양손 끝단 네온 포인트로 좌/우 손 구분이 명확함
-  - [ ] `npm test` 단위 테스트 100% Pass 및 빌드 정상 완료
+### Issue #282: [FEAT-GRID-002] SFX 런웨이 원근 드림 그리드(듀얼 네온·중앙 척추선·교차 노드·전경 패널 음영) 비주얼 전면 개편
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/282
+- **Labels**: `feature`, `P1-high`, `phase-7`
+- **작업 ID**: `[FEAT-GRID-002]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: SFX 런웨이 원근 드림 그리드(듀얼 네온·중앙 척추선·교차 노드·전경 패널 음영) 비주얼 전면 개편
+- **목적**:
+  - 기존 단색 네온 와이어프레임 중심의 `DreamGrid`를 레퍼런스 이미지(SFX 격납고 런웨이 플랫폼) 스타일로 개편한다.
+  - 세로선(네온 시안)과 가로선(네온 앰버/오렌지)의 듀얼 컬러 대비, 캐릭터 중앙 정렬을 위한 고휘도 청백색 중앙 척추선(Center Spine), 하단 전경 메탈릭 패널 음영(Panel Grooves) 및 가로-세로 교차점 접합 노드(Intersection Nodes)를 도입하여 체감형 피트니스 수학 RPG에 걸맞은 입체적인 SFX 무대를 구현한다.
+- **수정 대상**:
+  - `dream_guardian/config/grid.config.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
+- **구현 내용**:
+  1. **그리드 설정 확장 (`config/grid.config.ts`)**:
+     - `LONGITUDINAL_COLOR`: 세로 방향 네온 시안 (`#28E6FF`)
+     - `TRANSVERSE_COLOR`: 가로 비트 방향 네온 오렌지/앰버 (`#FF8844`)
+     - `CENTER_SPINE_COLOR`: 중앙 척추선 청백색 코어 (`#C8F5FF`) 및 시안 글로우
+     - `CROSSING_NODE_COLOR`: 교차점 노드 마름모/포인트 컬러 (`#FFFFFF`, `#FFCB4D`)
+     - `PANEL_DEPTH_START`: 전경 패널 음영 시작 깊이 비율 (기본값: `0.55`)
+     - `PANEL_BG_COLOR`: 전경 패널 은은한 메탈릭 베이스 (`rgba(10, 16, 32, 0.45)`)
+  2. **듀얼 네온 가로/세로선 분리 렌더링 (`DreamGrid.ts`)**:
+     - 세로선: 소실점에서 방사되는 네온 시안 그라데이션 라인
+     - 가로선: 오프셋 스크롤에 연동되는 네온 오렌지 비트 라인 (심도 페이드 적용)
+  3. **중앙 척추선 (Center Spine) 특수 드로잉**:
+     - 소실점과 전경 중앙(`j === 0`, `xBottom = vx`)을 잇는 중심 레인에 3.5px 고광도 청백색 코어 및 발광 글로우 적용
+     - Zone 10(골반/중앙 발판) 및 `CenterReturnGate` 신체 정렬의 시각적 가이드 역할 수행
+  4. **전경 패널 음영 (Modular Panel Grooves)**:
+     - `depthRatio >= 0.55`인 전경 영역의 가로/세로 그리드 사각 셀에 다크 메탈릭 반투명 패널 fill 적용으로 플랫폼 질감 형성
+  5. **교차점 접합 노드 (Intersection Nodes)**:
+     - 전경의 주요 교차점에 2~3px 발광 마름모/크로스 노드를 점등하여 기계식 런웨이 접합부 연출
+  6. **피트니스 존 연결선 및 천장 그리드 정합성 유지**:
+     - 기존 `renderZoneConnections` 및 `_renderCeilingGrid` 정상 연동 유지
+     - 챕터별 배경 이미지 디밍(`bgDimAlpha`)과 완벽 호환
+- **유지 사항**:
+  - `GridProjection.ts`의 `projectDepthY`, `depthRatioFromY` 투영 엔진 100% 호환
+  - 보스 장판(`HazardZoneRenderer`), 별노트(`StarNoteRenderer`) 궤적과의 소실점 정합성
+  - `update(dt, speedMultiplier)` 스크롤 루프 및 러닝 속도 연동
+- **변경 금지**:
+  - 소실점 좌표(`vanishingX`, `vanishingY`) 계산식
+  - 기존 `DreamGridConfig` 인터페이스 하위 호환성 (기존 `color` 파라미터 전달 시 오버라이드 지원)
+- **완료 조건**:
+  - [ ] 세로선(시안)과 가로선(오렌지/앰버)이 명확히 구별되어 렌더링됨
+  - [ ] 중앙을 가로지르는 고휘도 청백색 척추선(Center Spine)이 또렷하게 렌더링됨
+  - [ ] 전경 타일에 메탈릭 패널 음영 및 교차점 접합 노드가 입체적으로 표현됨
+  - [ ] 소실점 심도 안개(Depth Fog) 및 스크롤 애니메이션이 부드럽게 유지됨
+  - [ ] 단위 테스트(`dream-grid.test.ts`) 100% Pass 및 `npm run build` 성공
 - **테스트**:
-  - `tests/unit/stickman-renderer.test.ts` 화이트 클레이 규격 및 렌더링 검증 단위 테스트
+  - `tests/unit/dream-grid.test.ts`에 듀얼 컬러, 척추선, 교차 노드, 패널 설정 검증 추가
   - 브라우저 개발 서버(`npm run dev`)에서 실시간 비주얼 확인
 - **관련 파일**:
-  - `dream_guardian/config/skeleton.config.ts`
-  - `dream_guardian/src/skeleton/StickmanRenderer.ts`
-  - `dream_guardian/tests/unit/stickman-renderer.test.ts`
+  - `dream_guardian/config/grid.config.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
+
+### Issue #283: [UX-ANSWER-TIMEOUT-001] 답안 선택 제한시간 확장(2박→4박) 및 타임아웃/장판 피격 피드백·정산 타이밍 분리
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/283
+- **Labels**: `bug`, `P1-high`, `phase-6`
+- **Milestone**: `v0.6-visuals-content`
+- **작업 ID**: `[UX-ANSWER-TIMEOUT-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 답안 선택 제한시간 확장(2박→4박) 및 타임아웃/장판 피격 피드백·정산 타이밍 분리
+- **목적**:
+  - 현재 `ANSWER_SELECT` 시간이 2박(약 1.0초)으로 극히 짧아 문제를 읽고 팔을 뻗기도 전에 타임아웃(오답 처리)되어 조용히 장판(`HAZARD_EVADE`)으로 직행하는 현상을 해결한다.
+  - 시간 초과 시 아무런 알림 없이 장판이 시작되고, 장판 종료 후 뒤늦게 "오답... / 틀렸습니다!"가 출력되어 장판 회피 실패 때문에 오답이 된 것으로 착각하는 인과관계 왜곡을 바로잡는다.
+  - 장판 피격 시 오답 프리셋(`wrong`)을 재사용하여 피격과 오답이 혼동되는 문제를 분리하고, 직관적인 전투/학습 UX를 완성한다.
+- **수정 대상**:
+  - `dream_guardian/config/beat-motion.config.ts` (루프 패턴 답안 선택 시간 확장: readyBeats 2 → 4)
+  - `dream_guardian/src/game/BeatRunCoordinator.ts` (답안 선택 제한시간 및 타임아웃 발생 즉시 피드백 이벤트 연동)
+  - `dream_guardian/src/main.ts` (타임아웃 즉시 알림, 장판 피격 시 전용 이펙트 연동, ROUND_RESOLVE 시점 중복 오답 피드백 억제)
+  - `dream_guardian/src/effects/EffectManager.ts` (필요 시 장판 전용 피격 이펙트/사운드 보강)
+- **구현 내용**:
+  1. **답안 선택 제한시간 확장 (2박 → 4박)**:
+     - `DEFAULT_LOOP_PATTERN.readyBeats`를 기존 2박(1.0s)에서 4박(2.0~2.5s)으로 현실화하여 문제를 인지하고 팔을 올릴 물리적 시간 확보.
+  2. **타임아웃 즉시 명확한 인과관계 알림 ("시간 초과!")**:
+     - `BeatRunCoordinator`에서 4박 만료로 `HAZARD_EVADE` 전이 시 즉시 화면에 `"시간 초과!"` 텍스트 및 경고 효과음을 표출하여 장판이 시작된 이유가 문제 미선택 때문임을 플레이어에게 즉시 전달.
+  3. **장판 피격 연출과 수학 오답 연출 분리**:
+     - `PhaseAHazardController`의 장판 회피 실패 시 `effectManager.playPreset('wrong')` 대신 장판 피격 전용 이펙트(`HIT! -25 HP`, 둔탁한 피격음) 적용.
+  4. **장판 종료 후(`ROUND_RESOLVE`) 지연 오답 피드백 정상화**:
+     - 문제 단계에서 이미 타임아웃/오답 피드백이 나갔으므로, 4초 뒤 장판이 끝난 시점에서 다시 `"오답..."` 텍스트 및 `"틀렸습니다!"` 음성이 중복 발화되어 회피 결과와 혼동되는 문제 방지.
+- **유지 사항**:
+  - 기존 정답 시 `STAR_COLLECT`, 오답/타임아웃 시 `HAZARD_EVADE` 분기 구조 유지.
+  - 장판 회피 실패 시 -25 HP 피해 및 콤보 0 리셋 규칙 유지.
+  - 5종 회피 패턴 및 3D 원근 장판 렌더링 유지.
+- **변경 금지**:
+  - `BeatRoundResolver`의 단일 정산(Single Point of Settlement) 멱등성 및 자원 격리 구조.
+  - `StateMachine`의 기본 상태 전이 테이블.
+- **완료 조건**:
+  - [ ] `ANSWER_SELECT` 제한시간이 4박으로 확장되어 2.0초 이상의 입력 여유가 보장된다.
+  - [ ] 답안 미선택 타임아웃 발생 즉시 화면에 "시간 초과!" 알림이 출력된 후 장판으로 넘어간다.
+  - [ ] 장판 회피 실패 시 수학 오답(wrong)이 아닌 장판 피격 전용 피드백이 연출된다.
+  - [ ] 장판 페이즈 종료 후 불필요하게 "오답.../틀렸습니다!"가 뒷북 발화되지 않는다.
+  - [ ] 전체 단위 테스트 100% Pass 및 `npm run build` 성공.
+- **테스트**:
+  - `tests/unit/beat-run-coordinator.test.ts` (4박 타임아웃 및 이벤트 발행 검증)
+  - `tests/unit/music-track-config.test.ts` (readyBeats 변경 검증)
+  - `npm run build` 및 전체 회귀 테스트 통과 확인
+
+### Issue #284: [VFX-JUDGMENT-001] 별똥별(별가루 악기 노트) 리듬 판정 플로팅 텍스트(PERFECT/GOOD/MISS) 및 타겟 어프로치 링 시각화
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/284
+- **Labels**: `feature`, `P1-high`, `phase-7`
+- **작업 ID**: `[VFX-JUDGMENT-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 별똥별(별가루 악기 노트) 리듬 판정 플로팅 텍스트(PERFECT/GOOD/MISS) 및 타겟 어프로치 링 시각화
+- **목적**:
+  - 별똥별(별가루 악기 노트) 타격 시 사운드/파티클만 발생하고 판정 등급(Perfect, Good, Early, Late, Miss)이 시각적으로 표시되지 않아 타격 타이밍 및 성패를 알 수 없던 결함을 해소한다.
+  - 리듬게임 표준 규격의 어프로치 링(수축 타이밍 서클) 및 타격 순간 부유 텍스트(Floating Judgment Text)와 콤보 팝업을 제공하여 즉각적인 피드백을 완성한다.
+- **수정 대상**:
+  - `dream_guardian/src/render/StarNoteRenderer.ts`
+  - `dream_guardian/src/effects/EffectManager.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/star-note-renderer.test.ts`
+  - `dream_guardian/tests/unit/effect-manager.test.ts`
+- **구현 내용**:
+  1. **목표 존 어프로치 링 (Approach Ring)**:
+     - 노트 비행 진행도(`progress: 0.0 ~ 1.0`)에 따라 목표 피트니스 존 테두리로 수축하는 펄스 링 렌더링 (진행도 0일 때 존 반경 2.5배 -> 1.0 안착 시 1.0배로 정확히 수축)
+  2. **리듬 판정 플로팅 텍스트 (Floating Judgment Text)**:
+     - `EffectManager`에 `playJudgmentText(x, y, rating, combo)` 메서드 추가
+     - 판정별 시그니처 비주얼:
+       - `PERFECT`: 고광도 골드(`#FFCB4D`) + 백색 코어, 스케일 바운스(1.3x -> 1.0x), 상향 부유 40px, 수명 0.6s
+       - `GOOD`: 시안(`#28E6FF`), 바운스 1.15x -> 1.0x, 상향 부유 30px, 수명 0.5s
+       - `EARLY` / `LATE`: 오렌지/앰버(`#FF8844`), 서브 텍스트 표기
+       - `MISS`: 둔탁한 레드(`#FF4444`), 화면 살짝 떨림(1.5px) 또는 페이드다운, 수명 0.45s
+  3. **실시간 콤보 수치 연동**:
+     - 2+ 콤보 시 판정 텍스트 하단에 `N COMBO!` 미니 뱃지 함께 팝업
+  4. **`main.ts` `onRating` 실연결**:
+     - `starNoteScheduler.onRating`에서 노트 위치를 계산하여 `effectManager.playJudgmentText` 격발
+- **유지 사항**:
+  - 기존 `BandSynthesizer` 키사운드 및 `SFXSynth` 사운드 100% 유지
+  - 기존 `StarNoteRenderer` 유성 꼬리(플룸) 및 원근 크기 변화 보존
+- **변경 금지**:
+  - `judgeStarTiming` 타이밍 윈도우 판정 수치 및 자원 획득 로직
+- **완료 조건**:
+  - [ ] 별똥별 비행 시 목표 존으로 수축하는 어프로치 링이 선명하게 표시됨
+  - [ ] 노트 판정 순간 목표 존 위치에 PERFECT/GOOD/MISS 플로팅 텍스트가 팝업됨
+  - [ ] 판정 텍스트가 상향 부유하며 자연스럽게 페이드아웃됨
+  - [ ] 단위 테스트 100% Pass 및 빌드 검증 성공
+- **테스트**:
+  - `star-note-renderer.test.ts`에 어프로치 링 수축 계산 검증 추가
+  - `effect-manager.test.ts`에 판정 텍스트 파티클 수명주기 및 렌더링 검증 추가
+- **관련 파일**:
+  - `dream_guardian/src/render/StarNoteRenderer.ts`
+  - `dream_guardian/src/effects/EffectManager.ts`
+  - `dream_guardian/src/main.ts`
+
+### Issue #285: [UI-ANSWER-002] 답안 버튼(Zone 4/5) 실시간 0~100% 충전 프로그레스 바·테두리 게이지 및 체결 연출
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/285
+- **Labels**: `feature`, `P1-high`, `phase-6`
+- **작업 ID**: `[UI-ANSWER-002]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 답안 버튼(Zone 4/5) 실시간 0~100% 충전 프로그레스 바·테두리 게이지 및 체결 연출
+- **목적**:
+  - 유저가 팔을 뻗어 답을 선택할 때, 현재 얼마나 뻗었는지, 확정까지 얼마나 남았는지를 시각적으로 알 수 없어 조작이 불안정한 문제를 해결한다.
+  - 답안 버튼 테두리 및 배경에 실시간 팔 뻗기 스코어(0.0~1.0)를 반영하는 0~100% 게이지 및 확정 체결(도장/사운드) 연출을 구현한다.
+- **수정 대상**:
+  - `dream_guardian/src/render/QuestionRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/question-renderer.test.ts`
+- **구현 내용**:
+  1. **실시간 답안 충전 게이지 렌더링 (`QuestionRenderer.ts`)**:
+     - `QuestionRenderState`에 `choiceProgress?: [number, number]` 및 `activeHoverIndex?: number | null` 인터페이스 추가
+     - 조준 중인 답안 버튼 테두리에 0% -> 100% 네온 프로그레스 테두리(또는 하단 바) 드로잉
+     - 버튼 배경에 은은한 충전 필(Fill) 애니메이션 적용 (`rgba(40, 230, 255, 0.25)` 또는 `#FFCB4D`)
+  2. **조준 시 호버 강조 (Magnet Hover State)**:
+     - 현재 타겟팅된 답안 버튼은 1.05x 미세 확대 및 발광 글로우(blur 20px) 활성화
+  3. **확정 즉시 체결 및 판정 스탬프 (Confirm Stamp)**:
+     - 답안 확정(`selectedChoiceIndex`) 시 녹색 테두리와 함께 버튼 중앙에 `선택 완료! [V]` 네온 뱃지 표출
+  4. **`main.ts` `ArmReachAnswerSelector` 점수 실시간 연동**:
+     - `armReachAnswerState.score`와 활성 타겟 존(Zone 4 -> index 0, Zone 5 -> index 1)을 `QuestionRenderer.render`에 주입
+- **유지 사항**:
+  - MathRenderer 수식 렌더링 및 긴 수식 자동 축소 보존
+  - 키보드 [1], [2] fallback 입력 호환성
+  - `RESERVED_BANDS` 겹침 0% 보장
+- **변경 금지**:
+  - `ArmReachAnswerSelector`의 게이트 가중치 및 확정 임계치(0.70) 판정 로직
+- **완료 조건**:
+  - [ ] 팔을 뻗을 때 해당 답안 버튼의 테두리 게이지가 0%에서 100%로 연속 충전됨
+  - [ ] 100% 도달 및 확정 시 강력한 네온 체결 피드백이 표시됨
+  - [ ] 조준을 멈추거나 중립 복귀 시 게이지가 부드럽게 감쇠함
+  - [ ] 단위 테스트 100% Pass 및 빌드 성공
+- **테스트**:
+  - `question-renderer.test.ts`에 진행도에 따른 게이지 렌더링 및 하이라이트 상태 테스트 추가
+- **관련 파일**:
+  - `dream_guardian/src/render/QuestionRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/question-renderer.test.ts`
+
+### Issue #286: [RENDER-HAZARD-002] 보스 회피 장판 카운트다운 타이밍 서클 및 실시간 회피 상태(SAFE/DANGER/DODGED) 피드백
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/286
+- **Labels**: `feature`, `P1-high`, `phase-7`
+- **작업 ID**: `[RENDER-HAZARD-002]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 보스 회피 장판 카운트다운 타이밍 서클 및 실시간 회피 상태(SAFE/DANGER/DODGED) 피드백
+- **목적**:
+  - 바닥 회피 장판이 다가올 때 언제 점프/스텝을 뛰어야 하는지 타이밍을 알 수 없고, 현재 내 발이 안전한지 위험한지 즉각적인 상태 확인이 불가능한 결함을 해결한다.
+  - 바닥 전경 발판 구역에 수축 타이밍 서클(Timing Circle)과 실시간 `[SAFE] / [DANGER]` 상태 인디케이터 및 대형 `DODGE! / HIT!` 판정 배너를 구현한다.
+- **수정 대상**:
+  - `dream_guardian/src/render/HazardZoneRenderer.ts`
+  - `dream_guardian/src/ui/PhasePresentationAdapter.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/hazard-zone-renderer.test.ts`
+  - `dream_guardian/tests/integration/phase-a-hazard-render.test.ts`
+- **구현 내용**:
+  1. **바닥 발판 수축 타이밍 서클 (Timing Circle)**:
+     - 장판 진행도(beatProgress: 0.0 ~ 1.0)에 동기화되어 전경 위험 발판 지점으로 수축하는 3D 원근 타이밍 링 렌더링
+     - 80%~100% 구간(임팩트 직전) 붉은색 펄스 및 "지금 점프!" / "지금 스텝!" 직관적 타이밍 유도
+  2. **실시간 회피 상태 인디케이터 (Live Action Indicator)**:
+     - `PhasePresentationAdapter` 상단에 유저의 실시간 모션 인식 상태 배지 표출:
+       - 회피 동작 미수행 시: ⚠️ `[위험] 장판이 다가옵니다!` (적색)
+       - 유효 회피 동작(점프 체공 / 한발 들기) 감지 중: 🛡️ `[안전] 회피 자세 유지 중!` (에메랄드 녹색 글로우)
+  3. **대형 성패 판정 팝업 (DODGE / HIT Impact Banner)**:
+     - 판정 시점(3.5s)에 화면 중앙 및 바닥에 강력한 임팩트 연출:
+       - 회피 성공 시: 거대한 **`DODGE!`** 텍스트 + 시안/에메랄드 방패 충격파
+       - 피격 시: 거대한 **`HIT! (-25 HP)`** 텍스트 + 화면 붉은 플래시
+- **유지 사항**:
+  - 5종 회피 패턴(`jump`, `left_step`, `right_step`, `balance_left`, `balance_right`) 3D 레인 궤적 호환
+  - 25 HP 피해 정책 및 GDD 타이밍 규칙 보존
+- **변경 금지**:
+  - `PhaseAHazardController`의 입력 윈도우(2.6~3.4s) 및 판정 타임라인(3.5s)
+- **완료 조건**:
+  - [ ] 장판 접근 시 바닥에 타이밍을 알리는 수축 서클이 명확히 표시됨
+  - [ ] 회피 동작을 취했을 때 실시간으로 안전 상태로 전환됨을 알 수 있음
+  - [ ] 판정 순간 화면에 DODGE / HIT 대형 판정 배너가 표출됨
+  - [ ] 단위/통합 테스트 100% Pass 및 빌드 성공
+- **테스트**:
+  - `hazard-zone-renderer.test.ts`에 타이밍 서클 렌더링 검증 추가
+  - `phase-a-hazard-render.test.ts`에 실시간 SAFE/DANGER 상태 배지 표시 통합 검증 추가
+- **관련 파일**:
+  - `dream_guardian/src/render/HazardZoneRenderer.ts`
+  - `dream_guardian/src/ui/PhasePresentationAdapter.ts`
+  - `dream_guardian/src/main.ts`
+
+  - [ ] 답안 미선택 타임아웃 발생 즉시 화면에 "시간 초과!" 알림이 출력된 후 장판으로 넘어간다.
+  - [ ] 장판 회피 실패 시 수학 오답(wrong)이 아닌 장판 피격 전용 피드백이 연출된다.
+  - [ ] 장판 페이즈 종료 후 불필요하게 "오답.../틀렸습니다!"가 뒷북 발화되지 않는다.
+  - [ ] 전체 단위 테스트 100% Pass 및 `npm run build` 성공.
+- **테스트**:
+  - `tests/unit/beat-run-coordinator.test.ts` (4박 타임아웃 및 이벤트 발행 검증)
+  - `tests/unit/music-track-config.test.ts` (readyBeats 변경 검증)
+  - `npm run build` 및 전체 회귀 테스트 통과 확인
+
 
 
 
