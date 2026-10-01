@@ -9,6 +9,8 @@
  * 양손 합장 제스처(MenuInput)로 0.8초 호버 체류(Dwell) 또는 마우스/터치 클릭으로 선택.
  */
 
+import { UIText } from '../utils/UIText.js';
+
 export type PauseAction = 'resume' | 'quit' | 'backdrop';
 
 export interface ModalButtonSlot {
@@ -212,13 +214,13 @@ export class PauseModal {
     ctx.shadowBlur = 0;
 
     // 3. 타이틀 및 안내 문구
-    ctx.font = `bold ${Math.round(48 * scaleX)}px sans-serif`;
+    ctx.font = UIText.getFont('subheading', scaleX, 'bold');
     ctx.fillStyle = '#FFCB4D';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText('⏸ 일시정지 (PAUSED)', mx + mw / 2, my + 50 * scaleY);
 
-    ctx.font = `${Math.round(24 * scaleX)}px sans-serif`;
+    ctx.font = UIText.getFont('badge', scaleX, 'normal');
     ctx.fillStyle = '#C8D4E6';
     ctx.fillText('양손을 모아 합장 커서로 선택하세요', mx + mw / 2, my + 130 * scaleY);
     ctx.fillText('X자 제스처로 다시 열고 닫을 수 있습니다', mx + mw / 2, my + 175 * scaleY);
@@ -268,7 +270,7 @@ export class PauseModal {
       }
 
       // 라벨 텍스트
-      ctx.font = `bold ${Math.round(36 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('body', scaleX, 'bold');
       ctx.fillStyle = isHovered ? '#FFFFFF' : '#E8F0FE';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';

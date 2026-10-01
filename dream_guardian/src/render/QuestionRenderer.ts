@@ -11,6 +11,7 @@ import { renderMath } from './MathRenderer.js';
 import { getAnswerButtonLayouts } from '../../config/zone.config.js';
 import type { QuestionRecipePlan } from '../input/RecipeGenerator.js';
 import { ShapeRenderer, deriveShapeFromQuestion } from './ShapeRenderer.js';
+import { UIText } from '../utils/UIText.js';
 
 export interface QuestionRenderState {
   question: GeneratedQuestion | null;
@@ -178,7 +179,7 @@ export class QuestionRenderer {
       });
 
       // 키보드 힌트
-      ctx.font = `bold ${Math.round(22 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('badge', scaleX, 'bold');
       ctx.fillStyle = '#AAAAAA';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';

@@ -19,6 +19,7 @@ import {
   type ArmReachGateScores,
 } from '../../config/judgment.config.js';
 import type { ArmReachAnswerState } from '../input/ArmReachAnswerSelector.js';
+import { UIText } from '../utils/UIText.js';
 
 export type FeedbackReasonKey = keyof JudgmentFeedbackMessages;
 
@@ -318,7 +319,7 @@ export class JudgmentFeedback {
       ctx.stroke();
 
       // 텍스트 렌더링
-      ctx.font = `bold ${Math.round(26 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('label', scaleX, 'bold');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#FFE082';
@@ -333,7 +334,7 @@ export class JudgmentFeedback {
       const cx = bounds.x + bounds.width / 2;
       const badgeY = bounds.y + bounds.height + 14 * scaleY;
 
-      ctx.font = `bold ${Math.round(18 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('caption', scaleX, 'bold');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(77, 255, 170, 0.75)';

@@ -5,6 +5,8 @@
  * - main.ts에 인라인되어 있던 X자 제스처 진행 게이지 및 안내 패널 렌더링 분리
  */
 
+import { UIText } from '../utils/UIText.js';
+
 export interface GestureFeedbackState {
   isCrossing: boolean;
   inCooldown: boolean;
@@ -45,7 +47,8 @@ export class GestureFeedbackOverlay {
     ctx.shadowBlur = 0;
 
     // 2. 패널 라벨 텍스트
-    ctx.font = 'bold 28px sans-serif';
+    const scaleX = vw ? vw / 1080 : 1.0;
+    ctx.font = UIText.getFont('label', scaleX, 'bold');
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

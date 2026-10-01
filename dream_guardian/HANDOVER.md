@@ -45,8 +45,8 @@
 |:---:|---|---|---|:---:|
 | 1 | **#256** | [UI-TOKEN-001] UI 디자인 토큰 시스템 신설 (config/ui.config.ts) | 없음 | `[✔] 완료` |
 | 2 | **#257** | [UI-TOKEN-002] UIText 중앙 렌더링 유틸리티 신설 | #256 | `[✔] 완료` |
-| 3 | **#258** | [UI-TOKEN-003] 11개 UI 렌더러 하드코딩 폰트→토큰 기반 전환 | #256·#257 | `[▶ NEXT]` |
-| 4 | **#259** | [UI-TOKEN-004] 렌더러 레이아웃 좌표→UI_LAYOUT 참조 전환 | #256 | `[ ] 대기` |
+| 3 | **#258** | [UI-TOKEN-003] 11개 UI 렌더러 하드코딩 폰트→토큰 기반 전환 | #256·#257 | `[✔] 완료` |
+| 4 | **#259** | [UI-TOKEN-004] 렌더러 레이아웃 좌표→UI_LAYOUT 참조 전환 | #256 | `[▶ NEXT]` |
 | 5 | **#260** | [UI-TOKEN-005] BossClimaxRenderer/BeatHUDRenderer 폰트→토큰 전환 | #257 | `[ ] 대기` |
 | 6 | **#261** | [UI-TOKEN-006] 이미지 에셋 로더 및 프로시저럴/이미지 분기 인프라 | #256 | `[✔] 완료` |
 
@@ -97,6 +97,27 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [UI-TOKEN-003 / #258] 11개 UI 렌더러 하드코딩 폰트→토큰 기반 전환
+
+> #258 구현 및 단위/회귀 테스트 전수 검증 완료. 11개 주요 UI 렌더러의 하드코딩 `ctx.font` 문자열을 `UIText.getFont(role, scaleX, weight)` 및 토큰 기반으로 일괄 전환하여, `fontScale` 조정만으로 전체 UI 글씨 크기가 동적으로 반응하도록 구축했습니다.
+> - **수정 대상 파일 (11개 렌더러)**:
+>   1. `src/ui/HUDLayer.ts`: HP 수치(caption), 콤보 카운트(body/badge), 보스 타이틀(badge) 전환
+>   2. `src/ui/MenuRenderer.ts`: 메인 메뉴 타이틀(title), 슬로건/테마 부제(label), 운동 모드/별점(badge/body), 챕터 번호/이름(subheading), 서브메뉴 헤더/단계 카드(heading/label/body) 전환
+>   3. `src/ui/ResultRenderer.ts`: 승리/패배(hero), 챕터명(body), 별점(heading), 8개 운동 통계(subheading), 하단 안내(label) 전환 및 `getStatFontSize()` 토큰 연동
+>   4. `src/ui/BottomBar.ts`: 설정 버튼(body), 콤보/마나 라벨(label), 액션 버튼(body) 전환
+>   5. `src/ui/SettingsModal.ts`: 모달 타이틀(subheading), 닫기 버튼(body), 옵션명/상태 태그(body) 전환
+>   6. `src/ui/PauseModal.ts`: 모달 타이틀(subheading), 안내문(badge), 복귀/홈 버튼(body) 전환
+>   7. `src/ui/TutorialOverlay.ts`: 1~3단계 제목(body), 설명문(badge), 아이콘 라벨/힌트(caption) 전환
+>   8. `src/ui/LocomotionModal.ts`: 헤더(subheading), 설명(badge), 닫기(body), 카드 아이콘(title), 모드명(body), 부위/소음/상태 배지(caption/badge) 전환
+>   9. `src/ui/GestureFeedbackOverlay.ts`: X자 제스처 일시정지/나가기 라벨(label) 전환
+>   10. `src/ui/JudgmentFeedback.ts`: 힌트 메시지 필(label), 적응형 관용 완화 배지(caption) 전환
+>   11. `src/render/QuestionRenderer.ts`: 답안 키보드 단축키 힌트(badge) 전환
+> - **검증 산출물**:
+>   - `tests/unit/ui-token-migration.test.ts` (18 tests 통과: 11개 소스 하드코딩 정적 검사, 렌더링 런타임 getFont 호출/역할 매핑 검사, fontScale 동적 스케일링 검사)
+>   - 전체 117개 테스트 파일 1,365개 테스트 100% Pass, `npm run build` 성공.
 
 ---
 

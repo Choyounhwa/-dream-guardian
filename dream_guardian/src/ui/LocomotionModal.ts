@@ -11,6 +11,7 @@
  */
 
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
+import { UIText } from '../utils/UIText.js';
 
 export interface ModalButtonSlot {
   x: number;
@@ -356,13 +357,13 @@ export class LocomotionModal {
     ctx.stroke();
 
     // 3. 헤더 타이틀 및 서브텍스트
-    ctx.font = `bold ${Math.round(44 * scaleX)}px sans-serif`;
+    ctx.font = UIText.getFont('subheading', scaleX, 'bold');
     ctx.fillStyle = '#FFCB4D';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillText('🏃 운동 모드 (이동 방식) 선택', mx + 50 * scaleX, my + 45 * scaleY);
 
-    ctx.font = `${Math.round(24 * scaleX)}px sans-serif`;
+    ctx.font = UIText.getFont('badge', scaleX, 'normal');
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
     ctx.fillText('거주 환경과 신체 상태에 맞게 선택하세요 (0.8초 체류 또는 클릭)', mx + 50 * scaleX, my + 105 * scaleY);
 
@@ -380,7 +381,7 @@ export class LocomotionModal {
     ctx.fill();
     ctx.stroke();
 
-    ctx.font = `bold ${Math.round(36 * scaleX)}px sans-serif`;
+    ctx.font = UIText.getFont('body', scaleX, 'bold');
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -412,18 +413,18 @@ export class LocomotionModal {
       ctx.stroke();
 
       // 아이콘 (대형)
-      ctx.font = `${Math.round(72 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('title', scaleX, 'normal');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(info.icon, card.x + card.w / 2, card.y + 90 * scaleY);
 
       // 모드 이름
-      ctx.font = `bold ${Math.round(34 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('body', scaleX, 'bold');
       ctx.fillStyle = isSelected ? info.color : '#FFFFFF';
       ctx.fillText(info.label, card.x + card.w / 2, card.y + 170 * scaleY);
 
       // 서브 라벨
-      ctx.font = `${Math.round(22 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('badge', scaleX, 'normal');
       ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
       ctx.fillText(info.subLabel, card.x + card.w / 2, card.y + 215 * scaleY);
 
@@ -444,7 +445,7 @@ export class LocomotionModal {
       ctx.fill();
       ctx.stroke();
 
-      ctx.font = `bold ${Math.round(20 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('caption', scaleX, 'bold');
       ctx.fillStyle = info.color;
       ctx.fillText(`부위: ${info.targetPart}`, card.x + card.w / 2, card.y + 283 * scaleY);
 
@@ -461,13 +462,12 @@ export class LocomotionModal {
       ctx.fill();
       ctx.stroke();
 
-      ctx.font = `bold ${Math.round(20 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('caption', scaleX, 'bold');
       ctx.fillStyle = info.mode === 'run' ? '#FF865E' : '#4DFFAA';
       ctx.fillText(info.noiseLevel, card.x + card.w / 2, card.y + 343 * scaleY);
 
       // 설명 텍스트 (단어 자동 줄바꿈 또는 간결 안내)
-      ctx.font = `${Math.round(18 * scaleX)}px sans-serif`;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.font = UIText.getFont('caption', scaleX, 'normal');
       this._renderWrappedText(
         ctx,
         info.description,
@@ -480,7 +480,7 @@ export class LocomotionModal {
       // 선택 상태 안내 띠 또는 체크마크
       if (isSelected) {
         const checkY = card.y + card.h - 45 * scaleY;
-        ctx.font = `bold ${Math.round(22 * scaleX)}px sans-serif`;
+        ctx.font = UIText.getFont('badge', scaleX, 'bold');
         ctx.fillStyle = '#4DFFAA';
         ctx.fillText('✓ 현재 사용 중', card.x + card.w / 2, checkY);
       }
