@@ -13,6 +13,7 @@
  * @see Issue #210 [BEAT-KEYNOTE-ENGINE-001]
  * @see Issue #224 [INPUT-ARM-ANSWER-001]
  * @see Issue #225 [BATTLE-ANSWER-PENALTY-001]
+ * @see Issue #204 [BEAT-TRACK-001]
  */
 
 import { RhythmEngine } from '../core/RhythmEngine.js';
@@ -25,10 +26,13 @@ import type { NormalizedLandmark } from '../types/index.js';
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import type { RoundAnswerStatus } from '../types/result.js';
 import type { Keynote } from '../types/keynote.js';
+import type { MusicTrackConfig } from '../types/track.js';
+import { DEFAULT_TRACK_CONFIG, DEFAULT_LOOP_PATTERN } from '../../config/beat-motion.config.js';
 
 export type BeatRoutineMode = 'arm_reach' | 'legacy';
 
 export type BeatPhase =
+  | 'COUNT_IN'
   | 'RUN_QUESTION'
   | 'ANSWER_SELECT'
   | 'STAR_COLLECT'
@@ -46,17 +50,13 @@ export interface BeatRunCoordinatorOptions {
   armReachAnswerSelector?: ArmReachAnswerSelector;
   keynotes?: readonly Keynote[];
   routineMode?: BeatRoutineMode;
+  trackConfig?: MusicTrackConfig;
   onQuestionGenerated?: (question: GeneratedQuestion) => void;
   onPhaseChange?: (phase: BeatPhase) => void;
   onAnswerConfirmed?: (choiceIndex: number, correct: boolean, status: RoundAnswerStatus) => void;
   onAnswerSelected?: (choiceIndex: number) => void;
+  onCountInBeat?: (currentBeat: number, totalBeats: number) => void;
 }
-
-const EXERCISE_BEATS_PER_ROUND = 8;
-const ANSWER_SELECT_BEATS = 2; // Issue #210: 최대 2박 (1.0s)
-const BRANCH_ROUTINE_BEATS = 8; // Issue #210 & #235: 8박 (4.0s) - 7번째 노트(3.5s)의 만료(3.90s) 후 정산 보장
-const READY_BEATS = 2;
-const PERFORMANCE_BEATS = 8;
 
 export class BeatRunCoordinator {
   private readonly _rhythmEngine: RhythmEngine;
@@ -65,6 +65,7 @@ export class BeatRunCoordinator {
   private readonly _questionBank: QuestionBank;
   private readonly _options: BeatRunCoordinatorOptions;
   private readonly _routineMode: BeatRoutineMode;
+  private _trackConfig: MusicTrackConfig;
 
   private _phase: BeatPhase = 'RUN_QUESTION';
   private _currentQuestion: GeneratedQuestion | null = null;
@@ -78,6 +79,8 @@ export class BeatRunCoordinator {
   private _performanceElapsed = 0;
   private _answerSelectElapsed = 0;
   private _branchElapsed = 0;
+  private _countInElapsed = 0;
+  private _countInCurrentBeat = 0;
   private _selectedChoiceIndex: number | null = null;
   private _roundResolveCount = 0;
   private _keynotes: readonly Keynote[] = [];
@@ -85,7 +88,17 @@ export class BeatRunCoordinator {
   constructor(options?: BeatRunCoordinatorOptions) {
     this._options = options ?? {};
     this._routineMode = options?.routineMode ?? (options?.armReachAnswerSelector ? 'arm_reach' : 'legacy');
-    this._rhythmEngine = options?.rhythmEngine ?? new RhythmEngine({ bpm: 120, beatsPerRound: 8 });
+    this._trackConfig = options?.trackConfig ?? DEFAULT_TRACK_CONFIG;
+    if (options?.rhythmEngine) {
+      this._rhythmEngine = options.rhythmEngine;
+      if (options.trackConfig) {
+        this._rhythmEngine.setTrackConfig(options.trackConfig);
+      }
+    } else {
+      this._rhythmEngine = new RhythmEngine({
+        trackConfig: this._trackConfig,
+      });
+    }
     this._centerReturnGate = options?.centerReturnGate ?? new CenterReturnGate();
     this._armReachAnswerSelector =
       options?.armReachAnswerSelector ?? new ArmReachAnswerSelector({ isMirrored: false });
@@ -101,11 +114,52 @@ export class BeatRunCoordinator {
     return this._phase;
   }
 
+  get trackConfig(): MusicTrackConfig {
+    return this._trackConfig;
+  }
+
+  setTrackConfig(config: MusicTrackConfig): void {
+    this._trackConfig = config;
+    this._rhythmEngine.setTrackConfig(config);
+  }
+
+  get exerciseBeats(): number {
+    return this._trackConfig.loopPattern?.exerciseBeats ?? DEFAULT_LOOP_PATTERN.exerciseBeats;
+  }
+
+  get readyBeats(): number {
+    return this._trackConfig.loopPattern?.readyBeats ?? DEFAULT_LOOP_PATTERN.readyBeats;
+  }
+
+  get performanceBeats(): number {
+    return this._trackConfig.loopPattern?.performanceBeats ?? DEFAULT_LOOP_PATTERN.performanceBeats;
+  }
+
+  get countInBeats(): number {
+    return this._trackConfig.intro?.countInBeats ?? 3;
+  }
+
+  get countInCurrentBeat(): number {
+    return this._countInCurrentBeat;
+  }
+
+  get countInElapsed(): number {
+    return this._countInElapsed;
+  }
+
+  get countInProgress(): number {
+    const totalBeats = this.countInBeats;
+    if (totalBeats <= 0) return 1.0;
+    const totalDuration = totalBeats * this._rhythmEngine.secondsPerBeat;
+    if (totalDuration <= 0) return 1.0;
+    return Math.min(1.0, Math.max(0, this._countInElapsed / totalDuration));
+  }
+
   get isAnswerOpen(): boolean {
     if (this._phase === 'ANSWER_SELECT') {
       return (
         this._selectedChoiceIndex === null &&
-        this._answerSelectElapsed < ANSWER_SELECT_BEATS * this._rhythmEngine.secondsPerBeat
+        this._answerSelectElapsed < this.readyBeats * this._rhythmEngine.secondsPerBeat
       );
     }
     if (this._phase === 'KEYNOTE_PERFORMANCE') {
@@ -179,18 +233,18 @@ export class BeatRunCoordinator {
     return this._completedExerciseBeats;
   }
 
-  /** REST_READY 내 완료된 준비 박 수 (0~2) */
+  /** REST_READY 내 완료된 준비 박 수 (0~readyBeats) */
   get readyBeat(): number {
-    return Math.min(READY_BEATS, Math.floor(this._readyElapsed / this._rhythmEngine.secondsPerBeat));
+    return Math.min(this.readyBeats, Math.floor(this._readyElapsed / this._rhythmEngine.secondsPerBeat));
   }
 
-  /** KEYNOTE_PERFORMANCE 또는 분기 루틴 내 현재 박 (1~8, 비활성 시 0) */
+  /** KEYNOTE_PERFORMANCE 또는 분기 루틴 내 현재 박 (1~performanceBeats, 비활성 시 0) */
   get performanceBeat(): number {
     if (this._phase === 'KEYNOTE_PERFORMANCE') {
-      return Math.min(PERFORMANCE_BEATS, Math.floor(this._performanceElapsed / this._rhythmEngine.secondsPerBeat) + 1);
+      return Math.min(this.performanceBeats, Math.floor(this._performanceElapsed / this._rhythmEngine.secondsPerBeat) + 1);
     }
     if (this._phase === 'STAR_COLLECT' || this._phase === 'HAZARD_EVADE') {
-      return Math.min(8, Math.floor(this._branchElapsed / this._rhythmEngine.secondsPerBeat) + 2);
+      return Math.min(this.performanceBeats, Math.floor(this._branchElapsed / this._rhythmEngine.secondsPerBeat) + 2);
     }
     return 0;
   }
@@ -207,6 +261,9 @@ export class BeatRunCoordinator {
    * - 일시정지(pause) 시간 제외
    */
   get questionApproachProgress(): number {
+    if (this._phase === 'COUNT_IN') {
+      return 0.0;
+    }
     if (this._phase !== 'RUN_QUESTION') {
       return 1.0;
     }
@@ -219,14 +276,57 @@ export class BeatRunCoordinator {
   }
 
   /**
-   * 새 라운드 시작 (달리기 1박부터 시작)
-   * 문제 생성 및 비블로킹 TTS는 매 run phase 시작 시 정확히 1회 실행됨
+   * 새 라운드 시작 (달리기 1박부터 시작 또는 카운트인 예비박 동반)
+   * @param options.withCountIn true 시 트랙 BPM에 동기화된 예비박(Count-in) 시동 후 1라운드 전이
    */
-  startRound(options?: { chapter?: number; subLevel?: number }): void {
+  startRound(options?: { chapter?: number; subLevel?: number; withCountIn?: boolean }): void {
     if (options?.chapter !== undefined) {
       this._questionBank.setLevel(options.chapter, options.subLevel);
     }
 
+    if (options?.withCountIn) {
+      this.startCountIn(options);
+      return;
+    }
+
+    this._startRunQuestion();
+  }
+
+  /**
+   * 트랙 BPM에 동기화된 예비박(Count-in 3박자 메트로놈) 시동
+   */
+  startCountIn(options?: { chapter?: number; subLevel?: number }): void {
+    if (options?.chapter !== undefined) {
+      this._questionBank.setLevel(options.chapter, options.subLevel);
+    }
+
+    const totalBeats = this.countInBeats;
+    if (totalBeats <= 0) {
+      this._startRunQuestion();
+      return;
+    }
+
+    this._rhythmEngine.reset();
+    this._rhythmEngine.start({ emitFirstBeat: false });
+    this._phase = 'COUNT_IN';
+    this._countInElapsed = 0;
+    this._countInCurrentBeat = 1;
+    this._completedExerciseBeats = 0;
+    this._lastExercisedSlot = -1;
+    this._targetSlotEndElapsed = null;
+    this._runElapsed = 0;
+    this._readyElapsed = 0;
+    this._performanceElapsed = 0;
+    this._answerSelectElapsed = 0;
+    this._branchElapsed = 0;
+    this._selectedChoiceIndex = null;
+    this._roundResolveCount = 0;
+
+    this._options.onPhaseChange?.(this._phase);
+    this._options.onCountInBeat?.(1, totalBeats);
+  }
+
+  private _startRunQuestion(): void {
     this._rhythmEngine.reset();
     this._rhythmEngine.start();
     this._phase = 'RUN_QUESTION';
@@ -277,9 +377,48 @@ export class BeatRunCoordinator {
     if (!this._rhythmEngine.running || this._rhythmEngine.paused) return;
 
     const validDt = Math.max(0, dt);
-    this._rhythmEngine.update(validDt);
-
     let remainingDt = validDt;
+
+    // COUNT_IN 페이즈 처리
+    if (this._phase === 'COUNT_IN') {
+      const spb = this._rhythmEngine.secondsPerBeat;
+      const totalBeats = this.countInBeats;
+      const totalDuration = totalBeats * spb;
+
+      while (this._phase === 'COUNT_IN' && remainingDt > 0) {
+        if (this._countInCurrentBeat < totalBeats) {
+          const nextBeatTime = this._countInCurrentBeat * spb;
+          const timeUntilNextBeat = nextBeatTime - this._countInElapsed;
+          if (remainingDt >= timeUntilNextBeat - 1e-9) {
+            const step = Math.max(0, timeUntilNextBeat);
+            this._countInElapsed += step;
+            remainingDt -= step;
+            this._countInCurrentBeat++;
+            this._options.onCountInBeat?.(this._countInCurrentBeat, totalBeats);
+          } else {
+            this._countInElapsed += remainingDt;
+            remainingDt = 0;
+          }
+        } else {
+          const timeUntilEnd = totalDuration - this._countInElapsed;
+          if (remainingDt >= timeUntilEnd - 1e-9) {
+            const step = Math.max(0, timeUntilEnd);
+            this._countInElapsed += step;
+            remainingDt -= step;
+            this._startRunQuestion();
+          } else {
+            this._countInElapsed += remainingDt;
+            remainingDt = 0;
+          }
+        }
+      }
+
+      if (this._phase === 'COUNT_IN') {
+        return;
+      }
+    }
+
+    this._rhythmEngine.update(remainingDt);
 
     // 0. RUN_QUESTION 페이즈 처리
     if (this._phase === 'RUN_QUESTION') {
@@ -316,7 +455,7 @@ export class BeatRunCoordinator {
           }
         }
 
-        const maxAnswerTime = ANSWER_SELECT_BEATS * this._rhythmEngine.secondsPerBeat;
+        const maxAnswerTime = this.readyBeats * this._rhythmEngine.secondsPerBeat;
         const remainingAnswerTime = maxAnswerTime - this._answerSelectElapsed;
         const step = Math.min(remainingDt, remainingAnswerTime);
         this._answerSelectElapsed += step;
@@ -334,7 +473,7 @@ export class BeatRunCoordinator {
 
       // 2. 분기 루틴 처리 (STAR_COLLECT 또는 HAZARD_EVADE)
       if (this._phase === 'STAR_COLLECT' || this._phase === 'HAZARD_EVADE') {
-        const branchMaxTime = BRANCH_ROUTINE_BEATS * this._rhythmEngine.secondsPerBeat;
+        const branchMaxTime = this.performanceBeats * this._rhythmEngine.secondsPerBeat;
         const remainingBranch = branchMaxTime - this._branchElapsed;
         const step = Math.min(remainingDt, remainingBranch);
         this._branchElapsed += step;
@@ -350,24 +489,24 @@ export class BeatRunCoordinator {
     // ─── LEGACY ROUTINE (하위 호환 전용 시간 진행 루틴) ───
     while (remainingDt > 0 && this._phase !== 'RUN_QUESTION' && this._phase !== 'ROUND_RESOLVE') {
       if (this._phase === 'REST_READY') {
-        const remainingReady = READY_BEATS * this._rhythmEngine.secondsPerBeat - this._readyElapsed;
+        const remainingReady = this.readyBeats * this._rhythmEngine.secondsPerBeat - this._readyElapsed;
         const stepDt = Math.min(remainingDt, remainingReady);
         this._readyElapsed += stepDt;
         this._centerReturnGate.update(stepDt, landmarks);
         remainingDt -= stepDt;
 
-        if (this._readyElapsed >= READY_BEATS * this._rhythmEngine.secondsPerBeat - 1e-9) {
+        if (this._readyElapsed >= this.readyBeats * this._rhythmEngine.secondsPerBeat - 1e-9) {
           if (!this._centerReturnGate.isLocked) this._centerReturnGate.forceFallbackLock();
           this._phase = 'KEYNOTE_PERFORMANCE';
           this._options.onPhaseChange?.(this._phase);
         }
       } else if (this._phase === 'KEYNOTE_PERFORMANCE') {
-        const remainingPerformance = PERFORMANCE_BEATS * this._rhythmEngine.secondsPerBeat - this._performanceElapsed;
+        const remainingPerformance = this.performanceBeats * this._rhythmEngine.secondsPerBeat - this._performanceElapsed;
         const stepDt = Math.min(remainingDt, remainingPerformance);
         this._performanceElapsed += stepDt;
         remainingDt -= stepDt;
 
-        if (this._performanceElapsed >= PERFORMANCE_BEATS * this._rhythmEngine.secondsPerBeat - 1e-9) {
+        if (this._performanceElapsed >= this.performanceBeats * this._rhythmEngine.secondsPerBeat - 1e-9) {
           this._resolveRound();
         }
       }
@@ -407,7 +546,7 @@ export class BeatRunCoordinator {
 
     this._totalSteps++;
 
-    if (this._phase !== 'RUN_QUESTION' || this._completedExerciseBeats >= EXERCISE_BEATS_PER_ROUND) {
+    if (this._phase !== 'RUN_QUESTION' || this._completedExerciseBeats >= this.exerciseBeats) {
       return;
     }
 
@@ -422,8 +561,8 @@ export class BeatRunCoordinator {
     this._lastExercisedSlot = currentSlot;
     this._completedExerciseBeats++;
 
-    if (this._completedExerciseBeats === EXERCISE_BEATS_PER_ROUND) {
-      // 8번째 유효 슬롯 인정됨: 전환 목표 시점은 해당 8번째 슬롯 종료 경계
+    if (this._completedExerciseBeats === this.exerciseBeats) {
+      // exerciseBeats번째 유효 슬롯 인정됨: 전환 목표 시점은 해당 슬롯 종료 경계
       this._targetSlotEndElapsed = (currentSlot + 1) * spb;
     }
   }
@@ -433,13 +572,17 @@ export class BeatRunCoordinator {
    * Issue #230: while 루프 우회 차단. 단일 recordStep 호출로 슬롯 규칙 준수
    */
   triggerFallbackAdvance(): void {
+    if (this._phase === 'COUNT_IN') {
+      this._startRunQuestion();
+      return;
+    }
     if (this._phase === 'RUN_QUESTION') {
       this.recordStep();
       return;
     }
     if (this._phase === 'REST_READY') {
       this._centerReturnGate.forceFallbackLock();
-      this._readyElapsed = READY_BEATS * this._rhythmEngine.secondsPerBeat;
+      this._readyElapsed = this.readyBeats * this._rhythmEngine.secondsPerBeat;
       this._phase = 'KEYNOTE_PERFORMANCE';
       this._options.onPhaseChange?.(this._phase);
     }

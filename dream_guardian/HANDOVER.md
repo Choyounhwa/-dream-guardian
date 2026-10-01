@@ -86,7 +86,8 @@
 
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
-| 24 | **#279** | [BEAT-DIFFICULTY-001] 챕터-서브메뉴별 난이도 기반 박자 동적 프로필 및 6박 답안 원근 접근 연계 | 없음 | `[▶ NEXT]` |
+| 24 | **#204** | [BEAT-TRACK-001] 음악 트랙별 가변 박자(BPM/LoopPattern) 및 카운트인(Count-in) 연동 아키텍처 구축 | 없음 | `[✔] 완료` |
+| 25 | **#279** | [BEAT-DIFFICULTY-001] 챕터-서브메뉴별 난이도 기반 박자 동적 프로필 및 6박 답안 원근 접근 연계 | #204 | `[▶ NEXT]` |
 
 ### 📌 F. 스토리 대사 및 보스 정비 시리즈 (STORY & BOSS)
 
@@ -113,6 +114,27 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [BEAT-TRACK-001 / #204] 음악 트랙별 가변 박자(BPM/LoopPattern) 및 카운트인(Count-in) 연동 아키텍처 구축
+
+> #204 구현 및 TDD 사이클 전수 통과 완료 (141개 파일 1,703개 테스트 100% Pass).
+> - **`src/types/track.ts` (신규)**:
+>   - `LoopPattern` (`exerciseBeats`, `readyBeats`, `performanceBeats`), `TrackIntroConfig`, `MusicTrackConfig` 스키마 정의
+> - **`config/beat-motion.config.ts`**:
+>   - `DEFAULT_LOOP_PATTERN` (8, 2, 8), `DEFAULT_TRACK_CONFIG` (BPM 120, intro 3박자 메트로놈), `CHAPTER_TRACK_PRESETS` (Ch.1~Ch.5 100~140 BPM 프리셋) 외부화
+> - **`src/core/RhythmEngine.ts`**:
+>   - `setBpm`, `setBeatsPerRound`, `setTrackConfig` 및 생성자 `trackConfig` DI 지원으로 BPM/박자 변경 시 `secondsPerBeat` 및 `secondsPerRound` 즉시 자동 재계산
+> - **`src/game/BeatRunCoordinator.ts`**:
+>   - `BeatPhase`에 `'COUNT_IN'` 페이즈 추가
+>   - `startCountIn()` 및 `startRound({ withCountIn: true })` 지원: `countInBeats`(기본 3) 동안 비트 진행 및 `onCountInBeat` 콜백 발생 후 0ms 지연으로 `RUN_QUESTION` 다운비트 동시 전이
+>   - `trackConfig.loopPattern`을 통한 동적 박자 계산(`exerciseBeats`, `readyBeats`, `performanceBeats`)
+>   - 키보드/터치 fallback(`triggerFallbackAdvance`) 시 카운트인 즉시 스킵 지원
+> - **`tests/unit/music-track-config.test.ts` (신규)**:
+>   - BPM(100~140) 변경, 가변 루프(8+4+8, 4+2+4), 카운트인 3박 메트로놈 및 오버슛 지연 없는 계승 등 14개 단위 테스트 전수 통과
+> - **하위 호환성 100% 유지**:
+>   - 기존 8+2+8 기본값 및 기존 140개 테스트 슈트 전원 Pass 검증 완료
 
 ---
 

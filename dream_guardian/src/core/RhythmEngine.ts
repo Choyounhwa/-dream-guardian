@@ -9,6 +9,7 @@
  */
 
 import type { EventBus } from './EventBus.js';
+import type { MusicTrackConfig } from '../types/track.js';
 
 export interface BeatEvent {
   /** 라운드 내 박자 인덱스 (0 ~ beatsPerRound - 1, e.g. 0 ~ 7) */
@@ -34,6 +35,8 @@ export interface RhythmEngineOptions {
   bpm?: number;
   /** 1라운드당 비트 수 (기본값: 8) */
   beatsPerRound?: number;
+  /** 음악 트랙 설정 (지정 시 bpm 및 exerciseBeats 우선 적용) */
+  trackConfig?: MusicTrackConfig;
   /** 이벤트 버스 (선택 사항) */
   eventBus?: EventBus;
   /** 비트 콜백 리스너 */
@@ -47,6 +50,7 @@ export class RhythmEngine {
   private _beatsPerRound: number;
   private _secondsPerBeat: number;
   private _secondsPerRound: number;
+  private _trackConfig?: MusicTrackConfig;
 
   private _elapsedTime = 0;
   private _lastBeatTime = 0;
@@ -61,8 +65,14 @@ export class RhythmEngine {
   private readonly _eventBus?: EventBus;
 
   constructor(options?: RhythmEngineOptions) {
-    this._bpm = options?.bpm ?? 120;
-    this._beatsPerRound = options?.beatsPerRound ?? 8;
+    if (options?.trackConfig) {
+      this._trackConfig = options.trackConfig;
+      this._bpm = options.trackConfig.bpm ?? options.bpm ?? 120;
+      this._beatsPerRound = options.trackConfig.loopPattern?.exerciseBeats ?? options.beatsPerRound ?? 8;
+    } else {
+      this._bpm = options?.bpm ?? 120;
+      this._beatsPerRound = options?.beatsPerRound ?? 8;
+    }
     this._secondsPerBeat = 60 / this._bpm;
     this._secondsPerRound = this._secondsPerBeat * this._beatsPerRound;
     this._eventBus = options?.eventBus;
@@ -78,6 +88,11 @@ export class RhythmEngine {
   /** 현재 템포 (BPM) */
   get bpm(): number {
     return this._bpm;
+  }
+
+  /** 설정된 음악 트랙 메타데이터 */
+  get trackConfig(): MusicTrackConfig | undefined {
+    return this._trackConfig;
   }
 
   /** 한 비트당 소요 시간 (초, BPM 120 시 0.5초) */
@@ -277,6 +292,30 @@ export class RhythmEngine {
 
     if (this._totalBeatsEmitted > 0) {
       this._nextBeatTime = this._lastBeatTime + this._secondsPerBeat;
+    }
+  }
+
+  /**
+   * 1라운드당 비트 수 동적 변경
+   * @param beats 새 비트 수 (양수)
+   */
+  setBeatsPerRound(beats: number): void {
+    if (beats <= 0) return;
+    this._beatsPerRound = beats;
+    this._secondsPerRound = this._secondsPerBeat * this._beatsPerRound;
+  }
+
+  /**
+   * 음악 트랙 설정 반영 및 bpm / loopPattern 자동 갱신
+   * @param config 새 음악 트랙 메타데이터
+   */
+  setTrackConfig(config: MusicTrackConfig): void {
+    this._trackConfig = config;
+    if (config.bpm && config.bpm > 0) {
+      this.setBpm(config.bpm);
+    }
+    if (config.loopPattern?.exerciseBeats && config.loopPattern.exerciseBeats > 0) {
+      this.setBeatsPerRound(config.loopPattern.exerciseBeats);
     }
   }
 

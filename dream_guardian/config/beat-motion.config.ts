@@ -3,7 +3,10 @@
  *
  * @see Issue #176 [BEAT-SPEC-001]
  * @see Issue #178 [CENTER-RETURN-001]
+ * @see Issue #204 [BEAT-TRACK-001]
  */
+
+import type { LoopPattern, MusicTrackConfig } from '../src/types/track.js';
 
 export interface CenterReturnConfig {
   /** 중앙 게이트 중심 X 좌표 (정규화 0~1, 기본 0.5) */
@@ -161,3 +164,101 @@ export const DEFAULT_BEAT_MOTION_CONFIG: BeatMotionConfig = {
   questionApproach: DEFAULT_QUESTION_APPROACH_CONFIG,
   runQuestion: DEFAULT_RUN_QUESTION_CONFIG,
 };
+
+// ─── Music Track & Variable Loop Pattern (Issue #204 / BEAT-TRACK-001) ───
+
+export const DEFAULT_LOOP_PATTERN: LoopPattern = {
+  exerciseBeats: 8,
+  readyBeats: 2,
+  performanceBeats: 8,
+};
+
+export const DEFAULT_TRACK_CONFIG: MusicTrackConfig = {
+  id: 'track-default',
+  name: 'Default Track',
+  bpm: 120,
+  timeSignature: [4, 4],
+  intro: {
+    countInBeats: 3,
+    soundType: 'metronome',
+  },
+  loopPattern: DEFAULT_LOOP_PATTERN,
+};
+
+export const CHAPTER_TRACK_PRESETS: Readonly<Record<number, MusicTrackConfig>> = Object.freeze({
+  1: {
+    id: 'track-ch1',
+    name: '하얘시니 - Hard Rock',
+    bpm: 110,
+    timeSignature: [4, 4],
+    intro: {
+      countInBeats: 3,
+      soundType: 'metronome',
+    },
+    loopPattern: {
+      exerciseBeats: 8,
+      readyBeats: 2,
+      performanceBeats: 8,
+    },
+  },
+  2: {
+    id: 'track-ch2',
+    name: '재촉새 - Uptempo EDM',
+    bpm: 135,
+    timeSignature: [4, 4],
+    intro: {
+      countInBeats: 3,
+      soundType: 'metronome',
+    },
+    loopPattern: {
+      exerciseBeats: 8,
+      readyBeats: 2,
+      performanceBeats: 8,
+    },
+  },
+  3: {
+    id: 'track-ch3',
+    name: '따돌시니 - Neo Classical',
+    bpm: 115,
+    timeSignature: [4, 4],
+    intro: {
+      countInBeats: 3,
+      soundType: 'metronome',
+    },
+    loopPattern: {
+      exerciseBeats: 8,
+      readyBeats: 2,
+      performanceBeats: 8,
+    },
+  },
+  4: {
+    id: 'track-ch4',
+    name: '풀죽새 - Disco Funk',
+    bpm: 125,
+    timeSignature: [4, 4],
+    intro: {
+      countInBeats: 3,
+      soundType: 'metronome',
+    },
+    loopPattern: {
+      exerciseBeats: 8,
+      readyBeats: 2,
+      performanceBeats: 8,
+    },
+  },
+  5: {
+    id: 'track-ch5',
+    name: '캄캄대왕 - Epic Metal',
+    bpm: 140,
+    timeSignature: [4, 4],
+    intro: {
+      countInBeats: 3,
+      soundType: 'metronome',
+    },
+    loopPattern: {
+      exerciseBeats: 8,
+      readyBeats: 2,
+      performanceBeats: 8,
+    },
+  },
+});

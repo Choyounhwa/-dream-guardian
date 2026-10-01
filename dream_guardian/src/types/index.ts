@@ -293,6 +293,7 @@ export interface MathRenderOptions {
 export * from './posture.js';
 export * from './motion-intent.js';
 export * from './story.js';
+export * from './track.js';
 
 // ─── UI Design Tokens & Layout Types (Issue #256 / UI-TOKEN-001) ───
 export type {
