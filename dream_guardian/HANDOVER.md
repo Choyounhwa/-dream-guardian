@@ -80,7 +80,13 @@
 | 20 | **#275** | [VFX-003] 수호신 스펠 캐스트 이펙트 | #273 | `[✔] 완료` |
 | 21 | **#276** | [VFX-004] 스켈레톤 시각 이펙트 강화 | #273 | `[✔] 완료` |
 | 22 | **#277** | [VFX-005] 승리/패배 결과 화면 연출 이펙트 | #273 | `[✔] 완료` |
-| 23 | **#278** | [VFX-006] UI 전환 애니메이션 | #273 | `[▶ NEXT]` |
+| 23 | **#278** | [VFX-006] UI 전환 애니메이션 | #273 | `[✔] 완료` |
+
+### 📌 E. 게임플레이 템포 및 난이도 프로필 (GAMEPLAY-TEMPO)
+
+| 순서 | 카드 | 제목 | 선행 조건 | 상태 |
+|:---:|---|---|---|:---:|
+| 24 | **#279** | [BEAT-DIFFICULTY-001] 챕터-서브메뉴별 난이도 기반 박자 동적 프로필 및 6박 답안 원근 접근 연계 | 없음 | `[▶ NEXT]` |
 
 ### 권장 실행 순서
 
@@ -97,6 +103,46 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [VFX-006 / #278] UI 전환 애니메이션 (화면 전환/모달 등장/카드 호버)
+
+> #278 구현 및 TDD 사이클 전수 통과 완료.
+> - **신설: `src/effects/UITransition.ts`**:
+>   - `TransitionType`: `'circleWipe'` | `'fadeToBlack'` | `'fadeIn'` | `'none'`
+>   - `TransitionManager`:
+>     - `start(type, duration, onComplete)`: 중복 트랜지션 차단, 기본 시간(원형 와이프 0.6s, 페이드 투 블랙 0.4s, 페이드 인 0.3s) 지원
+>     - `update(dt)`, `render(ctx, w, h)`, `cancel()`
+>     - `circleWipe`: 화면 중심에서 원이 확장되며 새 화면 전환 (외곽 검정 마스크 + 시안 링 글로우)
+>     - `fadeToBlack`: 0.4초 동안 검은색으로 페이드 (알파 0 -> 1)
+>     - `fadeIn`: 0.3초 동안 투명해지며 화면 드러남 (알파 1 -> 0)
+> - **모달 열기/닫기 애니메이션 (`SettingsModal.ts` & `PauseModal.ts`)**:
+>   - `animProgress` (0 -> 1) 및 `isClosing` 상태 관리
+>   - `update(dt)`: 열기 0.25초 `easeOutBack` (스케일 0.8 -> 1.0, 알파 0 -> 1), 닫기 0.20초 `easeIn` (스케일 1.0 -> 0.9, 알파 1 -> 0)
+>   - 배경 딤 오버레이: 0 -> 0.75/0.78 알파 보간
+>   - 닫기 중 클릭/호버 차단 및 닫기 애니메이션 완료 후 완전히 `_isOpen = false`
+> - **`MenuRenderer.ts` 챕터 카드 호버/선택 글로우 펄스**:
+>   - `update(dt)`: 1.5초 주기 펄스 타이머 갱신
+>   - 선택된 챕터 카드: 1.5초 주기 그림자 블러(12~24px) 및 테두리 두께 펄스 진동
+>   - 잠긴 챕터 카드: `globalAlpha = 0.55` 소프트 디밍 격리
+> - **`src/main.ts` 연결**:
+>   - `transitionManager` 생성 및 화면 전환 트리거:
+>     - 메뉴 -> 게임: `startChapter()`에서 `circleWipe` (0.6초)
+>     - 게임 -> 결과: `showResult()`에서 `fadeToBlack` (0.4초)
+>     - 결과 -> 메뉴: `goToMenu()`에서 `fadeIn` (0.3초)
+>   - 렌더 루프 최상단에서 `transitionManager.render(ctx, vw, vh)` 호출
+>   - 엔진 `update(dt)`에서 `transitionManager`, `settingsModal`, `pauseModal`, `menuRenderer` `update(dt)` 호출
+> - **신규/수정 파일 및 테스트**:
+>   - `src/effects/UITransition.ts` (신규)
+>   - `src/effects/index.ts`
+>   - `src/ui/SettingsModal.ts`
+>   - `src/ui/PauseModal.ts`
+>   - `src/ui/MenuRenderer.ts`
+>   - `src/main.ts`
+>   - `tests/unit/vfx-transition.test.ts` (신규 19개 테스트 작성, 100% Pass)
+>   - `tests/unit/pause-modal.test.ts`, `tests/unit/bottom-bar.test.ts` (애니메이션 수명주기 동기화)
+>   - 전체 138개 테스트 파일, 1632개 단위 테스트 100% Pass 및 `npm run build` 성공
 
 ---
 

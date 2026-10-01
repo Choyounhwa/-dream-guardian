@@ -4377,6 +4377,71 @@ BEAT-SPEC-001
   - `dream_guardian/src/question/QuestionEvaluator.ts`
   - `dream_guardian/tests/unit/question-system.test.ts`
 
+---
+
+### Issue #279: [BEAT-DIFFICULTY-001] 챕터-서브메뉴별 난이도 기반 박자(질문·답안 접근·답선택·별가루) 동적 프로필 제어 및 6박 답안 원근 접근 연계
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/279
+- **Labels**: `feature`, `P1-high`, `phase-4`, `phase-6`
+- **Milestone**: `v0.4-gameplay-systems`
+- **작업 ID**: `[BEAT-DIFFICULTY-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 챕터-서브메뉴별 난이도 기반 박자(질문·답안 접근·답선택·별가루) 동적 프로필 제어 및 6박 답안 원근 접근 연계
+- **목적**:
+  1. 기존 하드코딩된 고정 박자(러닝 8박, 답선택 2박, 별가루 8박)를 챕터(Ch.1~5) 및 서브메뉴(세부단계)별 연산 난이도에 맞게 유동적으로 제어할 수 있는 난이도 프로필(Difficulty Beat Profile) 체계 구축.
+  2. 초급 연산(Ch.1 한자리 덧·뺄셈)은 빠른 템포(8박-2박-8박)를 유지하고, 복잡한 곱나눗셈/분수/소수/제곱/2진수 등 고난도 문제는 러닝(8~16박), 답선택(2~4박), 별가루(8~12박)로 박자를 확장하여 충분한 암산 및 신체 반응 시간 제공.
+  3. 러닝 페이즈 종료 2박 전(8박 기준 6박부터) 답안 카드가 소실점(원근)에서 축소·반투명 상태로 서서히 날아와 정면에 안착하고, 답안 선택 페이즈(ANSWER_SELECT)로 전이되어도 화면 깜빡임 없이 비주얼을 100% 유지하여 플레이어의 답안 인지/선택 체감 여유 시간 대폭 확보.
+- **수정 대상**:
+  - `dream_guardian/config/beat-motion.config.ts`: `DifficultyBeatProfile` 인터페이스 및 챕터-서브메뉴 매핑 테이블 신설
+  - `dream_guardian/src/game/BeatRunCoordinator.ts`: 라운드 시작 시 난이도 프로필 주입, 동적 슬롯 계산, 러닝 후반 답안 접근 진행도(`answerApproachProgress`) 산출
+  - `dream_guardian/src/render/BeatHUDRenderer.ts`: 가변 박자 수에 대응하는 8/12/16박 인디케이터 렌더링 및 6박 이후 답안 원근 접근 드로잉 연계
+  - `dream_guardian/src/render/QuestionRenderer.ts`: 소실점 좌표(`vanishingX, vanishingY`) 및 접근 스케일/알파를 지원하는 답안 카드 드로잉 옵션 확장
+  - `dream_guardian/src/ui/PhasePresentationAdapter.ts`: 러닝 종료 전 답안 프리뷰 렌더 허용 및 끊김 없는 화면 연속성 보장
+  - `dream_guardian/src/main.ts`: 챕터 및 서브레벨 선택 시 매핑된 박자 프로필을 `beatCoordinator`에 전달
+  - `dream_guardian/tests/unit/beat-difficulty-profile.test.ts`: 신규 TDD 단위 테스트
+- **구현 내용**:
+  1. **난이도별 박자 프로필 데이터 모델 (`config/beat-motion.config.ts`)**:
+     - `DifficultyBeatProfile` 인터페이스 정의:
+       - `exerciseBeats`: 러닝/운동 박자 수 (예: 초급 8, 중급 8, 고급 12, 마스터 16)
+       - `approachStartBeat`: 답안 원근 접근 시작 박자 (예: `exerciseBeats - 2` = 6, 10, 14박)
+       - `answerSelectBeats`: 답안 선택 유효 박자 수 (예: 기본 2박 = 1.0s, 심화 4박 = 2.0s)
+       - `branchRoutineBeats`: 정답 시 별모으기 / 오답 시 회피 루틴 박자 수 (기본 8박)
+     - `CHAPTER_SUBLEVEL_BEAT_PROFILES`: 챕터 1~5 및 서브레벨(1~6)별 기본 프로필 테이블 매핑. 미지정 시 기본 8-2-8 프로필 fallback.
+  2. **`BeatRunCoordinator` 동적 박자 프로필 및 답안 접근 제어**:
+     - 라운드 시작(`startRound({ chapter, subLevel })`) 시 매핑된 프로필을 로드하여 라운드 박자 파라미터 적용.
+     - `answerApproachProgress` 게터 신설: 러닝 페이즈 중 `approachStartBeat` 이전에는 0.0, 이후 `exerciseBeats`까지 0.0 → 1.0으로 ease-out 보간 진행.
+     - 답안 선택 페이즈(`ANSWER_SELECT`) 진입 시 1.0 유지 및 답안 선택 윈도우 개방.
+  3. **답안 원근 접근 드로잉 및 페이즈 연속성 (`BeatHUDRenderer` & `QuestionRenderer`)**:
+     - 러닝 페이즈 6박(또는 `approachStartBeat`)부터 보스 소실점(`vanishingX, vanishingY`)에서 좌/우 답안 카드가 작게 출현하여 8박 끝에 목표 좌표(Zone 4/5)로 날아와 도달.
+     - `ANSWER_SELECT` 전환 시 깜빡임(Flicker) 없이 동일한 좌표, 크기, 폰트로 매끄럽게 연결되며 팔 뻗기 판정 개방.
+  4. **가변 박자 UI 인디케이터 지원**:
+     - 8박 고정이 아닌 12박, 16박 라운드에서도 하단 도트 또는 게이지가 해당 라운드의 총 박자 수에 맞게 정렬 표시.
+- **유지 사항**:
+  - 기존 `RhythmEngine` (BPM 120, delta time 기반 박자 트리거).
+  - 기존 `ArmReachAnswerSelector`의 0체류 한 팔 도달 즉시 확정 및 니어미스 관용 판정.
+  - 기존 Phase A 10문제 루프, 정산 책임, 미니언/별가루 자원 모델 및 Phase B 인계 계약.
+- **변경 금지**:
+  - `QuestionBank`, `QuestionEvaluator` 평가 및 safeEval 보안 로직.
+  - 기존 모션 인식 파이프라인(`LocomotionDetector`, `PoseManager`, `MotionIntentBus`).
+  - 전투 수치 및 보스 HP 공식.
+- **완료 조건**:
+  - [ ] 챕터 1~5 및 세부단계별로 설정된 난이도 박자 프로필(러닝, 답선택, 별가루)이 라운드에 정확히 적용됨.
+  - [ ] 러닝 페이즈의 N-2박(기본 6박)부터 답안 카드가 소실점에서 원근으로 접근하여 N박(8박)에 목표 위치에 100% 크기로 도달함.
+  - [ ] 러닝 페이즈에서 답안 선택 페이즈로 전환 시 카드의 위치와 스타일이 끊김/재로딩 없이 1:1 완벽히 유지됨.
+  - [ ] 러닝 페이즈 중 답안 접근 중에는 입력이 차단되고, 답안 선택 페이즈 전환 즉시 입력 판정이 열림.
+  - [ ] `tests/unit/beat-difficulty-profile.test.ts` 단위 테스트 100% 통과 및 전체 기존 테스트 무결성(Regression 0건) 유지.
+- **테스트**:
+  - `tests/unit/beat-difficulty-profile.test.ts`: 챕터/서브레벨별 박자 프로필 로드, N-2박 답안 접근 진행도 계산, 가변 박자 전환 검증.
+  - `tests/integration/beat-run-gameplay.test.ts`: 라운드 실행 중 러닝 6~8박 접근 및 답 선택 윈도우 개방 통합 검증.
+  - 브라우저 개발 서버(`npm run dev`)에서 Ch.1(8박), 고난도 Ch.5(가변 박자) 선택 후 러닝 6박부터 답안 카드가 날아와 안착하고 바로 선택되는지 육안 확인.
+- **관련 파일**:
+  - `dream_guardian/config/beat-motion.config.ts`
+  - `dream_guardian/src/game/BeatRunCoordinator.ts`
+  - `dream_guardian/src/render/BeatHUDRenderer.ts`
+  - `dream_guardian/src/render/QuestionRenderer.ts`
+  - `dream_guardian/src/ui/PhasePresentationAdapter.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/beat-difficulty-profile.test.ts`
+
 
 
 

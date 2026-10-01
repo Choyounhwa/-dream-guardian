@@ -48,7 +48,7 @@ import {
   BossClimaxRenderer,
   drawJoinedHandsCursor,
 } from './render/index.js';
-import { EffectManager, wireAnswerVFX, wireGuardianVFX } from './effects/index.js';
+import { EffectManager, wireAnswerVFX, wireGuardianVFX, TransitionManager } from './effects/index.js';
 import {
   RunDetector,
   JumpDetector,
@@ -187,6 +187,7 @@ const presentationAdapter = new PhasePresentationAdapter(beatHUDRenderer.hazardR
 const starNoteRenderer = new StarNoteRenderer();
 const bossClimaxRenderer = new BossClimaxRenderer();
 const gestureFeedbackOverlay = new GestureFeedbackOverlay();
+const transitionManager = new TransitionManager();
 const sessionLifecycle = new SessionLifecycle();
 
 // ─── BEAT MOTION / 키노트 / 프레이밍 시스템 (Issue #206) ───
@@ -877,6 +878,8 @@ const stageProgressController = new StageProgressController({
 function startChapter(ch: number, subLevel?: number): void {
   if (ch < 1 || ch > 5) return;
   console.log(`[DG] Ch.${ch} SubLevel ${subLevel ?? 'ALL'} 시작`);
+  // Issue #278 (VFX-006): 메뉴 -> 게임 원형 와이프 트랜지션 (0.6초)
+  transitionManager.start('circleWipe', 0.6);
   sessionLifecycle.startSession();
   engine.resumeGame();
   currentChapter = ch;
@@ -1012,6 +1015,8 @@ function showResult(victory: boolean): void {
     locomotionMode: locomotionModal.selectedMode,
     rhythmStats: { ...beatRoundResolver.rhythmStats },
   };
+  // Issue #278 (VFX-006): 게임 -> 결과 전환: fadeToBlack (0.4초)
+  transitionManager.start('fadeToBlack', 0.4);
   stateMachine.changeState(victory ? 'RESULT' : 'GAMEOVER');
 }
 
@@ -1024,9 +1029,11 @@ function goToMenu(): void {
   }
   climaxBarrageTimer = 0;
   sfx.stopDwellCharge();
-  pauseModal.close();
+  pauseModal.close(true);
   engine.resumeGame();
   console.log('[DG] 메뉴 복귀');
+  // Issue #278 (VFX-006): 결과 -> 메뉴 전환: fadeIn (0.3초)
+  transitionManager.start('fadeIn', 0.3);
   stateMachine.changeState('MENU_MAIN');
 }
 
@@ -1078,6 +1085,12 @@ let lastFrameDt = 0.016;
 const engine = new GameEngine({
   update(dt: number): void {
     lastFrameDt = dt;
+    // Issue #278 (VFX-006): 화면 전환 및 모달 애니메이션 / 메뉴 펄스 타이머 갱신
+    transitionManager.update(dt);
+    settingsModal.update(dt);
+    pauseModal.update(dt);
+    menuRenderer.update(dt);
+
     // Issue #140: 전 장면(메뉴·달리기·문제·결과) 커서 펄스 타이머 상시 갱신
     answerSelectionRenderer.update(dt);
     tutorial.update(dt);
@@ -1802,6 +1815,9 @@ const engine = new GameEngine({
     if (tutorial.isVisible) {
       tutorial.render(ctx, vw, vh);
     }
+
+    // 9.5 Issue #278 (VFX-006): 화면 전환 트랜지션 (원형 와이프 / 페이드) 최상단 오버레이 렌더링
+    transitionManager.render(ctx, vw, vh);
 
     // 10. 가상 좌표계 복원
     canvasManager.resetTransform();

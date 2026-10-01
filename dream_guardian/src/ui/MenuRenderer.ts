@@ -91,6 +91,19 @@ export interface ChapterCardLayout {
 }
 
 export class MenuRenderer {
+  private _pulseTimer = 0;
+
+  /**
+   * 1.5초 주기 펄스 애니메이션 타이머 갱신
+   */
+  update(dt: number): void {
+    this._pulseTimer = (this._pulseTimer + dt) % 1.5;
+  }
+
+  get pulseTimer(): number {
+    return this._pulseTimer;
+  }
+
   /**
    * 챕터 카드 레이아웃 계산 (2-2-1 와이드 다이아몬드 레이아웃, Issue #142 / UI-MENU-002, UI_LAYOUT 연동)
    * 1080x2160 가상 해상도 기준:
@@ -215,13 +228,22 @@ export class MenuRenderer {
       const locked = ch > state.unlockedChapter;
       const selected = ch === state.selectedChapter;
 
+      ctx.save();
+      if (locked) {
+        ctx.globalAlpha = 0.55;
+      }
+
+      const pulse = Math.sin((this._pulseTimer / 1.5) * Math.PI * 2) * 0.5 + 0.5;
+
       // 카드 배경 및 테두리 (라운드 코너 24px)
       const cardFrameImg = imageLoader.get('menu', 'cardFrame');
       if (cardFrameImg) {
         ctx.drawImage(cardFrameImg, item.x, item.y, item.w, item.h);
         if (selected) {
           ctx.strokeStyle = info.color;
-          ctx.lineWidth = 4.0 * scaleX;
+          ctx.lineWidth = (3.5 + 1.5 * pulse) * scaleX;
+          ctx.shadowColor = info.color;
+          ctx.shadowBlur = (12 + 12 * pulse) * scaleX;
           ctx.beginPath();
           if (ctx.roundRect) {
             ctx.roundRect(item.x, item.y, item.w, item.h, 24 * scaleX);
@@ -229,11 +251,20 @@ export class MenuRenderer {
             ctx.rect(item.x, item.y, item.w, item.h);
           }
           ctx.stroke();
+          ctx.shadowBlur = 0;
         }
       } else {
-        ctx.fillStyle = locked ? 'rgba(255, 255, 255, 0.03)' : `${info.color}15`;
+        const fillAlpha = selected ? 0.12 + 0.1 * pulse : 0.08;
+        const hexAlpha = Math.round(fillAlpha * 255)
+          .toString(16)
+          .padStart(2, '0');
+        ctx.fillStyle = locked ? 'rgba(255, 255, 255, 0.03)' : `${info.color}${hexAlpha}`;
         ctx.strokeStyle = locked ? 'rgba(255, 255, 255, 0.15)' : selected ? info.color : `${info.color}75`;
-        ctx.lineWidth = selected ? 4.0 * scaleX : 2.5 * scaleX;
+        ctx.lineWidth = selected ? (3.5 + 1.5 * pulse) * scaleX : 2.5 * scaleX;
+        if (selected) {
+          ctx.shadowColor = info.color;
+          ctx.shadowBlur = (12 + 12 * pulse) * scaleX;
+        }
         ctx.beginPath();
         if (ctx.roundRect) {
           ctx.roundRect(item.x, item.y, item.w, item.h, 24 * scaleX);
@@ -242,6 +273,7 @@ export class MenuRenderer {
         }
         ctx.fill();
         ctx.stroke();
+        ctx.shadowBlur = 0;
       }
 
       // 카드 내부 텍스트 (칸별 높이 1:1 매핑)
@@ -299,6 +331,8 @@ export class MenuRenderer {
           ctx.fillText('🔒', item.x + item.w / 2, item.y + 305 * scaleY);
         }
       }
+
+      ctx.restore(); // 개별 챕터 카드 save 복원
     }
 
     ctx.restore();

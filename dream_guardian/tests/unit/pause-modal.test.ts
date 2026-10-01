@@ -21,10 +21,14 @@ describe('PauseModal (Issue #172 / UI-PAUSE-001)', () => {
       modal.open();
       expect(modal.isOpen).toBe(true);
       modal.close();
+      expect(modal.isClosing).toBe(true);
+      modal.update(0.25);
       expect(modal.isOpen).toBe(false);
       modal.toggle();
       expect(modal.isOpen).toBe(true);
       modal.toggle();
+      expect(modal.isClosing).toBe(true);
+      modal.update(0.25);
       expect(modal.isOpen).toBe(false);
     });
   });

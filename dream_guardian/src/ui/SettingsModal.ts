@@ -35,6 +35,12 @@ export interface ModalButtonSlot {
 
 export class SettingsModal {
   private _isOpen = false;
+  private _isClosing = false;
+  private _animProgress = 0;
+  private _animTimer = 0;
+  private readonly OPEN_DURATION = 0.25;
+  private readonly CLOSE_DURATION = 0.20;
+
   private _cameraEnabled = true;
   private _skeletonEnabled = true;
   private _soundEnabled = true;
@@ -51,6 +57,35 @@ export class SettingsModal {
 
   get isOpen(): boolean {
     return this._isOpen;
+  }
+
+  get isClosing(): boolean {
+    return this._isClosing;
+  }
+
+  get animProgress(): number {
+    return this._animProgress;
+  }
+
+  get scale(): number {
+    if (this._isClosing) {
+      // 닫기 애니메이션: 1.0 -> 0.9 (easeIn)
+      const t = this._animProgress;
+      return 1.0 - 0.1 * (t * t);
+    }
+    // 열기 애니메이션: 0.8 -> 1.0 (easeOutBack)
+    const t = this._animProgress;
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    const easeOutBack = 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    return 0.8 + 0.2 * easeOutBack;
+  }
+
+  get alpha(): number {
+    if (this._isClosing) {
+      return Math.max(0, 1 - this._animProgress);
+    }
+    return Math.min(1, Math.max(0, this._animProgress));
   }
 
   get cameraEnabled(): boolean {
@@ -170,14 +205,45 @@ export class SettingsModal {
 
   open(): void {
     this._isOpen = true;
+    this._isClosing = false;
+    this._animProgress = 0;
+    this._animTimer = 0;
   }
 
   close(): void {
-    this._isOpen = false;
+    if (!this._isOpen || this._isClosing) return;
+    this._isClosing = true;
+    this._animProgress = 0;
+    this._animTimer = 0;
   }
 
   toggle(): void {
-    this._isOpen = !this._isOpen;
+    if (this._isOpen && !this._isClosing) {
+      this.close();
+    } else {
+      this.open();
+    }
+  }
+
+  /**
+   * 모달 애니메이션 진행도 갱신
+   */
+  update(dt: number): void {
+    if (!this._isOpen) return;
+
+    if (this._isClosing) {
+      this._animTimer += dt;
+      this._animProgress = Math.min(1, Math.max(0, this._animTimer / this.CLOSE_DURATION));
+      if (this._animTimer >= this.CLOSE_DURATION) {
+        this._isOpen = false;
+        this._isClosing = false;
+        this._animProgress = 0;
+        this._animTimer = 0;
+      }
+    } else {
+      this._animTimer += dt;
+      this._animProgress = Math.min(1, Math.max(0, this._animTimer / this.OPEN_DURATION));
+    }
   }
 
   /**
@@ -239,7 +305,7 @@ export class SettingsModal {
    * 모달 내부 또는 바깥 클릭 처리
    */
   handleClick(x: number, y: number, w: number, h: number): SettingsAction | null {
-    if (!this._isOpen) return null;
+    if (!this._isOpen || this._isClosing) return null;
 
     const scaleX = w / 1080;
     const scaleY = h / 2160;
@@ -289,18 +355,31 @@ export class SettingsModal {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
 
+    const animAlpha = this.alpha;
+    const animScale = this.scale;
+
     ctx.save();
 
-    // 1. 전체 화면 딤 오버레이
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    // 1. 전체 화면 딤 오버레이 (0 -> 0.75 보간)
+    const dimAlpha = (0.75 * animAlpha).toFixed(3);
+    ctx.fillStyle = `rgba(0, 0, 0, ${dimAlpha})`;
     ctx.fillRect(0, 0, w, h);
 
-    // 2. 모달 카드 배경
+    // 2. 모달 카드 배경 및 콘텐츠 (스케일 및 알파 보간)
     const mx = this.MODAL_VIRTUAL.x * scaleX;
     const my = this.MODAL_VIRTUAL.y * scaleY;
     const mw = this.MODAL_VIRTUAL.w * scaleX;
     const mh = this.MODAL_VIRTUAL.h * scaleY;
     const radius = 28 * scaleX;
+
+    const cx = mx + mw / 2;
+    const cy = my + mh / 2;
+
+    ctx.save();
+    ctx.translate?.(cx, cy);
+    ctx.scale?.(animScale, animScale);
+    ctx.translate?.(-cx, -cy);
+    ctx.globalAlpha = animAlpha;
 
     const dialogBgImg = imageLoader.get('settings', 'modalBg') ?? imageLoader.get('settings', 'dialogBg');
     if (dialogBgImg) {
@@ -455,6 +534,7 @@ export class SettingsModal {
       this._highContrast
     );
 
-    ctx.restore();
+    ctx.restore(); // 카드 transform 복원
+    ctx.restore(); // 최상단 save 복원
   }
 }
