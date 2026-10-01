@@ -32,6 +32,10 @@ import {
   LEFT_HAND_ZONES,
   RIGHT_HAND_ZONES,
 } from '../../config/zone.config.js';
+import {
+  DEFAULT_TIMING_LENIENCY_CONFIG,
+  type TimingLeniencyConfig,
+} from '../../config/judgment.config.js';
 
 import {
   type CursorType,
@@ -114,6 +118,8 @@ export class AnswerSelector {
   private _gateEvaluator = new PartGateEvaluator();
   private _currentPlan: QuestionRecipePlan | null = null;
   private _choiceProgress: [number, number] = [0, 0];
+  private _decayHoldTimers: [number, number] = [0, 0];
+  private _timingConfig: TimingLeniencyConfig = DEFAULT_TIMING_LENIENCY_CONFIG;
   private _paused = false;
   private _virtualWidth = 1080;
   private _virtualHeight = 2160;
@@ -252,6 +258,16 @@ export class AnswerSelector {
       return null;
     }
 
+    // Issue #251: 랜드마크 추적 유실(visibility < 0.5) 시 진행도 동결
+    const isTrackingLost =
+      !landmarks ||
+      landmarks.length === 0 ||
+      landmarks.every((lm) => (lm.visibility ?? 0) < 0.5);
+
+    if (isTrackingLost && this._timingConfig.enableTrackingLossFreeze) {
+      return null;
+    }
+
     // 각 선택지(0: 좌, 1: 우)의 요구조건 충족 여부 확인 (Issue #124: 집합 덮기 & Issue #126: PartGate)
     const checkChoiceMet = (recipeIdx: number): { met: boolean; avgWeight: number } => {
       const recipe = plan.choices[recipeIdx];
@@ -267,6 +283,26 @@ export class AnswerSelector {
     const choice0 = checkChoiceMet(0);
     const choice1 = checkChoiceMet(1);
 
+    const applyDecay = (idx: 0 | 1, stepDt: number) => {
+      if (this._timingConfig.enableDecayHold && this._decayHoldTimers[idx] > 0) {
+        if (stepDt <= this._decayHoldTimers[idx]) {
+          this._decayHoldTimers[idx] -= stepDt;
+          return;
+        }
+        const remainingDt = stepDt - this._decayHoldTimers[idx];
+        this._decayHoldTimers[idx] = 0;
+        this._choiceProgress[idx] = Math.max(
+          0,
+          this._choiceProgress[idx] - remainingDt * POSTURE_TIMING_CONFIG.naturalDecayMultiplier
+        );
+        return;
+      }
+      this._choiceProgress[idx] = Math.max(
+        0,
+        this._choiceProgress[idx] - stepDt * POSTURE_TIMING_CONFIG.naturalDecayMultiplier
+      );
+    };
+
     // ── Deadlock Guard: 양쪽 답안 동시 충족 시 양쪽 모두 리셋 ──
     if (choice0.met && choice1.met) {
       this._choiceProgress[0] = Math.max(0, this._choiceProgress[0] - dt * POSTURE_TIMING_CONFIG.deadlockDecayMultiplier);
@@ -277,7 +313,8 @@ export class AnswerSelector {
     // 0번 선택지만 충족
     if (choice0.met) {
       this._choiceProgress[0] = Math.min(1, this._choiceProgress[0] + (dt / this._dwellTime) * choice0.avgWeight);
-      this._choiceProgress[1] = Math.max(0, this._choiceProgress[1] - dt * POSTURE_TIMING_CONFIG.naturalDecayMultiplier);
+      this._decayHoldTimers[0] = this._timingConfig.decayHoldTime;
+      applyDecay(1, dt);
 
       if (this._choiceProgress[0] >= 1.0) {
         this._choiceProgress[0] = 0;
@@ -289,7 +326,8 @@ export class AnswerSelector {
     // 1번 선택지만 충족
     if (choice1.met) {
       this._choiceProgress[1] = Math.min(1, this._choiceProgress[1] + (dt / this._dwellTime) * choice1.avgWeight);
-      this._choiceProgress[0] = Math.max(0, this._choiceProgress[0] - dt * POSTURE_TIMING_CONFIG.naturalDecayMultiplier);
+      this._decayHoldTimers[1] = this._timingConfig.decayHoldTime;
+      applyDecay(0, dt);
 
       if (this._choiceProgress[1] >= 1.0) {
         this._choiceProgress[1] = 0;
@@ -298,9 +336,9 @@ export class AnswerSelector {
       return null;
     }
 
-    // 둘 다 충족 안 됨 -> 자연 감쇠
-    this._choiceProgress[0] = Math.max(0, this._choiceProgress[0] - dt * POSTURE_TIMING_CONFIG.naturalDecayMultiplier);
-    this._choiceProgress[1] = Math.max(0, this._choiceProgress[1] - dt * POSTURE_TIMING_CONFIG.naturalDecayMultiplier);
+    // 둘 다 충족 안 됨 -> 감쇠 홀드 적용 후 자연 감쇠
+    applyDecay(0, dt);
+    applyDecay(1, dt);
     return null;
   }
 
@@ -316,9 +354,18 @@ export class AnswerSelector {
     this._dwellTime = this._currentTierInfo.dwellTime;
   }
 
+  /** 타이밍 관용 설정 업데이트 (Issue #251) */
+  setTimingLeniency(config: Partial<TimingLeniencyConfig>): void {
+    this._timingConfig = {
+      ...this._timingConfig,
+      ...config,
+    };
+  }
+
   /** 모든 진행도 및 커서 추적기 초기화 (Issue #130) */
   reset(): void {
     this._choiceProgress = [0, 0];
+    this._decayHoldTimers = [0, 0];
     this._cursorTracker.reset();
   }
 }

@@ -4,6 +4,11 @@ import {
   type PhaseAHazardConfig,
   type PhaseAHazardPattern,
 } from '../../config/phase-a-hazard.config.js';
+import {
+  DEFAULT_TIMING_LENIENCY_CONFIG,
+  type TimingLeniencyConfig,
+} from '../../config/judgment.config.js';
+import { InputBuffer } from '../input/InputBuffer.js';
 
 export { DEFAULT_PHASE_A_HAZARD_PATTERN } from '../../config/phase-a-hazard.config.js';
 export { DEFAULT_PHASE_A_HAZARD_CONFIG } from '../../config/phase-a-hazard.config.js';
@@ -16,6 +21,7 @@ export interface PhaseAHazardBeatResult {
   pattern: PhaseAHazardPattern;
   evaded: boolean;
   damage: number;
+  viaGrace?: boolean;
 }
 
 export interface PhaseAHazardStartOptions {
@@ -25,12 +31,15 @@ export interface PhaseAHazardStartOptions {
 }
 
 export interface PhaseAHazardControllerOptions extends Partial<PhaseAHazardConfig> {
+  timingLeniency?: Partial<TimingLeniencyConfig>;
   onBeatResolved?: (result: PhaseAHazardBeatResult) => void;
   onHazardResolved?: (result: PhaseAHazardBeatResult) => void;
 }
 
 export class PhaseAHazardController {
   private readonly _config: PhaseAHazardConfig;
+  private readonly _leniencyConfig: TimingLeniencyConfig;
+  private readonly _inputBuffer: InputBuffer<PhaseAHazardPattern>;
   private readonly _onBeatResolved?: (result: PhaseAHazardBeatResult) => void;
   private readonly _onHazardResolved?: (result: PhaseAHazardBeatResult) => void;
   private _active = false;
@@ -38,22 +47,35 @@ export class PhaseAHazardController {
   private _activePattern: PhaseAHazardPattern | null = null;
   private _attackId: string | null = null;
   private _evaded = false;
+  private _viaGrace = false;
   private _isResolved = false;
   private _performedAction: PhaseAHazardPattern | null = null;
   private _beatIndex = 0;
 
-  constructor(options?: PhaseAHazardControllerOptions) {
+  constructor(
+    options?: PhaseAHazardControllerOptions,
+    legacyOnResolved?: (result: PhaseAHazardBeatResult) => void
+  ) {
     this._config = {
       ...DEFAULT_PHASE_A_HAZARD_CONFIG,
       ...options,
       pattern: options?.pattern ?? DEFAULT_PHASE_A_HAZARD_CONFIG.pattern,
     };
-    this._onBeatResolved = options?.onBeatResolved;
+    this._leniencyConfig = {
+      ...DEFAULT_TIMING_LENIENCY_CONFIG,
+      ...options?.timingLeniency,
+    };
+    this._inputBuffer = new InputBuffer<PhaseAHazardPattern>(this._leniencyConfig.preBufferWindow);
+    this._onBeatResolved = options?.onBeatResolved ?? legacyOnResolved;
     this._onHazardResolved = options?.onHazardResolved;
   }
 
   get isActive(): boolean {
     return this._active;
+  }
+
+  get viaGrace(): boolean {
+    return this._viaGrace;
   }
 
   get beatIndex(): number {
@@ -90,9 +112,11 @@ export class PhaseAHazardController {
     this._active = true;
     this._elapsed = 0;
     this._evaded = false;
+    this._viaGrace = false;
     this._isResolved = false;
     this._beatIndex = 0;
     this._performedAction = null;
+    this._inputBuffer.clear();
 
     if (typeof options === 'string') {
       this._activePattern = options;
@@ -119,18 +143,57 @@ export class PhaseAHazardController {
     this._elapsed = 0;
     this._isResolved = false;
     this._evaded = false;
+    this._viaGrace = false;
     this._performedAction = null;
     this._activePattern = null;
     this._attackId = null;
+    this._inputBuffer.clear();
   }
 
   recordAction(action: PhaseAHazardPattern): void {
     if (!this._active || this._isResolved) return;
     this._performedAction = action;
 
-    // 틀린 선행 입력은 기회를 소모하지 않고 올바른 회피 동작 수행 시 성공 잠금
-    if (action === this._activePattern) {
-      this._evaded = true;
+    const warningDuration = this._config.warningDuration ?? 2.6;
+    const inputWindowEnd = this._config.inputWindowEnd ?? 3.4;
+    const leniency = this._leniencyConfig;
+
+    // elapsed가 0인 경우(테스트/직접 호출): 하위 호환 즉시 반영
+    if (this._elapsed === 0) {
+      if (action === this._activePattern) {
+        this._evaded = true;
+      }
+      return;
+    }
+
+    // 1) 창 열리기 전 (선행 버퍼 윈도우)
+    if (this._elapsed < warningDuration - 1e-9) {
+      if (
+        leniency.enablePreBuffer &&
+        warningDuration - this._elapsed <= leniency.preBufferWindow + 1e-9
+      ) {
+        this._inputBuffer.push(action, this._elapsed);
+      }
+      return;
+    }
+
+    // 2) 정규 입력창 (warningDuration ~ inputWindowEnd)
+    if (this._elapsed <= inputWindowEnd + 1e-9) {
+      if (action === this._activePattern) {
+        this._evaded = true;
+      }
+      return;
+    }
+
+    // 3) 후행 유예(Coyote Time, inputWindowEnd ~ inputWindowEnd + postGraceWindow)
+    if (
+      leniency.enablePostGrace &&
+      this._elapsed <= inputWindowEnd + leniency.postGraceWindow + 1e-9
+    ) {
+      if (action === this._activePattern) {
+        this._evaded = true;
+        this._viaGrace = true;
+      }
     }
   }
 
@@ -138,6 +201,23 @@ export class PhaseAHazardController {
     if (!this._active) return;
     const step = Math.max(0, dt);
     this._elapsed += step;
+
+    const warningDuration = this._config.warningDuration ?? 2.6;
+    // 창 개시 시점에 버퍼에 저장된 일치 동작 소비
+    if (
+      !this._evaded &&
+      this._elapsed >= warningDuration - 1e-9 &&
+      this._leniencyConfig.enablePreBuffer
+    ) {
+      const consumed = this._inputBuffer.consume(
+        (act) => act === this._activePattern,
+        this._elapsed,
+        this._leniencyConfig.preBufferWindow
+      );
+      if (consumed) {
+        this._evaded = true;
+      }
+    }
 
     const judgmentTime = this._config.judgmentTime ?? 3.5;
     if (!this._isResolved && this._elapsed >= judgmentTime - 1e-9) {
@@ -162,6 +242,7 @@ export class PhaseAHazardController {
       pattern: this._activePattern,
       evaded: this._evaded,
       damage,
+      viaGrace: this._viaGrace ? true : undefined,
     };
 
     this._onBeatResolved?.(result);

@@ -123,3 +123,38 @@ export const DEFAULT_ZONE_SOFT_BOUNDARY_CONFIG: ZoneSoftBoundaryConfig = {
   varianceThreshold: 0.0005,
 };
 
+/**
+ * 타이밍 관용 레이어 설정 인터페이스
+ *
+ * @see Issue #251 [INPUT-TOLERANCE-003]
+ */
+export interface TimingLeniencyConfig {
+  /** 선행 입력 버퍼 윈도우 (초, 기본 0.20) */
+  preBufferWindow: number;
+  /** 후행 유예(Coyote Time) 윈도우 (초, 기본 0.15) */
+  postGraceWindow: number;
+  /** 존 이탈 진행도 감쇠 보류 시간 (초, 기본 0.15) */
+  decayHoldTime: number;
+  /** 선행 입력 버퍼 활성화 여부 */
+  enablePreBuffer: boolean;
+  /** 후행 유예 활성화 여부 */
+  enablePostGrace: boolean;
+  /** 감쇠 홀드 활성화 여부 */
+  enableDecayHold: boolean;
+  /** 랜드마크 추적 유실 시 진행도 동결 활성화 여부 */
+  enableTrackingLossFreeze: boolean;
+}
+
+/**
+ * 타이밍 관용 기본 설정값
+ */
+export const DEFAULT_TIMING_LENIENCY_CONFIG: TimingLeniencyConfig = {
+  preBufferWindow: 0.20,
+  postGraceWindow: 0.15,
+  decayHoldTime: 0.15,
+  enablePreBuffer: true,
+  enablePostGrace: true,
+  enableDecayHold: true,
+  enableTrackingLossFreeze: true,
+};
+

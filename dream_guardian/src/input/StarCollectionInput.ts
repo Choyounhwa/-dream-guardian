@@ -37,6 +37,10 @@ import { isInsideZone } from './PostureMatcher.js';
 import type { StarTarget } from '../types/star.js';
 import type { BodyPart } from '../types/posture.js';
 import type { NormalizedLandmark } from '../types/index.js';
+import {
+  DEFAULT_TIMING_LENIENCY_CONFIG,
+  type TimingLeniencyConfig,
+} from '../../config/judgment.config.js';
 
 export type StarRating = 'Perfect' | 'Good' | 'Late' | 'Miss';
 export type StarJudgment = StarRating;
@@ -74,17 +78,22 @@ const EPSILON = 1e-6;
  * - Perfect: ±0.12s 이내
  * - Good: ±0.25s 이내
  * - Late: ±0.40s 이내
- * - Miss: 0.40s 초과
+ * - 후행 유예(Coyote Time, 0.40s ~ 0.55s): Late 강등 인정
+ * - Miss: 윈도우 및 유예 초과
  */
 export function judgeStarTiming(
   currentTime: number,
   landingTime: number,
   windows: StarTimingWindows = DEFAULT_STAR_TIMING_WINDOWS,
+  leniency?: TimingLeniencyConfig,
 ): StarRating {
   const diff = Math.abs(currentTime - landingTime);
   if (diff <= windows.perfect + EPSILON) return 'Perfect';
   if (diff <= windows.good + EPSILON) return 'Good';
   if (diff <= windows.late + EPSILON) return 'Late';
+  if (leniency?.enablePostGrace && diff <= windows.late + (leniency.postGraceWindow ?? 0.15) + EPSILON) {
+    return 'Late';
+  }
   return 'Miss';
 }
 
@@ -280,14 +289,17 @@ export class StarCollectionInput {
     const landingTime = this._target.landingTime;
     const timeDiff = currentTime - landingTime;
     const absDiff = Math.abs(timeDiff);
+    const postGrace = DEFAULT_TIMING_LENIENCY_CONFIG.enablePostGrace
+      ? DEFAULT_TIMING_LENIENCY_CONFIG.postGraceWindow
+      : 0;
 
     // 아직 타이밍 윈도우에 도달하지 않음 (이른 진입 대기)
     if (currentTime < landingTime - this._config.timingWindows.late) {
       return null;
     }
 
-    // 타이밍 윈도우(±0.40s) 내 도달 -> 수집 성공 (Perfect / Good / Late)
-    if (absDiff <= this._config.timingWindows.late + EPSILON) {
+    // 타이밍 윈도우(±0.40s) 또는 후행 유예(Coyote Time) 내 도달 -> 수집 성공
+    if (absDiff <= this._config.timingWindows.late + postGrace + EPSILON) {
       const rating = judgeStarTiming(currentTime, landingTime, this._config.timingWindows);
       this._isCollected = true;
 
