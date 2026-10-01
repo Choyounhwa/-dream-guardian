@@ -292,6 +292,7 @@ export interface MathRenderOptions {
 // ─── Posture & Fitness System Types (Issue #122 / #123) ───
 export * from './posture.js';
 export * from './motion-intent.js';
+export * from './story.js';
 
 // ─── UI Design Tokens & Layout Types (Issue #256 / UI-TOKEN-001) ───
 export type {

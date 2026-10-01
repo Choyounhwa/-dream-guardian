@@ -86,7 +86,15 @@
 
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
-| 24 | **#279** | [BEAT-DIFFICULTY-001] 챕터-서브메뉴별 난이도 기반 박자 동적 프로필 및 6박 답안 원근 접근 연계 | 없음 | `[▶ NEXT]` |
+| 24 | **#279** | [BEAT-DIFFICULTY-001] 챕터-서브메뉴별 난이도 기반 박자 동적 프로필 및 6박 답안 원근 접근 연계 | 없음 | `[대기]` |
+
+### 📌 F. 스토리 대사 및 보스 정비 시리즈 (STORY & BOSS)
+
+| 순서 | 카드 | 제목 | 선행 조건 | 상태 |
+|:---:|---|---|---|:---:|
+| 25 | **#217** | [RENDER-BOSS-001] BossRenderer 압박성 대사 제거 및 5대 보스 연출 정비 | 없음 | `[✔] 완료` |
+| 26 | **#218** | [STORY-DATA-001] 대사 엔진(DialogueManager) 신설 및 5대 보스·깨비 ADHD 치유 스크립트 데이터 외부화 | #217 | `[✔] 완료` |
+| 27 | **#219** | [STORY-RENDER-001] 인게임 캐릭터 대사창 오버레이(DialogueOverlayRenderer) 구현 및 발화 시각화 | #218 | `[▶ NEXT]` |
 
 ### 권장 실행 순서
 
@@ -100,9 +108,55 @@
 [이미지 에셋]   #266 → #267 → #268 → #269 → #270 → #271 → #272
                          ↕ (병렬 가능)
 [이펙트]        #273 → #274 → #275 → #276 → #277 → #278
+                         ↓
+[스토리/보스]   #217 → #218 → #219
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [STORY-DATA-001 / #218] 대사 엔진(DialogueManager) 신설 및 5대 보스·깨비 ADHD 치유 스크립트 데이터 외부화
+
+> #218 구현 및 TDD 사이클 전수 통과 완료.
+> - **`src/types/story.ts` (신규)**:
+>   - Speaker(`kkebi`, `boss`, `narrator`), DialogueTrigger 9종, ADHDDefenseType 5종 스키마 정의
+>   - DialogueLine, DialogueQueryOptions, BossDialogueConfig, KkebiDialogueConfig, StoryDialogueData 인터페이스 정의
+> - **`src/story/dialogueData.ts` (신규)**:
+>   - `04_STORY_SOURCE.md` 제7장 5대 보스(하얘시니, 재촉새, 따돌시니, 풀죽새, 캄캄대왕)의 5가지 상황별 대사 전수 수록 (전투 시작, 정답 흔들기, 연속 정답 당황, 붕괴 직전, 정화 피날레)
+>   - 깨비의 5개 챕터별 오답 위로 대사 및 연속 오답 대사 전수 수록
+>   - ADHD 5대 방어 기제(화냄 `anger`, 버팀 `give_up`, 성급한 찍기 `rush_guess`, 반발 `defiance`, 딴청 `distraction`) 대응 치유 대사 수록
+>   - "오답 시 보스는 직접 대사 없이 침묵/미소" 원칙 준수 (보스 오답 대사 원천 미등록)
+> - **`src/story/DialogueManager.ts` (신규)**:
+>   - 대사 쿼리 메서드 `getDialogue(options)` 구현 (트리거/챕터/연속 카운트/ADHD 기제 기반 비차단 추출)
+>   - 오답 시(`answer_wrong`, `consecutive_wrong`) 보스 발화 원천 차단 (화자 깨비 고정, 보스 요청 시 null 반환)
+>   - 쿨다운 관리 (기본 2500ms 간격 제한, `force` 바이패스, `resetCooldown`, `setCooldownTime`)
+>   - 중복 방지 인덱스 순환 알고리즘 (Round-Robin Rotation)
+>   - 기본 싱글톤 `dialogueManager` 및 원본 데이터 접근자 제공
+> - **`src/story/index.ts` & `src/types/index.ts`**:
+>   - 배럴 익스포트 및 중앙 타입 재수출
+> - **테스트 및 검증**:
+>   - `tests/unit/dialogue-manager.test.ts`: 41개 단위 테스트 100% 통과 (5대 보스 대사, 오답 시 보스 발화 원천 차단, 깨비 위로/연속 위로 대사, ADHD 5종 치유 대사, 쿨다운 및 force 바이패스, 순환 알고리즘, 싱글톤)
+>   - 전체 139개 테스트 파일 1677개 테스트 100% Pass 및 `npm run build` 성공
+
+---
+
+## 2026-10-01 완료: [RENDER-BOSS-001 / #217] BossRenderer 압박성 하드코딩 대사('포기해...') 제거 및 신규 5대 보스 시각 연출 정합성 정비
+
+> #217 구현 및 TDD 사이클 전수 통과 완료.
+> - **`src/render/BossRenderer.ts`**:
+>   - Ch.4 무기력의 요괴 풀죽새 렌더링 루프 내 압박성 하드코딩 대사(`ctx.fillText('포기해...', 0, whisperY)`) 및 관련 텍스트 드로잉 블록 완전 제거
+>   - 신규 스토리(`04_STORY_SOURCE.md`) L341 설정에 부합하는 부드러운 먹물 그림자/안개 펄스 그래픽(`radialGradient` 및 `ellipse`)으로 정비
+>   - 신규 5대 보스명 체계 일원화 리팩터링:
+>     - `_renderForget` ➔ `_renderBoss1HayeSini` (에메랄드 심해 안개 + ? 부유)
+>     - `_renderHurry` ➔ `_renderBoss2JaechokSae` (시간의 번개 구체 + 방전 스파크)
+>     - `_renderJumble` ➔ `_renderBoss3TaddolSini` (만화경 프리즘 육각형 + 왜곡 기호)
+>     - `_renderGiveup` ➔ `_renderBoss4PuljukSae` (먹물 그림자 거조 + 먹물 안개 펄스)
+>     - `_renderNightmare` ➔ `_renderBoss5KamkamDaewang` (공허의 블랙홀 + 흑요석 다각형 파편)
+> - **테스트 및 검증**:
+>   - `tests/unit/boss-renderer.test.ts`: 하드코딩 텍스트 미발생, 신규 5대 보스 메서드 디스패치 및 소스 무결성 검증 (10/10 Pass)
+>   - `tests/unit/a11y-font-min.test.ts`: 하드코딩 폰트 제거 동기화 (11/11 Pass)
+>   - 전체 138개 테스트 파일 1636개 테스트 100% Pass 및 `npm run build` 성공
 
 ---
 
