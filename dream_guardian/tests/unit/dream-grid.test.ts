@@ -1,8 +1,24 @@
 import { describe, it, expect, vi } from 'vitest';
 import { DreamGrid } from '../../src/render/DreamGrid.js';
+import {
+  LONGITUDINAL_COLOR,
+  TRANSVERSE_COLOR,
+  CENTER_SPINE_COLOR,
+  CROSSING_NODE_COLOR,
+  PANEL_DEPTH_START,
+  PANEL_BG_COLOR,
+  DEFAULT_GRID_CONFIG,
+} from '../../config/grid.config.js';
 
-function createMockCtx(): CanvasRenderingContext2D {
-  return {
+function createMockCtx() {
+  const lineWidths: number[] = [];
+  const fillStyles: string[] = [];
+  const strokeStyles: string[] = [];
+  let _lineWidth = 1;
+  let _fillStyle: any = '';
+  let _strokeStyle: any = '';
+
+  const ctx = {
     save: vi.fn(),
     restore: vi.fn(),
     beginPath: vi.fn(),
@@ -19,10 +35,37 @@ function createMockCtx(): CanvasRenderingContext2D {
       addColorStop: vi.fn(),
     })),
     globalAlpha: 1,
-    fillStyle: '',
-    strokeStyle: '',
-    lineWidth: 1,
-  } as unknown as CanvasRenderingContext2D;
+    get lineWidth() {
+      return _lineWidth;
+    },
+    set lineWidth(val: number) {
+      _lineWidth = val;
+      lineWidths.push(val);
+    },
+    get fillStyle() {
+      return _fillStyle;
+    },
+    set fillStyle(val: any) {
+      _fillStyle = val;
+      fillStyles.push(typeof val === 'string' ? val : '');
+    },
+    get strokeStyle() {
+      return _strokeStyle;
+    },
+    set strokeStyle(val: any) {
+      _strokeStyle = val;
+      strokeStyles.push(typeof val === 'string' ? val : '');
+    },
+    lineWidths,
+    fillStyles,
+    strokeStyles,
+  };
+
+  return ctx as unknown as CanvasRenderingContext2D & {
+    lineWidths: number[];
+    fillStyles: string[];
+    strokeStyles: string[];
+  };
 }
 
 describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & Issue #111)', () => {
@@ -141,6 +184,127 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
       expect(vi.mocked(mockCtx.moveTo).mock.calls.length).toBeLessThan(
         vi.mocked(mockCtxAll.moveTo).mock.calls.length,
       );
+    });
+  });
+
+  describe('Issue #282: [FEAT-GRID-002] SFX 런웨이 원근 드림 그리드 비주얼 전면 개편', () => {
+    it('grid.config.ts에 SFX 런웨이 전용 상수들이 정의되어 있다', () => {
+      expect(LONGITUDINAL_COLOR).toBe('#28E6FF');
+      expect(TRANSVERSE_COLOR).toBe('#FF8844');
+      expect(CENTER_SPINE_COLOR).toBe('#C8F5FF');
+      expect(CROSSING_NODE_COLOR).toBe('#FFFFFF');
+      expect(PANEL_DEPTH_START).toBe(0.55);
+      expect(PANEL_BG_COLOR).toBe('rgba(10, 16, 32, 0.45)');
+      expect(DEFAULT_GRID_CONFIG.LONGITUDINAL_COLOR).toBe('#28E6FF');
+      expect(DEFAULT_GRID_CONFIG.TRANSVERSE_COLOR).toBe('#FF8844');
+      expect(DEFAULT_GRID_CONFIG.CENTER_SPINE_COLOR).toBe('#C8F5FF');
+      expect(DEFAULT_GRID_CONFIG.CROSSING_NODE_COLOR).toBe('#FFFFFF');
+      expect(DEFAULT_GRID_CONFIG.PANEL_DEPTH_START).toBe(0.55);
+      expect(DEFAULT_GRID_CONFIG.PANEL_BG_COLOR).toBe('rgba(10, 16, 32, 0.45)');
+    });
+
+    it('DreamGrid 인스턴스가 듀얼 네온 및 SFX 런웨이 기본 설정을 보유한다', () => {
+      const grid = new DreamGrid();
+      expect(grid.longitudinalColor).toBe('#28E6FF');
+      expect(grid.transverseColor).toBe('#FF8844');
+      expect(grid.centerSpineColor).toBe('#C8F5FF');
+      expect(grid.crossingNodeColor).toBe('#FFFFFF');
+      expect(grid.panelDepthStart).toBe(0.55);
+      expect(grid.panelBgColor).toBe('rgba(10, 16, 32, 0.45)');
+    });
+
+    it('가로선(Transverse)은 네온 오렌지(#FF8844) 색상으로 렌더링된다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+      const mockCtx = createMockCtx();
+      grid.render(mockCtx, 1920, 1080);
+
+      expect(mockCtx.strokeStyles.includes('#FF8844')).toBe(true);
+    });
+
+    it('중앙 척추선(Center Spine, j===0) 렌더링 시 3.5px 코어가 드로잉된다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+      const mockCtx = createMockCtx();
+      grid.render(mockCtx, 1920, 1080);
+
+      expect(mockCtx.lineWidths.includes(3.5)).toBe(true);
+    });
+
+    it('전경 패널 음영(Modular Panel Grooves, depthRatio >= 0.55) 영역에 메탈릭 패널 fill이 적용된다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+      const mockCtx = createMockCtx();
+      grid.render(mockCtx, 1920, 1080);
+
+      expect(mockCtx.fillStyles.includes('rgba(10, 16, 32, 0.45)')).toBe(true);
+      expect(mockCtx.closePath).toHaveBeenCalled();
+      expect(mockCtx.fill).toHaveBeenCalled();
+    });
+
+    it('교차점 노드(Intersection Nodes)가 전경 교차점에 마름모/크로스로 드로잉된다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+      const mockCtx = createMockCtx();
+      grid.render(mockCtx, 1920, 1080);
+
+      // 교차점 노드 fillStyle(#FFFFFF) 확인
+      expect(mockCtx.fillStyles.includes('#FFFFFF')).toBe(true);
+    });
+
+    it('하위 호환성: config.color 오버라이드 및 setters가 정상 작동한다', () => {
+      const grid = new DreamGrid({ color: '#FF0055' });
+      expect(grid.longitudinalColor).toBe('#FF0055');
+      expect(grid.color).toBe('#FF0055');
+
+      grid.setLongitudinalColor('#00FFCC');
+      expect(grid.longitudinalColor).toBe('#00FFCC');
+
+      grid.setTransverseColor('#FFAA00');
+      expect(grid.transverseColor).toBe('#FFAA00');
+
+      grid.setCenterSpineColor('#FFFFFF');
+      expect(grid.centerSpineColor).toBe('#FFFFFF');
+
+      grid.setCrossingNodeColor('#FFFF00');
+      expect(grid.crossingNodeColor).toBe('#FFFF00');
+
+      grid.setPanelDepthStart(0.6);
+      expect(grid.panelDepthStart).toBe(0.6);
+
+      grid.setPanelBgColor('rgba(20, 20, 40, 0.5)');
+      expect(grid.panelBgColor).toBe('rgba(20, 20, 40, 0.5)');
+    });
+
+    it('render() 시 config 인자로 전달된 SFX 런웨이 색상 및 옵션이 즉시 오버라이드된다', () => {
+      const grid = new DreamGrid();
+      const mockCtx = createMockCtx();
+      grid.render(mockCtx, 1920, 1080, {
+        longitudinalColor: '#00E5FF',
+        transverseColor: '#FF6600',
+        centerSpineColor: '#E0FFFF',
+        crossingNodeColor: '#EEEEEE',
+        crossingNodeSecondaryColor: '#FFD700',
+        panelBgColor: 'rgba(25, 35, 60, 0.6)',
+        hasCeiling: false,
+        renderZoneConnections: false,
+      });
+
+      expect(mockCtx.strokeStyles.includes('#FF6600')).toBe(true);
+      expect(mockCtx.strokeStyles.includes('#FFD700')).toBe(true);
+      expect(mockCtx.fillStyles.includes('rgba(25, 35, 60, 0.6)')).toBe(true);
+      expect(mockCtx.fillStyles.includes('#EEEEEE')).toBe(true);
+      expect(mockCtx.lineWidths.includes(3.5)).toBe(true);
+    });
+
+    it('panelDepthStart가 높을수록 전경 패널 및 노드가 더 적게 생성된다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+
+      const mockCtxDefault = createMockCtx();
+      grid.render(mockCtxDefault, 1920, 1080, { panelDepthStart: 0.55 });
+      const fillCountDefault = vi.mocked(mockCtxDefault.fill).mock.calls.length;
+
+      const mockCtxDeep = createMockCtx();
+      grid.render(mockCtxDeep, 1920, 1080, { panelDepthStart: 0.95 });
+      const fillCountDeep = vi.mocked(mockCtxDeep.fill).mock.calls.length;
+
+      expect(fillCountDefault).toBeGreaterThan(fillCountDeep);
     });
   });
 });

@@ -20,13 +20,27 @@ import {
   FOG_RANGE,
   CEILING_DELTA_Z,
   CEILING_LINE_COUNT_Z,
+  LONGITUDINAL_COLOR,
+  TRANSVERSE_COLOR,
+  CENTER_SPINE_COLOR,
+  CROSSING_NODE_COLOR,
+  CROSSING_NODE_SECONDARY_COLOR,
+  PANEL_DEPTH_START,
+  PANEL_BG_COLOR,
 } from '../../config/grid.config.js';
 import { projectDepthY, depthRatioFromY } from './GridProjection.js';
 
 export interface DreamGridConfig {
   vanishingX?: number; // 기본값: w * 0.5
   vanishingY?: number; // 기본값: h * HORIZON_RATIO (0.24, 보스 위치)
-  color?: string;
+  color?: string; // 하위 호환성: 지정 시 기본/세로 컬러 오버라이드
+  longitudinalColor?: string; // 세로 방향 네온 시안 (#28E6FF)
+  transverseColor?: string; // 가로 비트 방향 네온 오렌지/앰버 (#FF8844)
+  centerSpineColor?: string; // 중앙 척추선 청백색 코어 (#C8F5FF)
+  crossingNodeColor?: string; // 교차점 노드 주 컬러 (#FFFFFF)
+  crossingNodeSecondaryColor?: string; // 교차점 노드 보조 컬러 (#FFCB4D)
+  panelDepthStart?: number; // 전경 패널 음영 시작 깊이 비율 (기본값: 0.55)
+  panelBgColor?: string; // 전경 패널 메탈릭 베이스 (기본값: rgba(10, 16, 32, 0.45))
   speed?: number;
   cellAspect?: number;
   hasCeiling?: boolean;
@@ -61,14 +75,36 @@ function toRgba(color: string, alpha: number): string {
 export class DreamGrid {
   private _offset = 0;
   private _speed = 1.2;
-  private _color = '#28E6FF';
+  private _color = LONGITUDINAL_COLOR;
+  private _longitudinalColor = LONGITUDINAL_COLOR;
+  private _transverseColor = TRANSVERSE_COLOR;
+  private _centerSpineColor = CENTER_SPINE_COLOR;
+  private _crossingNodeColor = CROSSING_NODE_COLOR;
+  private _crossingNodeSecondaryColor = CROSSING_NODE_SECONDARY_COLOR;
+  private _panelDepthStart = PANEL_DEPTH_START;
+  private _panelBgColor = PANEL_BG_COLOR;
   private _alpha = 0.30; // 30% 투명도 기본값
   private _hasCeiling = true;
   private _bgImage: HTMLImageElement | null = null;
   private _bgDimAlpha = 0.45; // 배경 이미지 디밍 오버레이 기본값 (45%)
 
   constructor(config?: DreamGridConfig) {
-    if (config?.color) this._color = config.color;
+    if (config?.color) {
+      this._color = config.color;
+      this._longitudinalColor = config.color;
+    }
+    if (config?.longitudinalColor !== undefined) {
+      this._longitudinalColor = config.longitudinalColor;
+      this._color = config.longitudinalColor;
+    }
+    if (config?.transverseColor !== undefined) this._transverseColor = config.transverseColor;
+    if (config?.centerSpineColor !== undefined) this._centerSpineColor = config.centerSpineColor;
+    if (config?.crossingNodeColor !== undefined) this._crossingNodeColor = config.crossingNodeColor;
+    if (config?.crossingNodeSecondaryColor !== undefined) {
+      this._crossingNodeSecondaryColor = config.crossingNodeSecondaryColor;
+    }
+    if (config?.panelDepthStart !== undefined) this._panelDepthStart = config.panelDepthStart;
+    if (config?.panelBgColor !== undefined) this._panelBgColor = config.panelBgColor;
     if (config?.speed !== undefined) this._speed = config.speed;
     if (config?.alpha !== undefined) this._alpha = config.alpha;
     if (config?.hasCeiling !== undefined) this._hasCeiling = config.hasCeiling;
@@ -84,6 +120,38 @@ export class DreamGrid {
     return this._alpha;
   }
 
+  get color(): string {
+    return this._color;
+  }
+
+  get longitudinalColor(): string {
+    return this._longitudinalColor;
+  }
+
+  get transverseColor(): string {
+    return this._transverseColor;
+  }
+
+  get centerSpineColor(): string {
+    return this._centerSpineColor;
+  }
+
+  get crossingNodeColor(): string {
+    return this._crossingNodeColor;
+  }
+
+  get crossingNodeSecondaryColor(): string {
+    return this._crossingNodeSecondaryColor;
+  }
+
+  get panelDepthStart(): number {
+    return this._panelDepthStart;
+  }
+
+  get panelBgColor(): string {
+    return this._panelBgColor;
+  }
+
   get bgImage(): HTMLImageElement | null {
     return this._bgImage;
   }
@@ -94,6 +162,36 @@ export class DreamGrid {
 
   setColor(color: string): void {
     this._color = color;
+    this._longitudinalColor = color;
+  }
+
+  setLongitudinalColor(color: string): void {
+    this._longitudinalColor = color;
+    this._color = color;
+  }
+
+  setTransverseColor(color: string): void {
+    this._transverseColor = color;
+  }
+
+  setCenterSpineColor(color: string): void {
+    this._centerSpineColor = color;
+  }
+
+  setCrossingNodeColor(color: string): void {
+    this._crossingNodeColor = color;
+  }
+
+  setCrossingNodeSecondaryColor(color: string): void {
+    this._crossingNodeSecondaryColor = color;
+  }
+
+  setPanelDepthStart(depth: number): void {
+    this._panelDepthStart = depth;
+  }
+
+  setPanelBgColor(color: string): void {
+    this._panelBgColor = color;
   }
 
   setSpeed(speed: number): void {
@@ -128,7 +226,13 @@ export class DreamGrid {
   render(ctx: CanvasRenderingContext2D, w: number, h: number, config?: DreamGridConfig): void {
     const vx = config?.vanishingX ?? w * 0.5;
     const vy = config?.vanishingY ?? h * HORIZON_RATIO;
-    const color = config?.color ?? this._color;
+    const longColor = config?.longitudinalColor ?? config?.color ?? this._longitudinalColor;
+    const transColor = config?.transverseColor ?? this._transverseColor;
+    const spineColor = config?.centerSpineColor ?? this._centerSpineColor;
+    const nodeColor = config?.crossingNodeColor ?? this._crossingNodeColor;
+    const nodeSecColor = config?.crossingNodeSecondaryColor ?? this._crossingNodeSecondaryColor;
+    const panelDepthStart = config?.panelDepthStart ?? this._panelDepthStart;
+    const panelBgColor = config?.panelBgColor ?? this._panelBgColor;
     const baseAlpha = config?.alpha ?? this._alpha;
     const hasCeiling = config?.hasCeiling ?? this._hasCeiling;
 
@@ -158,29 +262,43 @@ export class DreamGrid {
     ctx.arc(vx, vy, voidRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // 2. 바닥 원근 그리드 렌더링 (자연스러운 심도 페이드아웃 적용)
-    this._renderFloorGrid(ctx, w, h, vx, vy, color, baseAlpha);
+    // 2. 바닥 원근 그리드 렌더링 (Issue #282: SFX 런웨이 비주얼)
+    this._renderFloorGrid(
+      ctx,
+      w,
+      h,
+      vx,
+      vy,
+      longColor,
+      transColor,
+      spineColor,
+      nodeColor,
+      nodeSecColor,
+      panelDepthStart,
+      panelBgColor,
+      baseAlpha,
+    );
 
     // 2.5 피트니스 존 연한 연결선 렌더링 (Issue #188: RENDER-TRACK-001)
     const renderZoneConnections = config?.renderZoneConnections ?? true;
     if (renderZoneConnections) {
       const zoneAlpha = config?.zoneConnectionAlpha ?? 0.18;
       const targetZones = config?.zones ?? DEFAULT_FITNESS_ZONES;
-      this._renderZoneConnections(ctx, w, h, vx, vy, color, zoneAlpha, targetZones);
+      this._renderZoneConnections(ctx, w, h, vx, vy, longColor, zoneAlpha, targetZones);
     }
 
     // 3. 천장 원근 그리드 렌더링 (옵션)
     if (hasCeiling) {
-      this._renderCeilingGrid(ctx, w, vx, vy, color, baseAlpha * 0.7);
+      this._renderCeilingGrid(ctx, w, vx, vy, longColor, baseAlpha * 0.7);
     }
 
     ctx.restore();
   }
 
   /**
-   * 바닥 3D 원근 그리드
+   * 바닥 3D 원근 그리드 (Issue #282: SFX 런웨이)
    * - 소실점에 가까운 상중단 영역(depthRatio < 0.16)은 심도 안개로 자연스럽게 소멸
-   * - 화면 하단으로 올수록 선명도(선 두께 및 30% 투명도) 증가
+   * - 전경 패널 음영, 듀얼 네온(세로 시안·가로 오렌지), 중앙 척추선 3.5px 코어, 교차점 노드 렌더링
    */
   private _renderFloorGrid(
     ctx: CanvasRenderingContext2D,
@@ -188,7 +306,13 @@ export class DreamGrid {
     h: number,
     vx: number,
     vy: number,
-    color: string,
+    longColor: string,
+    transColor: string,
+    spineColor: string,
+    nodeColor: string,
+    nodeSecColor: string,
+    panelDepthStart: number,
+    panelBgColor: string,
     baseAlpha: number,
   ): void {
     const floorH = h - vy;
@@ -209,12 +333,48 @@ export class DreamGrid {
     const stepXBottom = Math.max(32, floorH * (DELTA_Z / (Z_NEAR + DELTA_Z)) * 1.8);
     const colCount = Math.ceil((w * 0.5) / stepXBottom) + 2;
 
-    // ── 가로(Horizontal) 라인 드로잉 (심도 소프트 페이드) ──
+    // ── 1. 전경 패널 음영 (Modular Panel Grooves) ──
+    // depthRatio >= panelDepthStart (기본 0.55) 영역의 가로/세로 그리드 사각 셀(quad)에 다크 메탈릭 패널 fill
+    const sortedY = [...hLinesY].sort((a, b) => a - b);
+    const panelBoundaries = [...sortedY];
+    if (panelBoundaries.length === 0 || panelBoundaries[panelBoundaries.length - 1] < h) {
+      panelBoundaries.push(h);
+    }
+
+    ctx.fillStyle = panelBgColor;
+    for (let i = 0; i < panelBoundaries.length - 1; i++) {
+      const y0 = panelBoundaries[i];
+      const y1 = panelBoundaries[i + 1];
+      const d0 = depthRatioFromY(y0, vy, floorH);
+      const d1 = depthRatioFromY(y1, vy, floorH);
+      if (d1 < panelDepthStart) continue;
+
+      const effD0 = Math.max(d0, panelDepthStart);
+      const effY0 = vy + floorH * effD0;
+
+      for (let j = -colCount; j < colCount; j++) {
+        const x0Far = vx + j * stepXBottom * effD0;
+        const x1Far = vx + (j + 1) * stepXBottom * effD0;
+        const x0Near = vx + j * stepXBottom * d1;
+        const x1Near = vx + (j + 1) * stepXBottom * d1;
+
+        if (Math.max(x0Near, x1Near) < -30 || Math.min(x0Far, x1Far) > w + 30) continue;
+
+        ctx.beginPath();
+        ctx.moveTo(x0Far, effY0);
+        ctx.lineTo(x1Far, effY0);
+        ctx.lineTo(x1Near, y1);
+        ctx.lineTo(x0Near, y1);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    // ── 2. 가로(Transverse) 네온 오렌지/앰버 라인 (심도 소프트 페이드) ──
     for (let i = 0; i < hLinesY.length; i++) {
       const y = hLinesY[i];
       const depthRatio = depthRatioFromY(y, vy, floorH); // 0 (소실점) ~ 1 (하단)
 
-      // 소실점 부근 영역은 완전히 안개에 묻히고, FOG_START ~ (FOG_START + FOG_RANGE) 구간에서 부드럽게 페이드인
       if (depthRatio < FOG_START) continue;
       const fogFactor = Math.min(1, (depthRatio - FOG_START) / FOG_RANGE);
       const lineAlpha = baseAlpha * Math.pow(fogFactor, 1.25);
@@ -222,7 +382,7 @@ export class DreamGrid {
 
       const halfW = (w * 0.5 + 50) * depthRatio;
 
-      ctx.strokeStyle = color;
+      ctx.strokeStyle = transColor;
       ctx.globalAlpha = Math.min(1, lineAlpha);
       ctx.lineWidth = Math.max(1.2, depthRatio * 2.8);
 
@@ -232,32 +392,101 @@ export class DreamGrid {
       ctx.stroke();
     }
 
-    // ── 세로(Vertical) 원근 방사선 드로잉 ──
-    // 소실점 (vx, vy)에 뭉치지 않도록 Y축 선형 그라데이션 및 시작 오프셋 적용
+    // ── 3. 세로(Longitudinal) 네온 시안 방사선 드로잉 ──
     const vertGrad = ctx.createLinearGradient(0, h, 0, vy);
-    vertGrad.addColorStop(0, toRgba(color, baseAlpha));
-    vertGrad.addColorStop(0.45, toRgba(color, baseAlpha * 0.85));
-    vertGrad.addColorStop(0.72, toRgba(color, baseAlpha * 0.25));
-    vertGrad.addColorStop(0.86, toRgba(color, 0));
-    vertGrad.addColorStop(1, toRgba(color, 0));
+    vertGrad.addColorStop(0, toRgba(longColor, baseAlpha));
+    vertGrad.addColorStop(0.45, toRgba(longColor, baseAlpha * 0.85));
+    vertGrad.addColorStop(0.72, toRgba(longColor, baseAlpha * 0.25));
+    vertGrad.addColorStop(0.86, toRgba(longColor, 0));
+    vertGrad.addColorStop(1, toRgba(longColor, 0));
 
     ctx.strokeStyle = vertGrad;
     ctx.globalAlpha = 1;
 
-    // 소실점 중심에서 FADE_DEPTH 떨어진 지점부터 하단으로 뻗어나감 (날카로운 꼭짓점 형성 방지)
     const yStart = vy + floorH * FADE_DEPTH;
 
+    // 3-a. 일반 세로선 (j !== 0)
     for (let j = -colCount; j <= colCount; j++) {
+      if (j === 0) continue; // 중앙 척추선은 아래에서 특수 고광도 렌더링
       const xBottom = vx + j * stepXBottom;
       const xStart = vx + (xBottom - vx) * FADE_DEPTH;
 
-      ctx.lineWidth = j === 0 ? 2.8 : 1.5;
+      ctx.lineWidth = 1.5;
 
       ctx.beginPath();
       ctx.moveTo(xStart, yStart);
       ctx.lineTo(xBottom, h);
       ctx.stroke();
     }
+
+    // 3-b. 중앙 척추선(Center Spine, j === 0): 시안 글로우 + 3.5px 청백색 코어 특수 드로잉
+    const spineGlowGrad = ctx.createLinearGradient(0, h, 0, vy);
+    spineGlowGrad.addColorStop(0, toRgba(longColor, Math.min(1, baseAlpha * 1.5)));
+    spineGlowGrad.addColorStop(0.45, toRgba(longColor, baseAlpha * 0.8));
+    spineGlowGrad.addColorStop(0.72, toRgba(longColor, baseAlpha * 0.25));
+    spineGlowGrad.addColorStop(0.86, toRgba(longColor, 0));
+    spineGlowGrad.addColorStop(1, toRgba(longColor, 0));
+
+    ctx.strokeStyle = spineGlowGrad;
+    ctx.lineWidth = 6.0;
+    ctx.beginPath();
+    ctx.moveTo(vx, yStart);
+    ctx.lineTo(vx, h);
+    ctx.stroke();
+
+    const spineCoreGrad = ctx.createLinearGradient(0, h, 0, vy);
+    spineCoreGrad.addColorStop(0, toRgba(spineColor, Math.min(1, baseAlpha * 2.8)));
+    spineCoreGrad.addColorStop(0.45, toRgba(spineColor, Math.min(1, baseAlpha * 2.0)));
+    spineCoreGrad.addColorStop(0.72, toRgba(spineColor, baseAlpha * 0.6));
+    spineCoreGrad.addColorStop(0.86, toRgba(spineColor, 0));
+    spineCoreGrad.addColorStop(1, toRgba(spineColor, 0));
+
+    ctx.strokeStyle = spineCoreGrad;
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(vx, yStart);
+    ctx.lineTo(vx, h);
+    ctx.stroke();
+
+    // ── 4. 교차점 접합 노드 (Intersection Nodes) ──
+    // 전경(depthRatio >= panelDepthStart)의 주요 가로-세로 교차점에 2~3px 발광 마름모/크로스 노드 드로잉
+    for (let i = 0; i < hLinesY.length; i++) {
+      const y = hLinesY[i];
+      const depthRatio = depthRatioFromY(y, vy, floorH);
+      if (depthRatio < panelDepthStart) continue;
+
+      const nodeSize = Math.max(2, Math.min(3.5, depthRatio * 3.2));
+      const nodeAlpha = Math.min(1, baseAlpha * 2.2 * depthRatio);
+
+      for (let j = -colCount; j <= colCount; j++) {
+        const ix = vx + j * stepXBottom * depthRatio;
+        if (ix < -20 || ix > w + 20) continue;
+
+        // 마름모(다이아몬드) 노드 코어 (#FFFFFF)
+        ctx.fillStyle = nodeColor;
+        ctx.globalAlpha = nodeAlpha;
+        ctx.beginPath();
+        ctx.moveTo(ix, y - nodeSize);
+        ctx.lineTo(ix + nodeSize, y);
+        ctx.lineTo(ix, y + nodeSize);
+        ctx.lineTo(ix - nodeSize, y);
+        ctx.closePath();
+        ctx.fill();
+
+        // 앰버/골드 보조 크로스 액센트 (#FFCB4D)
+        ctx.strokeStyle = nodeSecColor;
+        ctx.lineWidth = 1.0;
+        ctx.globalAlpha = nodeAlpha * 0.75;
+        ctx.beginPath();
+        ctx.moveTo(ix - nodeSize * 1.4, y);
+        ctx.lineTo(ix + nodeSize * 1.4, y);
+        ctx.moveTo(ix, y - nodeSize * 1.4);
+        ctx.lineTo(ix, y + nodeSize * 1.4);
+        ctx.stroke();
+      }
+    }
+
+    ctx.globalAlpha = 1;
   }
 
   /**
