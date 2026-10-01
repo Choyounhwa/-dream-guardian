@@ -56,8 +56,8 @@
 |:---:|---|---|---|:---:|
 | 7 | **#262** | [A11Y-001] user-scalable 해제 및 최소 폰트 크기 하한선 즉시 적용 | 없음 | `[✔] 완료` |
 | 8 | **#263** | [A11Y-002] 저대비 색상 수정 및 WCAG AA 대비율 4.5:1 보장 | 없음 | `[✔] 완료` |
-| 9 | **#264** | [A11Y-003] SettingsModal 글씨 크기/고대비 모드 옵션 추가 | #256·#257·#258 | `[▶ NEXT]` |
-| 10 | **#265** | [A11Y-004] 저시력 모드 커서/HP바/게이지 확대 및 음성 피드백 강화 | #264 | `[ ] 대기` |
+| 9 | **#264** | [A11Y-003] SettingsModal 글씨 크기/고대비 모드 옵션 추가 | #256·#257·#258 | `[✔] 완료` |
+| 10 | **#265** | [A11Y-004] 저시력 모드 커서/HP바/게이지 확대 및 음성 피드백 강화 | #264 | `[▶ NEXT]` |
 
 ### 📌 C. 이미지 에셋 교체 시리즈 (UI-ASSET)
 
@@ -97,6 +97,36 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [A11Y-003 / #264] SettingsModal 글씨 크기/고대비 모드 옵션 추가
+
+> #264 구현 및 TDD 사이클 전수 통과 완료. SettingsModal에 글씨 크기(fontScale, 1.0x/1.5x/2.0x 3단계 순환) 및 고대비 모드(highContrast, ON/OFF 토글) 옵션을 신설하고, 런타임 UI_ACCESSIBILITY 및 UIText 동기화와 localStorage(`dg_a11y_fontScale`, `dg_a11y_highContrast`) 영속 저장을 완비하였습니다.
+> - **신규/수정 파일 및 내용**:
+>   1. `src/ui/SettingsModal.ts`:
+>      - `SettingsAction` 및 `SettingsButtonAction`에 `'fontScale'`, `'highContrast'` 추가
+>      - `_fontScale`, `_highContrast` 상태 및 getter/setter 구현
+>      - `cycleFontScale()`: 1.0x -> 1.5x -> 2.0x -> 1.0x 순환 토글 및 UIText/UI_ACCESSIBILITY 동기화
+>      - `toggleHighContrast()`: ON/OFF 전환 및 UIText/UI_ACCESSIBILITY 테마 동기화
+>      - `saveAccessibility()`, `loadAccessibility()`: localStorage(`dg_a11y_fontScale`, `dg_a11y_highContrast`) 저장 및 복원
+>      - `getButtonLayout()`: UI_LAYOUT.settings.buttons 슬롯 연동 및 레이아웃 지원
+>      - `handleClick()`: fontScale/highContrast 히트테스트 판정 및 자동 토글
+>      - `render()`: '🔤 글씨 크기'(라벨: 기본 (1.0x)/크게 (1.5x)/매우 크게 (2.0x)), '👁 고대비 모드'(ON/OFF 및 toggle 에셋 분기) 2개 옵션 행 렌더링
+>   2. `config/ui.config.ts`:
+>      - `UILayoutConfig['settings']['buttons']` 타입에 `'fontScale'`, `'highContrast'` 추가
+>      - `UI_LAYOUT.settings.buttons`에 `fontScale`(y: 1270) 및 `highContrast`(y: 1400) 슬롯 배치
+>   3. `src/utils/UIText.ts`:
+>      - `setFontScale`, `setHighContrast`, `setMinPhysicalPx`, `resetAccessibility` 호출 시 `UI_ACCESSIBILITY`와 실시간 동기화 보장
+>   4. `src/ui/index.ts`:
+>      - `SettingsButtonAction` 타입 export 추가
+>   5. `src/main.ts`:
+>      - `settingsModal` 클릭 시 fontScale/highContrast 액션에 대한 hover sfx 재생 연동
+>   6. `tests/unit/a11y-settings.test.ts`:
+>      - fontScale 3단계 순환 토글, highContrast 테마 전환, localStorage 저장/복원, 히트테스트, 렌더링 검증 단위 테스트 신설 (17/17 Pass)
+>   7. 전체 검증:
+>      - `npm run build` 통과
+>      - `npm test`: 129개 테스트 파일, 1,514개 단위 테스트 100% Pass
 
 ---
 

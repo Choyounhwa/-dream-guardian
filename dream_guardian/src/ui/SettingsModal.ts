@@ -12,9 +12,19 @@
 
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
-import { UI_LAYOUT } from '../../config/ui.config.js';
+import { UI_LAYOUT, UI_ACCESSIBILITY } from '../../config/ui.config.js';
 
-export type SettingsAction = 'close' | 'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion' | 'backdrop-close';
+export type SettingsButtonAction =
+  | 'close'
+  | 'camera'
+  | 'fullscreen'
+  | 'skeleton'
+  | 'sound'
+  | 'locomotion'
+  | 'fontScale'
+  | 'highContrast';
+
+export type SettingsAction = SettingsButtonAction | 'backdrop-close';
 
 export interface ModalButtonSlot {
   x: number;
@@ -29,9 +39,15 @@ export class SettingsModal {
   private _skeletonEnabled = true;
   private _soundEnabled = true;
   private _locomotionModeLabel = '제자리 달리기';
+  private _fontScale = UI_ACCESSIBILITY.fontScale ?? 1.0;
+  private _highContrast = UI_ACCESSIBILITY.highContrast ?? false;
 
   // 모달 다이얼로그 가상 기준 (UI_LAYOUT.settings.modal 연동)
   private readonly MODAL_VIRTUAL = UI_LAYOUT.settings.modal;
+
+  constructor() {
+    this.loadAccessibility();
+  }
 
   get isOpen(): boolean {
     return this._isOpen;
@@ -69,6 +85,89 @@ export class SettingsModal {
     this._locomotionModeLabel = val;
   }
 
+  get fontScale(): number {
+    return this._fontScale;
+  }
+
+  set fontScale(val: number) {
+    this._fontScale = val;
+    UI_ACCESSIBILITY.fontScale = val;
+    UIText.setFontScale(val);
+    this.saveAccessibility();
+  }
+
+  get fontScaleLabel(): string {
+    if (Math.abs(this._fontScale - 1.5) < 0.05) return '크게 (1.5x)';
+    if (Math.abs(this._fontScale - 2.0) < 0.05) return '매우 크게 (2.0x)';
+    return '기본 (1.0x)';
+  }
+
+  get highContrast(): boolean {
+    return this._highContrast;
+  }
+
+  set highContrast(val: boolean) {
+    this._highContrast = val;
+    UI_ACCESSIBILITY.highContrast = val;
+    UIText.setHighContrast(val);
+    this.saveAccessibility();
+  }
+
+  cycleFontScale(): number {
+    if (Math.abs(this._fontScale - 1.0) < 0.05) {
+      this.fontScale = 1.5;
+    } else if (Math.abs(this._fontScale - 1.5) < 0.05) {
+      this.fontScale = 2.0;
+    } else {
+      this.fontScale = 1.0;
+    }
+    return this._fontScale;
+  }
+
+  toggleHighContrast(): boolean {
+    this.highContrast = !this._highContrast;
+    return this._highContrast;
+  }
+
+  saveAccessibility(): void {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('dg_a11y_fontScale', String(this._fontScale));
+        localStorage.setItem('dg_a11y_highContrast', String(this._highContrast));
+      }
+    } catch {
+      // localStorage 불가 환경 무시
+    }
+  }
+
+  loadAccessibility(): void {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const savedScale = localStorage.getItem('dg_a11y_fontScale');
+        if (savedScale !== null) {
+          const parsed = parseFloat(savedScale);
+          if (parsed === 1.0 || parsed === 1.5 || parsed === 2.0) {
+            this._fontScale = parsed;
+            UI_ACCESSIBILITY.fontScale = parsed;
+            UIText.setFontScale(parsed);
+          }
+        }
+
+        const savedContrast = localStorage.getItem('dg_a11y_highContrast');
+        if (savedContrast !== null) {
+          if (savedContrast === 'true' || savedContrast === 'false') {
+            const parsedContrast = savedContrast === 'true';
+            this._highContrast = parsedContrast;
+            UI_ACCESSIBILITY.highContrast = parsedContrast;
+            UIText.setHighContrast(parsedContrast);
+          }
+        }
+      }
+    } catch {
+      // localStorage 불가 환경 무시
+    }
+  }
+
   open(): void {
     this._isOpen = true;
   }
@@ -85,7 +184,7 @@ export class SettingsModal {
    * 모달 내 특정 버튼의 절대 좌표 및 크기 계산 (UI_LAYOUT.settings 연동)
    */
   getButtonLayout(
-    action: 'close' | 'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion',
+    action: SettingsButtonAction,
     w: number,
     h: number,
   ): ModalButtonSlot {
@@ -116,9 +215,21 @@ export class SettingsModal {
     const my = this.MODAL_VIRTUAL.y * scaleY;
     const mw = this.MODAL_VIRTUAL.w * scaleX;
 
+    const actionOrder: SettingsButtonAction[] = [
+      'camera',
+      'fullscreen',
+      'skeleton',
+      'sound',
+      'locomotion',
+      'fontScale',
+      'highContrast',
+    ];
+    const idx = actionOrder.indexOf(action);
+    const offsetY = idx >= 0 ? 140 + idx * 130 : 140;
+
     return {
       x: mx + 60 * scaleX,
-      y: my + 140 * scaleY,
+      y: my + offsetY * scaleY,
       w: mw - 120 * scaleX,
       h: 110 * scaleY,
     };
@@ -143,18 +254,25 @@ export class SettingsModal {
     }
 
     // 2. 내부 버튼 히트 체크
-    const actions: Array<'close' | 'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion'> = [
+    const actions: SettingsButtonAction[] = [
       'close',
       'camera',
       'fullscreen',
       'skeleton',
       'sound',
       'locomotion',
+      'fontScale',
+      'highContrast',
     ];
 
     for (const act of actions) {
       const btn = this.getButtonLayout(act, w, h);
       if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+        if (act === 'fontScale') {
+          this.cycleFontScale();
+        } else if (act === 'highContrast') {
+          this.toggleHighContrast();
+        }
         return act;
       }
     }
@@ -319,6 +437,22 @@ export class SettingsModal {
       '🏃 운동 방식',
       `${this._locomotionModeLabel} ⚙`,
       true
+    );
+
+    // 글씨 크기 버튼
+    renderOptionBtn(
+      this.getButtonLayout('fontScale', w, h),
+      '🔤 글씨 크기',
+      this.fontScaleLabel,
+      this._fontScale > 1.0
+    );
+
+    // 고대비 모드 버튼
+    renderOptionBtn(
+      this.getButtonLayout('highContrast', w, h),
+      '👁 고대비 모드',
+      this._highContrast ? 'ON' : 'OFF',
+      this._highContrast
     );
 
     ctx.restore();

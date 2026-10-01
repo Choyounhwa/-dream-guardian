@@ -39,6 +39,7 @@ let currentAccessibility: UIAccessibilityConfig = { ...UI_ACCESSIBILITY };
  */
 export function setFontScale(scale: number): void {
   currentAccessibility.fontScale = Math.max(0.1, scale);
+  UI_ACCESSIBILITY.fontScale = currentAccessibility.fontScale;
 }
 
 /**
@@ -47,6 +48,7 @@ export function setFontScale(scale: number): void {
  */
 export function setHighContrast(enabled: boolean): void {
   currentAccessibility.highContrast = enabled;
+  UI_ACCESSIBILITY.highContrast = enabled;
 }
 
 /**
@@ -55,12 +57,16 @@ export function setHighContrast(enabled: boolean): void {
  */
 export function setMinPhysicalPx(minPx: number): void {
   currentAccessibility.minPhysicalPx = Math.max(0, minPx);
+  UI_ACCESSIBILITY.minPhysicalPx = currentAccessibility.minPhysicalPx;
 }
 
 /**
  * 접근성 설정을 ui.config.ts 기본값으로 초기화
  */
 export function resetAccessibility(): void {
+  UI_ACCESSIBILITY.fontScale = 1.0;
+  UI_ACCESSIBILITY.highContrast = false;
+  UI_ACCESSIBILITY.minPhysicalPx = 16;
   currentAccessibility = { ...UI_ACCESSIBILITY };
 }
 

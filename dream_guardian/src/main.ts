@@ -1747,6 +1747,8 @@ canvas.addEventListener('click', (e) => {
       sfx.setMuted(!settingsModal.soundEnabled);
       bandSynth.setMuted(!settingsModal.soundEnabled);
       if (settingsModal.soundEnabled) sfx.play('correct');
+    } else if (action === 'fontScale' || action === 'highContrast') {
+      sfx.play('hover');
     }
     return;
   }

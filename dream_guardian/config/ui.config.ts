@@ -161,7 +161,10 @@ export interface UILayoutConfig {
   settings: UILayoutSlot & {
     modal: UILayoutSlot;
     closeBtn: UILayoutSlot;
-    buttons?: Record<'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion', UILayoutSlot>;
+    buttons?: Record<
+      'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion' | 'fontScale' | 'highContrast',
+      UILayoutSlot
+    >;
   };
   pause: UILayoutSlot & {
     modal: UILayoutSlot;
@@ -252,6 +255,8 @@ export const UI_LAYOUT: UILayoutConfig = {
       skeleton: { x: 200, y: 880, w: 680, h: 110 },
       sound: { x: 200, y: 1010, w: 680, h: 110 },
       locomotion: { x: 200, y: 1140, w: 680, h: 110 },
+      fontScale: { x: 200, y: 1270, w: 680, h: 110 },
+      highContrast: { x: 200, y: 1400, w: 680, h: 110 },
     },
   },
   pause: {

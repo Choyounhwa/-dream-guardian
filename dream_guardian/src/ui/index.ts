@@ -7,7 +7,7 @@ export type { ResultData } from './ResultRenderer.js';
 export { BottomBar, BOTTOM_BAR_CONFIG } from './BottomBar.js';
 export type { BottomBarSlot, BottomBarRenderOptions } from './BottomBar.js';
 export { SettingsModal } from './SettingsModal.js';
-export type { SettingsAction, ModalButtonSlot } from './SettingsModal.js';
+export type { SettingsAction, SettingsButtonAction, ModalButtonSlot } from './SettingsModal.js';
 export { LocomotionModal, LOCOMOTION_MODES, STORAGE_KEY_LOCOMOTION_MODE, LOCOMOTION_DWELL_TIME } from './LocomotionModal.js';
 export type { LocomotionModeInfo } from './LocomotionModal.js';
 export { PauseModal, PAUSE_DWELL_TIME } from './PauseModal.js';
