@@ -1212,17 +1212,18 @@ const engine = new GameEngine({
     }
     if (poseManager.hasPose) {
       skeletonAnimation.update(dt, poseManager.virtualLandmarks);
-      stickmanRenderer.update(
-        dt,
-        poseManager.rawLandmarks.length >= 25 ? poseManager.rawLandmarks : poseManager.virtualLandmarks,
-        skeletonAnimation.breathScale,
-      );
-
-      // Issue #140: 모든 장면(메뉴·달리기·문제·결과)에서 4색 커서가 상시 유지되도록 매 프레임 커서 트래커 갱신
       const sourceLandmarks =
         skeletonAnimation.smoothedLandmarks.length >= 25
           ? skeletonAnimation.smoothedLandmarks
           : poseManager.virtualLandmarks;
+
+      stickmanRenderer.update(
+        dt,
+        sourceLandmarks,
+        skeletonAnimation.breathScale,
+      );
+
+      // Issue #140: 모든 장면(메뉴·달리기·문제·결과)에서 4색 커서가 상시 유지되도록 매 프레임 커서 트래커 갱신
       if (sourceLandmarks.length >= 25) {
         const jointMap: Record<number, { x: number; y: number }> = {};
         for (let i = 0; i < sourceLandmarks.length; i++) {
@@ -1663,18 +1664,16 @@ const engine = new GameEngine({
       cameraLayer.render(ctx, vw, vh);
     }
 
-    // 4. 모션 아바타(메카 졸라맨) 시각화 (설정에서 활성화된 경우만 렌더링, Issue #203 / FEAT-SKEL-005)
-    if (settingsModal.skeletonEnabled && poseManager.hasPose) {
-      if (stickmanRenderer.hasPose) {
-        stickmanRenderer.render(ctx, vw, vh);
-      } else if (skeletonAnimation.smoothedLandmarks.length > 0) {
-        boneRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, 1);
-        jointRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, skeletonAnimation.breathScale);
-      }
+    // 4. 모션 아바타(메카 졸라맨) 상시 시각화 & 스켈레톤 본 토글 분리 (Issue #280 / BUG-AVATAR-001)
+    if (poseManager.hasPose && stickmanRenderer.hasPose) {
+      stickmanRenderer.render(ctx, vw, vh);
+    }
 
-      if (skeletonAnimation.smoothedLandmarks.length > 0) {
-        skeletonEffect.renderTrails(ctx);
-      }
+    // 웹캠 위 앙상한 스켈레톤 선/점/트레일은 settingsModal.skeletonEnabled 설정에 따라 ON/OFF
+    if (settingsModal.skeletonEnabled && poseManager.hasPose && skeletonAnimation.smoothedLandmarks.length > 0) {
+      boneRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, 1);
+      jointRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, skeletonAnimation.breathScale);
+      skeletonEffect.renderTrails(ctx);
     }
 
     // 5. 메뉴 / 인게임 / 결과 렌더링 (모두 vw, vh 가상 좌표계 기준으로 일관 드로잉)

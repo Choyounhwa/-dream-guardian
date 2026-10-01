@@ -118,7 +118,12 @@ export class StickmanRenderer {
   /**
    * 매 프레임 Pose 랜드마크 기반 회전 각도 추출 및 스무딩
    */
-  update(dt: number, landmarks: readonly NormalizedLandmark[], breathScale = 1.0): void {
+  update(
+    dt: number,
+    landmarks: readonly NormalizedLandmark[],
+    breathScale = 1.0,
+    options?: { mirror?: boolean },
+  ): void {
     this._animTimer += dt;
     this._breathScale = breathScale;
 
@@ -166,24 +171,32 @@ export class StickmanRenderer {
       this._baselineHipY += (currentHipY - this._baselineHipY) * 0.01;
     }
     const hipDiff = currentHipY - this._baselineHipY;
-    const targetOffset = hipDiff * this._config.squatSensitivity;
+    // 픽셀 좌표계(currentHipY > 2.0)인 경우 1080(기준 가상 높이)으로 정규화하여 오프셋 폭주 방지
+    const normalizedHipDiff = currentHipY > 2.0 ? hipDiff / 1080 : hipDiff;
+    const targetOffset = normalizedHipDiff * this._config.squatSensitivity;
     this._verticalOffset += (targetOffset - this._verticalOffset) * 0.25;
 
-    // 3. 목표 관절 각도 계산 (Math.atan2)
+    // 3. 미러링 정합성 판단 및 목표 관절 각도 계산 (Math.atan2)
+    // 카메라 원본 좌표계(비미러)의 경우 사용자의 오른어깨가 카메라 센서 좌측(rs.x < ls.x)에 위치합니다.
+    // 거울 화면 뷰(미러)에서는 좌우 X 변위가 반전되어야 하므로 dx 방향을 보정합니다.
+    const isMirrored = options?.mirror !== undefined ? options.mirror : !(rs.x < ls.x);
+    const getDx = (p2: { x: number }, p1: { x: number }) =>
+      isMirrored ? p2.x - p1.x : -(p2.x - p1.x);
+
     const midShoulder = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
     const midHip = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 };
 
     const targetAngles: StickmanAngles = {
-      torso: Math.atan2(midShoulder.y - midHip.y, midShoulder.x - midHip.x),
-      head: nose ? Math.atan2(nose.y - midShoulder.y, nose.x - midShoulder.x) : -Math.PI / 2,
-      leftUpperArm: Math.atan2(le.y - ls.y, le.x - ls.x),
-      leftForearm: Math.atan2(lw.y - le.y, lw.x - le.x),
-      rightUpperArm: Math.atan2(re.y - rs.y, re.x - rs.x),
-      rightForearm: Math.atan2(rw.y - re.y, rw.x - re.x),
-      leftUpperLeg: Math.atan2(lk.y - lh.y, lk.x - lh.x),
-      leftLowerLeg: Math.atan2(la.y - lk.y, la.x - lk.x),
-      rightUpperLeg: Math.atan2(rk.y - rh.y, rk.x - rh.x),
-      rightLowerLeg: Math.atan2(ra.y - rk.y, ra.x - rk.x),
+      torso: Math.atan2(midShoulder.y - midHip.y, getDx(midShoulder, midHip)),
+      head: nose ? Math.atan2(nose.y - midShoulder.y, getDx(nose, midShoulder)) : -Math.PI / 2,
+      leftUpperArm: Math.atan2(le.y - ls.y, getDx(le, ls)),
+      leftForearm: Math.atan2(lw.y - le.y, getDx(lw, le)),
+      rightUpperArm: Math.atan2(re.y - rs.y, getDx(re, rs)),
+      rightForearm: Math.atan2(rw.y - re.y, getDx(rw, re)),
+      leftUpperLeg: Math.atan2(lk.y - lh.y, getDx(lk, lh)),
+      leftLowerLeg: Math.atan2(la.y - lk.y, getDx(la, lk)),
+      rightUpperLeg: Math.atan2(rk.y - rh.y, getDx(rk, rh)),
+      rightLowerLeg: Math.atan2(ra.y - rk.y, getDx(ra, rk)),
     };
 
     // 4. 각도 스무딩 (Damping)
@@ -237,7 +250,7 @@ export class StickmanRenderer {
       y: Math.cos(angles.torso),
     };
     const halfShoulder = lengths.shoulderWidth / 2;
-    // 거울 반전 기준: 화면 좌측 = 유저 오른손/오른어깨, 화면 우측 = 유저 왼손/왼어깨
+    // 거울 모드 화면 기준: 화면 좌측 = 유저 왼손/왼어깨(시안), 화면 우측 = 유저 오른손/오른어깨(노랑)
     const leftShoulder: StickmanPoint2D = {
       x: neck.x - shoulderNormal.x * halfShoulder,
       y: neck.y - shoulderNormal.y * halfShoulder,

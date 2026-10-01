@@ -3,6 +3,7 @@ import { StickmanRenderer } from '../../src/skeleton/StickmanRenderer.js';
 import { STICKMAN_CONFIG } from '../../config/skeleton.config.js';
 import type { NormalizedLandmark } from '../../src/types/index.js';
 import { POSE_LANDMARKS } from '../../src/types/index.js';
+import { SettingsModal } from '../../src/ui/SettingsModal.js';
 
 function createMockCtx(): CanvasRenderingContext2D {
   return {
@@ -232,6 +233,117 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       expect(fk.pelvis.x).toBeCloseTo(1080 * 0.5, 1);
       expect(fk.pelvis.y).toBeGreaterThan(2160 * 0.55);
       expect(fk.pelvis.y).toBeLessThan(2160 * 0.75);
+    });
+  });
+
+  describe('4. Issue #280 [BUG-AVATAR-001] 미러링 각도 정합성 및 스켈레톤 본 토글 분리 검증', () => {
+    let renderer: StickmanRenderer;
+
+    beforeEach(() => {
+      renderer = new StickmanRenderer();
+    });
+
+    it('사용자가 오른손을 화면 오른쪽으로 뻗을 때(dx > 0) 아바타 오른팔도 화면 오른쪽 바깥(dx > 0)으로 뻗는다', () => {
+      const pose = createSamplePoseLandmarks();
+      // 오른팔을 오른쪽 수평 바깥으로 뻗음
+      pose[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.55, y: 0.35, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_ELBOW] = { x: 0.75, y: 0.35, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_WRIST] = { x: 0.90, y: 0.35, z: 0, visibility: 0.95 };
+
+      renderer.update(0.016, pose);
+      const angles = renderer.getSmoothedAngles();
+      const fk = renderer.calculateFKPositions(1920, 1080);
+
+      // 각도 및 FK 위치가 화면 오른쪽(+X)을 향해야 함
+      expect(Math.cos(angles.rightUpperArm)).toBeGreaterThan(0);
+      expect(Math.cos(angles.rightForearm)).toBeGreaterThan(0);
+      expect(fk.rightElbow.x).toBeGreaterThan(fk.rightShoulder.x);
+      expect(fk.rightWrist.x).toBeGreaterThan(fk.rightElbow.x);
+    });
+
+    it('사용자가 왼손을 화면 왼쪽으로 뻗을 때(dx < 0) 아바타 왼팔도 화면 왼쪽 바깥(dx < 0)으로 뻗는다', () => {
+      const pose = createSamplePoseLandmarks();
+      // 왼팔을 왼쪽 수평 바깥으로 뻗음
+      pose[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.45, y: 0.35, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.LEFT_ELBOW] = { x: 0.25, y: 0.35, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.LEFT_WRIST] = { x: 0.10, y: 0.35, z: 0, visibility: 0.95 };
+
+      renderer.update(0.016, pose);
+      const angles = renderer.getSmoothedAngles();
+      const fk = renderer.calculateFKPositions(1920, 1080);
+
+      // 각도 및 FK 위치가 화면 왼쪽(-X)을 향해야 함
+      expect(Math.cos(angles.leftUpperArm)).toBeLessThan(0);
+      expect(Math.cos(angles.leftForearm)).toBeLessThan(0);
+      expect(fk.leftElbow.x).toBeLessThan(fk.leftShoulder.x);
+      expect(fk.leftWrist.x).toBeLessThan(fk.leftElbow.x);
+    });
+
+    it('비미러(raw camera) 좌표계 랜드마크(rs.x < ls.x)가 유입되어도 거울 모드 화면 뷰에 맞게 자동 보정된다', () => {
+      // 카메라 센서 raw 좌표계: 사용자의 실제 오른손이 센서 좌측(x < 0.5), 왼손이 센서 우측(x > 0.5)
+      const rawPose: NormalizedLandmark[] = [];
+      for (let i = 0; i < 33; i++) {
+        rawPose.push({ x: 0.5, y: 0.5, z: 0, visibility: 0.95 });
+      }
+      rawPose[POSE_LANDMARKS.NOSE] = { x: 0.5, y: 0.2, z: 0, visibility: 0.95 };
+      // 카메라 센서 기준 어깨 (오른어깨가 센서 좌측, 왼어깨가 센서 우측)
+      rawPose[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.45, y: 0.35, z: 0, visibility: 0.95 };
+      rawPose[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.55, y: 0.35, z: 0, visibility: 0.95 };
+      rawPose[POSE_LANDMARKS.RIGHT_HIP] = { x: 0.45, y: 0.60, z: 0, visibility: 0.95 };
+      rawPose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.55, y: 0.60, z: 0, visibility: 0.95 };
+
+      // 사용자가 실제 오른손을 자기 오른쪽(카메라 센서 기준 왼쪽 x: 0.10)으로 뻗음
+      rawPose[POSE_LANDMARKS.RIGHT_ELBOW] = { x: 0.25, y: 0.35, z: 0, visibility: 0.95 };
+      rawPose[POSE_LANDMARKS.RIGHT_WRIST] = { x: 0.10, y: 0.35, z: 0, visibility: 0.95 };
+
+      // 미러 뷰에 맞춰 아바타는 화면 오른쪽(+X)으로 뻗어야 함
+      renderer.update(0.016, rawPose);
+      const angles = renderer.getSmoothedAngles();
+      const fk = renderer.calculateFKPositions(1920, 1080);
+
+      expect(Math.cos(angles.rightUpperArm)).toBeGreaterThan(0);
+      expect(Math.cos(angles.rightForearm)).toBeGreaterThan(0);
+      expect(fk.rightWrist.x).toBeGreaterThan(fk.rightShoulder.x);
+    });
+
+    it('가상 캔버스 픽셀 좌표계(1920x1080) 랜드마크가 유입되어도 스쿼트 오프셋이 폭주하지 않고 정상 범위로 보정된다', () => {
+      const standPose = createSamplePoseLandmarks().map((lm) => ({
+        ...lm,
+        x: lm.x * 1920,
+        y: lm.y * 1080,
+      }));
+      renderer.update(0.016, standPose);
+      const standPositions = renderer.calculateFKPositions(1920, 1080);
+
+      // 스쿼트 자세: 픽셀 Y가 100px 증가
+      const squatPose = standPose.map((lm) => ({ ...lm }));
+      squatPose[POSE_LANDMARKS.LEFT_HIP].y += 100;
+      squatPose[POSE_LANDMARKS.RIGHT_HIP].y += 100;
+      squatPose[POSE_LANDMARKS.LEFT_KNEE].y += 80;
+      squatPose[POSE_LANDMARKS.RIGHT_KNEE].y += 80;
+
+      renderer.update(0.016, squatPose);
+      const squatPositions = renderer.calculateFKPositions(1920, 1080);
+
+      const yDiff = squatPositions.pelvis.y - standPositions.pelvis.y;
+      // 픽셀 좌표라도 정규화되어 10px ~ 80px 사이의 적정 오프셋이어야 함 (수만 픽셀 폭주 방지)
+      expect(yDiff).toBeGreaterThan(5);
+      expect(yDiff).toBeLessThan(100);
+    });
+
+    it('SettingsModal에서 스켈레톤 토글 버튼 라벨이 "🦴 스켈레톤 본"으로 복원되어 렌더링된다', () => {
+      const modal = new SettingsModal();
+      modal.open();
+      const mockCtx = createMockCtx();
+
+      modal.render(mockCtx, 1080, 2160);
+
+      // 렌더링 시 "🦴 스켈레톤 본" 라벨이 드로잉되어야 함
+      expect(mockCtx.fillText).toHaveBeenCalledWith(
+        '🦴 스켈레톤 본',
+        expect.any(Number),
+        expect.any(Number),
+      );
     });
   });
 });

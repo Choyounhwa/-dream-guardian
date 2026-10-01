@@ -4282,32 +4282,35 @@ BEAT-SPEC-001
 
 ---
 
-### Issue #247: [FEAT-QUESTION-SHAPE-001] 쌓기나무(모양 A~Q 17종) 및 입체도형 전개도 시각 이미지 생성 및 QuestionRenderer 연동
+### Issue #247: [FEAT-QUESTION-SHAPE-001] 문제시트(questions.csv) 전수 도형 이미지 생성(평면 15종·입체 10종·각도 5종·쌓기나무 17종·전개도/회전 2종) 및 QuestionRenderer 연동
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/247
 - **Labels**: `feature`, `phase-7`, `P1-high`
 - **Milestone**: `v0.6-visuals-content`
 - **작업 ID**: `[FEAT-QUESTION-SHAPE-001]`
 - **상태**: ⚪ **대기 (승인 대기)**
-- **제목**: 쌓기나무(모양 A~Q 17종) 및 입체도형 전개도 시각 이미지 생성 및 QuestionRenderer 연동
+- **제목**: 문제시트(questions.csv) 전수 도형 이미지 생성(평면 15종·입체 10종·각도 5종·쌓기나무 17종·전개도/회전 2종) 및 QuestionRenderer 연동
 - **목적**:
-  - `questions.csv`의 Level 9 SubLevel 4(쌓기나무 165문항) 및 SubLevel 5(전개도 문항)는 시각적 그림 없이 텍스트만으로는 정답을 도출하는 것이 물리적으로 불가능함.
-  - 17종 쌓기나무 모양(A~Q)과 주사위/정육면체 전개도의 규격화된 절차적 아이소메트릭 3D/2D Canvas 렌더러(또는 벡터 이미지 에셋)를 구축하고, 해당 문제가 출제될 때 문제 영역에 시각 이미지를 선명하게 렌더링하여 플레이어가 7초 이내에 직관적으로 답을 찾을 수 있도록 지원한다.
+  - `questions.csv` 문제시트 전수 조사 결과, 시각 그림/도형 정보가 필요한 문제는 총 284문항(Level 7 도형 전영역 79문항, Level 9 회전전개 및 쌓기나무 205문항)에 달함.
+  - 기존의 쌓기나무(모양 A~Q 17종) 및 주사위 전개도 외에도, Level 7에 분포된 평면도형(15종), 입체도형(10종), 각도 표시 기하도형(5종)에 대한 규격화된 이미지 에셋 생성(`scripts/generate-shape-assets.js`) 및 2D/3D Canvas 절차적 렌더러를 구축하여 플레이어가 신체 활동 중 7초 이내에 직관적으로 시각 정보를 인지하고 정답을 도출할 수 있도록 지원한다.
 - **수정 및 생성 대상**:
-  - `dream_guardian/src/render/ShapeRenderer.ts` (신규: 17종 쌓기나무 아이소메트릭 블록 및 전개도 드로잉 엔진)
-  - `dream_guardian/src/render/QuestionRenderer.ts` (문제 출제 시 `[모양 X]` 또는 ShapeCode 감지하여 이미지 동시 렌더링)
-  - `dream_guardian/src/render/index.ts` (배럴 export 추가)
-  - `dream_guardian/tests/unit/shape-renderer.test.ts` (신규: 17종 모양 데이터 무결성 및 전개도 드로잉 TDD 단위 테스트)
+  - `dream_guardian/scripts/generate-shape-assets.js` (신규: 49종 표준 도형 고해상도 벡터/PNG 이미지 에셋 생성 스크립트)
+  - `dream_guardian/public/assets/shapes/` (신규: 생성된 정적 도형 이미지 에셋 저장소)
+  - `dream_guardian/src/render/ShapeRenderer.ts` (확장: 49종 도형 카탈로그, 정적 이미지 로드 및 2D/3D 절차적 드로잉, 동적 치수 {A,B,C} 및 각도 호 오버레이 엔진)
+  - `dream_guardian/src/render/QuestionRenderer.ts` (확장: Level 7 & 9 도형 문제 전수 감지 및 중앙 비간섭 뷰포트 패널 렌더링 연동)
+  - `dream_guardian/src/render/index.ts` (배럴 export 유지 및 타입 보강)
+  - `dream_guardian/tests/unit/shape-renderer.test.ts` (확장: 49종 도형 파싱, 치수 오버레이, 에셋 매핑 TDD 단위 테스트)
 - **구현 내용**:
-  1. **쌓기나무 17종(A~Q) 3D 아이소메트릭 데이터 모델 및 드로잉 로직**:
-     - 모양 A~Q의 3차원 그리드 높이 맵(`number[][]`, 예: 1층/2층/3층 블록 배치) 정의.
-     - Canvas 2D 아이소메트릭 투영 드로잉(윗면 `#F3E8FF`, 앞면 `#C889FF`, 우측면 `#9333EA` 등 음영 큐브 렌더링).
-     - 원거리 가독성을 위한 굵은 외곽선(2~3px) 및 고대비 블록 구분선 적용.
-  2. **주사위/정육면체 전개도 데이터 모델 및 드로잉 로직**:
-     - 표준 T자형 6면 전개도(면 번호 1~6, 꼭짓점 기호 ㄱ~ㅂ) 렌더링.
-     - 전개도 문제 출제 시 정확한 기호와 숫자가 각 면/꼭짓점에 배치되도록 드로잉.
+  1. **문제시트 추출 5대 카테고리 49종 도형 에셋 생성 및 카탈로그 구축**:
+     - **쌓기나무 3D 아이소메트릭 (17종)**: 모양 A~Q (Level 9 SubLevel 4, 165문항) - 3D 큐브 음영 및 시점 가이드(위/앞/옆).
+     - **전개도 및 회전 가이드 (2종)**: Level 9 SubLevel 5 (40문항) - 주사위 1-4-1 전개도(면 1~6 평행면 탐색, 꼭짓점 ㄱ~ㅂ 만남) 및 화살표 회전(45°~315° 8방향).
+     - **평면도형 (15종)**: Level 7 SubLevel 1, 2, 3 (44문항) - 일반삼각형, 직각삼각형, 정삼각형, 이등변삼각형, 직사각형, 정사각형, 평행사변형, 사다리꼴, 마름모, 정오각형, 정육각형, 정칠각형, 정팔각형, 정십각형, 원.
+     - **입체도형 (10종)**: Level 7 SubLevel 1, 4 (23문항) - 정육면체, 직육면체, 정사면체, 사각뿔, 삼각기둥, 오각기둥, 육각기둥, 원기둥, 원뿔, 구.
+     - **각도 표시 기하도형 (5종)**: Level 7 SubLevel 5 (12문항) - 삼각형 두 각, 직각삼각형 예각, 이등변삼각형 밑각/꼭지각, 평행사변형 대각/이웃각, 정다각형 내각/외각.
+  2. **동적 치수 및 각도 보조선 실시간 오버레이 엔진**:
+     - 정적 도형 베이스 이미지 위에 문제 변수 `{A}`, `{B}`, `{C}`(밑변, 높이, 윗변, 아랫변, 모서리 길이 등)에 대응하는 고대비 치수 보조선 및 라벨 동적 렌더링.
+     - 각도 문제의 경우 해당 꼭짓점에 네온 호(arc)와 각도 수치(`${A}°`, `?°`)를 직관적으로 표출.
   3. **`QuestionRenderer` 화면 배치 연동**:
-     - 문제 템플릿의 `[모양 A~Q]` 또는 `shapeCode`를 자동 감지하여, 문제 텍스트 우측 또는 상단에 적정 비율(180×180px)로 렌더링.
-     - 18:9 와이드 해상도 및 문제 카드 영역 내부 오버플로 없이 정렬.
+     - 문제 텍스트 상단 배치(`qY = 390~430px`), 중앙 `480x340px` 네온 뷰포트 패널에 도형 렌더링, 하단 좌/우 2지선다 답안 버튼(Zone 4/5)과 겹침 0% 완벽 보장.
 - **유지 사항**:
   - 기존 수학 수식 렌더러(`MathRenderer.ts`) 및 문제 원근 접근 연출(`QuestionApproachRenderer.ts`).
   - 기존 문제 텍스트 및 2지선다 답안 카드 렌더링.
@@ -4315,14 +4318,17 @@ BEAT-SPEC-001
   - `QuestionBank`, `QuestionEvaluator` 평가 로직.
   - 기존 전투, 모션, 리듬 루프.
 - **완료 조건**:
-  - [ ] 모양 A부터 Q까지 17종의 쌓기나무가 아이소메트릭 블록으로 정확한 개수/층수로 렌더링됨.
-  - [ ] 주사위 전개도(면 1~6, 꼭짓점 ㄱ~ㅂ)가 명확한 외곽선과 기호로 렌더링됨.
-  - [ ] 쌓기나무/전개도 문제 출제 시 문제 화면에 해당 이미지가 겹침 없이 선명하게 표시됨.
-  - [ ] `shape-renderer.test.ts` 단위 테스트 100% 통과 (Red → Green) 및 전체 `npm test` 무결성 검증.
+  - [ ] 문제시트 5대 카테고리 49종 도형에 대한 이미지 생성 스크립트(`scripts/generate-shape-assets.js`) 구현 및 에셋 일괄 생성 완료.
+  - [ ] `ShapeRenderer`가 Level 7 및 Level 9의 모든 도형 문항에 대해 정적 이미지 및 2D/3D 절차적 렌더링을 정상 수행함.
+  - [ ] 동적 치수({A}, {B}, {C}) 및 각도 호(?°, A°)가 도형의 지정된 모서리/꼭짓점에 정확히 오버레이됨.
+  - [ ] 도형 문제 출제 시 문제 화면에 해당 이미지가 텍스트 및 답안 버튼과 겹침 없이 선명하게 표시됨.
+  - [ ] `shape-renderer.test.ts` 확장 단위 테스트 100% 통과 (Red → Green) 및 전체 빌드/테스트 무결성 검증.
 - **테스트**:
-  - `tests/unit/shape-renderer.test.ts` 17종 모양 데이터 및 전개도 매핑 단위 테스트.
-  - 브라우저 인게임 확인 (Ch.5 세부단계 5 기타/쌓기나무 진입 테스트).
+  - `tests/unit/shape-renderer.test.ts` 49종 도형 데이터 파싱, 치수 오버레이 및 렌더링 단위 테스트.
+  - 브라우저 인게임 확인 (Ch.5 기타/쌓기나무 및 Level 7 도형 문제 진입 테스트).
 - **관련 파일**:
+  - `dream_guardian/scripts/generate-shape-assets.js`
+  - `dream_guardian/public/assets/shapes/*`
   - `dream_guardian/src/render/ShapeRenderer.ts`
   - `dream_guardian/src/render/QuestionRenderer.ts`
   - `dream_guardian/tests/unit/shape-renderer.test.ts`
@@ -4452,36 +4458,28 @@ BEAT-SPEC-001
 
 ---
 
-### Issue #280: [BUG-AVATAR-001] 모션 아바타 미러링 방향 반전 및 스켈레톤 본 토글 결합 버그 수정 & 화이트 클레이(점토) 비주얼 개편
+### Issue #280: [BUG-AVATAR-001] 모션 아바타 미러링 방향 반전 및 스켈레톤 본 토글 결합 버그 수정
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/280
 - **Labels**: `bug`, `P1-high`, `phase-2`
 - **Milestone**: `v0.5-input-ui`
 - **작업 ID**: `[BUG-AVATAR-001]`
-- **상태**: ⚪ **대기 (승인 대기)**
-- **제목**: 모션 아바타 미러링 방향 반전 및 스켈레톤 본 토글 결합 버그 수정 & 화이트 클레이(점토) 비주얼 개편
+- **상태**: 🟢 **완료 (100% Pass)**
+- **제목**: 모션 아바타 미러링 방향 반전 및 스켈레톤 본 토글 결합 버그 수정
 - **목적**:
   1. 사용자가 웹캠 거울 모드에서 오른손을 바깥으로 뻗을 때 아바타의 오른손이 안으로 접히는 회전각 미러링 불일치 버그를 수정하여, 사용자 신체 방향과 1:1 완벽히 동기화된 모션을 구현한다.
   2. 설정 모달에서 '스켈레톤 본'을 OFF할 때 중앙의 아바타 캐릭터까지 함께 사라지는 렌더링 결합 버그를 수정하여, 웹캠 위 앙상한 스켈레톤 선/점과 메인 아바타의 라이프사이클을 독립적으로 분리한다.
-  3. 첨부 레퍼런스 이미지에 맞춰, 각진 로봇 외형 대신 매끄럽고 둥글둥글한 도톰한 순백색 '화이트 클레이 졸라맨(White Clay Stickman)' 점토 피규어 비주얼(소시지 캡슐 사지, 둥근 순백색 두상, 부드러운 앰비언트 음영, 지면 접지 그림자)로 전면 개편한다.
-- **수정 및 생성 대상**:
-  - `dream_guardian/config/skeleton.config.ts`
-  - `dream_guardian/src/skeleton/StickmanRenderer.ts`
+- **수정 대상**:
   - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/skeleton/StickmanRenderer.ts`
   - `dream_guardian/src/ui/SettingsModal.ts`
   - `dream_guardian/tests/unit/stickman-renderer.test.ts`
 - **구현 내용**:
   1. **미러링 각도 정합성 수정 (좌우 방향 일치)**:
-     - `main.ts`에서 미러링 및 시간축 스무딩이 완료된 좌표계를 전달하도록 정비.
+     - `main.ts`에서 미러링 및 시간축 스무딩이 완료된 좌표계(`skeletonAnimation.smoothedLandmarks` / `poseManager.virtualLandmarks`)를 전달하도록 정비.
      - `StickmanRenderer`의 회전각 계산에서 좌우 손목/팔꿈치/어깨의 상대 X 변위(`dx`)가 거울 반전 기준과 일치하도록 수학적 보정. (오른손을 우측 밖으로 뻗으면 아바타 오른손도 화면 우측 밖으로 시원하게 뻗음).
   2. **스켈레톤 본 vs 아바타 렌더링 독립 분리**:
      - `SettingsModal`의 `skeletonEnabled`는 웹캠 위에 직접 겹쳐지는 의학/디버그용 스켈레톤 본(`boneRenderer`, `jointRenderer`) 전용 토글로 복원.
      - `StickmanRenderer`는 게임의 핵심 주인공 모션 아바타로서 스켈레톤 본 토글과 독립적으로 화면 중앙 2/3에 상시 렌더링.
-  3. **화이트 클레이(White Clay) 졸라맨 비주얼 전면 개편 (첨부 이미지 반영)**:
-     - 순백색 점토 텍스처 컬러 (`#F8FAFC`, `#E2E8F0` 소프트 앰비언트 음영)
-     - 부드러운 유기적 체형: 캡슐 폭을 도톰한 24~28px로 상향 (둥글둥글한 점토 인형 실루엣)
-     - 이목구비 없는 매끄러운 순백색 구체 머리 (Clean Minimalist Sphere)
-     - 점토 인형 발밑 부드러운 타원형 실시간 접지 그림자 드로잉
-     - 양손/양발 끝단에 은은한 파스텔 네온 포인트(왼손 시안 `#28E6FF`, 오른손 옐로우 `#FFCB4D`)를 유지하여 인게임 피트니스 존 판별성 확보
 - **유지 사항**:
   - 고정 비례 순운동학(Fixed-Length FK) 길이 불변성 보존
   - 스쿼트/점프 수직 변위 및 모션 반응성 보존
@@ -4489,19 +4487,64 @@ BEAT-SPEC-001
 - **변경 금지**:
   - MediaPipe Pose 파이프라인
   - 수학 문제 엔진 및 전투 수치
+  - 아바타 비주얼 스타일 (Issue #281에서 별도 진행)
 - **완료 조건**:
-  - [ ] 오른손/왼손을 바깥으로 뻗었을 때 아바타의 해당 손도 화면 바깥으로 정확히 동일 방향으로 뻗음
-  - [ ] 설정에서 스켈레톤 본을 OFF해도 중앙 아바타는 사라지지 않고 정상 렌더링됨
-  - [ ] 첨부 레퍼런스 이미지와 일치하는 도톰하고 부드러운 화이트 클레이(점토) 질감의 아바타가 렌더링됨
+  - [x] 오른손/왼손을 바깥으로 뻗었을 때 아바타의 해당 손도 화면 바깥으로 정확히 동일 방향으로 뻗음
+  - [x] 설정에서 스켈레톤 본을 OFF해도 중앙 아바타는 사라지지 않고 정상 렌더링됨
+  - [x] `npm test` 단위 테스트 100% Pass 및 빌드 정상 완료
+- **테스트**:
+  - `tests/unit/stickman-renderer.test.ts` 미러링 각도 및 FK 위치 검증 단위 테스트
+  - 브라우저 개발 서버(`npm run dev`)에서 실시간 웹캠 자세 모션 테스트 검증
+- **관련 파일**:
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/skeleton/StickmanRenderer.ts`
+  - `dream_guardian/src/ui/SettingsModal.ts`
+  - `dream_guardian/tests/unit/stickman-renderer.test.ts`
+
+---
+
+### Issue #281: [FEAT-AVATAR-002] 모션 아바타 화이트 클레이(White Clay Stickman) 점토 피규어 비주얼 전면 개편
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/281
+- **Labels**: `enhancement`, `P1-high`, `phase-2`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[FEAT-AVATAR-002]`
+- **상태**: ⚪ **대기 (선행 #280 완료 후 착수)**
+- **제목**: 모션 아바타 화이트 클레이(White Clay Stickman) 점토 피규어 비주얼 전면 개편
+- **목적**:
+  - 기존 각진 로봇 외형(다크 네이비 바디, 기계식 코어, 바이저 등) 대신 매끄럽고 둥글둥글한 도톰한 순백색 '화이트 클레이 졸라맨(White Clay Stickman)' 점토 피규어 비주얼(소시지 캡슐 사지, 둥근 순백색 두상, 부드러운 앰비언트 음영, 지면 접지 그림자)로 전면 개편한다.
+- **수정 대상**:
+  - `dream_guardian/config/skeleton.config.ts`
+  - `dream_guardian/src/skeleton/StickmanRenderer.ts`
+  - `dream_guardian/tests/unit/stickman-renderer.test.ts`
+- **구현 내용**:
+  1. **화이트 클레이 텍스처 & 컬러 체계**:
+     - 순백색 점토 베이스 컬러 (`#F8FAFC`, `#E2E8F0` 소프트 앰비언트 음영)
+     - 부드러운 앰비언트 조명 효과를 위한 입체감 드로잉 (하이라이트 및 림 라이트)
+  2. **부드럽고 도톰한 유기적 실루엣**:
+     - 사지 캡슐 폭을 기존 16px에서 **24~28px**로 대폭 상향 (둥글둥글하고 친근한 점토 실루엣)
+     - 몸통 캡슐 폭 **40~44px** (어깨-골반을 자연스럽게 잇는 유기적 캡슐)
+  3. **순백색 구체 머리 (Clean Minimalist Sphere)**:
+     - 바이저 슬릿 및 기계적 요소를 제거한 매끄러운 순백색 구체 두상
+  4. **실시간 지면 접지 타원형 그림자 드로잉**:
+     - 아바타 발밑에 부드러운 앰비언트 접지 그림자(Soft Drop Shadow)를 드로잉하여 공중에 뜨지 않고 바닥에 안정적으로 착지한 느낌 연출
+  5. **인게임 피트니스 존 판별성 유지**:
+     - 양손/양발 끝단에 은은한 파스텔 네온 포인트(왼손 시안 `#28E6FF`, 오른손 옐로우 `#FFCB4D`)를 유지하여 인게임 11개 피트니스 존 판정 시인성 확보
+- **유지 사항**:
+  - #280에서 보정된 미러링 각도 및 고정 비례 순운동학(Fixed-Length FK) 엔진
+  - 스쿼트/점프 수직 변위 및 모션 반응성
+  - 4색 신체 커서 및 11개 피트니스 존 판정 로직 100% 정상 작동 유지
+- **완료 조건**:
+  - [ ] 도톰하고 부드러운 화이트 클레이(점토) 질감의 아바타가 렌더링됨 (캡슐 폭 24~28px)
+  - [ ] 바이저/기계식 코어가 제거된 순백색 미니멀 구체 머리가 렌더링됨
+  - [ ] 발밑에 자연스러운 타원형 지면 접지 그림자가 드로잉됨
+  - [ ] 양손 끝단 네온 포인트로 좌/우 손 구분이 명확함
   - [ ] `npm test` 단위 테스트 100% Pass 및 빌드 정상 완료
 - **테스트**:
-  - `tests/unit/stickman-renderer.test.ts` 미러링 각도 및 클레이 렌더링 단위 테스트 검증
-  - 브라우저 개발 서버(`npm run dev`)에서 실시간 웹캠 자세 모션 테스트 검증
+  - `tests/unit/stickman-renderer.test.ts` 화이트 클레이 규격 및 렌더링 검증 단위 테스트
+  - 브라우저 개발 서버(`npm run dev`)에서 실시간 비주얼 확인
 - **관련 파일**:
   - `dream_guardian/config/skeleton.config.ts`
   - `dream_guardian/src/skeleton/StickmanRenderer.ts`
-  - `dream_guardian/src/main.ts`
-  - `dream_guardian/src/ui/SettingsModal.ts`
   - `dream_guardian/tests/unit/stickman-renderer.test.ts`
 
 

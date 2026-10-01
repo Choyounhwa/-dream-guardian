@@ -494,10 +494,10 @@ export class SettingsModal {
       isFull
     );
 
-    // 모션 아바타(메카 졸라맨) 표시 버튼 (Issue #203)
+    // 스켈레톤 본(웹캠 선/점) 표시 버튼 (Issue #280)
     renderOptionBtn(
       this.getButtonLayout('skeleton', w, h),
-      '🤖 모션 아바타',
+      '🦴 스켈레톤 본',
       this._skeletonEnabled ? 'ON' : 'OFF',
       this._skeletonEnabled
     );
