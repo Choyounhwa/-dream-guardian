@@ -87,3 +87,39 @@ export function computeWeightedArmScore(
     gates.visibility * weights.visibility
   );
 }
+
+/**
+ * 피트니스 존 판정 소프트 경계 (히스테리시스, 자석 존, 체격 정규화 마진) 설정 인터페이스
+ *
+ * @see Issue #250 [INPUT-TOLERANCE-002]
+ */
+export interface ZoneSoftBoundaryConfig {
+  /** 존 이탈 히스테리시스 보너스 마진 (기본 0.04) */
+  exitMarginBonus: number;
+  /** 자석 존 스냅 유효 반경 (기본 0.06) */
+  snapRadius: number;
+  /** 체격 정규화 기준 어깨 너비 (기본 0.25) */
+  referenceShoulderWidth: number;
+  /** 손 기본 마진 비율 (handBaseMargin = 0.15 * shoulderWidth) */
+  handBaseMarginRatio: number;
+  /** 불안정(낮은 신뢰도/고분산) 마진 확장 배수 (기본 1.5) */
+  unstableMarginMultiplier: number;
+  /** 최근 분산 계산용 프레임 이력 길이 (기본 6) */
+  varianceHistoryLength: number;
+  /** 분산 임계치 (기본 0.0005) */
+  varianceThreshold: number;
+}
+
+/**
+ * 피트니스 존 판정 소프트 경계 기본 설정값
+ */
+export const DEFAULT_ZONE_SOFT_BOUNDARY_CONFIG: ZoneSoftBoundaryConfig = {
+  exitMarginBonus: 0.04,
+  snapRadius: 0.06,
+  referenceShoulderWidth: 0.25,
+  handBaseMarginRatio: 0.15,
+  unstableMarginMultiplier: 1.5,
+  varianceHistoryLength: 6,
+  varianceThreshold: 0.0005,
+};
+

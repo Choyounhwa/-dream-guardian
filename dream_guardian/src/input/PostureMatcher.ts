@@ -18,7 +18,19 @@ import {
   CURSOR_ENTRY_MARGIN,
   type CursorEntryMarginConfig,
 } from '../../config/posture.config.js';
+import {
+  DEFAULT_ZONE_SOFT_BOUNDARY_CONFIG,
+  type ZoneSoftBoundaryConfig,
+} from '../../config/judgment.config.js';
 import type { AnswerPosture, BodyPart, PartGate, PostureProgress } from '../types/posture.js';
+
+export type { ZoneSoftBoundaryConfig };
+
+export interface MatcherContext {
+  shoulderWidth?: number;
+  variance?: number;
+  recentPositions?: { x: number; y: number }[];
+}
 
 export interface PostureMatchResult {
   /** 조건 충족 여부 */
@@ -43,16 +55,79 @@ export interface MatchPostureOptions {
 }
 
 /**
- * 부위별 진입 마진값 조회 (기본값: CURSOR_ENTRY_MARGIN)
+ * 좌표 이력으로부터 2차원 분산 계산
+ */
+export function computePointVariance(positions: { x: number; y: number }[]): number {
+  if (!positions || positions.length < 2) return 0;
+  let sumX = 0;
+  let sumY = 0;
+  for (const p of positions) {
+    sumX += p.x;
+    sumY += p.y;
+  }
+  const meanX = sumX / positions.length;
+  const meanY = sumY / positions.length;
+  let sumSqDist = 0;
+  for (const p of positions) {
+    const dx = p.x - meanX;
+    const dy = p.y - meanY;
+    sumSqDist += dx * dx + dy * dy;
+  }
+  return sumSqDist / positions.length;
+}
+
+/**
+ * 부위별 진입 마진값 조회 (기본값: CURSOR_ENTRY_MARGIN, 체격 정규화 및 분산 확장 지원)
+ *
+ * @see Issue #250 [INPUT-TOLERANCE-002]
  */
 export function getCursorMargin(
   part: string,
-  margins?: Partial<Record<string, number>> | CursorEntryMarginConfig
+  margins?: Partial<Record<string, number>> | CursorEntryMarginConfig,
+  context?: MatcherContext
 ): number {
   const marginConfig = {
     ...CURSOR_ENTRY_MARGIN,
     ...margins,
   };
+
+  if (context?.shoulderWidth !== undefined) {
+    const ref = DEFAULT_ZONE_SOFT_BOUNDARY_CONFIG.referenceShoulderWidth;
+    const ratio = context.shoulderWidth / ref;
+    let baseMargin = 0;
+
+    if (part === 'hand' || part === 'leftHand' || part === 'rightHand') {
+      if (margins && (margins as Record<string, number>)[part] !== undefined) {
+        baseMargin = (margins as Record<string, number>)[part]! * ratio;
+      } else {
+        baseMargin = DEFAULT_ZONE_SOFT_BOUNDARY_CONFIG.handBaseMarginRatio * context.shoulderWidth;
+      }
+    } else if (part === 'head') {
+      baseMargin = (marginConfig.head ?? 0.03) * ratio;
+    } else if (part === 'hip') {
+      baseMargin = (marginConfig.hip ?? 0.04) * ratio;
+    } else {
+      baseMargin = ((marginConfig as Record<string, number>)[part] ?? 0) * ratio;
+    }
+
+    let isUnstable = false;
+    if (context.variance !== undefined && context.variance >= DEFAULT_ZONE_SOFT_BOUNDARY_CONFIG.varianceThreshold) {
+      isUnstable = true;
+    } else if (context.recentPositions && context.recentPositions.length >= 2) {
+      const v = computePointVariance(context.recentPositions);
+      if (v >= DEFAULT_ZONE_SOFT_BOUNDARY_CONFIG.varianceThreshold) {
+        isUnstable = true;
+      }
+    }
+
+    if (isUnstable) {
+      baseMargin *= DEFAULT_ZONE_SOFT_BOUNDARY_CONFIG.unstableMarginMultiplier;
+    }
+
+    return baseMargin;
+  }
+
+  // shoulderWidth 미제공 시 기존 절대 마진값 하위 호환
   if (part === 'head') return marginConfig.head ?? 0;
   if (part === 'hip') return marginConfig.hip ?? 0;
   if (part === 'hand' || part === 'leftHand' || part === 'rightHand') return marginConfig.hand ?? 0;
@@ -76,20 +151,87 @@ export function isInsideZone(
 }
 
 /**
- * 피트니스 존 내 중심 거리 가중치 계산 (중심 0.5 이내: centerWeight, 그 외: edgeWeight)
+ * 피트니스 존 내 중심 거리 및 자석 존 연속 감쇠 가중치 계산
+ * 중심(1.5) -> 가장자리(0.75) -> 자석 외곽(0.0)
+ *
+ * @see Issue #250 [INPUT-TOLERANCE-002]
  */
 export function computeZoneWeight(
   pos: { x: number; y: number },
   zone: FitnessZone,
   centerWeight = POSTURE_TIMING_CONFIG.centerWeight,
-  edgeWeight = POSTURE_TIMING_CONFIG.edgeWeight
+  edgeWeight = POSTURE_TIMING_CONFIG.edgeWeight,
+  snapRadius = DEFAULT_ZONE_SOFT_BOUNDARY_CONFIG.snapRadius
 ): number {
+  const distX = Math.max(0, zone.x - pos.x, pos.x - (zone.x + zone.width));
+  const distY = Math.max(0, zone.y - pos.y, pos.y - (zone.y + zone.height));
+  const outsideDist = Math.sqrt(distX * distX + distY * distY);
+
+  if (outsideDist > 0) {
+    if (outsideDist >= snapRadius) {
+      return 0;
+    }
+    return (1 - outsideDist / snapRadius) * edgeWeight;
+  }
+
+  // 존 내부: 중심(1.5)에서 가장자리(0.75)까지 연속 감쇠
   const cx = zone.x + zone.width / 2;
   const cy = zone.y + zone.height / 2;
   const dx = Math.abs(pos.x - cx) / (zone.width / 2);
   const dy = Math.abs(pos.y - cy) / (zone.height / 2);
   const dist = Math.sqrt(dx * dx + dy * dy);
-  return dist < 0.5 ? centerWeight : edgeWeight;
+  if (dist >= 0.99999) return edgeWeight;
+  return centerWeight - dist * (centerWeight - edgeWeight);
+}
+
+/**
+ * 상태 유지형 피트니스 존 판정기 (히스테리시스 Schmitt Trigger 관리)
+ */
+export class PostureMatcher {
+  private _activeZones: Set<string> = new Set();
+
+  public reset(): void {
+    this._activeZones.clear();
+  }
+
+  public isCursorInsideZone(
+    cursorType: string,
+    pos: { x: number; y: number },
+    zone: FitnessZone,
+    context?: MatcherContext
+  ): boolean {
+    const key = `${cursorType}_${zone.id}`;
+    const enterMargin = getCursorMargin(cursorType, undefined, context);
+    const exitMargin = enterMargin + DEFAULT_ZONE_SOFT_BOUNDARY_CONFIG.exitMarginBonus;
+    const wasInside = this._activeZones.has(key);
+
+    const inside = wasInside
+      ? isInsideZone(pos, zone, exitMargin)
+      : isInsideZone(pos, zone, enterMargin);
+
+    if (inside) {
+      this._activeZones.add(key);
+    } else {
+      this._activeZones.delete(key);
+    }
+
+    return inside;
+  }
+}
+
+const defaultMatcherInstance = new PostureMatcher();
+
+export function isCursorInsideZone(
+  cursorType: string,
+  pos: { x: number; y: number },
+  zone: FitnessZone,
+  context?: MatcherContext
+): boolean {
+  return defaultMatcherInstance.isCursorInsideZone(cursorType, pos, zone, context);
+}
+
+export function resetPostureMatcher(): void {
+  defaultMatcherInstance.reset();
 }
 
 /**
@@ -165,9 +307,24 @@ export function matchPosture(
       const targetZoneId = posture.zoneIds[i];
       const zone = zones.find((z) => z.id === targetZoneId);
       const cPos = getCursorPos(part);
+
+      if (!cPos || !zone) {
+        orderedAllMet = false;
+        continue;
+      }
+
+      // 비목표 존 침범 가드: 비목표 존 내부에 완벽히 위치할 경우 목표 존 매칭 차단
+      const isStrictlyInOtherZone = zones.some(
+        (otherZone) => !distinctTargetZoneIds.includes(otherZone.id) && isInsideZone(cPos, otherZone, 0)
+      );
+      if (isStrictlyInOtherZone) {
+        orderedAllMet = false;
+        continue;
+      }
+
       const margin = getCursorMargin(part, options?.cursorEntryMargin);
 
-      if (!cPos || !zone || !isInsideZone(cPos, zone, margin)) {
+      if (!isInsideZone(cPos, zone, margin)) {
         orderedAllMet = false;
         continue;
       }
@@ -175,7 +332,11 @@ export function matchPosture(
       partStates[i].zoneId = zone.id;
       partStates[i].inside = true;
       zoneCovered[zone.id] = true;
-      totalWeight += computeZoneWeight(cPos, zone, centerWeight, edgeWeight);
+      const evalPos = {
+        x: Math.max(zone.x, Math.min(zone.x + zone.width, cPos.x)),
+        y: Math.max(zone.y, Math.min(zone.y + zone.height, cPos.y)),
+      };
+      totalWeight += computeZoneWeight(evalPos, zone, centerWeight, edgeWeight);
     }
 
     // 모든 목표 존이 덮였는지 확인
@@ -205,6 +366,13 @@ export function matchPosture(
     const part = posture.parts[i];
     const cPos = getCursorPos(part);
     if (!cPos) continue;
+
+    // 비목표 존 침범 가드: 비목표 존 내부에 완벽히 위치할 경우 목표 존 매칭 차단 (Red 시나리오 8)
+    const isStrictlyInOtherZone = zones.some(
+      (otherZone) => !distinctTargetZoneIds.includes(otherZone.id) && isInsideZone(cPos, otherZone, 0)
+    );
+    if (isStrictlyInOtherZone) continue;
+
     const margin = getCursorMargin(part, options?.cursorEntryMargin);
 
     // 목표 존들 중 cPos가 들어간 존 탐색
@@ -213,7 +381,11 @@ export function matchPosture(
         partStates[i].zoneId = zone.id;
         partStates[i].inside = true;
         zoneCovered[zone.id] = true;
-        totalWeight += computeZoneWeight(cPos, zone, centerWeight, edgeWeight);
+        const evalPos = {
+          x: Math.max(zone.x, Math.min(zone.x + zone.width, cPos.x)),
+          y: Math.max(zone.y, Math.min(zone.y + zone.height, cPos.y)),
+        };
+        totalWeight += computeZoneWeight(evalPos, zone, centerWeight, edgeWeight);
         break; // 하나의 목표 존에 안착
       }
     }
