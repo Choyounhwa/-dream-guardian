@@ -1,7 +1,8 @@
 /**
- * EffectManager - 7종 시각 효과 관리 및 객체 풀링 시스템
+ * EffectManager - 7종 시각 효과 관리 및 고성능 파티클 엔진 풀링 시스템
  *
  * Issue #24: GC 방지 객체 풀링(Object Pooling) 및 게임 로직 분리
+ * Issue #273: [VFX-001] 파티클 엔진 기반 시스템 구축 (ParticleEmitter 통합)
  */
 
 import type {
@@ -23,11 +24,20 @@ import { FadeEffect } from './FadeEffect.js';
 import { BurstEffect } from './BurstEffect.js';
 import { RadialEffect } from './RadialEffect.js';
 import { TrailEffect } from './TrailEffect.js';
+import {
+  ParticleEmitter,
+  type ParticleBurstOptions,
+  type ParticleStreamOptions,
+} from './ParticleEmitter.js';
+import {
+  PARTICLE_PRESETS,
+  type ParticlePresetName,
+} from '../../config/effect.config.js';
 
 export class EffectManager {
   private _active: IVisualEffect[] = [];
 
-  // 타입별 객체 풀
+  // 타입별 객체 풀 (7종 기본 비주얼 이펙트)
   private _poolGlow: GlowEffect[] = [];
   private _poolPulse: PulseEffect[] = [];
   private _poolExpand: ExpandEffect[] = [];
@@ -36,10 +46,14 @@ export class EffectManager {
   private _poolRadial: RadialEffect[] = [];
   private _poolTrail: TrailEffect[] = [];
 
-  constructor(prewarmCount = 10) {
+  // 고성능 범용 파티클 이미터 (최대 500개 풀링)
+  private _emitter: ParticleEmitter;
+
+  constructor(prewarmCount = 10, maxParticles = 500) {
     if (prewarmCount > 0) {
       this.prewarm(prewarmCount);
     }
+    this._emitter = new ParticleEmitter({ maxParticles, prewarm: true });
   }
 
   /**
@@ -57,8 +71,20 @@ export class EffectManager {
     }
   }
 
+  get particleEmitter(): ParticleEmitter {
+    return this._emitter;
+  }
+
   get activeCount(): number {
     return this._active.length;
+  }
+
+  get particleActiveCount(): number {
+    return this._emitter.activeCount;
+  }
+
+  get totalActiveCount(): number {
+    return this._active.length + this._emitter.activeCount;
   }
 
   get poolCount(): number {
@@ -135,22 +161,106 @@ export class EffectManager {
   }
 
   /**
-   * 제네릭 재생 함수
+   * 파티클 이미터 직접 버스트 방출
    */
-  play(type: EffectType, options: any): IVisualEffect {
-    switch (type) {
-      case 'glow': return this.playGlow(options);
-      case 'pulse': return this.playPulse(options);
-      case 'expand': return this.playExpand(options);
-      case 'fade': return this.playFade(options);
-      case 'burst': return this.playBurst(options);
-      case 'radial': return this.playRadial(options);
-      case 'trail': return this.playTrail(options);
+  burst(options: ParticleBurstOptions): void {
+    this._emitter.burst(options);
+  }
+
+  /**
+   * 파티클 이미터 지속 스트림 방출
+   */
+  stream(options: ParticleStreamOptions): void {
+    this._emitter.stream(options);
+  }
+
+  /**
+   * 파티클 프리셋 연출 재생
+   */
+  playPresetEffect(
+    presetName: ParticlePresetName,
+    x: number,
+    y: number,
+    options?: Partial<ParticleBurstOptions>
+  ): void {
+    const config = PARTICLE_PRESETS[presetName];
+    if (config) {
+      const burstOpts: ParticleBurstOptions = {
+        ...config,
+        x,
+        y,
+        ...options,
+      };
+
+      // options.duration이 전달된 경우 durationMin/durationMax를 명시적으로 덮어씀
+      if (options?.duration !== undefined) {
+        if (options.durationMin === undefined) {
+          burstOpts.durationMin = options.duration;
+        }
+        if (options.durationMax === undefined) {
+          burstOpts.durationMax = options.duration;
+        }
+      }
+
+      this._emitter.burst(burstOpts);
     }
   }
 
   /**
-   * 게임플레이 프리셋 연출
+   * 범용 이펙트/프리셋 재생 함수
+   */
+  playEffect(
+    name: ParticlePresetName | EffectType | string,
+    xOrOptions?: any,
+    y?: number,
+    options?: any
+  ): any {
+    if (typeof xOrOptions === 'number') {
+      this.playPresetEffect(name as ParticlePresetName, xOrOptions, y ?? 0, options);
+      return;
+    }
+    return this.play(name as EffectType, xOrOptions);
+  }
+
+  /**
+   * 제네릭 재생 함수 (기존 7종 및 신규 프리셋 호환)
+   */
+  play(
+    typeOrPreset: EffectType | ParticlePresetName | PresetName | string,
+    optionsOrX?: any,
+    y?: number,
+    options?: any
+  ): any {
+    if (typeof optionsOrX === 'number' && typeof y === 'number') {
+      if (typeOrPreset in PARTICLE_PRESETS) {
+        this.playPresetEffect(typeOrPreset as ParticlePresetName, optionsOrX, y, options);
+        return;
+      }
+      if (
+        typeOrPreset === 'correct' ||
+        typeOrPreset === 'wrong' ||
+        typeOrPreset === 'cast' ||
+        typeOrPreset === 'shield' ||
+        typeOrPreset === 'combo'
+      ) {
+        this.playPreset(typeOrPreset as PresetName, optionsOrX, y);
+        return;
+      }
+    }
+
+    switch (typeOrPreset) {
+      case 'glow': return this.playGlow(optionsOrX);
+      case 'pulse': return this.playPulse(optionsOrX);
+      case 'expand': return this.playExpand(optionsOrX);
+      case 'fade': return this.playFade(optionsOrX);
+      case 'burst': return this.playBurst(optionsOrX);
+      case 'radial': return this.playRadial(optionsOrX);
+      case 'trail': return this.playTrail(optionsOrX);
+    }
+  }
+
+  /**
+   * 게임플레이 프리셋 연출 (기존 5종 하위 호환)
    */
   playPreset(preset: PresetName, x: number, y: number): void {
     switch (preset) {
@@ -187,7 +297,7 @@ export class EffectManager {
   }
 
   /**
-   * 매 프레임 업데이트: 만료된 이펙트는 풀로 반환
+   * 매 프레임 업데이트: 기본 이펙트 풀 반환 및 파티클 이미터 업데이트
    */
   update(dt: number): void {
     let i = 0;
@@ -196,7 +306,6 @@ export class EffectManager {
       effect.update(dt);
 
       if (!effect.active) {
-        // 배열에서 제거하고 해당 풀로 반환
         effect.reset();
         this._returnToPool(effect);
         this._active.splice(i, 1);
@@ -204,19 +313,22 @@ export class EffectManager {
         i++;
       }
     }
+
+    this._emitter.update(dt);
   }
 
   /**
-   * 모든 활성 이펙트 렌더링
+   * 모든 활성 이펙트 및 파티클 렌더링
    */
   render(ctx: CanvasRenderingContext2D): void {
     for (let i = 0; i < this._active.length; i++) {
       this._active[i].render(ctx);
     }
+    this._emitter.render(ctx);
   }
 
   /**
-   * 전체 이펙트 초기화 및 풀 반환
+   * 전체 이펙트 및 파티클 초기화 및 풀 반환
    */
   clear(): void {
     for (let i = 0; i < this._active.length; i++) {
@@ -225,6 +337,7 @@ export class EffectManager {
       this._returnToPool(effect);
     }
     this._active.length = 0;
+    this._emitter.clear();
   }
 
   private _returnToPool(effect: IVisualEffect): void {

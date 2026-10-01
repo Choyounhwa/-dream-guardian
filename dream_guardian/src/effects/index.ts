@@ -8,4 +8,7 @@ export * from './RadialEffect.js';
 export * from './TrailEffect.js';
 export * from './StardustEffect.js';
 export * from './StardustManager.js';
+export * from './Particle.js';
+export * from './ParticleEmitter.js';
 export * from './EffectManager.js';
+export * from '../../config/effect.config.js';
