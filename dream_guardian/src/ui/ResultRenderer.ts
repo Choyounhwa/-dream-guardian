@@ -150,13 +150,13 @@ export class ResultRenderer {
 
     // 3. 타이틀 영역: bold 100px ("승리!" / "패배...")
     const titleY = panel.y + 110 * scaleY;
-    const badgeImg = data.victory
-      ? imageLoader.get('result', 'victoryBadge')
-      : imageLoader.get('result', 'defeatBadge');
-    if (badgeImg) {
-      const bw = 240 * scaleX;
-      const bh = 80 * scaleY;
-      ctx.drawImage(badgeImg, (w - bw) / 2, titleY - bh / 2, bw, bh);
+    const titleImg = data.victory
+      ? (imageLoader.get('result', 'victoryTitle') ?? imageLoader.get('result', 'victoryBadge'))
+      : (imageLoader.get('result', 'defeatTitle') ?? imageLoader.get('result', 'defeatBadge'));
+    if (titleImg) {
+      const bw = 600 * scaleX;
+      const bh = 160 * scaleY;
+      ctx.drawImage(titleImg, (w - bw) / 2, titleY - bh / 2, bw, bh);
     } else {
       ctx.font = UIText.getFont('hero', scaleX, 'bold');
       ctx.fillStyle = data.victory ? '#4DFFAA' : '#FF4444';
@@ -209,34 +209,90 @@ export class ResultRenderer {
     const timeStr = `${Math.floor(data.elapsedTime / 60)}분 ${String(Math.floor(data.elapsedTime % 60)).padStart(2, '0')}초`;
     const stepLine = getLocomotionStatLine(data.locomotionMode, data.steps);
 
-    const lines = [
-      `🎯 정답률: ${data.correctCount} / ${data.totalQuestions} (${accuracy}%)`,
-      `🔥 최대 콤보: ${data.maxCombo} COMBO`,
-      `⏱️ 플레이 시간: ${timeStr}`,
-      stepLine,
-      `🏋️ 스쿼트: ${data.squats}회`,
-      `🦘 점프: ${data.jumps}회`,
-      `🧘 자세 유지: ${dwell.toFixed(1)}초`,
-      `⚡ 소모 칼로리: ${calories.toFixed(1)} kcal`,
+    const statItems: Array<{
+      iconKey: string | null;
+      rawText: string;
+      cleanText: string;
+      highlight?: boolean;
+    }> = [
+      {
+        iconKey: 'statIcon_accuracy',
+        rawText: `🎯 정답률: ${data.correctCount} / ${data.totalQuestions} (${accuracy}%)`,
+        cleanText: `정답률: ${data.correctCount} / ${data.totalQuestions} (${accuracy}%)`,
+      },
+      {
+        iconKey: 'statIcon_combo',
+        rawText: `🔥 최대 콤보: ${data.maxCombo} COMBO`,
+        cleanText: `최대 콤보: ${data.maxCombo} COMBO`,
+      },
+      {
+        iconKey: 'statIcon_time',
+        rawText: `⏱️ 플레이 시간: ${timeStr}`,
+        cleanText: `플레이 시간: ${timeStr}`,
+      },
+      {
+        iconKey: 'statIcon_run',
+        rawText: stepLine,
+        cleanText: stepLine.replace(/^[^\w가-힣0-9A-Za-z]+\s*/, ''),
+      },
+      {
+        iconKey: 'statIcon_squat',
+        rawText: `🏋️ 스쿼트: ${data.squats}회`,
+        cleanText: `스쿼트: ${data.squats}회`,
+      },
+      {
+        iconKey: 'statIcon_jump',
+        rawText: `🦘 점프: ${data.jumps}회`,
+        cleanText: `점프: ${data.jumps}회`,
+      },
+      {
+        iconKey: 'statIcon_pose',
+        rawText: `🧘 자세 유지: ${dwell.toFixed(1)}초`,
+        cleanText: `자세 유지: ${dwell.toFixed(1)}초`,
+      },
+      {
+        iconKey: 'statIcon_calorie',
+        rawText: `⚡ 소모 칼로리: ${calories.toFixed(1)} kcal`,
+        cleanText: `소모 칼로리: ${calories.toFixed(1)} kcal`,
+        highlight: true,
+      },
     ];
 
     if (data.rhythmStats) {
-      lines.push(
-        `⭐ 리듬 별: ${data.rhythmStats.beatStarsCollected}개 (타임아웃 ${data.rhythmStats.timeoutCount}회)`,
-      );
+      statItems.push({
+        iconKey: null,
+        rawText: `⭐ 리듬 별: ${data.rhythmStats.beatStarsCollected}개 (타임아웃 ${data.rhythmStats.timeoutCount}회)`,
+        cleanText: `리듬 별: ${data.rhythmStats.beatStarsCollected}개 (타임아웃 ${data.rhythmStats.timeoutCount}회)`,
+      });
     }
 
-    for (let i = 0; i < lines.length; i++) {
+    const iconSize = 44 * scaleX;
+    for (let i = 0; i < statItems.length; i++) {
+      const item = statItems[i];
       const ly = statStartY + i * lineH;
+
       // 은은한 구분선 배경 바
       ctx.fillStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.015)';
       ctx.fillRect(panel.x + 40 * scaleX, ly - lineH / 2 + 6 * scaleY, panel.w - 80 * scaleX, lineH - 12 * scaleY);
 
-      ctx.fillStyle = i >= 7 ? '#FFCB4D' : '#EAEAEA';
-      ctx.fillText(lines[i], w / 2, ly);
+      ctx.fillStyle = item.highlight || i >= 7 ? '#FFCB4D' : '#EAEAEA';
+
+      const iconImg = item.iconKey ? imageLoader.get('result', item.iconKey) : null;
+      if (iconImg) {
+        const iconX = panel.x + 70 * scaleX;
+        const iconY = ly - iconSize / 2;
+        ctx.drawImage(iconImg, iconX, iconY, iconSize, iconSize);
+
+        ctx.textAlign = 'left';
+        ctx.fillText(item.cleanText, iconX + iconSize + 16 * scaleX, ly);
+      } else {
+        ctx.textAlign = 'center';
+        ctx.fillText(item.rawText, w / 2, ly);
+      }
     }
 
     // 5. 하단 안내문
+    ctx.textAlign = 'center';
     ctx.font = UIText.getFont('label', scaleX, 'normal');
     ctx.fillStyle = '#888888';
     ctx.fillText('양손을 모으거나 하단 [메뉴로] 버튼을 클릭하세요', w / 2, panel.y + panel.h - 50 * scaleY);

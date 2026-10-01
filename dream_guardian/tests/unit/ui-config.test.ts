@@ -204,8 +204,25 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       expect(UI_IMAGE_ASSETS.hud.manaFlask).toBeNull();
       expect(UI_IMAGE_ASSETS.hud.comboBadge).toBeNull();
 
-      // 3) 그 외 카테고리(result, bottomBar, settings, battle): 모든 슬롯이 null 유지
-      const nonConfiguredCategories = REQUIRED_CATEGORIES.filter((c) => c !== 'menu' && c !== 'hud');
+      // 3) result 카테고리 (Issue #268 / UI-ASSET-003)
+      expect(UI_IMAGE_ASSETS.result.panelBg).toBe('/assets/ui/result/panel_bg.png');
+      expect(UI_IMAGE_ASSETS.result.victoryTitle).toBe('/assets/ui/result/victory_title.png');
+      expect(UI_IMAGE_ASSETS.result.defeatTitle).toBe('/assets/ui/result/defeat_title.png');
+      expect(UI_IMAGE_ASSETS.result.victoryBadge).toBe('/assets/ui/result/victory_title.png');
+      expect(UI_IMAGE_ASSETS.result.defeatBadge).toBe('/assets/ui/result/defeat_title.png');
+      expect(UI_IMAGE_ASSETS.result.starFilled).toBe('/assets/ui/result/star_filled.png');
+      expect(UI_IMAGE_ASSETS.result.starEmpty).toBe('/assets/ui/result/star_empty.png');
+      expect(UI_IMAGE_ASSETS.result.statIcon_accuracy).toBe('/assets/ui/result/stat_accuracy.png');
+      expect(UI_IMAGE_ASSETS.result.statIcon_combo).toBe('/assets/ui/result/stat_combo.png');
+      expect(UI_IMAGE_ASSETS.result.statIcon_time).toBe('/assets/ui/result/stat_time.png');
+      expect(UI_IMAGE_ASSETS.result.statIcon_run).toBe('/assets/ui/result/stat_run.png');
+      expect(UI_IMAGE_ASSETS.result.statIcon_squat).toBe('/assets/ui/result/stat_squat.png');
+      expect(UI_IMAGE_ASSETS.result.statIcon_jump).toBe('/assets/ui/result/stat_jump.png');
+      expect(UI_IMAGE_ASSETS.result.statIcon_pose).toBe('/assets/ui/result/stat_pose.png');
+      expect(UI_IMAGE_ASSETS.result.statIcon_calorie).toBe('/assets/ui/result/stat_calorie.png');
+
+      // 4) 그 외 카테고리(bottomBar, settings, battle): 모든 슬롯이 null 유지
+      const nonConfiguredCategories = REQUIRED_CATEGORIES.filter((c) => c !== 'menu' && c !== 'hud' && c !== 'result');
       for (const cat of nonConfiguredCategories) {
         const slots = UI_IMAGE_ASSETS[cat];
         const keys = Object.keys(slots);
