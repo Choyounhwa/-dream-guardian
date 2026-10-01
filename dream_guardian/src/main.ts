@@ -69,7 +69,7 @@ import {
   FootKeynoteInput,
   StarCollectionInput,
 } from './input/index.js';
-import { toNormalizedLandmarks } from './utils/index.js';
+import { toNormalizedLandmarks, imageLoader } from './utils/index.js';
 import { MenuInput } from './input/MenuInput.js';
 import { SFXSynth, BandSynthesizer, type BandTimingQuality } from './audio/index.js';
 import {
@@ -2026,7 +2026,11 @@ async function bootstrap(): Promise<void> {
   console.log('[DG] v0.4 starting...');
   canvasManager.resize();
   console.log(`[DG] Canvas: ${canvas.width}x${canvas.height}`);
-  await Promise.all([loadQuestions(), loadFitnessPatterns()]);
+  await Promise.all([
+    loadQuestions(),
+    loadFitnessPatterns(),
+    imageLoader.preload().catch((err) => console.warn('[DG] Image preload warning:', err)),
+  ]);
 
   engine.start();
   // 첫 메뉴 화면부터 웹캠 피드 및 포즈 추적 즉시 시작

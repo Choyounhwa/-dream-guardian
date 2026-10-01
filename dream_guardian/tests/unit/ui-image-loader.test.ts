@@ -112,6 +112,20 @@ describe('UIImageLoader (Issue #261 / UI-TOKEN-006)', () => {
   });
 
   describe('preload 동작', () => {
+    it('인자 없이 preload() 호출 시 기본 UI_IMAGE_ASSETS를 사용하여 프리로드를 완료하고 isReady가 true가 된다', async () => {
+      await loader.preload();
+      expect(loader.isReady()).toBe(true);
+    });
+
+    it('null/undefined 에셋으로 preload 호출 시에도 예외 없이 완료되고 isReady가 true가 된다', async () => {
+      await loader.preload(null as any);
+      expect(loader.isReady()).toBe(true);
+
+      const loader2 = new UIImageLoader();
+      await loader2.preload(undefined);
+      expect(loader2.isReady()).toBe(true);
+    });
+
     it('모든 슬롯이 null인 기본 UI_IMAGE_ASSETS preload 시 즉시 완료되고 isReady가 true가 된다', async () => {
       await loader.preload(UI_IMAGE_ASSETS);
 

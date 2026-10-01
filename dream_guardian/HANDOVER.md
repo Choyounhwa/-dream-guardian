@@ -100,6 +100,32 @@
 
 ---
 
+## 2026-10-01 완료: [UI-TOKEN-006 / #261] 이미지 에셋 로더 및 프로시저럴/이미지 분기 인프라
+
+> #261 구현 및 TDD 사이클 전수 통과 완료. UI_IMAGE_ASSETS 설정의 비트맵 이미지 에셋 비동기 프리로더 및 캐시 매니저(`UIImageLoader`, 싱글톤 `imageLoader`)를 구축하고, 5개 주요 UI 렌더러(HUDLayer, MenuRenderer, ResultRenderer, BottomBar, SettingsModal)에 이미지/프로시저럴 안전 분기 인프라를 연동하였습니다.
+> - **신규/수정 파일 및 내용**:
+>   1. `src/utils/UIImageLoader.ts`:
+>      - `preload(assets?: UIImageAssetsConfig): Promise<void>`: non-null 경로를 갖는 비트맵 에셋 비동기 프리로드, 로드 실패 시 `console.warn` 후 null 안전 폴백
+>      - `get(category, key): HTMLImageElement | null`: 캐시된 이미지 조회 또는 null 반환
+>      - `has(category, key): boolean`: 캐시 존재 여부 확인
+>      - `isReady(): boolean`: 프리로드 완료 상태 반환
+>      - `clear() / reset()`: 캐시 비우기 및 ready 상태 초기화
+>      - `setImage(category, key, img)`: 테스트 및 런타임 수동 주입용 메서드 제공
+>      - 싱글톤 `imageLoader` 및 클래스 `UIImageLoader` export, `src/utils/index.ts` re-export
+>   2. `src/main.ts`:
+>      - `bootstrap()` 초기화 단계에서 `imageLoader.preload()` 비동기 호출 통합 (실패 시에도 부트스트랩 중단 없는 안전 예외 처리)
+>   3. 5개 UI 렌더러 안전 분기 연동 (프로시저럴 드로잉 100% 보존):
+>      - `src/ui/HUDLayer.ts`: playerHpBar, bossHpBar, comboBadge, hpBarFrame, hpBarFill, comboIcon, bossNameplate 분기
+>      - `src/ui/MenuRenderer.ts`: background, banner, cardFrame, starFull, starEmpty, lockIcon 분기
+>      - `src/ui/ResultRenderer.ts`: panelBg, victoryBadge, defeatBadge, starFilled, starEmpty 분기
+>      - `src/ui/BottomBar.ts`: barBg, settingsIcon, actionButton 분기
+>      - `src/ui/SettingsModal.ts`: dialogBg, closeIcon 분기
+> - **검증 산출물**:
+>   - `tests/unit/ui-image-loader.test.ts` (17개 단위 테스트 신설 및 전수 통과: 싱글톤 인스턴스, null 에셋 시 즉시 완료, non-null 로드 성공, 실패 시 폴백 경고, 5개 렌더러 drawImage vs 프로시저럴 분기 검증)
+>   - 전체 121개 테스트 파일 1,406개 테스트 100% Pass, `npm run build` 성공.
+
+---
+
 ## 2026-10-01 완료: [UI-TOKEN-005 / #260] BossClimaxRenderer/BeatHUDRenderer 하드코딩 폰트→토큰 전환
 
 > #260 구현 및 TDD 사이클 전수 통과 완료. Phase B 결전 시각화 렌더러(`BossClimaxRenderer`), 8박 러닝 HUD 렌더러(`BeatHUDRenderer`), 페이즈 프레젠테이션 어댑터(`PhasePresentationAdapter`)에 존재하던 하드코딩 `ctx.font` 문자열을 `UIText.getFont(role, scaleX, weight)` 기반 디자인 토큰으로 전면 전환하였습니다.

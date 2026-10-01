@@ -8,7 +8,7 @@
  * - 프로시저럴 드로잉과 비트맵 이미지 렌더링 간 분기 판정
  */
 
-import type { UIImageAssetsConfig } from '../../config/ui.config.js';
+import { UI_IMAGE_ASSETS, type UIImageAssetsConfig } from '../../config/ui.config.js';
 
 export class UIImageLoader {
   private _images: Map<string, Map<string, HTMLImageElement>> = new Map();
@@ -16,15 +16,22 @@ export class UIImageLoader {
 
   /**
    * 에셋 번들 비동기 프리로드
+   * - assets 인자가 생략되거나 null/undefined인 경우 기본 UI_IMAGE_ASSETS 사용
    * - non-null 문자열 경로인 에셋만 로드 시도
    * - 실패한 이미지는 console.warn 출력 후 null 유지 (전체 preload는 중단되지 않음)
    */
-  async preload(assets: UIImageAssetsConfig): Promise<void> {
+  async preload(assets: UIImageAssetsConfig = UI_IMAGE_ASSETS): Promise<void> {
+    const targetAssets = assets ?? UI_IMAGE_ASSETS;
+    if (!targetAssets) {
+      this._ready = true;
+      return;
+    }
+
     const promises: Promise<void>[] = [];
 
-    const categories = Object.keys(assets) as (keyof UIImageAssetsConfig)[];
+    const categories = Object.keys(targetAssets) as (keyof UIImageAssetsConfig)[];
     for (const cat of categories) {
-      const group = assets[cat];
+      const group = targetAssets[cat];
       if (!group) continue;
 
       for (const [key, src] of Object.entries(group)) {
