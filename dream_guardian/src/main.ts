@@ -341,6 +341,7 @@ eventBus.on('player:hurt', () => {
 
 // Issue #191: 노트결과 ID 기준 중복 방지 (1회 재생 보장)
 const playedNoteAudioIds = new Set<string>();
+let rhythmStarCombo = 0;
 
 starNoteScheduler.onRating((starResult) => {
   const noteId = starResult.target
@@ -366,11 +367,32 @@ starNoteScheduler.onRating((starResult) => {
   } else {
     beatRoundResolver.recordStarRating(starResult.rating, noteId);
   }
+
+  // Issue #283 (VFX-JUDGMENT-001): 리듬 판정 플로팅 텍스트(PERFECT/GOOD/LATE/MISS) 및 콤보 팝업 연동
+  if (starResult.rating === 'Miss') {
+    rhythmStarCombo = 0;
+  } else {
+    rhythmStarCombo++;
+  }
+
+  const currentFeverCombo = (bossFeverController && bossFeverController.isActive)
+    ? bossFeverController.feverCombo
+    : rhythmStarCombo;
+
+  const targetZone = DEFAULT_FITNESS_ZONES.find((z) => z.id === starResult.zoneId);
+  const jx = targetZone
+    ? (targetZone.x + targetZone.width * 0.5) * canvasManager.virtualWidth
+    : canvasManager.virtualWidth * 0.5;
+  const jy = targetZone
+    ? (targetZone.y + targetZone.height * 0.5) * canvasManager.virtualHeight
+    : canvasManager.virtualHeight * 0.5;
+
+  effectManager.playJudgmentText(jx, jy, starResult.rating, currentFeverCombo);
+
   if (starResult.collected) {
     const quality: BandTimingQuality = starResult.rating === 'Perfect' ? 'sync' : 'stumble';
     bandSynth.playZoneSound(starResult.zoneId, quality);
     sfx.play('correct');
-    const targetZone = DEFAULT_FITNESS_ZONES.find((z) => z.id === starResult.zoneId);
     if (targetZone) {
       effectManager.playBurst({
         x: (targetZone.x + targetZone.width * 0.5) * canvasManager.virtualWidth,
@@ -490,6 +512,7 @@ stateMachine.registerState('STAR_COLLECT', {
     starNoteScheduler.reset();
     starCollectionInput.reset();
     playedNoteAudioIds.clear();
+    rhythmStarCombo = 0;
   },
 });
 
@@ -824,7 +847,6 @@ function startReadyPhase(): void {
   Object.values(locomotionDetectors).forEach((d) => d.reset());
   jumpDetector.reset();
   readyPositionController.start();
-  stickmanRenderer.reset();
   console.log('[DG] READY_POSITION 시작 (신체 정렬 가이드 및 3초 카운트다운)');
 }
 
@@ -1323,7 +1345,8 @@ const engine = new GameEngine({
       }
     } else {
       skeletonAnimation.reset();
-      stickmanRenderer.reset();
+      const isRunning = screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen;
+      stickmanRenderer.updateFallback(dt, isRunning);
       motionIntentBus.reset();
       Object.values(locomotionDetectors).forEach((d) => d.reset());
       jumpDetector.reset();
@@ -1664,12 +1687,7 @@ const engine = new GameEngine({
       cameraLayer.render(ctx, vw, vh);
     }
 
-    // 4. 모션 아바타(메카 졸라맨) 상시 시각화 & 스켈레톤 본 토글 분리 (Issue #280 / BUG-AVATAR-001)
-    if (poseManager.hasPose && stickmanRenderer.hasPose) {
-      stickmanRenderer.render(ctx, vw, vh);
-    }
-
-    // 웹캠 위 앙상한 스켈레톤 선/점/트레일은 settingsModal.skeletonEnabled 설정에 따라 ON/OFF
+    // 4. 웹캠 위 앙상한 스켈레톤 선/점/트레일은 settingsModal.skeletonEnabled 설정에 따라 ON/OFF
     if (settingsModal.skeletonEnabled && poseManager.hasPose && skeletonAnimation.smoothedLandmarks.length > 0) {
       boneRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, 1);
       jointRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, skeletonAnimation.breathScale);
@@ -1685,6 +1703,9 @@ const engine = new GameEngine({
         renderZoneConnections: false,
         bgImage: menuBg,
       });
+
+      // 메뉴 모드 중앙 모션 아바타 시각화
+      stickmanRenderer.render(ctx, vw, vh, { alpha: 0.85, alwaysRender: true });
       if (menuMode === 'main') {
         const currentLoco = LOCOMOTION_MODES.find((m) => m.mode === locomotionModal.selectedMode);
         menuRenderer.render(ctx, vw, vh, {
@@ -1851,10 +1872,14 @@ const engine = new GameEngine({
         );
       }
 
+      // 모션 아바타(화이트 클레이 졸라맨): 드림 그리드·보스·정렬 가이드 위, HUD/문제 카드 아래 화면 중앙 2/3 높이 상시 렌더링
+      stickmanRenderer.render(ctx, vw, vh, { alwaysRender: true });
+
       renderFeedback(ctx, vw, vh);
       effectManager.render(ctx, vw, vh);
     } else if (screenMode === 'result' && resultData) {
       resultRenderer.render(ctx, vw, vh, resultData);
+      stickmanRenderer.render(ctx, vw, vh, { alpha: 0.9, alwaysRender: true });
       effectManager.render(ctx, vw, vh);
     }
 

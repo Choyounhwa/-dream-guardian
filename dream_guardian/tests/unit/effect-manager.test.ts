@@ -16,7 +16,9 @@ function createMockCtx(): CanvasRenderingContext2D {
     lineTo: vi.fn(),
     fillText: vi.fn(),
     translate: vi.fn(),
+    scale: vi.fn(),
     rotate: vi.fn(),
+    strokeText: vi.fn(),
     createRadialGradient: vi.fn(() => ({
       addColorStop: vi.fn(),
     })),
@@ -131,5 +133,97 @@ describe('EffectManager & Particle Integration Tests (VFX-001 / #273)', () => {
 
     expect(manager.activeCount).toBe(0);
     expect(manager.particleEmitter.activeCount).toBe(0);
+  });
+
+  describe('리듬 판정 플로팅 텍스트 (Issue #283 - VFX-JUDGMENT-001)', () => {
+    it('playJudgmentText("PERFECT")가 올바른 수명(0.6s), 골드 색상(#FFCB4D), 콤보를 갖는 텍스트를 생성한다', () => {
+      manager.playJudgmentText(200, 300, 'PERFECT', 5);
+      expect(manager.activeJudgmentTexts.length).toBe(1);
+
+      const jt = manager.activeJudgmentTexts[0];
+      expect(jt.rating).toBe('PERFECT');
+      expect(jt.color).toBe('#FFCB4D');
+      expect(jt.duration).toBeCloseTo(0.6, 2);
+      expect(jt.combo).toBe(5);
+      expect(jt.x).toBe(200);
+      expect(jt.y).toBe(300);
+      expect(jt.active).toBe(true);
+
+      // 시작 시점에는 1.3 스케일 바운스
+      expect(jt.scale).toBeCloseTo(1.3, 2);
+
+      // 0.3s 경과 시: 위로 20px 이상 부유, active 유지, 스케일 1.0 수렴
+      manager.update(0.3);
+      expect(jt.active).toBe(true);
+      expect(jt.currentY).toBeLessThan(300);
+      expect(jt.scale).toBeCloseTo(1.0, 1);
+
+      // 0.35s 추가 경과(총 0.65s > 0.6s): 만료 및 제거
+      manager.update(0.35);
+      expect(manager.activeJudgmentTexts.length).toBe(0);
+    });
+
+    it('GOOD, EARLY, LATE, MISS 판정별 색상 및 지속시간이 올바르게 적용된다', () => {
+      manager.playJudgmentText(100, 100, 'GOOD');
+      expect(manager.activeJudgmentTexts[0].color).toBe('#28E6FF');
+      expect(manager.activeJudgmentTexts[0].duration).toBeCloseTo(0.5, 2);
+      manager.clear();
+
+      manager.playJudgmentText(100, 100, 'LATE');
+      expect(manager.activeJudgmentTexts[0].color).toBe('#FF8844');
+      expect(manager.activeJudgmentTexts[0].duration).toBeCloseTo(0.5, 2);
+      manager.clear();
+
+      manager.playJudgmentText(100, 100, 'MISS');
+      const missJt = manager.activeJudgmentTexts[0];
+      expect(missJt.color).toBe('#FF4444');
+      expect(missJt.duration).toBeCloseTo(0.45, 2);
+      manager.update(0.2);
+      // MISS는 아래로 처지므로 currentY > y
+      expect(missJt.currentY).toBeGreaterThanOrEqual(100);
+      manager.clear();
+    });
+
+    it('소문자 혼합("Perfect", "Good", "Late", "Miss") 입력 시에도 대문자로 정상 정규화된다', () => {
+      manager.playJudgmentText(100, 100, 'Perfect' as any);
+      expect(manager.activeJudgmentTexts[0].rating).toBe('PERFECT');
+      expect(manager.activeJudgmentTexts[0].color).toBe('#FFCB4D');
+      manager.clear();
+
+      manager.playJudgmentText(100, 100, 'Miss' as any);
+      expect(manager.activeJudgmentTexts[0].rating).toBe('MISS');
+      expect(manager.activeJudgmentTexts[0].color).toBe('#FF4444');
+      manager.clear();
+    });
+
+    it('combo >= 2일 때 combo 텍스트가 함께 렌더링되고, combo < 2일 때는 렌더링되지 않는다', () => {
+      const mockCtx = createMockCtx();
+
+      // combo 3 -> 렌더링 시 "3 COMBO!" 포함
+      manager.playJudgmentText(150, 200, 'PERFECT', 3);
+      manager.render(mockCtx);
+      const textCallsCombo3 = vi.mocked(mockCtx.fillText).mock.calls.map((c) => c[0]);
+      expect(textCallsCombo3).toContain('PERFECT');
+      expect(textCallsCombo3.some((t) => typeof t === 'string' && t.includes('3 COMBO!'))).toBe(true);
+      manager.clear();
+
+      // combo 1 -> 콤보 텍스트 없음
+      vi.mocked(mockCtx.fillText).mockClear();
+      manager.playJudgmentText(150, 200, 'PERFECT', 1);
+      manager.render(mockCtx);
+      const textCallsCombo1 = vi.mocked(mockCtx.fillText).mock.calls.map((c) => c[0]);
+      expect(textCallsCombo1).toContain('PERFECT');
+      expect(textCallsCombo1.some((t) => typeof t === 'string' && t.includes('COMBO'))).toBe(false);
+      manager.clear();
+    });
+
+    it('clear() 호출 시 activeJudgmentTexts가 비워진다', () => {
+      manager.playJudgmentText(100, 100, 'PERFECT');
+      manager.playJudgmentText(200, 200, 'GOOD');
+      expect(manager.activeJudgmentTexts.length).toBe(2);
+
+      manager.clear();
+      expect(manager.activeJudgmentTexts.length).toBe(0);
+    });
   });
 });

@@ -317,4 +317,71 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
       expect(strokeCalls).toBeGreaterThanOrEqual(2); // 노트 테두리 + 목표 존 펄스 링
     });
   });
+
+  describe('5. 목표 존 어프로치 링 (Approach Ring) 수축 계산 및 렌더링 (Issue #283 - VFX-JUDGMENT-001)', () => {
+    it('진행도에 따른 어프로치 링 수축 배율을 올바르게 계산한다 (0.0일 때 2.5배, 1.0일 때 1.0배)', () => {
+      // approachScale = 1.0 + 1.5 * (1.0 - progress)
+      expect(renderer.computeApproachScale(0.0)).toBeCloseTo(2.5, 4);
+      expect(renderer.computeApproachScale(0.5)).toBeCloseTo(1.75, 4);
+      expect(renderer.computeApproachScale(1.0)).toBeCloseTo(1.0, 4);
+      expect(renderer.computeApproachScale(-0.2)).toBeCloseTo(2.5, 4); // 하한 클램프
+      expect(renderer.computeApproachScale(1.3)).toBeCloseTo(1.0, 4);  // 상한 클램프
+    });
+
+    it('노트 비행 중(progress = 0.5) 목표 존 테두리로 수축하는 타이밍 링을 렌더링한다', () => {
+      const target: ActiveStarTarget = {
+        patternId: 'p-approach',
+        part: 'leftHand',
+        zoneId: 4,
+        beatIndex: 1,
+        landingTime: 4.0,
+      };
+
+      // landingTime = 4.0, travelDuration = 0.5s -> 3.75s는 progress = 0.5
+      renderer.render(ctx, vw, vh, {
+        target,
+        elapsedTime: 3.75,
+        vanishingX: vx,
+        vanishingY: vy,
+      });
+
+      expect(ctx.stroke).toHaveBeenCalled();
+      expect(ctx.roundRect).toHaveBeenCalled();
+
+      // roundRect 호출 파라미터 검증 (zone4 기본 폭 (zw + 8)의 1.75배)
+      const zone4 = DEFAULT_FITNESS_ZONES.find((z) => z.id === 4)!;
+      const expectedScale = 1.75;
+      const calls = vi.mocked(ctx.roundRect).mock.calls;
+      expect(calls.length).toBeGreaterThanOrEqual(1);
+      const [, , rw, rh] = calls[0];
+      const baseW = zone4.width * vw + 8;
+      const baseH = zone4.height * vh + 8;
+      expect(rw).toBeCloseTo(baseW * expectedScale, 0);
+      expect(rh).toBeCloseTo(baseH * expectedScale, 0);
+    });
+
+    it('비행 시작 시점(progress = 0.0)에는 2.5배 크기로 어프로치 링이 렌더링된다', () => {
+      const target: ActiveStarTarget = {
+        patternId: 'p-start',
+        part: 'rightHand',
+        zoneId: 5,
+        beatIndex: 1,
+        landingTime: 4.0,
+      };
+
+      renderer.render(ctx, vw, vh, {
+        target,
+        elapsedTime: 3.5, // 0.5s 전 -> progress = 0.0
+        vanishingX: vx,
+        vanishingY: vy,
+      });
+
+      const zone5 = DEFAULT_FITNESS_ZONES.find((z) => z.id === 5)!;
+      const baseW = zone5.width * vw + 8;
+      const calls = vi.mocked(ctx.roundRect).mock.calls;
+      expect(calls.length).toBeGreaterThanOrEqual(1);
+      const [, , rw] = calls[0];
+      expect(rw).toBeCloseTo(baseW * 2.5, 0);
+    });
+  });
 });

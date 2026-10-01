@@ -237,9 +237,180 @@ export class GuardianCastSequence {
   }
 }
 
+export type JudgmentRating = 'PERFECT' | 'GOOD' | 'EARLY' | 'LATE' | 'MISS';
+
+export interface JudgmentTextConfig {
+  color: string;
+  duration: number;
+  initialScale: number;
+  floatY: number;
+  shake?: boolean;
+}
+
+export const JUDGMENT_CONFIGS: Record<JudgmentRating, JudgmentTextConfig> = {
+  PERFECT: {
+    color: '#FFCB4D',
+    duration: 0.6,
+    initialScale: 1.3,
+    floatY: -40,
+  },
+  GOOD: {
+    color: '#28E6FF',
+    duration: 0.5,
+    initialScale: 1.15,
+    floatY: -30,
+  },
+  EARLY: {
+    color: '#FF8844',
+    duration: 0.5,
+    initialScale: 1.1,
+    floatY: -20,
+  },
+  LATE: {
+    color: '#FF8844',
+    duration: 0.5,
+    initialScale: 1.1,
+    floatY: -20,
+  },
+  MISS: {
+    color: '#FF4444',
+    duration: 0.45,
+    initialScale: 1.0,
+    floatY: 15,
+    shake: true,
+  },
+};
+
+/**
+ * 리듬 판정 플로팅 텍스트 인스턴스 (Issue #283 / VFX-JUDGMENT-001)
+ */
+export class FloatingJudgmentText {
+  readonly x: number;
+  readonly y: number;
+  readonly rating: JudgmentRating;
+  readonly combo?: number;
+  readonly color: string;
+  readonly duration: number;
+  readonly initialScale: number;
+  readonly floatY: number;
+  readonly shake: boolean;
+
+  elapsed = 0;
+  active = true;
+
+  constructor(
+    x: number,
+    y: number,
+    rating: JudgmentRating | string,
+    combo?: number,
+  ) {
+    this.x = x;
+    this.y = y;
+    const normalized = (rating ? String(rating).trim().toUpperCase() : 'MISS') as JudgmentRating;
+    this.rating = (['PERFECT', 'GOOD', 'EARLY', 'LATE', 'MISS'].includes(normalized)
+      ? normalized
+      : 'MISS') as JudgmentRating;
+    this.combo = combo;
+
+    const cfg = JUDGMENT_CONFIGS[this.rating] ?? JUDGMENT_CONFIGS.MISS;
+    this.color = cfg.color;
+    this.duration = cfg.duration;
+    this.initialScale = cfg.initialScale;
+    this.floatY = cfg.floatY;
+    this.shake = Boolean(cfg.shake);
+  }
+
+  get progress(): number {
+    return Math.min(1.0, Math.max(0.0, this.elapsed / this.duration));
+  }
+
+  get scale(): number {
+    const p = this.progress;
+    const bounceDuration = 0.25;
+    if (p < bounceDuration) {
+      const t = p / bounceDuration;
+      return this.initialScale + (1.0 - this.initialScale) * t;
+    }
+    return 1.0;
+  }
+
+  get currentY(): number {
+    const p = this.progress;
+    return this.y + this.floatY * (1.0 - Math.pow(1.0 - p, 1.4));
+  }
+
+  get currentX(): number {
+    if (!this.shake) return this.x;
+    return this.x + Math.sin(this.elapsed * 40) * 3;
+  }
+
+  get alpha(): number {
+    const p = this.progress;
+    if (p < 0.5) return 1.0;
+    return Math.max(0, 1.0 - (p - 0.5) / 0.5);
+  }
+
+  update(dt: number): void {
+    if (!this.active) return;
+    this.elapsed += dt;
+    if (this.elapsed >= this.duration) {
+      this.active = false;
+    }
+  }
+
+  render(ctx: CanvasRenderingContext2D): void {
+    if (!this.active || this.alpha <= 0.001) return;
+
+    ctx.save();
+    ctx.globalAlpha = (ctx.globalAlpha ?? 1.0) * this.alpha;
+
+    const cx = this.currentX;
+    const cy = this.currentY;
+    const s = this.scale;
+
+    if (typeof ctx.translate === 'function') {
+      ctx.translate(cx, cy);
+    }
+    if (typeof ctx.scale === 'function') {
+      ctx.scale(s, s);
+    }
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '900 28px sans-serif';
+
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 14;
+
+    if (this.rating === 'PERFECT') {
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = '#FFCB4D';
+      ctx.strokeText(this.rating, 0, 0);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(this.rating, 0, 0);
+    } else {
+      ctx.fillStyle = this.color;
+      ctx.fillText(this.rating, 0, 0);
+    }
+
+    if (this.combo !== undefined && this.combo >= 2) {
+      const comboText = `${this.combo} COMBO!`;
+      ctx.font = 'bold 16px sans-serif';
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#FFCB4D';
+      ctx.fillStyle = '#FFCB4D';
+      ctx.fillText(comboText, 0, 24);
+    }
+
+    ctx.restore();
+  }
+}
+
 export class EffectManager {
   private _active: IVisualEffect[] = [];
   private _activeCastSequences: GuardianCastSequence[] = [];
+  private _activeJudgmentTexts: FloatingJudgmentText[] = [];
 
   // 적색/오버레이 플래시 관리 (VFX-002 / Issue #274)
   private _flashColor: string = '#FF4444';
@@ -385,6 +556,10 @@ export class EffectManager {
 
   get activeCastSequences(): readonly GuardianCastSequence[] {
     return this._activeCastSequences;
+  }
+
+  get activeJudgmentTexts(): readonly FloatingJudgmentText[] {
+    return this._activeJudgmentTexts;
   }
 
   get particleActiveCount(): number {
@@ -938,6 +1113,52 @@ export class EffectManager {
   }
 
   /**
+   * 리듬 판정 플로팅 텍스트 재생 (Issue #283 / VFX-JUDGMENT-001)
+   *
+   * @param x 화면 X 좌표
+   * @param y 화면 Y 좌표
+   * @param rating 판정 등급 ('PERFECT' | 'GOOD' | 'EARLY' | 'LATE' | 'MISS')
+   * @param combo 현재 콤보 수
+   */
+  playJudgmentText(
+    x: number,
+    y: number,
+    rating: JudgmentRating | string,
+    combo?: number,
+  ): void {
+    const item = new FloatingJudgmentText(x, y, rating, combo);
+    this._activeJudgmentTexts.push(item);
+
+    if (item.rating === 'PERFECT') {
+      this._emitter.burst({
+        x,
+        y,
+        count: 10,
+        colors: ['#FFCB4D', '#FFFFFF', '#FFF9C4'],
+        speedMin: 30,
+        speedMax: 100,
+        sizeMin: 3,
+        sizeMax: 6,
+        duration: 0.35,
+        shape: 'spark',
+      });
+    } else if (item.rating === 'GOOD') {
+      this._emitter.burst({
+        x,
+        y,
+        count: 6,
+        colors: ['#28E6FF', '#FFFFFF'],
+        speedMin: 20,
+        speedMax: 80,
+        sizeMin: 2,
+        sizeMax: 5,
+        duration: 0.3,
+        shape: 'spark',
+      });
+    }
+  }
+
+  /**
    * 매 프레임 업데이트: 기본 이펙트 풀 반환 및 파티클 이미터 업데이트
    */
   update(dt: number): void {
@@ -974,6 +1195,18 @@ export class EffectManager {
         this._activeCastSequences.splice(s, 1);
       } else {
         s++;
+      }
+    }
+
+    // 활성 리듬 판정 플로팅 텍스트 업데이트 (VFX-JUDGMENT-001 / Issue #283)
+    let j = 0;
+    while (j < this._activeJudgmentTexts.length) {
+      const jt = this._activeJudgmentTexts[j];
+      jt.update(dt);
+      if (!jt.active) {
+        this._activeJudgmentTexts.splice(j, 1);
+      } else {
+        j++;
       }
     }
   }
@@ -1020,6 +1253,9 @@ export class EffectManager {
     for (let s = 0; s < this._activeCastSequences.length; s++) {
       this._activeCastSequences[s].render(ctx);
     }
+    for (let j = 0; j < this._activeJudgmentTexts.length; j++) {
+      this._activeJudgmentTexts[j].render(ctx);
+    }
     this._emitter.render(ctx);
   }
 
@@ -1036,6 +1272,7 @@ export class EffectManager {
     }
     this._active.length = 0;
     this._activeCastSequences.length = 0;
+    this._activeJudgmentTexts.length = 0;
     this._emitter.clear();
   }
 

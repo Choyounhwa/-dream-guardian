@@ -81,6 +81,16 @@ export class StarNoteRenderer {
   }
 
   /**
+   * 노트 비행 진행도에 따른 목표 피트니스 존 어프로치 링 수축 배율 계산 (Issue #283 / VFX-JUDGMENT-001)
+   * - 진행도 0.0일 때 2.5배 -> 1.0 안착 시 1.0배
+   * - formula: approachScale = 1.0 + 1.5 * (1.0 - progress)
+   */
+  computeApproachScale(progress: number): number {
+    const clamped = Math.min(1.0, Math.max(0.0, progress));
+    return 1.0 + 1.5 * (1.0 - clamped);
+  }
+
+  /**
    * 실시간 노트 좌표 및 비행 상태 계산
    */
   computeNotePosition(
@@ -208,16 +218,21 @@ export class StarNoteRenderer {
 
     ctx.save();
 
-    // 1. 안착 직전(±0.12s Perfect 판정 윈도우) 목표 존 테두리 펄스 링 연출
+    // 1. 목표 존 어프로치 링 (Issue #283 / VFX-JUDGMENT-001): 비행 진행도에 따라 목표 존 테두리로 수축
+    if (zone) {
+      this._renderApproachRing(ctx, vw, vh, zone, color, pos.progress);
+    }
+
+    // 2. 안착 직전(±0.12s Perfect 판정 윈도우) 목표 존 테두리 펄스 링 연출
     const timeDiff = Math.abs(target.landingTime! - elapsedTime);
     if (timeDiff <= this._options.perfectWindow && zone) {
       this._renderZonePulse(ctx, vw, vh, zone, color, 1.0 - timeDiff / this._options.perfectWindow);
     }
 
-    // 2. 비행 궤적 잔상 트레일 (소실점 방향 꼬리)
+    // 3. 비행 궤적 잔상 트레일 (소실점 방향 꼬리)
     this._renderTrail(ctx, vanishingX, vanishingY, pos.x, pos.y, color, pos.scale);
 
-    // 3. 별가루 악기 노트 본체 (4색 테두리 + 글로우)
+    // 4. 별가루 악기 노트 본체 (4색 테두리 + 글로우)
     const radius = this._options.baseRadius * pos.scale;
 
     ctx.save();
@@ -241,6 +256,53 @@ export class StarNoteRenderer {
     ctx.fillText(icon, pos.x, pos.y);
 
     ctx.restore();
+    ctx.restore();
+  }
+
+  /**
+   * 목표 존 어프로치 링 (진행도에 따라 목표 존 테두리로 수축, Issue #283 / VFX-JUDGMENT-001)
+   */
+  private _renderApproachRing(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    zone: FitnessZone,
+    color: string,
+    progress: number,
+  ): void {
+    const scale = this.computeApproachScale(progress);
+    const zx = zone.x * vw;
+    const zy = zone.y * vh;
+    const zw = zone.width * vw;
+    const zh = zone.height * vh;
+    const cx = zx + zw * 0.5;
+    const cy = zy + zh * 0.5;
+
+    const baseW = zw + 8;
+    const baseH = zh + 8;
+    const rw = baseW * scale;
+    const rh = baseH * scale;
+    const rx = cx - rw * 0.5;
+    const ry = cy - rh * 0.5;
+
+    const clampedProgress = Math.min(1.0, Math.max(0.0, progress));
+    const alpha = Math.min(1.0, Math.max(0.2, 0.25 + 0.75 * clampedProgress));
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1.5, 2.5 * (1.0 + (1.0 - (scale - 1.0) / 1.5) * 0.5));
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8 + 8 * clampedProgress;
+
+    if (typeof ctx.roundRect === 'function') {
+      ctx.beginPath();
+      ctx.roundRect(rx, ry, rw, rh, 12 * Math.min(scale, 1.5));
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(rx, ry, rw, rh);
+    }
+
     ctx.restore();
   }
 
