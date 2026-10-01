@@ -44,8 +44,8 @@
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
 | 1 | **#256** | [UI-TOKEN-001] UI 디자인 토큰 시스템 신설 (config/ui.config.ts) | 없음 | `[✔] 완료` |
-| 2 | **#257** | [UI-TOKEN-002] UIText 중앙 렌더링 유틸리티 신설 | #256 | `[▶ NEXT]` |
-| 3 | **#258** | [UI-TOKEN-003] 11개 UI 렌더러 하드코딩 폰트→토큰 기반 전환 | #256·#257 | `[ ] 대기` |
+| 2 | **#257** | [UI-TOKEN-002] UIText 중앙 렌더링 유틸리티 신설 | #256 | `[✔] 완료` |
+| 3 | **#258** | [UI-TOKEN-003] 11개 UI 렌더러 하드코딩 폰트→토큰 기반 전환 | #256·#257 | `[▶ NEXT]` |
 | 4 | **#259** | [UI-TOKEN-004] 렌더러 레이아웃 좌표→UI_LAYOUT 참조 전환 | #256 | `[ ] 대기` |
 | 5 | **#260** | [UI-TOKEN-005] BossClimaxRenderer/BeatHUDRenderer 폰트→토큰 전환 | #257 | `[ ] 대기` |
 | 6 | **#261** | [UI-TOKEN-006] 이미지 에셋 로더 및 프로시저럴/이미지 분기 인프라 | #256 | `[ ] 대기` |
@@ -97,6 +97,22 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [UI-TOKEN-002 / #257] UIText 중앙 렌더링 유틸리티 신설 (src/utils/UIText.ts)
+
+> #257 구현 및 단위/회귀 테스트 전수 검증 완료. `config/ui.config.ts`의 디자인 토큰과 접근성 설정을 읽어 Canvas 2D 폰트 문자열, 폰트 크기, 테마 색상, 물리 좌표 슬롯을 계산·제공하는 중앙 유틸리티 `src/utils/UIText.ts`를 신설했습니다.
+> - **완료 내역**:
+>   1. **getFont(role, scaleX, weight?, fontFamily?)**: 역할과 가로 스케일 기반 Canvas 2D 표준 폰트 문자열(예: 'bold 44px sans-serif') 생성.
+>   2. **getFontSize(role, scaleX)**: fontScale 반영 및 minPhysicalPx / token.min 이중 하한선 보장 px 산출.
+>   3. **getColor(colorKey)**: default 및 highContrast 테마 간 동적 색상 전환 및 폴백.
+>   4. **getLayoutSlot(screen, element?, width?, height?)**: UI_LAYOUT 가상 해상도(1080x2160) 좌표를 물리 해상도 슬롯으로 비파괴 변환.
+>   5. **접근성 제어 함수**: setFontScale, setHighContrast, setMinPhysicalPx, resetAccessibility, getAccessibility 제공.
+>   6. **네임스페이스 및 싱글톤**: 개별 함수 export 및 `UIText` 객체 export 동시 지원.
+> - **검증 산출물**:
+>   - `tests/unit/ui-text.test.ts` (20 tests 통과)
+>   - 전체 115개 파일 1,332개 테스트 100% Pass, `npm run build` 성공.
 
 ---
 

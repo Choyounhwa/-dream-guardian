@@ -20,3 +20,6 @@ export function toNormalizedLandmarks(
     visibility: lm.visibility,
   }));
 }
+
+export * from './UIText.js';
+
