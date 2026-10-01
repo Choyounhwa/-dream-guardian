@@ -38,6 +38,9 @@ import {
 } from './CursorTracker.js';
 import { isInsideZone } from './PostureMatcher.js';
 import { POSE_LANDMARKS, type NormalizedLandmark } from '../types/index.js';
+import type { MotionIntentBus } from '../motion/MotionIntentBus.js';
+import type { MotionIntent, UnsubscribeFn } from '../types/motion-intent.js';
+
 
 export type ArmHandType = 'left' | 'right' | 'fallback';
 
@@ -146,6 +149,8 @@ export class ArmReachAnswerSelector {
   private _prevRightInside5 = false;
   private _prevBodyY: number | null = null;
   private _lastTime: number | null = null;
+  private _intentBus: MotionIntentBus | null = null;
+  private _intentBusUnsub: UnsubscribeFn | null = null;
 
   private _listeners: Set<ArmReachSelectCallback> = new Set();
   public onSelect?: ArmReachSelectCallback;
@@ -156,6 +161,7 @@ export class ArmReachAnswerSelector {
     cursorTracker?: CursorTracker,
     zones: readonly FitnessZone[] = DEFAULT_FITNESS_ZONES,
     judgmentConfig?: Partial<ArmReachJudgmentConfig>,
+    intentBus?: MotionIntentBus,
   ) {
     this._config = {
       ...DEFAULT_ARM_REACH_ANSWER_CONFIG,
@@ -178,6 +184,61 @@ export class ArmReachAnswerSelector {
     this._zone5 = this._zones.find((z) => z.id === 5) ?? DEFAULT_FITNESS_ZONES.find((z) => z.id === 5)!;
 
     this._cursorTracker = cursorTracker ?? new CursorTracker();
+    if (intentBus) {
+      this.attachIntentBus(intentBus);
+    }
+  }
+
+  /**
+   * MotionIntentBus 연결 (Issue #252 어댑터 패턴)
+   */
+  public attachIntentBus(bus: MotionIntentBus): UnsubscribeFn {
+    if (this._intentBusUnsub) {
+      this._intentBusUnsub();
+      this._intentBusUnsub = null;
+    }
+    this._intentBus = bus;
+    const unsub = bus.subscribe((intent) => {
+      if (this._isConfirmed) return;
+      if (intent.type === 'reachLeft') {
+        this.selectByReachIntent(0, 4, intent);
+      } else if (intent.type === 'reachRight') {
+        this.selectByReachIntent(1, 5, intent);
+      }
+    });
+    this._intentBusUnsub = () => {
+      unsub();
+      if (this._intentBus === bus) {
+        this._intentBus = null;
+      }
+      this._intentBusUnsub = null;
+    };
+    return this._intentBusUnsub;
+  }
+
+  /**
+   * MotionIntent 기반 답안 선택 처리
+   */
+  public selectByReachIntent(
+    answerIndex: 0 | 1,
+    zoneId: 4 | 5,
+    intent: MotionIntent,
+  ): ArmReachAnswerResult | null {
+    if (this._isConfirmed) return null;
+    const hand: ArmHandType = intent.sourceCursor === 'right_hand' ? 'right' : 'left';
+    const posX = intent.payload?.x !== undefined ? (intent.payload.x as number) : (zoneId === 4 ? 0.2 : 0.8);
+    const posY = intent.payload?.y !== undefined ? (intent.payload.y as number) : 0.5;
+    return this._confirmAnswer(
+      answerIndex,
+      zoneId,
+      hand,
+      intent.timestamp,
+      'motion',
+      { x: posX, y: posY },
+      undefined,
+      true,
+      intent.confidence,
+    );
   }
 
   get config(): ArmReachAnswerConfig {
@@ -612,6 +673,10 @@ export class ArmReachAnswerSelector {
     };
 
     this._lastResult = result;
+
+    if (this._intentBus) {
+      this._intentBus.triggerRefractory(currentTime);
+    }
 
     for (const listener of this._listeners) {
       try {

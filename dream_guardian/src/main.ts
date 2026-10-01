@@ -58,6 +58,7 @@ import {
   XGestureDetector,
   KneeFramingValidator,
   FootKeynoteDetector,
+  MotionIntentBus,
   type ILocomotionDetector,
   type LocomotionMode,
   type KneeFramingResult,
@@ -158,7 +159,9 @@ answerSelector.setViewport(
   canvasManager.virtualHeight,
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
+const motionIntentBus = new MotionIntentBus();
 const armReachAnswerSelector = new ArmReachAnswerSelector({ isMirrored: false });
+armReachAnswerSelector.attachIntentBus(motionIntentBus);
 armReachAnswerSelector.setViewport(
   canvasManager.virtualWidth,
   canvasManager.virtualHeight,
@@ -214,6 +217,7 @@ let currentKneeFraming: KneeFramingResult = kneeFramingValidator.update(0, null,
 const footKeynoteDetector = new FootKeynoteDetector({ isMirrored: false });
 const footKeynoteInput = new FootKeynoteInput();
 const starCollectionInput = new StarCollectionInput();
+starCollectionInput.attachIntentBus(motionIntentBus);
 starCollectionInput.setViewport(
   canvasManager.virtualWidth,
   canvasManager.virtualHeight,
@@ -353,6 +357,7 @@ stateMachine.onTransition((from, to) => {
       gamePhase = 'boss_climax';
     }
   }
+  motionIntentBus.setPhase(to);
 });
 
 // 상태별 enter/exit 생명주기 및 리소스 정리 등록 (입력·타겟·장판 정리 1회 보장)
@@ -513,6 +518,7 @@ const beatCoordinator = new BeatRunCoordinator({
   },
 });
 const phaseAHazardController = new PhaseAHazardController({
+  intentBus: motionIntentBus,
   onBeatResolved: ({ evaded, damage }) => {
     if (evaded) {
       sfx.play('shield_deflect');
@@ -1018,6 +1024,12 @@ const engine = new GameEngine({
           isCalibrated: calibrationHelper.isDone,
         },
       );
+      motionIntentBus.processLandmarks(sourceLandmarks, dt, time, {
+        baselineY: userBaselineY,
+        virtualHeight: canvasManager.virtualHeight,
+        isPaused: pauseModal.isOpen,
+      });
+
       if (stepped && screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
         totalSteps++;
         beatCoordinator.recordStep();
@@ -1051,6 +1063,7 @@ const engine = new GameEngine({
       }
     } else {
       skeletonAnimation.reset();
+      motionIntentBus.reset();
       Object.values(locomotionDetectors).forEach((d) => d.reset());
       jumpDetector.reset();
       menuInput.reset();

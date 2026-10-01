@@ -7,6 +7,7 @@
  */
 
 import { DEFAULT_ARM_REACH_ANSWER_CONFIG } from './beat-motion.config.js';
+import type { MotionIntentType } from '../src/types/motion-intent.js';
 
 export interface ArmReachScoreWeights {
   /** 존 침투 깊이 가중치 (기본 0.30) */
@@ -157,4 +158,60 @@ export const DEFAULT_TIMING_LENIENCY_CONFIG: TimingLeniencyConfig = {
   enableDecayHold: true,
   enableTrackingLossFreeze: true,
 };
+
+/**
+ * 점프 판정 수직 속도 상한 및 점프 임계치 단일 진실 공급원 (SSOT)
+ *
+ * (기존 3곳 분산 정의: core/Config.ts jumpSpeedMin, motion.config.ts speedMin, beat-motion.config.ts jumpVerticalSpeedThreshold)
+ *
+ * @see Issue #252 [INPUT-TOLERANCE-004]
+ */
+export const JUMP_VERTICAL_SPEED_THRESHOLD = 0.22;
+
+/**
+ * 통합 불응기(Refractory) 기본 지속 시간 (초, 기본 0.25s)
+ */
+export const DEFAULT_MOTION_INTENT_REFRACTORY_TIME = 0.25;
+
+/**
+ * 페이즈별 동작 소유권(Intent Ownership) 매핑 테이블
+ *
+ * 각 페이즈가 소비할 수 있는 intent 타입을 명시적으로 제한하여,
+ * 비소유 동작의 전달을 원천 차단하고 차단 로직의 중복을 제거한다.
+ */
+export const PHASE_INTENT_OWNERSHIP: Record<string, MotionIntentType[]> = {
+  ANSWER_SELECT: ['reachLeft', 'reachRight'],
+  HAZARD_EVADE: ['jump', 'stepLeft', 'stepRight'],
+  STAR_COLLECT: ['reachLeft', 'reachRight', 'jump'],
+  BOSS_CLIMAX: ['jump', 'stepLeft', 'stepRight'],
+  default: ['reachLeft', 'reachRight', 'jump', 'stepLeft', 'stepRight', 'squat'],
+};
+
+/**
+ * MotionIntentBus 설정 인터페이스
+ */
+export interface MotionIntentBusConfig {
+  /** 페이즈별 허용 Intent 목록 매핑 */
+  ownership: Record<string, MotionIntentType[]>;
+  /** 판정 확정 후 전역 불응기 시간 (초, 기본 0.25s) */
+  refractoryTime: number;
+  /** 점프 수직 속도 임계치 SSOT (정규화 단위/초, 기본 0.22) */
+  jumpVerticalSpeedThreshold: number;
+  /** 스쿼트 감지 상대 하강 임계치 (기본 0.065) */
+  squatThreshold?: number;
+  /** 스텝 감지 이동 임계치 (기본 0.04) */
+  stepThreshold?: number;
+}
+
+/**
+ * MotionIntentBus 기본 설정값
+ */
+export const DEFAULT_MOTION_INTENT_BUS_CONFIG: MotionIntentBusConfig = {
+  ownership: PHASE_INTENT_OWNERSHIP,
+  refractoryTime: DEFAULT_MOTION_INTENT_REFRACTORY_TIME,
+  jumpVerticalSpeedThreshold: JUMP_VERTICAL_SPEED_THRESHOLD,
+  squatThreshold: 0.065,
+  stepThreshold: 0.04,
+};
+
 

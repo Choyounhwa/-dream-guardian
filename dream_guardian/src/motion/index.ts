@@ -26,3 +26,6 @@ export type {
   RoundCenterReference,
   CenterGateUpdateResult,
 } from './CenterReturnGate.js';
+export { MotionIntentBus } from './MotionIntentBus.js';
+export type { MotionIntentClassificationOptions } from './MotionIntentBus.js';
+

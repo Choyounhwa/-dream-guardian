@@ -59,12 +59,14 @@ export const DEFAULT_FOOT_KEYNOTE_CONFIG: FootKeynoteConfig = {
 
 export interface JumpConfig {
   threshold: number;
+  /** @see JUMP_VERTICAL_SPEED_THRESHOLD in judgment.config.ts (SSOT) */
   speedMin: number;
   minVisibility: number;
 }
 
 export const DEFAULT_JUMP_CONFIG: JumpConfig = {
   threshold: 0.065,
+  /** @see JUMP_VERTICAL_SPEED_THRESHOLD in judgment.config.ts (SSOT: 0.22) */
   speedMin: 0.22,
   minVisibility: 0.5,
 };

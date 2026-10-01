@@ -41,6 +41,9 @@ import {
   DEFAULT_TIMING_LENIENCY_CONFIG,
   type TimingLeniencyConfig,
 } from '../../config/judgment.config.js';
+import type { MotionIntentBus } from '../motion/MotionIntentBus.js';
+import type { UnsubscribeFn } from '../types/motion-intent.js';
+
 
 export type StarRating = 'Perfect' | 'Good' | 'Late' | 'Miss';
 export type StarJudgment = StarRating;
@@ -107,11 +110,14 @@ export class StarCollectionInput {
   private _isCollected = false;
   private _paused = false;
   private _lastResult: StarCollectionResult | null = null;
+  private _intentBus: MotionIntentBus | null = null;
+  private _intentBusUnsub: UnsubscribeFn | null = null;
 
   constructor(
     config?: Partial<StarCollectionConfig>,
     cursorTracker?: CursorTracker,
     zones: readonly FitnessZone[] = DEFAULT_FITNESS_ZONES,
+    intentBus?: MotionIntentBus,
   ) {
     this._config = {
       ...DEFAULT_STAR_COLLECTION_CONFIG,
@@ -126,6 +132,27 @@ export class StarCollectionInput {
       virtualHeight: this._config.virtualHeight,
     });
     this._zones = zones;
+    if (intentBus) {
+      this.attachIntentBus(intentBus);
+    }
+  }
+
+  /**
+   * MotionIntentBus 연결 (Issue #252 어댑터 패턴)
+   */
+  attachIntentBus(bus: MotionIntentBus): UnsubscribeFn {
+    if (this._intentBusUnsub) {
+      this._intentBusUnsub();
+      this._intentBusUnsub = null;
+    }
+    this._intentBus = bus;
+    this._intentBusUnsub = () => {
+      if (this._intentBus === bus) {
+        this._intentBus = null;
+      }
+      this._intentBusUnsub = null;
+    };
+    return this._intentBusUnsub;
   }
 
   get config(): StarCollectionConfig {
@@ -353,6 +380,11 @@ export class StarCollectionInput {
     const timeoutRes = this.checkTimeout(currentTime);
     if (timeoutRes) {
       return timeoutRes;
+    }
+
+    // 통합 불응기(Refractory Lockout): 답안 확정 직후 잔여 모션이 별가루 수집으로 새는 것 차단
+    if (this._intentBus?.isRefractoryActive(currentTime)) {
+      return null;
     }
 
     if (!landmarks) {

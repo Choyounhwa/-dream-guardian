@@ -291,4 +291,5 @@ export interface MathRenderOptions {
 
 // ─── Posture & Fitness System Types (Issue #122 / #123) ───
 export * from './posture.js';
+export * from './motion-intent.js';
 

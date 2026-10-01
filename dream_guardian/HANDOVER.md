@@ -18,7 +18,7 @@
 | **8. 정산·자원** | **#240** *(완료)* → **#242** *(완료)* | Phase A 정산/처치 책임 분리 및 군단·별가루 모델 | `[✔] 완료` |
 | **9. Phase B 진입** | **#241** *(완료)* | 10번째 정산 후 한 번만 인계, 11번째 출제 차단 | `[✔] 완료` |
 | **10. Phase B 실행** | **#213** *(완료)* → **#193** *(완료)* → **#194** *(완료)* → **#195** *(완료)* | 피버·보스 공격·군단 화력·결전 화면 연결 | `[✔] 완료` |
-| **11. 판정 유연화** | **#249** *(완료)* → **#250** *(완료)* → **#251** *(완료)* → **#252** → **#253** → **#254** → **#255** | 팔 뻗기·존·타이밍 판정의 유저 행동 수용성 확대 | **`[▶ NEXT: #252]`** |
+| **11. 판정 유연화** | **#249** *(완료)* → **#250** *(완료)* → **#251** *(완료)* → **#252** *(완료)* → **#253** → **#254** → **#255** | 팔 뻗기·존·타이밍 판정의 유저 행동 수용성 확대 | **`[▶ NEXT: #253]`** |
 | **12. 최종 검증** | **#186** | 실제 10문제 → Phase B → 승리/패배 → 메뉴 완주 | `[ ] 대기` |
 
 ### 📎 11단계 세부 (판정 유연화 / INPUT-TOLERANCE 시리즈)
@@ -28,16 +28,37 @@
 | **#249** | [INPUT-TOLERANCE-001] 팔 뻗기 가중 신뢰도 스코어링 및 양팔 우세 판정 | 없음 (`config/judgment.config.ts` 신설) | `[✔] 완료` |
 | **#250** | [INPUT-TOLERANCE-002] 존 소프트 경계(히스테리시스·자석 존·체격 정규화) | #249 | `[✔] 완료` |
 | **#251** | [INPUT-TOLERANCE-003] 타이밍 관용(선행 버퍼·후행 유예·감쇠 홀드·유실 동결) | #249 | `[✔] 완료` |
-| **#252** | [INPUT-TOLERANCE-004] MotionIntentBus 및 페이즈별 동작 소유권·불응기 | #249·#250·#251 | `[▶ NEXT]` |
-| **#253** | [INPUT-TOLERANCE-005] 집합 덮기 조건 B 시간 누적 완화·Cross-Body 정합성 | #250 | `[ ] 대기` |
+| **#252** | [INPUT-TOLERANCE-004] MotionIntentBus 및 페이즈별 동작 소유권·불응기 | #249·#250·#251 | `[✔] 완료` |
+| **#253** | [INPUT-TOLERANCE-005] 집합 덮기 조건 B 시간 누적 완화·Cross-Body 정합성 | #250 | `[▶ NEXT]` |
 | **#254** | [INPUT-TOLERANCE-006] 니어미스 적응형 관용 및 개인 기준선 캘리브레이션 | #249·#250 | `[ ] 대기` |
 | **#255** | [INPUT-TOLERANCE-007] 부분 진행도 시각화 및 판정 실패 사유 피드백 | #249 (#254 권장) | `[ ] 대기` |
 
 > ⚠️ **#252는 구조 변경 위험 최상**: MotionIntentBus는 반드시 #249~#251 완료 후 진행하며, 버스 미주입 시 기존 직접 판정 경로로 100% 폴백되어야 한다.
 > 판정 수치는 전부 신규 `config/judgment.config.ts`로 분리하여 코드 수정 없이 튜닝 가능해야 한다 (개발 규칙 6절).
 
-> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#252 [INPUT-TOLERANCE-004] MotionIntentBus 및 페이즈별 동작 소유권·불응기`**  
+> 📌 **현재 활성 작업 포인터:** **`[▶ NEXT]` = `#253 [INPUT-TOLERANCE-005] 집합 덮기 조건 B 시간 누적 완화·Cross-Body 정합성`**  
 > 사용자가 `"다음"` 또는 `"시작"`을 입력하면 위 포인터의 작업이 자동 로드됩니다.
+
+---
+
+## 2026-10-01 완료: [INPUT-TOLERANCE-004 / #252] MotionIntentBus 도입 및 페이즈별 동작 소유권·통합 불응기
+
+> #252 구현 및 단위/통합 검증 완료. 원시 랜드마크를 단일 지점에서 `{ type, confidence, timestamp, sourceCursor }` 형태의 의도(`MotionIntent`)로 결정적(Deterministic) 분류하는 `MotionIntentBus`를 신설하고, 페이즈별 동작 소유권 테이블(`PHASE_INTENT_OWNERSHIP`)을 통해 비소유 동작의 전달을 원천 차단했습니다. 또한 답안 확정 잔여 모션이 별가루 수집으로 새는 문제를 방지하는 0.25s 전역 통합 불응기(Refractory Lockout, 페이즈 전환 시 즉시 리셋)와 점프 임계치 단일 출처(SSOT: `0.22`)를 구축했습니다.
+> - **MotionIntentBus 신설 (`src/motion/MotionIntentBus.ts`, `src/types/motion-intent.ts`)**:
+>   - 원시 랜드마크 → `jump`, `reachLeft`, `reachRight`, `stepLeft`, `stepRight`, `squat` 단일 분류 및 결정적 publish/subscribe API.
+> - **페이즈별 동작 소유권 테이블 (`config/judgment.config.ts`)**:
+>   - `ANSWER_SELECT`: `['reachLeft', 'reachRight']` (점프 등 비소유 의도 원천 차단)
+>   - `HAZARD_EVADE`: `['jump', 'stepLeft', 'stepRight']` (점프 정상 전달 회피 인정)
+>   - `STAR_COLLECT`: `['reachLeft', 'reachRight', 'jump']`
+>   - `BOSS_CLIMAX`: `['jump', 'stepLeft', 'stepRight']`
+>   - config 변경만으로 코드 수정 없이 소유권 확장/변경 지원.
+> - **통합 불응기 (0.25s Refractory Lockout)**:
+>   - 판정 확정 후 0.25s 동안 intent 소비 락아웃 (0.20s 차단, 0.30s 정상 통과).
+>   - FSM 페이즈 전환 시 불응기 즉시 리셋.
+> - **완전한 하위 호환 폴백 (Pure Fallback)**:
+>   - `ArmReachAnswerSelector`, `PhaseAHazardController`, `StarCollectionInput`에 어댑터 형태로 주입되며, 버스 미주입 시 기존 동작 100% 보존.
+> - **TDD 검증**:
+>   - 10개 Red 시나리오를 포함한 `motion-intent-bus.test.ts` (9 tests) & `phase-motion-ownership.test.ts` (10 tests) 통과, 전체 108개 파일 1,238개 테스트 100% Pass.
 
 ---
 

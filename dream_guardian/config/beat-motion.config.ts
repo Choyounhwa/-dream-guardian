@@ -61,7 +61,7 @@ export interface ArmReachAnswerConfig {
   dynamicMinHorizontalSpeed: number;
   /** 수평/수직 우세 비율 (기본 1.2) */
   horizontalDominanceRatio: number;
-  /** 점프 판정 수직 속도 상한 (정규화 단위/초, 기본 0.22) */
+  /** 점프 판정 수직 속도 상한 (정규화 단위/초, 기본 0.22) @see JUMP_VERTICAL_SPEED_THRESHOLD in judgment.config.ts (SSOT) */
   jumpVerticalSpeedThreshold: number;
   /** 카메라 미러링 여부 (기본 false) */
   isMirrored: boolean;

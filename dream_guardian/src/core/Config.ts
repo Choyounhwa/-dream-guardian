@@ -51,7 +51,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   motion: {
     squatThreshold: 0.065,
     jumpThreshold: 0.065,
-    jumpSpeedMin: 0.22,
+    jumpSpeedMin: 0.22, // @see JUMP_VERTICAL_SPEED_THRESHOLD in judgment.config.ts (SSOT: 0.22)
     runBounceMin: 0.012,
     stepInterval: 0.2,
     hipBounceMin: 0.010,

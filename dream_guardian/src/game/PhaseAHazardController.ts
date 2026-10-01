@@ -9,6 +9,9 @@ import {
   type TimingLeniencyConfig,
 } from '../../config/judgment.config.js';
 import { InputBuffer } from '../input/InputBuffer.js';
+import type { MotionIntentBus } from '../motion/MotionIntentBus.js';
+import type { UnsubscribeFn } from '../types/motion-intent.js';
+
 
 export { DEFAULT_PHASE_A_HAZARD_PATTERN } from '../../config/phase-a-hazard.config.js';
 export { DEFAULT_PHASE_A_HAZARD_CONFIG } from '../../config/phase-a-hazard.config.js';
@@ -34,6 +37,7 @@ export interface PhaseAHazardControllerOptions extends Partial<PhaseAHazardConfi
   timingLeniency?: Partial<TimingLeniencyConfig>;
   onBeatResolved?: (result: PhaseAHazardBeatResult) => void;
   onHazardResolved?: (result: PhaseAHazardBeatResult) => void;
+  intentBus?: MotionIntentBus;
 }
 
 export class PhaseAHazardController {
@@ -42,6 +46,8 @@ export class PhaseAHazardController {
   private readonly _inputBuffer: InputBuffer<PhaseAHazardPattern>;
   private readonly _onBeatResolved?: (result: PhaseAHazardBeatResult) => void;
   private readonly _onHazardResolved?: (result: PhaseAHazardBeatResult) => void;
+  private _intentBus: MotionIntentBus | null = null;
+  private _intentBusUnsub: UnsubscribeFn | null = null;
   private _active = false;
   private _elapsed = 0;
   private _activePattern: PhaseAHazardPattern | null = null;
@@ -68,6 +74,38 @@ export class PhaseAHazardController {
     this._inputBuffer = new InputBuffer<PhaseAHazardPattern>(this._leniencyConfig.preBufferWindow);
     this._onBeatResolved = options?.onBeatResolved ?? legacyOnResolved;
     this._onHazardResolved = options?.onHazardResolved;
+    if (options?.intentBus) {
+      this.attachIntentBus(options.intentBus);
+    }
+  }
+
+  /**
+   * MotionIntentBus 연결 (Issue #252 어댑터 패턴)
+   */
+  attachIntentBus(bus: MotionIntentBus): UnsubscribeFn {
+    if (this._intentBusUnsub) {
+      this._intentBusUnsub();
+      this._intentBusUnsub = null;
+    }
+    this._intentBus = bus;
+    const unsub = bus.subscribe((intent) => {
+      if (!this._active || this._isResolved) return;
+      if (intent.type === 'jump') {
+        this.recordAction('jump');
+      } else if (intent.type === 'stepLeft') {
+        this.recordAction('left_step');
+      } else if (intent.type === 'stepRight') {
+        this.recordAction('right_step');
+      }
+    });
+    this._intentBusUnsub = () => {
+      unsub();
+      if (this._intentBus === bus) {
+        this._intentBus = null;
+      }
+      this._intentBusUnsub = null;
+    };
+    return this._intentBusUnsub;
   }
 
   get isActive(): boolean {
