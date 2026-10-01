@@ -24,6 +24,7 @@ export interface BeatHUDState {
   question?: GeneratedQuestion | null;
   totalSteps?: number;
   completedExerciseBeats?: number;
+  exerciseBeats?: number;
   locomotionMode?: LocomotionMode;
   activeHazardPattern?: PhaseAHazardPattern | null;
   hazardBeatProgress?: number;
@@ -134,20 +135,23 @@ export class BeatHUDRenderer {
 
     const dotY = cy + 260 * scaleY;
 
-    // 3.5 8박 원형 인디케이터 (옵션 활성화 시)
+    // 3.5 원형 인디케이터 (옵션 활성화 시)
     if (this._showBeatDots) {
       const completedBeats = state.completedExerciseBeats ?? 0;
-      const dotRadius = BEAT_HUD_CONFIG.DOT_RADIUS * scaleX;
-      const dotGap = BEAT_HUD_CONFIG.DOT_GAP * scaleX;
-      const startX = cx - (7 * dotGap) / 2;
+      const totalBeats = state.exerciseBeats ?? BEAT_HUD_CONFIG.TOTAL_BEATS;
+      const dotScale = totalBeats > 8 ? 8 / totalBeats : 1.0;
+      const dotRadius = BEAT_HUD_CONFIG.DOT_RADIUS * scaleX * dotScale;
+      const dotGap = BEAT_HUD_CONFIG.DOT_GAP * scaleX * dotScale;
+      const startX = cx - ((totalBeats - 1) * dotGap) / 2;
       const indicatorY = cy + BEAT_HUD_CONFIG.DOT_OFFSET_Y;
 
-      for (let i = 0; i < BEAT_HUD_CONFIG.TOTAL_BEATS; i++) {
+      for (let i = 0; i < totalBeats; i++) {
         const bx = startX + i * dotGap;
         ctx.beginPath();
         ctx.arc(bx, indicatorY, dotRadius, 0, Math.PI * 2);
         if (i < completedBeats) {
-          const color = i >= BEAT_HUD_CONFIG.COLOR_SPLIT_BEAT ? BEAT_HUD_CONFIG.COLOR_LATE : BEAT_HUD_CONFIG.COLOR_EARLY;
+          const splitBeat = Math.round((totalBeats * 5) / 8);
+          const color = i >= splitBeat ? BEAT_HUD_CONFIG.COLOR_LATE : BEAT_HUD_CONFIG.COLOR_EARLY;
           ctx.fillStyle = color;
           ctx.shadowColor = color;
           ctx.shadowBlur = 10;
@@ -158,8 +162,9 @@ export class BeatHUDRenderer {
         ctx.fill();
         ctx.shadowBlur = 0;
 
-        // 8박 인디케이터 번호 (A11Y-001: 최소 24px 하한선 보장)
-        ctx.font = UIText.getFont('caption', scaleX, 'bold', 'sans-serif', 24);
+        // 인디케이터 번호 (A11Y-001: 최소 24px 하한선 보장)
+        const fontMin = totalBeats > 8 ? 16 : 24;
+        ctx.font = UIText.getFont('caption', scaleX * dotScale, 'bold', 'sans-serif', fontMin);
         ctx.fillStyle = i < completedBeats ? '#000000' : 'rgba(255, 255, 255, 0.5)';
         ctx.fillText(`${i + 1}`, bx, indicatorY);
       }

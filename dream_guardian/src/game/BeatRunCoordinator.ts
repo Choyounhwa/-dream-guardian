@@ -27,7 +27,12 @@ import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import type { RoundAnswerStatus } from '../types/result.js';
 import type { Keynote } from '../types/keynote.js';
 import type { MusicTrackConfig } from '../types/track.js';
-import { DEFAULT_TRACK_CONFIG, DEFAULT_LOOP_PATTERN } from '../../config/beat-motion.config.js';
+import {
+  DEFAULT_TRACK_CONFIG,
+  DEFAULT_DIFFICULTY_BEAT_PROFILE,
+  getDifficultyBeatProfile,
+  type DifficultyBeatProfile,
+} from '../../config/beat-motion.config.js';
 
 export type BeatRoutineMode = 'arm_reach' | 'legacy';
 
@@ -51,6 +56,7 @@ export interface BeatRunCoordinatorOptions {
   keynotes?: readonly Keynote[];
   routineMode?: BeatRoutineMode;
   trackConfig?: MusicTrackConfig;
+  difficultyProfile?: DifficultyBeatProfile;
   onQuestionGenerated?: (question: GeneratedQuestion) => void;
   onPhaseChange?: (phase: BeatPhase) => void;
   onAnswerConfirmed?: (choiceIndex: number, correct: boolean, status: RoundAnswerStatus) => void;
@@ -66,6 +72,7 @@ export class BeatRunCoordinator {
   private readonly _options: BeatRunCoordinatorOptions;
   private readonly _routineMode: BeatRoutineMode;
   private _trackConfig: MusicTrackConfig;
+  private _difficultyProfile: DifficultyBeatProfile;
 
   private _phase: BeatPhase = 'RUN_QUESTION';
   private _currentQuestion: GeneratedQuestion | null = null;
@@ -89,14 +96,29 @@ export class BeatRunCoordinator {
     this._options = options ?? {};
     this._routineMode = options?.routineMode ?? (options?.armReachAnswerSelector ? 'arm_reach' : 'legacy');
     this._trackConfig = options?.trackConfig ?? DEFAULT_TRACK_CONFIG;
+    if (options?.difficultyProfile) {
+      this._difficultyProfile = { ...options.difficultyProfile };
+    } else if (this._trackConfig.loopPattern) {
+      this._difficultyProfile = {
+        exerciseBeats: this._trackConfig.loopPattern.exerciseBeats,
+        approachStartBeat: Math.max(0, this._trackConfig.loopPattern.exerciseBeats - 2),
+        answerSelectBeats: this._trackConfig.loopPattern.readyBeats,
+        branchRoutineBeats: this._trackConfig.loopPattern.performanceBeats,
+      };
+    } else {
+      this._difficultyProfile = { ...DEFAULT_DIFFICULTY_BEAT_PROFILE };
+    }
+
     if (options?.rhythmEngine) {
       this._rhythmEngine = options.rhythmEngine;
       if (options.trackConfig) {
         this._rhythmEngine.setTrackConfig(options.trackConfig);
       }
+      this._rhythmEngine.setBeatsPerRound(this._difficultyProfile.exerciseBeats);
     } else {
       this._rhythmEngine = new RhythmEngine({
         trackConfig: this._trackConfig,
+        beatsPerRound: this._difficultyProfile.exerciseBeats,
       });
     }
     this._centerReturnGate = options?.centerReturnGate ?? new CenterReturnGate();
@@ -118,21 +140,42 @@ export class BeatRunCoordinator {
     return this._trackConfig;
   }
 
+  get difficultyProfile(): DifficultyBeatProfile {
+    return { ...this._difficultyProfile };
+  }
+
+  setDifficultyProfile(profile: DifficultyBeatProfile): void {
+    this._difficultyProfile = { ...profile };
+    this._rhythmEngine.setBeatsPerRound(this._difficultyProfile.exerciseBeats);
+  }
+
   setTrackConfig(config: MusicTrackConfig): void {
     this._trackConfig = config;
     this._rhythmEngine.setTrackConfig(config);
+    if (config.loopPattern) {
+      this._difficultyProfile = {
+        exerciseBeats: config.loopPattern.exerciseBeats,
+        approachStartBeat: Math.max(0, config.loopPattern.exerciseBeats - 2),
+        answerSelectBeats: config.loopPattern.readyBeats,
+        branchRoutineBeats: config.loopPattern.performanceBeats,
+      };
+    }
   }
 
   get exerciseBeats(): number {
-    return this._trackConfig.loopPattern?.exerciseBeats ?? DEFAULT_LOOP_PATTERN.exerciseBeats;
+    return this._difficultyProfile.exerciseBeats;
+  }
+
+  get approachStartBeat(): number {
+    return this._difficultyProfile.approachStartBeat;
   }
 
   get readyBeats(): number {
-    return this._trackConfig.loopPattern?.readyBeats ?? DEFAULT_LOOP_PATTERN.readyBeats;
+    return this._difficultyProfile.answerSelectBeats;
   }
 
   get performanceBeats(): number {
-    return this._trackConfig.loopPattern?.performanceBeats ?? DEFAULT_LOOP_PATTERN.performanceBeats;
+    return this._difficultyProfile.branchRoutineBeats;
   }
 
   get countInBeats(): number {
@@ -276,10 +319,52 @@ export class BeatRunCoordinator {
   }
 
   /**
+   * 답안 소실점 원근 접근 진행도 (0.0: 소실점 ~ 1.0: 정면 도달)
+   * Issue #279 [BEAT-DIFFICULTY-001]:
+   * - COUNT_IN 중에는 0.0
+   * - RUN_QUESTION 중 경과 박자 < approachStartBeat 이면 0.0
+   * - approachStartBeat 부터 exerciseBeats 까지 0.0 -> 1.0 ease-out quadratic 보간
+   * - ANSWER_SELECT 및 이후 페이즈에서는 1.0 유지
+   */
+  get answerApproachProgress(): number {
+    if (this._phase === 'COUNT_IN') {
+      return 0.0;
+    }
+    if (this._phase !== 'RUN_QUESTION') {
+      return 1.0;
+    }
+    const spb = this._rhythmEngine.secondsPerBeat || 0.5;
+    const startElapsed = this.approachStartBeat * spb;
+    const endElapsed = this.exerciseBeats * spb;
+    if (this._runElapsed <= startElapsed) {
+      return 0.0;
+    }
+    if (this._runElapsed >= endElapsed) {
+      return 1.0;
+    }
+    const duration = endElapsed - startElapsed;
+    if (duration <= 0) return 1.0;
+    const linear = Math.max(0, Math.min(1.0, (this._runElapsed - startElapsed) / duration));
+    return 1.0 - Math.pow(1.0 - linear, 2);
+  }
+
+  /**
    * 새 라운드 시작 (달리기 1박부터 시작 또는 카운트인 예비박 동반)
    * @param options.withCountIn true 시 트랙 BPM에 동기화된 예비박(Count-in) 시동 후 1라운드 전이
+   * @param options.difficultyProfile 라운드 전용 난이도 박자 프로필 (지정 시 적용)
    */
-  startRound(options?: { chapter?: number; subLevel?: number; withCountIn?: boolean }): void {
+  startRound(options?: {
+    chapter?: number;
+    subLevel?: number;
+    withCountIn?: boolean;
+    difficultyProfile?: DifficultyBeatProfile;
+  }): void {
+    if (options?.difficultyProfile) {
+      this.setDifficultyProfile(options.difficultyProfile);
+    } else if (options?.chapter !== undefined) {
+      this.setDifficultyProfile(getDifficultyBeatProfile(options.chapter, options.subLevel));
+    }
+
     if (options?.chapter !== undefined) {
       this._questionBank.setLevel(options.chapter, options.subLevel);
     }
@@ -295,7 +380,17 @@ export class BeatRunCoordinator {
   /**
    * 트랙 BPM에 동기화된 예비박(Count-in 3박자 메트로놈) 시동
    */
-  startCountIn(options?: { chapter?: number; subLevel?: number }): void {
+  startCountIn(options?: {
+    chapter?: number;
+    subLevel?: number;
+    difficultyProfile?: DifficultyBeatProfile;
+  }): void {
+    if (options?.difficultyProfile) {
+      this.setDifficultyProfile(options.difficultyProfile);
+    } else if (options?.chapter !== undefined) {
+      this.setDifficultyProfile(getDifficultyBeatProfile(options.chapter, options.subLevel));
+    }
+
     if (options?.chapter !== undefined) {
       this._questionBank.setLevel(options.chapter, options.subLevel);
     }
@@ -561,9 +656,12 @@ export class BeatRunCoordinator {
     this._lastExercisedSlot = currentSlot;
     this._completedExerciseBeats++;
 
-    if (this._completedExerciseBeats === this.exerciseBeats) {
-      // exerciseBeats번째 유효 슬롯 인정됨: 전환 목표 시점은 해당 슬롯 종료 경계
-      this._targetSlotEndElapsed = (currentSlot + 1) * spb;
+    // Issue #279 [BEAT-DIFFICULTY-001 / 사전 위험 1번 해결]:
+    // N박 중 N-2박(approachStartBeat) 필수 운동 스텝 완료 인정
+    // 마지막 2박은 선택 준비 구간으로 전환 목표 시점(exerciseBeats 슬롯 경계) 설정
+    if (this._completedExerciseBeats >= this.approachStartBeat && this._targetSlotEndElapsed === null) {
+      const remainingBeats = Math.max(0, this.exerciseBeats - this._completedExerciseBeats);
+      this._targetSlotEndElapsed = (currentSlot + 1 + remainingBeats) * spb;
     }
   }
 

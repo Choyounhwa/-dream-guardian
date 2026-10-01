@@ -262,3 +262,86 @@ export const CHAPTER_TRACK_PRESETS: Readonly<Record<number, MusicTrackConfig>> =
     },
   },
 });
+
+// ─── Difficulty Beat Profile & Variable Loop (Issue #279 / BEAT-DIFFICULTY-001) ───
+
+export interface DifficultyBeatProfile {
+  /** 러닝/운동 총 박자 수 (8, 12, 16) */
+  exerciseBeats: number;
+  /** 답안 원근 접근 시작 박자 (exerciseBeats - 2 = 6, 10, 14) */
+  approachStartBeat: number;
+  /** 답안 선택 유효 박자 수 (기본 2박, 심화 4박) */
+  answerSelectBeats: number;
+  /** 분기 루틴(별가루 8노트 / 보스 장판 회피) 박자 수 (기본 8박) */
+  branchRoutineBeats: number;
+}
+
+export const DEFAULT_DIFFICULTY_BEAT_PROFILE: DifficultyBeatProfile = {
+  exerciseBeats: 8,
+  approachStartBeat: 6,
+  answerSelectBeats: 2,
+  branchRoutineBeats: 8,
+};
+
+export const CHAPTER_SUBLEVEL_BEAT_PROFILES: Readonly<
+  Record<number, { default: DifficultyBeatProfile; subLevels?: Record<number, DifficultyBeatProfile> }>
+> = Object.freeze({
+  1: {
+    default: { exerciseBeats: 8, approachStartBeat: 6, answerSelectBeats: 2, branchRoutineBeats: 8 },
+    subLevels: {
+      1: { exerciseBeats: 8, approachStartBeat: 6, answerSelectBeats: 2, branchRoutineBeats: 8 },
+      2: { exerciseBeats: 8, approachStartBeat: 6, answerSelectBeats: 2, branchRoutineBeats: 8 },
+      3: { exerciseBeats: 8, approachStartBeat: 6, answerSelectBeats: 2, branchRoutineBeats: 8 },
+    },
+  },
+  2: {
+    default: { exerciseBeats: 8, approachStartBeat: 6, answerSelectBeats: 2, branchRoutineBeats: 8 },
+    subLevels: {
+      1: { exerciseBeats: 8, approachStartBeat: 6, answerSelectBeats: 2, branchRoutineBeats: 8 },
+      2: { exerciseBeats: 8, approachStartBeat: 6, answerSelectBeats: 2, branchRoutineBeats: 8 },
+      3: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 2, branchRoutineBeats: 8 },
+      4: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 2, branchRoutineBeats: 8 },
+    },
+  },
+  3: {
+    default: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 2, branchRoutineBeats: 8 },
+    subLevels: {
+      1: { exerciseBeats: 8, approachStartBeat: 6, answerSelectBeats: 2, branchRoutineBeats: 8 },
+      2: { exerciseBeats: 8, approachStartBeat: 6, answerSelectBeats: 2, branchRoutineBeats: 8 },
+      3: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 4, branchRoutineBeats: 8 },
+      4: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 4, branchRoutineBeats: 8 },
+    },
+  },
+  4: {
+    default: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 2, branchRoutineBeats: 8 },
+    subLevels: {
+      1: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 2, branchRoutineBeats: 8 },
+      2: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 2, branchRoutineBeats: 8 },
+      3: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 4, branchRoutineBeats: 8 },
+      4: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 4, branchRoutineBeats: 8 },
+    },
+  },
+  5: {
+    default: { exerciseBeats: 16, approachStartBeat: 14, answerSelectBeats: 4, branchRoutineBeats: 8 },
+    subLevels: {
+      1: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 4, branchRoutineBeats: 8 },
+      2: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 4, branchRoutineBeats: 8 },
+      3: { exerciseBeats: 16, approachStartBeat: 14, answerSelectBeats: 4, branchRoutineBeats: 8 },
+      4: { exerciseBeats: 12, approachStartBeat: 10, answerSelectBeats: 4, branchRoutineBeats: 8 },
+      5: { exerciseBeats: 16, approachStartBeat: 14, answerSelectBeats: 4, branchRoutineBeats: 8 },
+      6: { exerciseBeats: 16, approachStartBeat: 14, answerSelectBeats: 4, branchRoutineBeats: 8 },
+    },
+  },
+});
+
+export function getDifficultyBeatProfile(chapter: number, subLevel?: number): DifficultyBeatProfile {
+  const chapterConfig = CHAPTER_SUBLEVEL_BEAT_PROFILES[chapter];
+  if (!chapterConfig) {
+    return { ...DEFAULT_DIFFICULTY_BEAT_PROFILE };
+  }
+  if (subLevel !== undefined && subLevel > 0 && chapterConfig.subLevels?.[subLevel]) {
+    return { ...chapterConfig.subLevels[subLevel] };
+  }
+  return { ...chapterConfig.default };
+}
+

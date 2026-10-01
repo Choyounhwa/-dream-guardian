@@ -87,7 +87,7 @@
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
 | 24 | **#204** | [BEAT-TRACK-001] 음악 트랙별 가변 박자(BPM/LoopPattern) 및 카운트인(Count-in) 연동 아키텍처 구축 | 없음 | `[✔] 완료` |
-| 25 | **#279** | [BEAT-DIFFICULTY-001] 챕터-서브메뉴별 난이도 기반 박자 동적 프로필 및 6박 답안 원근 접근 연계 | #204 | `[▶ NEXT]` |
+| 25 | **#279** | [BEAT-DIFFICULTY-001] 챕터-서브메뉴별 난이도 기반 박자 동적 프로필 및 6박 답안 원근 접근 연계 | #204 | `[✔] 완료` |
 
 ### 📌 F. 스토리 대사 및 보스 정비 시리즈 (STORY & BOSS)
 
@@ -114,6 +114,30 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [BEAT-DIFFICULTY-001 / #279] 챕터-서브메뉴별 난이도 기반 박자 동적 프로필 제어 및 6박 답안 원근 접근 연계
+
+> #279 구현 및 TDD 사이클 전수 통과 완료 (142개 파일 1,718개 테스트 100% Pass).
+> - **`config/beat-motion.config.ts`**:
+>   - `DifficultyBeatProfile` 인터페이스, `DEFAULT_DIFFICULTY_BEAT_PROFILE` (8-6-2-8), `CHAPTER_SUBLEVEL_BEAT_PROFILES` 매핑 및 `getDifficultyBeatProfile(chapter, subLevel)` 유틸리티 함수 구현
+> - **`src/game/BeatRunCoordinator.ts`**:
+>   - 라운드 시작 시(`startRound({ chapter, subLevel, difficultyProfile })`) 난이도 프로필 적용 및 `RhythmEngine` 연동
+>   - `answerApproachProgress` getter: `approachStartBeat` 이전 0.0, 이후 0.0 -> 1.0 quadratic ease-out 감속 보간, `ANSWER_SELECT` 시 1.0 유지
+>   - **[사전 위험 1번 해결]**: N-2박(8박 중 6스텝, 12박 중 10스텝) 필수 운동 완료 시 잔여 2박은 선택 준비 구간으로 취급하여 시간 경과 시 자연스럽게 `ANSWER_SELECT`로 전이
+>   - **[사전 위험 2번 해결]**: 러닝 중(6~8박)에는 답안 선택 입력(ArmReach, 터치/클릭)이 완전 차단(시각 프리뷰 전용)되고, `ANSWER_SELECT` 전이 시점에만 입력 윈도우 개방
+> - **`src/render/QuestionRenderer.ts`**:
+>   - `QuestionRenderState`에 `answerApproachProgress`, `vanishingX`, `vanishingY`, `buttonsOnly` 지원 확장
+>   - 소실점에서 목표 위치(Zone 4/5)로 부채꼴 외곽 궤적 보간 및 스케일/알파/수식 폰트 보간 지원, 1.0 도달 시 깜빡임 없이 1:1 완벽 유지
+> - **`src/ui/PhasePresentationAdapter.ts`**:
+>   - `canRenderAnswerPreview(state, approachProgress)` 신설로 러닝 중 6박 이후 답안 프리뷰 렌더링 허용
+> - **`src/render/BeatHUDRenderer.ts`**:
+>   - `exerciseBeats`에 따른 8/12/16박 동적 원형 인디케이터 도트 렌더링 지원
+> - **`src/main.ts`**:
+>   - 챕터/서브레벨 선택 시 매핑된 프로필을 `beatCoordinator`에 전달하고, 러닝 페이즈 6박 이후 답안 카드 원근 접근 프리뷰 렌더링 연동
+> - **`tests/unit/beat-difficulty-profile.test.ts` (신규)**:
+>   - 난이도 프로필 모델, 가변 박자 계산, N-2박 자동 전이, 입력 잠금, 원근 보간 및 프리뷰 렌더 판정 등 15개 단위 테스트 100% Pass
 
 ---
 

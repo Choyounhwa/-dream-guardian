@@ -120,10 +120,24 @@ export class PhasePresentationAdapter {
   }
 
   /**
-   * 상단 문제 수식 및 2개 답안 버튼 렌더링 허용 여부 (ANSWER_SELECT 상태에서만 허용)
+   * 상단 문제 수식 및 2개 답안 버튼 렌더링 허용 여부 (ANSWER_SELECT 상태에서만 허용, allowPreview 지정 시 RUN_QUESTION 프리뷰 허용)
    */
-  canRenderQuestion(state: GameState): boolean {
-    return state === 'ANSWER_SELECT';
+  canRenderQuestion(
+    state: GameState,
+    options?: { allowPreview?: boolean; approachProgress?: number },
+  ): boolean {
+    if (state === 'ANSWER_SELECT') return true;
+    if (options?.allowPreview && state === 'RUN_QUESTION' && (options.approachProgress ?? 0) > 0) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 러닝 페이즈 6박 이후 답안 원근 접근 프리뷰 렌더링 허용 여부 (Issue #279)
+   */
+  canRenderAnswerPreview(state: GameState, approachProgress = 0): boolean {
+    return state === 'RUN_QUESTION' && approachProgress > 0;
   }
 
   /**

@@ -798,7 +798,7 @@ function startRunningPhase(): void {
   jumpDetector.reset();
   beatCoordinator.startRound({ chapter: currentChapter, subLevel: selectedSubLevel });
   currentQuestion = beatCoordinator.currentQuestion;
-  console.log(`[DG] 8박 문제 라운드 시작: ${currentQuestion?.questionText}`);
+  console.log(`[DG] ${beatCoordinator.exerciseBeats}박 문제 라운드 시작: ${currentQuestion?.questionText}`);
 }
 
 // Issue #213: Phase B 보스 결전 및 연속 별모으기 피버 컨트롤러 인스턴스화
@@ -1722,12 +1722,13 @@ const engine = new GameEngine({
       bossRenderer.render(ctx, currentChapter, bossX, bossY, bossRadius, boss.phase);
       hudLayer.render(ctx, vw, vh, getHUDData());
 
-      // Issue #232: GameState 기반 상태별 렌더 허용표(Render Allow Matrix) 적용
+      // Issue #232 & #279: GameState 기반 상태별 렌더 허용표(Render Allow Matrix) 적용
       if (presentationAdapter.canRenderRunningHUD(stateMachine.currentState)) {
         beatHUDRenderer.render(ctx, vw, vh, {
           question: currentQuestion,
           totalSteps,
           completedExerciseBeats: beatCoordinator.completedExerciseBeats,
+          exerciseBeats: beatCoordinator.exerciseBeats,
           locomotionMode: locomotionModal.selectedMode,
           activeHazardPattern: null,
           hazardBeatProgress: 0,
@@ -1735,11 +1736,32 @@ const engine = new GameEngine({
           vanishingX: bossX,
           vanishingY: bossY,
         });
+
+        // Issue #279: 러닝 페이즈 approachStartBeat(기본 6박) 이후 답안 카드 원근 접근 프리뷰 렌더링
+        if (
+          presentationAdapter.canRenderAnswerPreview(
+            stateMachine.currentState,
+            beatCoordinator.answerApproachProgress,
+          )
+        ) {
+          questionRenderer.render(ctx, vw, vh, {
+            question: currentQuestion,
+            questionVisible: true,
+            selectedChoiceIndex: null,
+            answerApproachProgress: beatCoordinator.answerApproachProgress,
+            vanishingX: bossX,
+            vanishingY: bossY,
+            buttonsOnly: true,
+          });
+        }
       } else if (presentationAdapter.canRenderQuestion(stateMachine.currentState)) {
         questionRenderer.render(ctx, vw, vh, {
           question: currentQuestion,
           questionVisible,
           selectedChoiceIndex: beatCoordinator.selectedChoiceIndex,
+          answerApproachProgress: 1.0,
+          vanishingX: bossX,
+          vanishingY: bossY,
         });
 
         // Issue #255: ANSWER_SELECT 상태에서 부분 진행도 시각화 및 실패 사유 힌트 렌더링

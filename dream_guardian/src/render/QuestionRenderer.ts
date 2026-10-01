@@ -18,6 +18,13 @@ export interface QuestionRenderState {
   questionVisible: boolean;
   selectedChoiceIndex?: number | null;
   answerPlan?: QuestionRecipePlan | null;
+  /** Issue #279: 답안 원근 접근 진행도 (0.0: 소실점 ~ 1.0: 정면 안착) */
+  answerApproachProgress?: number;
+  /** 원근 접근 소실점 좌표 (기본 중앙 상단 / 보스 위치) */
+  vanishingX?: number;
+  vanishingY?: number;
+  /** 러닝 페이즈 6박 이후 답안 프리뷰 시 헤더 중복 방지 플래그 */
+  buttonsOnly?: boolean;
 }
 
 export interface QuestionHeaderMathOptions {
@@ -98,65 +105,87 @@ export class QuestionRenderer {
 
     ctx.save();
 
-    // 1. 문제영역 가상 레이아웃 영역 (Y 기준 좌표계 유지)
-    const boxY = 320 * scaleY;
-    const cx = w / 2;
-    // 도형 존재 시 문제 텍스트를 상단으로 정렬하여 중앙 3D 뷰포트 영역(480~820px)과 겹침 0% 보장
-    const qY = shape ? boxY + 70 * scaleY : boxY + 220 * scaleY;
+    // 1 & 2. 문제영역 가상 레이아웃 및 수식/도형 (buttonsOnly가 아닐 때만 렌더)
+    if (!state.buttonsOnly) {
+      const boxY = 320 * scaleY;
+      const cx = w / 2;
+      // 도형 존재 시 문제 텍스트를 상단으로 정렬하여 중앙 3D 뷰포트 영역(480~820px)과 겹침 0% 보장
+      const qY = shape ? boxY + 70 * scaleY : boxY + 220 * scaleY;
 
-    // 2. 문제 수식 텍스트 (Issue #167 & #234: 긴 자연어/복합 수식 높이 및 너비 안전 수용)
-    renderQuestionHeaderMath(ctx, state.question.questionText, cx, qY, scaleX, false, {
-      hasShape: Boolean(shape),
-      maxHeight: shape ? 140 * scaleY : 320 * scaleY,
-    });
+      // 2. 문제 수식 텍스트 (Issue #167 & #234: 긴 자연어/복합 수식 높이 및 너비 안전 수용)
+      renderQuestionHeaderMath(ctx, state.question.questionText, cx, qY, scaleX, false, {
+        hasShape: Boolean(shape),
+        maxHeight: shape ? 140 * scaleY : 320 * scaleY,
+      });
 
-    // 2-1. 도형(쌓기나무 3D / 전개도 / 회전) 시각화 렌더링 (텍스트와 버튼 사이 중앙 비간섭 영역)
-    if (shape) {
-      const panelW = 480 * scaleX;
-      const panelH = 340 * scaleY;
-      const panelCy = 650 * scaleY;
-      this._shapeRenderer.renderShape(ctx, shape, cx, panelCy, panelW, panelH);
+      // 2-1. 도형(쌓기나무 3D / 전개도 / 회전) 시각화 렌더링 (텍스트와 버튼 사이 중앙 비간섭 영역)
+      if (shape) {
+        const panelW = 480 * scaleX;
+        const panelH = 340 * scaleY;
+        const panelCy = 650 * scaleY;
+        this._shapeRenderer.renderShape(ctx, shape, cx, panelCy, panelW, panelH);
+      }
     }
 
-    // 3. 답안 버튼 2개 횡배치 (Issue #164 & #233: Zone 4/5 깔끔한 2버튼 레이아웃)
+    // 3. 답안 버튼 2개 횡배치 (Issue #164, #233 & #279: Zone 4/5 깔끔한 2버튼 레이아웃 및 소실점 원근 접근)
     const buttonLayouts = getAnswerButtonLayouts(w, h);
+    const progress = state.answerApproachProgress !== undefined
+      ? Math.max(0, Math.min(1.0, state.answerApproachProgress))
+      : 1.0;
+    const vx = state.vanishingX ?? (w / 2);
+    const vy = state.vanishingY ?? (h * 0.24);
+
+    const isApproaching = progress < 1.0;
+    const eased = isApproaching ? 1.0 - Math.pow(1.0 - progress, 2) : 1.0;
+    const minScale = 0.20;
+    const minAlpha = 0.20;
+    const scale = isApproaching ? minScale + (1.0 - minScale) * eased : 1.0;
+    const alpha = isApproaching ? minAlpha + (1.0 - minAlpha) * eased : 1.0;
 
     for (let i = 0; i < 2; i++) {
       const btn = buttonLayouts[i];
-      const bx = btn.x;
-      const btnY = btn.y;
-      const btnW = btn.width;
-      const btnH = btn.height;
+      const targetCenterX = btn.x + btn.width / 2;
+      const targetCenterY = btn.y + btn.height / 2;
+
+      // 소실점에서 목표 위치로 부채꼴 외곽 궤적 보간
+      const curCenterX = isApproaching ? vx + (targetCenterX - vx) * eased : targetCenterX;
+      const curCenterY = isApproaching ? vy + (targetCenterY - vy) * eased : targetCenterY;
+
+      const curW = btn.width * scale;
+      const curH = btn.height * scale;
+      const bx = curCenterX - curW / 2;
+      const btnY = curCenterY - curH / 2;
+
+      ctx.save();
+      ctx.globalAlpha *= alpha;
 
       // Issue #233: 구형 방사형 레시피 색상 분할 제거 -> 모던 반투명 네온 버튼 배경
-      ctx.save();
       ctx.fillStyle = 'rgba(16, 24, 48, 0.88)';
       ctx.beginPath();
       if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(bx, btnY, btnW, btnH, 20 * scaleX);
+        ctx.roundRect(bx, btnY, curW, curH, 20 * scaleX * scale);
       } else {
-        ctx.rect(bx, btnY, btnW, btnH);
+        ctx.rect(bx, btnY, curW, curH);
       }
       ctx.fill();
 
       // 기본 네온 테두리 (좌측 Zone 4: 시안 #28E6FF, 우측 Zone 5: 노랑 #FFCB4D)
       ctx.strokeStyle = i === 0 ? 'rgba(40, 230, 255, 0.7)' : 'rgba(255, 203, 77, 0.7)';
-      ctx.lineWidth = 6 * scaleX;
+      ctx.lineWidth = 6 * scaleX * scale;
       ctx.stroke();
-      ctx.restore();
 
       // Issue #200 & #233: 답안 선택 즉시 녹색 선택 하이라이트 테두리 점등
       if (state.selectedChoiceIndex === i) {
         ctx.save();
         ctx.strokeStyle = '#4DFFAA';
-        ctx.lineWidth = 10 * scaleX;
+        ctx.lineWidth = 10 * scaleX * scale;
         ctx.shadowColor = '#4DFFAA';
-        ctx.shadowBlur = 18;
+        ctx.shadowBlur = 18 * scale;
         ctx.beginPath();
         if (typeof ctx.roundRect === 'function') {
-          ctx.roundRect(bx - 3, btnY - 3, btnW + 6, btnH + 6, 22 * scaleX);
+          ctx.roundRect(bx - 3 * scale, btnY - 3 * scale, curW + 6 * scale, curH + 6 * scale, 22 * scaleX * scale);
         } else {
-          ctx.strokeRect(bx - 3, btnY - 3, btnW + 6, btnH + 6);
+          ctx.strokeRect(bx - 3 * scale, btnY - 3 * scale, curW + 6 * scale, curH + 6 * scale);
         }
         ctx.stroke();
         ctx.restore();
@@ -165,25 +194,34 @@ export class QuestionRenderer {
       // 수식 폰트: bold 96px (긴 수식은 최소 32px까지 자동 축소, 버튼 경계 내 안전 수용)
       const choiceStr = String(state.question.choices[i]);
       const choiceLen = choiceStr.length;
-      const choiceFontSize = choiceLen > 6 ? Math.max(50 * scaleX, (96 - (choiceLen - 6) * 5) * scaleX) : 96 * scaleX;
+      const baseChoiceFontSize = choiceLen > 6 ? Math.max(50 * scaleX, (96 - (choiceLen - 6) * 5) * scaleX) : 96 * scaleX;
+      const choiceFontSize = baseChoiceFontSize * scale;
 
-      renderMath(ctx, choiceStr, bx + btnW / 2, btnY + btnH / 2, {
+      renderMath(ctx, choiceStr, curCenterX, curCenterY, {
         fontSize: choiceFontSize,
         color: '#FFCB4D',
         align: 'center',
-        maxWidth: btnW - 32 * scaleX,
-        maxHeight: btnH - 32 * scaleY,
-        minFontSize: Math.round(32 * scaleX),
+        maxWidth: Math.max(20, (btn.width - 32 * scaleX) * scale),
+        maxHeight: Math.max(20, (btn.height - 32 * scaleY) * scale),
+        minFontSize: Math.round(32 * scaleX * scale),
         fractionLineColor: '#FFCB4D',
         placeholderColor: '#FFCB4D',
       });
 
-      // 키보드 힌트
-      ctx.font = UIText.getFont('badge', scaleX, 'bold');
-      ctx.fillStyle = '#CCCCCC';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`키보드 [${i + 1}]`, bx + btnW / 2, btnY + btnH + 34 * scaleY);
+      // 키보드 힌트 (접근 후반부 또는 정면 안착 시 표시)
+      if (progress >= 0.7) {
+        const badgeAlpha = isApproaching ? Math.min(1.0, (progress - 0.7) / 0.3) : 1.0;
+        ctx.save();
+        ctx.globalAlpha *= badgeAlpha;
+        ctx.font = UIText.getFont('badge', scaleX * scale, 'bold');
+        ctx.fillStyle = '#CCCCCC';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`키보드 [${i + 1}]`, curCenterX, btnY + curH + 34 * scaleY * scale);
+        ctx.restore();
+      }
+
+      ctx.restore();
     }
 
     ctx.restore();
