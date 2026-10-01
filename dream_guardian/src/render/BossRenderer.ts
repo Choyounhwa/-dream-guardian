@@ -9,12 +9,15 @@
  * - Ch.5 나이트메어 (검은 다각형 파편 + 붉은 눈)
  */
 
+import { imageLoader } from '../utils/UIImageLoader.js';
+
 export interface BossRenderOptions {
   x: number;
   y: number;
   radius?: number;
   chapter: number;
   phase?: 'idle' | 'warning' | 'attacking' | 'defeated';
+  isEnraged?: boolean;
 }
 
 export class BossRenderer {
@@ -22,6 +25,16 @@ export class BossRenderer {
   private _hitTimer = 0;
   private _attackAnimTimer = 0;
   private _defeatedTimer = 0;
+  private _isEnraged = false;
+
+  /** 광폭화 상태 설정 */
+  setEnraged(enraged: boolean): void {
+    this._isEnraged = enraged;
+  }
+
+  get isEnraged(): boolean {
+    return this._isEnraged;
+  }
 
   /**
    * 매 프레임 애니메이션 시간 갱신
@@ -60,6 +73,7 @@ export class BossRenderer {
     y: number,
     radius = 90,
     phase: 'idle' | 'warning' | 'attacking' | 'defeated' = 'idle',
+    isEnraged = false,
   ): void {
     ctx.save();
 
@@ -94,24 +108,42 @@ export class BossRenderer {
       this._renderWarningAura(ctx, radius);
     }
 
-    // 챕터별 프로시저럴 렌더러 호출
-    switch (chapter) {
-      case 1:
-        this._renderForget(ctx, radius);
-        break;
-      case 2:
-        this._renderHurry(ctx, radius);
-        break;
-      case 3:
-        this._renderJumble(ctx, radius);
-        break;
-      case 4:
-        this._renderGiveup(ctx, radius);
-        break;
-      case 5:
-      default:
-        this._renderNightmare(ctx, radius);
-        break;
+    // [UI-ASSET-005 / #270] 비트맵 이미지 스프라이트 분기 또는 프로시저럴 드로잉 폴백
+    const effectiveEnraged = isEnraged || this._isEnraged;
+    let spriteType = 'idle';
+    if (this._hitTimer > 0) {
+      spriteType = 'hit';
+    } else if (phase === 'attacking' || this._attackAnimTimer > 0 || effectiveEnraged) {
+      spriteType = 'enrage';
+    } else if (phase === 'defeated') {
+      spriteType = chapter === 5 ? 'defeat' : 'idle';
+    }
+
+    const spriteKey = `ch${chapter}_${spriteType}`;
+    const img = imageLoader.get('boss', spriteKey);
+
+    if (img) {
+      this._renderSprite(ctx, img, radius);
+    } else {
+      // 챕터별 프로시저럴 렌더러 호출
+      switch (chapter) {
+        case 1:
+          this._renderForget(ctx, radius);
+          break;
+        case 2:
+          this._renderHurry(ctx, radius);
+          break;
+        case 3:
+          this._renderJumble(ctx, radius);
+          break;
+        case 4:
+          this._renderGiveup(ctx, radius);
+          break;
+        case 5:
+        default:
+          this._renderNightmare(ctx, radius);
+          break;
+      }
     }
 
     // 피격 플래시 오버레이
@@ -124,6 +156,26 @@ export class BossRenderer {
     }
 
     ctx.restore();
+  }
+
+  /**
+   * 비트맵 보스 스프라이트 중심 기준 종횡비 유지 렌더링
+   */
+  private _renderSprite(ctx: CanvasRenderingContext2D, img: HTMLImageElement, radius: number): void {
+    const maxDim = radius * 2;
+    const imgW = img.naturalWidth || img.width || 1;
+    const imgH = img.naturalHeight || img.height || 1;
+
+    let drawW = maxDim;
+    let drawH = maxDim;
+
+    if (imgW >= imgH) {
+      drawH = maxDim * (imgH / imgW);
+    } else {
+      drawW = maxDim * (imgW / imgH);
+    }
+
+    ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
   }
 
   // ─── 경고 오라 ───

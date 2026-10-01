@@ -275,6 +275,7 @@ export interface UIImageAssetsConfig {
   settings: Record<string, string | null>;
   battle: Record<string, string | null>;
   pause: Record<string, string | null>;
+  boss: Record<string, string | null>;
 }
 
 export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
@@ -337,5 +338,23 @@ export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
     modalBg: '/assets/ui/pause/modal_bg.png',
     resumeBtn: '/assets/ui/pause/resume_btn.png',
     quitBtn: '/assets/ui/pause/quit_btn.png',
+  },
+  boss: {
+    ch1_idle: '/assets/boss/ch1/idle.png',
+    ch1_hit: '/assets/boss/ch1/hit.png',
+    ch1_enrage: '/assets/boss/ch1/enrage.png',
+    ch2_idle: '/assets/boss/ch2/idle.png',
+    ch2_hit: '/assets/boss/ch2/hit.png',
+    ch2_enrage: '/assets/boss/ch2/enrage.png',
+    ch3_idle: '/assets/boss/ch3/idle.png',
+    ch3_hit: '/assets/boss/ch3/hit.png',
+    ch3_enrage: '/assets/boss/ch3/enrage.png',
+    ch4_idle: '/assets/boss/ch4/idle.png',
+    ch4_hit: '/assets/boss/ch4/hit.png',
+    ch4_enrage: '/assets/boss/ch4/enrage.png',
+    ch5_idle: '/assets/boss/ch5/idle.png',
+    ch5_hit: '/assets/boss/ch5/hit.png',
+    ch5_enrage: '/assets/boss/ch5/enrage.png',
+    ch5_defeat: '/assets/boss/ch5/defeat.png',
   },
 };
