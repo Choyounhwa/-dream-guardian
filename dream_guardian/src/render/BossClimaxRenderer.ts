@@ -15,6 +15,7 @@
 
 import { HORIZON_RATIO } from '../../config/grid.config.js';
 import { depthRatioFromY } from './GridProjection.js';
+import { UIText } from '../utils/UIText.js';
 
 export interface BossClimaxHazardState {
   readonly activePattern: string | null;
@@ -110,6 +111,7 @@ export class BossClimaxRenderer {
     vh: number,
     state: Readonly<BossClimaxRenderState>,
   ): void {
+    const scaleX = vw / 1080;
     const vx = state.vanishingX ?? vw * 0.5;
     const vy = state.vanishingY ?? vh * HORIZON_RATIO;
     const floorH = Math.max(1, vh - vy);
@@ -124,7 +126,7 @@ export class BossClimaxRenderer {
 
     // 2. 보스 바닥 패턴 공격 (충격파 / 교대 짓밟기)
     if (state.hazard && state.hazard.activePattern) {
-      this._renderHazard(ctx, vw, vh, vx, vy, floorH, state.hazard, time);
+      this._renderHazard(ctx, vw, vh, vx, vy, floorH, state.hazard, time, scaleX);
     }
 
     // 3. 아군 미니언 군단 V자 편대 & 중앙 수호신
@@ -144,6 +146,7 @@ export class BossClimaxRenderer {
       minionPositions,
       state.guardianStage ?? 1,
       time,
+      scaleX,
     );
 
     // 4. 아군 군단 마법 탄막 (별빛 투사체 발사)
@@ -161,7 +164,7 @@ export class BossClimaxRenderer {
     }
 
     // 5. Phase B 전용 상태 HUD
-    this._renderStatusHUD(ctx, vw, vh, state, time);
+    this._renderStatusHUD(ctx, vw, vh, state, time, scaleX);
 
     ctx.restore();
   }
@@ -228,6 +231,7 @@ export class BossClimaxRenderer {
     floorH: number,
     hazard: BossClimaxHazardState,
     time: number,
+    scaleX: number = vw / 1080,
   ): void {
     const p = Math.max(0, Math.min(1.0, hazard.progress));
     const frontY = this.computeHazardFrontY(p, vy, vh);
@@ -236,18 +240,18 @@ export class BossClimaxRenderer {
     ctx.save();
 
     if (hazard.activePattern === 'dual_slam') {
-      this._renderDualSlamShockwave(ctx, vw, vx, frontY, depthRatio, p, time);
+      this._renderDualSlamShockwave(ctx, vw, vx, frontY, depthRatio, p, time, scaleX);
     } else if (
       hazard.activePattern === 'alternating_stomp_left' ||
       hazard.activePattern === 'alternating_stomp_right'
     ) {
       const isLeft = hazard.activePattern === 'alternating_stomp_left';
-      this._renderStompShadowMinion(ctx, vw, vh, vx, vy, isLeft, p, depthRatio, time);
+      this._renderStompShadowMinion(ctx, vw, vh, vx, vy, isLeft, p, depthRatio, time, scaleX);
     }
 
     // 해결(Resolved) 시 회피 성공 / 피격 피드백 텍스트
     if (hazard.isResolved) {
-      this._renderResolvedFeedback(ctx, vx, frontY, hazard.isEvaded === true);
+      this._renderResolvedFeedback(ctx, vx, frontY, hazard.isEvaded === true, scaleX);
     }
 
     ctx.restore();
@@ -264,6 +268,7 @@ export class BossClimaxRenderer {
     depthRatio: number,
     p: number,
     time: number,
+    scaleX: number = vw / 1080,
   ): void {
     const rx = vw * (0.18 + 0.46 * depthRatio);
     const ry = rx * 0.26; // 3D 바닥 평면 투영 타원비
@@ -299,7 +304,7 @@ export class BossClimaxRenderer {
     // 점프 안내 가이드 (미해결 시)
     const alertAlpha = 0.7 + 0.3 * Math.sin(time * 12);
     ctx.fillStyle = `rgba(255, 230, 100, ${alertAlpha})`;
-    ctx.font = 'bold 32px sans-serif';
+    ctx.font = UIText.getFont('body', scaleX, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('⬆️ JUMP! 양발을 뛰어 충격파 회피!', vx, frontY - ry - 28);
@@ -320,6 +325,7 @@ export class BossClimaxRenderer {
     p: number,
     depthRatio: number,
     time: number,
+    scaleX: number = vw / 1080,
   ): void {
     const laneOffset = isLeft ? -vw * 0.26 : vw * 0.26;
     const targetX = vx + laneOffset;
@@ -388,7 +394,7 @@ export class BossClimaxRenderer {
     // 3. 발 짓밟기 격퇴 유도 안내 문구
     const stepLabel = isLeft ? '🦶 왼발 짓밟기! (Zone 9)' : '🦶 오른발 짓밟기! (Zone 11)';
     ctx.fillStyle = '#FFF066';
-    ctx.font = 'bold 30px sans-serif';
+    ctx.font = UIText.getFont('body', scaleX, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(stepLabel, mx, my - 50 * scale);
@@ -404,6 +410,7 @@ export class BossClimaxRenderer {
     vx: number,
     frontY: number,
     isEvaded: boolean,
+    scaleX: number = 1.0,
   ): void {
     ctx.save();
     ctx.textAlign = 'center';
@@ -413,7 +420,7 @@ export class BossClimaxRenderer {
       ctx.fillStyle = '#00FF88';
       ctx.strokeStyle = 'rgba(0, 255, 136, 0.8)';
       ctx.lineWidth = 4;
-      ctx.font = 'bold 38px sans-serif';
+      ctx.font = UIText.getFont('body', scaleX, 'bold');
       ctx.shadowColor = '#00FF88';
       ctx.shadowBlur = 16;
       ctx.strokeText('✨ EVADED! (회피 성공) ✨', vx, frontY - 40);
@@ -422,7 +429,7 @@ export class BossClimaxRenderer {
       ctx.fillStyle = '#FF2244';
       ctx.strokeStyle = 'rgba(255, 34, 68, 0.8)';
       ctx.lineWidth = 4;
-      ctx.font = 'bold 38px sans-serif';
+      ctx.font = UIText.getFont('body', scaleX, 'bold');
       ctx.shadowColor = '#FF2244';
       ctx.shadowBlur = 16;
       ctx.strokeText('💥 HIT! -15 HP (피격) 💥', vx, frontY - 40);
@@ -442,6 +449,7 @@ export class BossClimaxRenderer {
     minions: MinionPosition[],
     stage: number,
     time: number,
+    scaleX: number = 1.0,
   ): void {
     // A. 미니언들 렌더링
     for (const m of minions) {
@@ -510,7 +518,7 @@ export class BossClimaxRenderer {
 
     // 수호신 명칭 라벨
     ctx.fillStyle = '#FFCB4D';
-    ctx.font = 'bold 22px sans-serif';
+    ctx.font = UIText.getFont('badge', scaleX, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.shadowBlur = 8;
@@ -629,6 +637,7 @@ export class BossClimaxRenderer {
     vh: number,
     state: Readonly<BossClimaxRenderState>,
     time: number,
+    scaleX: number = vw / 1080,
   ): void {
     ctx.save();
 
@@ -659,7 +668,7 @@ export class BossClimaxRenderer {
 
     // HP 수치 텍스트
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 20px sans-serif';
+    ctx.font = UIText.getFont('caption', scaleX, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = '#000000';
@@ -670,7 +679,7 @@ export class BossClimaxRenderer {
     if (state.isEnraged) {
       const enrageAlpha = 0.8 + 0.2 * Math.sin(time * 10);
       ctx.fillStyle = `rgba(255, 34, 68, ${enrageAlpha})`;
-      ctx.font = 'bold 22px sans-serif';
+      ctx.font = UIText.getFont('badge', scaleX, 'bold');
       ctx.fillText('⚠️ 광폭화 (ENRAGED) ⚠️', vw / 2, barY - 18);
     }
 
@@ -684,7 +693,7 @@ export class BossClimaxRenderer {
       ctx.fillStyle = '#FFCB4D';
       ctx.strokeStyle = '#FF865E';
       ctx.lineWidth = 2;
-      ctx.font = 'bold 34px sans-serif';
+      ctx.font = UIText.getFont('body', scaleX, 'bold');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.shadowColor = '#FF865E';
@@ -710,7 +719,7 @@ export class BossClimaxRenderer {
     ctx.stroke();
 
     ctx.fillStyle = '#28E6FF';
-    ctx.font = 'bold 22px sans-serif';
+    ctx.font = UIText.getFont('badge', scaleX, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(`👥 군단: ${state.minionCount} / 13`, 40 + badgeW / 2, badgeY + badgeH / 2);
@@ -724,7 +733,7 @@ export class BossClimaxRenderer {
     ctx.stroke();
 
     ctx.fillStyle = '#FFCB4D';
-    ctx.font = 'bold 22px sans-serif';
+    ctx.font = UIText.getFont('badge', scaleX, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(`★ 별가루: ${state.stardust}`, vw - 40 - badgeW / 2, badgeY + badgeH / 2);

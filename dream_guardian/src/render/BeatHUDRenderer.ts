@@ -14,6 +14,7 @@ import { BEAT_HUD_CONFIG } from '../../config/locomotion.config.js';
 import { renderQuestionHeaderMath } from './QuestionRenderer.js';
 import { QuestionApproachRenderer } from './QuestionApproachRenderer.js';
 import { HazardZoneRenderer } from './HazardZoneRenderer.js';
+import { UIText } from '../utils/UIText.js';
 
 export interface BeatHUDRendererOptions {
   showBeatDots?: boolean;
@@ -109,14 +110,14 @@ export class BeatHUDRenderer {
       color: '#4DFFAA',
     };
 
-    ctx.font = 'bold 44px sans-serif';
+    ctx.font = UIText.getFont('subheading', scaleX, 'bold');
     ctx.fillStyle = guide.color;
     ctx.shadowColor = guide.color;
     ctx.shadowBlur = 24;
     ctx.fillText(guide.title, cx, cy - 60);
     ctx.shadowBlur = 0;
 
-    ctx.font = 'bold 26px sans-serif';
+    ctx.font = UIText.getFont('label', scaleX, 'bold');
     ctx.fillStyle = BEAT_HUD_CONFIG.TEXT_COLOR_SUBTITLE;
     ctx.fillText(guide.subtitle, cx, cy - 5);
 
@@ -156,7 +157,7 @@ export class BeatHUDRenderer {
         ctx.fill();
         ctx.shadowBlur = 0;
 
-        ctx.font = `bold ${Math.round(16 * scaleX)}px sans-serif`;
+        ctx.font = UIText.getFont('caption', scaleX, 'bold');
         ctx.fillStyle = i < completedBeats ? '#000000' : 'rgba(255, 255, 255, 0.5)';
         ctx.fillText(`${i + 1}`, bx, indicatorY);
       }
@@ -166,7 +167,7 @@ export class BeatHUDRenderer {
     const mode = state.locomotionMode ?? 'run';
     const countUnit = mode === 'run' ? '보' : '회';
     const totalSteps = state.totalSteps ?? 0;
-    ctx.font = 'bold 32px sans-serif';
+    ctx.font = UIText.getFont('body', scaleX, 'bold');
     ctx.fillStyle = BEAT_HUD_CONFIG.STEP_COUNT_COLOR;
     ctx.fillText(`${countUnit === '보' ? '걸음' : '운동'}: ${totalSteps}${countUnit}`, cx, dotY + 60);
 

@@ -17,6 +17,7 @@ import {
   type FeedbackReasonKey,
 } from './JudgmentFeedback.js';
 import type { ArmReachAnswerState } from '../input/ArmReachAnswerSelector.js';
+import { UIText } from '../utils/UIText.js';
 
 export interface HazardEvadePresentationState {
   activePattern: PhaseAHazardPattern | null;
@@ -194,19 +195,20 @@ export class PhasePresentationAdapter {
 
     const cx = vw * 0.5;
     const cy = vh * 0.38;
+    const scaleX = vw / 1080;
 
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    ctx.font = 'bold 44px sans-serif';
+    ctx.font = UIText.getFont('subheading', scaleX, 'bold');
     ctx.fillStyle = color;
     ctx.shadowColor = color;
     ctx.shadowBlur = 24;
     ctx.fillText(title, cx, cy - 60);
     ctx.shadowBlur = 0;
 
-    ctx.font = 'bold 26px sans-serif';
+    ctx.font = UIText.getFont('body', scaleX, 'bold');
     ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
     ctx.fillText(subtitle, cx, cy - 5);
 
