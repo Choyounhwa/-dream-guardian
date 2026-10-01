@@ -22,17 +22,30 @@ export const CURSOR_COLORS: Record<CursorType, string> = {
 /** 커서 인식 유효성 신뢰도 임계값 */
 export const CURSOR_CONFIDENCE_THRESHOLD = 0.45;
 
-/** 커서 렌더링 형상 및 크기 설정 (픽셀 기준, Issue #117: Outline Only, Issue #144: 실사용 1080p 스케일업) */
+/** 양손 모으기(합장) 메뉴 커서 3배 확대 규격 (Issue #201 / FEAT-CURSOR-005) */
+export const JOINED_HANDS_CURSOR = {
+  ringRadius: 100,         // 합장 외곽 네온 링 반경 (기존 34px -> 100px, 지름 200px, 3배 확대)
+  pulseAmplitude: 12,      // 펄스 진폭 (기존 4px -> 12px)
+  pulseSpeed: 150,         // 펄스 애니메이션 속도
+  lineWidth: 8,            // 네온 링 선 두께 (기존 3.5px -> 8px)
+  fontSize: 40,            // 중심 텍스트 폰트 크기 (기존 14px -> 40px)
+  progressRadius: 145,     // 0.8초 호버 체류 충전 아크 반경 (기존 50px -> 145px)
+  progressLineWidth: 16,   // 충전 아크 선 두께 (기존 7px -> 16px)
+  progressBlur: 24,        // 충전 아크 발광 블러 (기존 18px -> 24px)
+  shadowBlur: 20,          // 네온 링 발광 블러 (기존 15px -> 20px)
+} as const;
+
+/** 커서 렌더링 형상 및 크기 설정 (픽셀 기준, Issue #117: Outline Only, Issue #144: 실사용 1080p 스케일업, Issue #201: 원거리 시인성 강화) */
 export const CURSOR_DIMENSIONS = {
   outlineOnly: true,
   lineWidth: 3,
   hand: {
-    defaultRadius: 45,
-    minRadius: 15,
-    maxRadius: 90,
-    pulseRingOffset: 8,
-    pulseRingAmplitude: 5,
-    pulseLineWidth: 2,
+    defaultRadius: 60,
+    minRadius: 20,
+    maxRadius: 120,
+    pulseRingOffset: 10,
+    pulseRingAmplitude: 6,
+    pulseLineWidth: 3,
   },
   head: {
     defaultRadiusX: 55,
@@ -55,4 +68,5 @@ export const CURSOR_DIMENSIONS = {
     lineWidth: 4,
     color: '#4DFFAA',
   },
+  joinedHands: JOINED_HANDS_CURSOR,
 } as const;

@@ -196,17 +196,19 @@ export class AnswerSelectionRenderer {
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.stroke();
 
-        // 펄스 링
-        const pulseR = radius + 6 + Math.sin(this._pulseTimer) * 4;
+        // 펄스 링 (Issue #201: config 기반 오프셋 및 진폭 반영)
+        const pulseOffset = CURSOR_DIMENSIONS.hand.pulseRingOffset;
+        const pulseAmp = CURSOR_DIMENSIONS.hand.pulseRingAmplitude;
+        const pulseR = radius + pulseOffset + Math.sin(this._pulseTimer) * pulseAmp;
         ctx.strokeStyle = color;
-        ctx.lineWidth = Math.min(4, 1.5 * fontScale);
+        ctx.lineWidth = Math.min(6, (CURSOR_DIMENSIONS.hand.pulseLineWidth ?? 3) * fontScale);
         ctx.beginPath();
         ctx.arc(cx, cy, pulseR, 0, Math.PI * 2);
         ctx.stroke();
 
-        // 라벨
+        // 라벨 (Issue #201: 원거리 시인성 강화를 위해 폰트 스케일 상향)
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = `bold ${Math.max(10, Math.round(radius * 0.65))}px sans-serif`;
+        ctx.font = `bold ${Math.max(18, Math.round(radius * 0.70))}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(type === 'leftHand' ? 'L' : 'R', cx, cy);

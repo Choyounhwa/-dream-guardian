@@ -3,7 +3,7 @@ import { CursorTracker } from '../../src/input/CursorTracker.js';
 import { RecipeGenerator } from '../../src/input/RecipeGenerator.js';
 import { AnswerSelector, getTierInfo } from '../../src/input/AnswerSelector.js';
 import { AnswerSelectionRenderer } from '../../src/render/AnswerSelectionRenderer.js';
-import { CURSOR_DIMENSIONS } from '../../config/cursor.config.js';
+import { CURSOR_DIMENSIONS, JOINED_HANDS_CURSOR } from '../../config/cursor.config.js';
 import type { NormalizedLandmark } from '../../src/types/index.js';
 
 function createMockLandmarks(): NormalizedLandmark[] {
@@ -745,6 +745,24 @@ describe('AnswerSelectionRenderer (Issue #104)', () => {
     const expectedHalfHeight = Math.round(hip.size!.halfWidth! * 0.45);
     expect(hip.size!.topOffset).toBe(expectedHalfHeight);
     expect(hip.size!.bottomOffset).toBe(expectedHalfHeight);
+  });
+
+  it('[FEAT-CURSOR-005] 양손 모으기 합장 커서 및 인게임 양손 커서 3배 확대 규격을 보장한다 (Issue #201)', () => {
+    // 1. 합장 커서 3배 확대 규격
+    expect(JOINED_HANDS_CURSOR.ringRadius).toBe(100);
+    expect(JOINED_HANDS_CURSOR.lineWidth).toBe(8);
+    expect(JOINED_HANDS_CURSOR.fontSize).toBe(40);
+    expect(JOINED_HANDS_CURSOR.progressRadius).toBe(145);
+    expect(JOINED_HANDS_CURSOR.progressLineWidth).toBe(16);
+    expect(JOINED_HANDS_CURSOR.progressBlur).toBe(24);
+
+    // 2. 인게임 양손 커서 원거리 시인성 상향 규격
+    expect(CURSOR_DIMENSIONS.hand.defaultRadius).toBeGreaterThanOrEqual(60);
+    expect(CURSOR_DIMENSIONS.hand.maxRadius).toBeGreaterThanOrEqual(120);
+    expect(CURSOR_DIMENSIONS.hand.minRadius).toBeGreaterThanOrEqual(20);
+    expect(CURSOR_DIMENSIONS.hand.pulseRingOffset).toBeGreaterThanOrEqual(10);
+    expect(CURSOR_DIMENSIONS.hand.pulseRingAmplitude).toBeGreaterThanOrEqual(6);
+    expect(CURSOR_DIMENSIONS.hand.pulseLineWidth).toBeGreaterThanOrEqual(3);
   });
 });
 
