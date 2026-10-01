@@ -27,6 +27,8 @@ export interface CalibrationBaseline {
   shoulderWidth: number;
   hipX: number;
   hipY: number;
+  maxReachDistance?: number;
+  jitterVariance?: number;
 }
 
 export class CalibrationHelper {
@@ -38,6 +40,8 @@ export class CalibrationHelper {
   private _baselineShoulderX = 0;
   private _baselineShoulderWidth = 0;
   private _baselineHipX = 0;
+  private _baselineMaxReachDistance = 0;
+  private _baselineJitterVariance = 0;
   private _elapsed = 0;
   private _samples: {
     noseX: number;
@@ -47,6 +51,7 @@ export class CalibrationHelper {
     shoulderWidth: number;
     hipX: number;
     hipY: number;
+    reachDist: number;
   }[] = [];
   private _calibrationDuration: number;
 
@@ -104,6 +109,38 @@ export class CalibrationHelper {
       shoulderWidth: this._baselineShoulderWidth,
       hipX: this._baselineHipX,
       hipY: this._baselineHipY,
+      maxReachDistance: this._baselineMaxReachDistance || 0.35,
+      jitterVariance: this._baselineJitterVariance || 0.0001,
+    };
+  }
+
+  /**
+   * 기준선 객체 조회 (실패 또는 미완료 시 기본값으로 안전 폴백, Issue #254)
+   */
+  getBaseline(): CalibrationBaseline {
+    if (this._status !== 'done') {
+      return {
+        noseX: 0.5,
+        noseY: 0.3,
+        shoulderX: 0.5,
+        shoulderY: 0.4,
+        shoulderWidth: 0.25,
+        hipX: 0.5,
+        hipY: 0.7,
+        maxReachDistance: 0.35,
+        jitterVariance: 0.0001,
+      };
+    }
+    return {
+      noseX: this._baselineNoseX,
+      noseY: this._baselineNoseY,
+      shoulderX: this._baselineShoulderX,
+      shoulderY: this._baselineShoulderY,
+      shoulderWidth: this._baselineShoulderWidth || 0.25,
+      hipX: this._baselineHipX,
+      hipY: this._baselineHipY,
+      maxReachDistance: this._baselineMaxReachDistance || 0.35,
+      jitterVariance: this._baselineJitterVariance || 0.0001,
     };
   }
 
@@ -144,7 +181,17 @@ export class CalibrationHelper {
     const hipX = (lHip.x + rHip.x) / 2;
     const hipY = (lHip.y + rHip.y) / 2;
 
-    this._samples.push({ noseX, noseY, shoulderX, shoulderY, shoulderWidth, hipX, hipY });
+    const lWrist = landmarks[POSE_LANDMARKS.LEFT_WRIST];
+    const rWrist = landmarks[POSE_LANDMARKS.RIGHT_WRIST];
+    let reachDist = 0;
+    if (lWrist && (lWrist.visibility ?? 0) >= 0.5) {
+      reachDist = Math.max(reachDist, Math.hypot(lWrist.x - shoulderX, lWrist.y - shoulderY));
+    }
+    if (rWrist && (rWrist.visibility ?? 0) >= 0.5) {
+      reachDist = Math.max(reachDist, Math.hypot(rWrist.x - shoulderX, rWrist.y - shoulderY));
+    }
+
+    this._samples.push({ noseX, noseY, shoulderX, shoulderY, shoulderWidth, hipX, hipY, reachDist });
 
     if (this._elapsed >= this._calibrationDuration && this._samples.length > 0) {
       // 평균 산출
@@ -155,6 +202,7 @@ export class CalibrationHelper {
       let sumSW = 0;
       let sumHX = 0;
       let sumHY = 0;
+      let maxR = 0;
 
       for (const s of this._samples) {
         sumNX += s.noseX;
@@ -164,6 +212,7 @@ export class CalibrationHelper {
         sumSW += s.shoulderWidth;
         sumHX += s.hipX;
         sumHY += s.hipY;
+        if (s.reachDist > maxR) maxR = s.reachDist;
       }
 
       const count = this._samples.length;
@@ -174,6 +223,11 @@ export class CalibrationHelper {
       this._baselineShoulderWidth = sumSW / count;
       this._baselineHipX = sumHX / count;
       this._baselineHipY = sumHY / count;
+      this._baselineMaxReachDistance = maxR > 0 ? maxR : 0.35;
+
+      const varX = this._samples.reduce((acc, s) => acc + (s.noseX - this._baselineNoseX) ** 2, 0) / count;
+      const varY = this._samples.reduce((acc, s) => acc + (s.noseY - this._baselineNoseY) ** 2, 0) / count;
+      this._baselineJitterVariance = varX + varY;
 
       this._status = 'done';
     }
@@ -188,6 +242,8 @@ export class CalibrationHelper {
     if (baseline.shoulderX !== undefined) this._baselineShoulderX = baseline.shoulderX;
     if (baseline.shoulderWidth !== undefined) this._baselineShoulderWidth = baseline.shoulderWidth;
     if (baseline.hipX !== undefined) this._baselineHipX = baseline.hipX;
+    if (baseline.maxReachDistance !== undefined) this._baselineMaxReachDistance = baseline.maxReachDistance;
+    if (baseline.jitterVariance !== undefined) this._baselineJitterVariance = baseline.jitterVariance;
     this._status = 'done';
   }
 
@@ -201,6 +257,8 @@ export class CalibrationHelper {
     this._baselineShoulderX = 0;
     this._baselineShoulderWidth = 0;
     this._baselineHipX = 0;
+    this._baselineMaxReachDistance = 0;
+    this._baselineJitterVariance = 0;
     this._elapsed = 0;
     this._samples = [];
   }

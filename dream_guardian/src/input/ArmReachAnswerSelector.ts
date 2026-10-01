@@ -30,6 +30,7 @@ import {
   type ArmReachGateScores,
   computeWeightedArmScore,
 } from '../../config/judgment.config.js';
+import { AdaptiveToleranceTracker } from './AdaptiveTolerance.js';
 import {
   CursorTracker,
   type CursorUpdateOptions,
@@ -151,6 +152,7 @@ export class ArmReachAnswerSelector {
   private _lastTime: number | null = null;
   private _intentBus: MotionIntentBus | null = null;
   private _intentBusUnsub: UnsubscribeFn | null = null;
+  private _adaptiveTolerance?: AdaptiveToleranceTracker;
 
   private _listeners: Set<ArmReachSelectCallback> = new Set();
   public onSelect?: ArmReachSelectCallback;
@@ -243,6 +245,14 @@ export class ArmReachAnswerSelector {
 
   get config(): ArmReachAnswerConfig {
     return this._config;
+  }
+
+  public setAdaptiveTolerance(tracker?: AdaptiveToleranceTracker): void {
+    this._adaptiveTolerance = tracker;
+  }
+
+  get adaptiveTolerance(): AdaptiveToleranceTracker | undefined {
+    return this._adaptiveTolerance;
   }
 
   get judgmentConfig(): ArmReachJudgmentConfig {
@@ -626,7 +636,10 @@ export class ArmReachAnswerSelector {
     };
 
     const score = computeWeightedArmScore(gates, this._judgmentConfig.weights);
-    const isValid = score >= this._judgmentConfig.confirmThreshold;
+    const effectiveThreshold = this._adaptiveTolerance
+      ? this._judgmentConfig.confirmThreshold / this._adaptiveTolerance.multiplier
+      : this._judgmentConfig.confirmThreshold;
+    const isValid = score >= effectiveThreshold && pos.visibility >= this._judgmentConfig.hardMinVisibility;
 
     return {
       isValid,
@@ -845,6 +858,13 @@ export class ArmReachAnswerSelector {
 
     this._lastLeftEval = leftEval;
     this._lastRightEval = rightEval;
+
+    if (this._adaptiveTolerance) {
+      this._adaptiveTolerance.recordAttempt(
+        Math.max(leftEval.score, rightEval.score),
+        this._judgmentConfig.confirmThreshold
+      );
+    }
 
     // 7. 양팔 경합 및 우세 판정 (Dominance Ratio 완화)
     let selectedHand: 'left' | 'right' | null = null;

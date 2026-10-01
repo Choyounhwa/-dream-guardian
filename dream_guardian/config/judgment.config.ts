@@ -160,6 +160,38 @@ export const DEFAULT_TIMING_LENIENCY_CONFIG: TimingLeniencyConfig = {
 };
 
 /**
+ * 니어미스 기반 적응형 관용 및 개인 캘리브레이션 설정 인터페이스
+ *
+ * @see Issue #254 [INPUT-TOLERANCE-006]
+ */
+export interface AdaptiveToleranceConfig {
+  /** 적응형 관용 활성화 여부 */
+  enableAdaptiveTolerance: boolean;
+  /** 니어미스 판별 비율 (기본 0.85: threshold * 0.85 <= score < threshold) */
+  nearMissRatio: number;
+  /** 연속 니어미스 발동 임계치 (기본 3회) */
+  nearMissStreakThreshold: number;
+  /** 연속 니어미스 1회당 추가 완화 비율 (기본 0.07, +7%) */
+  stepRelaxRatio: number;
+  /** 최대 완화 상한 비율 (기본 0.20, +20%) */
+  maxRelaxRatio: number;
+  /** 라운드/문제 전환 시 완화 상태 리셋 여부 (기본 true) */
+  resetOnRoundChange: boolean;
+}
+
+/**
+ * 적응형 관용 기본 설정값
+ */
+export const DEFAULT_ADAPTIVE_TOLERANCE_CONFIG: AdaptiveToleranceConfig = {
+  enableAdaptiveTolerance: true,
+  nearMissRatio: 0.85,
+  nearMissStreakThreshold: 3,
+  stepRelaxRatio: 0.07,
+  maxRelaxRatio: 0.20,
+  resetOnRoundChange: true,
+};
+
+/**
  * 점프 판정 수직 속도 상한 및 점프 임계치 단일 진실 공급원 (SSOT)
  *
  * (기존 3곳 분산 정의: core/Config.ts jumpSpeedMin, motion.config.ts speedMin, beat-motion.config.ts jumpVerticalSpeedThreshold)
