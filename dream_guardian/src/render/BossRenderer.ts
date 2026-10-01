@@ -1,12 +1,12 @@
 /**
  * BossRenderer - 5종 보스 Canvas 2D 프로시저럴 드로잉 렌더러
  *
- * Issue #25: 순수 Canvas 2D 코드로 구현된 5종 보스 고유 비주얼 및 모션
- * - Ch.1 포겟 (안개 구름 + ? 부유)
- * - Ch.2 후다닥 (번개 구체 + 방전 스파크)
- * - Ch.3 뒤죽박죽 (회전 만화경 육각형)
- * - Ch.4 에라 (그림자 거인 + 어둠의 오라 + "포기해...")
- * - Ch.5 나이트메어 (검은 다각형 파편 + 붉은 눈)
+ * Issue #25, #217: 순수 Canvas 2D 코드로 구현된 신규 5대 불안 보스 고유 비주얼 및 모션
+ * - Ch.1 하얘시니 (망각의 요괴: 에메랄드 심해 안개 + ? 부유)
+ * - Ch.2 재촉새 (성급의 요괴: 시간의 번개 구체 + 방전 스파크)
+ * - Ch.3 따돌시니 (왜곡의 요괴: 회전 만화경 육각형 + 수학 기호)
+ * - Ch.4 풀죽새 (무기력의 요괴: 그림자 거조 + 먹물 날개 안개 펄스)
+ * - Ch.5 캄캄대왕 (영원한 고립의 지배자: 공허의 블랙홀 + 흑요석 다각형 파편 + 붉은 눈)
  */
 
 import { imageLoader } from '../utils/UIImageLoader.js';
@@ -125,23 +125,23 @@ export class BossRenderer {
     if (img) {
       this._renderSprite(ctx, img, radius);
     } else {
-      // 챕터별 프로시저럴 렌더러 호출
+      // 챕터별 프로시저럴 렌더러 호출 (신규 5대 보스명 체계 일원화)
       switch (chapter) {
         case 1:
-          this._renderForget(ctx, radius);
+          this._renderBoss1HayeSini(ctx, radius);
           break;
         case 2:
-          this._renderHurry(ctx, radius);
+          this._renderBoss2JaechokSae(ctx, radius);
           break;
         case 3:
-          this._renderJumble(ctx, radius);
+          this._renderBoss3TaddolSini(ctx, radius);
           break;
         case 4:
-          this._renderGiveup(ctx, radius);
+          this._renderBoss4PuljukSae(ctx, radius);
           break;
         case 5:
         default:
-          this._renderNightmare(ctx, radius);
+          this._renderBoss5KamkamDaewang(ctx, radius);
           break;
       }
     }
@@ -194,8 +194,8 @@ export class BossRenderer {
     ctx.restore();
   }
 
-  // ─── Ch.1 포겟 (안개 구름 + ? 부유) ───
-  private _renderForget(ctx: CanvasRenderingContext2D, radius: number): void {
+  // ─── Ch.1 하얘시니 (망각의 요괴: 에메랄드 심해 안개 + ? 부유) ───
+  private _renderBoss1HayeSini(ctx: CanvasRenderingContext2D, radius: number): void {
     const t = this._animTime;
 
     // 여러 층의 안개 덩어리
@@ -254,8 +254,8 @@ export class BossRenderer {
     }
   }
 
-  // ─── Ch.2 후다닥 (번개 구체 + 방전 스파크) ───
-  private _renderHurry(ctx: CanvasRenderingContext2D, radius: number): void {
+  // ─── Ch.2 재촉새 (성급의 요괴: 시간의 번개 구체 + 방전 스파크) ───
+  private _renderBoss2JaechokSae(ctx: CanvasRenderingContext2D, radius: number): void {
     const t = this._animTime;
 
     // 고속 진동
@@ -318,8 +318,8 @@ export class BossRenderer {
     ctx.fill();
   }
 
-  // ─── Ch.3 뒤죽박죽 (회전 만화경 육각형) ───
-  private _renderJumble(ctx: CanvasRenderingContext2D, radius: number): void {
+  // ─── Ch.3 따돌시니 (왜곡의 요괴: 회전 만화경 육각형 + 왜곡 기호) ───
+  private _renderBoss3TaddolSini(ctx: CanvasRenderingContext2D, radius: number): void {
     const t = this._animTime;
 
     const rings = [
@@ -365,8 +365,8 @@ export class BossRenderer {
     }
   }
 
-  // ─── Ch.4 에라 (그림자 거인 + 어둠 오라 + "포기해...") ───
-  private _renderGiveup(ctx: CanvasRenderingContext2D, radius: number): void {
+  // ─── Ch.4 풀죽새 (무기력의 요괴: 그림자 거조 + 먹물 날개 안개 펄스) ───
+  private _renderBoss4PuljukSae(ctx: CanvasRenderingContext2D, radius: number): void {
     const t = this._animTime;
 
     // 솟구치는 그림자 텐타클 / 연기
@@ -415,22 +415,25 @@ export class BossRenderer {
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // 속삭이는 "포기해..." 텍스트 부유
-    const whisperCycle = (t * 0.5) % 2;
-    const whisperAlpha = Math.sin(whisperCycle * Math.PI * 0.5);
-    const whisperY = radius * 0.65 + Math.sin(t * 2) * 5;
-    const whisperSize = Math.max(24, Math.round(radius * 0.2));
+    // 부드러운 먹물 날개 그림자 및 안개 펄스 시각 효과 (압박성 대사 완전 대체)
+    const mistCycle = (t * 0.8) % (Math.PI * 2);
+    const mistPulse = (Math.sin(mistCycle) + 1) * 0.5; // 0 ~ 1 부드러운 호흡
+    const mistY = radius * 0.6 + Math.sin(t * 1.5) * (radius * 0.08);
+    const mistGrad = ctx.createRadialGradient(0, mistY, 0, 0, mistY, radius * 0.55);
+    mistGrad.addColorStop(0, `rgba(200, 137, 255, ${0.28 * mistPulse})`);
+    mistGrad.addColorStop(0.5, `rgba(38, 17, 63, ${0.45 * mistPulse})`);
+    mistGrad.addColorStop(1, 'rgba(14, 7, 26, 0)');
+
     ctx.save();
-    ctx.globalAlpha = Math.max(0, whisperAlpha * 0.8);
-    ctx.font = `italic ${whisperSize}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#C889FF';
-    ctx.fillText('포기해...', 0, whisperY);
+    ctx.fillStyle = mistGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, mistY, radius * 0.6, radius * 0.28, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 
-  // ─── Ch.5 나이트메어 (검은 다각형 파편 + 붉은 눈) ───
-  private _renderNightmare(ctx: CanvasRenderingContext2D, radius: number): void {
+  // ─── Ch.5 캄캄대왕 (영원한 고립의 지배자: 공허의 블랙홀 + 흑요석 다각형 파편 + 붉은 눈) ───
+  private _renderBoss5KamkamDaewang(ctx: CanvasRenderingContext2D, radius: number): void {
     const t = this._animTime;
 
     // 공허의 중심 블랙홀

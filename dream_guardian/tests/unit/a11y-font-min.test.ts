@@ -188,7 +188,7 @@ describe('[A11Y-001 / #262] user-scalable 해제 및 최소 폰트 크기 하한
       }
     });
 
-    it('BossRenderer: Ch.1, Ch.3, Ch.4 부유 기호/물음표 최소 24px 하한선을 보장한다', () => {
+    it('BossRenderer: Ch.1, Ch.3 부유 기호/물음표 최소 24px 하한선을 보장하며, Ch.4는 하드코딩 텍스트가 완전히 제거되었다', () => {
       const renderer = new BossRenderer();
 
       // Ch.1 물음표
@@ -207,13 +207,10 @@ describe('[A11Y-001 / #262] user-scalable 해제 및 최소 폰트 크기 하한
         expect(parsePxFromFont(f)).toBeGreaterThanOrEqual(24);
       }
 
-      // Ch.4 포기해...
+      // Ch.4 풀죽새: 압박성 텍스트('포기해...') 제거 확인 (불필요한 폰트 드로잉 미수행)
       const ctx4 = createMockCtx();
       renderer.render(ctx4, 4, 200, 200, 40, 'idle');
-      expect(ctx4.__fontHistory.some((f) => parsePxFromFont(f) >= 24)).toBe(true);
-      for (const f of ctx4.__fontHistory) {
-        expect(parsePxFromFont(f)).toBeGreaterThanOrEqual(24);
-      }
+      expect(ctx4.__fontHistory).toHaveLength(0);
     });
 
     it('BeatHUDRenderer: 힌트 및 박자 인디케이터 최소 24px 하한선을 보장한다', () => {

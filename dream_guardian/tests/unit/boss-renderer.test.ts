@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
+import fs from 'fs';
+import path from 'path';
 import { BossRenderer } from '../../src/render/BossRenderer.js';
 
 function createMockCtx(): CanvasRenderingContext2D {
@@ -105,5 +107,70 @@ describe('BossRenderer - 5 Procedural Bosses (Issue #25)', () => {
     renderer.update(0.016);
     renderer.update(0.016);
     expect(() => renderer.render(ctx, 3, 300, 300, 80)).not.toThrow();
+  });
+
+  describe('[RENDER-BOSS-001 / #217] 압박성 하드코딩 대사 제거 및 신규 5대 보스 연출 정합성', () => {
+    it('Ch.4 풀죽새 렌더링 시 "포기해..." 텍스트가 절대 렌더링되지 않는다', () => {
+      const renderer = new BossRenderer();
+      const mockCtx = createMockCtx();
+
+      renderer.render(mockCtx, 4, 500, 300, 80, 'idle');
+
+      const fillTextCalls = vi.mocked(mockCtx.fillText).mock.calls;
+      const hasGiveupText = fillTextCalls.some((call) =>
+        typeof call[0] === 'string' && call[0].includes('포기해')
+      );
+      expect(hasGiveupText).toBe(false);
+    });
+
+    it('구 보스 메서드명(_renderForget 등)이 제거되고 신규 5대 보스 메서드명으로 리팩터링되어 존재한다', () => {
+      const proto = BossRenderer.prototype as unknown as Record<string, unknown>;
+
+      // 구 메서드 제거 검증
+      expect(proto['_renderForget']).toBeUndefined();
+      expect(proto['_renderHurry']).toBeUndefined();
+      expect(proto['_renderJumble']).toBeUndefined();
+      expect(proto['_renderGiveup']).toBeUndefined();
+      expect(proto['_renderNightmare']).toBeUndefined();
+
+      // 신규 5대 보스 메서드 존재 검증
+      expect(typeof proto['_renderBoss1HayeSini']).toBe('function');
+      expect(typeof proto['_renderBoss2JaechokSae']).toBe('function');
+      expect(typeof proto['_renderBoss3TaddolSini']).toBe('function');
+      expect(typeof proto['_renderBoss4PuljukSae']).toBe('function');
+      expect(typeof proto['_renderBoss5KamkamDaewang']).toBe('function');
+    });
+
+    it('chapter 분기에 따라 신규 5대 보스 전용 메서드가 정확히 디스패치된다', () => {
+      const renderer = new BossRenderer();
+      const mockCtx = createMockCtx();
+
+      const spyBoss1 = vi.spyOn(renderer as unknown as Record<string, (...args: unknown[]) => void>, '_renderBoss1HayeSini');
+      const spyBoss2 = vi.spyOn(renderer as unknown as Record<string, (...args: unknown[]) => void>, '_renderBoss2JaechokSae');
+      const spyBoss3 = vi.spyOn(renderer as unknown as Record<string, (...args: unknown[]) => void>, '_renderBoss3TaddolSini');
+      const spyBoss4 = vi.spyOn(renderer as unknown as Record<string, (...args: unknown[]) => void>, '_renderBoss4PuljukSae');
+      const spyBoss5 = vi.spyOn(renderer as unknown as Record<string, (...args: unknown[]) => void>, '_renderBoss5KamkamDaewang');
+
+      renderer.render(mockCtx, 1, 500, 300, 80, 'idle');
+      expect(spyBoss1).toHaveBeenCalledWith(mockCtx, 80);
+
+      renderer.render(mockCtx, 2, 500, 300, 80, 'idle');
+      expect(spyBoss2).toHaveBeenCalledWith(mockCtx, 80);
+
+      renderer.render(mockCtx, 3, 500, 300, 80, 'idle');
+      expect(spyBoss3).toHaveBeenCalledWith(mockCtx, 80);
+
+      renderer.render(mockCtx, 4, 500, 300, 80, 'idle');
+      expect(spyBoss4).toHaveBeenCalledWith(mockCtx, 80);
+
+      renderer.render(mockCtx, 5, 500, 300, 80, 'idle');
+      expect(spyBoss5).toHaveBeenCalledWith(mockCtx, 80);
+    });
+
+    it('BossRenderer.ts 소스 코드에 "포기해..." 문자열이 존재하지 않는다', () => {
+      const sourcePath = path.resolve(process.cwd(), 'src/render/BossRenderer.ts');
+      const sourceCode = fs.readFileSync(sourcePath, 'utf-8');
+      expect(sourceCode).not.toContain('포기해...');
+    });
   });
 });
