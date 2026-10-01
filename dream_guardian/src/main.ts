@@ -14,6 +14,7 @@ import { BoneRenderer } from './skeleton/BoneRenderer.js';
 import { JointRenderer } from './skeleton/JointRenderer.js';
 import { SkeletonAnimation } from './skeleton/SkeletonAnimation.js';
 import { SkeletonEffect } from './skeleton/SkeletonEffect.js';
+import { StickmanRenderer } from './skeleton/StickmanRenderer.js';
 import { QuestionBank } from './question/QuestionBank.js';
 import { parseCSV } from './question/CSVLoader.js';
 import { parseFitnessPatternCSV, createKeynoteSequence } from './data/index.js';
@@ -133,6 +134,7 @@ const boneRenderer = new BoneRenderer({ renderHandBones: true });
 const jointRenderer = new JointRenderer();
 const skeletonAnimation = new SkeletonAnimation({ lerpFactor: 0.3, breathCycle: 3.0, breathAmplitude: 0.02 });
 const skeletonEffect = new SkeletonEffect();
+const stickmanRenderer = new StickmanRenderer();
 
 const questionBank = new QuestionBank();
 const speech = new QuestionSpeech();
@@ -822,6 +824,7 @@ function startReadyPhase(): void {
   Object.values(locomotionDetectors).forEach((d) => d.reset());
   jumpDetector.reset();
   readyPositionController.start();
+  stickmanRenderer.reset();
   console.log('[DG] READY_POSITION 시작 (신체 정렬 가이드 및 3초 카운트다운)');
 }
 
@@ -1209,6 +1212,11 @@ const engine = new GameEngine({
     }
     if (poseManager.hasPose) {
       skeletonAnimation.update(dt, poseManager.virtualLandmarks);
+      stickmanRenderer.update(
+        dt,
+        poseManager.rawLandmarks.length >= 25 ? poseManager.rawLandmarks : poseManager.virtualLandmarks,
+        skeletonAnimation.breathScale,
+      );
 
       // Issue #140: 모든 장면(메뉴·달리기·문제·결과)에서 4색 커서가 상시 유지되도록 매 프레임 커서 트래커 갱신
       const sourceLandmarks =
@@ -1314,6 +1322,7 @@ const engine = new GameEngine({
       }
     } else {
       skeletonAnimation.reset();
+      stickmanRenderer.reset();
       motionIntentBus.reset();
       Object.values(locomotionDetectors).forEach((d) => d.reset());
       jumpDetector.reset();
@@ -1654,19 +1663,18 @@ const engine = new GameEngine({
       cameraLayer.render(ctx, vw, vh);
     }
 
-    // 4. 스켈레톤 시각화 (설정에서 활성화된 경우만 렌더링)
-    if (settingsModal.skeletonEnabled && poseManager.hasPose && skeletonAnimation.smoothedLandmarks.length > 0) {
-      const jointMap: Record<number, { x: number; y: number }> = {};
-      for (let i = 0; i < skeletonAnimation.smoothedLandmarks.length; i++) {
-        const lm = skeletonAnimation.smoothedLandmarks[i];
-        if ((lm.visibility ?? 0) >= 0.3) {
-          jointMap[i] = { x: lm.x, y: lm.y };
-        }
+    // 4. 모션 아바타(메카 졸라맨) 시각화 (설정에서 활성화된 경우만 렌더링, Issue #203 / FEAT-SKEL-005)
+    if (settingsModal.skeletonEnabled && poseManager.hasPose) {
+      if (stickmanRenderer.hasPose) {
+        stickmanRenderer.render(ctx, vw, vh);
+      } else if (skeletonAnimation.smoothedLandmarks.length > 0) {
+        boneRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, 1);
+        jointRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, skeletonAnimation.breathScale);
       }
-      skeletonEffect.renderTrails(ctx);
-      boneRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, 1);
-      skeletonEffect.renderGlow(ctx, jointMap);
-      jointRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, skeletonAnimation.breathScale);
+
+      if (skeletonAnimation.smoothedLandmarks.length > 0) {
+        skeletonEffect.renderTrails(ctx);
+      }
     }
 
     // 5. 메뉴 / 인게임 / 결과 렌더링 (모두 vw, vh 가상 좌표계 기준으로 일관 드로잉)
