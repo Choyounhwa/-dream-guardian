@@ -4450,6 +4450,60 @@ BEAT-SPEC-001
   - `dream_guardian/src/main.ts`
   - `dream_guardian/tests/unit/beat-difficulty-profile.test.ts`
 
+---
+
+### Issue #280: [BUG-AVATAR-001] 모션 아바타 미러링 방향 반전 및 스켈레톤 본 토글 결합 버그 수정 & 화이트 클레이(점토) 비주얼 개편
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/280
+- **Labels**: `bug`, `P1-high`, `phase-2`
+- **Milestone**: `v0.5-input-ui`
+- **작업 ID**: `[BUG-AVATAR-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 모션 아바타 미러링 방향 반전 및 스켈레톤 본 토글 결합 버그 수정 & 화이트 클레이(점토) 비주얼 개편
+- **목적**:
+  1. 사용자가 웹캠 거울 모드에서 오른손을 바깥으로 뻗을 때 아바타의 오른손이 안으로 접히는 회전각 미러링 불일치 버그를 수정하여, 사용자 신체 방향과 1:1 완벽히 동기화된 모션을 구현한다.
+  2. 설정 모달에서 '스켈레톤 본'을 OFF할 때 중앙의 아바타 캐릭터까지 함께 사라지는 렌더링 결합 버그를 수정하여, 웹캠 위 앙상한 스켈레톤 선/점과 메인 아바타의 라이프사이클을 독립적으로 분리한다.
+  3. 첨부 레퍼런스 이미지에 맞춰, 각진 로봇 외형 대신 매끄럽고 둥글둥글한 도톰한 순백색 '화이트 클레이 졸라맨(White Clay Stickman)' 점토 피규어 비주얼(소시지 캡슐 사지, 둥근 순백색 두상, 부드러운 앰비언트 음영, 지면 접지 그림자)로 전면 개편한다.
+- **수정 및 생성 대상**:
+  - `dream_guardian/config/skeleton.config.ts`
+  - `dream_guardian/src/skeleton/StickmanRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/ui/SettingsModal.ts`
+  - `dream_guardian/tests/unit/stickman-renderer.test.ts`
+- **구현 내용**:
+  1. **미러링 각도 정합성 수정 (좌우 방향 일치)**:
+     - `main.ts`에서 미러링 및 시간축 스무딩이 완료된 좌표계를 전달하도록 정비.
+     - `StickmanRenderer`의 회전각 계산에서 좌우 손목/팔꿈치/어깨의 상대 X 변위(`dx`)가 거울 반전 기준과 일치하도록 수학적 보정. (오른손을 우측 밖으로 뻗으면 아바타 오른손도 화면 우측 밖으로 시원하게 뻗음).
+  2. **스켈레톤 본 vs 아바타 렌더링 독립 분리**:
+     - `SettingsModal`의 `skeletonEnabled`는 웹캠 위에 직접 겹쳐지는 의학/디버그용 스켈레톤 본(`boneRenderer`, `jointRenderer`) 전용 토글로 복원.
+     - `StickmanRenderer`는 게임의 핵심 주인공 모션 아바타로서 스켈레톤 본 토글과 독립적으로 화면 중앙 2/3에 상시 렌더링.
+  3. **화이트 클레이(White Clay) 졸라맨 비주얼 전면 개편 (첨부 이미지 반영)**:
+     - 순백색 점토 텍스처 컬러 (`#F8FAFC`, `#E2E8F0` 소프트 앰비언트 음영)
+     - 부드러운 유기적 체형: 캡슐 폭을 도톰한 24~28px로 상향 (둥글둥글한 점토 인형 실루엣)
+     - 이목구비 없는 매끄러운 순백색 구체 머리 (Clean Minimalist Sphere)
+     - 점토 인형 발밑 부드러운 타원형 실시간 접지 그림자 드로잉
+     - 양손/양발 끝단에 은은한 파스텔 네온 포인트(왼손 시안 `#28E6FF`, 오른손 옐로우 `#FFCB4D`)를 유지하여 인게임 피트니스 존 판별성 확보
+- **유지 사항**:
+  - 고정 비례 순운동학(Fixed-Length FK) 길이 불변성 보존
+  - 스쿼트/점프 수직 변위 및 모션 반응성 보존
+  - 4색 신체 커서 및 11개 피트니스 존 판정 로직 100% 정상 작동 유지
+- **변경 금지**:
+  - MediaPipe Pose 파이프라인
+  - 수학 문제 엔진 및 전투 수치
+- **완료 조건**:
+  - [ ] 오른손/왼손을 바깥으로 뻗었을 때 아바타의 해당 손도 화면 바깥으로 정확히 동일 방향으로 뻗음
+  - [ ] 설정에서 스켈레톤 본을 OFF해도 중앙 아바타는 사라지지 않고 정상 렌더링됨
+  - [ ] 첨부 레퍼런스 이미지와 일치하는 도톰하고 부드러운 화이트 클레이(점토) 질감의 아바타가 렌더링됨
+  - [ ] `npm test` 단위 테스트 100% Pass 및 빌드 정상 완료
+- **테스트**:
+  - `tests/unit/stickman-renderer.test.ts` 미러링 각도 및 클레이 렌더링 단위 테스트 검증
+  - 브라우저 개발 서버(`npm run dev`)에서 실시간 웹캠 자세 모션 테스트 검증
+- **관련 파일**:
+  - `dream_guardian/config/skeleton.config.ts`
+  - `dream_guardian/src/skeleton/StickmanRenderer.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/src/ui/SettingsModal.ts`
+  - `dream_guardian/tests/unit/stickman-renderer.test.ts`
+
 
 
 
