@@ -70,5 +70,12 @@ export type {
   BossClimaxHazardState,
   MinionPosition,
 } from './BossClimaxRenderer.js';
+export { DialogueOverlayRenderer } from './DialogueOverlayRenderer.js';
+export type {
+  DialogueOverlayOptions,
+  ShowDialogueOptions,
+  DialogueState,
+} from './DialogueOverlayRenderer.js';
+
 
 

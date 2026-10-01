@@ -46,8 +46,10 @@ import {
   QuestionRenderer,
   StarNoteRenderer,
   BossClimaxRenderer,
+  DialogueOverlayRenderer,
   drawJoinedHandsCursor,
 } from './render/index.js';
+import { dialogueManager } from './story/index.js';
 import { EffectManager, wireAnswerVFX, wireGuardianVFX, TransitionManager } from './effects/index.js';
 import {
   RunDetector,
@@ -186,6 +188,7 @@ const beatHUDRenderer = new BeatHUDRenderer();
 const presentationAdapter = new PhasePresentationAdapter(beatHUDRenderer.hazardRenderer);
 const starNoteRenderer = new StarNoteRenderer();
 const bossClimaxRenderer = new BossClimaxRenderer();
+const dialogueOverlayRenderer = new DialogueOverlayRenderer();
 const gestureFeedbackOverlay = new GestureFeedbackOverlay();
 const transitionManager = new TransitionManager();
 const sessionLifecycle = new SessionLifecycle();
@@ -390,6 +393,7 @@ let resultData: ResultData | null = null;
 let unlockedChapter = 5;
 let starsMap: Record<number, number> = {};
 let castingFlash = 0;
+let consecutiveWrongCount = 0;
 
 // StateMachine 단방향 전환 통지 및 상태 동기화
 stateMachine.onTransition((from, to) => {
@@ -807,6 +811,14 @@ bossFeverController = new BossFeverController({
   secondsPerBeat: 0.5,
   onVictory: (stats) => {
     console.log('[DG] Phase B 보스 격파 승리! 통계:', stats);
+    const purifyDialogue = dialogueManager.getDialogue({
+      trigger: 'boss_purified',
+      chapter: currentChapter,
+      force: true,
+    });
+    if (purifyDialogue) {
+      dialogueOverlayRenderer.show(purifyDialogue);
+    }
     showResult(true);
   },
   onGameOver: (stats) => {
@@ -911,6 +923,19 @@ function startChapter(ch: number, subLevel?: number): void {
   speech.resetFeedbackState();
   ensureCameraStarted().catch(() => {});
 
+  // Issue #219 (STORY-RENDER-001): 챕터 진입 시 보스 battle_start 대사 발화
+  consecutiveWrongCount = 0;
+  dialogueManager.reset();
+  dialogueOverlayRenderer.clear();
+  const startDialogue = dialogueManager.getDialogue({
+    trigger: 'battle_start',
+    chapter: ch,
+    force: true,
+  });
+  if (startDialogue) {
+    dialogueOverlayRenderer.show(startDialogue);
+  }
+
   // Issue #137: 첫 플레이 시 튜토리얼 자동 표시
   if (typeof localStorage !== 'undefined' && !localStorage.getItem('dream_guardian_tutorial_done')) {
     tutorial.show();
@@ -931,6 +956,7 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
   console.log(`[DG] 라운드 정산 완료: 답 ${idx} (${correct ? '정답' : '오답'}) [${status}]`);
 
   if (correct) {
+    consecutiveWrongCount = 0;
     if (resolveResult.spellCast) {
       const manaX = canvasManager.virtualWidth * 0.5;
       const manaY = canvasManager.virtualHeight * 0.95;
@@ -944,6 +970,15 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
     }
 
     if (resolveResult.bossDefeated) {
+      // Issue #219 (STORY-RENDER-001): 보스 격파/정화 시 boss_purified 대사 발화
+      const purifyDialogue = dialogueManager.getDialogue({
+        trigger: 'boss_purified',
+        chapter: currentChapter,
+        force: true,
+      });
+      if (purifyDialogue) {
+        dialogueOverlayRenderer.show(purifyDialogue);
+      }
       if (sessionLifecycle.claimResultTransition()) {
         const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
         starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
@@ -953,7 +988,18 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
       }
       return;
     }
+
+    // Issue #219 (STORY-RENDER-001): 정답/연속 정답 대사 발화
+    const correctDialogue = dialogueManager.getDialogue({
+      trigger: 'answer_correct',
+      chapter: currentChapter,
+      consecutiveCount: battle.combo,
+    });
+    if (correctDialogue) {
+      dialogueOverlayRenderer.show(correctDialogue);
+    }
   } else {
+    consecutiveWrongCount++;
     if (status === 'timeout') {
       sfx.play('wrong');
       skeletonEffect.triggerHit();
@@ -968,6 +1014,16 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
       (eventBus as any).emit('answer:timeout');
     }
     console.log(`[DG] 오답 정산 완료! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
+
+    // Issue #219 (STORY-RENDER-001): 오답/연속 오답 시 깨비 위로 대사 발화
+    const wrongDialogue = dialogueManager.getDialogue({
+      trigger: 'answer_wrong',
+      chapter: currentChapter,
+      consecutiveCount: consecutiveWrongCount,
+    });
+    if (wrongDialogue) {
+      dialogueOverlayRenderer.show(wrongDialogue);
+    }
 
     if (resolveResult.playerDefeated) {
       stageProgressController.handleRoundSettled(resolveResult, { immediate: true });
@@ -1028,6 +1084,8 @@ function goToMenu(): void {
     bossHazardController.reset();
   }
   climaxBarrageTimer = 0;
+  consecutiveWrongCount = 0;
+  dialogueOverlayRenderer.clear();
   sfx.stopDwellCharge();
   pauseModal.close(true);
   engine.resumeGame();
@@ -1515,6 +1573,7 @@ const engine = new GameEngine({
     bossRenderer.update(dt);
     effectManager.update(dt);
     boss.update(dt);
+    dialogueOverlayRenderer.update(dt);
 
     hudLayer.update(dt, getHUDData());
 
@@ -1810,6 +1869,9 @@ const engine = new GameEngine({
       screenMode,
       menuMode,
     });
+
+    // 8.9 Issue #219 (STORY-RENDER-001): 인게임 캐릭터 대사창 오버레이 렌더링
+    dialogueOverlayRenderer.render(ctx, vw, vh);
 
     // 9. Issue #137: 튜토리얼 인터랙티브 오버레이 렌더링
     if (tutorial.isVisible) {

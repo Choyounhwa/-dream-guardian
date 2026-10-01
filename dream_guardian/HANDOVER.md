@@ -94,7 +94,7 @@
 |:---:|---|---|---|:---:|
 | 25 | **#217** | [RENDER-BOSS-001] BossRenderer 압박성 대사 제거 및 5대 보스 연출 정비 | 없음 | `[✔] 완료` |
 | 26 | **#218** | [STORY-DATA-001] 대사 엔진(DialogueManager) 신설 및 5대 보스·깨비 ADHD 치유 스크립트 데이터 외부화 | #217 | `[✔] 완료` |
-| 27 | **#219** | [STORY-RENDER-001] 인게임 캐릭터 대사창 오버레이(DialogueOverlayRenderer) 구현 및 발화 시각화 | #218 | `[▶ NEXT]` |
+| 27 | **#219** | [STORY-RENDER-001] 인게임 캐릭터 대사창 오버레이(DialogueOverlayRenderer) 구현 및 발화 시각화 | #218 | `[✔] 완료` |
 
 ### 권장 실행 순서
 
@@ -113,6 +113,23 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [STORY-RENDER-001 / #219] 인게임 캐릭터 대사창 오버레이(DialogueOverlayRenderer) 구현 및 보스·깨비 발화 시각화
+
+> #219 구현 및 TDD 사이클 전수 통과 완료 (140개 파일 1689개 테스트 100% Pass).
+> - **`src/render/DialogueOverlayRenderer.ts` (신규)**:
+>   - 화자별 테마 구현: 깨비(`kkebi`, 황금빛/오렌지 라운드 패널 + 뿔 아이콘 + 화자명 "깨비"), 보스(`boss`, 퍼플/에메랄드 엣지 패널 + 위엄 가시 문양 + 보스 이름), 나레이터(`narrator`, 차분한 실버/청백색 패널 + 별빛 ✦)
+>   - 화면 상단 안전 영역(HUD 하단 y: 160px) 배치로 중앙 수식 및 하단 피트니스 존 100% 시야 개방
+>   - 타이프라이터 효과(초당 약 30자), 텍스트 자동 줄바꿈, 체류 3초 후 0.5초 페이드아웃 및 새 대사 즉시 교체 지원
+> - **`src/render/index.ts`**:
+>   - `DialogueOverlayRenderer` 및 관련 타입 export
+> - **`src/main.ts` 통합 연동**:
+>   - `dialogueManager`와 연동하여 챕터 진입 시 `battle_start`, 정답 시 `answer_correct`/`consecutive_correct`, 오답 시 `answer_wrong`/`consecutive_wrong`, 보스 격파 시 `boss_purified` 발화 트리거
+>   - `update(dt)` 및 최상단 UI 레이어 `render(ctx, vw, vh)` 연동
+> - **`tests/unit/dialogue-overlay-renderer.test.ts` (신규)**:
+>   - 화자별 테마, 타이프라이터, 체류 및 페이드아웃, 캔버스 드로잉 격리 등 12개 단위 테스트 100% Pass
 
 ---
 
