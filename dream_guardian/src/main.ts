@@ -47,7 +47,7 @@ import {
   BossClimaxRenderer,
   drawJoinedHandsCursor,
 } from './render/index.js';
-import { EffectManager, wireAnswerVFX } from './effects/index.js';
+import { EffectManager, wireAnswerVFX, wireGuardianVFX } from './effects/index.js';
 import {
   RunDetector,
   JumpDetector,
@@ -192,9 +192,23 @@ const beatRoundResolver = new BeatRoundResolver({
   battle,
   boss,
   guardian,
-  onSpellCast: () => {
+  onSpellCast: (spellDmg: number) => {
+    const manaX = canvasManager.virtualWidth * 0.5;
+    const manaY = canvasManager.virtualHeight * 0.95;
+    effectManager.playManaFullEffect(manaX, manaY);
+    eventBus.emit('mana:full', { mana: 100 });
+
+    const damage = spellDmg ?? DEFAULT_CONFIG.battle.spellDamage;
+    eventBus.emit('guardian:cast', { damage });
+
+    const bx = canvasManager.virtualWidth * 0.5;
+    const by = canvasManager.virtualHeight * HORIZON_RATIO;
+    const isEnraged = bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3);
     bossRenderer.triggerHit();
-    effectManager.playPreset('cast', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * HORIZON_RATIO);
+    effectManager.playBossHitImpact(bx, by, isEnraged);
+    eventBus.emit('boss:hit', { bossHp: boss.hp });
+
+    effectManager.playPreset('cast', bx, by);
     castingFlash = 0.6;
     console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);
   },
@@ -247,11 +261,16 @@ beatRoundResolver.resourceManager.troopManager.setEventBus(eventBus);
 beatRoundResolver.resourceManager.troopManager.setBossController(boss);
 eventBus.on('troop:barrage', (info) => {
   climaxBarrageTimer = CLIMAX_BARRAGE_DURATION;
+  const isEnraged = bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3);
+  const bx = canvasManager.virtualWidth * 0.5;
+  const by = canvasManager.virtualHeight * 0.35;
   bossRenderer.triggerHit();
+  effectManager.playBossHitImpact(bx, by, isEnraged);
+  eventBus.emit('boss:hit', { bossHp: boss.hp });
   effectManager.playPreset(
     info.isEnhanced ? 'cast' : 'correct',
-    canvasManager.virtualWidth * 0.5,
-    canvasManager.virtualHeight * 0.35,
+    bx,
+    by,
   );
   sfx.play('correct');
 });
@@ -267,6 +286,23 @@ wireAnswerVFX(eventBus, effectManager, {
     x: canvasManager.virtualWidth * 0.5,
     y: canvasManager.virtualHeight * 0.5,
   }),
+});
+
+// Issue #275 (VFX-003): 수호신 스펠 캐스트 및 보스 피격 이펙트 이벤트 연동
+wireGuardianVFX(eventBus, effectManager, {
+  getManaCoordinates: () => ({
+    x: canvasManager.virtualWidth * 0.5,
+    y: canvasManager.virtualHeight * 0.95,
+  }),
+  getGuardianCoordinates: () => ({
+    x: canvasManager.virtualWidth * 0.5,
+    y: canvasManager.virtualHeight * 0.84,
+  }),
+  getBossCoordinates: () => ({
+    x: canvasManager.virtualWidth * 0.5,
+    y: canvasManager.virtualHeight * HORIZON_RATIO,
+  }),
+  getIsEnraged: () => (bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3)),
 });
 
 // Issue #191: 노트결과 ID 기준 중복 방지 (1회 재생 보장)
@@ -521,9 +557,16 @@ const beatCoordinator = new BeatRunCoordinator({
       sfx.play('correct');
       effectManager.playAnswerEffect('correct', bx, by, battle.combo + 1);
       effectManager.playPreset('correct', bx, by);
+      const isEnraged = bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3);
       bossRenderer.triggerHit();
+      effectManager.playBossHitImpact(
+        canvasManager.virtualWidth * 0.5,
+        canvasManager.virtualHeight * HORIZON_RATIO,
+        isEnraged,
+      );
       speech.speakFeedback('correct');
       eventBus.emit('answer:correct', { mana: battle.mana, combo: battle.combo + 1 });
+      eventBus.emit('boss:hit', { bossHp: boss.hp });
     } else {
       sfx.play('wrong');
       effectManager.playAnswerEffect('wrong', bx, by);
@@ -736,11 +779,16 @@ bossFeverController = new BossFeverController({
     showResult(false);
   },
   onDamageDealt: () => {
+    const isEnraged = bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3);
+    const bx = canvasManager.virtualWidth * 0.5;
+    const by = canvasManager.virtualHeight * 0.35;
     bossRenderer.triggerHit();
+    effectManager.playBossHitImpact(bx, by, isEnraged);
+    eventBus.emit('boss:hit', { bossHp: boss.hp });
     effectManager.playPreset(
       'correct',
-      canvasManager.virtualWidth * 0.5,
-      canvasManager.virtualHeight * 0.35,
+      bx,
+      by,
     );
   },
 });
@@ -847,6 +895,12 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
 
   if (correct) {
     if (resolveResult.spellCast) {
+      const manaX = canvasManager.virtualWidth * 0.5;
+      const manaY = canvasManager.virtualHeight * 0.95;
+      effectManager.playManaFullEffect(manaX, manaY);
+      eventBus.emit('mana:full', { mana: 100 });
+      eventBus.emit('guardian:cast', { damage: DEFAULT_CONFIG.battle.spellDamage });
+
       effectManager.playPreset('cast', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * HORIZON_RATIO);
       castingFlash = 0.6;
       console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);

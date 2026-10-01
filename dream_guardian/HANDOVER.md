@@ -77,8 +77,8 @@
 |:---:|---|---|---|:---:|
 | 18 | **#273** | [VFX-001] 파티클 엔진 기반 시스템 구축 (EffectManager) | 없음 | `[✔] 완료` |
 | 19 | **#274** | [VFX-002] 정답/오답 판정 이펙트 연결 | #273 | `[✔] 완료` |
-| 20 | **#275** | [VFX-003] 수호신 스펠 캐스트 이펙트 | #273 | `[▶ NEXT]` |
-| 21 | **#276** | [VFX-004] 스켈레톤 시각 이펙트 강화 | #273 | `[ ] 대기` |
+| 20 | **#275** | [VFX-003] 수호신 스펠 캐스트 이펙트 | #273 | `[✔] 완료` |
+| 21 | **#276** | [VFX-004] 스켈레톤 시각 이펙트 강화 | #273 | `[▶ NEXT]` |
 | 22 | **#277** | [VFX-005] 승리/패배 결과 화면 연출 이펙트 | #273 | `[ ] 대기` |
 | 23 | **#278** | [VFX-006] UI 전환 애니메이션 | #273 | `[ ] 대기` |
 
@@ -99,6 +99,40 @@
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
 
 ---
+
+## 2026-10-01 완료: [VFX-003 / #275] 수호신 스펠 캐스트 이펙트 (마나 100 도달/스펠 시전/보스 피격)
+
+> #275 구현 및 TDD 사이클 전수 통과 완료. 마나 100 도달 연출(보라빛 펄스 및 상향 분출 파티클), 수호신 스펠 캐스트 3단계 연쇄 시퀀스(0~0.3s 수렴 → 0.3~0.8s 고속 마법 구체 투사 → 0.8~1.1s 마법 폭발 충격파), 보스 피격 충격 이펙트(일반 주황/적색 스파크 및 광폭화 진홍 스파크 강화)를 구현하고 `EffectManager`, `config/effect.config.ts`, `src/main.ts`에 완전 연동하였습니다.
+> - **신규/수정 파일 및 내용**:
+>   1. `config/effect.config.ts`:
+>      - `GUARDIAN_EFFECT_CONFIG` 신설:
+>        - `manaFull`: duration 0.5s, pulseColor '#C889FF', colors(['#C889FF', '#FF4DF0', '#28E6FF', '#FFFFFF', '#E8B5FF']), speed 180~380, gravity -240 (화면 상향 솟구침)
+>        - `castSequence`: totalDuration 1.1s (convergence 0.3s, projectile 0.5s, explosion 0.3s), convergenceColors(['#C889FF', '#28E6FF', ...]), explosionColors(['#FF00CC', '#28E6FF', ...]), explosionShockwaveRadius 160
+>        - `bossHit`: normal (count 25, colors ['#FFAA00', '#FF3300', ...], shape 'spark'), enraged (count 45, colors ['#FF0055', '#FF1133', ...], speed 220~480, shape 'spark')
+>   2. `src/effects/EffectManager.ts`:
+>      - `GuardianCastSequence` 클래스 신설 및 export:
+>        - 1단계 수렴 (0~0.3s): 수호신 좌표 중심으로 반경 75px에서 중심으로 수렴하는 에너지 입자 방출 및 집중 아크 렌더링
+>        - 2단계 발사/투사 (0.3~0.8s): 수호신 -> 보스 좌표로 선형 보간 고속 이동하는 마법 구체 및 궤적 파티클 방출
+>        - 3단계 폭발 (0.8~1.1s): 보스 좌표에서 마젠타/시안 마법 폭발 파티클, 충격파 링(Expand), 방사형 광선(Radial) 폭발 연쇄 트리거
+>      - `EffectManager` 메서드 신설:
+>        - `playManaFullEffect(x, y)`: 보라빛 펄스 파동 및 상향 빛줄기 파티클 방출
+>        - `playGuardianCastSequence(gx, gy, bx, by)`: 3단계 시퀀스 등록 및 생명주기 관리
+>        - `playBossHitImpact(bx, by, isEnraged)`: 일반 및 광폭화 차등 충격 파티클/펄스 방출
+>        - `activeCastSequences` getter 및 `update(dt)`, `render(ctx)`, `clear()` 완전 통합
+>      - `wireGuardianVFX(eventBus, effectManager, options)` 헬퍼 함수 구현 및 export: EventBus 이벤트(`mana:full`, `guardian:cast`, `boss:hit`) 연동 및 100ms 디바운스 지원
+>   3. `src/main.ts`:
+>      - `wireGuardianVFX(eventBus, effectManager, ...)`로 전역 이벤트 버스 연동 (마나/수호신/보스 좌표 제공)
+>      - `beatRoundResolver.onSpellCast`: 마나 100 도달 시 `playManaFullEffect`, `mana:full` 및 `guardian:cast` 이벤트 발행, 보스 피격 시 `playBossHitImpact` 및 `boss:hit` 발행
+>      - `onAnswerSelected`: 정답 시 보스 피격 이펙트 `playBossHitImpact` 및 `boss:hit` 발행
+>      - `troop:barrage`, `onDamageDealt`: 보스 타격 시 `playBossHitImpact` 및 `boss:hit` 발행
+>      - `handleAnswer`: 스펠 발동 시 마나 풀/수호신 캐스트 연동
+>   4. 단위 테스트 신설:
+>      - `tests/unit/vfx-guardian.test.ts`: 설정 검증, 마나 풀 펄스/상향 파티클 검증, 3단계 시퀀스 타이밍/보간/폭발/렌더링 검증, 보스 피격 일반/광폭화 차등 검증, EventBus 연동 검증 14/14 Pass
+>   5. 전체 검증:
+>      - `npm run build`: tsc 타입 체크 및 vite 프로덕션 빌드 성공
+>      - `npm test`: 135개 테스트 파일, 1,586개 단위/통합 테스트 100% Pass
+>
+> ---
 
 ## 2026-10-01 완료: [VFX-002 / #274] 정답/오답 판정 이펙트 연결 (별 버스트/적색 플래시/콤보 화염)
 

@@ -88,6 +88,61 @@ export const ANSWER_EFFECT_CONFIG = {
   },
 } as const;
 
+export const GUARDIAN_EFFECT_CONFIG = {
+  manaFull: {
+    duration: 0.5,
+    pulseColor: '#C889FF',
+    pulseStartRadius: 15,
+    pulseMaxRadius: 120,
+    pulseLineWidth: 4,
+    particleCount: 28,
+    colors: ['#C889FF', '#FF4DF0', '#28E6FF', '#FFFFFF', '#E8B5FF'],
+    speedMin: 180,
+    speedMax: 380,
+    sizeMin: 4,
+    sizeMax: 8,
+    gravity: -240, // 화면 하단에서 상단으로 솟구치는 빛줄기
+    drag: 0.96,
+    shapes: ['star', 'spark'] as ParticleShape[],
+  },
+  castSequence: {
+    totalDuration: 1.1,
+    convergenceDuration: 0.3,
+    projectileDuration: 0.5,
+    explosionDuration: 0.3,
+    convergenceColors: ['#C889FF', '#28E6FF', '#FFFFFF', '#FF4DF0'],
+    projectileColor: '#28E6FF',
+    projectileCoreColor: '#FFFFFF',
+    projectileRadius: 14,
+    explosionColors: ['#FF00CC', '#28E6FF', '#FFFFFF', '#C889FF', '#FF4DF0'],
+    explosionCount: 40,
+    explosionShockwaveColor: '#FF00CC',
+    explosionShockwaveRadius: 160,
+  },
+  bossHit: {
+    normal: {
+      count: 25,
+      colors: ['#FFAA00', '#FF3300', '#FFEE33', '#FF5500', '#FFFFFF'],
+      speedMin: 150,
+      speedMax: 350,
+      sizeMin: 3,
+      sizeMax: 7,
+      duration: 0.5,
+      shape: 'spark' as ParticleShape,
+    },
+    enraged: {
+      count: 45,
+      colors: ['#FF0055', '#FF1133', '#990022', '#FF4477', '#FFFFFF', '#FFAA00'],
+      speedMin: 220,
+      speedMax: 480,
+      sizeMin: 4,
+      sizeMax: 9,
+      duration: 0.65,
+      shape: 'spark' as ParticleShape,
+    },
+  },
+} as const;
+
 export const PARTICLE_PRESETS: Record<ParticlePresetName, ParticlePresetConfig> = {
   /** 정답 시 에메랄드(#4DFFAA) + 시안(#28E6FF) 별빛 버스트 */
   correctBurst: {

@@ -33,11 +33,212 @@ import {
   PARTICLE_PRESETS,
   type ParticlePresetName,
   ANSWER_EFFECT_CONFIG,
+  GUARDIAN_EFFECT_CONFIG,
 } from '../../config/effect.config.js';
 import type { EventBus } from '../core/EventBus.js';
 
+export type CastSequencePhase = 'convergence' | 'projectile' | 'explosion' | 'complete';
+
+/**
+ * 수호신 스펠 캐스트 3단계 연쇄 시퀀스
+ * 1) 수렴 (0~0.3s): 수호신 위치로 에너지 입자 수렴
+ * 2) 발사/투사 (0.3~0.8s): 수호신 -> 보스 좌표로 고속 마법 구체 투사체 이동
+ * 3) 폭발 (0.8~1.1s): 보스 위치에서 마젠타/시안 마법 폭발 충격파
+ */
+export class GuardianCastSequence {
+  readonly guardianX: number;
+  readonly guardianY: number;
+  readonly bossX: number;
+  readonly bossY: number;
+  readonly totalDuration: number = 1.1;
+
+  elapsed = 0;
+  phase: CastSequencePhase = 'convergence';
+  active = true;
+  explosionTriggered = false;
+
+  private _manager: EffectManager;
+
+  constructor(
+    guardianX: number,
+    guardianY: number,
+    bossX: number,
+    bossY: number,
+    manager: EffectManager,
+  ) {
+    this.guardianX = guardianX;
+    this.guardianY = guardianY;
+    this.bossX = bossX;
+    this.bossY = bossY;
+    this._manager = manager;
+
+    this._spawnConvergenceParticles();
+  }
+
+  get progress(): number {
+    return Math.min(1, Math.max(0, this.elapsed / this.totalDuration));
+  }
+
+  get projectileProgress(): number {
+    if (this.elapsed < 0.3) return 0;
+    if (this.elapsed >= 0.8) return 1;
+    return (this.elapsed - 0.3) / 0.5;
+  }
+
+  get currentProjectileX(): number {
+    const p = this.projectileProgress;
+    return this.guardianX + (this.bossX - this.guardianX) * p;
+  }
+
+  get currentProjectileY(): number {
+    const p = this.projectileProgress;
+    return this.guardianY + (this.bossY - this.guardianY) * p;
+  }
+
+  private _spawnConvergenceParticles(): void {
+    const cfg = GUARDIAN_EFFECT_CONFIG.castSequence;
+    const count = 20;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      const dist = 75;
+      const startX = this.guardianX + Math.cos(angle) * dist;
+      const startY = this.guardianY + Math.sin(angle) * dist;
+      const speed = dist / 0.3;
+      const color = cfg.convergenceColors[i % cfg.convergenceColors.length];
+
+      this._manager.particleEmitter.burst({
+        x: startX,
+        y: startY,
+        count: 1,
+        colors: [color],
+        speedMin: speed * 0.9,
+        speedMax: speed * 1.1,
+        angleMin: angle + Math.PI - 0.15,
+        angleMax: angle + Math.PI + 0.15,
+        duration: 0.3,
+        sizeMin: 3,
+        sizeMax: 6,
+        shape: 'spark',
+        drag: 0.98,
+      });
+    }
+  }
+
+  update(dt: number): void {
+    if (!this.active) return;
+    this.elapsed += dt;
+
+    if (this.elapsed < 0.3) {
+      this.phase = 'convergence';
+    } else if (this.elapsed < 0.8) {
+      this.phase = 'projectile';
+      // 투사체 이동 중 궤적 파티클 방출
+      this._manager.particleEmitter.burst({
+        x: this.currentProjectileX + (Math.random() - 0.5) * 6,
+        y: this.currentProjectileY + (Math.random() - 0.5) * 6,
+        count: 1,
+        colors: ['#28E6FF', '#C889FF', '#FFFFFF'],
+        speedMin: 20,
+        speedMax: 60,
+        duration: 0.2,
+        sizeMin: 2,
+        sizeMax: 5,
+        shape: 'spark',
+      });
+    } else if (this.elapsed < this.totalDuration) {
+      this.phase = 'explosion';
+      if (!this.explosionTriggered) {
+        this.explosionTriggered = true;
+        this._triggerExplosion();
+      }
+    } else {
+      this.phase = 'complete';
+      this.active = false;
+      if (!this.explosionTriggered) {
+        this.explosionTriggered = true;
+        this._triggerExplosion();
+      }
+    }
+  }
+
+  private _triggerExplosion(): void {
+    const cfg = GUARDIAN_EFFECT_CONFIG.castSequence;
+    // 3단계 폭발: 보스 위치에서 마젠타/시안 마법 폭발 충격파
+    this._manager.burst({
+      x: this.bossX,
+      y: this.bossY,
+      count: cfg.explosionCount,
+      colors: [...cfg.explosionColors],
+      speedMin: 180,
+      speedMax: 420,
+      sizeMin: 4,
+      sizeMax: 10,
+      endSizeMin: 0,
+      endSizeMax: 2,
+      duration: cfg.explosionDuration,
+      gravity: 40,
+      drag: 0.94,
+      shapes: ['star', 'spark'],
+    });
+
+    // 마법 폭발 확장 링
+    this._manager.playExpand({
+      x: this.bossX,
+      y: this.bossY,
+      startRadius: 15,
+      endRadius: cfg.explosionShockwaveRadius,
+      color: cfg.explosionShockwaveColor,
+      lineWidth: 5,
+      duration: cfg.explosionDuration,
+    });
+
+    // 시안 마법 광선 방출
+    this._manager.playRadial({
+      x: this.bossX,
+      y: this.bossY,
+      rayCount: 16,
+      innerRadius: 20,
+      outerRadius: 160,
+      color: '#28E6FF',
+      duration: cfg.explosionDuration,
+    });
+  }
+
+  render(ctx: CanvasRenderingContext2D): void {
+    if (!this.active) return;
+
+    if (this.phase === 'convergence') {
+      ctx.save();
+      const p = this.elapsed / 0.3;
+      ctx.globalAlpha = 0.5 + 0.5 * p;
+      ctx.strokeStyle = '#C889FF';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(this.guardianX, this.guardianY, Math.max(5, 50 * (1 - p)), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    } else if (this.phase === 'projectile') {
+      const px = this.currentProjectileX;
+      const py = this.currentProjectileY;
+      ctx.save();
+      ctx.shadowColor = '#28E6FF';
+      ctx.shadowBlur = 15;
+      ctx.fillStyle = '#28E6FF';
+      ctx.beginPath();
+      ctx.arc(px, py, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(px, py, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
 export class EffectManager {
   private _active: IVisualEffect[] = [];
+  private _activeCastSequences: GuardianCastSequence[] = [];
 
   // 적색/오버레이 플래시 관리 (VFX-002 / Issue #274)
   private _flashColor: string = '#FF4444';
@@ -47,6 +248,9 @@ export class EffectManager {
   private _viewportWidth: number = 1280;
   private _viewportHeight: number = 720;
   private _lastAnswerEffectTime: number = 0;
+  private _lastManaFullTime: number = 0;
+  private _lastGuardianCastTime: number = 0;
+  private _lastBossHitTime: number = 0;
 
   // 타입별 객체 풀 (7종 기본 비주얼 이펙트)
   private _poolGlow: GlowEffect[] = [];
@@ -116,6 +320,18 @@ export class EffectManager {
     return this._lastAnswerEffectTime;
   }
 
+  get lastManaFullTime(): number {
+    return this._lastManaFullTime;
+  }
+
+  get lastGuardianCastTime(): number {
+    return this._lastGuardianCastTime;
+  }
+
+  get lastBossHitTime(): number {
+    return this._lastBossHitTime;
+  }
+
   triggerFlash(color = '#FF4444', duration = 0.3, maxAlpha = 0.4): void {
     this._flashColor = color;
     this._flashDuration = duration;
@@ -129,6 +345,10 @@ export class EffectManager {
 
   get activeCount(): number {
     return this._active.length;
+  }
+
+  get activeCastSequences(): readonly GuardianCastSequence[] {
+    return this._activeCastSequences;
   }
 
   get particleActiveCount(): number {
@@ -498,6 +718,102 @@ export class EffectManager {
   }
 
   /**
+   * 마나 100 도달 이펙트 재생 (VFX-003 / Issue #275)
+   * 마나 바에서 보라빛(#C889FF) 펄스 파동 방출 및 화면 하단에서 상단으로 솟구치는 빛줄기 파티클 (0.5초)
+   */
+  playManaFullEffect(x: number, y: number): void {
+    this._lastManaFullTime = Date.now();
+    const cfg = GUARDIAN_EFFECT_CONFIG.manaFull;
+    this.playPulse({
+      x,
+      y,
+      startRadius: cfg.pulseStartRadius,
+      maxRadius: cfg.pulseMaxRadius,
+      color: cfg.pulseColor,
+      lineWidth: cfg.pulseLineWidth,
+      duration: cfg.duration,
+    });
+
+    this._emitter.burst({
+      x,
+      y,
+      count: cfg.particleCount,
+      colors: [...cfg.colors],
+      speedMin: cfg.speedMin,
+      speedMax: cfg.speedMax,
+      angleMin: -Math.PI * 0.85,
+      angleMax: -Math.PI * 0.15,
+      gravity: cfg.gravity,
+      drag: cfg.drag,
+      duration: cfg.duration,
+      sizeMin: cfg.sizeMin,
+      sizeMax: cfg.sizeMax,
+      shapes: [...cfg.shapes],
+      vRotMin: -2,
+      vRotMax: 2,
+      startAlpha: 1,
+      endAlpha: 0,
+    });
+  }
+
+  /**
+   * 수호신 스펠 시전 3단계 연쇄 시퀀스 재생 (VFX-003 / Issue #275)
+   * 1) 수렴 (0~0.3초) -> 2) 발사/투사 (0.3~0.8초) -> 3) 폭발 (0.8~1.1초)
+   */
+  playGuardianCastSequence(
+    guardianX: number,
+    guardianY: number,
+    bossX: number,
+    bossY: number,
+  ): void {
+    this._lastGuardianCastTime = Date.now();
+    const seq = new GuardianCastSequence(guardianX, guardianY, bossX, bossY, this);
+    this._activeCastSequences.push(seq);
+  }
+
+  /**
+   * 보스 피격 충격 이펙트 재생 (VFX-003 / Issue #275)
+   * 보스 위치에서 주황/적색 충격 불꽃 파티클 (광폭화 시 진홍 스파크 강화)
+   */
+  playBossHitImpact(bossX: number, bossY: number, isEnraged = false): void {
+    this._lastBossHitTime = Date.now();
+    const cfg = isEnraged
+      ? GUARDIAN_EFFECT_CONFIG.bossHit.enraged
+      : GUARDIAN_EFFECT_CONFIG.bossHit.normal;
+
+    this._emitter.burst({
+      x: bossX,
+      y: bossY,
+      count: cfg.count,
+      colors: [...cfg.colors],
+      speedMin: cfg.speedMin,
+      speedMax: cfg.speedMax,
+      sizeMin: cfg.sizeMin,
+      sizeMax: cfg.sizeMax,
+      endSizeMin: 0,
+      endSizeMax: 1,
+      duration: cfg.duration,
+      gravity: isEnraged ? 80 : 120,
+      drag: 0.94,
+      shape: cfg.shape,
+      vRotMin: -4,
+      vRotMax: 4,
+      startAlpha: 1,
+      endAlpha: 0,
+    });
+
+    this.playPulse({
+      x: bossX,
+      y: bossY,
+      startRadius: 10,
+      maxRadius: isEnraged ? 90 : 60,
+      color: isEnraged ? '#FF0055' : '#FFAA00',
+      lineWidth: isEnraged ? 4 : 3,
+      duration: cfg.duration * 0.7,
+    });
+  }
+
+  /**
    * 매 프레임 업데이트: 기본 이펙트 풀 반환 및 파티클 이미터 업데이트
    */
   update(dt: number): void {
@@ -520,6 +836,18 @@ export class EffectManager {
     }
 
     this._emitter.update(dt);
+
+    // 활성 수호신 스펠 연쇄 시퀀스 업데이트 (VFX-003 / Issue #275)
+    let s = 0;
+    while (s < this._activeCastSequences.length) {
+      const seq = this._activeCastSequences[s];
+      seq.update(dt);
+      if (!seq.active) {
+        this._activeCastSequences.splice(s, 1);
+      } else {
+        s++;
+      }
+    }
   }
 
   /**
@@ -542,6 +870,9 @@ export class EffectManager {
     for (let i = 0; i < this._active.length; i++) {
       this._active[i].render(ctx);
     }
+    for (let s = 0; s < this._activeCastSequences.length; s++) {
+      this._activeCastSequences[s].render(ctx);
+    }
     this._emitter.render(ctx);
   }
 
@@ -556,6 +887,7 @@ export class EffectManager {
       this._returnToPool(effect);
     }
     this._active.length = 0;
+    this._activeCastSequences.length = 0;
     this._emitter.clear();
   }
 
@@ -623,6 +955,69 @@ export function wireAnswerVFX(
       (eventBus as any).off('answer:correct', onCorrect);
       (eventBus as any).off('answer:wrong', onWrong);
       (eventBus as any).off('answer:timeout', onTimeout);
+    }
+  };
+}
+
+export interface GuardianVFXOptions {
+  getManaCoordinates?: () => { x: number; y: number };
+  getGuardianCoordinates?: () => { x: number; y: number };
+  getBossCoordinates?: () => { x: number; y: number };
+  getIsEnraged?: () => boolean;
+  debounceMs?: number;
+}
+
+export function wireGuardianVFX(
+  eventBus: EventBus | { on: (event: any, handler: any) => void; off?: (event: any, handler: any) => void },
+  effectManager: EffectManager,
+  options?: GuardianVFXOptions,
+): () => void {
+  const debounceMs = options?.debounceMs ?? 100;
+
+  const onManaFull = () => {
+    const now = Date.now();
+    if (now - effectManager.lastManaFullTime < debounceMs) return;
+    const coords = options?.getManaCoordinates?.() ?? {
+      x: effectManager.viewportWidth * 0.5,
+      y: effectManager.viewportHeight * 0.95,
+    };
+    effectManager.playManaFullEffect(coords.x, coords.y);
+  };
+
+  const onGuardianCast = () => {
+    const now = Date.now();
+    if (now - effectManager.lastGuardianCastTime < debounceMs) return;
+    const gCoords = options?.getGuardianCoordinates?.() ?? {
+      x: effectManager.viewportWidth * 0.5,
+      y: effectManager.viewportHeight * 0.84,
+    };
+    const bCoords = options?.getBossCoordinates?.() ?? {
+      x: effectManager.viewportWidth * 0.5,
+      y: effectManager.viewportHeight * 0.24,
+    };
+    effectManager.playGuardianCastSequence(gCoords.x, gCoords.y, bCoords.x, bCoords.y);
+  };
+
+  const onBossHit = () => {
+    const now = Date.now();
+    if (now - effectManager.lastBossHitTime < debounceMs) return;
+    const bCoords = options?.getBossCoordinates?.() ?? {
+      x: effectManager.viewportWidth * 0.5,
+      y: effectManager.viewportHeight * 0.24,
+    };
+    const isEnraged = options?.getIsEnraged?.() ?? false;
+    effectManager.playBossHitImpact(bCoords.x, bCoords.y, isEnraged);
+  };
+
+  (eventBus as any).on('mana:full', onManaFull);
+  (eventBus as any).on('guardian:cast', onGuardianCast);
+  (eventBus as any).on('boss:hit', onBossHit);
+
+  return () => {
+    if (typeof (eventBus as any).off === 'function') {
+      (eventBus as any).off('mana:full', onManaFull);
+      (eventBus as any).off('guardian:cast', onGuardianCast);
+      (eventBus as any).off('boss:hit', onBossHit);
     }
   };
 }
