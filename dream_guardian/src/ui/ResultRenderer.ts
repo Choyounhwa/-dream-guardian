@@ -84,6 +84,60 @@ export function calcStars(correctCount: number, totalQuestions: number, elapsedT
 }
 
 export class ResultRenderer {
+  private _animTime: number = 10.0; // 기본값: 안착 완료 상태 (기존 테스트 호환성 유지)
+  readonly slideDuration: number = 0.5;
+  readonly statStaggerDelay: number = 0.08;
+  readonly statFadeDuration: number = 0.15;
+
+  get animTime(): number {
+    return this._animTime;
+  }
+
+  get isPanelSettled(): boolean {
+    return this._animTime >= this.slideDuration;
+  }
+
+  resetAnimation(initialTime = 0): void {
+    this._animTime = initialTime;
+  }
+
+  update(dt: number): void {
+    this._animTime += dt;
+  }
+
+  /**
+   * 패널 등장 슬라이드 오프셋 (0.5초 동안 아래에서 위로 easeOutBack 보간)
+   */
+  getSlideOffsetY(h: number): number {
+    if (this._animTime >= this.slideDuration) {
+      return 0;
+    }
+    const startOffset = 360 * (h / 2160);
+    if (this._animTime <= 0) {
+      return startOffset;
+    }
+    const t = this._animTime / this.slideDuration;
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    const ease = 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    return Math.max(0, (1 - ease) * startOffset);
+  }
+
+  /** getSlideOffsetY 별칭 */
+  getPanelOffsetY(h: number): number {
+    return this.getSlideOffsetY(h);
+  }
+
+  /**
+   * 패널 안착(0.5초) 후 8개 통계 라인 순차 페이드 인 알파 (0 -> 1)
+   */
+  getStatLineAlpha(index: number): number {
+    const startTime = this.slideDuration + index * this.statStaggerDelay;
+    if (this._animTime <= startTime) return 0;
+    if (this._animTime >= startTime + this.statFadeDuration) return 1;
+    return (this._animTime - startTime) / this.statFadeDuration;
+  }
+
   /**
    * 마젠타 결과 카드 패널 레이아웃 (1080x2160 기준 UI_LAYOUT.result.panel 연동)
    */
@@ -122,6 +176,12 @@ export class ResultRenderer {
     // 1. 전체 화면 딤 오버레이
     ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
     ctx.fillRect(0, 0, w, h);
+
+    const slideOffsetY = this.getSlideOffsetY(h);
+    ctx.save();
+    if (slideOffsetY !== 0) {
+      ctx.translate(0, slideOffsetY);
+    }
 
     // 2. 마젠타 결과 카드 패널 (x: 100, y: 240, w: 880, h: 1580)
     const panel = this.getPanelLayout(w, h);
@@ -270,6 +330,11 @@ export class ResultRenderer {
     for (let i = 0; i < statItems.length; i++) {
       const item = statItems[i];
       const ly = statStartY + i * lineH;
+      const lineAlpha = this.getStatLineAlpha(i);
+      if (lineAlpha <= 0) continue;
+
+      ctx.save();
+      ctx.globalAlpha = (ctx.globalAlpha || 1) * lineAlpha;
 
       // 은은한 구분선 배경 바
       ctx.fillStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.015)';
@@ -289,6 +354,8 @@ export class ResultRenderer {
         ctx.textAlign = 'center';
         ctx.fillText(item.rawText, w / 2, ly);
       }
+
+      ctx.restore();
     }
 
     // 5. 하단 안내문
@@ -297,6 +364,7 @@ export class ResultRenderer {
     ctx.fillStyle = '#BBBBBB';
     ctx.fillText('양손을 모으거나 하단 [메뉴로] 버튼을 클릭하세요', w / 2, panel.y + panel.h - 50 * scaleY);
 
+    ctx.restore();
     ctx.restore();
   }
 }

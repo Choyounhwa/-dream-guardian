@@ -10,7 +10,8 @@ export type ParticlePresetName =
   | 'wrongFlash'
   | 'bossHit'
   | 'manaFull'
-  | 'victoryCelebration';
+  | 'victoryCelebration'
+  | 'defeatDarken';
 
 export interface ParticlePresetConfig {
   count: number;
@@ -143,6 +144,43 @@ export const GUARDIAN_EFFECT_CONFIG = {
   },
 } as const;
 
+export const RESULT_EFFECT_CONFIG = {
+  victory: {
+    colors: ['#FFCB4D', '#4DFFAA', '#28E6FF', '#FF28D8', '#FFFFFF'],
+    shapes: ['star', 'spark', 'rect'] as ParticleShape[],
+    starCounts: {
+      1: 120,
+      2: 180,
+      3: 250,
+    } as Record<number, number>,
+    speedMin: 120,
+    speedMax: 480,
+    sizeMin: 4,
+    sizeMax: 12,
+    durationMin: 1.5,
+    durationMax: 2.8,
+    gravity: 160,
+    drag: 0.97,
+    streamRate: 35,
+    streamDuration: 2.5,
+  },
+  defeat: {
+    vignetteDuration: 2.0,
+    maxAlpha: 0.8,
+    particleCount: 30,
+    colors: ['#FF4444', '#880022', '#C889FF', '#550055', '#330033'],
+    shapes: ['circle', 'spark'] as ParticleShape[],
+    speedMin: 30,
+    speedMax: 90,
+    sizeMin: 4,
+    sizeMax: 10,
+    durationMin: 1.5,
+    durationMax: 2.2,
+    gravity: 60,
+    drag: 0.96,
+  },
+} as const;
+
 export const PARTICLE_PRESETS: Record<ParticlePresetName, ParticlePresetConfig> = {
   /** 정답 시 에메랄드(#4DFFAA) + 시안(#28E6FF) 별빛 버스트 */
   correctBurst: {
@@ -226,25 +264,46 @@ export const PARTICLE_PRESETS: Record<ParticlePresetName, ParticlePresetConfig> 
     endAlpha: 0,
   },
 
-  /** 승리 시 5색 축하 콘페티 파티클 (100개+) */
+  /** 승리 시 5색 축하 콘페티 파티클 (120~250개+) */
   victoryCelebration: {
     count: 120,
-    colors: ['#4DFFAA', '#28E6FF', '#FFCB4D', '#FF5577', '#C889FF'],
-    speedMin: 100,
-    speedMax: 450,
+    colors: ['#FFCB4D', '#4DFFAA', '#28E6FF', '#FF28D8', '#FFFFFF'],
+    speedMin: 120,
+    speedMax: 480,
     sizeMin: 4,
-    sizeMax: 10,
+    sizeMax: 12,
     endSizeMin: 2,
     endSizeMax: 5,
-    durationMin: 1.2,
-    durationMax: 2.0,
-    gravity: 180,
+    durationMin: 1.5,
+    durationMax: 2.5,
+    gravity: 160,
     drag: 0.97,
-    shape: 'rect',
+    shapes: ['star', 'spark', 'rect'],
     vRotMin: -6,
     vRotMax: 6,
     startAlpha: 1,
     endAlpha: 0.1,
+  },
+
+  /** 패배 시 적색/보라 침강 파티클 (25~35개) */
+  defeatDarken: {
+    count: 30,
+    colors: ['#FF4444', '#880022', '#C889FF', '#550055', '#330033'],
+    speedMin: 30,
+    speedMax: 90,
+    sizeMin: 4,
+    sizeMax: 10,
+    endSizeMin: 1,
+    endSizeMax: 3,
+    durationMin: 1.5,
+    durationMax: 2.2,
+    gravity: 60,
+    drag: 0.96,
+    shapes: ['circle', 'spark'],
+    vRotMin: -1,
+    vRotMax: 1,
+    startAlpha: 0.9,
+    endAlpha: 0,
   },
 };
 

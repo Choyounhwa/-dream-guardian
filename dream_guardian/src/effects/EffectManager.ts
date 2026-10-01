@@ -34,6 +34,7 @@ import {
   type ParticlePresetName,
   ANSWER_EFFECT_CONFIG,
   GUARDIAN_EFFECT_CONFIG,
+  RESULT_EFFECT_CONFIG,
 } from '../../config/effect.config.js';
 import type { EventBus } from '../core/EventBus.js';
 
@@ -251,6 +252,12 @@ export class EffectManager {
   private _lastManaFullTime: number = 0;
   private _lastGuardianCastTime: number = 0;
   private _lastBossHitTime: number = 0;
+  private _lastVictoryCelebrationTime: number = 0;
+  private _lastDefeatDarkenTime: number = 0;
+
+  // 패배 연출 비네팅 어두움 관리 (VFX-005 / Issue #277)
+  private _defeatDarkenTimer: number = 0;
+  private _defeatDarkenDuration: number = 2.0;
 
   // 타입별 객체 풀 (7종 기본 비주얼 이펙트)
   private _poolGlow: GlowEffect[] = [];
@@ -330,6 +337,35 @@ export class EffectManager {
 
   get lastBossHitTime(): number {
     return this._lastBossHitTime;
+  }
+
+  get lastVictoryCelebrationTime(): number {
+    return this._lastVictoryCelebrationTime;
+  }
+
+  get lastDefeatDarkenTime(): number {
+    return this._lastDefeatDarkenTime;
+  }
+
+  get isDefeatDarkenActive(): boolean {
+    return this._defeatDarkenTimer > 0;
+  }
+
+  get defeatDarkenTimer(): number {
+    return this._defeatDarkenTimer;
+  }
+
+  get defeatDarkenDuration(): number {
+    return this._defeatDarkenDuration;
+  }
+
+  get defeatDarkenAlpha(): number {
+    if (this._defeatDarkenTimer <= 0 || this._defeatDarkenDuration <= 0) return 0;
+    const elapsed = this._defeatDarkenDuration - this._defeatDarkenTimer;
+    const fadeIn = Math.min(1, elapsed / 0.4);
+    const fadeOut = Math.min(1, this._defeatDarkenTimer / 0.5);
+    const maxAlpha = RESULT_EFFECT_CONFIG.defeat.maxAlpha ?? 0.8;
+    return maxAlpha * Math.min(fadeIn, fadeOut);
   }
 
   triggerFlash(color = '#FF4444', duration = 0.3, maxAlpha = 0.4): void {
@@ -814,11 +850,103 @@ export class EffectManager {
   }
 
   /**
+   * 승리 결과 화면 축하 연출 (VFX-005 / Issue #277)
+   * 5색(골드, 에메랄드, 시안, 마젠타, 화이트) 별/스파크/사각형 콘페티 대규모 폭발 및 상단 낙하 스트림
+   */
+  playVictoryCelebration(w: number, h: number, stars = 3): void {
+    this._lastVictoryCelebrationTime = Date.now();
+    const cfg = RESULT_EFFECT_CONFIG.victory;
+    const clampedStars = Math.min(3, Math.max(1, stars));
+    const burstCount = cfg.starCounts[clampedStars] ?? 250;
+
+    // 대규모 폭발 방출
+    this._emitter.burst({
+      x: w * 0.5,
+      y: h * 0.35,
+      count: burstCount,
+      colors: [...cfg.colors],
+      shapes: [...cfg.shapes],
+      speedMin: cfg.speedMin,
+      speedMax: cfg.speedMax,
+      sizeMin: cfg.sizeMin,
+      sizeMax: cfg.sizeMax,
+      durationMin: cfg.durationMin,
+      durationMax: cfg.durationMax,
+      gravity: cfg.gravity,
+      drag: cfg.drag,
+      vRotMin: -5,
+      vRotMax: 5,
+      startAlpha: 1,
+      endAlpha: 0.1,
+    });
+
+    // 상단에서 흩날리며 떨어지는 지속 스트림 파티클
+    this._emitter.stream({
+      x: w * 0.5,
+      y: -20,
+      rate: cfg.streamRate,
+      duration: cfg.streamDuration,
+      colors: [...cfg.colors],
+      shapes: [...cfg.shapes],
+      speedMin: 50,
+      speedMax: 160,
+      angleMin: Math.PI * 0.25,
+      angleMax: Math.PI * 0.75,
+      gravity: 130,
+      drag: 0.98,
+      sizeMin: 4,
+      sizeMax: 10,
+      vRotMin: -4,
+      vRotMax: 4,
+      startAlpha: 0.9,
+      endAlpha: 0.1,
+    });
+  }
+
+  /**
+   * 패배 결과 화면 침강 및 어두움 연출 (VFX-005 / Issue #277)
+   * 2.0초 지속 비네팅 다크 오버레이 및 적색/보라 침강 파티클(25~35개) 하강
+   */
+  playDefeatDarken(w: number, h: number): void {
+    this._lastDefeatDarkenTime = Date.now();
+    const cfg = RESULT_EFFECT_CONFIG.defeat;
+    this._defeatDarkenDuration = cfg.vignetteDuration;
+    this._defeatDarkenTimer = cfg.vignetteDuration;
+
+    // 25~35개 적색/보라 침강 파티클 하강 방출
+    this._emitter.burst({
+      x: w * 0.5,
+      y: h * 0.25,
+      count: cfg.particleCount,
+      colors: [...cfg.colors],
+      shapes: [...cfg.shapes],
+      speedMin: cfg.speedMin,
+      speedMax: cfg.speedMax,
+      angleMin: Math.PI * 0.2,
+      angleMax: Math.PI * 0.8,
+      gravity: cfg.gravity,
+      drag: cfg.drag,
+      durationMin: cfg.durationMin,
+      durationMax: cfg.durationMax,
+      sizeMin: cfg.sizeMin,
+      sizeMax: cfg.sizeMax,
+      vRotMin: -2,
+      vRotMax: 2,
+      startAlpha: 0.9,
+      endAlpha: 0,
+    });
+  }
+
+  /**
    * 매 프레임 업데이트: 기본 이펙트 풀 반환 및 파티클 이미터 업데이트
    */
   update(dt: number): void {
     if (this._flashTimer > 0) {
       this._flashTimer = Math.max(0, this._flashTimer - dt);
+    }
+
+    if (this._defeatDarkenTimer > 0) {
+      this._defeatDarkenTimer = Math.max(0, this._defeatDarkenTimer - dt);
     }
 
     let i = 0;
@@ -867,6 +995,25 @@ export class EffectManager {
       }
     }
 
+    if (this._defeatDarkenTimer > 0) {
+      const alpha = this.defeatDarkenAlpha;
+      if (alpha > 0.001) {
+        ctx.save();
+        const w = width ?? (ctx.canvas?.width || this._viewportWidth);
+        const h = height ?? (ctx.canvas?.height || this._viewportHeight);
+        const cx = w * 0.5;
+        const cy = h * 0.5;
+        const maxR = Math.max(w, h) * 0.75;
+        const grad = ctx.createRadialGradient(cx, cy, maxR * 0.2, cx, cy, maxR);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        grad.addColorStop(0.6, `rgba(40, 0, 20, ${alpha * 0.5})`);
+        grad.addColorStop(1, `rgba(15, 0, 10, ${alpha * 0.85})`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+        ctx.restore();
+      }
+    }
+
     for (let i = 0; i < this._active.length; i++) {
       this._active[i].render(ctx);
     }
@@ -881,6 +1028,7 @@ export class EffectManager {
    */
   clear(): void {
     this._flashTimer = 0;
+    this._defeatDarkenTimer = 0;
     for (let i = 0; i < this._active.length; i++) {
       const effect = this._active[i];
       effect.reset();

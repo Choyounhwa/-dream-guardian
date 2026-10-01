@@ -79,8 +79,8 @@
 | 19 | **#274** | [VFX-002] 정답/오답 판정 이펙트 연결 | #273 | `[✔] 완료` |
 | 20 | **#275** | [VFX-003] 수호신 스펠 캐스트 이펙트 | #273 | `[✔] 완료` |
 | 21 | **#276** | [VFX-004] 스켈레톤 시각 이펙트 강화 | #273 | `[✔] 완료` |
-| 22 | **#277** | [VFX-005] 승리/패배 결과 화면 연출 이펙트 | #273 | `[▶ NEXT]` |
-| 23 | **#278** | [VFX-006] UI 전환 애니메이션 | #273 | `[ ] 대기` |
+| 22 | **#277** | [VFX-005] 승리/패배 결과 화면 연출 이펙트 | #273 | `[✔] 완료` |
+| 23 | **#278** | [VFX-006] UI 전환 애니메이션 | #273 | `[▶ NEXT]` |
 
 ### 권장 실행 순서
 
@@ -97,6 +97,36 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [VFX-005 / #277] 승리/패배 결과 화면 연출 이펙트 (축하 파티클/패배 안개)
+
+> #277 구현 및 TDD 사이클 전수 통과 완료.
+> - **승리 축하 파티클**: 5색(골드 `#FFCB4D`, 에메랄드 `#4DFFAA`, 시안 `#28E6FF`, 마젠타 `#FF28D8`, 화이트 `#FFFFFF`) 별/스파크/사각형 콘페티 대규모 폭발 및 상단 낙하 스트림. 별 등급에 따른 차등: 1성(120개), 2성(180개), 3성(250개+).
+> - **패배 침강 연출**: 2.0초 지속 비네팅 다크 오버레이 및 적색/보라 침강 파티클(25~35개) 하강 연출.
+> - **ResultRenderer 연출**: 패널 아래에서 위로 슬라이드 인 (0.5초 `easeOutBack`), 8개 운동 통계 라인 순차 페이드 인 (패널 안착 후 0.08초 간격으로 각 라인 알파 0->1 등장), 기존 프로시저럴 드로잉 및 비트맵 이미지 에셋 렌더링 100% 보존.
+> - **신규/수정 파일 및 내용**:
+>   1. `config/effect.config.ts`:
+>      - `RESULT_EFFECT_CONFIG` 신설 (victory 5색/3종형태/별점별 수량/스트림, defeat 2초 비네팅/25~35개 침강 파티클)
+>      - `ParticlePresetName`에 `defeatDarken` 추가 및 `PARTICLE_PRESETS`에 `victoryCelebration`, `defeatDarken` 프리셋 반영
+>   2. `src/effects/EffectManager.ts`:
+>      - `playVictoryCelebration(w, h, stars)`: 별 등급별 대규모 폭발 및 상단 지속 낙하 스트림
+>      - `playDefeatDarken(w, h)`: 2.0초 비네팅 타이머 및 25~35개 침강 파티클 하강
+>      - `update`, `render`, `clear`에 비네팅 다크 오버레이 및 수명주기 연동
+>   3. `src/ui/ResultRenderer.ts`:
+>      - `resetAnimation(initialTime)`: 애니메이션 타이머 리셋
+>      - `update(dt)`: `animTime` 누적
+>      - `getSlideOffsetY(h)` / `getPanelOffsetY(h)`: 0.5초 `easeOutBack` 슬라이드 오프셋 계산
+>      - `getStatLineAlpha(index)`: 패널 안착 후 0.08초 간격 8개 통계 라인 순차 페이드 인 계산
+>      - `render(...)`: 슬라이드 변환 및 순차 알파 적용
+>   4. `src/main.ts`:
+>      - `stateMachine.registerState('RESULT')`: `resultRenderer.resetAnimation()` 및 `effectManager.playVictoryCelebration()` 연동
+>      - `stateMachine.registerState('GAMEOVER')`: `resultRenderer.resetAnimation()` 및 `effectManager.playDefeatDarken()` 연동
+>      - `showResult(victory)`: `resultData` 생성 후 `stateMachine.changeState` 호출 순서 정합성 보장
+>      - `update(dt)`의 `screenMode === 'result'` 루프에서 `resultRenderer.update(dt)` 호출
+>   5. `tests/unit/vfx-result.test.ts`: 14개 단위/연동 테스트 작성 (100% Pass)
+> - **검증 결과**: 단위 테스트 14개 전수 통과, 전체 테스트 슈트 137개 파일 1613개 테스트 100% Pass, 빌드 성공.
 
 ---
 

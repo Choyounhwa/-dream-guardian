@@ -530,6 +530,25 @@ stateMachine.registerState('MENU_SUB', {
   },
 });
 
+stateMachine.registerState('RESULT', {
+  enter: () => {
+    resultRenderer.resetAnimation();
+    const vw = canvasManager.virtualWidth;
+    const vh = canvasManager.virtualHeight;
+    const stars = resultData ? calcStars(resultData.correctCount, resultData.totalQuestions, resultData.elapsedTime) : 3;
+    effectManager.playVictoryCelebration(vw, vh, stars);
+  },
+});
+
+stateMachine.registerState('GAMEOVER', {
+  enter: () => {
+    resultRenderer.resetAnimation();
+    const vw = canvasManager.virtualWidth;
+    const vh = canvasManager.virtualHeight;
+    effectManager.playDefeatDarken(vw, vh);
+  },
+});
+
 function enterQuestionPhase(): void {
   if (stateMachine.currentState === 'ANSWER_SELECT') return;
   stateMachine.changeState('ANSWER_SELECT');
@@ -968,7 +987,6 @@ function showResult(victory: boolean): void {
   if (victory) sfx.play('posture_complete');
   else sfx.play('wrong');
   console.log(`[DG] ${victory ? '승리' : '패배'}`);
-  stateMachine.changeState(victory ? 'RESULT' : 'GAMEOVER');
   resultReturnTimer = 0;
   answerLocked = true;
   questionVisible = false;
@@ -994,6 +1012,7 @@ function showResult(victory: boolean): void {
     locomotionMode: locomotionModal.selectedMode,
     rhythmStats: { ...beatRoundResolver.rhythmStats },
   };
+  stateMachine.changeState(victory ? 'RESULT' : 'GAMEOVER');
 }
 
 function goToMenu(): void {
@@ -1347,6 +1366,7 @@ const engine = new GameEngine({
     }
 
     if (screenMode === 'result') {
+      resultRenderer.update(dt);
       dreamGrid.update(dt, 0.8);
       effectManager.update(dt);
 
