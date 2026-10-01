@@ -13,6 +13,8 @@ import { CALORIE_RATES, LOCOMOTION_CALORIE_RATES } from '../../config/posture.co
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import type { BeatRhythmStats } from '../types/result.js';
 import { getBossName } from '../data/bossData.js';
+import { UIText } from '../utils/UIText.js';
+import { imageLoader } from '../utils/UIImageLoader.js';
 
 export interface ResultData {
   victory: boolean;
@@ -106,7 +108,7 @@ export class ResultRenderer {
    * 통계 폰트 크기 (1080 기준 44px)
    */
   getStatFontSize(w: number): number {
-    return Math.round(44 * (w / 1080));
+    return UIText.getFontSize('subheading', w / 1080);
   }
 
   render(ctx: CanvasRenderingContext2D, w: number, h: number, data: ResultData): void {
@@ -121,55 +123,80 @@ export class ResultRenderer {
 
     // 2. 마젠타 결과 카드 패널 (x: 100, y: 240, w: 880, h: 1580)
     const panel = this.getPanelLayout(w, h);
-    ctx.fillStyle = 'rgba(20, 10, 30, 0.95)';
-    ctx.strokeStyle = '#FF28D8';
-    ctx.lineWidth = 3.5 * scaleX;
-    ctx.shadowColor = '#FF28D8';
-    ctx.shadowBlur = 18 * scaleX;
-    ctx.beginPath();
-    if (ctx.roundRect) {
-      ctx.roundRect(panel.x, panel.y, panel.w, panel.h, 28 * scaleX);
+    const panelImg = imageLoader.get('result', 'panelBg');
+    if (panelImg) {
+      ctx.drawImage(panelImg, panel.x, panel.y, panel.w, panel.h);
     } else {
-      ctx.rect(panel.x, panel.y, panel.w, panel.h);
+      ctx.fillStyle = 'rgba(20, 10, 30, 0.95)';
+      ctx.strokeStyle = '#FF28D8';
+      ctx.lineWidth = 3.5 * scaleX;
+      ctx.shadowColor = '#FF28D8';
+      ctx.shadowBlur = 18 * scaleX;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(panel.x, panel.y, panel.w, panel.h, 28 * scaleX);
+      } else {
+        ctx.rect(panel.x, panel.y, panel.w, panel.h);
+      }
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
     }
-    ctx.fill();
-    ctx.stroke();
-    ctx.shadowBlur = 0;
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
     // 3. 타이틀 영역: bold 100px ("승리!" / "패배...")
     const titleY = panel.y + 110 * scaleY;
-    ctx.font = `bold ${Math.round(100 * scaleX)}px sans-serif`;
-    ctx.fillStyle = data.victory ? '#4DFFAA' : '#FF4444';
-    ctx.shadowColor = data.victory ? '#4DFFAA' : '#FF4444';
-    ctx.shadowBlur = 20 * scaleX;
-    ctx.fillText(data.victory ? '승리!' : '패배...', w / 2, titleY);
-    ctx.shadowBlur = 0;
+    const badgeImg = data.victory
+      ? imageLoader.get('result', 'victoryBadge')
+      : imageLoader.get('result', 'defeatBadge');
+    if (badgeImg) {
+      const bw = 240 * scaleX;
+      const bh = 80 * scaleY;
+      ctx.drawImage(badgeImg, (w - bw) / 2, titleY - bh / 2, bw, bh);
+    } else {
+      ctx.font = UIText.getFont('hero', scaleX, 'bold');
+      ctx.fillStyle = data.victory ? '#4DFFAA' : '#FF4444';
+      ctx.shadowColor = data.victory ? '#4DFFAA' : '#FF4444';
+      ctx.shadowBlur = 20 * scaleX;
+      ctx.fillText(data.victory ? '승리!' : '패배...', w / 2, titleY);
+      ctx.shadowBlur = 0;
+    }
 
     // 챕터명: bold 42px
-    ctx.font = `bold ${Math.round(42 * scaleX)}px sans-serif`;
+    ctx.font = UIText.getFont('body', scaleX, 'bold');
     ctx.fillStyle = '#FFCB4D';
     ctx.fillText(`Ch.${data.chapter} ${getBossName(data.chapter)}`, w / 2, titleY + 90 * scaleY);
 
     // 별 등급 (승리 시): bold 54px
     if (data.victory) {
       const stars = calcStars(data.correctCount, data.totalQuestions, data.elapsedTime);
-      ctx.font = `bold ${Math.round(54 * scaleX)}px sans-serif`;
-      ctx.fillStyle = '#FFCB4D';
-      ctx.shadowColor = '#FFCB4D';
-      ctx.shadowBlur = 14 * scaleX;
-      ctx.fillText('★'.repeat(stars) + '☆'.repeat(3 - stars), w / 2, titleY + 165 * scaleY);
-      ctx.shadowBlur = 0;
+      const starFilledImg = imageLoader.get('result', 'starFilled');
+      const starEmptyImg = imageLoader.get('result', 'starEmpty');
+      if (starFilledImg && starEmptyImg) {
+        const starSize = 54 * scaleX;
+        const startX = w / 2 - (3 * starSize) / 2;
+        const starY = titleY + 165 * scaleY - starSize / 2;
+        for (let s = 0; s < 3; s++) {
+          const sImg = s < stars ? starFilledImg : starEmptyImg;
+          ctx.drawImage(sImg, startX + s * starSize, starY, starSize, starSize);
+        }
+      } else {
+        ctx.font = UIText.getFont('heading', scaleX, 'bold');
+        ctx.fillStyle = '#FFCB4D';
+        ctx.shadowColor = '#FFCB4D';
+        ctx.shadowBlur = 14 * scaleX;
+        ctx.fillText('★'.repeat(stars) + '☆'.repeat(3 - stars), w / 2, titleY + 165 * scaleY);
+        ctx.shadowBlur = 0;
+      }
     }
 
     // 4. 8개 운동 통계 리포트 (74px 라인 x bold 44px 1:1 매칭)
     const statStartY = panel.y + (data.victory ? 470 : 380) * scaleY;
     const lineH = this.getStatLineHeight(h);
-    const fontS = this.getStatFontSize(w);
 
-    ctx.font = `bold ${fontS}px sans-serif`;
+    ctx.font = UIText.getFont('subheading', scaleX, 'bold');
     ctx.fillStyle = '#FFFFFF';
 
     const accuracy = data.totalQuestions > 0
@@ -208,7 +235,7 @@ export class ResultRenderer {
     }
 
     // 5. 하단 안내문
-    ctx.font = `${Math.round(26 * scaleX)}px sans-serif`;
+    ctx.font = UIText.getFont('label', scaleX, 'normal');
     ctx.fillStyle = '#888888';
     ctx.fillText('양손을 모으거나 하단 [메뉴로] 버튼을 클릭하세요', w / 2, panel.y + panel.h - 50 * scaleY);
 

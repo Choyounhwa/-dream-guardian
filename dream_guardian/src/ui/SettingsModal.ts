@@ -10,6 +10,9 @@
  * - ✕ 닫기 버튼 및 배경 터치 닫기
  */
 
+import { UIText } from '../utils/UIText.js';
+import { imageLoader } from '../utils/UIImageLoader.js';
+
 export type SettingsAction = 'close' | 'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion' | 'backdrop-close';
 
 export interface ModalButtonSlot {
@@ -203,20 +206,25 @@ export class SettingsModal {
     const mh = this.MODAL_VIRTUAL.h * scaleY;
     const radius = 28 * scaleX;
 
-    ctx.fillStyle = 'rgba(15, 20, 36, 0.98)';
-    ctx.strokeStyle = '#28E6FF';
-    ctx.lineWidth = 3 * scaleX;
-    ctx.beginPath();
-    if (ctx.roundRect) {
-      ctx.roundRect(mx, my, mw, mh, radius);
+    const dialogBgImg = imageLoader.get('settings', 'dialogBg');
+    if (dialogBgImg) {
+      ctx.drawImage(dialogBgImg, mx, my, mw, mh);
     } else {
-      ctx.rect(mx, my, mw, mh);
+      ctx.fillStyle = 'rgba(15, 20, 36, 0.98)';
+      ctx.strokeStyle = '#28E6FF';
+      ctx.lineWidth = 3 * scaleX;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(mx, my, mw, mh, radius);
+      } else {
+        ctx.rect(mx, my, mw, mh);
+      }
+      ctx.fill();
+      ctx.stroke();
     }
-    ctx.fill();
-    ctx.stroke();
 
     // 3. 타이틀
-    ctx.font = `bold ${Math.round(44 * scaleX)}px sans-serif`;
+    ctx.font = UIText.getFont('subheading', scaleX, 'bold');
     ctx.fillStyle = '#FFCB4D';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
@@ -224,23 +232,28 @@ export class SettingsModal {
 
     // 4. 닫기 버튼
     const closeBtn = this.getButtonLayout('close', w, h);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 2 * scaleX;
-    ctx.beginPath();
-    if (ctx.roundRect) {
-      ctx.roundRect(closeBtn.x, closeBtn.y, closeBtn.w, closeBtn.h, 12 * scaleX);
+    const closeIconImg = imageLoader.get('settings', 'closeIcon');
+    if (closeIconImg) {
+      ctx.drawImage(closeIconImg, closeBtn.x, closeBtn.y, closeBtn.w, closeBtn.h);
     } else {
-      ctx.rect(closeBtn.x, closeBtn.y, closeBtn.w, closeBtn.h);
-    }
-    ctx.fill();
-    ctx.stroke();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 2 * scaleX;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(closeBtn.x, closeBtn.y, closeBtn.w, closeBtn.h, 12 * scaleX);
+      } else {
+        ctx.rect(closeBtn.x, closeBtn.y, closeBtn.w, closeBtn.h);
+      }
+      ctx.fill();
+      ctx.stroke();
 
-    ctx.font = `bold ${Math.round(36 * scaleX)}px sans-serif`;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('✕', closeBtn.x + closeBtn.w / 2, closeBtn.y + closeBtn.h / 2);
+      ctx.font = UIText.getFont('body', scaleX, 'bold');
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('✕', closeBtn.x + closeBtn.w / 2, closeBtn.y + closeBtn.h / 2);
+    }
 
     // 5. 옵션 리스트 렌더링 헬퍼
     const renderOptionBtn = (
@@ -262,14 +275,14 @@ export class SettingsModal {
       ctx.stroke();
 
       // 옵션 명
-      ctx.font = `bold ${Math.round(34 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('body', scaleX, 'bold');
       ctx.fillStyle = '#FFFFFF';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.fillText(title, btn.x + 36 * scaleX, btn.y + btn.h / 2);
 
       // 상태 태그
-      ctx.font = `bold ${Math.round(32 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('body', scaleX, 'bold');
       ctx.fillStyle = isActive ? '#28E6FF' : '#888888';
       ctx.textAlign = 'right';
       ctx.fillText(statusText, btn.x + btn.w - 36 * scaleX, btn.y + btn.h / 2);

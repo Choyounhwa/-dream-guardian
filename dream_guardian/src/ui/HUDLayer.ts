@@ -9,6 +9,8 @@
 
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import { getBossName } from '../data/bossData.js';
+import { UIText } from '../utils/UIText.js';
+import { imageLoader } from '../utils/UIImageLoader.js';
 import {
   LOCOMOTION_HUD_GUIDES,
   type LocomotionHUDGuide,
@@ -60,23 +62,28 @@ export class HUDLayer {
     const pad = 20;
 
     // 플레이어 HP (좌측)
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(pad, y, barW, barH);
-    const pGrad = ctx.createLinearGradient(pad, 0, pad + barW, 0);
-    pGrad.addColorStop(0, '#28E6FF');
-    pGrad.addColorStop(1, '#4DFFAA');
-    ctx.fillStyle = pGrad;
-    ctx.fillRect(pad, y, barW * Math.max(0, this._displayPlayerHp), barH);
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(pad, y, barW, barH);
+    const playerImg = imageLoader.get('hud', 'playerHpBar');
+    if (playerImg) {
+      ctx.drawImage(playerImg, pad, y, barW, barH);
+    } else {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(pad, y, barW, barH);
+      const pGrad = ctx.createLinearGradient(pad, 0, pad + barW, 0);
+      pGrad.addColorStop(0, '#28E6FF');
+      pGrad.addColorStop(1, '#4DFFAA');
+      ctx.fillStyle = pGrad;
+      ctx.fillRect(pad, y, barW * Math.max(0, this._displayPlayerHp), barH);
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(pad, y, barW, barH);
+    }
 
     // 라벨 (18px 볼드 + 섀도우)
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
     ctx.shadowBlur = 4;
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 18px sans-serif';
+    ctx.font = UIText.getFont('caption', 1.0, 'bold');
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(`HP ${data.playerHp}/${data.playerMaxHp}`, pad + 8, y + barH / 2);
@@ -84,17 +91,22 @@ export class HUDLayer {
 
     // 보스 HP (우측)
     const bx = w - pad - barW;
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(bx, y, barW, barH);
-    const bGrad = ctx.createLinearGradient(bx + barW, 0, bx, 0);
-    bGrad.addColorStop(0, '#FF4444');
-    bGrad.addColorStop(1, '#FF8844');
-    ctx.fillStyle = bGrad;
-    const bossBarW = barW * Math.max(0, this._displayBossHp);
-    ctx.fillRect(bx + barW - bossBarW, y, bossBarW, barH);
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(bx, y, barW, barH);
+    const bossImg = imageLoader.get('hud', 'bossHpBar');
+    if (bossImg) {
+      ctx.drawImage(bossImg, bx, y, barW, barH);
+    } else {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(bx, y, barW, barH);
+      const bGrad = ctx.createLinearGradient(bx + barW, 0, bx, 0);
+      bGrad.addColorStop(0, '#FF4444');
+      bGrad.addColorStop(1, '#FF8844');
+      ctx.fillStyle = bGrad;
+      const bossBarW = barW * Math.max(0, this._displayBossHp);
+      ctx.fillRect(bx + barW - bossBarW, y, bossBarW, barH);
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(bx, y, barW, barH);
+    }
 
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
@@ -102,18 +114,24 @@ export class HUDLayer {
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 18px sans-serif';
+    ctx.font = UIText.getFont('caption', 1.0, 'bold');
     ctx.fillText(`HP ${data.bossHp}/${data.bossMaxHp}`, bx + barW - 8, y + barH / 2);
     ctx.restore();
   }
 
   private _renderCombo(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
     if (data.combo <= 0) return;
+    const comboImg = imageLoader.get('hud', 'comboBadge');
+    if (comboImg) {
+      const badgeW = 160;
+      const badgeH = 48;
+      ctx.drawImage(comboImg, w - badgeW - 24, 48, badgeW, badgeH);
+    }
     ctx.save();
     ctx.shadowColor = data.combo >= 5 ? '#FFCB4D' : '#28E6FF';
     ctx.shadowBlur = 10;
     ctx.fillStyle = data.combo >= 5 ? '#FFCB4D' : '#fff';
-    ctx.font = `bold ${data.combo >= 5 ? 32 : 24}px sans-serif`;
+    ctx.font = UIText.getFont(data.combo >= 5 ? 'body' : 'badge', 1.0, 'bold');
     ctx.textAlign = 'right';
     ctx.fillText(`COMBO x${data.combo}`, w - 24, 76);
     ctx.restore();
@@ -124,7 +142,7 @@ export class HUDLayer {
     ctx.shadowColor = '#FF4444';
     ctx.shadowBlur = 8;
     ctx.fillStyle = '#FFCB4D';
-    ctx.font = 'bold 22px sans-serif';
+    ctx.font = UIText.getFont('badge', 1.0, 'bold');
     ctx.textAlign = 'center';
     ctx.fillText(`Ch.${data.chapter} ${getBossName(data.chapter)}`, w / 2, 36);
     ctx.restore();

@@ -6,6 +6,9 @@
  * 우측: 각 페이즈별 액션 버튼 슬롯 (240x140 기본, 커스텀 슬롯 지원)
  */
 
+import { UIText } from '../utils/UIText.js';
+import { imageLoader } from '../utils/UIImageLoader.js';
+
 export interface BottomBarSlot {
   x: number;
   y: number;
@@ -78,17 +81,22 @@ export class BottomBar {
 
     ctx.save();
 
-    // 1. 하단 바 배경 (반투명 다크 네이비)
-    ctx.fillStyle = 'rgba(10, 14, 26, 0.92)';
-    ctx.fillRect(0, barY, w, barH);
+    // 1. 하단 바 배경 (반투명 다크 네이비 또는 이미지)
+    const barBgImg = imageLoader.get('bottomBar', 'barBg');
+    if (barBgImg) {
+      ctx.drawImage(barBgImg, 0, barY, w, barH);
+    } else {
+      ctx.fillStyle = 'rgba(10, 14, 26, 0.92)';
+      ctx.fillRect(0, barY, w, barH);
 
-    // 2. 상단 2px 네온 골드 구분선
-    ctx.strokeStyle = '#FFCB4D';
-    ctx.lineWidth = 2 * scaleY;
-    ctx.beginPath();
-    ctx.moveTo(0, barY);
-    ctx.lineTo(w, barY);
-    ctx.stroke();
+      // 2. 상단 2px 네온 골드 구분선
+      ctx.strokeStyle = '#FFCB4D';
+      ctx.lineWidth = 2 * scaleY;
+      ctx.beginPath();
+      ctx.moveTo(0, barY);
+      ctx.lineTo(w, barY);
+      ctx.stroke();
+    }
 
     // 3. 좌측 "⚙ 설정" 버튼 (Cyan Box)
     const sBtn = BOTTOM_BAR_CONFIG.settingsBtn;
@@ -98,24 +106,29 @@ export class BottomBar {
     const sh = sBtn.h * scaleY;
     const sRadius = 20 * scaleX;
 
-    ctx.fillStyle = 'rgba(40, 230, 255, 0.12)';
-    ctx.strokeStyle = '#28E6FF';
-    ctx.lineWidth = 3 * scaleX;
-    ctx.beginPath();
-    if (ctx.roundRect) {
-      ctx.roundRect(sx, sy, sw, sh, sRadius);
+    const settingsIconImg = imageLoader.get('bottomBar', 'settingsIcon');
+    if (settingsIconImg) {
+      ctx.drawImage(settingsIconImg, sx, sy, sw, sh);
     } else {
-      ctx.rect(sx, sy, sw, sh);
-    }
-    ctx.fill();
-    ctx.stroke();
+      ctx.fillStyle = 'rgba(40, 230, 255, 0.12)';
+      ctx.strokeStyle = '#28E6FF';
+      ctx.lineWidth = 3 * scaleX;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(sx, sy, sw, sh, sRadius);
+      } else {
+        ctx.rect(sx, sy, sw, sh);
+      }
+      ctx.fill();
+      ctx.stroke();
 
-    // 설정 텍스트
-    ctx.font = `bold ${Math.round(36 * scaleX)}px sans-serif`;
-    ctx.fillStyle = '#28E6FF';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('⚙ 설정', sx + sw / 2, sy + sh / 2);
+      // 설정 텍스트
+      ctx.font = UIText.getFont('body', scaleX, 'bold');
+      ctx.fillStyle = '#28E6FF';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⚙ 설정', sx + sw / 2, sy + sh / 2);
+    }
 
     // 설정 버튼 호버 게이지 아크
     if (options?.settingsHoverProgress && options.settingsHoverProgress > 0) {
@@ -141,7 +154,7 @@ export class BottomBar {
 
       // 콤보 표시
       if (options.combo && options.combo > 1) {
-        ctx.font = `bold ${Math.round(28 * scaleX)}px sans-serif`;
+        ctx.font = UIText.getFont('label', scaleX, 'bold');
         ctx.fillStyle = '#FFCB4D';
         ctx.shadowColor = '#FFCB4D';
         ctx.shadowBlur = 10 * scaleX;
@@ -181,7 +194,7 @@ export class BottomBar {
       }
 
       // 마나 텍스트 라벨
-      ctx.font = `bold ${Math.round(26 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('label', scaleX, 'bold');
       ctx.fillStyle = '#FFFFFF';
       ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
       ctx.shadowBlur = 4 * scaleX;
@@ -201,23 +214,28 @@ export class BottomBar {
       const aColor = options.actionColor ?? '#FF4444';
       const aRadius = 20 * scaleX;
 
-      ctx.fillStyle = 'rgba(255, 68, 68, 0.15)';
-      ctx.strokeStyle = aColor;
-      ctx.lineWidth = 3 * scaleX;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(ax, ay, aw, ah, aRadius);
+      const actionBtnImg = imageLoader.get('bottomBar', 'actionButton');
+      if (actionBtnImg) {
+        ctx.drawImage(actionBtnImg, ax, ay, aw, ah);
       } else {
-        ctx.rect(ax, ay, aw, ah);
-      }
-      ctx.fill();
-      ctx.stroke();
+        ctx.fillStyle = 'rgba(255, 68, 68, 0.15)';
+        ctx.strokeStyle = aColor;
+        ctx.lineWidth = 3 * scaleX;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(ax, ay, aw, ah, aRadius);
+        } else {
+          ctx.rect(ax, ay, aw, ah);
+        }
+        ctx.fill();
+        ctx.stroke();
 
-      ctx.font = `bold ${Math.round(42 * scaleX)}px sans-serif`;
-      ctx.fillStyle = aColor;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(options.actionLabel, ax + aw / 2, ay + ah / 2);
+        ctx.font = UIText.getFont('body', scaleX, 'bold');
+        ctx.fillStyle = aColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(options.actionLabel, ax + aw / 2, ay + ah / 2);
+      }
 
       // 액션 버튼 호버 게이지 아크
       if (options.actionHoverProgress && options.actionHoverProgress > 0) {

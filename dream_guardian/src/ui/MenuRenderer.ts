@@ -8,6 +8,8 @@
  */
 
 import type { SubLevelInfo } from '../types/index.js';
+import { UIText } from '../utils/UIText.js';
+import { imageLoader } from '../utils/UIImageLoader.js';
 
 export interface ChapterInfo {
   chapter: number;
@@ -152,17 +154,30 @@ export class MenuRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
+    // 0. 배경 이미지 (설정 시)
+    const bgImg = imageLoader.get('menu', 'background');
+    if (bgImg) {
+      ctx.drawImage(bgImg, 0, 0, w, h);
+    }
+
     // 1. 상단 타이틀 영역 (Red Box: x: 140, y: 180, w: 800, h: 220)
     const titleCenterY = 260 * scaleY;
-    ctx.font = `bold ${Math.round(76 * scaleX)}px sans-serif`;
-    ctx.fillStyle = '#C889FF';
-    ctx.shadowColor = '#C889FF';
-    ctx.shadowBlur = 16 * scaleX;
-    ctx.fillText('꿈속 세계 탐험', w / 2, titleCenterY);
-    ctx.shadowBlur = 0;
+    const bannerImg = imageLoader.get('menu', 'banner');
+    if (bannerImg) {
+      const bannerW = 800 * scaleX;
+      const bannerH = 120 * scaleY;
+      ctx.drawImage(bannerImg, (w - bannerW) / 2, titleCenterY - bannerH / 2, bannerW, bannerH);
+    } else {
+      ctx.font = UIText.getFont('title', scaleX, 'bold');
+      ctx.fillStyle = '#C889FF';
+      ctx.shadowColor = '#C889FF';
+      ctx.shadowBlur = 16 * scaleX;
+      ctx.fillText('꿈속 세계 탐험', w / 2, titleCenterY);
+      ctx.shadowBlur = 0;
+    }
 
     // 슬로건
-    ctx.font = `${Math.round(30 * scaleX)}px sans-serif`;
+    ctx.font = UIText.getFont('label', scaleX, 'normal');
     ctx.fillStyle = '#CCCCCC';
     ctx.fillText('깨비와 함께 신비로운 꿈의 성역으로 다이빙!', w / 2, titleCenterY + 70 * scaleY);
 
@@ -181,7 +196,7 @@ export class MenuRenderer {
       ctx.fill();
       ctx.stroke();
 
-      ctx.font = `bold ${Math.round(24 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('badge', scaleX, 'bold');
       ctx.fillStyle = '#FFFFFF';
       const icon = state.locomotionIcon ?? '🏃';
       ctx.fillText(`${icon} 운동 모드: ${state.locomotionLabel} ⚙`, lBtn.x + lBtn.w / 2, lBtn.y + lBtn.h / 2);
@@ -198,43 +213,48 @@ export class MenuRenderer {
       const selected = ch === state.selectedChapter;
 
       // 카드 배경 및 테두리 (라운드 코너 24px)
-      ctx.fillStyle = locked ? 'rgba(255, 255, 255, 0.03)' : `${info.color}15`;
-      ctx.strokeStyle = locked ? 'rgba(255, 255, 255, 0.15)' : selected ? info.color : `${info.color}75`;
-      ctx.lineWidth = selected ? 4.0 * scaleX : 2.5 * scaleX;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(item.x, item.y, item.w, item.h, 24 * scaleX);
+      const cardFrameImg = imageLoader.get('menu', 'cardFrame');
+      if (cardFrameImg) {
+        ctx.drawImage(cardFrameImg, item.x, item.y, item.w, item.h);
       } else {
-        ctx.rect(item.x, item.y, item.w, item.h);
+        ctx.fillStyle = locked ? 'rgba(255, 255, 255, 0.03)' : `${info.color}15`;
+        ctx.strokeStyle = locked ? 'rgba(255, 255, 255, 0.15)' : selected ? info.color : `${info.color}75`;
+        ctx.lineWidth = selected ? 4.0 * scaleX : 2.5 * scaleX;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(item.x, item.y, item.w, item.h, 24 * scaleX);
+        } else {
+          ctx.rect(item.x, item.y, item.w, item.h);
+        }
+        ctx.fill();
+        ctx.stroke();
       }
-      ctx.fill();
-      ctx.stroke();
 
       // 카드 내부 텍스트 (칸별 높이 1:1 매핑)
       // 1) 챕터 번호 (Ch.X): bold 48px
       ctx.fillStyle = locked ? '#555555' : info.color;
-      ctx.font = `bold ${Math.round(48 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('subheading', scaleX, 'bold');
       ctx.fillText(`Ch.${ch}`, item.x + item.w / 2, item.y + 75 * scaleY);
 
       // 2) 챕터명 (꿈속 탐험 테마): bold 44px
       ctx.fillStyle = locked ? '#444444' : '#FFFFFF';
-      ctx.font = `bold ${Math.round(44 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('subheading', scaleX, 'bold');
       ctx.fillText(locked ? '???' : info.name, item.x + item.w / 2, item.y + 160 * scaleY);
 
       // 3) 학습 영역 / 테마 부제: 26px
       ctx.fillStyle = locked ? '#333333' : '#BBBBBB';
-      ctx.font = `${Math.round(26 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('label', scaleX, 'normal');
       ctx.fillText(locked ? '미개방 성역' : info.sub, item.x + item.w / 2, item.y + 225 * scaleY);
 
       // 4) 별점 (★★★) 또는 잠금 (🔒)
       if (!locked) {
         const starCount = state.stars[ch] ?? 0;
         const starStr = '★'.repeat(starCount) + '☆'.repeat(3 - starCount);
-        ctx.font = `${Math.round(40 * scaleX)}px sans-serif`;
+        ctx.font = UIText.getFont('body', scaleX, 'normal');
         ctx.fillStyle = '#FFCB4D';
         ctx.fillText(starStr, item.x + item.w / 2, item.y + 305 * scaleY);
       } else {
-        ctx.font = `${Math.round(48 * scaleX)}px sans-serif`;
+        ctx.font = UIText.getFont('subheading', scaleX, 'normal');
         ctx.fillStyle = '#555555';
         ctx.fillText('🔒', item.x + item.w / 2, item.y + 305 * scaleY);
       }
@@ -335,7 +355,7 @@ export class MenuRenderer {
 
     // 1. 상단 헤더 영역 (Red Box: x: 80, y: 160, w: 920, h: 200)
     const titleCenterY = 240 * scaleY;
-    ctx.font = `bold ${Math.round(54 * scaleX)}px sans-serif`;
+    ctx.font = UIText.getFont('heading', scaleX, 'bold');
     ctx.fillStyle = chInfo.color;
     ctx.shadowColor = chInfo.color;
     ctx.shadowBlur = 12 * scaleX;
@@ -343,7 +363,7 @@ export class MenuRenderer {
     ctx.shadowBlur = 0;
 
     // 안내 문구: 풀 테마명 및 학습 영역
-    ctx.font = `${Math.round(28 * scaleX)}px sans-serif`;
+    ctx.font = UIText.getFont('label', scaleX, 'normal');
     ctx.fillStyle = '#CCCCCC';
     ctx.fillText(`${chInfo.fullName} (${chInfo.sub})`, w / 2, titleCenterY + 65 * scaleY);
 
@@ -374,12 +394,12 @@ export class MenuRenderer {
       // 카드 내부 텍스트 (1:1 매핑)
       // 1) 단계 타이틀: bold 68px
       ctx.fillStyle = isAll ? '#FFCB4D' : '#FFFFFF';
-      ctx.font = `bold ${Math.round(68 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('heading', scaleX, 'bold');
       ctx.fillText(item.label, item.x + item.w / 2, item.y + 160 * scaleY);
 
       // 2) 서브 문항수: 32px
       ctx.fillStyle = '#AAAAAA';
-      ctx.font = `${Math.round(32 * scaleX)}px sans-serif`;
+      ctx.font = UIText.getFont('body', scaleX, 'normal');
       ctx.fillText(item.subLabel, item.x + item.w / 2, item.y + 280 * scaleY);
     }
 
