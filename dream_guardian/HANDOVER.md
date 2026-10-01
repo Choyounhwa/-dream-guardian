@@ -46,8 +46,8 @@
 | 1 | **#256** | [UI-TOKEN-001] UI 디자인 토큰 시스템 신설 (config/ui.config.ts) | 없음 | `[✔] 완료` |
 | 2 | **#257** | [UI-TOKEN-002] UIText 중앙 렌더링 유틸리티 신설 | #256 | `[✔] 완료` |
 | 3 | **#258** | [UI-TOKEN-003] 11개 UI 렌더러 하드코딩 폰트→토큰 기반 전환 | #256·#257 | `[✔] 완료` |
-| 4 | **#259** | [UI-TOKEN-004] 렌더러 레이아웃 좌표→UI_LAYOUT 참조 전환 | #256 | `[▶ NEXT]` |
-| 5 | **#260** | [UI-TOKEN-005] BossClimaxRenderer/BeatHUDRenderer 폰트→토큰 전환 | #257 | `[ ] 대기` |
+| 4 | **#259** | [UI-TOKEN-004] 렌더러 레이아웃 좌표→UI_LAYOUT 참조 전환 | #256 | `[✔] 완료` |
+| 5 | **#260** | [UI-TOKEN-005] BossClimaxRenderer/BeatHUDRenderer 폰트→토큰 전환 | #257 | `[▶ NEXT]` |
 | 6 | **#261** | [UI-TOKEN-006] 이미지 에셋 로더 및 프로시저럴/이미지 분기 인프라 | #256 | `[✔] 완료` |
 
 ### 📌 B. 저시력 접근성 개선 시리즈 (A11Y)
@@ -97,6 +97,23 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [UI-TOKEN-004 / #259] 렌더러 레이아웃 좌표→UI_LAYOUT 참조 전환
+
+> #259 구현 및 단위/회귀 테스트 전수 검증 완료. 6개 주요 UI 렌더러(HUDLayer, MenuRenderer, ResultRenderer, BottomBar, SettingsModal, PauseModal)의 하드코딩 레이아웃 좌표 및 치수를 `config/ui.config.ts`의 `UI_LAYOUT` 슬롯 참조로 전면 전환하고, `BOTTOM_BAR_CONFIG`를 `UI_LAYOUT.bottomBar`와 통합하였습니다.
+> - **수정 대상 파일 및 전환 내용**:
+>   1. `config/ui.config.ts`: `UI_LAYOUT`에 `hud.comboBadge`, `bottomBar.manaBar`, `settings.closeBtn`(850, 510) 및 `settings.buttons`(5개 옵션 버튼 슬롯), `menu.locomotionBtn`(290, 375, 500, 56) 정확한 슬롯 정의.
+>   2. `src/ui/HUDLayer.ts`: 플레이어/보스 HP바 좌표(`UI_LAYOUT.hud.playerHpBar`), 콤보 뱃지 좌표(`UI_LAYOUT.hud.comboBadge`) 슬롯 연동.
+>   3. `src/ui/MenuRenderer.ts`: 챕터 카드 크기 및 좌표(`UI_LAYOUT.menu.chapterCards`), 운동 모드 버튼(`UI_LAYOUT.menu.locomotionBtn`), 서브메뉴 그리드 및 뒤로가기 버튼(`UI_LAYOUT.subMenu.grid`, `UI_LAYOUT.subMenu.backBtn`), 타이틀 슬롯 연동.
+>   4. `src/ui/ResultRenderer.ts`: 결과 카드 패널 레이아웃(`UI_LAYOUT.result.panel`), 통계 1줄 높이(`UI_LAYOUT.result.statLineHeight`) 슬롯 연동.
+>   5. `src/ui/BottomBar.ts`: `BOTTOM_BAR_CONFIG = UI_LAYOUT.bottomBar` 통합 및 re-export 보존, 중앙 마나 게이지(`manaBar`) 슬롯 연동.
+>   6. `src/ui/SettingsModal.ts`: 모달 다이얼로그(`UI_LAYOUT.settings.modal`), 닫기 버튼 및 5개 옵션 버튼(`UI_LAYOUT.settings.closeBtn`, `buttons`) 슬롯 연동.
+>   7. `src/ui/PauseModal.ts`: 모달 카드(`UI_LAYOUT.pause.modal`), 복귀/홈 버튼(`UI_LAYOUT.pause.resumeBtn`, `UI_LAYOUT.pause.quitBtn`) 슬롯 연동.
+> - **검증 산출물**:
+>   - `tests/unit/ui-layout-migration.test.ts` (14 tests 신설 및 전수 통과: 6개 렌더러의 UI_LAYOUT 좌표 일치성, 히트 테스트 동기화, BOTTOM_BAR_CONFIG 참조 및 하위 호환성 검증)
+>   - 전체 119개 테스트 파일 1,388개 테스트 100% Pass, `npm run build` 성공.
 
 ---
 

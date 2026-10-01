@@ -129,6 +129,7 @@ export interface UILayoutConfig {
     bossHpBar: UILayoutSlot;
     combo: { x: number; y: number; w?: number; h?: number };
     bossName: UILayoutSlot;
+    comboBadge?: { w: number; h: number; y: number; marginRight: number };
   };
   menu: UILayoutSlot & {
     title: UILayoutSlot;
@@ -155,10 +156,12 @@ export interface UILayoutConfig {
     height: number;
     settingsBtn: UILayoutSlot;
     actionBtn: UILayoutSlot;
+    manaBar?: UILayoutSlot;
   };
   settings: UILayoutSlot & {
     modal: UILayoutSlot;
     closeBtn: UILayoutSlot;
+    buttons?: Record<'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion', UILayoutSlot>;
   };
   pause: UILayoutSlot & {
     modal: UILayoutSlot;
@@ -177,6 +180,7 @@ export const UI_LAYOUT: UILayoutConfig = {
     bossHpBar: { x: 740, y: 20, w: 320, h: 32 },
     combo: { x: 540, y: 120, w: 200, h: 60 },
     bossName: { x: 740, y: 60, w: 320, h: 30 },
+    comboBadge: { w: 160, h: 48, y: 48, marginRight: 24 },
   },
   menu: {
     x: 0,
@@ -184,7 +188,7 @@ export const UI_LAYOUT: UILayoutConfig = {
     w: 1080,
     h: 1960,
     title: { x: 140, y: 180, w: 800, h: 220 },
-    locomotionBtn: { x: 290, y: 390, w: 500, h: 48 },
+    locomotionBtn: { x: 290, y: 375, w: 500, h: 56 },
     cardWidth: 360,
     cardHeight: 380,
     chapterCards: [
@@ -233,6 +237,7 @@ export const UI_LAYOUT: UILayoutConfig = {
     height: 200,
     settingsBtn: { x: 30, y: 1990, w: 140, h: 140 },
     actionBtn: { x: 810, y: 1990, w: 240, h: 140 },
+    manaBar: { x: 210, y: 2038, w: 560, h: 50 },
   },
   settings: {
     x: 140,
@@ -240,7 +245,14 @@ export const UI_LAYOUT: UILayoutConfig = {
     w: 800,
     h: 1080,
     modal: { x: 140, y: 480, w: 800, h: 1080 },
-    closeBtn: { x: 860, y: 500, w: 60, h: 60 },
+    closeBtn: { x: 850, y: 510, w: 60, h: 60 },
+    buttons: {
+      camera: { x: 200, y: 620, w: 680, h: 110 },
+      fullscreen: { x: 200, y: 750, w: 680, h: 110 },
+      skeleton: { x: 200, y: 880, w: 680, h: 110 },
+      sound: { x: 200, y: 1010, w: 680, h: 110 },
+      locomotion: { x: 200, y: 1140, w: 680, h: 110 },
+    },
   },
   pause: {
     x: 140,
@@ -267,8 +279,12 @@ export interface UIImageAssetsConfig {
 export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
   menu: {
     background: null,
-    cardFrame: null,
+    cardFrame: '/assets/ui/menu/chapter_card_frame.png',
     banner: null,
+    titleBg: '/assets/ui/menu/title_bg.png',
+    lockIcon: '/assets/ui/menu/lock_icon.png',
+    starFull: '/assets/ui/menu/star_full.png',
+    starEmpty: '/assets/ui/menu/star_empty.png',
   },
   hud: {
     playerHpBar: null,

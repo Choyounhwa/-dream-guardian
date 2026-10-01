@@ -12,6 +12,7 @@
 
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
 
 export type SettingsAction = 'close' | 'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion' | 'backdrop-close';
 
@@ -29,13 +30,8 @@ export class SettingsModal {
   private _soundEnabled = true;
   private _locomotionModeLabel = '제자리 달리기';
 
-  // 모달 다이얼로그 가상 기준 (1080x2160 기준 w: 800, h: 1080, 중앙)
-  private readonly MODAL_VIRTUAL = {
-    x: 140,
-    y: 480,
-    w: 800,
-    h: 1080,
-  };
+  // 모달 다이얼로그 가상 기준 (UI_LAYOUT.settings.modal 연동)
+  private readonly MODAL_VIRTUAL = UI_LAYOUT.settings.modal;
 
   get isOpen(): boolean {
     return this._isOpen;
@@ -86,7 +82,7 @@ export class SettingsModal {
   }
 
   /**
-   * 모달 내 특정 버튼의 절대 좌표 및 크기 계산
+   * 모달 내 특정 버튼의 절대 좌표 및 크기 계산 (UI_LAYOUT.settings 연동)
    */
   getButtonLayout(
     action: 'close' | 'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion',
@@ -95,55 +91,37 @@ export class SettingsModal {
   ): ModalButtonSlot {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
+
+    if (action === 'close') {
+      const slot = UI_LAYOUT.settings.closeBtn;
+      return {
+        x: slot.x * scaleX,
+        y: slot.y * scaleY,
+        w: slot.w * scaleX,
+        h: slot.h * scaleY,
+      };
+    }
+
+    const btnSlot = UI_LAYOUT.settings.buttons?.[action];
+    if (btnSlot) {
+      return {
+        x: btnSlot.x * scaleX,
+        y: btnSlot.y * scaleY,
+        w: btnSlot.w * scaleX,
+        h: btnSlot.h * scaleY,
+      };
+    }
+
     const mx = this.MODAL_VIRTUAL.x * scaleX;
     const my = this.MODAL_VIRTUAL.y * scaleY;
     const mw = this.MODAL_VIRTUAL.w * scaleX;
 
-    switch (action) {
-      case 'close':
-        // 상단 우측 닫기 버튼 (60x60)
-        return {
-          x: mx + mw - 90 * scaleX,
-          y: my + 30 * scaleY,
-          w: 60 * scaleX,
-          h: 60 * scaleY,
-        };
-      case 'camera':
-        return {
-          x: mx + 60 * scaleX,
-          y: my + 140 * scaleY,
-          w: mw - 120 * scaleX,
-          h: 110 * scaleY,
-        };
-      case 'fullscreen':
-        return {
-          x: mx + 60 * scaleX,
-          y: my + 270 * scaleY,
-          w: mw - 120 * scaleX,
-          h: 110 * scaleY,
-        };
-      case 'skeleton':
-        return {
-          x: mx + 60 * scaleX,
-          y: my + 400 * scaleY,
-          w: mw - 120 * scaleX,
-          h: 110 * scaleY,
-        };
-      case 'sound':
-        return {
-          x: mx + 60 * scaleX,
-          y: my + 530 * scaleY,
-          w: mw - 120 * scaleX,
-          h: 110 * scaleY,
-        };
-      case 'locomotion':
-        return {
-          x: mx + 60 * scaleX,
-          y: my + 660 * scaleY,
-          w: mw - 120 * scaleX,
-          h: 110 * scaleY,
-        };
-    }
+    return {
+      x: mx + 60 * scaleX,
+      y: my + 140 * scaleY,
+      w: mw - 120 * scaleX,
+      h: 110 * scaleY,
+    };
   }
 
   /**

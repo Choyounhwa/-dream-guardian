@@ -147,7 +147,7 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
     it('settings 슬롯이 SettingsModal 모달 규격과 일치한다 (x: 140, y: 480, w: 800, h: 1080)', () => {
       const settings = UI_LAYOUT.settings;
       expect(settings.modal).toEqual({ x: 140, y: 480, w: 800, h: 1080 });
-      expect(settings.closeBtn).toEqual({ x: 860, y: 500, w: 60, h: 60 });
+      expect(settings.closeBtn).toEqual({ x: 850, y: 510, w: 60, h: 60 });
     });
 
     it('hud 슬롯이 플레이어/보스 HP바 좌표 규격을 갖는다', () => {
@@ -184,8 +184,17 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       }
     });
 
-    it('모든 이미지 에셋 슬롯의 초기값은 null (프로시저럴 렌더링 폴백)이다', () => {
-      for (const cat of REQUIRED_CATEGORIES) {
+    it('menu 슬롯에는 에셋 경로가 설정되어 있고, 그 외 카테고리의 초기값은 null (프로시저럴 렌더링 폴백)이다', () => {
+      // 1) menu 카테고리: 신규 등록된 이미지 경로 검증
+      expect(UI_IMAGE_ASSETS.menu.titleBg).toBe('/assets/ui/menu/title_bg.png');
+      expect(UI_IMAGE_ASSETS.menu.cardFrame).toBe('/assets/ui/menu/chapter_card_frame.png');
+      expect(UI_IMAGE_ASSETS.menu.lockIcon).toBe('/assets/ui/menu/lock_icon.png');
+      expect(UI_IMAGE_ASSETS.menu.starFull).toBe('/assets/ui/menu/star_full.png');
+      expect(UI_IMAGE_ASSETS.menu.starEmpty).toBe('/assets/ui/menu/star_empty.png');
+
+      // 2) 그 외 카테고리(hud, result, bottomBar, settings, battle): 모든 슬롯이 null 유지
+      const nonMenuCategories = REQUIRED_CATEGORIES.filter((c) => c !== 'menu');
+      for (const cat of nonMenuCategories) {
         const slots = UI_IMAGE_ASSETS[cat];
         const keys = Object.keys(slots);
         expect(keys.length).toBeGreaterThan(0);

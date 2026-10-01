@@ -10,6 +10,7 @@
  */
 
 import { UIText } from '../utils/UIText.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
 
 export type PauseAction = 'resume' | 'quit' | 'backdrop';
 
@@ -27,13 +28,8 @@ export class PauseModal {
   private _hoverAction: 'resume' | 'quit' | null = null;
   private _hoverTime = 0;
 
-  // 1080x2160 가상 해상도 기준 모달 중앙 카드 (w: 800, h: 720)
-  private readonly MODAL_VIRTUAL = {
-    x: 140,
-    y: 720,
-    w: 800,
-    h: 720,
-  };
+  // 1080x2160 가상 해상도 기준 모달 중앙 카드 (UI_LAYOUT.pause.modal 연동)
+  private readonly MODAL_VIRTUAL = UI_LAYOUT.pause.modal;
 
   get isOpen(): boolean {
     return this._isOpen;
@@ -71,34 +67,19 @@ export class PauseModal {
   }
 
   /**
-   * 버튼 레이아웃 좌표 반환 (화면 해상도 비례 스케일)
+   * 버튼 레이아웃 좌표 반환 (UI_LAYOUT.pause 연동)
    */
   getButtonLayout(action: 'resume' | 'quit', w: number, h: number): ModalButtonSlot {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
-    const mx = this.MODAL_VIRTUAL.x * scaleX;
-    const my = this.MODAL_VIRTUAL.y * scaleY;
-    const mw = this.MODAL_VIRTUAL.w * scaleX;
 
-    const btnW = mw - 120 * scaleX;
-    const btnH = 130 * scaleY;
-    const btnX = mx + 60 * scaleX;
-
-    if (action === 'resume') {
-      return {
-        x: btnX,
-        y: my + 260 * scaleY,
-        w: btnW,
-        h: btnH,
-      };
-    } else {
-      return {
-        x: btnX,
-        y: my + 440 * scaleY,
-        w: btnW,
-        h: btnH,
-      };
-    }
+    const slot = action === 'resume' ? UI_LAYOUT.pause.resumeBtn : UI_LAYOUT.pause.quitBtn;
+    return {
+      x: slot.x * scaleX,
+      y: slot.y * scaleY,
+      w: slot.w * scaleX,
+      h: slot.h * scaleY,
+    };
   }
 
   /**

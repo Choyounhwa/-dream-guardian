@@ -8,6 +8,7 @@
 
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
 
 export interface BottomBarSlot {
   x: number;
@@ -16,12 +17,7 @@ export interface BottomBarSlot {
   h: number;
 }
 
-export const BOTTOM_BAR_CONFIG = {
-  height: 200,
-  y: 1960,
-  settingsBtn: { x: 30, y: 1990, w: 140, h: 140 },
-  actionBtn: { x: 810, y: 1990, w: 240, h: 140 },
-};
+export const BOTTOM_BAR_CONFIG = UI_LAYOUT.bottomBar;
 
 export interface BottomBarRenderOptions {
   actionLabel?: string;
@@ -146,10 +142,12 @@ export class BottomBar {
       const manaMax = options.manaMax || 100;
       const ratio = Math.min(1, mana / manaMax);
 
-      const mx = 210 * scaleX;
-      const my = 2038 * scaleY;
-      const mw = 560 * scaleX;
-      const mh = 50 * scaleY;
+      // 중앙 마나 게이지 (UI_LAYOUT.bottomBar.manaBar 슬롯 연동)
+      const manaSlot = BOTTOM_BAR_CONFIG.manaBar ?? { x: 210, y: 2038, w: 560, h: 50 };
+      const mx = manaSlot.x * scaleX;
+      const my = manaSlot.y * scaleY;
+      const mw = manaSlot.w * scaleX;
+      const mh = manaSlot.h * scaleY;
       const mRadius = 14 * scaleX;
 
       // 콤보 표시

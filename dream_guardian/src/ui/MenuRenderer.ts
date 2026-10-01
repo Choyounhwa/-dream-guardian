@@ -10,6 +10,7 @@
 import type { SubLevelInfo } from '../types/index.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
 
 export interface ChapterInfo {
   chapter: number;
@@ -91,7 +92,7 @@ export interface ChapterCardLayout {
 
 export class MenuRenderer {
   /**
-   * 챕터 카드 레이아웃 계산 (2-2-1 와이드 다이아몬드 레이아웃, Issue #142 / UI-MENU-002)
+   * 챕터 카드 레이아웃 계산 (2-2-1 와이드 다이아몬드 레이아웃, Issue #142 / UI-MENU-002, UI_LAYOUT 연동)
    * 1080x2160 가상 해상도 기준:
    * - 개별 카드: 360 x 380px
    * - 1행: Ch.1 (120, 460), Ch.2 (600, 460)
@@ -102,16 +103,16 @@ export class MenuRenderer {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
 
-    const cardW = 360 * scaleX;
-    const cardH = 380 * scaleY;
+    const cardW = UI_LAYOUT.menu.cardWidth * scaleX;
+    const cardH = UI_LAYOUT.menu.cardHeight * scaleY;
 
-    return [
-      { chapter: 1, x: 120 * scaleX, y: 460 * scaleY, w: cardW, h: cardH },
-      { chapter: 2, x: 600 * scaleX, y: 460 * scaleY, w: cardW, h: cardH },
-      { chapter: 3, x: 120 * scaleX, y: 920 * scaleY, w: cardW, h: cardH },
-      { chapter: 4, x: 600 * scaleX, y: 920 * scaleY, w: cardW, h: cardH },
-      { chapter: 5, x: 360 * scaleX, y: 1380 * scaleY, w: cardW, h: cardH },
-    ];
+    return UI_LAYOUT.menu.chapterCards.map((slot) => ({
+      chapter: slot.chapter,
+      x: slot.x * scaleX,
+      y: slot.y * scaleY,
+      w: cardW,
+      h: cardH,
+    }));
   }
 
   /**
@@ -120,11 +121,12 @@ export class MenuRenderer {
   getLocomotionButtonLayout(w: number, h: number): { x: number; y: number; w: number; h: number } {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
+    const lBtn = UI_LAYOUT.menu.locomotionBtn;
     return {
-      x: 290 * scaleX,
-      y: 375 * scaleY,
-      w: 500 * scaleX,
-      h: 56 * scaleY,
+      x: lBtn.x * scaleX,
+      y: lBtn.y * scaleY,
+      w: lBtn.w * scaleX,
+      h: lBtn.h * scaleY,
     };
   }
 
@@ -161,12 +163,13 @@ export class MenuRenderer {
     }
 
     // 1. 상단 타이틀 영역 (Red Box: x: 140, y: 180, w: 800, h: 220)
-    const titleCenterY = 260 * scaleY;
-    const bannerImg = imageLoader.get('menu', 'banner');
-    if (bannerImg) {
-      const bannerW = 800 * scaleX;
+    const titleSlot = UI_LAYOUT.menu.title;
+    const titleCenterY = (titleSlot.y + titleSlot.h / 2 - 30) * scaleY; // 260 * scaleY
+    const titleBgImg = imageLoader.get('menu', 'titleBg') || imageLoader.get('menu', 'banner');
+    if (titleBgImg) {
+      const bannerW = titleSlot.w * scaleX;
       const bannerH = 120 * scaleY;
-      ctx.drawImage(bannerImg, (w - bannerW) / 2, titleCenterY - bannerH / 2, bannerW, bannerH);
+      ctx.drawImage(titleBgImg, (w - bannerW) / 2, titleCenterY - bannerH / 2, bannerW, bannerH);
     } else {
       ctx.font = UIText.getFont('title', scaleX, 'bold');
       ctx.fillStyle = '#C889FF';
@@ -216,6 +219,17 @@ export class MenuRenderer {
       const cardFrameImg = imageLoader.get('menu', 'cardFrame');
       if (cardFrameImg) {
         ctx.drawImage(cardFrameImg, item.x, item.y, item.w, item.h);
+        if (selected) {
+          ctx.strokeStyle = info.color;
+          ctx.lineWidth = 4.0 * scaleX;
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(item.x, item.y, item.w, item.h, 24 * scaleX);
+          } else {
+            ctx.rect(item.x, item.y, item.w, item.h);
+          }
+          ctx.stroke();
+        }
       } else {
         ctx.fillStyle = locked ? 'rgba(255, 255, 255, 0.03)' : `${info.color}15`;
         ctx.strokeStyle = locked ? 'rgba(255, 255, 255, 0.15)' : selected ? info.color : `${info.color}75`;
@@ -248,15 +262,42 @@ export class MenuRenderer {
 
       // 4) 별점 (★★★) 또는 잠금 (🔒)
       if (!locked) {
-        const starCount = state.stars[ch] ?? 0;
-        const starStr = '★'.repeat(starCount) + '☆'.repeat(3 - starCount);
-        ctx.font = UIText.getFont('body', scaleX, 'normal');
-        ctx.fillStyle = '#FFCB4D';
-        ctx.fillText(starStr, item.x + item.w / 2, item.y + 305 * scaleY);
+        const starCount = Math.max(0, Math.min(3, state.stars[ch] ?? 0));
+        const starFullImg = imageLoader.get('menu', 'starFull');
+        const starEmptyImg = imageLoader.get('menu', 'starEmpty');
+
+        if (starFullImg && starEmptyImg) {
+          const starSize = 36 * scaleX;
+          const gap = 8 * scaleX;
+          const totalW = 3 * starSize + 2 * gap;
+          const startX = item.x + (item.w - totalW) / 2;
+          const startY = item.y + 305 * scaleY - starSize / 2;
+          for (let s = 0; s < 3; s++) {
+            const sImg = s < starCount ? starFullImg : starEmptyImg;
+            ctx.drawImage(sImg, startX + s * (starSize + gap), startY, starSize, starSize);
+          }
+        } else {
+          const starStr = '★'.repeat(starCount) + '☆'.repeat(3 - starCount);
+          ctx.font = UIText.getFont('body', scaleX, 'normal');
+          ctx.fillStyle = '#FFCB4D';
+          ctx.fillText(starStr, item.x + item.w / 2, item.y + 305 * scaleY);
+        }
       } else {
-        ctx.font = UIText.getFont('subheading', scaleX, 'normal');
-        ctx.fillStyle = '#555555';
-        ctx.fillText('🔒', item.x + item.w / 2, item.y + 305 * scaleY);
+        const lockImg = imageLoader.get('menu', 'lockIcon');
+        if (lockImg) {
+          const lockSize = 44 * scaleX;
+          ctx.drawImage(
+            lockImg,
+            item.x + item.w / 2 - lockSize / 2,
+            item.y + 305 * scaleY - lockSize / 2,
+            lockSize,
+            lockSize,
+          );
+        } else {
+          ctx.font = UIText.getFont('subheading', scaleX, 'normal');
+          ctx.fillStyle = '#555555';
+          ctx.fillText('🔒', item.x + item.w / 2, item.y + 305 * scaleY);
+        }
       }
     }
 
@@ -264,7 +305,7 @@ export class MenuRenderer {
   }
 
   /**
-   * 서브레벨 카드 레이아웃 계산 (2열 3행 대형 와이드 레이아웃, Issue #142 / UI-MENU-002)
+   * 서브레벨 카드 레이아웃 계산 (2열 3행 대형 와이드 레이아웃, Issue #142 / UI-MENU-002, UI_LAYOUT 연동)
    * 1080x2160 가상 해상도 기준:
    * - 개별 카드: 420 x 380px (간격 gapX: 80, gapY: 60)
    * - 1행: (80, 440), (580, 440)
@@ -292,13 +333,14 @@ export class MenuRenderer {
       },
     ];
 
-    const cardW = 420 * scaleX;
-    const cardH = 380 * scaleY;
-    const startX = 80 * scaleX;
-    const startY = 440 * scaleY;
-    const gapX = 80 * scaleX;
-    const gapY = 60 * scaleY;
-    const cols = 2;
+    const grid = UI_LAYOUT.subMenu.grid;
+    const cardW = grid.w * scaleX;
+    const cardH = grid.h * scaleY;
+    const startX = grid.startX * scaleX;
+    const startY = grid.startY * scaleY;
+    const gapX = grid.gapX * scaleX;
+    const gapY = grid.gapY * scaleY;
+    const cols = grid.cols;
 
     for (let i = 0; i < allItems.length; i++) {
       const item = allItems[i];
@@ -318,15 +360,16 @@ export class MenuRenderer {
       });
     }
 
-    // 2. 뒤로가기 버튼: 하단 고정 바 우측 슬롯 연동 (x: 780, y: 1990, w: 270, h: 140)
+    // 2. 뒤로가기 버튼: 하단 고정 바 우측 슬롯 연동 (UI_LAYOUT.subMenu.backBtn)
+    const backBtnSlot = UI_LAYOUT.subMenu.backBtn;
     layouts.push({
       subLevel: -1,
       label: '← 뒤로',
       subLabel: '챕터 선택',
-      x: 780 * scaleX,
-      y: 1990 * scaleY,
-      w: 270 * scaleX,
-      h: 140 * scaleY,
+      x: backBtnSlot.x * scaleX,
+      y: backBtnSlot.y * scaleY,
+      w: backBtnSlot.w * scaleX,
+      h: backBtnSlot.h * scaleY,
     });
 
     return layouts;

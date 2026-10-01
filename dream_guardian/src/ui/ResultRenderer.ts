@@ -15,6 +15,7 @@ import type { BeatRhythmStats } from '../types/result.js';
 import { getBossName } from '../data/bossData.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
 
 export interface ResultData {
   victory: boolean;
@@ -84,24 +85,25 @@ export function calcStars(correctCount: number, totalQuestions: number, elapsedT
 
 export class ResultRenderer {
   /**
-   * 마젠타 결과 카드 패널 레이아웃 (1080x2160 기준 x: 100, y: 240, w: 880, h: 1580)
+   * 마젠타 결과 카드 패널 레이아웃 (1080x2160 기준 UI_LAYOUT.result.panel 연동)
    */
   getPanelLayout(w: number, h: number): ResultPanelLayout {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
+    const slot = UI_LAYOUT.result.panel;
     return {
-      x: 100 * scaleX,
-      y: 240 * scaleY,
-      w: 880 * scaleX,
-      h: 1580 * scaleY,
+      x: slot.x * scaleX,
+      y: slot.y * scaleY,
+      w: slot.w * scaleX,
+      h: slot.h * scaleY,
     };
   }
 
   /**
-   * 통계 1줄 높이 (2160 기준 74px)
+   * 통계 1줄 높이 (2160 기준 74px, UI_LAYOUT.result.statLineHeight 연동)
    */
   getStatLineHeight(h: number): number {
-    return Math.round(74 * (h / 2160));
+    return Math.round(UI_LAYOUT.result.statLineHeight * (h / 2160));
   }
 
   /**

@@ -11,6 +11,7 @@ import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import { getBossName } from '../data/bossData.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
 import {
   LOCOMOTION_HUD_GUIDES,
   type LocomotionHUDGuide,
@@ -55,11 +56,12 @@ export class HUDLayer {
   }
 
   private _renderHpBars(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
-    // Issue #132: 1m+ 원거리 가독성을 위한 HP바 및 수치 텍스트 대형화
-    const barW = Math.min(320, w * 0.28);
-    const barH = 32;
-    const y = 20;
-    const pad = 20;
+    // Issue #132: 1m+ 원거리 가독성을 위한 HP바 및 수치 텍스트 대형화 (UI_LAYOUT 슬롯 참조)
+    const hpSlot = UI_LAYOUT.hud.playerHpBar;
+    const barW = Math.min(hpSlot.w, w * 0.28);
+    const barH = hpSlot.h;
+    const y = hpSlot.y;
+    const pad = hpSlot.x;
 
     // 플레이어 HP (좌측)
     const playerImg = imageLoader.get('hud', 'playerHpBar');
@@ -121,11 +123,12 @@ export class HUDLayer {
 
   private _renderCombo(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
     if (data.combo <= 0) return;
+    const badgeSlot = UI_LAYOUT.hud.comboBadge ?? { w: 160, h: 48, y: 48, marginRight: 24 };
     const comboImg = imageLoader.get('hud', 'comboBadge');
     if (comboImg) {
-      const badgeW = 160;
-      const badgeH = 48;
-      ctx.drawImage(comboImg, w - badgeW - 24, 48, badgeW, badgeH);
+      const badgeW = badgeSlot.w;
+      const badgeH = badgeSlot.h;
+      ctx.drawImage(comboImg, w - badgeW - badgeSlot.marginRight, badgeSlot.y, badgeW, badgeH);
     }
     ctx.save();
     ctx.shadowColor = data.combo >= 5 ? '#FFCB4D' : '#28E6FF';
@@ -133,7 +136,7 @@ export class HUDLayer {
     ctx.fillStyle = data.combo >= 5 ? '#FFCB4D' : '#fff';
     ctx.font = UIText.getFont(data.combo >= 5 ? 'body' : 'badge', 1.0, 'bold');
     ctx.textAlign = 'right';
-    ctx.fillText(`COMBO x${data.combo}`, w - 24, 76);
+    ctx.fillText(`COMBO x${data.combo}`, w - badgeSlot.marginRight, 76);
     ctx.restore();
   }
 
