@@ -293,3 +293,14 @@ export interface MathRenderOptions {
 export * from './posture.js';
 export * from './motion-intent.js';
 
+// ─── UI Design Tokens & Layout Types (Issue #256 / UI-TOKEN-001) ───
+export type {
+  UITextRole,
+  UITextToken,
+  UIAccessibilityConfig,
+  UIColorTheme,
+  UILayoutSlot,
+  UILayoutConfig,
+  UIImageAssetsConfig,
+} from '../../config/ui.config.js';
+
