@@ -110,14 +110,15 @@ export class BeatHUDRenderer {
       color: '#4DFFAA',
     };
 
-    ctx.font = UIText.getFont('subheading', scaleX, 'bold');
+    ctx.font = UIText.getFont('subheading', scaleX, 'bold', 'sans-serif', 24);
     ctx.fillStyle = guide.color;
     ctx.shadowColor = guide.color;
     ctx.shadowBlur = 24;
     ctx.fillText(guide.title, cx, cy - 60);
     ctx.shadowBlur = 0;
 
-    ctx.font = UIText.getFont('label', scaleX, 'bold');
+    // Phase A 보스 장판 회피 힌트 (A11Y-001: 최소 24px 하한선 보장)
+    ctx.font = UIText.getFont('label', scaleX, 'bold', 'sans-serif', 24);
     ctx.fillStyle = BEAT_HUD_CONFIG.TEXT_COLOR_SUBTITLE;
     ctx.fillText(guide.subtitle, cx, cy - 5);
 
@@ -157,17 +158,18 @@ export class BeatHUDRenderer {
         ctx.fill();
         ctx.shadowBlur = 0;
 
-        ctx.font = UIText.getFont('caption', scaleX, 'bold');
+        // 8박 인디케이터 번호 (A11Y-001: 최소 24px 하한선 보장)
+        ctx.font = UIText.getFont('caption', scaleX, 'bold', 'sans-serif', 24);
         ctx.fillStyle = i < completedBeats ? '#000000' : 'rgba(255, 255, 255, 0.5)';
         ctx.fillText(`${i + 1}`, bx, indicatorY);
       }
     }
 
-    // 4. 걸음/운동 수 표시
+    // 4. 걸음/운동 수 표시 (A11Y-001: 최소 24px 하한선 보장)
     const mode = state.locomotionMode ?? 'run';
     const countUnit = mode === 'run' ? '보' : '회';
     const totalSteps = state.totalSteps ?? 0;
-    ctx.font = UIText.getFont('body', scaleX, 'bold');
+    ctx.font = UIText.getFont('body', scaleX, 'bold', 'sans-serif', 24);
     ctx.fillStyle = BEAT_HUD_CONFIG.STEP_COUNT_COLOR;
     ctx.fillText(`${countUnit === '보' ? '걸음' : '운동'}: ${totalSteps}${countUnit}`, cx, dotY + 60);
 

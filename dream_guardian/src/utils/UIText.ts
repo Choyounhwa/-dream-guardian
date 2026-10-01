@@ -74,15 +74,16 @@ export function getAccessibility(): Readonly<UIAccessibilityConfig> {
 /**
  * 역할(role)과 화면 스케일(scaleX)을 기반으로 계산된 최종 폰트 크기(px) 반환
  * - fontScale 반영
- * - minPhysicalPx 및 token.min 하한선 이중 보장
+ * - minPhysicalPx, minFloor 및 token.min 하한선 보장
  *
  * @param role UI 텍스트 역할
  * @param scaleX 가로 스케일 비율 (기본값: 1.0)
+ * @param minFloor 추가 보장 최소 물리 픽셀 하한선 (A11Y-001 대응)
  */
-export function getFontSize(role: UITextRole, scaleX: number = 1.0): number {
+export function getFontSize(role: UITextRole, scaleX: number = 1.0, minFloor: number = 0): number {
   const token: UITextToken = UI_TEXT_TOKENS[role] ?? UI_TEXT_TOKENS.body;
   const scaled = Math.round(token.base * scaleX * currentAccessibility.fontScale);
-  const minBound = Math.max(token.min, currentAccessibility.minPhysicalPx);
+  const minBound = Math.max(token.min, currentAccessibility.minPhysicalPx, minFloor);
   return Math.max(scaled, minBound);
 }
 
@@ -94,15 +95,17 @@ export function getFontSize(role: UITextRole, scaleX: number = 1.0): number {
  * @param scaleX 가로 스케일 비율 (기본값: 1.0)
  * @param weight 폰트 가중치 오버라이드 (기본값: token.weight)
  * @param fontFamily 폰트 패밀리 (기본값: 'sans-serif')
+ * @param minFloor 추가 보장 최소 물리 픽셀 하한선 (A11Y-001 대응)
  */
 export function getFont(
   role: UITextRole,
   scaleX: number = 1.0,
   weight?: string,
   fontFamily: string = 'sans-serif',
+  minFloor: number = 0,
 ): string {
   const token: UITextToken = UI_TEXT_TOKENS[role] ?? UI_TEXT_TOKENS.body;
-  const size = getFontSize(role, scaleX);
+  const size = getFontSize(role, scaleX, minFloor);
   const w = weight ?? token.weight;
   return `${w} ${size}px ${fontFamily}`;
 }

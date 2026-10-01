@@ -238,8 +238,9 @@ export class BossRenderer {
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // 부유하는 "?" 기호들
-    ctx.font = 'bold 20px sans-serif';
+    // 부유하는 "?" 기호들 (A11Y-001: 최소 24px 하한선)
+    const qSize = Math.max(24, Math.round(radius * 0.25));
+    ctx.font = `bold ${qSize}px sans-serif`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
     for (let i = 0; i < 3; i++) {
       const qPhase = (t * 0.8 + i * 0.7) % 2;
@@ -350,8 +351,9 @@ export class BossRenderer {
       ctx.restore();
     }
 
-    // 부유하는 왜곡 수학 기호들 (÷, ×, ½, %)
-    ctx.font = 'bold 16px sans-serif';
+    // 부유하는 왜곡 수학 기호들 (÷, ×, ½, %) (A11Y-001: 최소 24px 하한선)
+    const symbolSize = Math.max(24, Math.round(radius * 0.2));
+    ctx.font = `bold ${symbolSize}px sans-serif`;
     ctx.fillStyle = '#FFFFFF';
     const symbols = ['÷', '×', '½', '%'];
     for (let i = 0; i < symbols.length; i++) {
@@ -417,9 +419,10 @@ export class BossRenderer {
     const whisperCycle = (t * 0.5) % 2;
     const whisperAlpha = Math.sin(whisperCycle * Math.PI * 0.5);
     const whisperY = radius * 0.65 + Math.sin(t * 2) * 5;
+    const whisperSize = Math.max(24, Math.round(radius * 0.2));
     ctx.save();
     ctx.globalAlpha = Math.max(0, whisperAlpha * 0.8);
-    ctx.font = 'italic 16px sans-serif';
+    ctx.font = `italic ${whisperSize}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillStyle = '#C889FF';
     ctx.fillText('포기해...', 0, whisperY);

@@ -109,12 +109,12 @@ export class HUDLayer {
       ctx.strokeRect(pad, y, barW, barH);
     }
 
-    // 라벨 (18px 볼드 + 섀도우)
+    // 라벨 (최소 26px 볼드 + 섀도우)
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
     ctx.shadowBlur = 4;
     ctx.fillStyle = '#fff';
-    ctx.font = UIText.getFont('caption', 1.0, 'bold');
+    ctx.font = UIText.getFont('caption', 1.0, 'bold', 'sans-serif', 26);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(`HP ${data.playerHp}/${data.playerMaxHp}`, pad + 8, y + barH / 2);
@@ -174,7 +174,7 @@ export class HUDLayer {
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
-    ctx.font = UIText.getFont('caption', 1.0, 'bold');
+    ctx.font = UIText.getFont('caption', 1.0, 'bold', 'sans-serif', 26);
     ctx.fillText(`HP ${data.bossHp}/${data.bossMaxHp}`, bx + barW - 8, y + barH / 2);
     ctx.restore();
   }
@@ -226,7 +226,7 @@ export class HUDLayer {
     ctx.shadowColor = '#FF4444';
     ctx.shadowBlur = 8;
     ctx.fillStyle = '#FFCB4D';
-    ctx.font = UIText.getFont('badge', 1.0, 'bold');
+    ctx.font = UIText.getFont('badge', 1.0, 'bold', 'sans-serif', 28);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(`Ch.${data.chapter} ${getBossName(data.chapter)}`, w / 2, 36);

@@ -94,11 +94,11 @@ export class TutorialOverlay {
     if (this._step === 1) {
       // 1단계: 4색 신체 커서 소개
       ctx.fillStyle = '#28E6FF';
-      ctx.font = UIText.getFont('body', scaleX, 'bold');
+      ctx.font = UIText.getFont('body', scaleX, 'bold', 'sans-serif', 22);
       ctx.fillText('✨ [1단계] 4색 신체 커서 안내', cx, cy - cardH * 0.38);
 
       ctx.fillStyle = '#EAEAEA';
-      ctx.font = UIText.getFont('badge', scaleX, 'bold');
+      ctx.font = UIText.getFont('badge', scaleX, 'bold', 'sans-serif', 22);
       ctx.fillText('카메라가 당신의 몸을 인식해 4색 커서를 비춥니다', cx, cy - cardH * 0.26);
 
       const items = [
@@ -118,21 +118,21 @@ export class TutorialOverlay {
         });
 
         ctx.fillStyle = item.color;
-        ctx.font = UIText.getFont('caption', scaleX, 'bold');
+        ctx.font = UIText.getFont('caption', scaleX, 'bold', 'sans-serif', 22);
         ctx.fillText(item.label, item.x, iconY + 54);
       }
 
       ctx.fillStyle = '#AAAAAA';
-      ctx.font = UIText.getFont('caption', scaleX, 'normal');
+      ctx.font = UIText.getFont('caption', scaleX, 'normal', 'sans-serif', 22);
       ctx.fillText('몸을 움직이면 네온 커서가 실시간으로 따라옵니다', cx, cy + cardH * 0.22);
     } else if (this._step === 2) {
       // 2단계: 피트니스 존 매칭 원리
       ctx.fillStyle = '#FFCB4D';
-      ctx.font = UIText.getFont('body', scaleX, 'bold');
+      ctx.font = UIText.getFont('body', scaleX, 'bold', 'sans-serif', 22);
       ctx.fillText('🎯 [2단계] 피트니스 존 정답 선택', cx, cy - cardH * 0.38);
 
       ctx.fillStyle = '#EAEAEA';
-      ctx.font = UIText.getFont('badge', scaleX, 'bold');
+      ctx.font = UIText.getFont('badge', scaleX, 'bold', 'sans-serif', 22);
       ctx.fillText('정답 카드 아래에 표시된 부위를 목표 구역에 올리세요!', cx, cy - cardH * 0.24);
 
       // 예시 존과 커서 매칭 일러스트
@@ -148,7 +148,7 @@ export class TutorialOverlay {
       ctx.fillRect(zx, zy, zoneW, zoneH);
 
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = UIText.getFont('caption', scaleX, 'bold');
+      ctx.font = UIText.getFont('caption', scaleX, 'bold', 'sans-serif', 24);
       ctx.fillText('목표 구역 (존)', cx, zy + 24);
 
       // 손 커서 매칭
@@ -167,16 +167,16 @@ export class TutorialOverlay {
       ctx.stroke();
 
       ctx.fillStyle = '#4DFFAA';
-      ctx.font = UIText.getFont('caption', scaleX, 'bold');
+      ctx.font = UIText.getFont('caption', scaleX, 'bold', 'sans-serif', 22);
       ctx.fillText('1초 동안 자세를 유지하면 정답이 확정됩니다!', cx, cy + cardH * 0.22);
     } else {
       // 3단계: 준비 완료
       ctx.fillStyle = '#4DFFAA';
-      ctx.font = UIText.getFont('body', scaleX, 'bold');
+      ctx.font = UIText.getFont('body', scaleX, 'bold', 'sans-serif', 22);
       ctx.fillText('🌟 준비 완료! 모험을 떠나볼까요?', cx, cy - cardH * 0.32);
 
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = UIText.getFont('badge', scaleX, 'bold');
+      ctx.font = UIText.getFont('badge', scaleX, 'bold', 'sans-serif', 22);
       ctx.fillText('1. 제자리에서 달려 에너지를 모으세요', cx, cy - cardH * 0.12);
       ctx.fillText('2. 문제가 나오면 정답 자세를 취하세요', cx, cy + cardH * 0.06);
       ctx.fillText('3. 꼬마 수호신에게 마나를 전달해 보스를 무찌르세요!', cx, cy + cardH * 0.22);
@@ -196,12 +196,12 @@ export class TutorialOverlay {
     ctx.stroke();
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = UIText.getFont('caption', scaleX, 'bold');
+    ctx.font = UIText.getFont('caption', scaleX, 'bold', 'sans-serif', 22);
     ctx.fillText(this._step === 3 ? '게임 시작! (TAP)' : '다음 (TAP)', cx, btnY);
 
     // 스킵 힌트
     ctx.fillStyle = '#888888';
-    ctx.font = UIText.getFont('caption', scaleX, 'normal');
+    ctx.font = UIText.getFont('caption', scaleX, 'normal', 'sans-serif', 22);
     ctx.fillText('Space 키 또는 화면 클릭 시 건너뜁니다', cx, cy + cardH * 0.48);
 
     ctx.restore();

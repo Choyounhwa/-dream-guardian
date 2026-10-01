@@ -319,7 +319,7 @@ export class JudgmentFeedback {
       ctx.stroke();
 
       // 텍스트 렌더링
-      ctx.font = UIText.getFont('label', scaleX, 'bold');
+      ctx.font = UIText.getFont('label', scaleX, 'bold', 'sans-serif', 22);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#FFE082';
@@ -329,12 +329,12 @@ export class JudgmentFeedback {
       ctx.shadowBlur = 0;
     }
 
-    // 2. 적응형 완화(adaptiveRelaxed) 활성화 시 은은한 인디케이터
+    // 2. 적응형 완화(adaptiveRelaxed) 활성화 시 은은한 인디케이터 (최소 26px 하한선)
     if (state.adaptiveRelaxed) {
       const cx = bounds.x + bounds.width / 2;
       const badgeY = bounds.y + bounds.height + 14 * scaleY;
 
-      ctx.font = UIText.getFont('caption', scaleX, 'bold');
+      ctx.font = UIText.getFont('caption', scaleX, 'bold', 'sans-serif', 26);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(77, 255, 170, 0.75)';
