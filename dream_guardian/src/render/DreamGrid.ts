@@ -34,6 +34,8 @@ export interface DreamGridConfig {
   renderZoneConnections?: boolean; // 피트니스 존 연결선 렌더링 여부 (기본값: true)
   zoneConnectionAlpha?: number; // 연결선 투명도 (기본값: 0.18)
   zones?: readonly FitnessZone[]; // 대상 피트니스 존 목록 (기본값: DEFAULT_FITNESS_ZONES)
+  bgImage?: HTMLImageElement | null; // 챕터/메뉴 배경 이미지
+  bgDimAlpha?: number; // 배경 이미지 디밍 오버레이 투명도 (기본값: 0.45)
 }
 
 function toRgba(color: string, alpha: number): string {
@@ -62,12 +64,16 @@ export class DreamGrid {
   private _color = '#28E6FF';
   private _alpha = 0.30; // 30% 투명도 기본값
   private _hasCeiling = true;
+  private _bgImage: HTMLImageElement | null = null;
+  private _bgDimAlpha = 0.45; // 배경 이미지 디밍 오버레이 기본값 (45%)
 
   constructor(config?: DreamGridConfig) {
     if (config?.color) this._color = config.color;
     if (config?.speed !== undefined) this._speed = config.speed;
     if (config?.alpha !== undefined) this._alpha = config.alpha;
     if (config?.hasCeiling !== undefined) this._hasCeiling = config.hasCeiling;
+    if (config?.bgImage !== undefined) this._bgImage = config.bgImage;
+    if (config?.bgDimAlpha !== undefined) this._bgDimAlpha = config.bgDimAlpha;
   }
 
   get offset(): number {
@@ -76,6 +82,14 @@ export class DreamGrid {
 
   get alpha(): number {
     return this._alpha;
+  }
+
+  get bgImage(): HTMLImageElement | null {
+    return this._bgImage;
+  }
+
+  get bgDimAlpha(): number {
+    return this._bgDimAlpha;
   }
 
   setColor(color: string): void {
@@ -88,6 +102,14 @@ export class DreamGrid {
 
   setAlpha(alpha: number): void {
     this._alpha = alpha;
+  }
+
+  setBgImage(img: HTMLImageElement | null): void {
+    this._bgImage = img;
+  }
+
+  setBgDimAlpha(alpha: number): void {
+    this._bgDimAlpha = alpha;
   }
 
   /**
@@ -111,6 +133,18 @@ export class DreamGrid {
     const hasCeiling = config?.hasCeiling ?? this._hasCeiling;
 
     ctx.save();
+
+    // 0. 배경 이미지 및 디밍 오버레이 렌더링 (Issue #272 / UI-ASSET-007)
+    const bgImg = config?.bgImage !== undefined ? config.bgImage : this._bgImage;
+    const bgDimAlpha = config?.bgDimAlpha !== undefined ? config.bgDimAlpha : this._bgDimAlpha;
+
+    if (bgImg) {
+      ctx.drawImage(bgImg, 0, 0, w, h);
+      if (bgDimAlpha > 0) {
+        ctx.fillStyle = `rgba(0, 0, 0, ${bgDimAlpha})`;
+        ctx.fillRect(0, 0, w, h);
+      }
+    }
 
     // 1. 소실점 중심의 부드러운 대기 심도 암흑 구역 (보스 실루엣 강조)
     const voidRadius = Math.min(w, h) * 0.42;

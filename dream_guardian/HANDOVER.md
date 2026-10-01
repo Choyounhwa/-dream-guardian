@@ -69,13 +69,13 @@
 | 14 | **#269** | [UI-ASSET-004] 하단 바/설정/일시정지 모달 이미지 에셋 교체 | #261 | `[✔] 완료` |
 | 15 | **#270** | [UI-ASSET-005] 보스 캐릭터 이미지 에셋 제작 (5종 보스 스프라이트) | #261 | `[✔] 완료` |
 | 16 | **#271** | [UI-ASSET-006] 수호신(깨비) 캐릭터 이미지 에셋 제작 (4단계) | #261 | `[✔] 완료` |
-| 17 | **#272** | [UI-ASSET-007] 챕터별 배경 이미지 에셋 제작 및 DreamGrid 교체 | #261 | `[▶ NEXT]` |
+| 17 | **#272** | [UI-ASSET-007] 챕터별 배경 이미지 에셋 제작 및 DreamGrid 교체 | #261 | `[✔] 완료` |
 
 ### 📌 D. 이펙트/비주얼 시리즈 (VFX)
 
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
-| 18 | **#273** | [VFX-001] 파티클 엔진 기반 시스템 구축 (EffectManager) | 없음 | `[ ] 대기` |
+| 18 | **#273** | [VFX-001] 파티클 엔진 기반 시스템 구축 (EffectManager) | 없음 | `[▶ NEXT]` |
 | 19 | **#274** | [VFX-002] 정답/오답 판정 이펙트 연결 | #273 | `[ ] 대기` |
 | 20 | **#275** | [VFX-003] 수호신 스펠 캐스트 이펙트 | #273 | `[ ] 대기` |
 | 21 | **#276** | [VFX-004] 스켈레톤 시각 이펙트 강화 | #273 | `[ ] 대기` |
@@ -97,6 +97,35 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [UI-ASSET-007 / #272] 챕터별 배경 이미지 에셋 제작 및 DreamGrid 교체
+
+> #272 구현 및 TDD 사이클 전수 통과 완료. 메인 메뉴 및 챕터 1~5 6종 고해상도(1080x2160) 배경 이미지 에셋을 제작/배치하고, `config/ui.config.ts` 및 `DreamGrid` 렌더러에 배경 이미지와 디밍 오버레이를 연동하였습니다. 카메라 활성화 시 카메라 피드 우선 정책 및 미로드 시 프로시저럴 그리드 100% 폴백을 완벽히 보존하였습니다.
+> - **신규/수정 파일 및 내용**:
+>   1. `scripts/generate-bg-assets.js`:
+>      - Node.js 내장 zlib/fs/path 기반 1080x2160 고품질 배경 PNG 바이너리 생성기
+>      - `public/assets/bg/menu_bg.png`: 메인 메뉴 꿈나라 심해 우주 테마 (코스믹 인디고/스타더스트/성운)
+>      - `public/assets/bg/ch1_bg.png`: Ch.1 포겟 에메랄드 심해 산호 테마 (심해 청록/발광 산호/수중 기포)
+>      - `public/assets/bg/ch2_bg.png`: Ch.2 후다닥 사탕 바구니 별자리 숲 테마 (황혼 자수정/별자리 숲/유성우)
+>      - `public/assets/bg/ch3_bg.png`: Ch.3 뒤죽박죽 오르골 구름 서재 테마 (라벤더 페리윙클/오르골 태엽 링/구름 테라스)
+>      - `public/assets/bg/ch4_bg.png`: Ch.4 에라 색종이 크레용 사파리 테마 (석양 코랄 크림슨/크레용 컨페티/사파리 실루엣)
+>      - `public/assets/bg/ch5_bg.png`: Ch.5 나이트메어 은하 회전목마 어둠 대왕 테마 (옵시디언 보이드/진홍 소용돌이/회전목마 링)
+>   2. `config/ui.config.ts`:
+>      - `UIImageAssetsConfig` 및 `UI_IMAGE_ASSETS`에 `bg` 카테고리 추가 및 6개 경로 슬롯(menu, ch1~ch5) 등록
+>   3. `src/render/DreamGrid.ts`:
+>      - `DreamGridConfig`에 `bgImage?: HTMLImageElement | null`, `bgDimAlpha?: number` (기본값 0.45) 옵션 추가
+>      - `_bgImage`, `_bgDimAlpha` 내부 필드 및 `setBgImage`, `setBgDimAlpha` 제어 메서드 제공
+>      - `render()` 시작 시 `bgImage` 존재 시 `ctx.drawImage` 및 가독성 확보용 디밍 오버레이(`rgba(0,0,0,bgDimAlpha)`) 렌더링 후 원근 와이어프레임 렌더링
+>      - `bgImage` 미제공 시 기존 와이어프레임 렌더링 100% 폴백 보존
+>   4. `src/main.ts`:
+>      - 메뉴 렌더링 및 인게임 렌더링 시 `imageLoader.get('bg', 'menu')` 및 `imageLoader.get('bg', 'ch' + currentChapter)` 전달
+>      - `cameraLayer.isActive`가 true일 때 `bgImage: null` 처리하여 카메라 피드 우선 원칙 준수
+> - **검증 산출물**:
+>   - `tests/unit/bg-asset-render.test.ts` (9개 단위 테스트 신설 및 전수 통과: 파일 6종 존재 및 1080x2160 규격 검증, UI_IMAGE_ASSETS 경로 검증, drawImage 및 디밍 오버레이 호출 검증, 커스텀 bgDimAlpha 반영, bgImage 부재 시 폴백, 인스턴스 메서드 설정, 카메라 피드 활성 시 미적용 계약)
+>   - 전체 126개 테스트 파일 1,464개 테스트 100% Pass, `npm run build` 성공.
+> - **다음 작업 대상**: `#273` [VFX-001] 파티클 엔진 기반 시스템 구축 (EffectManager)
 
 ---
 

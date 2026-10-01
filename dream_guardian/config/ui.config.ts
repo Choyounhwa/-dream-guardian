@@ -277,6 +277,7 @@ export interface UIImageAssetsConfig {
   pause: Record<string, string | null>;
   boss: Record<string, string | null>;
   guardian: Record<string, string | null>;
+  bg: Record<string, string | null>;
 }
 
 export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
@@ -370,5 +371,13 @@ export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
     stage4_cast: '/assets/guardian/stage4/cast.png',
     stage4_shield: '/assets/guardian/stage4/shield.png',
     stage4_ultimate: '/assets/guardian/stage4/ultimate.png',
+  },
+  bg: {
+    menu: '/assets/bg/menu_bg.png',
+    ch1: '/assets/bg/ch1_bg.png',
+    ch2: '/assets/bg/ch2_bg.png',
+    ch3: '/assets/bg/ch3_bg.png',
+    ch4: '/assets/bg/ch4_bg.png',
+    ch5: '/assets/bg/ch5_bg.png',
   },
 };

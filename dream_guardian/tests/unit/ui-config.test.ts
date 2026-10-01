@@ -167,7 +167,7 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
     });
   });
 
-  describe('5. UI_IMAGE_ASSETS (9개 카테고리 이미지 경로 슬롯)', () => {
+  describe('5. UI_IMAGE_ASSETS (10개 카테고리 이미지 경로 슬롯)', () => {
     const REQUIRED_CATEGORIES = [
       'menu',
       'hud',
@@ -178,9 +178,10 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       'pause',
       'boss',
       'guardian',
+      'bg',
     ] as const;
 
-    it('9개 카테고리 슬롯이 모두 정의되어 있다', () => {
+    it('10개 카테고리 슬롯이 모두 정의되어 있다', () => {
       const assets: UIImageAssetsConfig = UI_IMAGE_ASSETS;
       for (const cat of REQUIRED_CATEGORIES) {
         expect(assets).toHaveProperty(cat);
@@ -274,9 +275,17 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       expect(UI_IMAGE_ASSETS.guardian.stage4_shield).toBe('/assets/guardian/stage4/shield.png');
       expect(UI_IMAGE_ASSETS.guardian.stage4_ultimate).toBe('/assets/guardian/stage4/ultimate.png');
 
-      // 9) 그 외 카테고리(battle): 모든 슬롯이 null 유지
+      // 9) bg 카테고리 (Issue #272 / UI-ASSET-007)
+      expect(UI_IMAGE_ASSETS.bg.menu).toBe('/assets/bg/menu_bg.png');
+      expect(UI_IMAGE_ASSETS.bg.ch1).toBe('/assets/bg/ch1_bg.png');
+      expect(UI_IMAGE_ASSETS.bg.ch2).toBe('/assets/bg/ch2_bg.png');
+      expect(UI_IMAGE_ASSETS.bg.ch3).toBe('/assets/bg/ch3_bg.png');
+      expect(UI_IMAGE_ASSETS.bg.ch4).toBe('/assets/bg/ch4_bg.png');
+      expect(UI_IMAGE_ASSETS.bg.ch5).toBe('/assets/bg/ch5_bg.png');
+
+      // 10) 그 외 카테고리(battle): 모든 슬롯이 null 유지
       const nonConfiguredCategories = REQUIRED_CATEGORIES.filter(
-        (c) => c !== 'menu' && c !== 'hud' && c !== 'result' && c !== 'bottomBar' && c !== 'settings' && c !== 'pause' && c !== 'boss' && c !== 'guardian'
+        (c) => c !== 'menu' && c !== 'hud' && c !== 'result' && c !== 'bottomBar' && c !== 'settings' && c !== 'pause' && c !== 'boss' && c !== 'guardian' && c !== 'bg'
       );
       for (const cat of nonConfiguredCategories) {
         const slots = UI_IMAGE_ASSETS[cat];

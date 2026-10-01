@@ -161,6 +161,7 @@ describe('UIImageLoader (Issue #261 / UI-TOKEN-006)', () => {
           pause: { modalBg: null, resumeBtn: null, quitBtn: null },
           boss: { ch1_idle: null },
           guardian: { stage1_idle: null },
+          bg: { menu: null },
         };
 
         await loader.preload(testConfig);
@@ -200,6 +201,7 @@ describe('UIImageLoader (Issue #261 / UI-TOKEN-006)', () => {
           pause: { modalBg: null, resumeBtn: null, quitBtn: null },
           boss: { ch1_idle: null },
           guardian: { stage1_idle: null },
+          bg: { menu: null },
         };
 
         await loader.preload(testConfig);

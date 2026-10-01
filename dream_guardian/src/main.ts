@@ -1398,7 +1398,13 @@ const engine = new GameEngine({
 
     // 5. 메뉴 / 인게임 / 결과 렌더링 (모두 vw, vh 가상 좌표계 기준으로 일관 드로잉)
     if (screenMode === 'menu') {
-      dreamGrid.render(ctx, vw, vh, { alpha: 0.08, color: '#28E6FF', renderZoneConnections: false });
+      const menuBg = !cameraLayer.isActive ? imageLoader.get('bg', 'menu') : null;
+      dreamGrid.render(ctx, vw, vh, {
+        alpha: 0.08,
+        color: '#28E6FF',
+        renderZoneConnections: false,
+        bgImage: menuBg,
+      });
       if (menuMode === 'main') {
         const currentLoco = LOCOMOTION_MODES.find((m) => m.mode === locomotionModal.selectedMode);
         menuRenderer.render(ctx, vw, vh, {
@@ -1443,10 +1449,14 @@ const engine = new GameEngine({
         gridColor = beatCoordinator.phase === 'REST_READY' ? '#28E6FF' : '#FF8844';
       }
 
+      const chapterKey = `ch${currentChapter}`;
+      const gameBg = !cameraLayer.isActive ? imageLoader.get('bg', chapterKey) : null;
+
       dreamGrid.render(ctx, vw, vh, {
         vanishingX: bossX,
         vanishingY: bossY,
         color: gridColor,
+        bgImage: gameBg,
       });
 
       // Issue #192, #232 & #235: 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링
