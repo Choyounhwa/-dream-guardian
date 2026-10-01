@@ -274,7 +274,7 @@ export class SettingsModal {
       } else {
         // 기존 텍스트 태그 폴백
         ctx.font = UIText.getFont('body', scaleX, 'bold');
-        ctx.fillStyle = isActive ? '#28E6FF' : '#888888';
+        ctx.fillStyle = isActive ? '#28E6FF' : '#BBBBBB';
         ctx.textAlign = 'right';
         ctx.fillText(statusText, btn.x + btn.w - 36 * scaleX, btn.y + btn.h / 2);
       }

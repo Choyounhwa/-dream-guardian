@@ -246,17 +246,17 @@ export class MenuRenderer {
 
       // 카드 내부 텍스트 (칸별 높이 1:1 매핑)
       // 1) 챕터 번호 (Ch.X): bold 48px
-      ctx.fillStyle = locked ? '#555555' : info.color;
+      ctx.fillStyle = locked ? '#999999' : info.color;
       ctx.font = UIText.getFont('subheading', scaleX, 'bold');
       ctx.fillText(`Ch.${ch}`, item.x + item.w / 2, item.y + 75 * scaleY);
 
       // 2) 챕터명 (꿈속 탐험 테마): bold 44px
-      ctx.fillStyle = locked ? '#444444' : '#FFFFFF';
+      ctx.fillStyle = locked ? '#888888' : '#FFFFFF';
       ctx.font = UIText.getFont('subheading', scaleX, 'bold');
       ctx.fillText(locked ? '???' : info.name, item.x + item.w / 2, item.y + 160 * scaleY);
 
       // 3) 학습 영역 / 테마 부제: 26px
-      ctx.fillStyle = locked ? '#333333' : '#BBBBBB';
+      ctx.fillStyle = locked ? '#777777' : '#BBBBBB';
       ctx.font = UIText.getFont('label', scaleX, 'normal');
       ctx.fillText(locked ? '미개방 성역' : info.sub, item.x + item.w / 2, item.y + 225 * scaleY);
 
@@ -295,7 +295,7 @@ export class MenuRenderer {
           );
         } else {
           ctx.font = UIText.getFont('subheading', scaleX, 'normal');
-          ctx.fillStyle = '#555555';
+          ctx.fillStyle = '#999999';
           ctx.fillText('🔒', item.x + item.w / 2, item.y + 305 * scaleY);
         }
       }
@@ -441,7 +441,7 @@ export class MenuRenderer {
       ctx.fillText(item.label, item.x + item.w / 2, item.y + 160 * scaleY);
 
       // 2) 서브 문항수: 32px
-      ctx.fillStyle = '#AAAAAA';
+      ctx.fillStyle = '#CCCCCC';
       ctx.font = UIText.getFont('body', scaleX, 'normal');
       ctx.fillText(item.subLabel, item.x + item.w / 2, item.y + 280 * scaleY);
     }

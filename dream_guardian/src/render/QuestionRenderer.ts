@@ -180,7 +180,7 @@ export class QuestionRenderer {
 
       // 키보드 힌트
       ctx.font = UIText.getFont('badge', scaleX, 'bold');
-      ctx.fillStyle = '#AAAAAA';
+      ctx.fillStyle = '#CCCCCC';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(`키보드 [${i + 1}]`, bx + btnW / 2, btnY + btnH + 34 * scaleY);

@@ -294,7 +294,7 @@ export class ResultRenderer {
     // 5. 하단 안내문
     ctx.textAlign = 'center';
     ctx.font = UIText.getFont('label', scaleX, 'normal');
-    ctx.fillStyle = '#888888';
+    ctx.fillStyle = '#BBBBBB';
     ctx.fillText('양손을 모으거나 하단 [메뉴로] 버튼을 클릭하세요', w / 2, panel.y + panel.h - 50 * scaleY);
 
     ctx.restore();
