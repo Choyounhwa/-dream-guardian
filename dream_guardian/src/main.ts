@@ -13,6 +13,7 @@ import { PoseManager } from './motion/PoseManager.js';
 import { BoneRenderer } from './skeleton/BoneRenderer.js';
 import { JointRenderer } from './skeleton/JointRenderer.js';
 import { SkeletonAnimation } from './skeleton/SkeletonAnimation.js';
+import { SkeletonEffect } from './skeleton/SkeletonEffect.js';
 import { QuestionBank } from './question/QuestionBank.js';
 import { parseCSV } from './question/CSVLoader.js';
 import { parseFitnessPatternCSV, createKeynoteSequence } from './data/index.js';
@@ -127,6 +128,7 @@ const poseManager = new PoseManager({
 const boneRenderer = new BoneRenderer({ renderHandBones: true });
 const jointRenderer = new JointRenderer();
 const skeletonAnimation = new SkeletonAnimation({ lerpFactor: 0.3, breathCycle: 3.0, breathAmplitude: 0.02 });
+const skeletonEffect = new SkeletonEffect();
 
 const questionBank = new QuestionBank();
 const speech = new QuestionSpeech();
@@ -304,6 +306,18 @@ wireGuardianVFX(eventBus, effectManager, {
   }),
   getIsEnraged: () => (bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3)),
 });
+
+// Issue #276 (VFX-004): 스켈레톤 시각 이펙트 이벤트 연동 (정답 펄스 / 피격 플래시)
+eventBus.on('answer:correct', (info) => {
+  skeletonEffect.triggerCorrect(info.combo);
+});
+eventBus.on('answer:wrong', () => {
+  skeletonEffect.triggerHit();
+});
+eventBus.on('player:hurt', () => {
+  skeletonEffect.triggerHit();
+});
+
 
 // Issue #191: 노트결과 ID 기준 중복 방지 (1회 재생 보장)
 const playedNoteAudioIds = new Set<string>();
@@ -599,6 +613,7 @@ const phaseAHazardController = new PhaseAHazardController({
     const appliedDamage = damage ?? DEFAULT_PHASE_A_HAZARD_CONFIG.damagePerMiss;
     battle.applyHazardDamage(appliedDamage);
     sfx.play('player_hurt');
+    skeletonEffect.triggerHit();
     effectManager.playPreset('wrong', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.76);
     if (!battle.isAlive) {
       showResult(false);
@@ -919,6 +934,7 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
   } else {
     if (status === 'timeout') {
       sfx.play('wrong');
+      skeletonEffect.triggerHit();
       speech.speakFeedback('wrong');
       feedbackCorrect = false;
       feedbackTimer = 0.8;
@@ -1047,6 +1063,11 @@ const engine = new GameEngine({
     answerSelectionRenderer.update(dt);
     tutorial.update(dt);
 
+    // Issue #276 (VFX-004): 스켈레톤 시각 이펙트 상태 및 타이머 갱신
+    skeletonEffect.setMana(battle.mana, DEFAULT_CONFIG.mana.spellCost);
+    skeletonEffect.setHp(battle.hp, battle.maxHp);
+    skeletonEffect.update(dt);
+
     // Issue #265 (A11Y-004): 저시력 모드 음성 피드백 (HP 50% 이하 알림)
     if (screenMode === 'game' && battle.isAlive && battle.hp <= battle.maxHp * 0.5) {
       speech.speakFeedback('low_hp');
@@ -1065,6 +1086,15 @@ const engine = new GameEngine({
           ? skeletonAnimation.smoothedLandmarks
           : poseManager.virtualLandmarks;
       if (sourceLandmarks.length >= 25) {
+        const jointMap: Record<number, { x: number; y: number }> = {};
+        for (let i = 0; i < sourceLandmarks.length; i++) {
+          const lm = sourceLandmarks[i];
+          if ((lm.visibility ?? 0) >= 0.3) {
+            jointMap[i] = { x: lm.x, y: lm.y };
+          }
+        }
+        skeletonEffect.recordJointPositions(jointMap);
+
         answerSelector.cursorTracker.update(
           sourceLandmarks,
           undefined,
@@ -1480,7 +1510,16 @@ const engine = new GameEngine({
 
     // 4. 스켈레톤 시각화 (설정에서 활성화된 경우만 렌더링)
     if (settingsModal.skeletonEnabled && poseManager.hasPose && skeletonAnimation.smoothedLandmarks.length > 0) {
+      const jointMap: Record<number, { x: number; y: number }> = {};
+      for (let i = 0; i < skeletonAnimation.smoothedLandmarks.length; i++) {
+        const lm = skeletonAnimation.smoothedLandmarks[i];
+        if ((lm.visibility ?? 0) >= 0.3) {
+          jointMap[i] = { x: lm.x, y: lm.y };
+        }
+      }
+      skeletonEffect.renderTrails(ctx);
       boneRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, 1);
+      skeletonEffect.renderGlow(ctx, jointMap);
       jointRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, skeletonAnimation.breathScale);
     }
 

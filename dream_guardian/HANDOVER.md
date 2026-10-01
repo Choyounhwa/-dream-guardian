@@ -78,8 +78,8 @@
 | 18 | **#273** | [VFX-001] 파티클 엔진 기반 시스템 구축 (EffectManager) | 없음 | `[✔] 완료` |
 | 19 | **#274** | [VFX-002] 정답/오답 판정 이펙트 연결 | #273 | `[✔] 완료` |
 | 20 | **#275** | [VFX-003] 수호신 스펠 캐스트 이펙트 | #273 | `[✔] 완료` |
-| 21 | **#276** | [VFX-004] 스켈레톤 시각 이펙트 강화 | #273 | `[▶ NEXT]` |
-| 22 | **#277** | [VFX-005] 승리/패배 결과 화면 연출 이펙트 | #273 | `[ ] 대기` |
+| 21 | **#276** | [VFX-004] 스켈레톤 시각 이펙트 강화 | #273 | `[✔] 완료` |
+| 22 | **#277** | [VFX-005] 승리/패배 결과 화면 연출 이펙트 | #273 | `[▶ NEXT]` |
 | 23 | **#278** | [VFX-006] UI 전환 애니메이션 | #273 | `[ ] 대기` |
 
 ### 권장 실행 순서
@@ -97,6 +97,40 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [VFX-004 / #276] 스켈레톤 시각 이펙트 강화 (호흡 글로우/정답 펄스/피격 플래시)
+
+> #276 구현 및 TDD 사이클 전수 통과 완료. 스켈레톤 관절 부드러운 펄스 호흡 글로우(2초 주기, 마나 0~100% 연동 시안 #28E6FF -> 보라 #C889FF 색상 선형 보간), 정답 펄스(0.3초 지속 에메랄드 #4DFFAA 글로우, 5+ 콤보 시 강도/크기 배율 증가), 오답/피격 플래시(0.2초 지속 적색 #FF4444 플래시 및 HP 50% 이하 적색 경고 펄스), 모션 트레일(손 19, 20 및 발 31, 32 잔상 4~6프레임 큐 버퍼, 속도 연동 알파/길이 증가)을 구현하고 `SkeletonEffect`, `config/effect.config.ts`, `src/main.ts`에 완전 연동하였습니다.
+> - **신규/수정 파일 및 내용**:
+>   1. `config/effect.config.ts`:
+>      - `SKELETON_EFFECT_CONFIG` 및 `SkeletonEffectConfig` 신설:
+>        - `breathCycle`: 2.0초
+>        - `manaGlow`: startColor '#28E6FF', endColor '#C889FF', minAlpha 0.25, maxAlpha 0.75, blur 16, baseRadius 18
+>        - `correctPulse`: duration 0.3s, color '#4DFFAA', baseIntensity 1.0, comboThreshold 5, comboMultiplier 1.5, maxIntensity 2.5
+>        - `hitFlash`: duration 0.2s, color '#FF4444', lowHpThreshold 0.5, lowHpColor '#FF4444', warningPulseSpeed 5.0
+>        - `trail`: maxFrames 6, minFrames 4, trackedJoints [19, 20, 31, 32], colors ({19: '#28E6FF', 20: '#FFCB4D', 31: '#28E6FF', 32: '#FFCB4D'}), speedThreshold 50, speedAlphaMultiplier 1.5
+>   2. `src/skeleton/SkeletonEffect.ts` 신설:
+>      - `SkeletonEffect` 클래스 구현:
+>        - 호흡 글로우: 2.0s 주기 삼각함수 스케일/알파 진동 및 마나 비율 기반 16진수 색상 선형 보간 (`getManaGlowColor()`)
+>        - 정답 펄스: 0.3초 지속시간, 연쇄 콤보(5 이상) 차등 배율 계산 (`triggerCorrect(combo)`)
+>        - 오답/피격 플래시: 0.2초 지속시간, HP 50% 이하 시 저체력 경고 펄스 활성화 (`triggerHit()`, `setHp()`)
+>        - 모션 트레일: 4개 말단 관절(19, 20, 31, 32) 큐 관리 (최대 6프레임 클램프), 프레임 간 변위 속도 계산 및 가속도 연동 알파 배율 적용
+>        - Canvas 렌더링: `renderGlow(ctx, joints, scaleX)`, `renderTrails(ctx, scaleX)` 분리 드로잉
+>        - `interpolateHexColor` 유틸리티 함수 구현 및 export
+>   3. `src/skeleton/index.ts`:
+>      - `SkeletonEffect`, `TrailPoint` re-export
+>   4. `src/main.ts`:
+>      - `SkeletonEffect` 인스턴스 생성 및 스켈레톤 렌더링 파이프라인 연동:
+>        - 렌더링 순서: `cameraLayer` -> `skeletonEffect.renderTrails(ctx)` -> `boneRenderer.render(...)` -> `skeletonEffect.renderGlow(ctx, jointMap)` -> `jointRenderer.render(...)` (3계층 분리 및 시각 효과/관절 좌표 분리 준수)
+>        - `engine.update`: `skeletonEffect.setMana()`, `skeletonEffect.setHp()`, `skeletonEffect.update(dt)`, `skeletonEffect.recordJointPositions(jointMap)` 호출
+>        - 이벤트 연동: `eventBus.on('answer:correct')`, `eventBus.on('answer:wrong')`, `eventBus.on('player:hurt')`, 피격 및 타임아웃 지점에 `triggerCorrect()` / `triggerHit()` 연결
+>   5. `tests/unit/vfx-skeleton.test.ts` 신설:
+>      - 13개 단위 테스트 전수 통과 (호흡 주기, 마나 보간 색상, 정답 펄스/콤보 배율, 피격 플래시/저HP 경고, 트레일 큐 및 렌더링, reset 검증)
+> - **검증 결과**:
+>   - 단위/통합 테스트: **136개 테스트 스위트, 1,599개 테스트 100% Pass**
+>   - 빌드: `npm run build` TypeScript 및 Vite 프로덕션 빌드 성공
 
 ---
 

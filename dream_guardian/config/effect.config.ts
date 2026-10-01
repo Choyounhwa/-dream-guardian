@@ -247,3 +247,83 @@ export const PARTICLE_PRESETS: Record<ParticlePresetName, ParticlePresetConfig> 
     endAlpha: 0.1,
   },
 };
+
+export interface SkeletonEffectConfig {
+  breathCycle: number;
+  manaGlow: {
+    startColor: string;
+    endColor: string;
+    minAlpha: number;
+    maxAlpha: number;
+    blur: number;
+    baseRadius: number;
+  };
+  correctPulse: {
+    duration: number;
+    color: string;
+    baseIntensity: number;
+    comboThreshold: number;
+    comboMultiplier: number;
+    maxIntensity: number;
+  };
+  hitFlash: {
+    duration: number;
+    color: string;
+    lowHpThreshold: number;
+    lowHpColor: string;
+    warningPulseSpeed: number;
+  };
+  trail: {
+    maxFrames: number;
+    minFrames: number;
+    trackedJoints: number[];
+    colors: Record<number, string>;
+    speedThreshold: number;
+    speedAlphaMultiplier: number;
+    baseRadius: number;
+    fadeDecay: number;
+  };
+}
+
+export const SKELETON_EFFECT_CONFIG: SkeletonEffectConfig = {
+  breathCycle: 2.0,
+  manaGlow: {
+    startColor: '#28E6FF',
+    endColor: '#C889FF',
+    minAlpha: 0.25,
+    maxAlpha: 0.75,
+    blur: 16,
+    baseRadius: 18,
+  },
+  correctPulse: {
+    duration: 0.3,
+    color: '#4DFFAA',
+    baseIntensity: 1.0,
+    comboThreshold: 5,
+    comboMultiplier: 1.5,
+    maxIntensity: 2.5,
+  },
+  hitFlash: {
+    duration: 0.2,
+    color: '#FF4444',
+    lowHpThreshold: 0.5,
+    lowHpColor: '#FF4444',
+    warningPulseSpeed: 5.0,
+  },
+  trail: {
+    maxFrames: 6,
+    minFrames: 4,
+    trackedJoints: [19, 20, 31, 32],
+    colors: {
+      19: '#28E6FF',
+      20: '#FFCB4D',
+      31: '#28E6FF',
+      32: '#FFCB4D',
+    },
+    speedThreshold: 50,
+    speedAlphaMultiplier: 1.5,
+    baseRadius: 12,
+    fadeDecay: 0.8,
+  },
+};
+
