@@ -214,4 +214,28 @@ export const DEFAULT_MOTION_INTENT_BUS_CONFIG: MotionIntentBusConfig = {
   stepThreshold: 0.04,
 };
 
+/**
+ * 시간 누적 덮기(Temporal Set Coverage) 설정 인터페이스
+ *
+ * @see Issue #253 [INPUT-TOLERANCE-005]
+ */
+export interface TemporalCoverageConfig {
+  /** 시간 누적 덮기 완화 활성화 여부 (기본 true) */
+  enableTemporalCoverage: boolean;
+  /** Tier 3 누적 윈도우 시간 (초, 기본 1.0) */
+  tier3Window: number;
+  /** Tier 4 누적 윈도우 시간 (초, 기본 1.2) */
+  tier4Window: number;
+}
+
+/**
+ * 시간 누적 덮기 기본 설정값
+ */
+export const DEFAULT_TEMPORAL_COVERAGE_CONFIG: TemporalCoverageConfig = {
+  enableTemporalCoverage: true,
+  tier3Window: 1.0,
+  tier4Window: 1.2,
+};
+
+
 

@@ -102,8 +102,14 @@ export const FOOT_ZONES = new Set<number>([9, 10, 11]);
 export const ALLOWED_FOOT_ZONES: readonly number[] = Object.freeze([9, 10, 11]);
 
 /**
- * Cross-Body 물리 연동 제약 검증:
+ * Cross-Body 물리 연동 제약 검증 (패턴 생성 및 에디터 검증 전용):
  * 골반이 최하단(존 9, 10, 11)일 때 손이 최상단(존 1, 2, 3)에 위치하는 비현실적 자세 차단 (Issue #156)
+ *
+ * [용도 명시 / 정합성 규칙 - Issue #253]:
+ * - 본 함수는 문제/패턴 생성 단계(FitnessPatternLoader, PostureGenerator, KeynoteCandidateDeriver, StarSequenceGenerator 등)
+ *   및 에디터 제약 검증(PoseConstraintValidator) 전용으로 사용됩니다.
+ * - 런타임 실시간 판정(PostureMatcher, AnswerSelector)에는 신체 유연성 및 트래킹 안정성을 고려하여
+ *   런타임 제약으로 강제 적용되지 않습니다 (생성 단계 전용 필터링).
  */
 export function isCrossBodyViolation(handZone: number, hipZone: number): boolean {
   const isHipBottom = hipZone >= 9 && hipZone <= 11;

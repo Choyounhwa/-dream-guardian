@@ -20,11 +20,13 @@ import {
 } from '../../config/posture.config.js';
 import {
   DEFAULT_ZONE_SOFT_BOUNDARY_CONFIG,
+  DEFAULT_TEMPORAL_COVERAGE_CONFIG,
   type ZoneSoftBoundaryConfig,
+  type TemporalCoverageConfig,
 } from '../../config/judgment.config.js';
 import type { AnswerPosture, BodyPart, PartGate, PostureProgress } from '../types/posture.js';
 
-export type { ZoneSoftBoundaryConfig };
+export type { ZoneSoftBoundaryConfig, TemporalCoverageConfig };
 
 export interface MatcherContext {
   shoulderWidth?: number;
@@ -52,6 +54,16 @@ export interface MatchPostureOptions {
   edgeWeight?: number;
   gateEvaluator?: (gate: PartGate) => boolean;
   cursorEntryMargin?: Partial<Record<string, number>> | CursorEntryMarginConfig;
+  /** 자세 난이도 티어 (1 | 2 | 3 | 4) */
+  tier?: number;
+  /** 현재 프레임 시간 (초 단위 타임스탬프) */
+  currentTime?: number;
+  /** 존별 최근 덮임 타임스탬프 맵 (zoneId -> timestamp) */
+  zoneCoveredTimestamps?: Map<number, number>;
+  /** 시간 누적 덮기 완화 설정 */
+  temporalConfig?: TemporalCoverageConfig;
+  /** 누적 윈도우 시간 (미지정 시 티어별 기본값) */
+  coverageWindow?: number;
 }
 
 /**
@@ -185,13 +197,19 @@ export function computeZoneWeight(
 }
 
 /**
- * 상태 유지형 피트니스 존 판정기 (히스테리시스 Schmitt Trigger 관리)
+ * 상태 유지형 피트니스 존 판정기 (히스테리시스 Schmitt Trigger 및 존 덮기 시간 누적 관리)
  */
 export class PostureMatcher {
   private _activeZones: Set<string> = new Set();
+  private _zoneCoveredTimestamps: Map<number, number> = new Map();
 
   public reset(): void {
     this._activeZones.clear();
+    this._zoneCoveredTimestamps.clear();
+  }
+
+  public get zoneCoveredTimestamps(): Map<number, number> {
+    return this._zoneCoveredTimestamps;
   }
 
   public isCursorInsideZone(
@@ -216,6 +234,20 @@ export class PostureMatcher {
     }
 
     return inside;
+  }
+
+  public matchPosture(
+    posture: AnswerPosture,
+    cursors:
+      | Map<string, { x: number; y: number } | null | undefined>
+      | Record<string, { x: number; y: number } | null | undefined>,
+    zones: readonly FitnessZone[],
+    options?: MatchPostureOptions
+  ): PostureMatchResult {
+    return matchPosture(posture, cursors, zones, {
+      ...options,
+      zoneCoveredTimestamps: options?.zoneCoveredTimestamps ?? this._zoneCoveredTimestamps,
+    });
   }
 }
 
@@ -393,8 +425,43 @@ export function matchPosture(
 
   const allPartsInside = partStates.every((s) => s.inside);
 
-  // 조건 (B): ∀ z ∈ Z_target : ∃ p ∈ P, inside(p, z)
-  const allZonesCovered = distinctTargetZoneIds.every((zId) => zoneCovered[zId] === true);
+  // 조건 (B): ∀ z ∈ Z_target : ∃ p ∈ P, inside(p, z) (시간 누적 완화 지원, Issue #253)
+  // ordered 바인딩은 상단에서 조기 반환되므로 any 바인딩 모드에만 시간 누적 완화 적용
+  const temporalConfig = options?.temporalConfig ?? DEFAULT_TEMPORAL_COVERAGE_CONFIG;
+  const isTemporalActive =
+    temporalConfig.enableTemporalCoverage &&
+    (options?.tier === 3 || options?.tier === 4);
+
+  let allZonesCovered = false;
+
+  if (isTemporalActive) {
+    const timestamps = options?.zoneCoveredTimestamps ?? defaultMatcherInstance.zoneCoveredTimestamps;
+    const currentTime = options?.currentTime ?? 0;
+    const coverageWindow =
+      options?.coverageWindow ??
+      (options?.tier === 4 ? temporalConfig.tier4Window : temporalConfig.tier3Window);
+
+    // 1. 현재 프레임에서 덮인 목표 존의 타임스탬프 갱신
+    for (const zId of distinctTargetZoneIds) {
+      if (zoneCovered[zId]) {
+        timestamps.set(zId, currentTime);
+      }
+    }
+
+    // 2. 만료된 타임스탬프 정리 및 윈도우 내 덮임 상태 반영
+    for (const [zId, ts] of Array.from(timestamps.entries())) {
+      if (currentTime - ts > coverageWindow || currentTime < ts) {
+        timestamps.delete(zId);
+      } else if (distinctTargetZoneIds.includes(zId)) {
+        zoneCovered[zId] = true;
+      }
+    }
+
+    // 3. 모든 목표 존이 윈도우 내 유효 타임스탬프를 보유하는지 검증
+    allZonesCovered = distinctTargetZoneIds.every((zId) => timestamps.has(zId));
+  } else {
+    allZonesCovered = distinctTargetZoneIds.every((zId) => zoneCovered[zId] === true);
+  }
 
   // 게이트(PartGate) 검증
   let gatesMet = true;

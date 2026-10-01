@@ -34,7 +34,9 @@ import {
 } from '../../config/zone.config.js';
 import {
   DEFAULT_TIMING_LENIENCY_CONFIG,
+  DEFAULT_TEMPORAL_COVERAGE_CONFIG,
   type TimingLeniencyConfig,
+  type TemporalCoverageConfig,
 } from '../../config/judgment.config.js';
 
 import {
@@ -119,7 +121,10 @@ export class AnswerSelector {
   private _currentPlan: QuestionRecipePlan | null = null;
   private _choiceProgress: [number, number] = [0, 0];
   private _decayHoldTimers: [number, number] = [0, 0];
+  private _zoneCoveredTimestamps: [Map<number, number>, Map<number, number>] = [new Map(), new Map()];
   private _timingConfig: TimingLeniencyConfig = DEFAULT_TIMING_LENIENCY_CONFIG;
+  private _temporalConfig: TemporalCoverageConfig = DEFAULT_TEMPORAL_COVERAGE_CONFIG;
+  private _currentTime = 0;
   private _paused = false;
   private _virtualWidth = 1080;
   private _virtualHeight = 2160;
@@ -268,7 +273,9 @@ export class AnswerSelector {
       return null;
     }
 
-    // 각 선택지(0: 좌, 1: 우)의 요구조건 충족 여부 확인 (Issue #124: 집합 덮기 & Issue #126: PartGate)
+    this._currentTime += dt;
+
+    // 각 선택지(0: 좌, 1: 우)의 요구조건 충족 여부 확인 (Issue #124: 집합 덮기, #126: PartGate, #253: 시간 누적 완화)
     const checkChoiceMet = (recipeIdx: number): { met: boolean; avgWeight: number } => {
       const recipe = plan.choices[recipeIdx];
       const posture = recipeToAnswerPosture(recipe);
@@ -276,6 +283,11 @@ export class AnswerSelector {
         centerWeight: this._centerWeight,
         edgeWeight: this._edgeWeight,
         gateEvaluator: (gate) => this._gateEvaluator.evaluateGate(gate, landmarks),
+        tier: this._currentTierInfo.tier,
+        currentTime: this._currentTime,
+        zoneCoveredTimestamps: this._zoneCoveredTimestamps[recipeIdx],
+        temporalConfig: this._temporalConfig,
+        coverageWindow: this._dwellTime,
       });
       return { met: res.met, avgWeight: res.avgWeight };
     };
@@ -318,6 +330,8 @@ export class AnswerSelector {
 
       if (this._choiceProgress[0] >= 1.0) {
         this._choiceProgress[0] = 0;
+        this._zoneCoveredTimestamps[0].clear();
+        this._zoneCoveredTimestamps[1].clear();
         return { confirmedIndex: 0 };
       }
       return null;
@@ -331,6 +345,8 @@ export class AnswerSelector {
 
       if (this._choiceProgress[1] >= 1.0) {
         this._choiceProgress[1] = 0;
+        this._zoneCoveredTimestamps[0].clear();
+        this._zoneCoveredTimestamps[1].clear();
         return { confirmedIndex: 1 };
       }
       return null;
@@ -362,10 +378,31 @@ export class AnswerSelector {
     };
   }
 
+  /** 시간 누적 덮기 완화 설정 업데이트 (Issue #253) */
+  setTemporalCoverage(config: Partial<TemporalCoverageConfig>): void {
+    this._temporalConfig = {
+      ...this._temporalConfig,
+      ...config,
+    };
+  }
+
+  /** 시간 누적 덮기 설정 조회 */
+  get temporalConfig(): TemporalCoverageConfig {
+    return { ...this._temporalConfig };
+  }
+
+  /** 선택지별 존 덮임 타임스탬프 맵 조회 (디버그/테스트용) */
+  get zoneCoveredTimestamps(): [Map<number, number>, Map<number, number>] {
+    return [this._zoneCoveredTimestamps[0], this._zoneCoveredTimestamps[1]];
+  }
+
   /** 모든 진행도 및 커서 추적기 초기화 (Issue #130) */
   reset(): void {
     this._choiceProgress = [0, 0];
     this._decayHoldTimers = [0, 0];
+    this._zoneCoveredTimestamps[0].clear();
+    this._zoneCoveredTimestamps[1].clear();
+    this._currentTime = 0;
     this._cursorTracker.reset();
   }
 }
