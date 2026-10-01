@@ -276,6 +276,7 @@ export interface UIImageAssetsConfig {
   battle: Record<string, string | null>;
   pause: Record<string, string | null>;
   boss: Record<string, string | null>;
+  guardian: Record<string, string | null>;
 }
 
 export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
@@ -356,5 +357,18 @@ export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
     ch5_hit: '/assets/boss/ch5/hit.png',
     ch5_enrage: '/assets/boss/ch5/enrage.png',
     ch5_defeat: '/assets/boss/ch5/defeat.png',
+  },
+  guardian: {
+    stage1_idle: '/assets/guardian/stage1/idle.png',
+    stage1_cast: '/assets/guardian/stage1/cast.png',
+    stage2_idle: '/assets/guardian/stage2/idle.png',
+    stage2_cast: '/assets/guardian/stage2/cast.png',
+    stage3_idle: '/assets/guardian/stage3/idle.png',
+    stage3_cast: '/assets/guardian/stage3/cast.png',
+    stage3_shield: '/assets/guardian/stage3/shield.png',
+    stage4_idle: '/assets/guardian/stage4/idle.png',
+    stage4_cast: '/assets/guardian/stage4/cast.png',
+    stage4_shield: '/assets/guardian/stage4/shield.png',
+    stage4_ultimate: '/assets/guardian/stage4/ultimate.png',
   },
 };

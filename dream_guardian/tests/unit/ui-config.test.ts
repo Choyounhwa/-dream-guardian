@@ -167,7 +167,7 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
     });
   });
 
-  describe('5. UI_IMAGE_ASSETS (8개 카테고리 이미지 경로 슬롯)', () => {
+  describe('5. UI_IMAGE_ASSETS (9개 카테고리 이미지 경로 슬롯)', () => {
     const REQUIRED_CATEGORIES = [
       'menu',
       'hud',
@@ -177,16 +177,17 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       'battle',
       'pause',
       'boss',
+      'guardian',
     ] as const;
 
-    it('8개 카테고리 슬롯이 모두 정의되어 있다', () => {
+    it('9개 카테고리 슬롯이 모두 정의되어 있다', () => {
       const assets: UIImageAssetsConfig = UI_IMAGE_ASSETS;
       for (const cat of REQUIRED_CATEGORIES) {
         expect(assets).toHaveProperty(cat);
       }
     });
 
-    it('menu, hud, result, bottomBar, settings, pause, boss 슬롯에는 에셋 경로가 설정되어 있고, 그 외 카테고리의 초기값은 null (프로시저럴 렌더링 폴백)이다', () => {
+    it('menu, hud, result, bottomBar, settings, pause, boss, guardian 슬롯에는 에셋 경로가 설정되어 있고, 그 외 카테고리의 초기값은 null (프로시저럴 렌더링 폴백)이다', () => {
       // 1) menu 카테고리: 신규 등록된 이미지 경로 검증
       expect(UI_IMAGE_ASSETS.menu.titleBg).toBe('/assets/ui/menu/title_bg.png');
       expect(UI_IMAGE_ASSETS.menu.cardFrame).toBe('/assets/ui/menu/chapter_card_frame.png');
@@ -260,9 +261,22 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       expect(UI_IMAGE_ASSETS.boss.ch5_enrage).toBe('/assets/boss/ch5/enrage.png');
       expect(UI_IMAGE_ASSETS.boss.ch5_defeat).toBe('/assets/boss/ch5/defeat.png');
 
-      // 8) 그 외 카테고리(battle): 모든 슬롯이 null 유지
+      // 8) guardian 카테고리 (Issue #271 / UI-ASSET-006)
+      expect(UI_IMAGE_ASSETS.guardian.stage1_idle).toBe('/assets/guardian/stage1/idle.png');
+      expect(UI_IMAGE_ASSETS.guardian.stage1_cast).toBe('/assets/guardian/stage1/cast.png');
+      expect(UI_IMAGE_ASSETS.guardian.stage2_idle).toBe('/assets/guardian/stage2/idle.png');
+      expect(UI_IMAGE_ASSETS.guardian.stage2_cast).toBe('/assets/guardian/stage2/cast.png');
+      expect(UI_IMAGE_ASSETS.guardian.stage3_idle).toBe('/assets/guardian/stage3/idle.png');
+      expect(UI_IMAGE_ASSETS.guardian.stage3_cast).toBe('/assets/guardian/stage3/cast.png');
+      expect(UI_IMAGE_ASSETS.guardian.stage3_shield).toBe('/assets/guardian/stage3/shield.png');
+      expect(UI_IMAGE_ASSETS.guardian.stage4_idle).toBe('/assets/guardian/stage4/idle.png');
+      expect(UI_IMAGE_ASSETS.guardian.stage4_cast).toBe('/assets/guardian/stage4/cast.png');
+      expect(UI_IMAGE_ASSETS.guardian.stage4_shield).toBe('/assets/guardian/stage4/shield.png');
+      expect(UI_IMAGE_ASSETS.guardian.stage4_ultimate).toBe('/assets/guardian/stage4/ultimate.png');
+
+      // 9) 그 외 카테고리(battle): 모든 슬롯이 null 유지
       const nonConfiguredCategories = REQUIRED_CATEGORIES.filter(
-        (c) => c !== 'menu' && c !== 'hud' && c !== 'result' && c !== 'bottomBar' && c !== 'settings' && c !== 'pause' && c !== 'boss'
+        (c) => c !== 'menu' && c !== 'hud' && c !== 'result' && c !== 'bottomBar' && c !== 'settings' && c !== 'pause' && c !== 'boss' && c !== 'guardian'
       );
       for (const cat of nonConfiguredCategories) {
         const slots = UI_IMAGE_ASSETS[cat];

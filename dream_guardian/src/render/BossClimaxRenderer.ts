@@ -16,6 +16,7 @@
 import { HORIZON_RATIO } from '../../config/grid.config.js';
 import { depthRatioFromY } from './GridProjection.js';
 import { UIText } from '../utils/UIText.js';
+import { imageLoader } from '../utils/UIImageLoader.js';
 
 export interface BossClimaxHazardState {
   readonly activePattern: string | null;
@@ -38,6 +39,7 @@ export interface BossClimaxRenderState {
   readonly elapsedTime: number;
   readonly vanishingX?: number;
   readonly vanishingY?: number;
+  readonly isShieldActive?: boolean;
 }
 
 export interface MinionPosition {
@@ -147,6 +149,8 @@ export class BossClimaxRenderer {
       state.guardianStage ?? 1,
       time,
       scaleX,
+      state.barrageActive ?? false,
+      state.isShieldActive ?? false,
     );
 
     // 4. 아군 군단 마법 탄막 (별빛 투사체 발사)
@@ -450,6 +454,8 @@ export class BossClimaxRenderer {
     stage: number,
     time: number,
     scaleX: number = 1.0,
+    barrageActive = false,
+    isShieldActive = false,
   ): void {
     // A. 미니언들 렌더링
     for (const m of minions) {
@@ -489,40 +495,76 @@ export class BossClimaxRenderer {
     const cx = gx;
     const cy = gy + gBobY;
 
-    // 수호신 외곽 발광
-    const gRadius = 24 + stage * 3;
-    const gGrad = ctx.createRadialGradient(cx, cy, gRadius * 0.2, cx, cy, gRadius * 2.2);
-    gGrad.addColorStop(0, 'rgba(255, 220, 100, 0.7)');
-    gGrad.addColorStop(0.5, 'rgba(40, 230, 255, 0.4)');
-    gGrad.addColorStop(1, 'rgba(40, 230, 255, 0)');
-    ctx.fillStyle = gGrad;
-    ctx.beginPath();
-    ctx.arc(cx, cy, gRadius * 2.2, 0, Math.PI * 2);
-    ctx.fill();
+    // [UI-ASSET-006 / #271] 수호신 캐릭터 스프라이트 이미지 분기 또는 프로시저럴 드로잉 폴백
+    const safeStage = Math.max(1, Math.min(4, Math.floor(stage)));
+    let spriteKey = `stage${safeStage}_idle`;
 
-    // 수호신 본체 코어
-    ctx.fillStyle = '#FFFFFF';
-    ctx.shadowColor = '#FFCB4D';
-    ctx.shadowBlur = 16;
-    ctx.beginPath();
-    ctx.arc(cx, cy, gRadius, 0, Math.PI * 2);
-    ctx.fill();
+    if (barrageActive) {
+      if (safeStage === 4 && imageLoader.get('guardian', 'stage4_ultimate')) {
+        spriteKey = 'stage4_ultimate';
+      } else {
+        spriteKey = `stage${safeStage}_cast`;
+      }
+    } else if (isShieldActive) {
+      spriteKey = `stage${safeStage}_shield`;
+    }
 
-    // 수호신 날개 (Stage에 따라 확대)
-    ctx.fillStyle = 'rgba(255, 203, 77, 0.85)';
-    const wingSpan = 20 + stage * 8;
-    ctx.beginPath();
-    ctx.ellipse(cx - wingSpan, cy - 8, wingSpan * 0.8, 10 + stage * 2, -0.3, 0, Math.PI * 2);
-    ctx.ellipse(cx + wingSpan, cy - 8, wingSpan * 0.8, 10 + stage * 2, 0.3, 0, Math.PI * 2);
-    ctx.fill();
+    const img = imageLoader.get('guardian', spriteKey);
 
-    // 수호신 명칭 라벨
-    ctx.fillStyle = '#FFCB4D';
-    ctx.font = UIText.getFont('badge', scaleX, 'bold');
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.shadowBlur = 8;
-    ctx.fillText('🌟 꼬마 수호신', cx, cy + gRadius + 10);
+    if (img) {
+      const imgW = img.naturalWidth || img.width || 1;
+      const imgH = img.naturalHeight || img.height || 1;
+      const aspect = imgW / imgH;
+
+      const baseSize = (70 + safeStage * 25) * scaleX;
+      let dw = baseSize;
+      let dh = baseSize;
+      if (aspect >= 1) {
+        dh = dw / aspect;
+      } else {
+        dw = dh * aspect;
+      }
+
+      const dx = cx - dw / 2;
+      const dy = cy - dh / 2;
+
+      ctx.drawImage(img, dx, dy, dw, dh);
+    } else {
+      // 수호신 외곽 발광
+      const gRadius = 24 + stage * 3;
+      const gGrad = ctx.createRadialGradient(cx, cy, gRadius * 0.2, cx, cy, gRadius * 2.2);
+      gGrad.addColorStop(0, 'rgba(255, 220, 100, 0.7)');
+      gGrad.addColorStop(0.5, 'rgba(40, 230, 255, 0.4)');
+      gGrad.addColorStop(1, 'rgba(40, 230, 255, 0)');
+      ctx.fillStyle = gGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, gRadius * 2.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 수호신 본체 코어
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowColor = '#FFCB4D';
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(cx, cy, gRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 수호신 날개 (Stage에 따라 확대)
+      ctx.fillStyle = 'rgba(255, 203, 77, 0.85)';
+      const wingSpan = 20 + stage * 8;
+      ctx.beginPath();
+      ctx.ellipse(cx - wingSpan, cy - 8, wingSpan * 0.8, 10 + stage * 2, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(cx + wingSpan, cy - 8, wingSpan * 0.8, 10 + stage * 2, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 수호신 명칭 라벨
+      ctx.fillStyle = '#FFCB4D';
+      ctx.font = UIText.getFont('badge', scaleX, 'bold');
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.shadowBlur = 8;
+      ctx.fillText('🌟 꼬마 수호신', cx, cy + gRadius + 10);
+    }
 
     ctx.restore();
   }
