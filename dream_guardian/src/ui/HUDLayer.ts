@@ -64,9 +64,38 @@ export class HUDLayer {
     const pad = hpSlot.x;
 
     // 플레이어 HP (좌측)
-    const playerImg = imageLoader.get('hud', 'playerHpBar');
-    if (playerImg) {
-      ctx.drawImage(playerImg, pad, y, barW, barH);
+    const hpFrameImg = imageLoader.get('hud', 'hpBarFrame');
+    const playerFillImg = imageLoader.get('hud', 'hpBarFillPlayer');
+    const legacyPlayerImg = imageLoader.get('hud', 'playerHpBar');
+
+    if (hpFrameImg || playerFillImg) {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(pad, y, barW, barH);
+
+      const currentRatio = Math.max(0, Math.min(1, this._displayPlayerHp));
+      if (currentRatio > 0) {
+        const fillW = barW * currentRatio;
+        if (playerFillImg) {
+          const srcW = playerFillImg.width * currentRatio;
+          ctx.drawImage(playerFillImg, 0, 0, srcW, playerFillImg.height, pad, y, fillW, barH);
+        } else {
+          const pGrad = ctx.createLinearGradient(pad, 0, pad + barW, 0);
+          pGrad.addColorStop(0, '#28E6FF');
+          pGrad.addColorStop(1, '#4DFFAA');
+          ctx.fillStyle = pGrad;
+          ctx.fillRect(pad, y, fillW, barH);
+        }
+      }
+
+      if (hpFrameImg) {
+        ctx.drawImage(hpFrameImg, pad, y, barW, barH);
+      } else {
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(pad, y, barW, barH);
+      }
+    } else if (legacyPlayerImg) {
+      ctx.drawImage(legacyPlayerImg, pad, y, barW, barH);
     } else {
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
       ctx.fillRect(pad, y, barW, barH);
@@ -93,9 +122,38 @@ export class HUDLayer {
 
     // 보스 HP (우측)
     const bx = w - pad - barW;
-    const bossImg = imageLoader.get('hud', 'bossHpBar');
-    if (bossImg) {
-      ctx.drawImage(bossImg, bx, y, barW, barH);
+    const bossFillImg = imageLoader.get('hud', 'hpBarFillBoss');
+    const legacyBossImg = imageLoader.get('hud', 'bossHpBar');
+
+    if (hpFrameImg || bossFillImg) {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(bx, y, barW, barH);
+
+      const currentRatio = Math.max(0, Math.min(1, this._displayBossHp));
+      if (currentRatio > 0) {
+        const bossBarW = barW * currentRatio;
+        if (bossFillImg) {
+          const srcW = bossFillImg.width * currentRatio;
+          const srcX = bossFillImg.width - srcW;
+          ctx.drawImage(bossFillImg, srcX, 0, srcW, bossFillImg.height, bx + barW - bossBarW, y, bossBarW, barH);
+        } else {
+          const bGrad = ctx.createLinearGradient(bx + barW, 0, bx, 0);
+          bGrad.addColorStop(0, '#FF4444');
+          bGrad.addColorStop(1, '#FF8844');
+          ctx.fillStyle = bGrad;
+          ctx.fillRect(bx + barW - bossBarW, y, bossBarW, barH);
+        }
+      }
+
+      if (hpFrameImg) {
+        ctx.drawImage(hpFrameImg, bx, y, barW, barH);
+      } else {
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(bx, y, barW, barH);
+      }
+    } else if (legacyBossImg) {
+      ctx.drawImage(legacyBossImg, bx, y, barW, barH);
     } else {
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
       ctx.fillRect(bx, y, barW, barH);
@@ -130,23 +188,47 @@ export class HUDLayer {
       const badgeH = badgeSlot.h;
       ctx.drawImage(comboImg, w - badgeW - badgeSlot.marginRight, badgeSlot.y, badgeW, badgeH);
     }
+
+    const comboText = `COMBO x${data.combo}`;
+    const font = UIText.getFont(data.combo >= 5 ? 'body' : 'badge', 1.0, 'bold');
+
     ctx.save();
+    ctx.font = font;
+
+    const comboIcon = imageLoader.get('hud', 'comboIcon');
+    if (comboIcon) {
+      const textW = ctx.measureText ? ctx.measureText(comboText).width : 80;
+      const iconSize = 36;
+      const iconX = w - badgeSlot.marginRight - textW - iconSize - 8;
+      const iconY = 76 - iconSize / 2 - 8;
+      ctx.drawImage(comboIcon, iconX, iconY, iconSize, iconSize);
+    }
+
     ctx.shadowColor = data.combo >= 5 ? '#FFCB4D' : '#28E6FF';
     ctx.shadowBlur = 10;
     ctx.fillStyle = data.combo >= 5 ? '#FFCB4D' : '#fff';
-    ctx.font = UIText.getFont(data.combo >= 5 ? 'body' : 'badge', 1.0, 'bold');
     ctx.textAlign = 'right';
-    ctx.fillText(`COMBO x${data.combo}`, w - badgeSlot.marginRight, 76);
+    ctx.fillText(comboText, w - badgeSlot.marginRight, 76);
     ctx.restore();
   }
 
   private _renderBossName(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
+    const bossNameplate = imageLoader.get('hud', 'bossNameplate');
+    if (bossNameplate) {
+      const plateW = 400;
+      const plateH = 60;
+      const plateX = (w - plateW) / 2;
+      const plateY = 6;
+      ctx.drawImage(bossNameplate, plateX, plateY, plateW, plateH);
+    }
+
     ctx.save();
     ctx.shadowColor = '#FF4444';
     ctx.shadowBlur = 8;
     ctx.fillStyle = '#FFCB4D';
     ctx.font = UIText.getFont('badge', 1.0, 'bold');
     ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText(`Ch.${data.chapter} ${getBossName(data.chapter)}`, w / 2, 36);
     ctx.restore();
   }

@@ -184,7 +184,7 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       }
     });
 
-    it('menu 슬롯에는 에셋 경로가 설정되어 있고, 그 외 카테고리의 초기값은 null (프로시저럴 렌더링 폴백)이다', () => {
+    it('menu 및 hud 슬롯에는 에셋 경로가 설정되어 있고, 그 외 카테고리의 초기값은 null (프로시저럴 렌더링 폴백)이다', () => {
       // 1) menu 카테고리: 신규 등록된 이미지 경로 검증
       expect(UI_IMAGE_ASSETS.menu.titleBg).toBe('/assets/ui/menu/title_bg.png');
       expect(UI_IMAGE_ASSETS.menu.cardFrame).toBe('/assets/ui/menu/chapter_card_frame.png');
@@ -192,9 +192,21 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       expect(UI_IMAGE_ASSETS.menu.starFull).toBe('/assets/ui/menu/star_full.png');
       expect(UI_IMAGE_ASSETS.menu.starEmpty).toBe('/assets/ui/menu/star_empty.png');
 
-      // 2) 그 외 카테고리(hud, result, bottomBar, settings, battle): 모든 슬롯이 null 유지
-      const nonMenuCategories = REQUIRED_CATEGORIES.filter((c) => c !== 'menu');
-      for (const cat of nonMenuCategories) {
+      // 2) hud 카테고리 (Issue #267 / UI-ASSET-002)
+      expect(UI_IMAGE_ASSETS.hud.hpBarFrame).toBe('/assets/ui/hud/hp_bar_frame.png');
+      expect(UI_IMAGE_ASSETS.hud.hpBarFillPlayer).toBe('/assets/ui/hud/hp_bar_fill_player.png');
+      expect(UI_IMAGE_ASSETS.hud.hpBarFillBoss).toBe('/assets/ui/hud/hp_bar_fill_boss.png');
+      expect(UI_IMAGE_ASSETS.hud.comboIcon).toBe('/assets/ui/hud/combo_icon.png');
+      expect(UI_IMAGE_ASSETS.hud.bossNameplate).toBe('/assets/ui/hud/boss_nameplate.png');
+      // hud 레거시 슬롯 null 유지
+      expect(UI_IMAGE_ASSETS.hud.playerHpBar).toBeNull();
+      expect(UI_IMAGE_ASSETS.hud.bossHpBar).toBeNull();
+      expect(UI_IMAGE_ASSETS.hud.manaFlask).toBeNull();
+      expect(UI_IMAGE_ASSETS.hud.comboBadge).toBeNull();
+
+      // 3) 그 외 카테고리(result, bottomBar, settings, battle): 모든 슬롯이 null 유지
+      const nonConfiguredCategories = REQUIRED_CATEGORIES.filter((c) => c !== 'menu' && c !== 'hud');
+      for (const cat of nonConfiguredCategories) {
         const slots = UI_IMAGE_ASSETS[cat];
         const keys = Object.keys(slots);
         expect(keys.length).toBeGreaterThan(0);

@@ -47,7 +47,7 @@
 | 2 | **#257** | [UI-TOKEN-002] UIText 중앙 렌더링 유틸리티 신설 | #256 | `[✔] 완료` |
 | 3 | **#258** | [UI-TOKEN-003] 11개 UI 렌더러 하드코딩 폰트→토큰 기반 전환 | #256·#257 | `[✔] 완료` |
 | 4 | **#259** | [UI-TOKEN-004] 렌더러 레이아웃 좌표→UI_LAYOUT 참조 전환 | #256 | `[✔] 완료` |
-| 5 | **#260** | [UI-TOKEN-005] BossClimaxRenderer/BeatHUDRenderer 폰트→토큰 전환 | #257 | `[▶ NEXT]` |
+| 5 | **#260** | [UI-TOKEN-005] BossClimaxRenderer/BeatHUDRenderer 폰트→토큰 전환 | #257 | `[✔] 완료` |
 | 6 | **#261** | [UI-TOKEN-006] 이미지 에셋 로더 및 프로시저럴/이미지 분기 인프라 | #256 | `[✔] 완료` |
 
 ### 📌 B. 저시력 접근성 개선 시리즈 (A11Y)
@@ -64,8 +64,8 @@
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
 | 11 | **#266** | [UI-ASSET-001] 메뉴 화면 이미지 에셋 제작 및 교체 | #261 | `[✔] 완료` |
-| 12 | **#267** | [UI-ASSET-002] HUD 이미지 에셋 제작 및 교체 | #261 | `[▶ NEXT]` |
-| 13 | **#268** | [UI-ASSET-003] 결과 화면 이미지 에셋 제작 및 교체 | #261 | `[ ] 대기` |
+| 12 | **#267** | [UI-ASSET-002] HUD 이미지 에셋 제작 및 교체 | #261 | `[✔] 완료` |
+| 13 | **#268** | [UI-ASSET-003] 결과 화면 이미지 에셋 제작 및 교체 | #261 | `[▶ NEXT]` |
 | 14 | **#269** | [UI-ASSET-004] 하단 바/설정/일시정지 모달 이미지 에셋 교체 | #261 | `[ ] 대기` |
 | 15 | **#270** | [UI-ASSET-005] 보스 캐릭터 이미지 에셋 제작 (5종 보스 스프라이트) | #261 | `[ ] 대기` |
 | 16 | **#271** | [UI-ASSET-006] 수호신(깨비) 캐릭터 이미지 에셋 제작 (4단계) | #261 | `[ ] 대기` |
@@ -97,6 +97,42 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [UI-TOKEN-005 / #260] BossClimaxRenderer/BeatHUDRenderer 하드코딩 폰트→토큰 전환
+
+> #260 구현 및 TDD 사이클 전수 통과 완료. Phase B 결전 시각화 렌더러(`BossClimaxRenderer`), 8박 러닝 HUD 렌더러(`BeatHUDRenderer`), 페이즈 프레젠테이션 어댑터(`PhasePresentationAdapter`)에 존재하던 하드코딩 `ctx.font` 문자열을 `UIText.getFont(role, scaleX, weight)` 기반 디자인 토큰으로 전면 전환하였습니다.
+> - **수정 대상 파일 및 전환 내용**:
+>   1. `src/render/BossClimaxRenderer.ts`: 충격파 가이드 점프 안내(32px -> body), 발 짓밟기 유도(30px -> body), 회피/피격 피드백(38px -> body), 수호신 라벨(22px -> badge), 보스 HP 수치(20px -> caption), 광폭화 배지(22px -> badge), 피버 콤보(34px -> body), 군단 배지(22px -> badge), 별가루 배지(22px -> badge) 토큰 전환.
+>   2. `src/render/BeatHUDRenderer.ts`: 장판 안내 타이틀(44px -> subheading), 장판 안내 서브타이틀(26px -> label), 8박 원형 인디케이터 번호(16px -> caption), 걸음/운동 수(32px -> body) 토큰 전환.
+>   3. `src/ui/PhasePresentationAdapter.ts`: 회피 안내 타이틀(44px -> subheading), 회피 결과 서브타이틀(26px -> body) 토큰 전환.
+> - **유지 및 안전 보장**:
+>   - 3D 원근 투영 수식 및 DreamGrid 좌표 계산 보존
+>   - fontScale 1.0 기준 기존 렌더링 시각 결과와 동일
+>   - fontScale(1.5, 2.0 등) 확대 시 비례 스케일링 지원
+> - **검증 산출물**:
+>   - `tests/unit/boss-beat-hud-token-migration.test.ts` (8개 단위 테스트 신설 및 전수 통과)
+>   - 전체 121개 테스트 파일 1,404개 테스트 100% Pass, `npm run build` 성공.
+
+---
+
+## 2026-10-01 완료: [UI-ASSET-002 / #267] HUD 이미지 에셋 제작 및 HUDLayer 연동
+
+> #267 구현 및 단위/회귀 테스트 전수 검증 완료. 게임 내 HUD의 5개 핵심 이미지 에셋(hp_bar_frame, hp_bar_fill_player, hp_bar_fill_boss, combo_icon, boss_nameplate)을 zlib 기반 표준 유효 PNG 바이너리로 생성하여 배치하고, `config/ui.config.ts` 및 `HUDLayer.ts`와 연동하였습니다. 이미지가 없거나 로드 전일 경우 기존 프로시저럴 드로잉 및 레거시 키(`playerHpBar`, `bossHpBar`, `comboBadge`)로 100% 안전하게 폴백됩니다.
+> - **신규/수정 파일 및 내용**:
+>   1. `scripts/generate-hud-assets.js`: Node.js zlib/Buffer 기반 유효한 PNG 생성 스크립트 작성
+>   2. `public/assets/ui/hud/`:
+>      - `hp_bar_frame.png` (320x48, 네온 사이버 프레임 테두리 투명 PNG)
+>      - `hp_bar_fill_player.png` (320x48, 시안→에메랄드 그라디언트 텍스처 PNG)
+>      - `hp_bar_fill_boss.png` (320x48, 진홍→주황 그라디언트 텍스처 PNG)
+>      - `combo_icon.png` (48x48, 네온 화염/스파크 불꽃 아이콘 투명 PNG)
+>      - `boss_nameplate.png` (400x60, 반투명 네온 다크 명패 배경 투명 PNG)
+>   3. `config/ui.config.ts`: `UI_IMAGE_ASSETS.hud`에 5개 신규 에셋 경로 등록 (기존 키 하위 호환성 유지)
+>   4. `src/ui/HUDLayer.ts`: 플레이어/보스 HP 프레임 및 채움 텍스처 분기 연동, 콤보 아이콘 연동, 보스 명패 배경 연동, 텍스트 가독성 유지 및 기존 프로시저럴 폴백 100% 보존
+> - **검증 산출물**:
+>   - `tests/unit/hud-asset-render.test.ts` (8 tests 신설 및 전수 통과: 에셋 파일 존재, 해상도/PNG 시그니처, config 경로, 프로시저럴 폴백, 비트맵 이미지 드로잉, 콤보 0 판정, 레거시 키 호환성 검증)
+>   - 전체 121개 테스트 파일 1,404개 테스트 100% Pass, `npm run build` 성공.
 
 ---
 

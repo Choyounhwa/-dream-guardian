@@ -291,6 +291,11 @@ export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
     bossHpBar: null,
     manaFlask: null,
     comboBadge: null,
+    hpBarFrame: '/assets/ui/hud/hp_bar_frame.png',
+    hpBarFillPlayer: '/assets/ui/hud/hp_bar_fill_player.png',
+    hpBarFillBoss: '/assets/ui/hud/hp_bar_fill_boss.png',
+    comboIcon: '/assets/ui/hud/combo_icon.png',
+    bossNameplate: '/assets/ui/hud/boss_nameplate.png',
   },
   result: {
     panelBg: null,
