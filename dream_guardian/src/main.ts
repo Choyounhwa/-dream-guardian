@@ -954,9 +954,12 @@ function getHUDData() {
 }
 
 
+let lastFrameDt = 0.016;
+
 // ─── 게임 엔진 ───
 const engine = new GameEngine({
   update(dt: number): void {
+    lastFrameDt = dt;
     // Issue #140: 전 장면(메뉴·달리기·문제·결과) 커서 펄스 타이머 상시 갱신
     answerSelectionRenderer.update(dt);
     tutorial.update(dt);
@@ -1509,6 +1512,14 @@ const engine = new GameEngine({
           questionVisible,
           selectedChoiceIndex: beatCoordinator.selectedChoiceIndex,
         });
+
+        // Issue #255: ANSWER_SELECT 상태에서 부분 진행도 시각화 및 실패 사유 힌트 렌더링
+        const answerFeedback = presentationAdapter.getAnswerSelectFeedback(
+          stateMachine.currentState,
+          armReachAnswerSelector.state,
+          lastFrameDt,
+        );
+        presentationAdapter.renderAnswerFeedback(ctx, vw, vh, answerFeedback);
       } else if (presentationAdapter.canRenderHazardEvade(stateMachine.currentState)) {
         presentationAdapter.renderHazardEvade(ctx, vw, vh, {
           activePattern: phaseAHazardController.activePattern,

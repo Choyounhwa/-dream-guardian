@@ -11,6 +11,12 @@
 import type { GameState } from '../types/index.js';
 import type { PhaseAHazardPattern } from '../../config/phase-a-hazard.config.js';
 import { HazardZoneRenderer } from '../render/HazardZoneRenderer.js';
+import {
+  JudgmentFeedback,
+  type JudgmentFeedbackInput,
+  type FeedbackReasonKey,
+} from './JudgmentFeedback.js';
+import type { ArmReachAnswerState } from '../input/ArmReachAnswerSelector.js';
 
 export interface HazardEvadePresentationState {
   activePattern: PhaseAHazardPattern | null;
@@ -22,15 +28,87 @@ export interface HazardEvadePresentationState {
   performedAction?: PhaseAHazardPattern | null;
 }
 
+export interface AnswerSelectFeedbackState {
+  glowIntensity: number;
+  hintMessage: string | null;
+  reasonKey: FeedbackReasonKey | null;
+  isVisible: boolean;
+  adaptiveRelaxed: boolean;
+  activeZoneId?: 4 | 5 | null;
+}
+
 export class PhasePresentationAdapter {
   private readonly _hazardZoneRenderer: HazardZoneRenderer;
+  private readonly _judgmentFeedback: JudgmentFeedback;
 
-  constructor(hazardZoneRenderer?: HazardZoneRenderer) {
+  constructor(
+    hazardZoneRenderer?: HazardZoneRenderer,
+    judgmentFeedback?: JudgmentFeedback,
+  ) {
     this._hazardZoneRenderer = hazardZoneRenderer ?? new HazardZoneRenderer();
+    this._judgmentFeedback = judgmentFeedback ?? new JudgmentFeedback();
   }
 
   get hazardZoneRenderer(): HazardZoneRenderer {
     return this._hazardZoneRenderer;
+  }
+
+  get judgmentFeedback(): JudgmentFeedback {
+    return this._judgmentFeedback;
+  }
+
+  /**
+   * ANSWER_SELECT 상태에서 판정 실패 사유 힌트 및 부분 진행도 글로우 상태 산출
+   */
+  getAnswerSelectFeedback(
+    state: GameState,
+    input?: JudgmentFeedbackInput | ArmReachAnswerState | null,
+    dt = 0,
+  ): AnswerSelectFeedbackState {
+    if (state !== 'ANSWER_SELECT' || !input) {
+      return {
+        glowIntensity: 0,
+        hintMessage: null,
+        reasonKey: null,
+        isVisible: false,
+        adaptiveRelaxed: false,
+        activeZoneId: null,
+      };
+    }
+
+    const isArmState = 'leftHand' in input && 'rightHand' in input;
+    const adaptiveRelaxed = (input as { adaptiveRelaxed?: boolean }).adaptiveRelaxed ?? false;
+    const feedbackState = isArmState
+      ? this._judgmentFeedback.updateFromAnswerState(input as ArmReachAnswerState, dt, adaptiveRelaxed)
+      : this._judgmentFeedback.update(input as JudgmentFeedbackInput, dt);
+
+    return {
+      glowIntensity: feedbackState.glowIntensity,
+      hintMessage: feedbackState.message,
+      reasonKey: feedbackState.reasonKey,
+      isVisible: feedbackState.isVisible,
+      adaptiveRelaxed: feedbackState.adaptiveRelaxed,
+      activeZoneId: feedbackState.activeZoneId,
+    };
+  }
+
+  /**
+   * ANSWER_SELECT 피드백 캔버스 렌더링
+   */
+  renderAnswerFeedback(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    state: AnswerSelectFeedbackState,
+  ): void {
+    this._judgmentFeedback.render(ctx, vw, vh, {
+      glowIntensity: state.glowIntensity,
+      reasonKey: state.reasonKey,
+      message: state.hintMessage,
+      isVisible: state.isVisible,
+      adaptiveRelaxed: state.adaptiveRelaxed,
+      activeZoneId: state.activeZoneId,
+    });
   }
 
   /**

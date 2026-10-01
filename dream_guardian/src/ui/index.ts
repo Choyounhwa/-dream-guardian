@@ -16,5 +16,12 @@ export { TutorialOverlay } from './TutorialOverlay.js';
 export { GestureFeedbackOverlay } from './GestureFeedbackOverlay.js';
 export type { GestureFeedbackState } from './GestureFeedbackOverlay.js';
 export { PhasePresentationAdapter } from './PhasePresentationAdapter.js';
-export type { HazardEvadePresentationState } from './PhasePresentationAdapter.js';
+export type { HazardEvadePresentationState, AnswerSelectFeedbackState } from './PhasePresentationAdapter.js';
+export { JudgmentFeedback, getJudgmentHintBounds } from './JudgmentFeedback.js';
+export type {
+  FeedbackReasonKey,
+  JudgmentFeedbackInput,
+  JudgmentFeedbackState,
+} from './JudgmentFeedback.js';
+
 

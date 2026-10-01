@@ -269,5 +269,54 @@ export const DEFAULT_TEMPORAL_COVERAGE_CONFIG: TemporalCoverageConfig = {
   tier4Window: 1.2,
 };
 
+/**
+ * 판정 실패 사유 힌트 메시지 매핑 인터페이스
+ */
+export interface JudgmentFeedbackMessages {
+  /** 뻗음 비율 최저 */
+  extension: string;
+  /** 양팔 우세비 미달 */
+  dominance: string;
+  /** 가시성 최저 */
+  visibility: string;
+  /** 속도 최저 */
+  velocity: string;
+  /** 존 침투 깊이 최저 */
+  penetration: string;
+}
+
+/**
+ * 부분 진행도 시각화 및 실패 사유 피드백 설정 인터페이스
+ *
+ * @see Issue #255 [INPUT-TOLERANCE-007]
+ */
+export interface JudgmentFeedbackConfig {
+  /** 피드백 기능 활성화 여부 */
+  enableFeedback: boolean;
+  /** 메시지 전환 최소 유지 간격 (초, 깜빡임 방지용 기본 0.6s) */
+  hintMinInterval: number;
+  /** 힌트 표시 최소 종합 점수 임계치 (기본 0.30, 미시도 상태 힌트 억제) */
+  hintMinScore: number;
+  /** 게이트/상태별 피드백 메시지 */
+  feedbackMessages: JudgmentFeedbackMessages;
+}
+
+/**
+ * 부분 진행도 시각화 및 실패 사유 피드백 기본 설정값
+ */
+export const DEFAULT_JUDGMENT_FEEDBACK_CONFIG: JudgmentFeedbackConfig = {
+  enableFeedback: true,
+  hintMinInterval: 0.6,
+  hintMinScore: 0.30,
+  feedbackMessages: {
+    extension: '조금 더 뻗으세요',
+    dominance: '한 팔만',
+    visibility: '카메라 안으로',
+    velocity: '조금 더 크게',
+    penetration: '존 안쪽으로',
+  },
+};
+
+
 
 
