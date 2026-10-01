@@ -44,7 +44,12 @@ export class UIImageLoader {
   private loadImage(category: string, key: string, src: string): Promise<void> {
     return new Promise((resolve) => {
       try {
-        const img = typeof Image !== 'undefined' ? new Image() : ({} as HTMLImageElement);
+        if (typeof Image === 'undefined') {
+          // Node.js / SSR 환경: 브라우저 DOM Image 미지원 시 즉시 안전 폴백
+          resolve();
+          return;
+        }
+        const img = new Image();
         img.onload = () => {
           this.setImage(category, key, img);
           resolve();

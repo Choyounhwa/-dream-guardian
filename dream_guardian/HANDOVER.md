@@ -63,8 +63,8 @@
 
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
-| 11 | **#266** | [UI-ASSET-001] 메뉴 화면 이미지 에셋 제작 및 교체 | #261 | `[ ] 대기` |
-| 12 | **#267** | [UI-ASSET-002] HUD 이미지 에셋 제작 및 교체 | #261 | `[ ] 대기` |
+| 11 | **#266** | [UI-ASSET-001] 메뉴 화면 이미지 에셋 제작 및 교체 | #261 | `[✔] 완료` |
+| 12 | **#267** | [UI-ASSET-002] HUD 이미지 에셋 제작 및 교체 | #261 | `[▶ NEXT]` |
 | 13 | **#268** | [UI-ASSET-003] 결과 화면 이미지 에셋 제작 및 교체 | #261 | `[ ] 대기` |
 | 14 | **#269** | [UI-ASSET-004] 하단 바/설정/일시정지 모달 이미지 에셋 교체 | #261 | `[ ] 대기` |
 | 15 | **#270** | [UI-ASSET-005] 보스 캐릭터 이미지 에셋 제작 (5종 보스 스프라이트) | #261 | `[ ] 대기` |
@@ -97,6 +97,26 @@
 ```
 
 > **참고**: A11Y-001(#262)과 A11Y-002(#263)은 선행 조건이 없으므로 UI-TOKEN 시리즈와 병렬 즉시 착수 가능합니다.
+
+---
+
+## 2026-10-01 완료: [UI-ASSET-001 / #266] 메뉴 화면 이미지 에셋 제작 및 MenuRenderer 연동
+
+> #266 구현 및 단위/회귀 테스트 전수 검증 완료. 메뉴 화면의 5개 핵심 이미지 에셋(title_bg, chapter_card_frame, lock_icon, star_full, star_empty)을 zlib 기반 표준 유효 PNG 바이너리로 생성하여 배치하고, `config/ui.config.ts` 및 `MenuRenderer.ts`와 연동하였습니다. 이미지가 없거나 로드 전일 경우 기존 프로시저럴 드로잉으로 100% 안전하게 폴백됩니다.
+> - **신규/수정 파일 및 내용**:
+>   1. `scripts/generate-menu-assets.js`: Node.js zlib/Buffer 기반 유효한 PNG 생성 스크립트 작성
+>   2. `public/assets/ui/menu/`:
+>      - `title_bg.png` (1080x300, 네온 사이버/드림 스타일 메인 타이틀 배너)
+>      - `chapter_card_frame.png` (360x380, 반투명 네온 테두리 챕터 카드 프레임)
+>      - `lock_icon.png` (96x96, 골드/네온 자물쇠 아이콘)
+>      - `star_full.png` (64x64, 빛나는 황금 별 아이콘)
+>      - `star_empty.png` (64x64, 반투명 회색 외곽선 별 아이콘)
+>   3. `config/ui.config.ts`: `UI_IMAGE_ASSETS.menu`에 5개 에셋 경로 등록 (기존 banner, background 하위 호환성 유지)
+>   4. `src/ui/MenuRenderer.ts`: titleBg, cardFrame, lockIcon, starFull/starEmpty 이미지 연동 및 프로시저럴 폴백 보존
+>   5. `src/utils/UIImageLoader.ts`: Node.js SSR/테스트 환경에서 Image 미정의 시 안전 폴백 처리
+> - **검증 산출물**:
+>   - `tests/unit/menu-asset-render.test.ts` (9 tests 신설 및 전수 통과: 에셋 파일 존재, 해상도/PNG 시그니처, config 경로, 프로시저럴 폴백, 비트맵 이미지 드로잉 검증)
+>   - 전체 119개 테스트 파일 1,388개 테스트 100% Pass, `npm run build` 성공.
 
 ---
 
