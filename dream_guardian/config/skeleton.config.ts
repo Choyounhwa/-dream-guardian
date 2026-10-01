@@ -22,22 +22,25 @@ export interface StickmanLimbLengths {
 export interface StickmanCapsuleWidth {
   torso: number;        // 몸통 두께
   limb: number;         // 사지 캡슐 두께
-  limbNeon: number;     // 사지 내부 네온 악센트 선 두께
+  limbNeon: number;     // 사지 내부 네온/하이라이트 악센트 선 두께
   jointBall: number;    // 관절 볼 반경
   visorHeight: number;  // 바이저 슬릿 높이
 }
 
 export interface StickmanColors {
-  body: string;         // 메카 캡슐 베이스 컬러 (다크 네이비)
-  bodyBorder: string;   // 캡슐 외곽선 컬러
-  core: string;         // 가슴 마력 코어 컬러 (노랑/골드)
-  coreGlow: string;     // 마력 코어 발광 컬러
-  visor: string;        // 헬멧 바이저 슬릿 (보라)
+  body: string;         // 메카/점토 캡슐 베이스 컬러 (순백색 점토 #F8FAFC)
+  bodyBorder: string;   // 캡슐 외곽선/음영 테두리 컬러 (#CBD5E1)
+  bodyHighlight?: string; // 점토 상단 앰비언트 하이라이트 (#FFFFFF)
+  bodyShade?: string;     // 점토 하단 음영 (#E2E8F0)
+  core: string;         // 가슴 마력 코어/엠블럼 컬러
+  coreGlow: string;     // 마력 코어/엠블럼 발광 컬러
+  visor: string;        // 헬멧 바이저 슬릿 (보라 #C889FF)
   leftLimb: string;     // 왼손/왼발 네온 라인 (시안 #28E6FF)
   rightLimb: string;    // 오른손/오른발 네온 라인 (노랑 #FFCB4D)
   hipJoint: string;     // 골반 관절 (주황 #FF865E)
   shoulderJoint: string;// 어깨 관절 (보라 #C889FF)
   groundRing: string;   // 지면 접지 마법진 링 컬러
+  groundShadow?: string;// 지면 부드러운 타원형 앰비언트 접지 그림자 컬러
 }
 
 export interface StickmanConfig {
@@ -67,26 +70,29 @@ export const STICKMAN_CONFIG: StickmanConfig = {
     forearm: 90,
     upperLeg: 120,
     lowerLeg: 120,
-    headRadius: 32,
+    headRadius: 34,
     neckLength: 22,
   },
   capsuleWidth: {
-    torso: 36,
-    limb: 16,
-    limbNeon: 4,
-    jointBall: 9,
+    torso: 42,
+    limb: 26,
+    limbNeon: 6,
+    jointBall: 13,
     visorHeight: 6,
   },
   colors: {
-    body: '#0E1726',
-    bodyBorder: '#1E293B',
-    core: '#FFCB4D',
-    coreGlow: '#FFAA00',
+    body: '#F8FAFC',
+    bodyBorder: '#CBD5E1',
+    bodyHighlight: '#FFFFFF',
+    bodyShade: '#E2E8F0',
+    core: '#E2E8F0',
+    coreGlow: 'rgba(203, 213, 225, 0.4)',
     visor: '#C889FF',
     leftLimb: '#28E6FF',
     rightLimb: '#FFCB4D',
     hipJoint: '#FF865E',
     shoulderJoint: '#C889FF',
     groundRing: '#28E6FF',
+    groundShadow: 'rgba(0, 0, 0, 0.28)',
   },
 };

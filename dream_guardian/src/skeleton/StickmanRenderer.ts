@@ -54,6 +54,7 @@ export interface StickmanAngles {
 export interface StickmanRenderOptions {
   alpha?: number;
   showGroundRing?: boolean;
+  showGroundShadow?: boolean;
   showCore?: boolean;
   showVisor?: boolean;
   scale?: number;
@@ -329,7 +330,7 @@ export class StickmanRenderer {
   }
 
   /**
-   * 메카 졸라맨 캔버스 렌더링
+   * 화이트 클레이 졸라맨(White Clay Stickman) 캔버스 렌더링
    */
   render(
     ctx: CanvasRenderingContext2D,
@@ -343,82 +344,85 @@ export class StickmanRenderer {
     const colors = cfg.colors;
     const capsule = cfg.capsuleWidth;
     const alpha = options?.alpha ?? 1.0;
+    const showGroundShadow = options?.showGroundShadow ?? true;
     const showGroundRing = options?.showGroundRing ?? true;
     const showCore = options?.showCore ?? true;
-    const showVisor = options?.showVisor ?? true;
+    const showVisor = options?.showVisor ?? false;
 
     const fk = this.calculateFKPositions(vw, vh);
 
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    // 1. 발밑 드림 접지 링 (마법진) 렌더링
+    // 1. 발밑 부드러운 타원형 앰비언트 접지 그림자 (Soft Drop Shadow)
+    if (showGroundShadow) {
+      this._renderGroundShadow(ctx, fk.pelvis.x, fk.leftAnkle, fk.rightAnkle);
+    }
+
+    // 2. 발밑 드림 접지 링 (마법진) 렌더링
     if (showGroundRing) {
       this._renderGroundRing(ctx, fk.pelvis.x, fk.leftAnkle, fk.rightAnkle);
     }
 
-    // 2. 다리 (대퇴 & 하퇴 라운드 캡슐)
+    // 3. 다리 (대퇴 & 하퇴 라운드 점토 캡슐)
     this._renderCapsuleLimb(ctx, fk.leftHip, fk.leftKnee, capsule.limb, colors.leftLimb);
     this._renderCapsuleLimb(ctx, fk.leftKnee, fk.leftAnkle, capsule.limb, colors.leftLimb);
     this._renderCapsuleLimb(ctx, fk.rightHip, fk.rightKnee, capsule.limb, colors.rightLimb);
     this._renderCapsuleLimb(ctx, fk.rightKnee, fk.rightAnkle, capsule.limb, colors.rightLimb);
 
-    // 3. 몸통 (골반 -> 목 메카 역삼각 캡슐)
+    // 4. 몸통 (골반 -> 목 점토 캡슐)
     this._renderTorso(ctx, fk.pelvis, fk.neck, fk.chest, showCore);
 
-    // 4. 팔 (상완 & 전완 라운드 캡슐)
+    // 5. 팔 (상완 & 전완 라운드 점토 캡슐)
     this._renderCapsuleLimb(ctx, fk.leftShoulder, fk.leftElbow, capsule.limb, colors.leftLimb);
     this._renderCapsuleLimb(ctx, fk.leftElbow, fk.leftWrist, capsule.limb, colors.leftLimb);
     this._renderCapsuleLimb(ctx, fk.rightShoulder, fk.rightElbow, capsule.limb, colors.rightLimb);
     this._renderCapsuleLimb(ctx, fk.rightElbow, fk.rightWrist, capsule.limb, colors.rightLimb);
 
-    // 5. 4색 발광 관절 볼 (왼손 시안, 오른손 노랑, 어깨 보라, 골반 주황)
+    // 6. 관절 볼 (4색 신체 커서 색상 체계: 어깨 보라, 골반 주황, 왼손 시안, 오른손 노랑)
     this._renderJointBalls(ctx, fk);
 
-    // 6. 머리 헬멧 및 발광 네온 바이저
+    // 7. 순백색 미니멀 구체 점토 머리
     this._renderHead(ctx, fk.head, showVisor);
 
     ctx.restore();
   }
 
-  /** 사지 라운드 캡슐 렌더링 (다크 바디 + 네온 악센트 라인) */
+  /** 사지 라운드 캡슐 렌더링 (도톰한 순백색 점토 바디 + 부드러운 입체 하이라이트) */
   private _renderCapsuleLimb(
     ctx: CanvasRenderingContext2D,
     from: StickmanPoint2D,
     to: StickmanPoint2D,
     width: number,
-    neonColor: string,
+    _accentColor: string,
   ): void {
     const cfg = this._config;
 
-    // 외곽 외피 캡슐 (다크 네이비)
+    ctx.save();
     ctx.lineCap = 'round';
-    ctx.lineWidth = width;
-    ctx.strokeStyle = cfg.colors.body;
-    ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    ctx.lineTo(to.x, to.y);
-    ctx.stroke();
 
-    // 캡슐 테두리 윤곽
+    // 1. 외곽 앰비언트 음영 테두리 (#CBD5E1)
     ctx.lineWidth = width + 2;
     ctx.strokeStyle = cfg.colors.bodyBorder;
-    ctx.stroke();
-
-    // 캡슐 내부 네온 발광 라인
-    ctx.save();
-    ctx.lineWidth = cfg.capsuleWidth.limbNeon;
-    ctx.strokeStyle = neonColor;
-    ctx.shadowColor = neonColor;
-    ctx.shadowBlur = 8;
     ctx.beginPath();
     ctx.moveTo(from.x, from.y);
     ctx.lineTo(to.x, to.y);
     ctx.stroke();
+
+    // 2. 순백색 점토 바디 메인 캡슐 (#F8FAFC)
+    ctx.lineWidth = width;
+    ctx.strokeStyle = cfg.colors.body;
+    ctx.stroke();
+
+    // 3. 점토 입체감 부드러운 내부 림라이트/하이라이트 (#FFFFFF 앰비언트)
+    ctx.lineWidth = Math.max(4, cfg.capsuleWidth.limbNeon);
+    ctx.strokeStyle = cfg.colors.bodyHighlight ?? 'rgba(255, 255, 255, 0.85)';
+    ctx.stroke();
+
     ctx.restore();
   }
 
-  /** 몸통 캡슐 및 마력 코어 */
+  /** 몸통 점토 캡슐 및 부드러운 가슴 엠블럼 */
   private _renderTorso(
     ctx: CanvasRenderingContext2D,
     pelvis: StickmanPoint2D,
@@ -429,8 +433,10 @@ export class StickmanRenderer {
     const cfg = this._config;
     const width = cfg.capsuleWidth.torso;
 
-    // 몸통 외피
+    ctx.save();
     ctx.lineCap = 'round';
+
+    // 1. 몸통 외곽 앰비언트 음영 테두리 (#CBD5E1)
     ctx.lineWidth = width + 3;
     ctx.strokeStyle = cfg.colors.bodyBorder;
     ctx.beginPath();
@@ -438,38 +444,41 @@ export class StickmanRenderer {
     ctx.lineTo(neck.x, neck.y);
     ctx.stroke();
 
+    // 2. 순백색 점토 바디 (#F8FAFC)
     ctx.lineWidth = width;
     ctx.strokeStyle = cfg.colors.body;
     ctx.stroke();
 
-    // 중앙 발광 마력 코어 (호흡 펄스 연동)
+    // 3. 점토 중앙 입체감 하이라이트
+    ctx.lineWidth = Math.max(6, width * 0.35);
+    ctx.strokeStyle = cfg.colors.bodyHighlight ?? 'rgba(255, 255, 255, 0.8)';
+    ctx.stroke();
+
+    // 4. 가슴 점토 엠블럼 (호흡 펄스 연동 미니멀 파스텔 원형 엠블럼)
     if (showCore) {
       const coreScale = this._breathScale;
       const coreR = 8 * coreScale;
 
       ctx.save();
       ctx.shadowColor = cfg.colors.coreGlow;
-      ctx.shadowBlur = 14;
+      ctx.shadowBlur = 8;
 
-      // 외곽 마력 링
-      ctx.strokeStyle = cfg.colors.core;
-      ctx.lineWidth = 2.5;
+      // 은은한 파스텔 점토 엠블럼 베이스
+      ctx.fillStyle = cfg.colors.bodyShade ?? '#E2E8F0';
       ctx.beginPath();
-      ctx.arc(chest.x, chest.y, coreR + 4, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.arc(chest.x, chest.y, coreR, 0, Math.PI * 2);
+      ctx.fill();
 
-      // 중심 코어 (다이아몬드)
-      ctx.fillStyle = cfg.colors.core;
+      // 내부 소프트 화이트 하이라이트
+      ctx.fillStyle = '#FFFFFF';
       ctx.beginPath();
-      ctx.moveTo(chest.x, chest.y - coreR);
-      ctx.lineTo(chest.x + coreR, chest.y);
-      ctx.lineTo(chest.x, chest.y + coreR);
-      ctx.lineTo(chest.x - coreR, chest.y);
-      ctx.closePath();
+      ctx.arc(chest.x - coreR * 0.25, chest.y - coreR * 0.25, coreR * 0.45, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.restore();
     }
+
+    ctx.restore();
   }
 
   /** 관절 볼 렌더링 (4색 신체 커서 색상 체계 계승) */
@@ -478,40 +487,52 @@ export class StickmanRenderer {
     const r = cfg.capsuleWidth.jointBall;
     const c = cfg.colors;
 
-    const drawBall = (pt: StickmanPoint2D, color: string, radius = r) => {
+    const drawBall = (pt: StickmanPoint2D, color: string, radius = r, hasNeonGlow = false) => {
       ctx.save();
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 8;
+      if (hasNeonGlow) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+      } else {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+        ctx.shadowBlur = 4;
+      }
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
       ctx.fill();
+
+      // 점토 볼 상단 부드러운 하이라이트
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.beginPath();
+      ctx.arc(pt.x - radius * 0.25, pt.y - radius * 0.25, radius * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+
       ctx.restore();
     };
 
     // 어깨 (보라 #C889FF)
-    drawBall(fk.leftShoulder, c.shoulderJoint, r * 1.1);
-    drawBall(fk.rightShoulder, c.shoulderJoint, r * 1.1);
+    drawBall(fk.leftShoulder, c.shoulderJoint, r * 1.05);
+    drawBall(fk.rightShoulder, c.shoulderJoint, r * 1.05);
 
     // 골반 (주황 #FF865E)
     drawBall(fk.leftHip, c.hipJoint, r * 1.05);
     drawBall(fk.rightHip, c.hipJoint, r * 1.05);
-    drawBall(fk.pelvis, c.hipJoint, r * 0.9);
+    drawBall(fk.pelvis, c.hipJoint, r * 0.95);
 
     // 왼팔/왼다리 (시안 #28E6FF)
-    drawBall(fk.leftElbow, c.leftLimb);
-    drawBall(fk.leftWrist, c.leftLimb, r * 1.15);
-    drawBall(fk.leftKnee, c.leftLimb);
+    drawBall(fk.leftElbow, c.leftLimb, r * 0.95);
+    drawBall(fk.leftWrist, c.leftLimb, r * 1.2, true); // 왼손 네온 커서 발광
+    drawBall(fk.leftKnee, c.leftLimb, r * 0.95);
     drawBall(fk.leftAnkle, c.leftLimb, r * 0.95);
 
     // 오른팔/오른다리 (노랑 #FFCB4D)
-    drawBall(fk.rightElbow, c.rightLimb);
-    drawBall(fk.rightWrist, c.rightLimb, r * 1.15);
-    drawBall(fk.rightKnee, c.rightLimb);
+    drawBall(fk.rightElbow, c.rightLimb, r * 0.95);
+    drawBall(fk.rightWrist, c.rightLimb, r * 1.2, true); // 오른손 네온 커서 발광
+    drawBall(fk.rightKnee, c.rightLimb, r * 0.95);
     drawBall(fk.rightAnkle, c.rightLimb, r * 0.95);
   }
 
-  /** 머리 헬멧 및 발광 바이저 슬릿 */
+  /** 순백색 미니멀 구체 점토 머리 (클레이 헤드) */
   private _renderHead(
     ctx: CanvasRenderingContext2D,
     head: StickmanPoint2D,
@@ -522,16 +543,29 @@ export class StickmanRenderer {
 
     ctx.save();
 
-    // 1. 헬멧 외형 (라운드 캡슐형 구체)
+    // 1. 머리 외곽 앰비언트 음영 테두리 (#CBD5E1)
     ctx.fillStyle = cfg.colors.body;
     ctx.strokeStyle = cfg.colors.bodyBorder;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(head.x, head.y, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // 2. 가로 발광 네온 바이저 슬릿 (보라 #C889FF)
+    // 2. 매끄럽고 둥근 순백색 점토 구체 앰비언트 3D 하이라이트
+    const hlX = head.x - r * 0.28;
+    const hlY = head.y - r * 0.28;
+    const gradient = ctx.createRadialGradient(hlX, hlY, r * 0.05, head.x, head.y, r);
+    gradient.addColorStop(0, '#FFFFFF');
+    gradient.addColorStop(0.55, 'rgba(248, 250, 252, 0.7)');
+    gradient.addColorStop(1, 'rgba(203, 213, 225, 0.35)');
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, r - 1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. 바이저 슬릿 (showVisor가 true일 때만 하위호환용으로 렌더링)
     if (showVisor) {
       const visorW = r * 1.4;
       const visorH = cfg.capsuleWidth.visorHeight;
@@ -550,6 +584,39 @@ export class StickmanRenderer {
       ctx.fill();
     }
 
+    ctx.restore();
+  }
+
+  /** 발밑 부드러운 타원형 앰비언트 접지 그림자 (Soft Drop Shadow) */
+  private _renderGroundShadow(
+    ctx: CanvasRenderingContext2D,
+    centerX: number,
+    leftAnkle: StickmanPoint2D,
+    rightAnkle: StickmanPoint2D,
+  ): void {
+    const groundY = Math.max(leftAnkle.y, rightAnkle.y) + 12;
+    const radiusX = 110;
+    const radiusY = 24;
+
+    ctx.save();
+    const shadowColor = this._config.colors.groundShadow || 'rgba(0, 0, 0, 0.28)';
+
+    const gradient = ctx.createRadialGradient(
+      centerX,
+      groundY,
+      radiusX * 0.1,
+      centerX,
+      groundY,
+      radiusX,
+    );
+    gradient.addColorStop(0, shadowColor);
+    gradient.addColorStop(0.65, shadowColor);
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.ellipse(centerX, groundY, radiusX, radiusY, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 

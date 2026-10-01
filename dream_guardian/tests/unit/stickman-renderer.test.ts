@@ -346,4 +346,79 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       );
     });
   });
+
+  describe('5. Issue #281 [FEAT-AVATAR-002] 모션 아바타 화이트 클레이(White Clay Stickman) 점토 피규어 비주얼 규격', () => {
+    let renderer: StickmanRenderer;
+    let mockCtx: CanvasRenderingContext2D;
+
+    beforeEach(() => {
+      renderer = new StickmanRenderer();
+      mockCtx = createMockCtx();
+    });
+
+    it('사지 캡슐 폭(24~28px), 몸통 폭(40~44px), 두상 반지름(32~36px)이 도톰한 화이트 클레이 규격으로 설정되어 있다', () => {
+      expect(STICKMAN_CONFIG.capsuleWidth.limb).toBeGreaterThanOrEqual(24);
+      expect(STICKMAN_CONFIG.capsuleWidth.limb).toBeLessThanOrEqual(28);
+
+      expect(STICKMAN_CONFIG.capsuleWidth.torso).toBeGreaterThanOrEqual(40);
+      expect(STICKMAN_CONFIG.capsuleWidth.torso).toBeLessThanOrEqual(44);
+
+      expect(STICKMAN_CONFIG.limbLengths.headRadius).toBeGreaterThanOrEqual(32);
+      expect(STICKMAN_CONFIG.limbLengths.headRadius).toBeLessThanOrEqual(36);
+
+      expect(STICKMAN_CONFIG.capsuleWidth.jointBall).toBeGreaterThanOrEqual(12);
+      expect(STICKMAN_CONFIG.capsuleWidth.jointBall).toBeLessThanOrEqual(16);
+    });
+
+    it('순백색 점토 바디 컬러(#F8FAFC / #F1F5F9) 및 음영 테두리, 앰비언트 지면 그림자 컬러가 정의되어 있다', () => {
+      const validBodyColors = ['#F8FAFC', '#F1F5F9'];
+      expect(validBodyColors).toContain(STICKMAN_CONFIG.colors.body);
+
+      const validBorderColors = ['#CBD5E1', '#94A3B8', '#E2E8F0'];
+      expect(validBorderColors).toContain(STICKMAN_CONFIG.colors.bodyBorder);
+
+      expect(STICKMAN_CONFIG.colors.groundShadow).toBeDefined();
+      expect(STICKMAN_CONFIG.colors.groundShadow).toMatch(/rgba\(0,\s*0,\s*0,\s*0\.(2[5-9]|3[0-5])\)/);
+
+      // 인게임 11개 피트니스 존 판별을 위한 양손 네온 포인트 유지
+      expect(STICKMAN_CONFIG.colors.leftLimb).toBe('#28E6FF');
+      expect(STICKMAN_CONFIG.colors.rightLimb).toBe('#FFCB4D');
+    });
+
+    it('발밑에 부드러운 타원형 앰비언트 접지 그림자(Soft Drop Shadow)를 드로잉한다', () => {
+      const pose = createSamplePoseLandmarks();
+      renderer.update(0.016, pose);
+
+      renderer.render(mockCtx, 1080, 2160);
+
+      // 접지 그림자 드로잉 시 ellipse 및 fill 호출 확인
+      expect(mockCtx.ellipse).toHaveBeenCalled();
+      expect(mockCtx.fill).toHaveBeenCalled();
+      // createRadialGradient를 이용한 부드러운 앰비언트 감쇠 검증
+      expect(mockCtx.createRadialGradient).toHaveBeenCalled();
+    });
+
+    it('기계식 바이저 슬릿 대신 매끄럽고 둥근 순백색 미니멀 구체 점토 머리를 렌더링한다', () => {
+      const pose = createSamplePoseLandmarks();
+      renderer.update(0.016, pose);
+
+      // 기본 옵션에서는 showVisor가 false로 동작하여 roundRect 또는 rect 기반 바이저 슬릿을 그리지 않음
+      renderer.render(mockCtx, 1080, 2160);
+
+      expect(mockCtx.arc).toHaveBeenCalled();
+      expect(mockCtx.fill).toHaveBeenCalled();
+      expect(mockCtx.roundRect).not.toHaveBeenCalled();
+    });
+
+    it('사지 및 몸통 드로잉 시 점토 입체감을 위한 베이스 바디와 부드러운 하이라이트가 드로잉된다', () => {
+      const pose = createSamplePoseLandmarks();
+      renderer.update(0.016, pose);
+
+      renderer.render(mockCtx, 1080, 2160);
+
+      // 라운드 캡슐 스트로크 호출 검증 (외곽 음영, 베이스 바디, 하이라이트 림 등)
+      expect(mockCtx.stroke).toHaveBeenCalled();
+      expect(mockCtx.beginPath).toHaveBeenCalled();
+    });
+  });
 });
