@@ -183,6 +183,11 @@ export class StateMachine {
     return this._currentState === 'HAZARD_EVADE';
   }
 
+  /** 스테이지 진입 준비(화각 정렬 및 카운트다운) 상태인지 여부 */
+  isReadyPosition(): boolean {
+    return this._currentState === 'READY_POSITION';
+  }
+
   /** 허용된 전환 목록의 읽기 전용 접근 (테스트용) */
   static getAllowedTransitions(): Readonly<Record<GameState, readonly GameState[]>> {
     return ALLOWED_TRANSITIONS;

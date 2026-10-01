@@ -3731,35 +3731,32 @@ BEAT-SPEC-001
 - **Labels**: `feature`, `P1-high`, `phase-2`, `phase-6`
 - **Milestone**: `v0.5-input-ui`
 - **작업 ID**: `[FEAT-READY-001]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (2026-10-01)**
 - **제목**: 스테이지 첫 진입 시 카메라 프레임 정렬 가이드 및 3초 준비 카운트다운(READY_POSITION) 구현
 - **목적**:
   - 스테이지 첫 진입 시(챕터 및 서브레벨 선택 직후) 문제와 8박 달리기 루프가 즉각 시작되어, 사용자가 카메라 앞에서 신체 위치를 잡지 못하고 모션/키보드 오입력이 발생하는 문제를 해결한다. 문제가 출제되기 전 유저가 카메라 화각 안에서 자세를 바르게 잡고(프레임 맞추기), 안정적인 입력을 준비할 수 있는 2단계 진입 분리 구조(프레임 비동기 대기 → BPM 3박자 동기화 카운트다운)를 구현한다.
 - **수정 및 생성 대상**:
   - `dream_guardian/src/main.ts`
-  - `dream_guardian/src/render/KneeFramingGuideRenderer.ts`
-  - `dream_guardian/src/motion/KneeFramingValidator.ts`
+  - `dream_guardian/src/render/ReadyPositionRenderer.ts`
+  - `dream_guardian/src/game/ReadyPositionController.ts`
   - `dream_guardian/src/core/StateMachine.ts`
   - `dream_guardian/src/audio/SFXSynth.ts`
   - `dream_guardian/tests/unit/stage-ready.test.ts`
 - **구현 내용**:
   1. **스테이지 진입 2단계 분리 구조 신설 (`GamePhase` 확장)**:
-     - `main.ts`의 `GamePhase`를 `'ready_frame' | 'count_in' | 'running' | 'question'`으로 체계화.
-     - `startChapter()` 호출 시 문제/러닝으로 직행하지 않고 `startReadyPhase()`를 호출하여 `ready_frame` 상태로 진입.
+     - `main.ts`의 `GamePhase`를 `'ready_frame' | 'running' | 'question' | ...`으로 체계화.
+     - `startChapter()` 호출 시 문제/러닝으로 직행하지 않고 `startReadyPhase()`를 호출하여 `READY_POSITION` 상태로 진입.
   2. **Phase 1: 카메라 신체 프레임 정렬 비동기 대기 (`READY_FRAME`)**:
-     - BGM 메인 비트 정지 (잔잔한 앰비언트 대기 상태 유지).
      - 화면 중앙에 반투명 가이드 실루엣 및 정렬 박스 표시: *"카메라 앞에 서서 준비하세요!"*
-     - `KneeFramingValidator`를 연동하여 Pose 관절(머리, 어깨, 무릎) 화각이 정상 포착(`ready`)되거나, Space 키/화면 터치 스킵 시 Phase 2로 전환.
+     - Pose 관절(얼굴/어깨/골반/무릎) 화각이 정상 포착(`isAligned`)되면 청록색(`#4DFFAA`) 점등 테두리로 안정 상태 표시.
      - 대기 중 스텝 및 답안 판정 일체 잠금(Input Locked).
-  3. **Phase 2: 곡 BPM 동기화 3박자 예비박 카운트다운 (`COUNT_IN`)**:
-     - 선택된 음악 트랙의 BPM 주기에 맞춰 비트 엔진 시동.
-     - 1박 간격(60/BPM초)으로 메트로놈 틱과 함께 3... 2... 1... START! 대형 네온 카운트다운 렌더링.
-     - 1초/1박 간격 카운트다운 비프음(`count_tick`) 및 시작 신호음 재생.
+  3. **Phase 2: 3박자 카운트다운 애니메이션 (`ReadyPositionRenderer`)**:
+     - 1초 간격으로 메트로놈 틱과 함께 3... 2... 1... START! 대형 네온 카운트다운 렌더링.
+     - 1초 간격 카운트다운 비프음(`metronome_strong`) 및 시작 신호음(`start`) 재생.
   4. **Phase 3: 본 라운드 정박 다운비트 전환 (`RUN_QUESTION`)**:
-     - 카운트다운 0초 도달 즉시 BGM 본 트랙 다운비트 드롭과 함께 문제 텍스트 표시 및 TTS 낭독 시작.
-     - 이동 감지기(`LocomotionDetector`) 및 비트 코디네이터(`BeatRunCoordinator`)를 0으로 깨끗하게 리셋하여 정확히 첫 박자부터 1스텝 측정이 시작되도록 보장.
+     - 카운트다운 완료 즉시 이동 감지기(`LocomotionDetector`) 및 비트 코디네이터(`BeatRunCoordinator`)를 0으로 깨끗하게 리셋하고 `startRunningPhase()` 실행.
   5. **PC 디버깅 및 사용자 스킵/일시정지 지원**:
-     - Space 키 입력 또는 화면 클릭/터치 시 프레임 대기를 즉시 건너뛰고 카운트인 전환 가능.
+     - Space 키 입력 또는 화면 클릭/터치 시 3초 대기를 즉시 건너뛰고 본 게임으로 즉시 전환.
      - 카운트다운 중 ESC 일시정지(`PauseModal`) 시 타이머 일시정지 연동.
 - **유지 사항**:
   - 8박 비트 루틴(`RUN_QUESTION` → `REST_READY` → `KEYNOTE_PERFORMANCE`) 계약 100% 보존
@@ -3770,12 +3767,12 @@ BEAT-SPEC-001
   - `PostureGenerator` 및 문제 출제 데이터 로직
   - 전투 HP/마나 증감 규칙
 - **완료 조건**:
-  - [ ] 챕터/단계 선택 후 문제 출제 전 프레임 정렬 화면(Phase 1)이 먼저 표시됨
-  - [ ] 사용자가 카메라 화각 안에 정상 위치할 수 있도록 신체 프레임 가이드가 시각화됨
-  - [ ] 화각 정렬 완료 또는 스킵 시 해당 곡 BPM에 동기화된 3박자 카운트다운(Phase 2)이 진행됨
-  - [ ] 준비/카운트다운 동안 잘못된 모션/스텝 입력이 누적되지 않고 클린 상태로 대기함
-  - [ ] 카운트다운 종료 즉시 BGM 다운비트 드롭과 함께 달리기/문제로 자연스럽게 전환됨
-  - [ ] Space/터치 스킵 및 단위 테스트 100% 통과
+  - [x] 챕터/단계 선택 후 문제 출제 전 프레임 정렬 화면(Phase 1)이 먼저 표시됨
+  - [x] 사용자가 카메라 화각 안에 정상 위치할 수 있도록 신체 프레임 가이드가 시각화됨
+  - [x] 화각 정렬 완료 또는 스킵 시 해당 곡 BPM에 동기화된 3박자 카운트다운(Phase 2)이 진행됨
+  - [x] 준비/카운트다운 동안 잘못된 모션/스텝 입력이 누적되지 않고 클린 상태로 대기함
+  - [x] 카운트다운 종료 즉시 BGM 다운비트 드롭과 함께 달리기/문제로 자연스럽게 전환됨
+  - [x] Space/터치 스킵 및 단위 테스트 100% 통과
 - **테스트**:
   - `tests/unit/stage-ready.test.ts` (신규 타이머 및 상태 전이 단위 테스트)
   - 브라우저 개발 서버(`npm run dev`)에서 스테이지 진입 시 3초 대기 및 카메라 정렬 실테스트 검증

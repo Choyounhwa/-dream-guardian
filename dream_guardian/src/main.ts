@@ -31,6 +31,7 @@ import {
   StageProgressController,
   BossFeverController,
   BossHazardController,
+  ReadyPositionController,
 } from './game/index.js';
 import { HUDLayer } from './ui/HUDLayer.js';
 import { MenuRenderer } from './ui/MenuRenderer.js';
@@ -47,6 +48,7 @@ import {
   StarNoteRenderer,
   BossClimaxRenderer,
   DialogueOverlayRenderer,
+  ReadyPositionRenderer,
   drawJoinedHandsCursor,
 } from './render/index.js';
 import { dialogueManager } from './story/index.js';
@@ -259,6 +261,18 @@ const eventBus = new EventBus();
 let bossFeverController: BossFeverController;
 let bossHazardController: BossHazardController;
 
+// Issue #202 (FEAT-READY-001): 스테이지 첫 진입 신체 프레임 정렬 가이드 및 3초 카운트다운
+const readyPositionRenderer = new ReadyPositionRenderer();
+const readyPositionController = new ReadyPositionController({
+  countdownDuration: 3.0,
+  startDisplayDuration: 0.4,
+  sfx,
+  onComplete: () => {
+    console.log('[DG] READY_POSITION 완료 → 본 게임(RUN_QUESTION) 시작');
+    startRunningPhase();
+  },
+});
+
 // Issue #194 & #195: 미니언 군단 매니저 의존성 주입 및 탄막 발사 연출 연결
 let climaxBarrageTimer = 0;
 const CLIMAX_BARRAGE_DURATION = 0.8;
@@ -372,7 +386,7 @@ starNoteScheduler.onRating((starResult) => {
 // ─── 상태 머신 및 게임 상태 (Issue #214 / REFACTOR-FSM-001) ───
 type ScreenMode = 'menu' | 'game' | 'result';
 type MenuMode = 'main' | 'sub';
-type GamePhase = 'running' | 'question' | 'answer_select' | 'star_collect' | 'hazard_evade' | 'boss_climax';
+type GamePhase = 'running' | 'question' | 'answer_select' | 'star_collect' | 'hazard_evade' | 'boss_climax' | 'ready_frame';
 
 const stateMachine = new StateMachine('MENU_MAIN');
 let screenMode: ScreenMode = 'menu';
@@ -407,6 +421,7 @@ stateMachine.onTransition((from, to) => {
   } else if (to === 'RESULT' || to === 'GAMEOVER') {
     screenMode = 'result';
   } else if (
+    to === 'READY_POSITION' ||
     to === 'RUN_QUESTION' ||
     to === 'ANSWER_SELECT' ||
     to === 'STAR_COLLECT' ||
@@ -415,7 +430,9 @@ stateMachine.onTransition((from, to) => {
     to === 'BOSS_CLIMAX'
   ) {
     screenMode = 'game';
-    if (to === 'RUN_QUESTION' || to === 'ROUND_RESOLVE') {
+    if (to === 'READY_POSITION') {
+      gamePhase = 'ready_frame';
+    } else if (to === 'RUN_QUESTION' || to === 'ROUND_RESOLVE') {
       gamePhase = 'running';
     } else if (to === 'ANSWER_SELECT') {
       gamePhase = 'answer_select';
@@ -431,6 +448,13 @@ stateMachine.onTransition((from, to) => {
 });
 
 // 상태별 enter/exit 생명주기 및 리소스 정리 등록 (입력·타겟·장판 정리 1회 보장)
+stateMachine.registerState('READY_POSITION', {
+  enter: () => {
+    questionVisible = false;
+    answerLocked = true;
+  },
+});
+
 stateMachine.registerState('RUN_QUESTION', {
   enter: () => {
     questionVisible = true;
@@ -787,6 +811,20 @@ async function ensureCameraStarted(): Promise<void> {
 }
 
 // ─── 게임 플로우 ───
+// Issue #202 (FEAT-READY-001): 챕터 첫 진입 2단계 분리 구조 - 카메라 프레임 정렬 및 3초 카운트다운
+function startReadyPhase(): void {
+  stateMachine.changeState('READY_POSITION');
+  questionVisible = false;
+  answerLocked = true;
+  playedNoteAudioIds.clear();
+  starCollectionInput.reset();
+  starNoteScheduler.reset();
+  Object.values(locomotionDetectors).forEach((d) => d.reset());
+  jumpDetector.reset();
+  readyPositionController.start();
+  console.log('[DG] READY_POSITION 시작 (신체 정렬 가이드 및 3초 카운트다운)');
+}
+
 function startRunningPhase(): void {
   stateMachine.changeState('RUN_QUESTION');
   questionVisible = true;
@@ -941,7 +979,8 @@ function startChapter(ch: number, subLevel?: number): void {
     tutorial.show();
   }
 
-  startRunningPhase();
+  // Issue #202: 챕터 진입 시 READY_POSITION(정렬 가이드 & 3초 카운트다운) 선행
+  startReadyPhase();
 }
 
 function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: RoundResolveResult): void {
@@ -1148,6 +1187,7 @@ const engine = new GameEngine({
     settingsModal.update(dt);
     pauseModal.update(dt);
     menuRenderer.update(dt);
+    readyPositionRenderer.update(dt);
 
     // Issue #140: 전 장면(메뉴·달리기·문제·결과) 커서 펄스 타이머 상시 갱신
     answerSelectionRenderer.update(dt);
@@ -1492,6 +1532,20 @@ const engine = new GameEngine({
     );
     kneeFramingGuideRenderer.update(dt);
 
+    // Issue #202: READY_POSITION 프레임 정렬 검증 및 카운트다운 업데이트
+    if (stateMachine.currentState === 'READY_POSITION') {
+      readyPositionController.setPaused(pauseModal.isOpen);
+      const isAligned =
+        currentKneeFraming.status === 'ready' ||
+        readyPositionController.checkAlignment(
+          sourceLandmarks,
+          canvasManager.virtualWidth,
+          canvasManager.virtualHeight,
+        );
+      readyPositionController.setAligned(isAligned);
+      readyPositionController.update(dt);
+    }
+
     // Issue #205 & #237: 가상 픽셀 좌표(0~1080 / 0~2160)를 정규화 좌표계(0~1)로 비파괴 변환하여 전달
     // CenterReturnGate, ArmReachAnswerSelector, FootKeynoteDetector가 정합성 있게 동작하도록 보장
     const normalizedLandmarks =
@@ -1781,6 +1835,13 @@ const engine = new GameEngine({
           isResolved: phaseAHazardController.isResolved,
           performedAction: phaseAHazardController.performedAction,
         });
+      } else if (presentationAdapter.canRenderReadyPosition(stateMachine.currentState)) {
+        readyPositionRenderer.render(
+          ctx,
+          vw,
+          vh,
+          readyPositionController.getState(),
+        );
       }
 
       renderFeedback(ctx, vw, vh);
@@ -1835,8 +1896,8 @@ const engine = new GameEngine({
       pauseModal.render(ctx, vw, vh);
     }
 
-    // 7.7 Issue #199 & #206: 무릎 프레이밍 가이드 렌더링
-    if (screenMode === 'game') {
+    // 7.7 Issue #199 & #206: 무릎 프레이밍 가이드 렌더링 (READY_POSITION 중에는 전용 가이드 사용)
+    if (screenMode === 'game' && stateMachine.currentState !== 'READY_POSITION') {
       kneeFramingGuideRenderer.render(ctx, vw, vh, currentKneeFraming);
     }
 
@@ -2041,6 +2102,11 @@ canvas.addEventListener('click', (e) => {
       selectSubLevel(chosen);
     }
   } else if (screenMode === 'game') {
+    // Issue #202: READY_POSITION 진행 중 화면 클릭/터치 시 3초 카운트다운 즉시 건너뛰기
+    if (stateMachine.currentState === 'READY_POSITION' && readyPositionController.isActive) {
+      readyPositionController.skip();
+      return;
+    }
     if (gamePhase === 'running' && !pauseModal.isOpen) {
       totalSteps++;
       beatCoordinator.recordStep();
@@ -2166,6 +2232,11 @@ document.addEventListener('keydown', (e) => {
 
   if (e.code === 'Space') {
     if (e.repeat) return;
+    // Issue #202: READY_POSITION 진행 중 Space 입력 시 3초 카운트다운 즉시 건너뛰기
+    if (stateMachine.currentState === 'READY_POSITION' && readyPositionController.isActive) {
+      readyPositionController.skip();
+      return;
+    }
     if (screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
       totalSteps++;
       beatCoordinator.recordStep();

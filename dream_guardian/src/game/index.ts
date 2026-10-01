@@ -40,6 +40,11 @@ export type {
 } from './BossHazardController.js';
 export { MinionTroopManager } from './MinionTroopManager.js';
 export type { MinionTroopConfig } from './MinionTroopManager.js';
+export { ReadyPositionController } from './ReadyPositionController.js';
+export type {
+  ReadyPositionControllerOptions,
+  ReadyPositionState,
+} from './ReadyPositionController.js';
 export type {
   RoundAnswerStatus,
   BeatRhythmStats,

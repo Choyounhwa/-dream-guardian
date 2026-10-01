@@ -76,6 +76,9 @@ export type {
   ShowDialogueOptions,
   DialogueState,
 } from './DialogueOverlayRenderer.js';
+export { ReadyPositionRenderer } from './ReadyPositionRenderer.js';
+export type { ReadyPositionRenderOptions } from './ReadyPositionRenderer.js';
+
 
 
 

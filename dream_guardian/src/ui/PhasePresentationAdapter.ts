@@ -113,6 +113,13 @@ export class PhasePresentationAdapter {
   }
 
   /**
+   * 카메라 프레임 정렬 및 3초 카운트다운(READY_POSITION) 렌더링 허용 여부 (Issue #202)
+   */
+  canRenderReadyPosition(state: GameState): boolean {
+    return state === 'READY_POSITION';
+  }
+
+  /**
    * 러닝 HUD (운동 박자 카운트, 문제 원근 접근 등) 렌더링 허용 여부
    */
   canRenderRunningHUD(state: GameState): boolean {
