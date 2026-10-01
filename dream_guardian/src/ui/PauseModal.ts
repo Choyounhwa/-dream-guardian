@@ -10,6 +10,7 @@
  */
 
 import { UIText } from '../utils/UIText.js';
+import { imageLoader } from '../utils/UIImageLoader.js';
 import { UI_LAYOUT } from '../../config/ui.config.js';
 
 export type PauseAction = 'resume' | 'quit' | 'backdrop';
@@ -170,29 +171,34 @@ export class PauseModal {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
     ctx.fillRect(0, 0, w, h);
 
-    // 2. 모달 카드 배경
+    // 2. 모달 카드 배경 (이미지 분기 또는 기존 프로시저럴 드로잉)
     const mx = this.MODAL_VIRTUAL.x * scaleX;
     const my = this.MODAL_VIRTUAL.y * scaleY;
     const mw = this.MODAL_VIRTUAL.w * scaleX;
     const mh = this.MODAL_VIRTUAL.h * scaleY;
     const radius = 28 * scaleX;
 
-    ctx.fillStyle = 'rgba(15, 20, 36, 0.98)';
-    ctx.strokeStyle = '#FFCB4D';
-    ctx.lineWidth = 3.5 * scaleX;
-    ctx.shadowColor = '#FFCB4D';
-    ctx.shadowBlur = 20 * scaleX;
-
-    ctx.beginPath();
-    if (ctx.roundRect) {
-      ctx.roundRect(mx, my, mw, mh, radius);
+    const modalBgImg = imageLoader.get('pause', 'modalBg');
+    if (modalBgImg) {
+      ctx.drawImage(modalBgImg, mx, my, mw, mh);
     } else {
-      ctx.rect(mx, my, mw, mh);
-    }
-    ctx.fill();
-    ctx.stroke();
+      ctx.fillStyle = 'rgba(15, 20, 36, 0.98)';
+      ctx.strokeStyle = '#FFCB4D';
+      ctx.lineWidth = 3.5 * scaleX;
+      ctx.shadowColor = '#FFCB4D';
+      ctx.shadowBlur = 20 * scaleX;
 
-    ctx.shadowBlur = 0;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(mx, my, mw, mh, radius);
+      } else {
+        ctx.rect(mx, my, mw, mh);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+    }
 
     // 3. 타이틀 및 안내 문구
     ctx.font = UIText.getFont('subheading', scaleX, 'bold');
@@ -217,23 +223,53 @@ export class PauseModal {
       const progress = isHovered ? this.hoverProgress : 0;
 
       ctx.save();
-      ctx.fillStyle = isHovered ? 'rgba(40, 230, 255, 0.22)' : 'rgba(255, 255, 255, 0.08)';
-      ctx.strokeStyle = isHovered ? '#4DFFAA' : accentColor;
-      ctx.lineWidth = (isHovered ? 4 : 2.5) * scaleX;
 
-      if (isHovered) {
-        ctx.shadowColor = '#4DFFAA';
-        ctx.shadowBlur = 16 * scaleX;
-      }
+      const btnKey = action === 'resume' ? 'resumeBtn' : 'quitBtn';
+      const btnImg = imageLoader.get('pause', btnKey);
 
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 20 * scaleX);
+      if (btnImg) {
+        if (isHovered) {
+          ctx.shadowColor = '#4DFFAA';
+          ctx.shadowBlur = 16 * scaleX;
+        }
+        ctx.drawImage(btnImg, btn.x, btn.y, btn.w, btn.h);
+        if (isHovered) {
+          ctx.strokeStyle = '#4DFFAA';
+          ctx.lineWidth = 4 * scaleX;
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 20 * scaleX);
+          } else {
+            ctx.rect(btn.x, btn.y, btn.w, btn.h);
+          }
+          ctx.stroke();
+        }
       } else {
-        ctx.rect(btn.x, btn.y, btn.w, btn.h);
+        ctx.fillStyle = isHovered ? 'rgba(40, 230, 255, 0.22)' : 'rgba(255, 255, 255, 0.08)';
+        ctx.strokeStyle = isHovered ? '#4DFFAA' : accentColor;
+        ctx.lineWidth = (isHovered ? 4 : 2.5) * scaleX;
+
+        if (isHovered) {
+          ctx.shadowColor = '#4DFFAA';
+          ctx.shadowBlur = 16 * scaleX;
+        }
+
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 20 * scaleX);
+        } else {
+          ctx.rect(btn.x, btn.y, btn.w, btn.h);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        // 라벨 텍스트
+        ctx.font = UIText.getFont('body', scaleX, 'bold');
+        ctx.fillStyle = isHovered ? '#FFFFFF' : '#E8F0FE';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, btn.x + btn.w / 2, btn.y + btn.h / 2);
       }
-      ctx.fill();
-      ctx.stroke();
 
       // 호버 진행도 충전 게이지 (바닥 바)
       if (progress > 0) {
@@ -249,13 +285,6 @@ export class PauseModal {
         }
         ctx.fill();
       }
-
-      // 라벨 텍스트
-      ctx.font = UIText.getFont('body', scaleX, 'bold');
-      ctx.fillStyle = isHovered ? '#FFFFFF' : '#E8F0FE';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(label, btn.x + btn.w / 2, btn.y + btn.h / 2);
 
       ctx.restore();
     };

@@ -162,33 +162,82 @@ export class BottomBar {
         ctx.shadowBlur = 0;
       }
 
-      // 마나 게이지 배경
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.strokeStyle = 'rgba(200, 137, 255, 0.5)';
-      ctx.lineWidth = 2 * scaleX;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(mx, my, mw, mh, mRadius);
-      } else {
-        ctx.rect(mx, my, mw, mh);
-      }
-      ctx.fill();
-      ctx.stroke();
+      // 마나 게이지 배경 및 채움 (이미지 분기 또는 기존 프로시저럴 드로잉)
+      const manaFrameImg = imageLoader.get('bottomBar', 'manaFrame');
+      const manaFillImg = imageLoader.get('bottomBar', 'manaFill');
 
-      // 마나 게이지 채우기
-      if (ratio > 0) {
-        const fillW = Math.max(mRadius * 2, mw * ratio);
-        const mGrad = ctx.createLinearGradient(mx, 0, mx + mw, 0);
-        mGrad.addColorStop(0, '#C889FF');
-        mGrad.addColorStop(1, '#FF65C3');
-        ctx.fillStyle = mGrad;
+      if (manaFrameImg || manaFillImg) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.beginPath();
         if (ctx.roundRect) {
-          ctx.roundRect(mx, my, fillW, mh, mRadius);
+          ctx.roundRect(mx, my, mw, mh, mRadius);
         } else {
-          ctx.rect(mx, my, fillW, mh);
+          ctx.rect(mx, my, mw, mh);
         }
         ctx.fill();
+
+        if (ratio > 0) {
+          const fillW = mw * ratio;
+          if (manaFillImg) {
+            const srcW = manaFillImg.width * ratio;
+            ctx.drawImage(manaFillImg, 0, 0, srcW, manaFillImg.height, mx, my, fillW, mh);
+          } else {
+            const mGrad = ctx.createLinearGradient(mx, 0, mx + mw, 0);
+            mGrad.addColorStop(0, '#C889FF');
+            mGrad.addColorStop(1, '#FF65C3');
+            ctx.fillStyle = mGrad;
+            ctx.beginPath();
+            if (ctx.roundRect) {
+              ctx.roundRect(mx, my, fillW, mh, mRadius);
+            } else {
+              ctx.rect(mx, my, fillW, mh);
+            }
+            ctx.fill();
+          }
+        }
+
+        if (manaFrameImg) {
+          ctx.drawImage(manaFrameImg, mx, my, mw, mh);
+        } else {
+          ctx.strokeStyle = 'rgba(200, 137, 255, 0.5)';
+          ctx.lineWidth = 2 * scaleX;
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(mx, my, mw, mh, mRadius);
+          } else {
+            ctx.rect(mx, my, mw, mh);
+          }
+          ctx.stroke();
+        }
+      } else {
+        // 마나 게이지 배경
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.strokeStyle = 'rgba(200, 137, 255, 0.5)';
+        ctx.lineWidth = 2 * scaleX;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(mx, my, mw, mh, mRadius);
+        } else {
+          ctx.rect(mx, my, mw, mh);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        // 마나 게이지 채우기
+        if (ratio > 0) {
+          const fillW = Math.max(mRadius * 2, mw * ratio);
+          const mGrad = ctx.createLinearGradient(mx, 0, mx + mw, 0);
+          mGrad.addColorStop(0, '#C889FF');
+          mGrad.addColorStop(1, '#FF65C3');
+          ctx.fillStyle = mGrad;
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(mx, my, fillW, mh, mRadius);
+          } else {
+            ctx.rect(mx, my, fillW, mh);
+          }
+          ctx.fill();
+        }
       }
 
       // 마나 텍스트 라벨

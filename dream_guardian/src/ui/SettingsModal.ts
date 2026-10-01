@@ -184,7 +184,7 @@ export class SettingsModal {
     const mh = this.MODAL_VIRTUAL.h * scaleY;
     const radius = 28 * scaleX;
 
-    const dialogBgImg = imageLoader.get('settings', 'dialogBg');
+    const dialogBgImg = imageLoader.get('settings', 'modalBg') ?? imageLoader.get('settings', 'dialogBg');
     if (dialogBgImg) {
       ctx.drawImage(dialogBgImg, mx, my, mw, mh);
     } else {
@@ -259,11 +259,25 @@ export class SettingsModal {
       ctx.textBaseline = 'middle';
       ctx.fillText(title, btn.x + 36 * scaleX, btn.y + btn.h / 2);
 
-      // 상태 태그
-      ctx.font = UIText.getFont('body', scaleX, 'bold');
-      ctx.fillStyle = isActive ? '#28E6FF' : '#888888';
-      ctx.textAlign = 'right';
-      ctx.fillText(statusText, btn.x + btn.w - 36 * scaleX, btn.y + btn.h / 2);
+      // 상태 태그 또는 토글 버튼 이미지 (이미지 우선 분기)
+      const isToggleState = statusText === 'ON' || statusText === 'OFF';
+      const toggleImg = isToggleState
+        ? imageLoader.get('settings', isActive ? 'toggleOn' : 'toggleOff')
+        : null;
+
+      if (toggleImg) {
+        const tw = 100 * scaleX;
+        const th = 50 * scaleY;
+        const tx = btn.x + btn.w - tw - 24 * scaleX;
+        const ty = btn.y + (btn.h - th) / 2;
+        ctx.drawImage(toggleImg, tx, ty, tw, th);
+      } else {
+        // 기존 텍스트 태그 폴백
+        ctx.font = UIText.getFont('body', scaleX, 'bold');
+        ctx.fillStyle = isActive ? '#28E6FF' : '#888888';
+        ctx.textAlign = 'right';
+        ctx.fillText(statusText, btn.x + btn.w - 36 * scaleX, btn.y + btn.h / 2);
+      }
     };
 
     // 카메라 버튼

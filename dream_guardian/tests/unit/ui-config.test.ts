@@ -167,7 +167,7 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
     });
   });
 
-  describe('5. UI_IMAGE_ASSETS (6개 카테고리 이미지 경로 슬롯)', () => {
+  describe('5. UI_IMAGE_ASSETS (7개 카테고리 이미지 경로 슬롯)', () => {
     const REQUIRED_CATEGORIES = [
       'menu',
       'hud',
@@ -175,16 +175,17 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       'bottomBar',
       'settings',
       'battle',
+      'pause',
     ] as const;
 
-    it('6개 카테고리 슬롯이 모두 정의되어 있다', () => {
+    it('7개 카테고리 슬롯이 모두 정의되어 있다', () => {
       const assets: UIImageAssetsConfig = UI_IMAGE_ASSETS;
       for (const cat of REQUIRED_CATEGORIES) {
         expect(assets).toHaveProperty(cat);
       }
     });
 
-    it('menu 및 hud 슬롯에는 에셋 경로가 설정되어 있고, 그 외 카테고리의 초기값은 null (프로시저럴 렌더링 폴백)이다', () => {
+    it('menu, hud, result, bottomBar, settings, pause 슬롯에는 에셋 경로가 설정되어 있고, 그 외 카테고리의 초기값은 null (프로시저럴 렌더링 폴백)이다', () => {
       // 1) menu 카테고리: 신규 등록된 이미지 경로 검증
       expect(UI_IMAGE_ASSETS.menu.titleBg).toBe('/assets/ui/menu/title_bg.png');
       expect(UI_IMAGE_ASSETS.menu.cardFrame).toBe('/assets/ui/menu/chapter_card_frame.png');
@@ -221,8 +222,29 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       expect(UI_IMAGE_ASSETS.result.statIcon_pose).toBe('/assets/ui/result/stat_pose.png');
       expect(UI_IMAGE_ASSETS.result.statIcon_calorie).toBe('/assets/ui/result/stat_calorie.png');
 
-      // 4) 그 외 카테고리(bottomBar, settings, battle): 모든 슬롯이 null 유지
-      const nonConfiguredCategories = REQUIRED_CATEGORIES.filter((c) => c !== 'menu' && c !== 'hud' && c !== 'result');
+      // 4) bottomBar 카테고리 (Issue #269 / UI-ASSET-004)
+      expect(UI_IMAGE_ASSETS.bottomBar.barBg).toBe('/assets/ui/bottombar/bar_bg.png');
+      expect(UI_IMAGE_ASSETS.bottomBar.settingsIcon).toBe('/assets/ui/bottombar/settings_icon.png');
+      expect(UI_IMAGE_ASSETS.bottomBar.manaFrame).toBe('/assets/ui/bottombar/mana_frame.png');
+      expect(UI_IMAGE_ASSETS.bottomBar.manaFill).toBe('/assets/ui/bottombar/mana_fill.png');
+      expect(UI_IMAGE_ASSETS.bottomBar.actionButton).toBeNull();
+
+      // 5) settings 카테고리 (Issue #269 / UI-ASSET-004)
+      expect(UI_IMAGE_ASSETS.settings.modalBg).toBe('/assets/ui/settings/modal_bg.png');
+      expect(UI_IMAGE_ASSETS.settings.dialogBg).toBe('/assets/ui/settings/modal_bg.png');
+      expect(UI_IMAGE_ASSETS.settings.toggleOn).toBe('/assets/ui/settings/toggle_on.png');
+      expect(UI_IMAGE_ASSETS.settings.toggleOff).toBe('/assets/ui/settings/toggle_off.png');
+      expect(UI_IMAGE_ASSETS.settings.closeIcon).toBeNull();
+
+      // 6) pause 카테고리 (Issue #269 / UI-ASSET-004)
+      expect(UI_IMAGE_ASSETS.pause.modalBg).toBe('/assets/ui/pause/modal_bg.png');
+      expect(UI_IMAGE_ASSETS.pause.resumeBtn).toBe('/assets/ui/pause/resume_btn.png');
+      expect(UI_IMAGE_ASSETS.pause.quitBtn).toBe('/assets/ui/pause/quit_btn.png');
+
+      // 7) 그 외 카테고리(battle): 모든 슬롯이 null 유지
+      const nonConfiguredCategories = REQUIRED_CATEGORIES.filter(
+        (c) => c !== 'menu' && c !== 'hud' && c !== 'result' && c !== 'bottomBar' && c !== 'settings' && c !== 'pause'
+      );
       for (const cat of nonConfiguredCategories) {
         const slots = UI_IMAGE_ASSETS[cat];
         const keys = Object.keys(slots);

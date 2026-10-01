@@ -158,6 +158,7 @@ describe('UIImageLoader (Issue #261 / UI-TOKEN-006)', () => {
           bottomBar: { barBg: null, settingsIcon: null, actionButton: null },
           settings: { dialogBg: null, closeIcon: null },
           battle: { bossFrame: null, shieldAura: null },
+          pause: { modalBg: null, resumeBtn: null, quitBtn: null },
         };
 
         await loader.preload(testConfig);
@@ -194,6 +195,7 @@ describe('UIImageLoader (Issue #261 / UI-TOKEN-006)', () => {
           bottomBar: { barBg: null, settingsIcon: null, actionButton: null },
           settings: { dialogBg: null, closeIcon: null },
           battle: { bossFrame: null, shieldAura: null },
+          pause: { modalBg: null, resumeBtn: null, quitBtn: null },
         };
 
         await loader.preload(testConfig);

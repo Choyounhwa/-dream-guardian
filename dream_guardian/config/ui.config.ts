@@ -274,6 +274,7 @@ export interface UIImageAssetsConfig {
   bottomBar: Record<string, string | null>;
   settings: Record<string, string | null>;
   battle: Record<string, string | null>;
+  pause: Record<string, string | null>;
 }
 
 export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
@@ -315,16 +316,26 @@ export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
     statIcon_calorie: '/assets/ui/result/stat_calorie.png',
   },
   bottomBar: {
-    barBg: null,
-    settingsIcon: null,
+    barBg: '/assets/ui/bottombar/bar_bg.png',
+    settingsIcon: '/assets/ui/bottombar/settings_icon.png',
+    manaFrame: '/assets/ui/bottombar/mana_frame.png',
+    manaFill: '/assets/ui/bottombar/mana_fill.png',
     actionButton: null,
   },
   settings: {
-    dialogBg: null,
+    modalBg: '/assets/ui/settings/modal_bg.png',
+    dialogBg: '/assets/ui/settings/modal_bg.png',
+    toggleOn: '/assets/ui/settings/toggle_on.png',
+    toggleOff: '/assets/ui/settings/toggle_off.png',
     closeIcon: null,
   },
   battle: {
     bossFrame: null,
     shieldAura: null,
+  },
+  pause: {
+    modalBg: '/assets/ui/pause/modal_bg.png',
+    resumeBtn: '/assets/ui/pause/resume_btn.png',
+    quitBtn: '/assets/ui/pause/quit_btn.png',
   },
 };
