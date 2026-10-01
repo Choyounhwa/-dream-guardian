@@ -55,11 +55,21 @@ export class HUDLayer {
     this._renderBossName(ctx, w, data);
   }
 
+  /**
+   * HP바 높이 산출 (Issue #265 / A11Y-004: 저시력 모드 fontScale 반영, 기본 32px -> 상한 64px 클램프)
+   */
+  getHpBarHeight(fontScale?: number): number {
+    const scale = fontScale ?? UIText.getAccessibility().fontScale ?? 1.0;
+    const baseH = UI_LAYOUT.hud.playerHpBar?.h ?? 32;
+    return Math.min(64, baseH * scale);
+  }
+
   private _renderHpBars(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
     // Issue #132: 1m+ 원거리 가독성을 위한 HP바 및 수치 텍스트 대형화 (UI_LAYOUT 슬롯 참조)
+    // Issue #265: 저시력 모드(A11Y-004) 동적 스케일링 (기본 32px -> Math.min(64, 32 * fontScale))
     const hpSlot = UI_LAYOUT.hud.playerHpBar;
     const barW = Math.min(hpSlot.w, w * 0.28);
-    const barH = hpSlot.h;
+    const barH = this.getHpBarHeight();
     const y = hpSlot.y;
     const pad = hpSlot.x;
 

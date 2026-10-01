@@ -67,6 +67,15 @@ export class BottomBar {
   }
 
   /**
+   * 마나 게이지 높이 산출 (Issue #265 / A11Y-004: 저시력 모드 fontScale 반영, 기본 50px -> 상한 100px 클램프)
+   */
+  getManaBarHeight(fontScale?: number): number {
+    const scale = fontScale ?? UIText.getAccessibility().fontScale ?? 1.0;
+    const baseH = BOTTOM_BAR_CONFIG.manaBar?.h ?? 50;
+    return Math.min(100, baseH * scale);
+  }
+
+  /**
    * 공통 하단 바 렌더링
    */
   render(ctx: CanvasRenderingContext2D, w: number, h: number, options?: BottomBarRenderOptions): void {
@@ -143,11 +152,13 @@ export class BottomBar {
       const ratio = Math.min(1, mana / manaMax);
 
       // 중앙 마나 게이지 (UI_LAYOUT.bottomBar.manaBar 슬롯 연동)
+      // Issue #265: 저시력 모드(A11Y-004) 동적 스케일링 (기본 50px -> Math.min(100, 50 * fontScale))
       const manaSlot = BOTTOM_BAR_CONFIG.manaBar ?? { x: 210, y: 2038, w: 560, h: 50 };
+      const scaledManaH = this.getManaBarHeight();
       const mx = manaSlot.x * scaleX;
       const my = manaSlot.y * scaleY;
       const mw = manaSlot.w * scaleX;
-      const mh = manaSlot.h * scaleY;
+      const mh = scaledManaH * scaleY;
       const mRadius = 14 * scaleX;
 
       // 콤보 표시

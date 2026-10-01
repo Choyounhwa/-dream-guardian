@@ -174,6 +174,7 @@ const bandSynth = new BandSynthesizer({ audioContext: sfx.audioContext ?? undefi
 const tutorial = new TutorialOverlay();
 const bottomBar = new BottomBar();
 const settingsModal = new SettingsModal();
+speech.enabled = settingsModal.soundEnabled;
 const locomotionModal = new LocomotionModal();
 const pauseModal = new PauseModal();
 const xGestureDetector = new XGestureDetector();
@@ -252,6 +253,11 @@ eventBus.on('troop:barrage', (info) => {
     canvasManager.virtualHeight * 0.35,
   );
   sfx.play('correct');
+});
+
+// Issue #265 (A11Y-004): 보스 광폭화 시 TTS 음성 경고 연동
+eventBus.on('boss:enrage', () => {
+  speech.speakFeedback('boss_enrage');
 });
 
 // Issue #191: 노트결과 ID 기준 중복 방지 (1회 재생 보장)
@@ -506,9 +512,11 @@ const beatCoordinator = new BeatRunCoordinator({
       sfx.play('correct');
       effectManager.playPreset('correct', bx, by);
       bossRenderer.triggerHit();
+      speech.speakFeedback('correct');
     } else {
       sfx.play('wrong');
       effectManager.playPreset('wrong', bx, by);
+      speech.speakFeedback('wrong');
     }
   },
   onAnswerConfirmed: (idx, _correct, status) => {
@@ -802,6 +810,7 @@ function startChapter(ch: number, subLevel?: number): void {
   phaseAHazardController.stop();
   pauseModal.close();
   xGestureDetector.reset();
+  speech.resetFeedbackState();
   ensureCameraStarted().catch(() => {});
 
   // Issue #137: 첫 플레이 시 튜토리얼 자동 표시
@@ -843,6 +852,7 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
   } else {
     if (status === 'timeout') {
       sfx.play('wrong');
+      speech.speakFeedback('wrong');
       feedbackCorrect = false;
       feedbackTimer = 0.8;
     }
@@ -963,6 +973,11 @@ const engine = new GameEngine({
     // Issue #140: 전 장면(메뉴·달리기·문제·결과) 커서 펄스 타이머 상시 갱신
     answerSelectionRenderer.update(dt);
     tutorial.update(dt);
+
+    // Issue #265 (A11Y-004): 저시력 모드 음성 피드백 (HP 50% 이하 알림)
+    if (screenMode === 'game' && battle.isAlive && battle.hp <= battle.maxHp * 0.5) {
+      speech.speakFeedback('low_hp');
+    }
 
     // 웹캠 비디오 프레임 추출 및 스켈레톤 보간 파이프라인
     if (cameraLayer.isActive && cameraLayer.videoElement) {
@@ -1746,6 +1761,7 @@ canvas.addEventListener('click', (e) => {
       settingsModal.soundEnabled = !settingsModal.soundEnabled;
       sfx.setMuted(!settingsModal.soundEnabled);
       bandSynth.setMuted(!settingsModal.soundEnabled);
+      speech.enabled = settingsModal.soundEnabled;
       if (settingsModal.soundEnabled) sfx.play('correct');
     } else if (action === 'fontScale' || action === 'highContrast') {
       sfx.play('hover');

@@ -14,6 +14,7 @@ import type { CursorType } from '../../config/cursor.config.js';
 import { CURSOR_COLORS, CURSOR_DIMENSIONS } from '../../config/cursor.config.js';
 import type { CursorPosition } from '../input/CursorTracker.js';
 import type { MagicCircleRenderer } from './MagicCircleRenderer.js';
+import { UIText } from '../utils/UIText.js';
 
 /** 존별 진행도 입력 타입 (튜플, Map, Record 지원, Issue #129) */
 export type ZoneProgressInput =
@@ -28,6 +29,22 @@ export class AnswerSelectionRenderer {
   /** 마법진 렌더러 주입 (선택적, Issue #143) */
   setMagicCircle(renderer: MagicCircleRenderer): void {
     this._magicCircle = renderer;
+  }
+
+  /**
+   * 커서 반경 산출 (Issue #265 / A11Y-004: 저시력 모드 fontScale 반영, 기본 12~16px -> 상한 32px 클램프)
+   */
+  getCursorRadius(baseRadius = 16, fontScale?: number): number {
+    const scale = fontScale ?? UIText.getAccessibility().fontScale ?? 1.0;
+    return Math.min(32, baseRadius * scale);
+  }
+
+  /**
+   * 존 테두리 선 두께 산출 (Issue #265 / A11Y-004: 저시력 모드 fontScale 반영, 기본 3~4px -> 상한 8px 클램프)
+   */
+  getZoneBorderWidth(baseWidth = 3.5, fontScale?: number): number {
+    const scale = fontScale ?? UIText.getAccessibility().fontScale ?? 1.0;
+    return Math.min(8, baseWidth * scale);
   }
 
   update(dt: number): void {
@@ -87,6 +104,8 @@ export class AnswerSelectionRenderer {
     activeZones: readonly FitnessZone[],
     choiceProgress: ZoneProgressInput,
   ): void {
+    const fontScale = UIText.getAccessibility().fontScale ?? 1.0;
+
     for (let i = 0; i < activeZones.length; i++) {
       const zone = activeZones[i];
       const zx = zone.x * w;
@@ -106,7 +125,7 @@ export class AnswerSelectionRenderer {
         if (progress > 0) {
           ctx.save();
           ctx.strokeStyle = '#4DFFAA';
-          ctx.lineWidth = 6 * (w / 1080);
+          ctx.lineWidth = Math.min(12, 6 * (w / 1080) * fontScale);
           ctx.shadowColor = '#4DFFAA';
           ctx.shadowBlur = 18 * (w / 1080);
           ctx.beginPath();
@@ -114,6 +133,15 @@ export class AnswerSelectionRenderer {
           ctx.stroke();
           ctx.restore();
         }
+      } else {
+        // Fallback 또는 존 테두리 렌더링 (Issue #265: 저시력 모드 테두리 두께 Math.min(8, 기본두께 * fontScale))
+        const baseW = progress > 0 ? 4 : 3;
+        const borderWidth = this.getZoneBorderWidth(baseW, fontScale);
+        ctx.save();
+        ctx.strokeStyle = progress > 0 ? '#4DFFAA' : 'rgba(40, 230, 255, 0.5)';
+        ctx.lineWidth = borderWidth;
+        ctx.strokeRect(zx, zy, zw, zh);
+        ctx.restore();
       }
     }
   }
@@ -126,6 +154,8 @@ export class AnswerSelectionRenderer {
     activeZones: readonly FitnessZone[],
     progressInput: ZoneProgressInput,
   ): void {
+    const fontScale = UIText.getAccessibility().fontScale ?? 1.0;
+
     for (const [type, pos] of cursors) {
       const cx = pos.x * w;
       const cy = pos.y * h;
@@ -154,9 +184,14 @@ export class AnswerSelectionRenderer {
 
       if (type === 'leftHand' || type === 'rightHand') {
         // 손 커서: 네온 링 외곽선 전용 (Issue #117: 채움색 없음 / Outline Only & 동적 크기)
-        const radius = pos.size?.radius ?? CURSOR_DIMENSIONS.hand.defaultRadius;
+        // Issue #265: 저시력 모드(A11Y-004) 기본 12~16px 커서 스케일링 (Math.min(32, 기본값 * fontScale))
+        const rawRadius = pos.size?.radius ?? CURSOR_DIMENSIONS.hand.defaultRadius;
+        const radius = rawRadius <= 32
+          ? this.getCursorRadius(rawRadius, fontScale)
+          : (fontScale > 1.0 ? Math.min(CURSOR_DIMENSIONS.hand.maxRadius, rawRadius * fontScale) : rawRadius);
+
         ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = Math.min(8, 3 * fontScale);
         ctx.beginPath();
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.stroke();
@@ -164,7 +199,7 @@ export class AnswerSelectionRenderer {
         // 펄스 링
         const pulseR = radius + 6 + Math.sin(this._pulseTimer) * 4;
         ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = Math.min(4, 1.5 * fontScale);
         ctx.beginPath();
         ctx.arc(cx, cy, pulseR, 0, Math.PI * 2);
         ctx.stroke();
@@ -177,10 +212,17 @@ export class AnswerSelectionRenderer {
         ctx.fillText(type === 'leftHand' ? 'L' : 'R', cx, cy);
       } else if (type === 'head') {
         // 머리/얼굴: 라운드 타원 외곽선 전용 (Issue #117: 채움색 없음 / Outline Only & 동적 크기)
-        const rx = pos.size?.radiusX ?? CURSOR_DIMENSIONS.head.defaultRadiusX;
-        const ry = pos.size?.radiusY ?? CURSOR_DIMENSIONS.head.defaultRadiusY;
+        const rawRx = pos.size?.radiusX ?? CURSOR_DIMENSIONS.head.defaultRadiusX;
+        const rawRy = pos.size?.radiusY ?? CURSOR_DIMENSIONS.head.defaultRadiusY;
+        const rx = rawRx <= 32
+          ? this.getCursorRadius(rawRx, fontScale)
+          : (fontScale > 1.0 ? Math.min(CURSOR_DIMENSIONS.head.maxRadiusX, rawRx * fontScale) : rawRx);
+        const ry = rawRy <= 32
+          ? this.getCursorRadius(rawRy, fontScale)
+          : (fontScale > 1.0 ? Math.min(CURSOR_DIMENSIONS.head.maxRadiusY, rawRy * fontScale) : rawRy);
+
         ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = Math.min(8, 3 * fontScale);
         ctx.beginPath();
         ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
         ctx.stroke();
@@ -192,12 +234,18 @@ export class AnswerSelectionRenderer {
         ctx.fillText('HEAD', cx, cy);
       } else if (type === 'hip') {
         // 골반: 납작한 라운드 마름모 외곽선 전용 (Issue #145: Flattened Rounded Rhombus & 다리 시작점 1.5배)
-        const hw = pos.size?.halfWidth ?? CURSOR_DIMENSIONS.hip.defaultHalfWidth;
-        const hh = pos.size?.halfHeight ?? pos.size?.topOffset ?? Math.round(hw * CURSOR_DIMENSIONS.hip.aspectRatio);
+        const rawHw = pos.size?.halfWidth ?? CURSOR_DIMENSIONS.hip.defaultHalfWidth;
+        const hw = rawHw <= 32
+          ? this.getCursorRadius(rawHw, fontScale)
+          : (fontScale > 1.0 ? Math.min(CURSOR_DIMENSIONS.hip.maxHalfWidth, rawHw * fontScale) : rawHw);
+        const rawHh = pos.size?.halfHeight ?? pos.size?.topOffset ?? Math.round(rawHw * CURSOR_DIMENSIONS.hip.aspectRatio);
+        const hh = rawHh <= 32
+          ? this.getCursorRadius(rawHh, fontScale)
+          : (fontScale > 1.0 ? Math.min(CURSOR_DIMENSIONS.hip.maxHalfWidth * CURSOR_DIMENSIONS.hip.aspectRatio, rawHh * fontScale) : rawHh);
         const radius = Math.min(12, Math.round(hh * 0.35));
 
         ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = Math.min(8, 3 * fontScale);
         ctx.lineJoin = 'round';
         ctx.beginPath();
         if (typeof ctx.arcTo === 'function') {
@@ -233,9 +281,10 @@ export class AnswerSelectionRenderer {
         else if (pos.size?.radiusX) baseR = Math.max(pos.size.radiusX, pos.size.radiusY ?? CURSOR_DIMENSIONS.head.defaultRadiusY);
         else if (pos.size?.halfWidth) baseR = pos.size.halfWidth;
 
-        const arcR = baseR + CURSOR_DIMENSIONS.dwellArc.arcOffset;
+        const effectiveBaseR = baseR <= 32 ? this.getCursorRadius(baseR, fontScale) : (fontScale > 1.0 ? baseR * fontScale : baseR);
+        const arcR = effectiveBaseR + CURSOR_DIMENSIONS.dwellArc.arcOffset;
         ctx.strokeStyle = '#4DFFAA';
-        ctx.lineWidth = 4;
+        ctx.lineWidth = Math.min(8, 4 * fontScale);
         ctx.beginPath();
         ctx.arc(cx, cy, arcR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * cursorProgress);
         ctx.stroke();

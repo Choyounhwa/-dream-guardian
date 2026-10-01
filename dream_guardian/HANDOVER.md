@@ -57,7 +57,7 @@
 | 7 | **#262** | [A11Y-001] user-scalable 해제 및 최소 폰트 크기 하한선 즉시 적용 | 없음 | `[✔] 완료` |
 | 8 | **#263** | [A11Y-002] 저대비 색상 수정 및 WCAG AA 대비율 4.5:1 보장 | 없음 | `[✔] 완료` |
 | 9 | **#264** | [A11Y-003] SettingsModal 글씨 크기/고대비 모드 옵션 추가 | #256·#257·#258 | `[✔] 완료` |
-| 10 | **#265** | [A11Y-004] 저시력 모드 커서/HP바/게이지 확대 및 음성 피드백 강화 | #264 | `[▶ NEXT]` |
+| 10 | **#265** | [A11Y-004] 저시력 모드 커서/HP바/게이지 확대 및 음성 피드백 강화 | #264 | `[✔] 완료` |
 
 ### 📌 C. 이미지 에셋 교체 시리즈 (UI-ASSET)
 
@@ -100,7 +100,43 @@
 
 ---
 
-## 2026-10-01 완료: [A11Y-003 / #264] SettingsModal 글씨 크기/고대비 모드 옵션 추가
+## 2026-10-01 완료: [A11Y-004 / #265] 저시력 모드 커서/HP바/게이지 확대 및 음성 피드백 강화
+
+> #265 구현 및 TDD 사이클 전수 통과 완료. 저시력 모드(A11Y-004)에서 `fontScale`에 비례하여 4색 커서 반경, HP바 높이, 마나 게이지 높이, 존 테두리 두께를 동적으로 확대하고 상한 클램프를 적용하였으며, 문제 정오답/체력 경고/보스 광폭화 상황에 대한 TTS 한국어 음성 피드백 및 사운드 설정 연동을 완비하였습니다.
+> - **신규/수정 파일 및 내용**:
+>   1. `src/render/AnswerSelectionRenderer.ts`:
+>      - `getCursorRadius(baseRadius = 16, fontScale?: number)`: fontScale 비례 스케일링 및 32px 상한 클램프
+>      - `getZoneBorderWidth(baseWidth = 3.5, fontScale?: number)`: fontScale 비례 스케일링 및 8px 상한 클램프
+>      - `_renderCursors`: 4색 신체 커서 반경 및 체류 아크, 선 두께에 fontScale 동적 스케일링 반영 (1.0x 시 기존 수치 100% 보존)
+>      - `_renderZones`: 존 테두리 선 두께에 `getZoneBorderWidth` 반영
+>   2. `src/ui/HUDLayer.ts`:
+>      - `getHpBarHeight(fontScale?: number)`: 기본 32px -> `Math.min(64, 32 * fontScale)` 동적 스케일링 및 상한 64px 클램프
+>      - `_renderHpBars`: 플레이어 및 보스 HP바 높이 및 중앙 텍스트 정렬 연동
+>   3. `src/ui/BottomBar.ts`:
+>      - `getManaBarHeight(fontScale?: number)`: 기본 50px -> `Math.min(100, 50 * fontScale)` 동적 스케일링 및 상한 100px 클램프
+>      - `render`: 중앙 마나 게이지 높이에 `getManaBarHeight` 반영
+>   4. `src/question/QuestionSpeech.ts`:
+>      - `SpeechFeedbackType` ('correct' | 'wrong' | 'low_hp' | 'boss_enrage') 정의
+>      - `enabled`: 사운드 음소거 상태 동기화 (false 시 모든 발화 차단 및 진행 중 음성 취소)
+>      - `speakFeedback(type)`: 타입별 한국어 피드백 발화 ("정답입니다!", "틀렸습니다!", "주의! 체력이 절반입니다!", "보스가 광폭화했습니다!")
+>      - `low_hp` 중복 난사 방지 쿨다운(8초) 및 `boss_enrage` 1회 트리거 제어
+>      - `resetFeedbackState()`: 새 챕터 시작 시 피드백 플래그/쿨다운 초기화
+>   5. `src/main.ts`:
+>      - `speech.enabled = settingsModal.soundEnabled` 실시간 연동 (사운드 토글 시)
+>      - 답안 선택 및 정산 시 `speech.speakFeedback('correct')`, `speech.speakFeedback('wrong')` 연동
+>      - 게임 루프 `update(dt)`에서 플레이어 HP <= 50% 시 `speech.speakFeedback('low_hp')` 연동
+>      - `eventBus.on('boss:enrage')` 이벤트 수신 시 `speech.speakFeedback('boss_enrage')` 연동
+>      - `startChapter` 시 `speech.resetFeedbackState()` 연동
+>   6. 단위 테스트 신설:
+>      - `tests/unit/a11y-visual-scale.test.ts`: 커서 반경(32px 클램프), HP바 높이(64px 클램프), 마나 게이지(100px 클램프), 존 테두리(8px 클램프) 13/13 Pass
+>      - `tests/unit/a11y-tts-feedback.test.ts`: 한국어 발화 내용, enabled 음소거 차단, low_hp 쿨다운, boss_enrage 1회 트리거 12/12 Pass
+>   7. 전체 검증:
+>      - `npm run build` 성공 (tsc 타입 체크 및 vite 번들링 통과)
+>      - `npm test`: 131개 테스트 파일, 1,539개 단위 테스트 100% Pass
+>
+> ---
+>
+> ## 2026-10-01 완료: [A11Y-003 / #264] SettingsModal 글씨 크기/고대비 모드 옵션 추가
 
 > #264 구현 및 TDD 사이클 전수 통과 완료. SettingsModal에 글씨 크기(fontScale, 1.0x/1.5x/2.0x 3단계 순환) 및 고대비 모드(highContrast, ON/OFF 토글) 옵션을 신설하고, 런타임 UI_ACCESSIBILITY 및 UIText 동기화와 localStorage(`dg_a11y_fontScale`, `dg_a11y_highContrast`) 영속 저장을 완비하였습니다.
 > - **신규/수정 파일 및 내용**:

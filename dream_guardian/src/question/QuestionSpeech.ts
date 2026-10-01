@@ -9,12 +9,19 @@
  */
 
 export type SpeechStatus = 'idle' | 'speaking' | 'unsupported';
+export type SpeechFeedbackType = 'correct' | 'wrong' | 'low_hp' | 'boss_enrage';
 
 export class QuestionSpeech {
   private _status: SpeechStatus = 'idle';
   private _utterance: SpeechSynthesisUtterance | null = null;
   private _timeoutId: ReturnType<typeof setTimeout> | null = null;
   private _supported = false;
+  private _enabled = true;
+
+  // 저시력 모드 음성 피드백 중복 방지 제어
+  private _lastLowHpTime = 0;
+  private _lowHpCooldownMs = 8000;
+  private _bossEnrageTriggered = false;
 
   constructor() {
     this._supported =
@@ -35,20 +42,79 @@ export class QuestionSpeech {
     return this._supported;
   }
 
+  get enabled(): boolean {
+    return this._enabled;
+  }
+
+  set enabled(val: boolean) {
+    this._enabled = val;
+    if (!val) {
+      this.cancel();
+    }
+  }
+
   /**
    * 수학 문제를 한국어 음성으로 읽기
    * 비블로킹: 음성이 끝나지 않아도 게임은 계속 진행
    */
   speak(mathText: string): void {
-    if (!this._supported) return;
+    if (!this._supported || !this._enabled) return;
+
+    const koreanText = mathToKorean(mathText);
+    this._speakRaw(koreanText);
+  }
+
+  /**
+   * 게임 상태 피드백 음성 안내 (Issue #265 / A11Y-004)
+   * - correct: "정답입니다!"
+   * - wrong: "틀렸습니다!"
+   * - low_hp: "주의! 체력이 절반입니다!" (쿨다운 중복 방지)
+   * - boss_enrage: "보스가 광폭화했습니다!" (1회 트리거)
+   */
+  speakFeedback(type: SpeechFeedbackType): void {
+    if (!this._supported || !this._enabled) return;
+
+    if (type === 'boss_enrage') {
+      if (this._bossEnrageTriggered) return;
+      this._bossEnrageTriggered = true;
+    }
+
+    if (type === 'low_hp') {
+      const now = Date.now();
+      if (now - this._lastLowHpTime < this._lowHpCooldownMs) {
+        return;
+      }
+      this._lastLowHpTime = now;
+    }
+
+    const messages: Record<SpeechFeedbackType, string> = {
+      correct: '정답입니다!',
+      wrong: '틀렸습니다!',
+      low_hp: '주의! 체력이 절반입니다!',
+      boss_enrage: '보스가 광폭화했습니다!',
+    };
+
+    const text = messages[type];
+    if (text) {
+      this._speakRaw(text);
+    }
+  }
+
+  /** 피드백 발화 제어 상태 초기화 (새 게임 시작 시) */
+  resetFeedbackState(): void {
+    this._bossEnrageTriggered = false;
+    this._lastLowHpTime = 0;
+  }
+
+  /** 한국어 텍스트 직접 발화 내부 헬퍼 */
+  private _speakRaw(text: string): void {
+    if (!this._supported || !this._enabled) return;
 
     // 이전 음성 취소
     this.cancel();
 
-    const koreanText = mathToKorean(mathText);
-
     try {
-      this._utterance = new SpeechSynthesisUtterance(koreanText);
+      this._utterance = new SpeechSynthesisUtterance(text);
       this._utterance.lang = 'ko-KR';
       this._utterance.rate = 1.0;
 
