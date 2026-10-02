@@ -203,7 +203,7 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
       expect(CENTER_SPINE_COLOR).toBe('#E0F7FF');
       expect(CROSSING_NODE_COLOR).toBe('#FFFFFF');
       expect(PANEL_DEPTH_START).toBe(0.50);
-      expect(PANEL_BG_COLOR).toBe('rgba(6, 10, 18, 0.90)');
+      expect(PANEL_BG_COLOR).toBe('transparent');
 
       expect(TRANSVERSE_MAX_WIDTH).toBe(6.0);
       expect(TRANSVERSE_MIN_WIDTH).toBe(1.0);
@@ -219,7 +219,7 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
       expect(DEFAULT_GRID_CONFIG.CENTER_SPINE_COLOR).toBe('#E0F7FF');
       expect(DEFAULT_GRID_CONFIG.CROSSING_NODE_COLOR).toBe('#FFFFFF');
       expect(DEFAULT_GRID_CONFIG.PANEL_DEPTH_START).toBe(0.50);
-      expect(DEFAULT_GRID_CONFIG.PANEL_BG_COLOR).toBe('rgba(6, 10, 18, 0.90)');
+      expect(DEFAULT_GRID_CONFIG.PANEL_BG_COLOR).toBe('transparent');
     });
 
     it('DreamGrid 인스턴스가 듀얼 네온 및 SFX 런웨이 기본 설정을 보유한다', () => {
@@ -229,7 +229,7 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
       expect(grid.centerSpineColor).toBe('#E0F7FF');
       expect(grid.crossingNodeColor).toBe('#FFFFFF');
       expect(grid.panelDepthStart).toBe(0.50);
-      expect(grid.panelBgColor).toBe('rgba(6, 10, 18, 0.90)');
+      expect(grid.panelBgColor).toBe('transparent');
     });
 
     it('가로선(Transverse)은 네온 오렌지(#FF7A28) 및 2-Pass 순백 코어(#FFF8F0)로 렌더링된다', () => {
@@ -251,8 +251,12 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
       expect(mockCtx.lineWidths.includes(3.5)).toBe(true);
     });
 
-    it('전경 패널 음영(Modular Panel Grooves, depthRatio >= 0.50) 영역에 메탈릭 패널 fill이 적용된다', () => {
-      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+    it('전경 패널 음영(Modular Panel Grooves, depthRatio >= 0.50) 영역에 메탈릭 패널 fill이 명시적 설정 시 적용된다', () => {
+      const grid = new DreamGrid({
+        hasCeiling: false,
+        renderZoneConnections: false,
+        panelBgColor: 'rgba(6, 10, 18, 0.90)',
+      });
       const mockCtx = createMockCtx();
       grid.render(mockCtx, 1920, 1080);
 
@@ -327,6 +331,74 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
       const fillCountDeep = vi.mocked(mockCtxDeep.fill).mock.calls.length;
 
       expect(fillCountDefault).toBeGreaterThan(fillCountDeep);
+    });
+
+    it('[RENDER-GRID-003] 기본 렌더링 시 전경 바닥 quad fill이 건너뛰어져 웹캠 피드가 100% 투과된다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+      const mockCtx = createMockCtx();
+
+      grid.render(mockCtx, 1920, 1080);
+
+      // 불투명 전경 패널 색상이 fillStyles에 설정되지 않아야 함
+      expect(mockCtx.fillStyles.includes('rgba(6, 10, 18, 0.90)')).toBe(false);
+      expect(mockCtx.fillStyles.includes('transparent')).toBe(false);
+    });
+
+    it('[RENDER-GRID-003] panelBgColor가 명시적으로 불투명하게 주어질 때만 quad fill이 실행된다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+
+      // 1. 기본 투명 렌더링
+      const mockCtxDefault = createMockCtx();
+      grid.render(mockCtxDefault, 1920, 1080);
+      const defaultFillCount = vi.mocked(mockCtxDefault.fill).mock.calls.length;
+
+      // 2. 명시적 불투명 색상 지정 렌더링
+      const mockCtxOpaque = createMockCtx();
+      grid.render(mockCtxOpaque, 1920, 1080, { panelBgColor: 'rgba(6, 10, 18, 0.90)' });
+      const opaqueFillCount = vi.mocked(mockCtxOpaque.fill).mock.calls.length;
+
+      // 명시적 불투명 색상 지정 시 quad fill이 실행되어 fill 횟수가 유의미하게 많아야 함
+      expect(opaqueFillCount).toBeGreaterThan(defaultFillCount);
+      expect(mockCtxOpaque.fillStyles.includes('rgba(6, 10, 18, 0.90)')).toBe(true);
+    });
+
+    it('[RENDER-GRID-003] panelBgColor가 transparent, 빈 문자열, 또는 rgba(..., 0)일 때 quad fill이 모두 건너뛰어진다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+
+      const mockCtxDefault = createMockCtx();
+      grid.render(mockCtxDefault, 1920, 1080);
+      const baseFillCount = vi.mocked(mockCtxDefault.fill).mock.calls.length;
+
+      // transparent 명시
+      const mockCtxTrans = createMockCtx();
+      grid.render(mockCtxTrans, 1920, 1080, { panelBgColor: 'transparent' });
+      expect(vi.mocked(mockCtxTrans.fill).mock.calls.length).toBe(baseFillCount);
+
+      // 빈 문자열
+      const mockCtxEmpty = createMockCtx();
+      grid.render(mockCtxEmpty, 1920, 1080, { panelBgColor: '' });
+      expect(vi.mocked(mockCtxEmpty.fill).mock.calls.length).toBe(baseFillCount);
+
+      // 알파 0 rgba
+      const mockCtxAlpha0 = createMockCtx();
+      grid.render(mockCtxAlpha0, 1920, 1080, { panelBgColor: 'rgba(0, 0, 0, 0)' });
+      expect(vi.mocked(mockCtxAlpha0.fill).mock.calls.length).toBe(baseFillCount);
+    });
+
+    it('[RENDER-GRID-003] 투명 와이어프레임 전환 후에도 세로 시안선, 가로 오렌지선, 중앙 척추선, 교차점 노드가 온전히 렌더링된다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+      const mockCtx = createMockCtx();
+
+      grid.render(mockCtx, 1920, 1080);
+
+      // 세로선 및 가로선 스트로크 수행 확인
+      expect(vi.mocked(mockCtx.stroke).mock.calls.length).toBeGreaterThan(0);
+      // 중앙 척추선 코어 두께 3.5 적용 확인
+      expect(mockCtx.lineWidths.includes(3.5)).toBe(true);
+      // 교차점 노드 코어 (#FFFFFF) 렌더링 확인
+      expect(mockCtx.fillStyles.includes('#FFFFFF')).toBe(true);
+      // 교차점 노드 보조 앰버 (#FFCB4D) 렌더링 확인
+      expect(mockCtx.strokeStyles.includes('#FFCB4D')).toBe(true);
     });
   });
 });

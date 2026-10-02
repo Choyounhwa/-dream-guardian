@@ -46,8 +46,8 @@ export interface DreamGridConfig {
   centerSpineColor?: string; // 중앙 척추선 청백색 코어 (#C8F5FF)
   crossingNodeColor?: string; // 교차점 노드 주 컬러 (#FFFFFF)
   crossingNodeSecondaryColor?: string; // 교차점 노드 보조 컬러 (#FFCB4D)
-  panelDepthStart?: number; // 전경 패널 음영 시작 깊이 비율 (기본값: 0.55)
-  panelBgColor?: string; // 전경 패널 메탈릭 베이스 (기본값: rgba(10, 16, 32, 0.45))
+  panelDepthStart?: number; // 전경 패널 음영 시작 깊이 비율 (기본값: 0.50)
+  panelBgColor?: string; // 전경 패널 베이스 (기본값: 'transparent', 지정 시 해당 색상으로 quad fill)
   speed?: number;
   cellAspect?: number;
   hasCeiling?: boolean;
@@ -57,6 +57,15 @@ export interface DreamGridConfig {
   zones?: readonly FitnessZone[]; // 대상 피트니스 존 목록 (기본값: DEFAULT_FITNESS_ZONES)
   bgImage?: HTMLImageElement | null; // 챕터/메뉴 배경 이미지
   bgDimAlpha?: number; // 배경 이미지 디밍 오버레이 투명도 (기본값: 0.45)
+}
+
+function isColorTransparent(color?: string | null): boolean {
+  if (!color) return true;
+  const trimmed = color.trim().toLowerCase();
+  if (trimmed === 'transparent' || trimmed === 'none') return true;
+  if (/^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0(?:\.0+)?\s*\)$/.test(trimmed)) return true;
+  if (/^#([0-9a-f]{6}|[0-9a-f]{3})00$/i.test(trimmed)) return true;
+  return false;
 }
 
 function toRgba(color: string, alpha: number): string {
@@ -341,39 +350,42 @@ export class DreamGrid {
     const colCount = Math.ceil((w * 0.5) / stepXBottom) + 2;
 
     // ── 1. 전경 패널 음영 (Modular Panel Grooves) ──
-    // depthRatio >= panelDepthStart (기본 0.55) 영역의 가로/세로 그리드 사각 셀(quad)에 다크 메탈릭 패널 fill
-    const sortedY = [...hLinesY].sort((a, b) => a - b);
-    const panelBoundaries = [...sortedY];
-    if (panelBoundaries.length === 0 || panelBoundaries[panelBoundaries.length - 1] < h) {
-      panelBoundaries.push(h);
-    }
+    // panelBgColor가 투명이 아닌 경우에만 quad fill 연산 수행
+    // (기본값 'transparent' 시 완전 건너뛰어 웹캠 투과율 100% 보장 및 불필요한 드로우콜 최적화)
+    if (!isColorTransparent(panelBgColor)) {
+      const sortedY = [...hLinesY].sort((a, b) => a - b);
+      const panelBoundaries = [...sortedY];
+      if (panelBoundaries.length === 0 || panelBoundaries[panelBoundaries.length - 1] < h) {
+        panelBoundaries.push(h);
+      }
 
-    ctx.fillStyle = panelBgColor;
-    for (let i = 0; i < panelBoundaries.length - 1; i++) {
-      const y0 = panelBoundaries[i];
-      const y1 = panelBoundaries[i + 1];
-      const d0 = depthRatioFromY(y0, vy, floorH);
-      const d1 = depthRatioFromY(y1, vy, floorH);
-      if (d1 < panelDepthStart) continue;
+      ctx.fillStyle = panelBgColor;
+      for (let i = 0; i < panelBoundaries.length - 1; i++) {
+        const y0 = panelBoundaries[i];
+        const y1 = panelBoundaries[i + 1];
+        const d0 = depthRatioFromY(y0, vy, floorH);
+        const d1 = depthRatioFromY(y1, vy, floorH);
+        if (d1 < panelDepthStart) continue;
 
-      const effD0 = Math.max(d0, panelDepthStart);
-      const effY0 = vy + floorH * effD0;
+        const effD0 = Math.max(d0, panelDepthStart);
+        const effY0 = vy + floorH * effD0;
 
-      for (let j = -colCount; j < colCount; j++) {
-        const x0Far = vx + j * stepXBottom * effD0;
-        const x1Far = vx + (j + 1) * stepXBottom * effD0;
-        const x0Near = vx + j * stepXBottom * d1;
-        const x1Near = vx + (j + 1) * stepXBottom * d1;
+        for (let j = -colCount; j < colCount; j++) {
+          const x0Far = vx + j * stepXBottom * effD0;
+          const x1Far = vx + (j + 1) * stepXBottom * effD0;
+          const x0Near = vx + j * stepXBottom * d1;
+          const x1Near = vx + (j + 1) * stepXBottom * d1;
 
-        if (Math.max(x0Near, x1Near) < -30 || Math.min(x0Far, x1Far) > w + 30) continue;
+          if (Math.max(x0Near, x1Near) < -30 || Math.min(x0Far, x1Far) > w + 30) continue;
 
-        ctx.beginPath();
-        ctx.moveTo(x0Far, effY0);
-        ctx.lineTo(x1Far, effY0);
-        ctx.lineTo(x1Near, y1);
-        ctx.lineTo(x0Near, y1);
-        ctx.closePath();
-        ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(x0Far, effY0);
+          ctx.lineTo(x1Far, effY0);
+          ctx.lineTo(x1Near, y1);
+          ctx.lineTo(x0Near, y1);
+          ctx.closePath();
+          ctx.fill();
+        }
       }
     }
 

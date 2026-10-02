@@ -22,7 +22,7 @@ export const CENTER_SPINE_COLOR = '#E0F7FF'; // 중앙 척추선 초고휘도 �
 export const CROSSING_NODE_COLOR = '#FFFFFF'; // 교차점 노드 주 색상
 export const CROSSING_NODE_SECONDARY_COLOR = '#FFCB4D'; // 교차점 노드 보조 색상
 export const PANEL_DEPTH_START = 0.50; // 전경 패널 음영 시작 깊이 비율 (0.50 ~ 1.0)
-export const PANEL_BG_COLOR = 'rgba(6, 10, 18, 0.90)'; // 전경 딥 차콜 메탈릭 베이스 (초고대비)
+export const PANEL_BG_COLOR = 'transparent'; // 전경 패널 기본 투명 (Issue #294: 웹캠 및 배경 투과율 100% 보장)
 
 // 선 두께 원근 다이내믹스 규격
 export const TRANSVERSE_MAX_WIDTH = 6.0; // 가로선 전경 최대 두께
