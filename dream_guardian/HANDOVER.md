@@ -193,10 +193,38 @@
                          ↓
 [그리드 개선]   #294 (완료) → #295 (완료) (원근 그리드 두께 증가, 세로선 2-Pass 글로우, 메트로놈 비트 플래시)
                          ↓
-[시스템 리팩토링] #297 (완료) → #298 (완료) → #299 (완료) → #300 (완료) → #301 [▶ NEXT] (메인 게임 루프 씬 디렉터 분리: SceneDirector)
+[시스템 리팩토링] #297 (완료) → #298 (완료) → #299 (완료) → #300 (완료) → #301 (완료) → #302 (완료)
 ```
 
 ---
+
+## 2026-10-03 완료: [REFACTOR-MAIN-002 / #302] 메인 앱 부트스트랩 및 이벤트 리스너 분리 (AppBootstrap)
+
+> #302 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (155개 파일 1,973개 테스트 통과, build 성공).
+> - **AppBootstrap 신설 (`src/core/AppBootstrap.ts`)**:
+>   - DOM 캔버스 마운트, 리사이즈 이벤트 바인딩
+>   - 웹캠/MediaPipe 초기화 플로우(`ensureCameraStarted`) 캡슐화
+>   - 키보드/터치/클릭 폴백 이벤트 리스너 등록 및 생명주기(`init`, `start`, `dispose`) 일원화
+>   - 코어 시스템 외부 노출 프로퍼티 제공
+> - **main.ts 극단적 경량화 (`src/main.ts`)**:
+>   - 1,800줄 모놀리스 스크립트를 단 **27줄의 엔트리포인트**로 대폭 감축 (< 200줄 요건 완벽 달성)
+> - **단위 테스트 증빙**:
+>   - `tests/unit/app-bootstrap.test.ts` (4개 테스트) 100% Pass
+>
+> ---
+
+## 2026-10-03 완료: [REFACTOR-MAIN-001 / #301] 메인 게임 루프 씬 디렉터 분리 (SceneDirector)
+
+> #301 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (154개 파일 1,969개 테스트 통과, build 성공).
+> - **SceneDirector 신설 (`src/core/SceneDirector.ts`)**:
+>   - GameSessionContext 연계 씬 생명주기 및 7단계 렌더 레이어 합성 파이프라인
+>   - 상태별(LOADING, MENU, READY_POSITION, GAME, RESULT) update/render 라우팅 캡슐화
+> - **main.ts 경량화**:
+>   - 2,494줄에서 1,794줄로 1차 경량화
+> - **단위 테스트 증빙**:
+>   - `tests/unit/scene-director.test.ts` (16개 테스트) 100% Pass
+>
+> ---
 
 ## 2026-10-03 완료: [REFACTOR-CORE-001 / #300] 런타임 게임 세션 컨텍스트 구조화 (GameSessionContext)
 
