@@ -158,8 +158,8 @@
 
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
-| 43 | **#297** | [REFACTOR-GEOM-001] 모션·포즈 공통 기하학 유틸리티(PoseGeometry) 신설 및 ArmReachAnswerSelector 연동 | 없음 | `[▶ NEXT]` |
-| 44 | **#298** | [REFACTOR-GEOM-002] 포즈 매처 및 커서 트래커 공통 기하학 유틸리티(PoseGeometry) 2차 연동 | #297 | `[ ] 대기` |
+| 43 | **#297** | [REFACTOR-GEOM-001] 모션·포즈 공통 기하학 유틸리티(PoseGeometry) 신설 및 ArmReachAnswerSelector 연동 | 없음 | `[✔] 완료` |
+| 44 | **#298** | [REFACTOR-GEOM-002] 포즈 매처 및 커서 트래커 공통 기하학 유틸리티(PoseGeometry) 2차 연동 | #297 | `[▶ NEXT]` |
 | 45 | **#299** | [REFACTOR-FX-001] EffectManager 비주얼 이펙트 서브모듈 분리 (CombatVFX & ScreenFX) | 없음 | `[ ] 대기` |
 | 46 | **#300** | [REFACTOR-CORE-001] 런타임 게임 세션 컨텍스트 구조화 (GameSessionContext) | 없음 | `[ ] 대기` |
 | 47 | **#301** | [REFACTOR-MAIN-001] 메인 게임 루프 씬 디렉터 분리 (SceneDirector) | #300 | `[ ] 대기` |
@@ -193,8 +193,24 @@
                          ↓
 [그리드 개선]   #294 (완료) → #295 (완료) (원근 그리드 두께 증가, 세로선 2-Pass 글로우, 메트로놈 비트 플래시)
                          ↓
-[시스템 리팩토링] #297 [▶ NEXT] (PoseGeometry 유틸리티 및 ArmReachAnswerSelector 연동)
+[시스템 리팩토링] #297 (완료) → #298 [▶ NEXT] (PoseGeometry 2차 연동: PostureMatcher & CursorTracker)
 ```
+
+---
+
+## 2026-10-03 완료: [REFACTOR-GEOM-001 / #297] 모션·포즈 공통 기하학 유틸리티(PoseGeometry) 신설 및 ArmReachAnswerSelector 연동
+
+> #297 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (150개 파일 1,895개 테스트 통과, build 성공).
+> - **순수 기하학 유틸리티 신설**:
+>   - `src/utils/PoseGeometry.ts`: `mirrorX`, `mirrorPoint`, `calcDistance`, `calcShoulderWidth`, `normalizeByShoulder`, `calcLateralReach`, `calcDominanceRatio`, `calcArmExtensionRatio`, `calcVelocity`, `calcNormalizedZoneDistance` 순수 함수 및 `PoseGeometry` 네임스페이스 객체 구현.
+>   - `src/utils/index.ts`: 모듈 re-export 추가.
+> - **ArmReachAnswerSelector 연동**:
+>   - `src/input/ArmReachAnswerSelector.ts`: 중복 구현된 좌표 미러링, 어깨 너비 계산, 가로 뻗음 비율, 수평/수직 우세비, 팔 연장 비율, 속도 벡터 및 존 중심 정규화 거리를 `PoseGeometry` 순수 함수 호출로 일원화.
+>   - 모든 판정 수치 및 인터페이스 계약 100% 동일 유지.
+> - **단위 테스트 검증**:
+>   - `tests/unit/pose-geometry.test.ts`: 신규 순수 함수 24개 테스트 케이스 작성 및 통과.
+>   - `tests/unit/arm-reach-answer-selector.test.ts`: 기존 27개 테스트 100% 통과.
+>   - 전체 단위 테스트 150개 파일 1,895개 테스트 100% Pass 및 `npm run build` 번들 검증 완료.
 
 ---
 
