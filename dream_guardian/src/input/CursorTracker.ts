@@ -13,6 +13,14 @@
 import type { NormalizedLandmark } from '../types/index.js';
 import type { CursorType } from './AnswerSelector.js';
 import { CURSOR_CONFIDENCE_THRESHOLD, CURSOR_DIMENSIONS } from '../../config/cursor.config.js';
+import {
+  mirrorPoint,
+  calcDistance,
+  calcVector,
+  calcMidpoint,
+  lerp,
+  clamp,
+} from '../utils/PoseGeometry.js';
 
 export interface CursorSize {
   /** 원형/손 커서의 경우 반지름 (픽셀 단위) */
@@ -147,10 +155,7 @@ export class CursorTracker {
     }
 
     // 기본 정규화(0~1) 좌표
-    return {
-      x: isMirrored ? 1 - pt.x : pt.x,
-      y: pt.y,
-    };
+    return mirrorPoint(pt, isMirrored, false);
   }
 
   /**
@@ -177,9 +182,7 @@ export class CursorTracker {
 
     // 1순위: 양 손가락 관절 모두 유효 -> 중지 손가락 시작부(3rd MCP Joint, 검지-소지 기저선 중심) (Issue #145)
     if (indexKnuckle && pinkyKnuckle && indexConf >= 0.35 && pinkyConf >= 0.35) {
-      const handDx = indexKnuckle.x - wrist.x;
-      const handDy = indexKnuckle.y - wrist.y;
-      const handLength = Math.sqrt(handDx * handDx + handDy * handDy);
+      const handLength = calcDistance(wrist, indexKnuckle);
 
       if (handLength > 0.005 && handLength <= maxHandLen) {
         return {
@@ -195,14 +198,13 @@ export class CursorTracker {
 
     // 2순위: 단일 손가락 관절 유효 (검지 기저 또는 소지 기저)
     if (indexKnuckle && indexConf >= 0.35) {
-      const handDx = indexKnuckle.x - wrist.x;
-      const handDy = indexKnuckle.y - wrist.y;
-      const handLength = Math.sqrt(handDx * handDx + handDy * handDy);
+      const handVec = calcVector(wrist, indexKnuckle);
+      const handLength = calcDistance(wrist, indexKnuckle);
       if (handLength > 0.005 && handLength <= maxHandLen) {
         return {
           pt: {
-            x: wrist.x + handDx * 0.85,
-            y: wrist.y + handDy * 0.85,
+            x: wrist.x + handVec.x * 0.85,
+            y: wrist.y + handVec.y * 0.85,
           },
           confidence: Math.max(wristConf, indexConf),
           handLength,
@@ -210,14 +212,13 @@ export class CursorTracker {
       }
     }
     if (pinkyKnuckle && pinkyConf >= 0.35) {
-      const handDx = pinkyKnuckle.x - wrist.x;
-      const handDy = pinkyKnuckle.y - wrist.y;
-      const handLength = Math.sqrt(handDx * handDx + handDy * handDy);
+      const handVec = calcVector(wrist, pinkyKnuckle);
+      const handLength = calcDistance(wrist, pinkyKnuckle);
       if (handLength > 0.005 && handLength <= maxHandLen) {
         return {
           pt: {
-            x: wrist.x + handDx * 0.85,
-            y: wrist.y + handDy * 0.85,
+            x: wrist.x + handVec.x * 0.85,
+            y: wrist.y + handVec.y * 0.85,
           },
           confidence: Math.max(wristConf, pinkyConf),
           handLength,
@@ -227,14 +228,13 @@ export class CursorTracker {
 
     // 3순위: 손가락 관절 부재/이탈 시 팔꿈치가 손목과 유효 범위 내에 있는 경우: 전완 방향 22% 연장
     if (elbow && (elbow.visibility ?? 0) >= 0.35) {
-      const armDx = wrist.x - elbow.x;
-      const armDy = wrist.y - elbow.y;
-      const armLen = Math.sqrt(armDx * armDx + armDy * armDy);
+      const armVec = calcVector(elbow, wrist);
+      const armLen = calcDistance(elbow, wrist);
       if (armLen > 0.01 && armLen <= maxArmLen) {
         return {
           pt: {
-            x: wrist.x + armDx * 0.22,
-            y: wrist.y + armDy * 0.22,
+            x: wrist.x + armVec.x * 0.22,
+            y: wrist.y + armVec.y * 0.22,
           },
           confidence: wristConf,
           handLength: armLen * 0.30,
@@ -244,15 +244,14 @@ export class CursorTracker {
 
     // 4순위 (Issue #144): 팔꿈치 결손(화면 밖 이탈) 시 어깨-손목 벡터 기반 40~70px 전진 (상반신 근접 가상 뷰포트 환경)
     if (isVirtual && shoulder && (shoulder.visibility ?? 0) >= 0.35) {
-      const fullArmDx = wrist.x - shoulder.x;
-      const fullArmDy = wrist.y - shoulder.y;
-      const fullArmLen = Math.sqrt(fullArmDx * fullArmDx + fullArmDy * fullArmDy);
+      const fullArmVec = calcVector(shoulder, wrist);
+      const fullArmLen = calcDistance(shoulder, wrist);
       if (fullArmLen > 20 && fullArmLen <= maxFullArmLen) {
-        const advance = Math.max(40, Math.min(70, fullArmLen * 0.12));
+        const advance = clamp(fullArmLen * 0.12, 40, 70);
         return {
           pt: {
-            x: wrist.x + (fullArmDx / fullArmLen) * advance,
-            y: wrist.y + (fullArmDy / fullArmLen) * advance,
+            x: wrist.x + (fullArmVec.x / fullArmLen) * advance,
+            y: wrist.y + (fullArmVec.y / fullArmLen) * advance,
           },
           confidence: wristConf,
           handLength: advance * 2.0,
@@ -292,37 +291,33 @@ export class CursorTracker {
 
     // 1순위: 양 귀 간격 (#7-#8)
     if (leftEar && rightEar && earConf >= 0.35) {
-      const eDx = leftEar.x - rightEar.x;
-      const eDy = leftEar.y - rightEar.y;
-      const earDist = Math.sqrt(eDx * eDx + eDy * eDy);
+      const earDist = calcDistance(leftEar, rightEar);
       const earDistPx = isVirtual ? earDist : earDist * vw;
       if (earDistPx >= 30) {
         return {
-          radiusX: Math.max(CURSOR_DIMENSIONS.head.minRadiusX, Math.min(CURSOR_DIMENSIONS.head.maxRadiusX, Math.round(earDistPx * 0.45))),
-          radiusY: Math.max(CURSOR_DIMENSIONS.head.minRadiusY, Math.min(CURSOR_DIMENSIONS.head.maxRadiusY, Math.round(earDistPx * 0.60))),
+          radiusX: clamp(Math.round(earDistPx * 0.45), CURSOR_DIMENSIONS.head.minRadiusX, CURSOR_DIMENSIONS.head.maxRadiusX),
+          radiusY: clamp(Math.round(earDistPx * 0.60), CURSOR_DIMENSIONS.head.minRadiusY, CURSOR_DIMENSIONS.head.maxRadiusY),
         };
       }
     }
 
     // 2순위 (귀 가림/헤드셋 시): 양 눈 간격 (#2-#5) × 2.6
     if (leftEye && rightEye && eyeConf >= 0.35) {
-      const eyeDx = leftEye.x - rightEye.x;
-      const eyeDy = leftEye.y - rightEye.y;
-      const eyeDist = Math.sqrt(eyeDx * eyeDx + eyeDy * eyeDy);
+      const eyeDist = calcDistance(leftEye, rightEye);
       const eyeDistPx = isVirtual ? eyeDist : eyeDist * vw;
       if (eyeDistPx >= 12) {
         const estimatedHeadWidth = eyeDistPx * 2.6;
         return {
-          radiusX: Math.max(CURSOR_DIMENSIONS.head.minRadiusX, Math.min(CURSOR_DIMENSIONS.head.maxRadiusX, Math.round(estimatedHeadWidth * 0.45))),
-          radiusY: Math.max(CURSOR_DIMENSIONS.head.minRadiusY, Math.min(CURSOR_DIMENSIONS.head.maxRadiusY, Math.round(estimatedHeadWidth * 0.60))),
+          radiusX: clamp(Math.round(estimatedHeadWidth * 0.45), CURSOR_DIMENSIONS.head.minRadiusX, CURSOR_DIMENSIONS.head.maxRadiusX),
+          radiusY: clamp(Math.round(estimatedHeadWidth * 0.60), CURSOR_DIMENSIONS.head.minRadiusY, CURSOR_DIMENSIONS.head.maxRadiusY),
         };
       }
     }
 
     // 3순위 (눈도 가림 시) 및 기본 Fallback: 어깨 너비 기반 scaleFactor 비례
     return {
-      radiusX: Math.max(CURSOR_DIMENSIONS.head.minRadiusX, Math.min(CURSOR_DIMENSIONS.head.maxRadiusX, Math.round(CURSOR_DIMENSIONS.head.defaultRadiusX * scaleFactor))),
-      radiusY: Math.max(CURSOR_DIMENSIONS.head.minRadiusY, Math.min(CURSOR_DIMENSIONS.head.maxRadiusY, Math.round(CURSOR_DIMENSIONS.head.defaultRadiusY * scaleFactor))),
+      radiusX: clamp(Math.round(CURSOR_DIMENSIONS.head.defaultRadiusX * scaleFactor), CURSOR_DIMENSIONS.head.minRadiusX, CURSOR_DIMENSIONS.head.maxRadiusX),
+      radiusY: clamp(Math.round(CURSOR_DIMENSIONS.head.defaultRadiusY * scaleFactor), CURSOR_DIMENSIONS.head.minRadiusY, CURSOR_DIMENSIONS.head.maxRadiusY),
     };
   }
 
@@ -342,12 +337,12 @@ export class CursorTracker {
     let smoothedY = targetY;
 
     if (isFallback && prev) {
-      smoothedX = prev.x + (targetX - prev.x) * lerpFactor;
-      smoothedY = prev.y + (targetY - prev.y) * lerpFactor;
+      smoothedX = lerp(prev.x, targetX, lerpFactor);
+      smoothedY = lerp(prev.y, targetY, lerpFactor);
     }
 
-    const clampedX = Math.max(margin, Math.min(1 - margin, smoothedX));
-    const clampedY = Math.max(margin, Math.min(1 - margin, smoothedY));
+    const clampedX = clamp(smoothedX, margin, 1 - margin);
+    const clampedY = clamp(smoothedY, margin, 1 - margin);
 
     this._smoothedPositions.set(type, { x: clampedX, y: clampedY });
     return { x: clampedX, y: clampedY };
@@ -443,11 +438,9 @@ export class CursorTracker {
       (leftShoulder.visibility ?? 1) >= 0.35 &&
       (rightShoulder.visibility ?? 1) >= 0.35
     ) {
-      const sDx = leftShoulder.x - rightShoulder.x;
-      const sDy = leftShoulder.y - rightShoulder.y;
-      shoulderDist = Math.sqrt(sDx * sDx + sDy * sDy);
+      shoulderDist = calcDistance(leftShoulder, rightShoulder);
     }
-    const scaleFactor = Math.max(0.70, Math.min(2.0, shoulderDist / baselineShoulder));
+    const scaleFactor = clamp(shoulderDist / baselineShoulder, 0.70, 2.0);
 
     // 1. 머리/얼굴 커서 (코 #0 → 양 눈 중점 → 양 귀 중점 → 양 어깨 중점 4단계 Fallback)
     const nose = landmarks[0];
@@ -462,19 +455,19 @@ export class CursorTracker {
     }
     if (leftEye && rightEye && (leftEye.visibility ?? 1) >= 0.35 && (rightEye.visibility ?? 1) >= 0.35) {
       headCandidates.push({
-        pt: { x: (leftEye.x + rightEye.x) / 2, y: (leftEye.y + rightEye.y) / 2 },
+        pt: calcMidpoint(leftEye, rightEye),
         confidence: Math.min(leftEye.visibility ?? 1, rightEye.visibility ?? 1),
       });
     }
     if (leftEar && rightEar && (leftEar.visibility ?? 1) >= 0.35 && (rightEar.visibility ?? 1) >= 0.35) {
       headCandidates.push({
-        pt: { x: (leftEar.x + rightEar.x) / 2, y: (leftEar.y + rightEar.y) / 2 },
+        pt: calcMidpoint(leftEar, rightEar),
         confidence: Math.min(leftEar.visibility ?? 1, rightEar.visibility ?? 1),
       });
     }
     if (leftShoulder && rightShoulder && (leftShoulder.visibility ?? 1) >= 0.35 && (rightShoulder.visibility ?? 1) >= 0.35) {
       headCandidates.push({
-        pt: { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 },
+        pt: calcMidpoint(leftShoulder, rightShoulder),
         confidence: Math.min(leftShoulder.visibility ?? 1, rightShoulder.visibility ?? 1),
       });
     }
@@ -500,19 +493,17 @@ export class CursorTracker {
     const hipCandidates: Array<{ pt: { x: number; y: number }; confidence: number }> = [];
 
     if (leftHip && rightHip && (leftHip.visibility ?? 1) >= CONFIDENCE_THRESHOLD && (rightHip.visibility ?? 1) >= CONFIDENCE_THRESHOLD) {
-      const midX = (leftHip.x + rightHip.x) / 2;
-      const midY = (leftHip.y + rightHip.y) / 2;
-      hipCandidates.push({ pt: { x: midX, y: midY }, confidence: Math.min(leftHip.visibility ?? 1, rightHip.visibility ?? 1) });
+      const hipMid = calcMidpoint(leftHip, rightHip);
+      hipCandidates.push({ pt: hipMid, confidence: Math.min(leftHip.visibility ?? 1, rightHip.visibility ?? 1) });
 
       if (leftShoulder && rightShoulder && (leftShoulder.visibility ?? 1) >= 0.35 && (rightShoulder.visibility ?? 1) >= 0.35) {
-        const sMidX = (leftShoulder.x + rightShoulder.x) / 2;
-        const sMidY = (leftShoulder.y + rightShoulder.y) / 2;
+        const shoulderMid = calcMidpoint(leftShoulder, rightShoulder);
         hipCandidates.push({
-          pt: { x: (midX + sMidX) / 2, y: (midY + sMidY) / 2 },
+          pt: calcMidpoint(hipMid, shoulderMid),
           confidence: Math.min(leftHip.visibility ?? 1, rightHip.visibility ?? 1),
         });
         hipCandidates.push({
-          pt: { x: sMidX, y: sMidY },
+          pt: shoulderMid,
           confidence: Math.min(leftShoulder.visibility ?? 1, rightShoulder.visibility ?? 1),
         });
       }
@@ -522,20 +513,19 @@ export class CursorTracker {
     if (resolvedHip) {
       let hipHalfWidth = Math.round(CURSOR_DIMENSIONS.hip.defaultHalfWidth * scaleFactor);
       if (leftHip && rightHip) {
-        const hDx = leftHip.x - rightHip.x;
-        const hDy = leftHip.y - rightHip.y;
-        const hipDist = Math.sqrt(hDx * hDx + hDy * hDy);
+        const hipDist = calcDistance(leftHip, rightHip);
         const hipDistPx = isVirtual ? hipDist : hipDist * vw;
         if (hipDistPx > 20) {
           // Issue #145: 힙과 연결된 양다리 시작포인트(leftHip~rightHip) 사이 거리의 1.5배
           // 전체 너비 = hipDistPx * 1.5 -> 반너비 = hipDistPx * 0.75
-          hipHalfWidth = Math.max(
+          hipHalfWidth = clamp(
+            Math.round(hipDistPx * 0.75),
             CURSOR_DIMENSIONS.hip.minHalfWidth,
-            Math.min(CURSOR_DIMENSIONS.hip.maxHalfWidth, Math.round(hipDistPx * 0.75)),
+            CURSOR_DIMENSIONS.hip.maxHalfWidth,
           );
         }
       }
-      hipHalfWidth = Math.max(CURSOR_DIMENSIONS.hip.minHalfWidth, Math.min(CURSOR_DIMENSIONS.hip.maxHalfWidth, hipHalfWidth));
+      hipHalfWidth = clamp(hipHalfWidth, CURSOR_DIMENSIONS.hip.minHalfWidth, CURSOR_DIMENSIONS.hip.maxHalfWidth);
       // Issue #145: 납작한 마름모 상하 반높이 (halfHeight = halfWidth * 0.45)
       const hipHalfHeight = Math.round(hipHalfWidth * CURSOR_DIMENSIONS.hip.aspectRatio);
 
@@ -577,7 +567,7 @@ export class CursorTracker {
       if (leftElbow && (leftElbow.visibility ?? 0) >= 0.35) {
         // 전완 중점
         leftHandCandidates.push({
-          pt: { x: (leftWrist.x + leftElbow.x) / 2, y: (leftWrist.y + leftElbow.y) / 2 },
+          pt: calcMidpoint(leftWrist, leftElbow),
           confidence: Math.min(leftWrist.visibility ?? 1, leftElbow.visibility ?? 0),
         });
         // 팔꿈치
@@ -586,7 +576,7 @@ export class CursorTracker {
         if (leftShoulder && (leftShoulder.visibility ?? 0) >= 0.35) {
           // 상완 중점
           leftHandCandidates.push({
-            pt: { x: (leftElbow.x + leftShoulder.x) / 2, y: (leftElbow.y + leftShoulder.y) / 2 },
+            pt: calcMidpoint(leftElbow, leftShoulder),
             confidence: Math.min(leftElbow.visibility ?? 0, leftShoulder.visibility ?? 0),
           });
           // 어깨
@@ -595,7 +585,7 @@ export class CursorTracker {
       } else if (leftShoulder && (leftShoulder.visibility ?? 0) >= 0.35) {
         // 팔꿈치 결손 시 어깨 직접 연결 Fallback
         leftHandCandidates.push({
-          pt: { x: (leftWrist.x + leftShoulder.x) / 2, y: (leftWrist.y + leftShoulder.y) / 2 },
+          pt: calcMidpoint(leftWrist, leftShoulder),
           confidence: Math.min(leftWrist.visibility ?? 1, leftShoulder.visibility ?? 0),
         });
         leftHandCandidates.push({ pt: leftShoulder, confidence: leftShoulder.visibility ?? 0 });
@@ -611,7 +601,7 @@ export class CursorTracker {
           handRadius = Math.max(handRadius, Math.round(handLenPx * 0.45));
         }
       }
-      handRadius = Math.max(CURSOR_DIMENSIONS.hand.minRadius, Math.min(CURSOR_DIMENSIONS.hand.maxRadius, handRadius));
+      handRadius = clamp(handRadius, CURSOR_DIMENSIONS.hand.minRadius, CURSOR_DIMENSIONS.hand.maxRadius);
 
       this._cursors.set('leftHand', {
         type: 'leftHand',
@@ -646,7 +636,7 @@ export class CursorTracker {
       if (rightElbow && (rightElbow.visibility ?? 0) >= 0.35) {
         // 전완 중점
         rightHandCandidates.push({
-          pt: { x: (rightWrist.x + rightElbow.x) / 2, y: (rightWrist.y + rightElbow.y) / 2 },
+          pt: calcMidpoint(rightWrist, rightElbow),
           confidence: Math.min(rightWrist.visibility ?? 1, rightElbow.visibility ?? 0),
         });
         // 팔꿈치
@@ -655,7 +645,7 @@ export class CursorTracker {
         if (rightShoulder && (rightShoulder.visibility ?? 0) >= 0.35) {
           // 상완 중점
           rightHandCandidates.push({
-            pt: { x: (rightElbow.x + rightShoulder.x) / 2, y: (rightElbow.y + rightShoulder.y) / 2 },
+            pt: calcMidpoint(rightElbow, rightShoulder),
             confidence: Math.min(rightElbow.visibility ?? 0, rightShoulder.visibility ?? 0),
           });
           // 어깨
@@ -664,7 +654,7 @@ export class CursorTracker {
       } else if (rightShoulder && (rightShoulder.visibility ?? 0) >= 0.35) {
         // 팔꿈치 결손 시 어깨 직접 연결 Fallback
         rightHandCandidates.push({
-          pt: { x: (rightWrist.x + rightShoulder.x) / 2, y: (rightWrist.y + rightShoulder.y) / 2 },
+          pt: calcMidpoint(rightWrist, rightShoulder),
           confidence: Math.min(rightWrist.visibility ?? 1, rightShoulder.visibility ?? 0),
         });
         rightHandCandidates.push({ pt: rightShoulder, confidence: rightShoulder.visibility ?? 0 });
@@ -680,7 +670,7 @@ export class CursorTracker {
           handRadius = Math.max(handRadius, Math.round(handLenPx * 0.45));
         }
       }
-      handRadius = Math.max(CURSOR_DIMENSIONS.hand.minRadius, Math.min(CURSOR_DIMENSIONS.hand.maxRadius, handRadius));
+      handRadius = clamp(handRadius, CURSOR_DIMENSIONS.hand.minRadius, CURSOR_DIMENSIONS.hand.maxRadius);
 
       this._cursors.set('rightHand', {
         type: 'rightHand',

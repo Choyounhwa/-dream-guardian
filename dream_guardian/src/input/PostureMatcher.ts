@@ -25,6 +25,13 @@ import {
   type TemporalCoverageConfig,
 } from '../../config/judgment.config.js';
 import type { AnswerPosture, BodyPart, PartGate, PostureProgress } from '../types/posture.js';
+import {
+  calcPointsVariance,
+  isPointInRect,
+  calcRectOutsideDistance,
+  calcNormalizedRadialDistance,
+  clampPointToRect,
+} from '../utils/PoseGeometry.js';
 
 export type { ZoneSoftBoundaryConfig, TemporalCoverageConfig };
 
@@ -70,22 +77,7 @@ export interface MatchPostureOptions {
  * 좌표 이력으로부터 2차원 분산 계산
  */
 export function computePointVariance(positions: { x: number; y: number }[]): number {
-  if (!positions || positions.length < 2) return 0;
-  let sumX = 0;
-  let sumY = 0;
-  for (const p of positions) {
-    sumX += p.x;
-    sumY += p.y;
-  }
-  const meanX = sumX / positions.length;
-  const meanY = sumY / positions.length;
-  let sumSqDist = 0;
-  for (const p of positions) {
-    const dx = p.x - meanX;
-    const dy = p.y - meanY;
-    sumSqDist += dx * dx + dy * dy;
-  }
-  return sumSqDist / positions.length;
+  return calcPointsVariance(positions);
 }
 
 /**
@@ -154,12 +146,7 @@ export function isInsideZone(
   zone: FitnessZone,
   margin = 0
 ): boolean {
-  return (
-    pos.x >= zone.x - margin &&
-    pos.x <= zone.x + zone.width + margin &&
-    pos.y >= zone.y - margin &&
-    pos.y <= zone.y + zone.height + margin
-  );
+  return isPointInRect(pos, zone, margin);
 }
 
 /**
@@ -175,9 +162,7 @@ export function computeZoneWeight(
   edgeWeight = POSTURE_TIMING_CONFIG.edgeWeight,
   snapRadius = DEFAULT_ZONE_SOFT_BOUNDARY_CONFIG.snapRadius
 ): number {
-  const distX = Math.max(0, zone.x - pos.x, pos.x - (zone.x + zone.width));
-  const distY = Math.max(0, zone.y - pos.y, pos.y - (zone.y + zone.height));
-  const outsideDist = Math.sqrt(distX * distX + distY * distY);
+  const outsideDist = calcRectOutsideDistance(pos, zone);
 
   if (outsideDist > 0) {
     if (outsideDist >= snapRadius) {
@@ -187,11 +172,7 @@ export function computeZoneWeight(
   }
 
   // 존 내부: 중심(1.5)에서 가장자리(0.75)까지 연속 감쇠
-  const cx = zone.x + zone.width / 2;
-  const cy = zone.y + zone.height / 2;
-  const dx = Math.abs(pos.x - cx) / (zone.width / 2);
-  const dy = Math.abs(pos.y - cy) / (zone.height / 2);
-  const dist = Math.sqrt(dx * dx + dy * dy);
+  const dist = calcNormalizedRadialDistance(pos, zone);
   if (dist >= 0.99999) return edgeWeight;
   return centerWeight - dist * (centerWeight - edgeWeight);
 }
@@ -364,10 +345,7 @@ export function matchPosture(
       partStates[i].zoneId = zone.id;
       partStates[i].inside = true;
       zoneCovered[zone.id] = true;
-      const evalPos = {
-        x: Math.max(zone.x, Math.min(zone.x + zone.width, cPos.x)),
-        y: Math.max(zone.y, Math.min(zone.y + zone.height, cPos.y)),
-      };
+      const evalPos = clampPointToRect(cPos, zone);
       totalWeight += computeZoneWeight(evalPos, zone, centerWeight, edgeWeight);
     }
 
@@ -413,10 +391,7 @@ export function matchPosture(
         partStates[i].zoneId = zone.id;
         partStates[i].inside = true;
         zoneCovered[zone.id] = true;
-        const evalPos = {
-          x: Math.max(zone.x, Math.min(zone.x + zone.width, cPos.x)),
-          y: Math.max(zone.y, Math.min(zone.y + zone.height, cPos.y)),
-        };
+        const evalPos = clampPointToRect(cPos, zone);
         totalWeight += computeZoneWeight(evalPos, zone, centerWeight, edgeWeight);
         break; // 하나의 목표 존에 안착
       }
