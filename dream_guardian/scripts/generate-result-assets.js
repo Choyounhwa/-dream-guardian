@@ -869,6 +869,175 @@ function generateStarEmpty() {
   return img.toBuffer();
 }
 
+/**
+ * 14~17. rank_stamp_s/a/b/c.png (180 x 180)
+ * 결과 화면 랭크 등급 스탬프 (S/A/B/C) 엠블럼 스탬프
+ */
+function distToSeg(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+  let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+
+function getRankLetterDist(px, py, rank) {
+  let minDist = Infinity;
+  let segs = [];
+  if (rank === 'S') {
+    segs = [
+      [112, 60, 78, 60],
+      [78, 60, 68, 76],
+      [68, 76, 78, 88],
+      [78, 88, 102, 92],
+      [102, 92, 112, 104],
+      [112, 104, 102, 120],
+      [102, 120, 68, 120],
+    ];
+  } else if (rank === 'A') {
+    segs = [
+      [66, 122, 90, 58],
+      [114, 122, 90, 58],
+      [76, 98, 104, 98],
+    ];
+  } else if (rank === 'B') {
+    segs = [
+      [70, 58, 70, 122],
+      [70, 58, 94, 58],
+      [94, 58, 108, 73],
+      [108, 73, 94, 88],
+      [70, 88, 94, 88],
+      [94, 88, 110, 105],
+      [110, 105, 94, 122],
+      [70, 122, 94, 122],
+    ];
+  } else if (rank === 'C') {
+    segs = [
+      [112, 64, 90, 60],
+      [90, 60, 70, 78],
+      [70, 78, 70, 102],
+      [70, 102, 90, 120],
+      [90, 120, 112, 116],
+    ];
+  }
+
+  for (const s of segs) {
+    const d = distToSeg(px, py, s[0], s[1], s[2], s[3]);
+    if (d < minDist) minDist = d;
+  }
+  return minDist;
+}
+
+function generateRankStamp(rank) {
+  const w = 180, h = 180;
+  const img = new RGBAImage(w, h);
+  const cx = 90, cy = 90;
+
+  const colorPalettes = {
+    S: { main: [255, 215, 0], glow: [255, 170, 0], bg: [255, 215, 0] },
+    A: { main: [77, 255, 170], glow: [0, 230, 118], bg: [77, 255, 170] },
+    B: { main: [40, 230, 255], glow: [0, 170, 255], bg: [40, 230, 255] },
+    C: { main: [200, 137, 255], glow: [160, 80, 255], bg: [200, 137, 255] },
+  };
+  const pal = colorPalettes[rank] || colorPalettes.S;
+  const letterR = 6.0;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let rSum = 0, gSum = 0, bSum = 0, aSum = 0;
+
+      for (let sy = 0; sy < 2; sy++) {
+        for (let sx = 0; sx < 2; sx++) {
+          const px = x + (sx + 0.5) * 0.5;
+          const py = y + (sy + 0.5) * 0.5;
+
+          const dCenter = Math.hypot(px - cx, py - cy);
+
+          // 1. 외곽 링 (r: 80, stroke 4px)
+          const dRing1 = Math.abs(dCenter - 80);
+          // 2. 내부 링 (r: 69, stroke 2px)
+          const dRing2 = Math.abs(dCenter - 69);
+
+          // 3. 링 사이 장식 노치 (8개 포인트)
+          let isNotch = false;
+          if (dCenter >= 71 && dCenter <= 77) {
+            const angle = Math.atan2(py - cy, px - cx);
+            const octant = Math.abs(Math.sin(angle * 4));
+            if (octant < 0.15) {
+              isNotch = true;
+            }
+          }
+
+          // 4. 글자 판정
+          const dLetter = getRankLetterDist(px, py, rank);
+
+          let pR = 0, pG = 0, pB = 0, pA = 0;
+
+          if (dLetter <= letterR) {
+            // 글자 본체
+            const core = 1 - dLetter / letterR;
+            pR = Math.round(pal.main[0] * (1 - core * 0.3) + 255 * (core * 0.3));
+            pG = Math.round(pal.main[1] * (1 - core * 0.3) + 255 * (core * 0.3));
+            pB = Math.round(pal.main[2] * (1 - core * 0.3) + 255 * (core * 0.3));
+            pA = 255;
+          } else if (dLetter <= letterR + 2.5) {
+            // 글자 안티앨리어싱
+            const t = (dLetter - letterR) / 2.5;
+            pR = pal.glow[0];
+            pG = pal.glow[1];
+            pB = pal.glow[2];
+            pA = Math.round(255 * (1 - t));
+          } else if (dRing1 <= 2.2) {
+            // 외곽 링
+            const t = dRing1 / 2.2;
+            pR = pal.main[0];
+            pG = pal.main[1];
+            pB = pal.main[2];
+            pA = Math.round(245 * (1 - t * 0.2));
+          } else if (dRing2 <= 1.2) {
+            // 내부 링
+            const t = dRing2 / 1.2;
+            pR = pal.glow[0];
+            pG = pal.glow[1];
+            pB = pal.glow[2];
+            pA = Math.round(220 * (1 - t * 0.3));
+          } else if (isNotch) {
+            pR = pal.main[0];
+            pG = pal.main[1];
+            pB = pal.main[2];
+            pA = 200;
+          } else if (dCenter <= 67) {
+            // 스탬프 내부 은은한 반투명 틴트
+            const radial = 1 - dCenter / 67;
+            pR = pal.bg[0];
+            pG = pal.bg[1];
+            pB = pal.bg[2];
+            pA = Math.round(35 + radial * 25);
+          }
+
+          rSum += pR;
+          gSum += pG;
+          bSum += pB;
+          aSum += pA;
+        }
+      }
+
+      const aAvg = Math.round(aSum / 4);
+      if (aAvg > 0) {
+        img.setPixel(x, y, Math.round(rSum / 4), Math.round(gSum / 4), Math.round(bSum / 4), aAvg);
+      }
+    }
+  }
+
+  return img.toBuffer();
+}
+
+function generateRankStampS() { return generateRankStamp('S'); }
+function generateRankStampA() { return generateRankStamp('A'); }
+function generateRankStampB() { return generateRankStamp('B'); }
+function generateRankStampC() { return generateRankStamp('C'); }
+
 // ─── 4. 실행 및 파일 저장 ───
 
 function main() {
@@ -892,6 +1061,10 @@ function main() {
     { file: 'stat_calorie.png', fn: generateStatCalorie },
     { file: 'star_filled.png', fn: generateStarFilled },
     { file: 'star_empty.png', fn: generateStarEmpty },
+    { file: 'rank_stamp_s.png', fn: generateRankStampS },
+    { file: 'rank_stamp_a.png', fn: generateRankStampA },
+    { file: 'rank_stamp_b.png', fn: generateRankStampB },
+    { file: 'rank_stamp_c.png', fn: generateRankStampC },
   ];
 
   for (const { file, fn } of tasks) {
@@ -901,7 +1074,7 @@ function main() {
     console.log(`[generate-result-assets] ${file} 생성 완료 (${buf.length} bytes)`);
   }
 
-  console.log('[generate-result-assets] 전체 13개 결과 화면 에셋 생성 완료!');
+  console.log('[generate-result-assets] 전체 17개 결과 화면 에셋 생성 완료!');
 }
 
 main();

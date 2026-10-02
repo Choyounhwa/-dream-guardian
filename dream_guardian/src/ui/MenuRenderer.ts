@@ -456,17 +456,33 @@ export class MenuRenderer {
       const baseColor = isAll ? '#FFCB4D' : chInfo.color;
 
       // 카드 배경 및 테두리 (라운드 코너 24px)
-      ctx.fillStyle = isSelected ? `${baseColor}25` : 'rgba(255, 255, 255, 0.05)';
-      ctx.strokeStyle = isSelected ? baseColor : `${baseColor}75`;
-      ctx.lineWidth = isSelected ? 4.0 * scaleX : 2.5 * scaleX;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(item.x, item.y, item.w, item.h, 24 * scaleX);
+      const subCardBgImg = imageLoader.get('menu', 'sublevelCardBg');
+      if (subCardBgImg) {
+        ctx.drawImage(subCardBgImg, item.x, item.y, item.w, item.h);
+        if (isSelected) {
+          ctx.strokeStyle = baseColor;
+          ctx.lineWidth = 4.0 * scaleX;
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(item.x, item.y, item.w, item.h, 24 * scaleX);
+          } else {
+            ctx.rect(item.x, item.y, item.w, item.h);
+          }
+          ctx.stroke();
+        }
       } else {
-        ctx.rect(item.x, item.y, item.w, item.h);
+        ctx.fillStyle = isSelected ? `${baseColor}25` : 'rgba(255, 255, 255, 0.05)';
+        ctx.strokeStyle = isSelected ? baseColor : `${baseColor}75`;
+        ctx.lineWidth = isSelected ? 4.0 * scaleX : 2.5 * scaleX;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(item.x, item.y, item.w, item.h, 24 * scaleX);
+        } else {
+          ctx.rect(item.x, item.y, item.w, item.h);
+        }
+        ctx.fill();
+        ctx.stroke();
       }
-      ctx.fill();
-      ctx.stroke();
 
       // 카드 내부 텍스트 (1:1 매핑)
       // 1) 단계 타이틀: bold 68px

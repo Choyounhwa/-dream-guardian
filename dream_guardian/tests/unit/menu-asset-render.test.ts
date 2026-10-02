@@ -80,6 +80,7 @@ describe('[UI-ASSET-001 / #266] 메뉴 화면 이미지 에셋 및 MenuRenderer 
         'lock_icon.png',
         'star_full.png',
         'star_empty.png',
+        'sublevel_card_bg.png',
       ];
 
       for (const file of files) {
@@ -97,6 +98,7 @@ describe('[UI-ASSET-001 / #266] 메뉴 화면 이미지 에셋 및 MenuRenderer 
         { file: 'lock_icon.png', width: 96, height: 96 },
         { file: 'star_full.png', width: 64, height: 64 },
         { file: 'star_empty.png', width: 64, height: 64 },
+        { file: 'sublevel_card_bg.png', width: 440, height: 240 },
       ];
 
       for (const spec of specs) {
@@ -115,6 +117,7 @@ describe('[UI-ASSET-001 / #266] 메뉴 화면 이미지 에셋 및 MenuRenderer 
       expect(UI_IMAGE_ASSETS.menu.lockIcon).toBe('/assets/ui/menu/lock_icon.png');
       expect(UI_IMAGE_ASSETS.menu.starFull).toBe('/assets/ui/menu/star_full.png');
       expect(UI_IMAGE_ASSETS.menu.starEmpty).toBe('/assets/ui/menu/star_empty.png');
+      expect(UI_IMAGE_ASSETS.menu.sublevelCardBg).toBe('/assets/ui/menu/sublevel_card_bg.png');
     });
 
     it('기존 레거시 키(banner, background)는 하위 호환성을 위해 유지된다', () => {
@@ -271,6 +274,29 @@ describe('[UI-ASSET-001 / #266] 메뉴 화면 이미지 에셋 및 MenuRenderer 
         (call: any[]) => typeof call[0] === 'string' && (call[0].includes('★') || call[0].includes('☆')),
       );
       expect(starTextCalls.length).toBe(0);
+    });
+
+    it('sublevelCardBg 이미지가 존재하면 서브메뉴 카드 6개에 대해 drawImage를 호출한다', () => {
+      const renderer = new MenuRenderer();
+      const mockCtx = createMockCtx();
+      const subLevels = [
+        { subLevel: 1, title: '1단계', count: 10 },
+        { subLevel: 2, title: '2단계', count: 10 },
+        { subLevel: 3, title: '3단계', count: 10 },
+        { subLevel: 4, title: '4단계', count: 10 },
+        { subLevel: 5, title: '5단계', count: 10 },
+      ];
+
+      const sublevelCardBgImg = createMockImage(440, 240);
+      imageLoader.setImage('menu', 'sublevelCardBg', sublevelCardBgImg);
+
+      renderer.renderSubMenu(mockCtx, 1080, 2160, 1, subLevels, 1);
+
+      // 서브레벨 카드 6개 (1~5단계 + 전체 종합)에 대해 drawImage 호출
+      const calls = (mockCtx.drawImage as any).mock.calls.filter(
+        (call: any[]) => call[0] === sublevelCardBgImg,
+      );
+      expect(calls.length).toBe(6);
     });
   });
 });

@@ -498,6 +498,78 @@ function generateStarEmpty() {
   return img.toBuffer();
 }
 
+/**
+ * 6. sublevel_card_bg.png (440 x 240)
+ * 서브레벨 선택 카드 배경 (와이드 라운드 패널, 네온 사이언/바이올렛 테두리 및 반투명 다크 채움)
+ */
+function generateSublevelCardBg() {
+  const w = 440;
+  const h = 240;
+  const img = new RGBAImage(w, h);
+  const radius = 22;
+  const strokeW = 3.5;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const qx = Math.abs(x - w / 2) - (w / 2 - radius);
+      const qy = Math.abs(y - h / 2) - (h / 2 - radius);
+      const outsideDist = Math.hypot(Math.max(qx, 0), Math.max(qy, 0));
+      const insideDist = Math.min(Math.max(qx, qy), 0);
+      const dist = outsideDist + insideDist - radius;
+
+      if (dist > 2.0) continue;
+
+      let edgeAlpha = 1.0;
+      if (dist > 0.0) {
+        edgeAlpha = Math.max(0, 1 - dist / 2.0);
+      }
+
+      if (dist <= 0 && dist >= -strokeW) {
+        // 네온 테두리: 좌측 사이언(#28E6FF) -> 우측 바이올렛(#C889FF)
+        const nx = x / w;
+        const r = Math.round(40 * (1 - nx) + 200 * nx);
+        const g = Math.round(230 * (1 - nx) + 137 * nx);
+        const b = 255;
+        img.setPixel(x, y, r, g, b, Math.round(240 * edgeAlpha));
+      } else if (dist < -strokeW && dist >= -strokeW - 3.0) {
+        // 내부 글로우 라인
+        const innerGlow = 1 - Math.abs(dist + strokeW + 1.5) / 1.5;
+        const r = Math.round(50 + innerGlow * 80);
+        const g = Math.round(180 + innerGlow * 60);
+        const b = 255;
+        img.setPixel(x, y, r, g, b, Math.round((110 + innerGlow * 90) * edgeAlpha));
+      } else if (dist < -strokeW - 3.0) {
+        // 내부 다크 반투명 채움 (rgba(18, 24, 48, 0.82))
+        const ny = y / h;
+        const r = Math.round(16 + ny * 12);
+        const g = Math.round(22 + ny * 8);
+        const b = Math.round(44 + ny * 16);
+        const a = Math.round(210 * edgeAlpha);
+        img.setPixel(x, y, r, g, b, a);
+      }
+    }
+  }
+
+  // 테크 코너 악센트 마크
+  const accents = [
+    [radius, radius],
+    [w - radius, radius],
+    [radius, h - radius],
+    [w - radius, h - radius],
+  ];
+  for (const [ax, ay] of accents) {
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        if (Math.abs(dx) + Math.abs(dy) <= 3) {
+          img.setPixel(ax + dx, ay + dy, 40, 230, 255, 230);
+        }
+      }
+    }
+  }
+
+  return img.toBuffer();
+}
+
 // ─── 4. 실행 및 파일 기록 ───
 
 export function generateAllMenuAssets(outDir) {
@@ -511,6 +583,7 @@ export function generateAllMenuAssets(outDir) {
     { name: 'lock_icon.png', buf: generateLockIcon() },
     { name: 'star_full.png', buf: generateStarFull() },
     { name: 'star_empty.png', buf: generateStarEmpty() },
+    { name: 'sublevel_card_bg.png', buf: generateSublevelCardBg() },
   ];
 
   for (const asset of assets) {

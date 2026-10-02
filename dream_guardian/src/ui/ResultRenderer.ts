@@ -83,6 +83,23 @@ export function calcStars(correctCount: number, totalQuestions: number, elapsedT
   return 1;
 }
 
+export type RankGrade = 'S' | 'A' | 'B' | 'C';
+
+/** 종합 평가 랭크 등급 (S / A / B / C) 산출 (GDD / 정답률 및 시간 기준) */
+export function calcRank(
+  correctCount: number,
+  totalQuestions: number,
+  elapsedTime: number,
+  victory = true,
+): RankGrade {
+  if (!victory || totalQuestions === 0) return 'C';
+  const accuracy = correctCount / totalQuestions;
+  if (accuracy >= 0.9 && elapsedTime < 120) return 'S';
+  if (accuracy >= 0.8) return 'A';
+  if (accuracy >= 0.6) return 'B';
+  return 'C';
+}
+
 export class ResultRenderer {
   private _animTime: number = 10.0; // 기본값: 안착 완료 상태 (기존 테스트 호환성 유지)
   readonly slideDuration: number = 0.5;
@@ -165,6 +182,22 @@ export class ResultRenderer {
    */
   getStatFontSize(w: number): number {
     return UIText.getFontSize('subheading', w / 1080);
+  }
+
+  /**
+   * 랭크 스탬프 레이아웃 (우측 상단 엠블럼)
+   */
+  getRankStampLayout(w: number, h: number): { x: number; y: number; w: number; h: number } {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    const panel = this.getPanelLayout(w, h);
+    const size = 180 * scaleX;
+    return {
+      x: panel.x + panel.w - size - 40 * scaleX,
+      y: panel.y + 40 * scaleY,
+      w: size,
+      h: size,
+    };
   }
 
   render(ctx: CanvasRenderingContext2D, w: number, h: number, data: ResultData): void {
@@ -252,6 +285,57 @@ export class ResultRenderer {
         ctx.fillText('★'.repeat(stars) + '☆'.repeat(3 - stars), w / 2, titleY + 165 * scaleY);
         ctx.shadowBlur = 0;
       }
+    }
+
+    // 3.5. 종합 평가 랭크 스탬프 (S / A / B / C)
+    const rank = calcRank(data.correctCount, data.totalQuestions, data.elapsedTime, data.victory);
+    const stampLayout = this.getRankStampLayout(w, h);
+    const stampKey = `rankStamp${rank}` as const;
+    const stampImg = imageLoader.get('result', stampKey);
+
+    if (stampImg) {
+      ctx.drawImage(stampImg, stampLayout.x, stampLayout.y, stampLayout.w, stampLayout.h);
+    } else {
+      // 프로시저럴 스탬프 폴백 (원형 엠블럼 + 랭크 레터)
+      const cx = stampLayout.x + stampLayout.w / 2;
+      const cy = stampLayout.y + stampLayout.h / 2;
+      const r = stampLayout.w / 2 - 6 * scaleX;
+
+      const rankColors: Record<RankGrade, string> = {
+        S: '#FFD700',
+        A: '#4DFFAA',
+        B: '#28E6FF',
+        C: '#C889FF',
+      };
+      const color = rankColors[rank];
+
+      ctx.save();
+
+      // 외곽 링
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3.5 * scaleX;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 내부 링
+      ctx.lineWidth = 1.5 * scaleX;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - 8 * scaleX, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // RANK 라벨
+      ctx.font = UIText.getFont('badge', scaleX, 'bold');
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('RANK', cx, cy - r + 20 * scaleY);
+
+      // 중앙 랭크 등급 레터
+      ctx.font = UIText.getFont('title', scaleX, 'bold');
+      ctx.fillText(rank, cx, cy + 8 * scaleY);
+
+      ctx.restore();
     }
 
     // 4. 8개 운동 통계 리포트 (74px 라인 x bold 44px 1:1 매칭)

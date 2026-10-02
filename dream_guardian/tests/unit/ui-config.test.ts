@@ -195,6 +195,7 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       expect(UI_IMAGE_ASSETS.menu.lockIcon).toBe('/assets/ui/menu/lock_icon.png');
       expect(UI_IMAGE_ASSETS.menu.starFull).toBe('/assets/ui/menu/star_full.png');
       expect(UI_IMAGE_ASSETS.menu.starEmpty).toBe('/assets/ui/menu/star_empty.png');
+      expect(UI_IMAGE_ASSETS.menu.sublevelCardBg).toBe('/assets/ui/menu/sublevel_card_bg.png');
 
       // 2) hud 카테고리 (Issue #267 / UI-ASSET-002)
       expect(UI_IMAGE_ASSETS.hud.hpBarFrame).toBe('/assets/ui/hud/hp_bar_frame.png');
@@ -224,6 +225,10 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       expect(UI_IMAGE_ASSETS.result.statIcon_jump).toBe('/assets/ui/result/stat_jump.png');
       expect(UI_IMAGE_ASSETS.result.statIcon_pose).toBe('/assets/ui/result/stat_pose.png');
       expect(UI_IMAGE_ASSETS.result.statIcon_calorie).toBe('/assets/ui/result/stat_calorie.png');
+      expect(UI_IMAGE_ASSETS.result.rankStampS).toBe('/assets/ui/result/rank_stamp_s.png');
+      expect(UI_IMAGE_ASSETS.result.rankStampA).toBe('/assets/ui/result/rank_stamp_a.png');
+      expect(UI_IMAGE_ASSETS.result.rankStampB).toBe('/assets/ui/result/rank_stamp_b.png');
+      expect(UI_IMAGE_ASSETS.result.rankStampC).toBe('/assets/ui/result/rank_stamp_c.png');
 
       // 4) bottomBar 카테고리 (Issue #269 / UI-ASSET-004)
       expect(UI_IMAGE_ASSETS.bottomBar.barBg).toBe('/assets/ui/bottombar/bar_bg.png');

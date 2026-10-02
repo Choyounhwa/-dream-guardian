@@ -295,6 +295,7 @@ export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
     lockIcon: '/assets/ui/menu/lock_icon.png',
     starFull: '/assets/ui/menu/star_full.png',
     starEmpty: '/assets/ui/menu/star_empty.png',
+    sublevelCardBg: '/assets/ui/menu/sublevel_card_bg.png',
   },
   question: {
     questionBoardBg: '/assets/ui/question/question_board_bg.png',
@@ -332,6 +333,10 @@ export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
     statIcon_jump: '/assets/ui/result/stat_jump.png',
     statIcon_pose: '/assets/ui/result/stat_pose.png',
     statIcon_calorie: '/assets/ui/result/stat_calorie.png',
+    rankStampS: '/assets/ui/result/rank_stamp_s.png',
+    rankStampA: '/assets/ui/result/rank_stamp_a.png',
+    rankStampB: '/assets/ui/result/rank_stamp_b.png',
+    rankStampC: '/assets/ui/result/rank_stamp_c.png',
   },
   bottomBar: {
     barBg: '/assets/ui/bottombar/bar_bg.png',

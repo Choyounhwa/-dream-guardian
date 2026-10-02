@@ -4869,15 +4869,16 @@ BEAT-SPEC-001
 
 ---
 
-### Issue #295: [RENDER-GRID-004] 3D 원근 드림 그리드 라인 두께 증가 및 세로선 2-Pass 네온 글로우 효과 추가
+### Issue #295: [RENDER-GRID-004] 3D 원근 드림 그리드 라인 두께 증가, 세로선 2-Pass 네온 글로우 및 메트로놈 비트 플래시(Flash) 효과 추가
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/295
 - **Labels**: `phase-7`, `feature`, `P2-medium`
 - **작업 ID**: `[RENDER-GRID-004]`
 - **상태**: ⚪ **대기 (승인 대기)**
-- **제목**: 3D 원근 드림 그리드 라인 두께 증가 및 세로선 2-Pass 네온 글로우 효과 추가
+- **제목**: 3D 원근 드림 그리드 라인 두께 증가, 세로선 2-Pass 네온 글로우 및 메트로놈 비트 플래시(Flash) 효과 추가
 - **목적**:
   1. 3D 원근 런웨이 그리드의 기본 선 두께(가로선/세로선)를 증가시켜 1080p 대화면 및 웹캠 피드 대비 시인성을 대폭 강화한다.
-  2. 일반 세로선(Longitudinal Lines)에 외곽 소프트 네온 글로우 패스(Soft Glow Pass)와 중심 코어 빔(Core Beam Pass)의 2-Pass 렌더링을 적용하여 중앙 척추선과 조화를 이루는 일렉트릭 사이버 런웨이 연출을 구현한다.
+  2. 일반 세로선(Longitudinal Lines)에 외곽 소프트 네온 글로우 패스(Soft Glow Pass)와 중심 코어 빔(Core Beam Pass)의 2-Pass 렌더링을 적용하여 사이버 런웨이 연출을 구현한다.
+  3. 음악 및 메트로놈 비트(`beatProgress`)에 동기화되어 박자 타격 시 그리드 라인과 글로우가 순간적으로 밝아졌다가 페이드되는 비트 플래시(Beat Flash / Pulse) 시각 효과를 추가한다.
 - **수정 대상**:
   - `dream_guardian/config/grid.config.ts`
   - `dream_guardian/src/render/DreamGrid.ts`
@@ -4886,11 +4887,13 @@ BEAT-SPEC-001
   1. **그리드 설정 확장 (`config/grid.config.ts`)**:
      - 가로선 및 세로선 두께 파라미터 상향 조정 (`TRANSVERSE_MAX_WIDTH`, `TRANSVERSE_MIN_WIDTH`, `LONGITUDINAL_MAX_WIDTH`, `LONGITUDINAL_MIN_WIDTH`)
      - 일반 세로선 외곽 글로우 두께 상수(`LONGITUDINAL_GLOW_WIDTH`) 정의
+     - 비트 플래시 강도 및 감쇄 계수(`BEAT_FLASH_MAX_ALPHA`, `BEAT_FLASH_DECAY`, `BEAT_FLASH_WIDTH_BOOST`) 상수 정의
   2. **그리드 렌더러 로직 개선 (`src/render/DreamGrid.ts`)**:
-     - 일반 세로선 드로잉 루프에 외곽 글로우 패스(반투명 넓은 획)와 중심 코어 패스(고휘도 획) 2-Pass 발광 연출 적용
-     - 런웨이 하단부로 갈수록 원근감에 따른 두께 스케일링 강화
+     - `DreamGridConfig`에 `beatProgress`(0.0~1.0) 또는 비트 플래시 파라미터 연동
+     - 일반 세로선 외곽 2-Pass 글로우(소프트 글로우 + 중심 코어) 렌더링 적용
+     - 메트로놈 비트 타이밍에 맞춰 그리드 선 밝기(글로우 알파) 및 두께가 순간 증폭(Flash) 후 감쇄되는 펄스 연산 추가
   3. **단위 테스트 추가 및 갱신 (`tests/unit/dream-grid.test.ts`)**:
-     - 세로선 글로우 패스 두께 및 렌더링 호출 검증
+     - 상향된 선 두께, 세로선 2-Pass 글로우, 메트로놈 비트 플래시 렌더링 검증
      - 전체 단위 테스트 100% Pass 및 빌드 검증
 - **유지 사항**:
   - 중앙 척추선(Center Spine) 3-Pass 초고휘도 레이저 코어 렌더링
@@ -4901,6 +4904,7 @@ BEAT-SPEC-001
   - 하단 고정 바 및 HUD UI 레이아웃
 - **완료 조건**:
   - [ ] 세로선/가로선 두께 상향 및 세로선 2-Pass 글로우 효과 렌더링 구현
+  - [ ] 메트로놈 비트(`beatProgress`) 연동 플래시(Flash) 효과 구현
   - [ ] `tests/unit/dream-grid.test.ts` 통과
   - [ ] 전체 단위 테스트 100% Pass (`npm test`)
   - [ ] 번들 빌드 성공 (`npm run build`)
@@ -5064,7 +5068,7 @@ BEAT-SPEC-001
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/292
 - **Labels**: `feature`, `phase-6`, `P2-medium`
 - **작업 ID**: `[UI-ASSET-011]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (DONE)**
 - **목적**:
   - 메인 메뉴의 서브레벨(1-1 ~ 1-3) 6개 선택 카드 박스와 결과 화면(Result)의 종합 평가 랭크 도장 드로잉을 고품질 사전 렌더링 PNG 에셋으로 교체하여 렌더링 부하를 줄이고 시각적 연출을 고급화한다.
 - **수정 대상**:
@@ -5086,11 +5090,11 @@ BEAT-SPEC-001
   4. **무중단 폴백(Fallback) 100% 보장**:
      - 에셋 파일이 없거나 로드 전/로드 실패 상태에서는 기존 Canvas 프로시저럴 드로잉 코드가 100% 정상 작동하여 게임이 중단되지 않음
 - **완료 조건**:
-  - [ ] 서브레벨 카드 배경 1종 및 랭크 스탬프 4종 임시 PNG 에셋 생성 및 배치
-  - [ ] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
-  - [ ] `MenuRenderer`와 `ResultRenderer`에서 이미지 렌더링 동작
-  - [ ] 에셋 부재/로드 실패 시 기존 프로시저럴 드로잉 100% 폴백 동작 검증
-  - [ ] 단위 테스트 100% Pass 및 `npm run build` 성공
+  - [x] 서브레벨 카드 배경 1종 및 랭크 스탬프 4종 임시 PNG 에셋 생성 및 배치
+  - [x] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
+  - [x] `MenuRenderer`와 `ResultRenderer`에서 이미지 렌더링 동작
+  - [x] 에셋 부재/로드 실패 시 기존 프로시저럴 드로잉 100% 폴백 동작 검증
+  - [x] 단위 테스트 100% Pass 및 `npm run build` 성공
 
 ---
 

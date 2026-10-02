@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ResultRenderer, type ResultData } from '../../src/ui/ResultRenderer.js';
+import { ResultRenderer, calcRank, type ResultData } from '../../src/ui/ResultRenderer.js';
 import { imageLoader } from '../../src/utils/UIImageLoader.js';
 import { UI_IMAGE_ASSETS } from '../../config/ui.config.js';
 
@@ -102,6 +102,10 @@ describe('[UI-ASSET-003 / #268] 결과 화면 이미지 에셋 제작 및 Result
         'stat_calorie.png',
         'star_filled.png',
         'star_empty.png',
+        'rank_stamp_s.png',
+        'rank_stamp_a.png',
+        'rank_stamp_b.png',
+        'rank_stamp_c.png',
       ];
 
       for (const file of files) {
@@ -127,6 +131,10 @@ describe('[UI-ASSET-003 / #268] 결과 화면 이미지 에셋 제작 및 Result
         { file: 'stat_calorie.png', width: 48, height: 48 },
         { file: 'star_filled.png', width: 54, height: 54 },
         { file: 'star_empty.png', width: 54, height: 54 },
+        { file: 'rank_stamp_s.png', width: 180, height: 180 },
+        { file: 'rank_stamp_a.png', width: 180, height: 180 },
+        { file: 'rank_stamp_b.png', width: 180, height: 180 },
+        { file: 'rank_stamp_c.png', width: 180, height: 180 },
       ];
 
       for (const spec of specs) {
@@ -155,6 +163,10 @@ describe('[UI-ASSET-003 / #268] 결과 화면 이미지 에셋 제작 및 Result
       expect(UI_IMAGE_ASSETS.result.statIcon_jump).toBe('/assets/ui/result/stat_jump.png');
       expect(UI_IMAGE_ASSETS.result.statIcon_pose).toBe('/assets/ui/result/stat_pose.png');
       expect(UI_IMAGE_ASSETS.result.statIcon_calorie).toBe('/assets/ui/result/stat_calorie.png');
+      expect(UI_IMAGE_ASSETS.result.rankStampS).toBe('/assets/ui/result/rank_stamp_s.png');
+      expect(UI_IMAGE_ASSETS.result.rankStampA).toBe('/assets/ui/result/rank_stamp_a.png');
+      expect(UI_IMAGE_ASSETS.result.rankStampB).toBe('/assets/ui/result/rank_stamp_b.png');
+      expect(UI_IMAGE_ASSETS.result.rankStampC).toBe('/assets/ui/result/rank_stamp_c.png');
     });
   });
 
@@ -175,6 +187,7 @@ describe('[UI-ASSET-003 / #268] 결과 화면 이미지 에셋 제작 및 Result
       // 텍스트 폴백 호출: 승리 타이틀, 별점, 이모지 포함 텍스트
       const filledTexts = vi.mocked(mockCtx.fillText).mock.calls.map((call) => call[0]);
       expect(filledTexts).toContain('승리!');
+      expect(filledTexts).toContain('S');
       expect(filledTexts.some((t) => typeof t === 'string' && t.includes('★'))).toBe(true);
       expect(filledTexts.some((t) => typeof t === 'string' && t.includes('🎯 정답률:'))).toBe(true);
       expect(filledTexts.some((t) => typeof t === 'string' && t.includes('🔥 최대 콤보:'))).toBe(true);
@@ -196,6 +209,27 @@ describe('[UI-ASSET-003 / #268] 결과 화면 이미지 에셋 제작 및 Result
       expect(mockCtx.drawImage).not.toHaveBeenCalled();
       const filledTexts = vi.mocked(mockCtx.fillText).mock.calls.map((call) => call[0]);
       expect(filledTexts).toContain('패배...');
+    });
+
+    it('calcRank가 정답률, 플레이 시간, 승리 여부에 따라 S/A/B/C 등급을 올바르게 계산한다', () => {
+      // 90% 이상 & 120초 미만 승리 -> S
+      expect(calcRank(9, 10, 85, true)).toBe('S');
+      expect(calcRank(10, 10, 60, true)).toBe('S');
+
+      // 80% 이상 승리 -> A
+      expect(calcRank(8, 10, 85, true)).toBe('A');
+      expect(calcRank(9, 10, 130, true)).toBe('A');
+
+      // 60% 이상 승리 -> B
+      expect(calcRank(6, 10, 85, true)).toBe('B');
+      expect(calcRank(7, 10, 85, true)).toBe('B');
+
+      // 60% 미만 승리 -> C
+      expect(calcRank(5, 10, 85, true)).toBe('C');
+      expect(calcRank(0, 10, 85, true)).toBe('C');
+
+      // 패배 -> C
+      expect(calcRank(10, 10, 50, false)).toBe('C');
     });
   });
 
@@ -330,6 +364,20 @@ describe('[UI-ASSET-003 / #268] 결과 화면 이미지 에셋 제작 및 Result
       expect(filledTexts.some((t) => typeof t === 'string' && t.includes('⏱️'))).toBe(false);
       expect(filledTexts.some((t) => typeof t === 'string' && t.includes('🏋️'))).toBe(false);
       expect(filledTexts.some((t) => typeof t === 'string' && t.includes('⚡'))).toBe(false);
+    });
+
+    it('rankStampS 이미지가 로드되어 있으면 해당 랭크 등급 스탬프에 대해 drawImage를 렌더링한다', () => {
+      const renderer = new ResultRenderer();
+      const mockCtx = createMockCtx();
+      const stampSImg = createMockImage(180, 180);
+      imageLoader.setImage('result', 'rankStampS', stampSImg);
+
+      renderer.render(mockCtx, 1080, 2160, baseResultData); // baseResultData: 9/10, 85s -> S
+
+      const calls = (mockCtx.drawImage as any).mock.calls.filter(
+        (call: any[]) => call[0] === stampSImg,
+      );
+      expect(calls.length).toBe(1);
     });
   });
 });
