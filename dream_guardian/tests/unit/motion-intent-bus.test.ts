@@ -225,4 +225,61 @@ describe('MotionIntentBus (Issue #252 / INPUT-TOLERANCE-004)', () => {
       unsubAll();
     });
   });
+
+  describe('6. 몸 중심 기준 lateral 팔 뻗기 분류 (Issue #287 / INPUT-ARM-DIRECTION-001)', () => {
+    it('화면 절대좌표 x <= 0.35 여도 lateral < 0.55 이면 reachLeft 가 분류되지 않는다', () => {
+      const bus = new MotionIntentBus();
+      // 어깨가 좌측(0.25)으로 이동하여 손(0.20)과의 거리가 0.05에 불과 (lateral = 0.05 / 0.20 = 0.25 < 0.55)
+      const lm = createMockLandmarks({
+        [POSE_LANDMARKS.LEFT_SHOULDER]: { x: 0.25, y: 0.50, visibility: 0.95 },
+        [POSE_LANDMARKS.RIGHT_SHOULDER]: { x: 0.45, y: 0.50, visibility: 0.95 },
+        [POSE_LANDMARKS.LEFT_WRIST]: { x: 0.20, y: 0.50, visibility: 0.95 },
+      });
+      const intents = bus.classify(lm, 0.1, 1.0);
+      expect(intents.some((i) => i.type === 'reachLeft')).toBe(false);
+    });
+
+    it('lateral >= +0.55 일 때 reachLeft, lateral <= -0.55 일 때 reachRight 가 정확히 분류된다', () => {
+      const bus = new MotionIntentBus();
+      // leftShoulder 0.40, rightShoulder 0.60, width 0.20
+      // leftWrist 0.25 -> lateral = (0.40 - 0.25) / 0.20 = 0.75 >= 0.55
+      const leftLm = createMockLandmarks({
+        [POSE_LANDMARKS.LEFT_SHOULDER]: { x: 0.40, y: 0.50, visibility: 0.95 },
+        [POSE_LANDMARKS.RIGHT_SHOULDER]: { x: 0.60, y: 0.50, visibility: 0.95 },
+        [POSE_LANDMARKS.LEFT_WRIST]: { x: 0.25, y: 0.50, visibility: 0.95 },
+      });
+      const leftIntents = bus.classify(leftLm, 0.1, 1.0);
+      expect(leftIntents.some((i) => i.type === 'reachLeft')).toBe(true);
+
+      // rightWrist 0.75 -> lateral = (0.60 - 0.75) / 0.20 = -0.75 <= -0.55
+      const rightLm = createMockLandmarks({
+        [POSE_LANDMARKS.LEFT_SHOULDER]: { x: 0.40, y: 0.50, visibility: 0.95 },
+        [POSE_LANDMARKS.RIGHT_SHOULDER]: { x: 0.60, y: 0.50, visibility: 0.95 },
+        [POSE_LANDMARKS.RIGHT_WRIST]: { x: 0.75, y: 0.50, visibility: 0.95 },
+      });
+      const rightIntents = bus.classify(rightLm, 0.1, 1.0);
+      expect(rightIntents.some((i) => i.type === 'reachRight')).toBe(true);
+    });
+
+    it('반대 손으로 가로질러 뻗는 Cross-Body 동작도 정상 분류된다', () => {
+      const bus = new MotionIntentBus();
+      // 오른손으로 왼쪽을 향해 뻗음 (rightWrist 0.25, rightShoulder 0.60 -> lateral = 1.75 >= 0.55)
+      const crossLeftLm = createMockLandmarks({
+        [POSE_LANDMARKS.LEFT_SHOULDER]: { x: 0.40, y: 0.50, visibility: 0.95 },
+        [POSE_LANDMARKS.RIGHT_SHOULDER]: { x: 0.60, y: 0.50, visibility: 0.95 },
+        [POSE_LANDMARKS.RIGHT_WRIST]: { x: 0.25, y: 0.50, visibility: 0.95 },
+      });
+      const crossLeftIntents = bus.classify(crossLeftLm, 0.1, 1.0);
+      expect(crossLeftIntents.some((i) => i.type === 'reachLeft')).toBe(true);
+
+      // 왼손으로 오른쪽을 향해 뻗음 (leftWrist 0.75, leftShoulder 0.40 -> lateral = -1.75 <= -0.55)
+      const crossRightLm = createMockLandmarks({
+        [POSE_LANDMARKS.LEFT_SHOULDER]: { x: 0.40, y: 0.50, visibility: 0.95 },
+        [POSE_LANDMARKS.RIGHT_SHOULDER]: { x: 0.60, y: 0.50, visibility: 0.95 },
+        [POSE_LANDMARKS.LEFT_WRIST]: { x: 0.75, y: 0.50, visibility: 0.95 },
+      });
+      const crossRightIntents = bus.classify(crossRightLm, 0.1, 1.0);
+      expect(crossRightIntents.some((i) => i.type === 'reachRight')).toBe(true);
+    });
+  });
 });

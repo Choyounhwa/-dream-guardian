@@ -20,6 +20,7 @@ import type {
 } from '../types/motion-intent.js';
 import {
   DEFAULT_MOTION_INTENT_BUS_CONFIG,
+  DEFAULT_ARM_DIRECTION_ANSWER_CONFIG,
   type MotionIntentBusConfig,
 } from '../../config/judgment.config.js';
 
@@ -206,66 +207,76 @@ export class MotionIntentBus {
       }
     }
 
-    // 2. 팔 뻗기 (reachLeft / reachRight) 의도 분류
+    // 2. 팔 뻗기 (reachLeft / reachRight) 의도 분류: 몸 중심 기준 lateral (Issue #287)
     const leftWrist = landmarks[POSE_LANDMARKS.LEFT_WRIST];
     const rightWrist = landmarks[POSE_LANDMARKS.RIGHT_WRIST];
 
-    // Left reach: 좌측 영역 (x <= 0.35)
-    if (leftWrist && leftWrist.visibility >= minVis && leftWrist.x <= 0.35) {
-      const confidence = Number(
-        Math.min(1.0, Math.max(0.5, (0.5 - leftWrist.x) / 0.35)).toFixed(4),
-      );
-      intents.push({
-        type: 'reachLeft',
-        confidence,
-        timestamp,
-        sourceCursor: 'left_hand',
-        payload: { x: leftWrist.x, y: leftWrist.y },
-      });
-    } else if (
-      rightWrist &&
-      rightWrist.visibility >= minVis &&
-      rightWrist.x <= 0.35
-    ) {
-      const confidence = Number(
-        Math.min(1.0, Math.max(0.5, (0.5 - rightWrist.x) / 0.35)).toFixed(4),
-      );
-      intents.push({
-        type: 'reachLeft',
-        confidence,
-        timestamp,
-        sourceCursor: 'right_hand',
-        payload: { x: rightWrist.x, y: rightWrist.y },
-      });
+    const rawWidth = (leftShoulder && rightShoulder)
+      ? Math.hypot(rightShoulder.x - leftShoulder.x, rightShoulder.y - leftShoulder.y)
+      : 0.20;
+    const effectiveShoulderWidth = rawWidth >= 0.05 ? rawWidth : 0.20;
+    const leftShoulderX = (leftShoulder && Math.abs((rightShoulder?.x ?? 0.6) - leftShoulder.x) >= 0.05)
+      ? leftShoulder.x
+      : 0.40;
+    const rightShoulderX = (rightShoulder && Math.abs(rightShoulder.x - (leftShoulder?.x ?? 0.4)) >= 0.05)
+      ? rightShoulder.x
+      : 0.60;
+    const lateralThreshold = DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.lateralThreshold; // 0.55
+
+    // Left wrist:
+    if (leftWrist && leftWrist.visibility >= minVis) {
+      const lateralLeft = (leftShoulderX - leftWrist.x) / effectiveShoulderWidth;
+      if (lateralLeft >= lateralThreshold) {
+        const confidence = Number(
+          Math.min(1.0, Math.max(0.5, 0.5 + (lateralLeft - lateralThreshold) / (2 * lateralThreshold))).toFixed(4),
+        );
+        intents.push({
+          type: 'reachLeft',
+          confidence,
+          timestamp,
+          sourceCursor: 'left_hand',
+          payload: { x: leftWrist.x, y: leftWrist.y, lateral: lateralLeft },
+        });
+      } else if (lateralLeft <= -lateralThreshold) {
+        const confidence = Number(
+          Math.min(1.0, Math.max(0.5, 0.5 + (-lateralLeft - lateralThreshold) / (2 * lateralThreshold))).toFixed(4),
+        );
+        intents.push({
+          type: 'reachRight',
+          confidence,
+          timestamp,
+          sourceCursor: 'left_hand',
+          payload: { x: leftWrist.x, y: leftWrist.y, lateral: lateralLeft },
+        });
+      }
     }
 
-    // Right reach: 우측 영역 (x >= 0.65)
-    if (rightWrist && rightWrist.visibility >= minVis && rightWrist.x >= 0.65) {
-      const confidence = Number(
-        Math.min(1.0, Math.max(0.5, (rightWrist.x - 0.5) / 0.35)).toFixed(4),
-      );
-      intents.push({
-        type: 'reachRight',
-        confidence,
-        timestamp,
-        sourceCursor: 'right_hand',
-        payload: { x: rightWrist.x, y: rightWrist.y },
-      });
-    } else if (
-      leftWrist &&
-      leftWrist.visibility >= minVis &&
-      leftWrist.x >= 0.65
-    ) {
-      const confidence = Number(
-        Math.min(1.0, Math.max(0.5, (leftWrist.x - 0.5) / 0.35)).toFixed(4),
-      );
-      intents.push({
-        type: 'reachRight',
-        confidence,
-        timestamp,
-        sourceCursor: 'left_hand',
-        payload: { x: leftWrist.x, y: leftWrist.y },
-      });
+    // Right wrist:
+    if (rightWrist && rightWrist.visibility >= minVis) {
+      const lateralRight = (rightShoulderX - rightWrist.x) / effectiveShoulderWidth;
+      if (lateralRight <= -lateralThreshold) {
+        const confidence = Number(
+          Math.min(1.0, Math.max(0.5, 0.5 + (-lateralRight - lateralThreshold) / (2 * lateralThreshold))).toFixed(4),
+        );
+        intents.push({
+          type: 'reachRight',
+          confidence,
+          timestamp,
+          sourceCursor: 'right_hand',
+          payload: { x: rightWrist.x, y: rightWrist.y, lateral: lateralRight },
+        });
+      } else if (lateralRight >= lateralThreshold) {
+        const confidence = Number(
+          Math.min(1.0, Math.max(0.5, 0.5 + (lateralRight - lateralThreshold) / (2 * lateralThreshold))).toFixed(4),
+        );
+        intents.push({
+          type: 'reachLeft',
+          confidence,
+          timestamp,
+          sourceCursor: 'right_hand',
+          payload: { x: rightWrist.x, y: rightWrist.y, lateral: lateralRight },
+        });
+      }
     }
 
     // 3. 발 스텝 (stepLeft / stepRight) 의도 분류

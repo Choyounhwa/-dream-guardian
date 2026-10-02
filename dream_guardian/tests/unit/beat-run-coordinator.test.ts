@@ -10,14 +10,14 @@ describe('BeatRunCoordinator Unit Tests (Issue #283 / UX-ANSWER-TIMEOUT-001)', (
     battle = new BattleState();
   });
 
-  describe('1. 4박 답안 선택 시간 및 readyBeats 기본 규격', () => {
-    it('기본 BeatRunCoordinator 생성 시 readyBeats가 4박으로 설정된다', () => {
+  describe('1. 2박 답안 선택 시간 및 readyBeats 규격 (Issue #287)', () => {
+    it('기본 BeatRunCoordinator 생성 시 readyBeats가 4박이고, DEFAULT_LOOP_PATTERN.readyBeats와 일치한다', () => {
       const coordinator = new BeatRunCoordinator({ battle });
       expect(coordinator.readyBeats).toBe(4);
       expect(DEFAULT_LOOP_PATTERN.readyBeats).toBe(4);
     });
 
-    it('8박 러닝 완료 후 ANSWER_SELECT 페이즈로 진입 시 4박(2.0초 @ BPM 120) 동안 입력창이 유지된다', () => {
+    it('8박 러닝 완료 후 ANSWER_SELECT 페이즈로 진입 시 2박(1.0초 @ BPM 120) 동안 입력창이 유지된다', () => {
       const coordinator = new BeatRunCoordinator({
         battle,
         routineMode: 'arm_reach',
@@ -34,14 +34,8 @@ describe('BeatRunCoordinator Unit Tests (Issue #283 / UX-ANSWER-TIMEOUT-001)', (
       expect(coordinator.phase).toBe('ANSWER_SELECT');
       expect(coordinator.isAnswerOpen).toBe(true);
 
-      // 2박(1.0초) 경과 시점: 기존 2박 설정이면 타임아웃이었으나 이제는 열려 있어야 함
-      coordinator.update(1.0);
-      expect(coordinator.phase).toBe('ANSWER_SELECT');
-      expect(coordinator.isAnswerOpen).toBe(true);
-      expect(coordinator.isTimedOut).toBe(false);
-
-      // 3.98박(1.99초) 경과 시점: 여전히 열려 있음
-      coordinator.update(0.99);
+      // 1.9박(0.95초) 경과 시점: 여전히 열려 있음
+      coordinator.update(0.95);
       expect(coordinator.phase).toBe('ANSWER_SELECT');
       expect(coordinator.isAnswerOpen).toBe(true);
       expect(coordinator.isTimedOut).toBe(false);
@@ -49,7 +43,7 @@ describe('BeatRunCoordinator Unit Tests (Issue #283 / UX-ANSWER-TIMEOUT-001)', (
   });
 
   describe('2. 타임아웃 감지, isTimedOut 플래그 및 onTimeout 콜백 연동', () => {
-    it('4박(2.0초) 초과 시 onTimeout 콜백이 1회 호출되고 isTimedOut이 true가 되며 HAZARD_EVADE로 전이된다', () => {
+    it('2박(1.0초) 초과 시 onTimeout 콜백이 1회 호출되고 isTimedOut이 true가 되며 HAZARD_EVADE로 전이된다', () => {
       const onTimeout = vi.fn();
       const onPhaseChange = vi.fn();
       const coordinator = new BeatRunCoordinator({
@@ -68,8 +62,8 @@ describe('BeatRunCoordinator Unit Tests (Issue #283 / UX-ANSWER-TIMEOUT-001)', (
       expect(coordinator.phase).toBe('ANSWER_SELECT');
       expect(coordinator.isTimedOut).toBe(false);
 
-      // 4박(2.0초) 만료 시점 업데이트
-      coordinator.update(2.0);
+      // 2박(1.0초) 만료 시점 업데이트
+      coordinator.update(1.0);
 
       expect(onTimeout).toHaveBeenCalledTimes(1);
       expect(coordinator.isTimedOut).toBe(true);
@@ -138,8 +132,8 @@ describe('BeatRunCoordinator Unit Tests (Issue #283 / UX-ANSWER-TIMEOUT-001)', (
         coordinator.recordStep('run');
         coordinator.update(0.4);
       }
-      // 4박 타임아웃
-      coordinator.update(2.0);
+      // 2박 타임아웃
+      coordinator.update(1.0);
       expect(coordinator.isTimedOut).toBe(true);
 
       // 새 라운드 시작

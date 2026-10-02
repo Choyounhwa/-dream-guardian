@@ -126,7 +126,13 @@
 | 35 | **#284** | [VFX-JUDGMENT-001] 별똥별(별가루 악기 노트) 리듬 판정 플로팅 텍스트(PERFECT/GOOD/MISS) 및 타겟 어프로치 링 시각화 | 없음 | `[✔] 완료` |
 | 36 | **#285** | [UI-ANSWER-002] 답안 버튼(Zone 4/5) 실시간 0~100% 충전 프로그레스 바·테두리 게이지 및 체결 연출 | 없음 | `[✔] 완료` |
 | 37 | **#286** | [RENDER-HAZARD-002] 보스 회피 장판 카운트다운 타이밍 서클 및 실시간 회피 상태(SAFE/DANGER/DODGED) 피드백 | #282 권장 | `[✔] 완료` |
-| 38 | **#287** | [AUDIO-FEEDBACK-001] 답안 체결·회피 성공/실패·별똥별 판정 Web Audio 효과음 고도화 | 없음 | `[▶ NEXT]` |
+| 38 | **#287** | [INPUT-ARM-DIRECTION-001] 답안 선택을 Zone 점유에서 몸 기준 팔 뻗기 방향으로 교체 | #224 완료 | `[✔] 완료` |
+
+### 📌 K. Phase B 보스 결전 40~60초 템포 밸런싱 (BATTLE-PACING)
+
+| 순서 | 카드 | 제목 | 선행 조건 | 상태 |
+|:---:|---|---|---|:---:|
+| 39 | **#288** | [BATTLE-PHASE-B-PACING-001] Phase A 보스 체력 무감소(Full HP 보존) 및 Phase B(결전) 40~60초 템포 밸런싱 (보스 HP 500/750 & 군단·피버 DPS 재설계) | 없음 | `[▶ NEXT]` |
 
 ### 권장 실행 순서
 
@@ -147,8 +153,43 @@
                          ↓
 [그리드 개편]   #282 (완료)
                          ↓
-[판정 피드백]   #283 (완료) → #284 (완료) → #285 (완료) → #286 (완료) → #287 [▶ NEXT] (오디오 피드백)
+[판정 피드백]   #283 (완료) → #284 (완료) → #285 (완료) → #286 (완료)
+                         ↓
+[전투 밸런스]   #288 [▶ NEXT] (Phase B 40~60초 템포 & Phase A 체력 보존) → #287 (오디오 피드백)
 ```
+
+---
+
+## 2026-10-02 완료: [INPUT-ARM-DIRECTION-001 / #287] 답안 선택을 Zone 점유에서 몸 기준 팔 뻗기 방향으로 교체
+
+> #287 구현, 단위/통합 테스트 검증 및 TDD 100% Pass 완료 (146개 파일 1,812개 테스트 통과, build 성공).
+> - **몸 중심 기준 팔 뻗기 방향 판정 계약 도입 (`ArmReachAnswerSelector.ts`)**:
+>   - Zone 4/5 사각형 좌표 침투 여부와 무관하게 `lateral = (어깨X - 손목X) / 어깨너비`를 단일 방향 수치로 사용.
+>   - 왼쪽(0번, Zone 4 매핑): `lateral >= +0.55`
+>   - 오른쪽(1번, Zone 5 매핑): `lateral <= -0.55`
+>   - 왼손/오른손 종류 및 커서 색상 무관, Cross-body 뻗기 완벽 지원.
+> - **수평 우세 검증**:
+>   - `|가로 뻗음| >= 1.6 * |세로 뻗음|` 만족 시에만 확정. 달리기 수직 팔 스윙, 바운스, 점프 스윙 오선택 차단.
+> - **창 개방 이후의 바깥 이동 보장**:
+>   - 답안 창(`openWindow`) 개방 시점의 손목 X를 기준점으로 기록하고, 그 기준 대비 바깥으로 `0.18 * 어깨너비` 이상 능동 이동해야 확정.
+>   - 창 개방 전 이미 옆에 위치해 있던 정적 손, 제자리 짧은 왕복 스윙은 선택 불가.
+> - **Strict Mutual Exclusion (우세 점수 채택 제거)**:
+>   - 양팔이 동시에 조건을 통과하거나 서로 반대 방향을 가리킬 경우 점수 차에 따른 임의 채택 없이 완전 미선택(null) 차단.
+> - **스쿼트 하강 동작 수용 및 점프 차단 분리**:
+>   - 수직 점프 차단은 위쪽 속도(`upwardSpeed = -vy >= threshold`, `isBodyJumping`)만 감지.
+>   - 어깨 하강(스쿼트 `vy > 0`, `bodyVy > 0`) 시에는 손 뻗기가 차단되지 않음.
+> - **MotionIntentBus 동기화 (`MotionIntentBus.ts`)**:
+>   - 절대 좌표(0.35/0.65) 판정을 제거하고 몸 중심 기준 `lateral`을 사용하여 `reachLeft` / `reachRight` 의도 분류.
+> - **답안 창 규격 및 설정 SSOT (`config/judgment.config.ts`, `BeatRunCoordinator.ts`)**:
+>   - `ArmDirectionAnswerConfig` 신설 (`lateralThreshold: 0.55`, `horizontalDominanceRatio: 1.6`, `outwardTravelRatio: 0.18`, `answerSelectBeats: 2`).
+>   - 답안 창 길이는 최대 2박(1.0초 @ BPM 120)으로 타임아웃 템포 정상화 (`readyBeats: 4`를 답안 창 길이로 사용하지 않음).
+> - **검증 완료**:
+>   - `tests/unit/arm-reach-answer-selector.test.ts` (19개 단위 테스트 100% Pass)
+>   - `tests/unit/motion-intent-bus.test.ts` (12개 단위 테스트 100% Pass)
+>   - `tests/unit/beat-run-coordinator.test.ts` (6개 단위 테스트 100% Pass)
+>   - `tests/unit/arm-reach-weighted-score.test.ts` (8개 단위 테스트 100% Pass)
+>   - `tests/integration/beat-keynote-round.test.ts` (8개 통합 테스트 100% Pass)
+>   - 전체 146개 테스트 슈트, 1,812개 테스트 100% Pass 및 `npm run build` 번들 검증 성공.
 
 ---
 

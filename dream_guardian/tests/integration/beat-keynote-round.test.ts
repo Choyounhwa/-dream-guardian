@@ -23,7 +23,7 @@ function createMockPose(options: {
   leftHip?: { x: number; y: number; visibility?: number };
   rightHip?: { x: number; y: number; visibility?: number };
   nose?: { x: number; y: number; visibility?: number };
-}): NormalizedLandmark[] {
+} = {}): NormalizedLandmark[] {
   const landmarks: NormalizedLandmark[] = Array.from({ length: 33 }, () => ({
     x: 0.5,
     y: 0.5,
@@ -182,10 +182,11 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
       }
 
       const correctIndex = coordinator.currentQuestion!.correctIndex;
-      // Zone 4는 0번 선택
+      // Frame 1: 답안 창 시작 기준 자세 (몸통 부근)
+      coordinator.update(0.016, createMockPose());
+      // Frame 2: 좌측(Zone 4 방향)으로 팔 뻗기 (Issue #287)
       const poseZone4 = createMockPose({ leftWrist: ZONE_4_CENTER });
-
-      coordinator.update(0.016, poseZone4);
+      coordinator.update(0.05, poseZone4);
 
       expect(coordinator.selectedChoiceIndex).toBe(0);
       expect(coordinator.isAnswerOpen).toBe(false);
@@ -198,15 +199,18 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
       }
     });
 
-    it('한 손이 Zone 5에 정지해 둔 상태(정적 입력)에서도 첫 프레임에 1번이 즉시 선택된다', () => {
+    it('창 개방 후 우측(Zone 5 방향)으로 팔을 뻗으면 1번이 즉시 선택된다 (Issue #287)', () => {
       coordinator.startRound({ chapter: 1 });
       for (let i = 0; i < 8; i++) {
         coordinator.recordStep('run');
         coordinator.update(0.5);
       }
 
+      // Frame 1: 기준 자세
+      coordinator.update(0.016, createMockPose());
+      // Frame 2: 우측 뻗기
       const poseZone5 = createMockPose({ rightWrist: ZONE_5_CENTER });
-      coordinator.update(0.016, poseZone5);
+      coordinator.update(0.05, poseZone5);
 
       expect(coordinator.selectedChoiceIndex).toBe(1);
       expect(coordinator.isAnswerOpen).toBe(false);

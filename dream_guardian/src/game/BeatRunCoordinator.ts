@@ -33,6 +33,7 @@ import {
   getDifficultyBeatProfile,
   type DifficultyBeatProfile,
 } from '../../config/beat-motion.config.js';
+import { DEFAULT_ARM_DIRECTION_ANSWER_CONFIG } from '../../config/judgment.config.js';
 
 export type BeatRoutineMode = 'arm_reach' | 'legacy';
 
@@ -559,14 +560,16 @@ export class BeatRunCoordinator {
           }
         }
 
-        const maxAnswerTime = this.readyBeats * this._rhythmEngine.secondsPerBeat;
+        // Issue #287: 선택 창은 최대 2박(1.0초, BPM 120). readyBeats: 4를 답안 창 길이로 쓰지 않는다.
+        const answerWindowBeats = DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats;
+        const maxAnswerTime = answerWindowBeats * this._rhythmEngine.secondsPerBeat;
         const remainingAnswerTime = maxAnswerTime - this._answerSelectElapsed;
         const step = Math.min(remainingDt, remainingAnswerTime);
         this._answerSelectElapsed += step;
         remainingDt -= step;
 
         if (this._answerSelectElapsed >= maxAnswerTime - 1e-9 && this._selectedChoiceIndex === null) {
-          // 4박 타임아웃 만료 -> HAZARD_EVADE 즉시 전이 (Issue #283)
+          // 2박 타임아웃 만료 -> HAZARD_EVADE 즉시 전이 (Issue #287)
           this._isTimedOut = true;
           this._options.onTimeout?.();
           this._armReachAnswerSelector.closeWindow();

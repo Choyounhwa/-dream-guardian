@@ -55,6 +55,8 @@ export const DEFAULT_CENTER_RETURN_CONFIG: CenterReturnConfig = {
   },
 };
 
+export type ArmReachJudgmentMode = 'direction' | 'legacy_weighted';
+
 export interface ArmReachAnswerConfig {
   /** 랜드마크 최소 가시성 (기본 0.5) */
   minVisibility: number;
@@ -68,6 +70,8 @@ export interface ArmReachAnswerConfig {
   jumpVerticalSpeedThreshold: number;
   /** 카메라 미러링 여부 (기본 false) */
   isMirrored: boolean;
+  /** 팔 판정 방식: 몸 기준 뻗기 방향(기본값, #287) 또는 구형 가중치(#249) */
+  mode?: ArmReachJudgmentMode;
 }
 
 export const DEFAULT_ARM_REACH_ANSWER_CONFIG: ArmReachAnswerConfig = {
@@ -77,6 +81,7 @@ export const DEFAULT_ARM_REACH_ANSWER_CONFIG: ArmReachAnswerConfig = {
   horizontalDominanceRatio: 1.2,
   jumpVerticalSpeedThreshold: 0.22,
   isMirrored: false,
+  mode: 'direction',
 };
 
 export interface StarTimingWindows {

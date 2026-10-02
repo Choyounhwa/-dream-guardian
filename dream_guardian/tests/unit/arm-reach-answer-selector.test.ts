@@ -1,6 +1,7 @@
 /**
- * arm-reach-answer-selector.test.ts - Zone 4/5 한 팔 도달 기반 무체류 즉시 답안 선택기 단위 테스트
+ * arm-reach-answer-selector.test.ts - 몸 중심 기준 팔 뻗기 방향 답안 선택기 단위 테스트
  *
+ * @see Issue #287 [INPUT-ARM-DIRECTION-001]
  * @see Issue #224 [INPUT-ARM-ANSWER-001]
  */
 
@@ -80,66 +81,41 @@ function createMockPose(options: {
   return landmarks;
 }
 
-describe('ArmReachAnswerSelector (Issue #224 - INPUT-ARM-ANSWER-001)', () => {
+describe('ArmReachAnswerSelector (Issue #287 / INPUT-ARM-DIRECTION-001)', () => {
   let selector: ArmReachAnswerSelector;
-
-  // Zone 4: x: [0.04, 0.30], y: [0.24, 0.40] (중심: x 0.17, y 0.32)
-  // Zone 5: x: [0.70, 0.96], y: [0.24, 0.40] (중심: x 0.83, y 0.32)
-  const ZONE_4_CENTER = { x: 0.17, y: 0.32 };
-  const ZONE_5_CENTER = { x: 0.83, y: 0.32 };
 
   beforeEach(() => {
     selector = new ArmReachAnswerSelector({ isMirrored: false });
   });
 
-  describe('1. 정적 손 위치 무체류(0s) 즉시 확정', () => {
-    it('답안 창이 열릴 때 한 손이 Zone 4에 이미 정지해 있으면 첫 프레임에 0번이 즉시 선택된다', () => {
-      const pose = createMockPose({
-        leftWrist: { ...ZONE_4_CENTER, visibility: 0.95 },
-      });
-
-      const result = selector.update(0.0, pose);
-
-      expect(result).not.toBeNull();
-      expect(result?.answerIndex).toBe(0);
-      expect(result?.zoneId).toBe(4);
-      expect(result?.hand).toBe('left');
-      expect(selector.isConfirmed).toBe(true);
-      expect(selector.confirmedAnswerIndex).toBe(0);
-      expect(selector.confirmedZoneId).toBe(4);
-    });
-
-    it('답안 창이 열릴 때 한 손이 Zone 5에 이미 정지해 있으면 첫 프레임에 1번이 즉시 선택된다', () => {
-      const pose = createMockPose({
-        rightWrist: { ...ZONE_5_CENTER, visibility: 0.95 },
-      });
-
-      const result = selector.update(0.0, pose);
-
-      expect(result).not.toBeNull();
-      expect(result?.answerIndex).toBe(1);
-      expect(result?.zoneId).toBe(5);
-      expect(result?.hand).toBe('right');
-      expect(selector.isConfirmed).toBe(true);
-      expect(selector.confirmedAnswerIndex).toBe(1);
-      expect(selector.confirmedZoneId).toBe(5);
-    });
-  });
-
-  describe('2. 동적 뻗기(수평 이동 방향 + 속도 우세) 보조 검증', () => {
-    it('중앙에서 바깥 좌측(Zone 4)으로 팔을 뻗어 진입하면 0번이 즉시 선택된다', () => {
-      // Frame 1: 손이 중앙 근처 (x 0.45, y 0.32)
+  describe('1. 창 개방 시점 측면 정지 손 미선택 (바깥 이동 0.18 미달 차단)', () => {
+    it('답안 창이 열릴 때 한 손이 이미 측면(x 0.17)에 정지해 있어도 바깥 이동이 없으면 미선택된다', () => {
+      // Frame 1: 답안 창 시작 시점에 이미 x=0.17 위치에 존재
       const pose1 = createMockPose({
-        leftWrist: { x: 0.45, y: 0.32, visibility: 0.9 },
+        leftWrist: { x: 0.17, y: 0.35, visibility: 0.95 },
       });
       const res1 = selector.update(0.0, pose1);
       expect(res1).toBeNull();
       expect(selector.isConfirmed).toBe(false);
 
-      // Frame 2: 0.1초 후 Zone 4 중심(x 0.17, y 0.32)으로 수평 진입
-      // vx = (0.17 - 0.45) / 0.1 = -2.8 (속도 크기 2.8 >= 0.25, 수평 우세)
+      // Frame 2: 0.1초 후에도 그대로 정지 (바깥 이동 0 < 0.18 * 0.20 = 0.036)
+      const res2 = selector.update(0.1, pose1);
+      expect(res2).toBeNull();
+      expect(selector.isConfirmed).toBe(false);
+    });
+
+    it('창 개방 후 추가로 바깥 방향으로 0.18*어깨너비 이상 이동하면 정상 확정된다', () => {
+      // Frame 1: 시작 시점 손 위치 x=0.25 (기준점)
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.25, y: 0.35, visibility: 0.95 },
+      });
+      selector.update(0.0, pose1);
+
+      // Frame 2: 0.1초 후 x=0.17로 바깥 이동 (이동량 = 0.25 - 0.17 = 0.08 >= 0.036)
+      // lateral = (0.40 - 0.17) / 0.20 = 1.15 >= 0.55
+      // 수평우세: dx = 0.23, dy = 0 -> 0.23 >= 1.6 * 0
       const pose2 = createMockPose({
-        leftWrist: { ...ZONE_4_CENTER, visibility: 0.9 },
+        leftWrist: { x: 0.17, y: 0.35, visibility: 0.95 },
       });
       const res2 = selector.update(0.1, pose2);
 
@@ -148,268 +124,332 @@ describe('ArmReachAnswerSelector (Issue #224 - INPUT-ARM-ANSWER-001)', () => {
       expect(res2?.zoneId).toBe(4);
       expect(selector.isConfirmed).toBe(true);
     });
+  });
 
-    it('중앙에서 바깥 우측(Zone 5)으로 팔을 뻗어 진입하면 1번이 즉시 선택된다', () => {
-      // Frame 1: 손이 중앙 근처 (x 0.55, y 0.32)
+  describe('2. 몸 중심 기준 팔 뻗기 방향 판정 (존 좌표 침투 불필요)', () => {
+    it('Zone 4 밖의 높이(y=0.15)여도 왼쪽으로 팔을 뻗으면 0번(좌측 답안)이 확정된다', () => {
+      // Frame 1: 몸통 근처 (x 0.38, y 0.15)
       const pose1 = createMockPose({
-        rightWrist: { x: 0.55, y: 0.32, visibility: 0.9 },
+        leftWrist: { x: 0.38, y: 0.15, visibility: 0.9 },
+        leftShoulder: { x: 0.40, y: 0.15, visibility: 0.9 },
+        rightShoulder: { x: 0.60, y: 0.15, visibility: 0.9 },
       });
-      const res1 = selector.update(0.0, pose1);
-      expect(res1).toBeNull();
+      selector.update(0.0, pose1);
 
-      // Frame 2: 0.1초 후 Zone 5 중심(x 0.83, y 0.32)으로 수평 진입
+      // Frame 2: 좌측으로 뻗음 (x 0.20, y 0.15)
+      // lateral = (0.40 - 0.20) / 0.20 = 1.00 >= 0.55
+      // outwardTravel = 0.38 - 0.20 = 0.18 >= 0.036
       const pose2 = createMockPose({
-        rightWrist: { ...ZONE_5_CENTER, visibility: 0.9 },
+        leftWrist: { x: 0.20, y: 0.15, visibility: 0.9 },
+        leftShoulder: { x: 0.40, y: 0.15, visibility: 0.9 },
+        rightShoulder: { x: 0.60, y: 0.15, visibility: 0.9 },
       });
-      const res2 = selector.update(0.1, pose2);
+      const res = selector.update(0.1, pose2);
 
-      expect(res2).not.toBeNull();
-      expect(res2?.answerIndex).toBe(1);
-      expect(res2?.zoneId).toBe(5);
+      expect(res).not.toBeNull();
+      expect(res?.answerIndex).toBe(0);
+      expect(res?.zoneId).toBe(4);
       expect(selector.isConfirmed).toBe(true);
     });
 
-    it('Zone 4 내부에서 중앙 쪽으로 되돌아오는(안쪽 방향 이동) 손동작은 선택되지 않는다', () => {
-      // 존 밖에서 안으로 들어오되, 우측(+vx, 몸통 방향)으로 이동하면서 존 5에 스치는 경우
-      const poseOutside = createMockPose({
-        rightWrist: { x: 0.98, y: 0.32, visibility: 0.9 },
+    it('Zone 5 밖의 높이(y=0.55)여도 오른쪽으로 팔을 뻗으면 1번(우측 답안)이 확정된다', () => {
+      // Frame 1: 몸통 근처 (x 0.62, y 0.55)
+      const pose1 = createMockPose({
+        rightWrist: { x: 0.62, y: 0.55, visibility: 0.9 },
+        leftShoulder: { x: 0.40, y: 0.55, visibility: 0.9 },
+        rightShoulder: { x: 0.60, y: 0.55, visibility: 0.9 },
       });
-      selector.update(0.0, poseOutside);
-      // 우측에서 좌측으로 들어옴 (vx = (0.83 - 0.98)/0.1 = -1.5, 즉 안쪽/중앙 방향)
-      const poseInward = createMockPose({
-        rightWrist: { x: 0.83, y: 0.32, visibility: 0.9 },
+      selector.update(0.0, pose1);
+
+      // Frame 2: 우측으로 뻗음 (x 0.80, y 0.55)
+      // lateral = (0.60 - 0.80) / 0.20 = -1.00 <= -0.55
+      // outwardTravel = 0.80 - 0.62 = 0.18 >= 0.036
+      const pose2 = createMockPose({
+        rightWrist: { x: 0.80, y: 0.55, visibility: 0.9 },
+        leftShoulder: { x: 0.40, y: 0.55, visibility: 0.9 },
+        rightShoulder: { x: 0.60, y: 0.55, visibility: 0.9 },
       });
-      const res = selector.update(0.1, poseInward);
-      // Zone 5는 바깥쪽(우측, +vx)으로 뻗어야 하므로 좌측(-vx) 진입은 차단
+      const res = selector.update(0.1, pose2);
+
+      expect(res).not.toBeNull();
+      expect(res?.answerIndex).toBe(1);
+      expect(res?.zoneId).toBe(5);
+      expect(selector.isConfirmed).toBe(true);
+    });
+  });
+
+  describe('3. 존 스침 및 달리기 팔 스윙 차단', () => {
+    it('손이 Zone 4 영역을 스쳐도 lateral 임계치(+0.55)에 미달하면 선택되지 않는다', () => {
+      // 어깨가 좌측으로 치우쳐 x 0.25일 때 손이 x 0.22(Zone 4 내부)를 지나침
+      // lateral = (0.25 - 0.22) / 0.20 = 0.15 < 0.55
+      const pose1 = createMockPose({
+        leftShoulder: { x: 0.25, y: 0.32, visibility: 0.9 },
+        rightShoulder: { x: 0.45, y: 0.32, visibility: 0.9 },
+        leftWrist: { x: 0.25, y: 0.32, visibility: 0.9 },
+      });
+      selector.update(0.0, pose1);
+
+      const pose2 = createMockPose({
+        leftShoulder: { x: 0.25, y: 0.32, visibility: 0.9 },
+        rightShoulder: { x: 0.45, y: 0.32, visibility: 0.9 },
+        leftWrist: { x: 0.22, y: 0.32, visibility: 0.9 },
+      });
+      const res = selector.update(0.1, pose2);
+
+      expect(res).toBeNull();
+      expect(selector.isConfirmed).toBe(false);
+    });
+
+    it('달리기 중 팔이 몸통 방향(안쪽)으로 되돌아오는 스윙은 선택되지 않는다', () => {
+      // 우측 바깥(0.95)에서 안쪽(0.80)으로 스윙 (outwardTravel < 0)
+      const pose1 = createMockPose({
+        rightWrist: { x: 0.95, y: 0.35, visibility: 0.9 },
+      });
+      selector.update(0.0, pose1);
+
+      const pose2 = createMockPose({
+        rightWrist: { x: 0.80, y: 0.35, visibility: 0.9 },
+      });
+      const res = selector.update(0.1, pose2);
+
+      expect(res).toBeNull();
+      expect(selector.isConfirmed).toBe(false);
+    });
+
+    it('짧은 왕복 스윙(바깥 이동 < 0.18*어깨너비)은 선택되지 않는다', () => {
+      // shoulderWidth = 0.20, required travel = 0.036
+      // 손이 0.40에서 0.38로 0.02만 이동
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.40, y: 0.35, visibility: 0.9 },
+      });
+      selector.update(0.0, pose1);
+
+      const pose2 = createMockPose({
+        leftWrist: { x: 0.38, y: 0.35, visibility: 0.9 },
+      });
+      const res = selector.update(0.1, pose2);
+
       expect(res).toBeNull();
       expect(selector.isConfirmed).toBe(false);
     });
   });
 
-  describe('3. 손의 색상 및 왼손/오른손 종류 무관성', () => {
-    it('오른손이 Zone 4(화면 좌측)에 도달해도 0번 답안으로 선택된다', () => {
-      const pose = createMockPose({
-        rightWrist: { ...ZONE_4_CENTER, visibility: 0.9 },
+  describe('4. 수평 우세 검증 (|가로 뻗음| >= 1.6 * |세로 뻗음|)', () => {
+    it('수직/대각선 스윙(|가로 뻗음| < 1.6 * |세로 뻗음|)은 미선택된다', () => {
+      // leftShoulder: x 0.40, y 0.35
+      // 손이 위아래로 크게 흔들림: pos.x = 0.25 (가로 뻗음 = 0.15), pos.y = 0.15 (세로 뻗음 = 0.20)
+      // 0.15 < 1.6 * 0.20 = 0.32 -> 수평 우세 실패
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.40, y: 0.35, visibility: 0.9 },
       });
+      selector.update(0.0, pose1);
 
-      const result = selector.update(0.0, pose);
-
-      expect(result).not.toBeNull();
-      expect(result?.answerIndex).toBe(0);
-      expect(result?.zoneId).toBe(4);
-      expect(result?.hand).toBe('right');
-    });
-
-    it('왼손이 Zone 5(화면 우측)에 도달해도 1번 답안으로 선택된다', () => {
-      const pose = createMockPose({
-        leftWrist: { ...ZONE_5_CENTER, visibility: 0.9 },
+      const pose2 = createMockPose({
+        leftWrist: { x: 0.25, y: 0.15, visibility: 0.9 },
       });
+      const res = selector.update(0.1, pose2);
 
-      const result = selector.update(0.0, pose);
-
-      expect(result).not.toBeNull();
-      expect(result?.answerIndex).toBe(1);
-      expect(result?.zoneId).toBe(5);
-      expect(result?.hand).toBe('left');
+      expect(res).toBeNull();
+      expect(selector.isConfirmed).toBe(false);
     });
   });
 
-  describe('4. 양팔 동시 유효 시 미선택 (Strict Mutual Exclusion)', () => {
-    it('왼손이 Zone 4에, 오른손이 Zone 5에 동시에 위치하면 미선택(null)된다', () => {
-      const pose = createMockPose({
-        leftWrist: { ...ZONE_4_CENTER, visibility: 0.9 },
-        rightWrist: { ...ZONE_5_CENTER, visibility: 0.9 },
+  describe('5. Strict Mutual Exclusion (양팔 동시 유효 및 반대 방향 차단)', () => {
+    it('왼손과 오른손이 동시에 각각 좌/우 방향으로 뻗으면 미선택(null)된다', () => {
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.40, y: 0.35, visibility: 0.9 },
+        rightWrist: { x: 0.60, y: 0.35, visibility: 0.9 },
       });
+      selector.update(0.0, pose1);
 
-      const result = selector.update(0.0, pose);
+      const pose2 = createMockPose({
+        leftWrist: { x: 0.20, y: 0.35, visibility: 0.9 },
+        rightWrist: { x: 0.80, y: 0.35, visibility: 0.9 },
+      });
+      const res = selector.update(0.1, pose2);
 
-      expect(result).toBeNull();
+      expect(res).toBeNull();
       expect(selector.isConfirmed).toBe(false);
       expect(selector.state.isMutualExclusionBlocked).toBe(true);
     });
 
-    it('양손이 동일한 존(Zone 4)에 동시에 위치해도 미선택(null)된다', () => {
-      const pose = createMockPose({
-        leftWrist: { x: 0.12, y: 0.32, visibility: 0.9 },
-        rightWrist: { x: 0.22, y: 0.32, visibility: 0.9 },
+    it('점수 우세(dominanceRatio)가 있어도 양팔 동시 통과 시 한쪽을 임의 채택하지 않는다', () => {
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.40, y: 0.35, visibility: 0.95 },
+        rightWrist: { x: 0.60, y: 0.35, visibility: 0.95 },
       });
+      selector.update(0.0, pose1);
 
-      const result = selector.update(0.0, pose);
+      // 좌측이 더 멀리 뻗었더라도 둘 다 유효하면 차단
+      const pose2 = createMockPose({
+        leftWrist: { x: 0.10, y: 0.35, visibility: 1.0 },
+        rightWrist: { x: 0.75, y: 0.35, visibility: 0.8 },
+      });
+      const res = selector.update(0.1, pose2);
 
-      expect(result).toBeNull();
+      expect(res).toBeNull();
       expect(selector.isConfirmed).toBe(false);
       expect(selector.state.isMutualExclusionBlocked).toBe(true);
     });
+  });
 
-    it('양손이 동일한 존(Zone 5)에 동시에 위치해도 미선택(null)된다', () => {
-      const pose = createMockPose({
-        leftWrist: { x: 0.75, y: 0.32, visibility: 0.9 },
-        rightWrist: { x: 0.85, y: 0.32, visibility: 0.9 },
+  describe('6. 스쿼트 하강(vy > 0) 및 점프 상승(vy < -threshold) 판정 분리', () => {
+    it('어깨가 내려가는 스쿼트(vy > 0, bodyVy > 0) 도중 손을 뻗으면 정상 선택된다', () => {
+      // Frame 1: 어깨 y 0.30
+      const pose1 = createMockPose({
+        leftShoulder: { x: 0.40, y: 0.30, visibility: 0.9 },
+        rightShoulder: { x: 0.60, y: 0.30, visibility: 0.9 },
+        leftWrist: { x: 0.40, y: 0.30, visibility: 0.9 },
       });
+      selector.update(0.0, pose1);
 
-      const result = selector.update(0.0, pose);
-
-      expect(result).toBeNull();
-      expect(selector.isConfirmed).toBe(false);
-      expect(selector.state.isMutualExclusionBlocked).toBe(true);
-    });
-
-    it('한 손이 Zone 4에 있고 다른 손의 가시성이 minVisibility 미만이면 정상 선택된다', () => {
-      const pose = createMockPose({
-        leftWrist: { ...ZONE_4_CENTER, visibility: 0.9 },
-        rightWrist: { ...ZONE_5_CENTER, visibility: 0.2 }, // 가시성 낮음
+      // Frame 2: 0.1초 후 스쿼트로 어깨 y 0.45 로 하강 (bodyVy = (0.45 - 0.30)/0.1 = +1.5 > 0)
+      // 동시에 왼손을 좌측으로 뻗음 (x 0.20, y 0.45)
+      const pose2 = createMockPose({
+        leftShoulder: { x: 0.40, y: 0.45, visibility: 0.9 },
+        rightShoulder: { x: 0.60, y: 0.45, visibility: 0.9 },
+        leftWrist: { x: 0.20, y: 0.45, visibility: 0.9 },
       });
+      const res = selector.update(0.1, pose2);
 
-      const result = selector.update(0.0, pose);
-
-      expect(result).not.toBeNull();
-      expect(result?.answerIndex).toBe(0);
+      expect(res).not.toBeNull();
+      expect(res?.answerIndex).toBe(0);
       expect(selector.isConfirmed).toBe(true);
-    });
-  });
-
-  describe('5. 수직 점프 동작 오선택 원천 차단', () => {
-    it('손이 수직 상승 속도(vy) 상한을 초과하면 Zone 4에 있어도 선택되지 않는다', () => {
-      // Frame 1: 손이 하단 (y 0.65)
-      const pose1 = createMockPose({
-        leftWrist: { x: 0.17, y: 0.65, visibility: 0.9 },
-      });
-      selector.update(0.0, pose1);
-
-      // Frame 2: 0.1초 후 Zone 4 내부(y 0.32)로 급격한 수직 상승 (vy = -3.3, vy >= 0.22)
-      const pose2 = createMockPose({
-        leftWrist: { x: 0.17, y: 0.32, visibility: 0.9 },
-      });
-      const result = selector.update(0.1, pose2);
-
-      expect(result).toBeNull();
-      expect(selector.isConfirmed).toBe(false);
-      expect(selector.state.isJumpBlocked).toBe(true);
+      expect(selector.state.isJumpBlocked).toBe(false);
     });
 
-    it('수직 속도가 수평 속도 대비 우세하면 (|vx| <= 1.2 * |vy|) 선택되지 않는다', () => {
-      // Frame 1
-      const pose1 = createMockPose({
-        leftWrist: { x: 0.25, y: 0.50, visibility: 0.9 },
-      });
-      selector.update(0.0, pose1);
-
-      // Frame 2: dt = 0.1s, vx = (0.17 - 0.25)/0.1 = -0.8, vy = (0.32 - 0.50)/0.1 = -1.8
-      // |vx| (0.8) <= 1.2 * |vy| (2.16)
-      const pose2 = createMockPose({
-        leftWrist: { x: 0.17, y: 0.32, visibility: 0.9 },
-      });
-      const result = selector.update(0.1, pose2);
-
-      expect(result).toBeNull();
-      expect(selector.isConfirmed).toBe(false);
-    });
-
-    it('전신 수직 점프(어깨/몸통 급상승) 시 손이 Zone 4에 도달해도 선택되지 않는다', () => {
-      // Frame 1: 차려 자세, 어깨 y 0.45
+    it('전신 수직 점프 급상승(bodyVy < -threshold) 시에는 손 뻗기가 차단된다', () => {
+      // Frame 1: 어깨 y 0.45
       const pose1 = createMockPose({
         leftShoulder: { x: 0.40, y: 0.45, visibility: 0.9 },
         rightShoulder: { x: 0.60, y: 0.45, visibility: 0.9 },
-        leftWrist: { x: 0.35, y: 0.45, visibility: 0.9 },
+        leftWrist: { x: 0.40, y: 0.45, visibility: 0.9 },
       });
       selector.update(0.0, pose1);
 
-      // Frame 2: 0.1초 후 점프로 어깨 y 0.35 (상승 속도 1.0 >= 0.22), 손은 우연히 Zone 4 진입
+      // Frame 2: 0.1초 후 점프로 어깨 y 0.30 로 급상승 (bodyVy = -1.5, upwardSpeed = 1.5 >= 0.22)
       const pose2 = createMockPose({
-        leftShoulder: { x: 0.40, y: 0.35, visibility: 0.9 },
-        rightShoulder: { x: 0.60, y: 0.35, visibility: 0.9 },
-        leftWrist: { ...ZONE_4_CENTER, visibility: 0.9 },
+        leftShoulder: { x: 0.40, y: 0.30, visibility: 0.9 },
+        rightShoulder: { x: 0.60, y: 0.30, visibility: 0.9 },
+        leftWrist: { x: 0.20, y: 0.30, visibility: 0.9 },
       });
-      const result = selector.update(0.1, pose2);
+      const res = selector.update(0.1, pose2);
 
-      expect(result).toBeNull();
+      expect(res).toBeNull();
       expect(selector.isConfirmed).toBe(false);
       expect(selector.state.isJumpBlocked).toBe(true);
     });
   });
 
-  describe('6. 최소 팔 뻗음 거리 비율 (minArmExtensionRatio) 검증', () => {
-    it('손이 어깨에 너무 가깝게 웅크려 있는 경우 (비율 < 0.25) 선택되지 않는다', () => {
-      // 어깨가 존 4 가까이로 이동한 상태에서 손이 어깨 바로 위에 웅크린 경우
-      // shoulderWidth = 0.20, minArmExtension = 0.05
-      const pose = createMockPose({
-        leftShoulder: { x: 0.20, y: 0.32, visibility: 0.9 },
-        rightShoulder: { x: 0.40, y: 0.32, visibility: 0.9 },
-        leftWrist: { x: 0.21, y: 0.32, visibility: 0.9 }, // 거리 0.01 / 0.20 = 0.05 < 0.25
+  describe('7. 손의 종류(왼손/오른손) 무관성 (Cross-Body 포함)', () => {
+    it('오른손으로 왼쪽을 향해 몸을 가로질러 뻗으면 0번(좌측) 답안으로 선택된다', () => {
+      const pose1 = createMockPose({
+        rightWrist: { x: 0.60, y: 0.35, visibility: 0.9 },
       });
+      selector.update(0.0, pose1);
 
-      const result = selector.update(0.0, pose);
+      // 오른손이 왼쪽으로 이동: lateral = (0.60 - 0.20) / 0.20 = 2.0 >= 0.55
+      const pose2 = createMockPose({
+        rightWrist: { x: 0.20, y: 0.35, visibility: 0.9 },
+      });
+      const res = selector.update(0.1, pose2);
 
-      expect(result).toBeNull();
-      expect(selector.isConfirmed).toBe(false);
+      expect(res).not.toBeNull();
+      expect(res?.answerIndex).toBe(0);
+      expect(res?.zoneId).toBe(4);
+      expect(res?.hand).toBe('right');
+    });
+
+    it('왼손으로 오른쪽을 향해 몸을 가로질러 뻗으면 1번(우측) 답안으로 선택된다', () => {
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.40, y: 0.35, visibility: 0.9 },
+      });
+      selector.update(0.0, pose1);
+
+      // 왼손이 오른쪽으로 이동: lateral = (0.40 - 0.80) / 0.20 = -2.0 <= -0.55
+      const pose2 = createMockPose({
+        leftWrist: { x: 0.80, y: 0.35, visibility: 0.9 },
+      });
+      const res = selector.update(0.1, pose2);
+
+      expect(res).not.toBeNull();
+      expect(res?.answerIndex).toBe(1);
+      expect(res?.zoneId).toBe(5);
+      expect(res?.hand).toBe('left');
     });
   });
 
-  describe('7. 1회 단일 확정 (Idempotent Trigger)', () => {
+  describe('8. 1회 단일 확정 (Idempotent Trigger) & Reset', () => {
     it('한 번 선택이 확정되면 이후 프레임에서 추가 선택 이벤트가 발생하지 않는다', () => {
       const selectSpy = vi.fn();
       selector.addSelectListener(selectSpy);
 
-      const pose = createMockPose({
-        leftWrist: { ...ZONE_4_CENTER, visibility: 0.9 },
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.40, y: 0.35, visibility: 0.9 },
       });
+      selector.update(0.0, pose1);
 
-      // Frame 1: 최초 확정
-      const res1 = selector.update(0.0, pose);
+      const pose2 = createMockPose({
+        leftWrist: { x: 0.20, y: 0.35, visibility: 0.9 },
+      });
+      const res1 = selector.update(0.1, pose2);
       expect(res1).not.toBeNull();
       expect(selectSpy).toHaveBeenCalledTimes(1);
 
-      // Frame 2: 동일 자세 유지
-      const res2 = selector.update(0.1, pose);
+      // Frame 3: 동일 자세 유지 시 추가 발생 없음
+      const res2 = selector.update(0.2, pose2);
       expect(res2).toBeNull();
       expect(selectSpy).toHaveBeenCalledTimes(1);
 
-      // Frame 3: 다른 존으로 이동해도 이미 확정 상태이므로 번복/추가 확정 없음
-      const poseZone5 = createMockPose({
-        rightWrist: { ...ZONE_5_CENTER, visibility: 0.9 },
+      // Frame 4: 반대편으로 뻗어도 번복 없음
+      const pose3 = createMockPose({
+        rightWrist: { x: 0.85, y: 0.35, visibility: 0.9 },
       });
-      const res3 = selector.update(0.2, poseZone5);
+      const res3 = selector.update(0.3, pose3);
       expect(res3).toBeNull();
       expect(selectSpy).toHaveBeenCalledTimes(1);
       expect(selector.confirmedAnswerIndex).toBe(0);
     });
 
-    it('reset() 호출 후에는 새 라운드 답안을 다시 선택할 수 있다', () => {
-      const poseZone4 = createMockPose({
-        leftWrist: { ...ZONE_4_CENTER, visibility: 0.9 },
+    it('reset() / openWindow() 호출 후에는 새 기준점으로 다시 선택할 수 있다', () => {
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.40, y: 0.35, visibility: 0.9 },
       });
-      selector.update(0.0, poseZone4);
+      selector.update(0.0, pose1);
+
+      const pose2 = createMockPose({
+        leftWrist: { x: 0.20, y: 0.35, visibility: 0.9 },
+      });
+      selector.update(0.1, pose2);
       expect(selector.isConfirmed).toBe(true);
 
-      // 새 라운드 reset
-      selector.reset();
+      // 새 라운드 창 개방
+      selector.openWindow();
       expect(selector.isConfirmed).toBe(false);
       expect(selector.confirmedAnswerIndex).toBeNull();
 
-      // Zone 5 선택
-      const poseZone5 = createMockPose({
-        rightWrist: { ...ZONE_5_CENTER, visibility: 0.9 },
+      // 우측 뻗기
+      const pose3 = createMockPose({
+        rightWrist: { x: 0.60, y: 0.35, visibility: 0.9 },
       });
-      const res = selector.update(1.0, poseZone5);
+      selector.update(1.0, pose3);
+
+      const pose4 = createMockPose({
+        rightWrist: { x: 0.80, y: 0.35, visibility: 0.9 },
+      });
+      const res = selector.update(1.1, pose4);
       expect(res?.answerIndex).toBe(1);
       expect(selector.isConfirmed).toBe(true);
     });
   });
 
-  describe('8. 비상 Fallback (키보드 / 직접 선택)', () => {
+  describe('9. 비상 Fallback (키보드 / 직접 선택)', () => {
     it('selectByFallback(0) 호출 시 0번(Zone 4) 답안이 즉시 확정된다', () => {
       const res = selector.selectByFallback(0, 1.5);
       expect(res?.answerIndex).toBe(0);
       expect(res?.zoneId).toBe(4);
       expect(res?.hand).toBe('fallback');
       expect(res?.source).toBe('keyboard');
-      expect(selector.isConfirmed).toBe(true);
-    });
-
-    it('selectByFallback(1) 호출 시 1번(Zone 5) 답안이 즉시 확정된다', () => {
-      const res = selector.selectByFallback(1, 1.5);
-      expect(res?.answerIndex).toBe(1);
-      expect(res?.zoneId).toBe(5);
       expect(selector.isConfirmed).toBe(true);
     });
 
@@ -425,17 +465,28 @@ describe('ArmReachAnswerSelector (Issue #224 - INPUT-ARM-ANSWER-001)', () => {
     });
   });
 
-  describe('9. 카메라 미러링(isMirrored: true) 지원', () => {
-    it('isMirrored가 true일 때 카메라 우측 랜드마크(x > 0.7)가 화면 좌측(Zone 4)으로 변환되어 선택된다', () => {
+  describe('10. 카메라 미러링(isMirrored: true) 지원', () => {
+    it('isMirrored가 true일 때 카메라 우측 랜드마크가 화면 좌측(0번)으로 변환되어 선택된다', () => {
       const mirroredSelector = new ArmReachAnswerSelector({ isMirrored: true });
-      // 카메라 원본에서 사용자의 오른편(x 0.83) -> 미러 변환 시 화면 좌측 1 - 0.83 = 0.17 (Zone 4)
-      const pose = createMockPose({
-        leftWrist: { x: 0.83, y: 0.32, visibility: 0.9 },
+      // 카메라 원본에서 손 x=0.60 (미러 후 화면 0.40)
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.60, y: 0.35, visibility: 0.9 },
+        leftShoulder: { x: 0.60, y: 0.35, visibility: 0.9 },
+        rightShoulder: { x: 0.40, y: 0.35, visibility: 0.9 },
       });
+      mirroredSelector.update(0.0, pose1);
 
-      const res = mirroredSelector.update(0.0, pose);
+      // 카메라 원본에서 손 x=0.80 (미러 후 화면 0.20 -> 화면 좌측으로 뻗음)
+      const pose2 = createMockPose({
+        leftWrist: { x: 0.80, y: 0.35, visibility: 0.9 },
+        leftShoulder: { x: 0.60, y: 0.35, visibility: 0.9 },
+        rightShoulder: { x: 0.40, y: 0.35, visibility: 0.9 },
+      });
+      const res = mirroredSelector.update(0.1, pose2);
+
       expect(res?.answerIndex).toBe(0);
       expect(res?.zoneId).toBe(4);
+      expect(mirroredSelector.isConfirmed).toBe(true);
     });
   });
 });

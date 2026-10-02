@@ -33,6 +33,27 @@ export interface ArmReachJudgmentBaselines {
   visibility: number;
 }
 
+/**
+ * 몸 기준 팔 뻗기 방향 판정 설정 (#287 / INPUT-ARM-DIRECTION-001)
+ */
+export interface ArmDirectionAnswerConfig {
+  /** 몸 기준 수평 뻗기 임계치 (lateral = (어깨X - 손목X) / 어깨너비, 기본 0.55) */
+  lateralThreshold: number;
+  /** 수평 우세비 임계치 (|가로 뻗음| >= horizontalDominanceRatio * |세로 뻗음|, 기본 1.6) */
+  horizontalDominanceRatio: number;
+  /** 창 개방 이후 바깥 방향 최소 이동 비율 (기본 0.18 * 어깨너비) */
+  outwardTravelRatio: number;
+  /** 답안 선택 유효 창 비트 수 (기본 2박, 최대 1.0초 @ BPM 120) */
+  answerSelectBeats: number;
+}
+
+export const DEFAULT_ARM_DIRECTION_ANSWER_CONFIG: ArmDirectionAnswerConfig = {
+  lateralThreshold: 0.55,
+  horizontalDominanceRatio: 1.6,
+  outwardTravelRatio: 0.18,
+  answerSelectBeats: 2,
+};
+
 export interface ArmReachJudgmentConfig {
   /** 5개 게이트 가중치 */
   weights: ArmReachScoreWeights;
@@ -44,6 +65,8 @@ export interface ArmReachJudgmentConfig {
   hardMinVisibility: number;
   /** 게이트 정규화 기준값 (0.5 산출 기준점) */
   baselines: ArmReachJudgmentBaselines;
+  /** 몸 기준 팔 뻗기 방향 판정 설정 (#287) */
+  direction: ArmDirectionAnswerConfig;
 }
 
 export const DEFAULT_ARM_REACH_JUDGMENT_CONFIG: ArmReachJudgmentConfig = {
@@ -63,6 +86,7 @@ export const DEFAULT_ARM_REACH_JUDGMENT_CONFIG: ArmReachJudgmentConfig = {
     horizontalDominanceRatio: DEFAULT_ARM_REACH_ANSWER_CONFIG.horizontalDominanceRatio,
     visibility: DEFAULT_ARM_REACH_ANSWER_CONFIG.minVisibility,
   },
+  direction: DEFAULT_ARM_DIRECTION_ANSWER_CONFIG,
 };
 
 export interface ArmReachGateScores {

@@ -61,7 +61,7 @@ describe('ArmReachAnswerSelector - Weighted Score & Dominance (Issue #249 / INPU
   const ZONE_5_CENTER = { x: 0.83, y: 0.32 };
 
   beforeEach(() => {
-    selector = new ArmReachAnswerSelector({ isMirrored: false });
+    selector = new ArmReachAnswerSelector({ isMirrored: false, mode: 'legacy_weighted' });
   });
 
   // Red Scenario 1

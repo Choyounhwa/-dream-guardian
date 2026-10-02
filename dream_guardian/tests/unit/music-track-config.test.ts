@@ -125,19 +125,10 @@ describe('MusicTrackConfig & Variable Beat Architecture (Issue #204 / BEAT-TRACK
       expect(coordinator.phase).toBe('ANSWER_SELECT');
       expect(coordinator.isAnswerOpen).toBe(true);
 
-      // 4박 중 2박(1.0초) 경과 시점: 여전히 ANSWER_SELECT 유지 (기존 2박 설정이면 타임아웃 되었을 시점)
+      // 2박(1.0초 @ BPM 120) 도달: 타임아웃 만료로 HAZARD_EVADE 전이 (Issue #287)
       coordinator.update(1.0);
-      expect(coordinator.phase).toBe('ANSWER_SELECT');
-      expect(coordinator.isAnswerOpen).toBe(true);
-
-      // 추가 0.99초 경과 (총 1.99초): 여전히 ANSWER_SELECT 유지
-      coordinator.update(0.99);
-      expect(coordinator.phase).toBe('ANSWER_SELECT');
-      expect(coordinator.isAnswerOpen).toBe(true);
-
-      // 4박(2.0초) 도달: 타임아웃 만료로 HAZARD_EVADE 전이
-      coordinator.update(0.02);
       expect(coordinator.phase).toBe('HAZARD_EVADE');
+      expect(coordinator.isAnswerOpen).toBe(false);
     });
 
     it('setTrackConfig로 런타임에 트랙 및 루프 패턴을 동적 변경할 수 있다', () => {
