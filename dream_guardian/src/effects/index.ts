@@ -11,5 +11,7 @@ export * from './StardustManager.js';
 export * from './Particle.js';
 export * from './ParticleEmitter.js';
 export * from './EffectManager.js';
+export * from './CombatVFX.js';
+export * from './ScreenFX.js';
 export * from './UITransition.js';
 export * from '../../config/effect.config.js';
