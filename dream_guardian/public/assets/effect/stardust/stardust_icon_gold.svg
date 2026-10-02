@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- 외곽 금빛 후광 블러 필터 -->
+    <filter id="softGlow_gold" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="24" result="blur1" />
+      <feGaussianBlur stdDeviation="10" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur1" />
+        <feMergeNode in="blur2" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- 유성 꼬리 그라디언트 -->
+    <linearGradient id="tailGrad_gold" x1="0.8" y1="0.8" x2="0.05" y2="0.05">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.95" />
+      <stop offset="25%" stop-color="#FFF59D" stop-opacity="0.85" />
+      <stop offset="65%" stop-color="#FFB300" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#FF8F00" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- 별 본체 방사형 따뜻한 그라디언트 -->
+    <radialGradient id="starGrad_gold" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="35%" stop-color="#FFF59D" />
+      <stop offset="75%" stop-color="#FFB300" />
+      <stop offset="100%" stop-color="#FF8F00" />
+    </radialGradient>
+
+    <!-- 원형 후광 그라디언트 -->
+    <radialGradient id="haloGrad_gold" cx="50%" cy="50%" r="50%">
+      <stop offset="20%" stop-color="#FFE082" stop-opacity="0.7" />
+      <stop offset="70%" stop-color="#FF8F00" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#FF8F00" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- 1. 좌상단으로 뻗는 풍성한 유성 꼬리 (동시집 '별똥별' 스타일) -->
+  
+  <path d="M 210 350 L 40 40 L 70 20 L 360 200 Z" fill="url(#tailGrad_gold)" opacity="0.9" />
+  <line x1="285" y1="275" x2="45" y2="35" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" opacity="0.75" />
+  <!-- 꼬리 주변 흩날리는 별가루 파티클 -->
+  <circle cx="120" cy="90" r="7" fill="#FFFFFF" opacity="0.85" />
+  <circle cx="170" cy="130" r="5" fill="#FFF59D" opacity="0.9" />
+  <circle cx="95" cy="140" r="4" fill="#FFB300" opacity="0.75" />
+  <circle cx="210" cy="180" r="8" fill="#FFFFFF" opacity="0.85" />
+  <circle cx="140" cy="220" r="5.5" fill="#FFF59D" opacity="0.8" />
+  
+
+  <!-- 2. 따뜻한 외곽 후광(Aura Glow) -->
+  <circle cx="285" cy="275" r="210" fill="url(#haloGrad_gold)" />
+
+  <!-- 3. 통통하고 따뜻한 별똥별 본체 -->
+  <path d="M 263.84 175.88 Q 285.00 135.00, 306.16 175.88 Q 327.32 216.75, 372.74 224.25 Q 418.15 231.74, 385.81 264.50 Q 353.48 297.25, 360.38 342.75 Q 367.29 388.26, 326.14 367.63 Q 285.00 347.00, 243.86 367.63 Q 202.71 388.26, 209.62 342.75 Q 216.52 297.25, 184.19 264.50 Q 151.85 231.74, 197.26 224.25 Q 242.68 216.75, 263.84 175.88 Z" fill="url(#starGrad_gold)" stroke="#FFB300" stroke-width="6" stroke-linejoin="round" filter="url(#softGlow_gold)" />
+
+  <!-- 4. 중심부 눈부신 백색 빛 코어 -->
+  <circle cx="277" cy="267" r="32.4" fill="#FFFFFF" opacity="0.9" />
+  <circle cx="297" cy="285" r="15.84" fill="#FFFFFF" opacity="0.7" />
+</svg>

@@ -4869,8 +4869,8 @@ BEAT-SPEC-001
 
 ---
 
-### Issue #289: [RENDER-GRID-003] 드림 그리드 하단 전경 패널 음영(검은색 바닥 면 채우기) 제거 및 투명 SFX 네온 런웨이 와이어프레임 전환
-- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/289
+### Issue #294: [RENDER-GRID-003] 드림 그리드 하단 전경 패널 음영(검은색 바닥 면 채우기) 제거 및 투명 SFX 네온 런웨이 와이어프레임 전환
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/294
 - **Labels**: `phase-7`, `bug`, `P1-high`
 - **작업 ID**: `[RENDER-GRID-003]`
 - **상태**: ⚪ **대기 (승인 대기)**
@@ -4913,6 +4913,132 @@ BEAT-SPEC-001
   - `dream_guardian/config/grid.config.ts`
   - `dream_guardian/src/render/DreamGrid.ts`
   - `dream_guardian/tests/unit/dream-grid.test.ts`
+
+---
+
+### Issue #289: [UI-ASSET-008] 신체 부위 벡터 아이콘(손/머리/골반/어깨) 이미지 에셋 제작 및 PartIconRenderer 비트맵 렌더링/폴백 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/289
+- **Labels**: `feature`, `phase-6`, `P2-medium`
+- **작업 ID**: `[UI-ASSET-008]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - `PartIconRenderer`에서 매 프레임 수십 개의 베지어 곡선 및 `shadowBlur`로 실시간 연산되는 신체 부위(왼손, 오른손, 머리, 골반, 어깨) 벡터 드로잉을 PNG 이미지 에셋으로 교체하여, 인게임 답안 버튼 및 피트니스 존 가이드 렌더링 시 발생하는 캔버스 연산 부하를 획기적으로 절감한다.
+- **수정 대상**:
+  - `dream_guardian/config/ui.config.ts`
+  - `dream_guardian/src/render/PartIconRenderer.ts`
+  - `dream_guardian/scripts/generate-icon-assets.js`
+  - `dream_guardian/tests/unit/part-icon-renderer.test.ts`
+- **구현 내용**:
+  1. `dream_guardian/public/assets/ui/icon/`에 5종 신체 부위 PNG 에셋 생성 배치 (`icon_hand_left.png`, `icon_hand_right.png`, `icon_head.png`, `icon_hip.png`, `icon_shoulder.png`)
+  2. `config/ui.config.ts`의 `UI_IMAGE_ASSETS`에 `icon` 슬롯 등록
+  3. `PartIconRenderer.drawIcon()`에서 `imageLoader.get('icon', partKey)` 조회 후 `drawImage` 비트맵 렌더링 수행
+  4. 이미지 미로드 시 기존 베지어 곡선 프로시저럴 드로잉 폴백 100% 보장
+- **완료 조건**:
+  - [ ] 5종 신체 부위 PNG 에셋 생성 및 `public/assets/ui/icon/` 배치
+  - [ ] `PartIconRenderer`에서 비트맵 로딩 시 `drawImage` 렌더링 동작
+  - [ ] 이미지 부재 시 기존 벡터 프로시저럴 렌더링 정상 동작 (폴백 검증)
+  - [ ] 단위 테스트 100% Pass 및 빌드 성공
+
+---
+
+### Issue #290: [UI-ASSET-009] 답안 버튼(Zone 4/5) 및 문제 수식 배경 패널 이미지 에셋 제작 및 QuestionRenderer 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/290
+- **Labels**: `feature`, `phase-6`, `P2-medium`
+- **작업 ID**: `[UI-ASSET-009]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - `QuestionRenderer`에서 매 프레임 실시간 연산되는 상단 문제 수식 배경 패널과 2개 답안 버튼(기본/호버/선택 상태)의 다중 외곽선 및 섀도우 블러 연산을 사전 렌더링된 PNG 이미지 에셋으로 교체하여 프레임 드랍을 방지하고 비주얼 완성도를 극대화한다.
+- **수정 대상**:
+  - `dream_guardian/config/ui.config.ts`
+  - `dream_guardian/src/render/QuestionRenderer.ts`
+  - `dream_guardian/scripts/generate-question-assets.js`
+  - `dream_guardian/tests/unit/question-renderer.test.ts`
+- **구현 내용**:
+  1. `public/assets/ui/question/`에 `question_board_bg.png`, `answer_btn_default.png`, `answer_btn_hover.png`, `answer_btn_selected.png` 생성 배치
+  2. `config/ui.config.ts`의 `UI_IMAGE_ASSETS`에 `question` 슬롯 추가 등록
+  3. `QuestionRenderer.render()`에서 버튼 프레임 렌더링 시 이미지 에셋 조회 후 `drawImage` 처리
+  4. 이미지 미로드 시 기존 `roundRect` 및 캔버스 패스 기반 프로시저럴 드로잉 폴백
+- **완료 조건**:
+  - [ ] 문제 패널 1종 및 버튼 상태 프레임 3종 PNG 생성 및 배치
+  - [ ] `QuestionRenderer`에서 비트맵 프레임 기반 렌더링 정상 동작
+  - [ ] 이미지 미로드 시 프로시저럴 드로잉 100% 폴백 보장
+  - [ ] 단위 테스트 통과 및 빌드 성공
+
+---
+
+### Issue #291: [UI-ASSET-010] 8박자 비트 인디케이터 도트 및 메트로놈 UI 이미지 에셋 제작 및 BeatHUDRenderer 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/291
+- **Labels**: `feature`, `phase-6`, `P2-medium`
+- **작업 ID**: `[UI-ASSET-010]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - Phase A 러닝 페이즈 동안 `BeatHUDRenderer`에서 매 프레임 8개 원형 `arc` 루프와 `shadowBlur` 네온 발광으로 실시간 드로잉되는 8박자 비트 도트를 비트맵 이미지 텍스처로 교체하여 프레임 안정성을 확보한다.
+- **수정 대상**:
+  - `dream_guardian/config/ui.config.ts`
+  - `dream_guardian/src/render/BeatHUDRenderer.ts`
+  - `dream_guardian/scripts/generate-hud-assets.js`
+  - `dream_guardian/tests/unit/beat-hud-renderer.test.ts`
+- **구현 내용**:
+  1. `public/assets/ui/hud/`에 `beat_dot_active.png`, `beat_dot_inactive.png`, `beat_dot_target.png` 생성 배치
+  2. `config/ui.config.ts`의 `UI_IMAGE_ASSETS.hud`에 등록
+  3. `BeatHUDRenderer.render()` 내부 8박자 도트 루프에서 이미지 우선 드로잉 연동
+  4. 이미지 미로드 시 기존 원형 `arc` 및 `shadowBlur` 프로시저럴 드로잉 폴백
+- **완료 조건**:
+  - [ ] 3종 비트 도트 PNG 에셋 생성 및 배치
+  - [ ] `BeatHUDRenderer`에서 비트맵 기반 8박 도트 렌더링 동작
+  - [ ] 이미지 미로드 시 기존 프로시저럴 드로잉 정상 폴백
+  - [ ] 단위 테스트 통과 및 빌드 성공
+
+---
+
+### Issue #292: [UI-ASSET-011] 서브레벨 선택 카드 배경 및 결과 화면 랭크 등급 스탬프(S/A/B/C) 이미지 에셋 제작 및 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/292
+- **Labels**: `feature`, `phase-6`, `P2-medium`
+- **작업 ID**: `[UI-ASSET-011]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - 메인 메뉴의 서브레벨(1-1 ~ 1-3) 6개 선택 카드 박스와 결과 화면(Result)의 종합 평가 랭크 도장 드로잉을 고품질 사전 렌더링 PNG 에셋으로 교체하여 렌더링 부하를 줄이고 시각적 연출을 고급화한다.
+- **수정 대상**:
+  - `dream_guardian/config/ui.config.ts`
+  - `dream_guardian/src/ui/MenuRenderer.ts`
+  - `dream_guardian/src/ui/ResultRenderer.ts`
+  - `dream_guardian/tests/unit/menu-renderer.test.ts`
+  - `dream_guardian/tests/unit/result-renderer.test.ts`
+- **구현 내용**:
+  1. `public/assets/ui/menu/sublevel_card_bg.png` (440x240) 및 `public/assets/ui/result/rank_stamp_*.png` (180x180) 배치
+  2. `config/ui.config.ts`의 `UI_IMAGE_ASSETS.menu` 및 `result`에 슬롯 등록
+  3. `MenuRenderer` 및 `ResultRenderer`에서 이미지 에셋 우선 조회 및 렌더링, 미로드 시 프로시저럴 폴백 보장
+- **완료 조건**:
+  - [ ] 서브레벨 카드 배경 1종 및 랭크 스탬프 4종 PNG 생성 및 배치
+  - [ ] `MenuRenderer`와 `ResultRenderer`에서 이미지 렌더링 동작
+  - [ ] 이미지 미로드 시 프로시저럴 폴백 정상 동작
+  - [ ] 단위 테스트 100% Pass 및 빌드 성공
+
+---
+
+### Issue #293: [UI-ASSET-012] 인게임 대사창 오버레이 패널 및 모달 기능 버튼/아이콘 이미지 에셋 제작 및 연동
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/293
+- **Labels**: `feature`, `phase-6`, `P2-medium`
+- **작업 ID**: `[UI-ASSET-012]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - `DialogueOverlayRenderer`의 화자별 대사창 배경 박스 및 `SettingsModal` / `PauseModal` 내 조작 버튼(재개/종료/닫기)과 기능별 아이콘(카메라, 스피커, 스켈레톤, 전체화면)을 PNG 이미지 에셋으로 교체하여, 모달 및 컷신 렌더링 시 발생하는 다중 외곽선/글로우 연산을 최소화한다.
+- **수정 대상**:
+  - `dream_guardian/config/ui.config.ts`
+  - `dream_guardian/src/render/DialogueOverlayRenderer.ts`
+  - `dream_guardian/src/ui/SettingsModal.ts`
+  - `dream_guardian/src/ui/PauseModal.ts`
+  - `dream_guardian/tests/unit/dialogue-overlay-renderer.test.ts`
+- **구현 내용**:
+  1. `public/assets/ui/dialogue/dialogue_box_bg.png`, `speaker_badge_*.png` 생성 배치
+  2. `public/assets/ui/modal/`에 버튼 및 기능 아이콘 6종 배치
+  3. `config/ui.config.ts`의 `UI_IMAGE_ASSETS`에 해당 슬롯 등록
+  4. `DialogueOverlayRenderer`, `SettingsModal`, `PauseModal`에서 비트맵 우선 렌더링 및 미로드 시 프로시저럴 폴백 보장
+- **완료 조건**:
+  - [ ] 대사창 패널 및 모달 버튼/아이콘 9종 PNG 에셋 생성 및 배치
+  - [ ] 대사창 및 모달 2종에서 비트맵 기반 렌더링 동작
+  - [ ] 이미지 미로드 시 기존 프로시저럴 드로잉 정상 폴백
+  - [ ] 단위 테스트 통과 및 빌드 성공
 
 
 
