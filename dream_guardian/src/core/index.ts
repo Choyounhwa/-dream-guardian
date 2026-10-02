@@ -7,6 +7,8 @@ export { RhythmEngine } from './RhythmEngine.js';
 export type { BeatEvent, RhythmEngineOptions } from './RhythmEngine.js';
 export { SessionLifecycle } from './SessionLifecycle.js';
 export { GameSessionContext } from './GameSessionContext.js';
+export { AppBootstrap } from './AppBootstrap.js';
+export type { AppBootstrapOptions } from './AppBootstrap.js';
 export { SceneDirector, RENDER_LAYER_ORDER } from './SceneDirector.js';
 export type {
   SceneId,
