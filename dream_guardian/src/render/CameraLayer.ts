@@ -50,6 +50,10 @@ export class CameraLayer {
     return this._video;
   }
 
+  get mirror(): boolean {
+    return this._mirror;
+  }
+
   /**
    * 웹캠 권한 요청 및 비디오 스트림 시작
    * @returns 성공 여부

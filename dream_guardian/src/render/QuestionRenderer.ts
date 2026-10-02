@@ -25,6 +25,8 @@ export interface QuestionRenderState {
   vanishingY?: number;
   /** 러닝 페이즈 6박 이후 답안 프리뷰 시 헤더 중복 방지 플래그 */
   buttonsOnly?: boolean;
+  /** 8박 종료 후 2박 선택 창에서만 true. 6~8박 프리뷰는 false(비활성) */
+  answerSelectable?: boolean;
   /** Issue #285 (UI-ANSWER-002): 각 보기 버튼의 0.0 ~ 1.0 충전 진행도 */
   choiceProgress?: [number, number];
   /** Issue #285 (UI-ANSWER-002): 현재 조준/타겟팅된 보기 버튼 인덱스 0 또는 1 */
@@ -145,6 +147,7 @@ export class QuestionRenderer {
     const minAlpha = 0.20;
     const scale = isApproaching ? minScale + (1.0 - minScale) * eased : 1.0;
     const alpha = isApproaching ? minAlpha + (1.0 - minAlpha) * eased : 1.0;
+    const selectable = state.answerSelectable !== false;
 
     for (let i = 0; i < 2; i++) {
       const btn = buttonLayouts[i];
@@ -166,7 +169,7 @@ export class QuestionRenderer {
       const btnY = curCenterY - curH / 2;
 
       ctx.save();
-      ctx.globalAlpha *= alpha;
+      ctx.globalAlpha *= selectable ? alpha : alpha * 0.42;
 
       // Issue #285 (UI-ANSWER-002): 호버 시 글로우 효과 (shadowBlur 20px)
       if (isHovered) {
@@ -235,6 +238,18 @@ export class QuestionRenderer {
         ctx.stroke();
 
         ctx.restore();
+      } else if (!selectable) {
+        ctx.strokeStyle = 'rgba(140, 150, 170, 0.55)';
+        ctx.lineWidth = 4 * scaleX * effectiveScale;
+        ctx.setLineDash([10 * scaleX, 8 * scaleX]);
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(bx, btnY, curW, curH, 20 * scaleX * effectiveScale);
+        } else {
+          ctx.rect(bx, btnY, curW, curH);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
       } else {
         // 기본 네온 테두리 (진행도 없을 때)
         ctx.strokeStyle = i === 0 ? 'rgba(40, 230, 255, 0.7)' : 'rgba(255, 203, 77, 0.7)';
@@ -313,7 +328,7 @@ export class QuestionRenderer {
 
       renderMath(ctx, choiceStr, curCenterX, choiceTargetY, {
         fontSize: choiceFontSize,
-        color: '#FFCB4D',
+        color: selectable ? '#FFCB4D' : '#8A93A8',
         align: 'center',
         maxWidth: Math.max(20, (btn.width - 32 * scaleX) * effectiveScale),
         maxHeight: Math.max(20, (btn.height - 32 * scaleY) * effectiveScale),
@@ -322,8 +337,18 @@ export class QuestionRenderer {
         placeholderColor: '#FFCB4D',
       });
 
-      // 키보드 힌트 (접근 후반부 또는 정면 안착 시 표시)
-      if (progress >= 0.7) {
+      if (!selectable) {
+        ctx.save();
+        ctx.font = UIText.getFont('badge', scaleX * scale, 'bold');
+        ctx.fillStyle = '#9AA3B5';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('대기', curCenterX, btnY + curH + 28 * scaleY * scale);
+        ctx.restore();
+      }
+
+      // 키보드 힌트 (선택 가능 구간에서만 표시)
+      if (selectable && progress >= 0.7) {
         const badgeAlpha = isApproaching ? Math.min(1.0, (progress - 0.7) / 0.3) : 1.0;
         ctx.save();
         ctx.globalAlpha *= badgeAlpha;

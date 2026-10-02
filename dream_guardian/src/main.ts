@@ -1868,6 +1868,7 @@ const engine = new GameEngine({
             vanishingX: bossX,
             vanishingY: bossY,
             buttonsOnly: true,
+            answerSelectable: false,
           });
         }
       } else if (presentationAdapter.canRenderQuestion(stateMachine.currentState)) {
@@ -1915,6 +1916,7 @@ const engine = new GameEngine({
           vanishingY: bossY,
           choiceProgress: [choiceProgress0, choiceProgress1],
           activeHoverIndex,
+          answerSelectable: beatCoordinator.isAnswerOpen,
         });
 
         // Issue #255: ANSWER_SELECT 상태에서 부분 진행도 시각화 및 실패 사유 힌트 렌더링
@@ -2229,7 +2231,7 @@ canvas.addEventListener('click', (e) => {
       currentQuestion = beatCoordinator.currentQuestion;
       return;
     }
-    if (presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked) && currentQuestion) {
+    if (presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked, beatCoordinator.isAnswerOpen) && currentQuestion) {
       const buttonLayouts = getAnswerButtonLayouts(vw, vh);
 
       for (let i = 0; i < 2; i++) {
@@ -2426,7 +2428,7 @@ document.addEventListener('keydown', (e) => {
       footKeynoteInput.fromKeyboard('rightFoot', engine.elapsedTime);
     }
 
-    if (presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked) && beatCoordinator.isAnswerOpen) {
+    if (presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked, beatCoordinator.isAnswerOpen)) {
       if (e.key === '1') {
         sfx.play('hover');
         beatCoordinator.confirmAnswerByFallback(0);

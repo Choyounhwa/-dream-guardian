@@ -177,8 +177,8 @@ export class PhasePresentationAdapter {
   /**
    * 답안 선택 입력(마우스 클릭 / 터치 / 키보드 1, 2) 허용 여부
    */
-  isAnswerInputAllowed(state: GameState, isAnswerLocked: boolean): boolean {
-    return state === 'ANSWER_SELECT' && !isAnswerLocked;
+  isAnswerInputAllowed(state: GameState, isAnswerLocked: boolean, isWindowOpen = true): boolean {
+    return state === 'ANSWER_SELECT' && !isAnswerLocked && isWindowOpen;
   }
 
   /**

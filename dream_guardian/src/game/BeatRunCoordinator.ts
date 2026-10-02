@@ -203,9 +203,10 @@ export class BeatRunCoordinator {
 
   get isAnswerOpen(): boolean {
     if (this._phase === 'ANSWER_SELECT') {
+      const answerWindowBeats = DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats;
       return (
         this._selectedChoiceIndex === null &&
-        this._answerSelectElapsed < this.readyBeats * this._rhythmEngine.secondsPerBeat
+        this._answerSelectElapsed < answerWindowBeats * this._rhythmEngine.secondsPerBeat
       );
     }
     if (this._phase === 'KEYNOTE_PERFORMANCE') {
