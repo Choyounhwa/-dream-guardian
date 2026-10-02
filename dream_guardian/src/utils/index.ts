@@ -23,4 +23,5 @@ export function toNormalizedLandmarks(
 
 export * from './UIText.js';
 export * from './UIImageLoader.js';
+export * from './PoseGeometry.js';
 

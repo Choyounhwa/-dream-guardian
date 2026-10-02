@@ -45,6 +45,16 @@ import { isInsideZone } from './PostureMatcher.js';
 import { POSE_LANDMARKS, type NormalizedLandmark } from '../types/index.js';
 import type { MotionIntentBus } from '../motion/MotionIntentBus.js';
 import type { MotionIntent, UnsubscribeFn } from '../types/motion-intent.js';
+import {
+  calcArmExtensionRatio,
+  calcDominanceRatio,
+  calcLateralReach,
+  calcNormalizedZoneDistance,
+  calcShoulderWidth,
+  calcVelocity,
+  mirrorPoint,
+  normalizeByShoulder,
+} from '../utils/PoseGeometry.js';
 
 
 export type ArmHandType = 'left' | 'right' | 'fallback';
@@ -436,10 +446,7 @@ export class ArmReachAnswerSelector {
   }
 
   private _toScreenPoint(pt: { x: number; y: number }): { x: number; y: number } {
-    return {
-      x: this._config.isMirrored ? 1 - pt.x : pt.x,
-      y: pt.y,
-    };
+    return mirrorPoint(pt, this._config.isMirrored);
   }
 
   private _buildCandidateStatus(hand: 'left' | 'right'): ArmCandidateStatus {
@@ -553,24 +560,13 @@ export class ArmReachAnswerSelector {
       targetAnswerIndex = targetZoneId === 4 ? 0 : 1;
     }
 
-    const cx = targetZone.x + targetZone.width / 2;
-    const cy = targetZone.y + targetZone.height / 2;
-    const halfW = targetZone.width / 2;
-    const halfH = targetZone.height / 2;
-    const dx = Math.abs(pos.x - cx) / (halfW > EPSILON ? halfW : 0.13);
-    const dy = Math.abs(pos.y - cy) / (halfH > EPSILON ? halfH : 0.08);
-    const normDist = Math.max(dx, dy);
+    const normDist = calcNormalizedZoneDistance(pos, targetZone);
 
     // normDist: 0(중심) -> 1.0, 1.0(경계) -> 0.50, 2.0(외부 1반폭) -> 0.0
     const zonePenetrationScore = Math.max(0, Math.min(1, 1.0 - 0.5 * normDist));
 
     // 3. 속도 계산
-    let vx = 0;
-    let vy = 0;
-    if (prevPos && dt > EPSILON) {
-      vx = (pos.x - prevPos.x) / dt;
-      vy = (pos.y - prevPos.y) / dt;
-    }
+    const { vx, vy } = calcVelocity(pos, prevPos, dt);
 
     // Upward body jump check (Issue #287)
     if (isBodyJumping) {
@@ -598,7 +594,7 @@ export class ArmReachAnswerSelector {
     if (this._config.mode !== 'legacy_weighted') {
       const effectiveShoulderWidth = shoulderWidth > EPSILON ? shoulderWidth : 0.20;
       // lateral = (어깨X - 손목X) / 어깨너비 (Issue #287)
-      const lateral = (shoulderPos.x - pos.x) / effectiveShoulderWidth;
+      const lateral = calcLateralReach(pos.x, shoulderPos.x, shoulderWidth);
       const dirConfig = this._judgmentConfig.direction ?? DEFAULT_ARM_DIRECTION_ANSWER_CONFIG;
       const lateralThreshold = dirConfig.lateralThreshold; // 0.55
 
@@ -641,7 +637,7 @@ export class ArmReachAnswerSelector {
       const dominanceProgress = dy > 0 ? Math.min(1.0, (dx / dy) / dirConfig.horizontalDominanceRatio) : 1.0;
       const travelProgress = minOutwardTravel > 0 ? Math.min(1.0, Math.max(0, outwardTravel / minOutwardTravel)) : 1.0;
       const visibilityScore = Math.max(0, Math.min(1, pos.visibility));
-      const armExtensionRatio = dx / effectiveShoulderWidth;
+      const armExtensionRatio = normalizeByShoulder(dx, effectiveShoulderWidth);
       const isInside = (targetZoneId === 4 && inZone4) || (targetZoneId === 5 && inZone5);
 
       const gates: ArmReachGateScores = {
@@ -677,8 +673,7 @@ export class ArmReachAnswerSelector {
     }
 
     // Legacy Weighted Mode (Issue #249)
-    const armExtensionDist = Math.hypot(pos.x - shoulderPos.x, pos.y - shoulderPos.y);
-    const armExtensionRatio = armExtensionDist / (shoulderWidth > EPSILON ? shoulderWidth : 0.20);
+    const armExtensionRatio = calcArmExtensionRatio(pos, shoulderPos, shoulderWidth);
     const baseArmRatio = this._judgmentConfig.baselines.armExtensionRatio; // 0.25
     const armExtensionScore = Math.max(0, Math.min(1, armExtensionRatio / (2 * baseArmRatio)));
     const handSpeedY = Math.abs(vy);
@@ -705,7 +700,7 @@ export class ArmReachAnswerSelector {
         // 정지 체류 상태: 프레임 간 속도가 거의 없는 정적 자세이므로 기본 기준값(0.50) 부여
         if (outwardVx > 0) {
           velocityScore = Math.max(0.5, Math.min(1, outwardVx / (2 * baseSpeed)));
-          const R = outwardVx / (handSpeedY + 1e-4);
+          const R = calcDominanceRatio(outwardVx, handSpeedY, 1e-4);
           dominanceScore = Math.max(0.5, Math.min(1, R / (2 * baseDominance)));
         } else {
           velocityScore = 0.50;
@@ -926,7 +921,7 @@ export class ArmReachAnswerSelector {
       : { x: 0.60, y: 0.35 };
 
     const shoulderWidth = hasShoulders && lShoulderLM && rShoulderLM
-      ? Math.hypot(rightShoulderPos.x - leftShoulderPos.x, rightShoulderPos.y - leftShoulderPos.y)
+      ? calcShoulderWidth(leftShoulderPos, rightShoulderPos)
       : 0.20;
 
     const currentBodyY = hasShoulders && lShoulderLM && rShoulderLM
