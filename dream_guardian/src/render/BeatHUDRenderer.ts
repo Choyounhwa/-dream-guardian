@@ -15,6 +15,7 @@ import { renderQuestionHeaderMath } from './QuestionRenderer.js';
 import { QuestionApproachRenderer } from './QuestionApproachRenderer.js';
 import { HazardZoneRenderer } from './HazardZoneRenderer.js';
 import { UIText } from '../utils/UIText.js';
+import { imageLoader } from '../utils/UIImageLoader.js';
 
 export interface BeatHUDRendererOptions {
   showBeatDots?: boolean;
@@ -145,22 +146,44 @@ export class BeatHUDRenderer {
       const startX = cx - ((totalBeats - 1) * dotGap) / 2;
       const indicatorY = cy + BEAT_HUD_CONFIG.DOT_OFFSET_Y;
 
+      // 이미지 에셋 조회 (Issue #291: UI-ASSET-010)
+      const activeDotImg = imageLoader.get('hud', 'beatDotActive');
+      const inactiveDotImg = imageLoader.get('hud', 'beatDotInactive');
+      const targetDotImg = imageLoader.get('hud', 'beatDotTarget');
+
       for (let i = 0; i < totalBeats; i++) {
         const bx = startX + i * dotGap;
-        ctx.beginPath();
-        ctx.arc(bx, indicatorY, dotRadius, 0, Math.PI * 2);
+
+        let dotImg: HTMLImageElement | null = null;
         if (i < completedBeats) {
-          const splitBeat = Math.round((totalBeats * 5) / 8);
-          const color = i >= splitBeat ? BEAT_HUD_CONFIG.COLOR_LATE : BEAT_HUD_CONFIG.COLOR_EARLY;
-          ctx.fillStyle = color;
-          ctx.shadowColor = color;
-          ctx.shadowBlur = 10;
+          dotImg = activeDotImg;
+        } else if (i === completedBeats) {
+          dotImg = targetDotImg ?? activeDotImg;
         } else {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          dotImg = inactiveDotImg;
+        }
+
+        if (dotImg) {
+          // 비트맵 이미지 드로잉
+          const size = dotRadius * 2;
+          ctx.drawImage(dotImg, bx - dotRadius, indicatorY - dotRadius, size, size);
+        } else {
+          // 100% 무중단 프로시저럴 폴백
+          ctx.beginPath();
+          ctx.arc(bx, indicatorY, dotRadius, 0, Math.PI * 2);
+          if (i < completedBeats) {
+            const splitBeat = Math.round((totalBeats * 5) / 8);
+            const color = i >= splitBeat ? BEAT_HUD_CONFIG.COLOR_LATE : BEAT_HUD_CONFIG.COLOR_EARLY;
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 10;
+          } else {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.shadowBlur = 0;
+          }
+          ctx.fill();
           ctx.shadowBlur = 0;
         }
-        ctx.fill();
-        ctx.shadowBlur = 0;
 
         // 인디케이터 번호 (A11Y-001: 최소 24px 하한선 보장)
         const fontMin = totalBeats > 8 ? 16 : 24;

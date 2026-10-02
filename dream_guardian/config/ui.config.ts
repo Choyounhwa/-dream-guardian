@@ -312,6 +312,9 @@ export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
     hpBarFillBoss: '/assets/ui/hud/hp_bar_fill_boss.png',
     comboIcon: '/assets/ui/hud/combo_icon.png',
     bossNameplate: '/assets/ui/hud/boss_nameplate.png',
+    beatDotActive: '/assets/ui/hud/beat_dot_active.png',
+    beatDotInactive: '/assets/ui/hud/beat_dot_inactive.png',
+    beatDotTarget: '/assets/ui/hud/beat_dot_target.png',
   },
   result: {
     panelBg: '/assets/ui/result/panel_bg.png',

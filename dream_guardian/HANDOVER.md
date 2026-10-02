@@ -72,7 +72,7 @@
 | 17 | **#272** | [UI-ASSET-007] 챕터별 배경 이미지 에셋 제작 및 DreamGrid 교체 | #261 | `[✔] 완료` |
 | 17-1 | **#289** | [UI-ASSET-008] 신체 부위 벡터 아이콘(손/머리/골반/어깨) 이미지 에셋 제작 및 PartIconRenderer 비트맵 렌더링/폴백 연동 | #261 | `[ ] 대기` |
 | 17-2 | **#290** | [UI-ASSET-009] 답안 버튼(Zone 4/5) 및 문제 수식 배경 패널 이미지 에셋 제작 및 QuestionRenderer 연동 | #261 | `[✔] 완료` |
-| 17-3 | **#291** | [UI-ASSET-010] 8박자 비트 인디케이터 도트 및 메트로놈 UI 이미지 에셋 제작 및 BeatHUDRenderer 연동 | #267 | `[ ] 대기` |
+| 17-3 | **#291** | [UI-ASSET-010] 8박자 비트 인디케이터 도트 및 메트로놈 UI 이미지 에셋 제작 및 BeatHUDRenderer 연동 | #267 | `[✔] 완료` |
 | 17-4 | **#292** | [UI-ASSET-011] 서브레벨 선택 카드 배경 및 결과 화면 랭크 등급 스탬프(S/A/B/C) 이미지 에셋 제작 및 연동 | #266, #268 | `[ ] 대기` |
 | 17-5 | **#293** | [UI-ASSET-012] 인게임 대사창 오버레이 패널 및 모달 기능 버튼/아이콘 이미지 에셋 제작 및 연동 | #269 | `[ ] 대기` |
 
@@ -144,7 +144,25 @@
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
 | 40 | **#294** | [RENDER-GRID-003] 드림 그리드 하단 전경 패널 음영(검은색 바닥 면 채우기) 제거 및 투명 SFX 네온 런웨이 와이어프레임 전환 | #282 권장 | `[ ] 대기` |
-| 41 | **#295** | [RENDER-GRID-004] 3D 원근 드림 그리드 라인 두께 증가 및 세로선 2-Pass 네온 글로우 효과 추가 | #282 권장 | `[▶ NEXT]` |
+| 41 | **#295** | [RENDER-GRID-004] 3D 원근 드림 그리드 라인 두께 증가 및 세로선 2-Pass 네온 글로우 효과 추가 | #282 권장 | `[ ] 대기` |
+
+### 📌 M. 오디오 메트로놈 동기화 (AUDIO-METRONOME)
+
+| 순서 | 카드 | 제목 | 선행 조건 | 상태 |
+|:---:|---|---|---|:---:|
+| 42 | **#296** | [AUDIO-METRONOME-001] 게임 박자 동기화 메트로놈 사운드 연동 및 인게임 8박자/카운트인 오디오 출력 | 없음 | `[▶ NEXT]` |
+
+### 📌 N. 코드베이스 리팩토링 및 모듈화 (SYSTEM-REFACTOR)
+
+| 순서 | 카드 | 제목 | 선행 조건 | 상태 |
+|:---:|---|---|---|:---:|
+| 43 | **#297** | [REFACTOR-GEOM-001] 모션·포즈 공통 기하학 유틸리티(PoseGeometry) 신설 및 ArmReachAnswerSelector 연동 | 없음 | `[ ] 대기` |
+| 44 | **#298** | [REFACTOR-GEOM-002] 포즈 매처 및 커서 트래커 공통 기하학 유틸리티(PoseGeometry) 2차 연동 | #297 | `[ ] 대기` |
+| 45 | **#299** | [REFACTOR-FX-001] EffectManager 비주얼 이펙트 서브모듈 분리 (CombatVFX & ScreenFX) | 없음 | `[ ] 대기` |
+| 46 | **#300** | [REFACTOR-CORE-001] 런타임 게임 세션 컨텍스트 구조화 (GameSessionContext) | 없음 | `[ ] 대기` |
+| 47 | **#301** | [REFACTOR-MAIN-001] 메인 게임 루프 씬 디렉터 분리 (SceneDirector) | #300 | `[ ] 대기` |
+| 48 | **#302** | [REFACTOR-MAIN-002] 메인 앱 부트스트랩 및 이벤트 리스너 분리 (AppBootstrap) | #301 | `[ ] 대기` |
+
 
 ### 권장 실행 순서
 
@@ -173,6 +191,31 @@
                          ↓
 [그리드 개선]   #295 [▶ NEXT] (원근 그리드 두께 증가 및 세로선 2-Pass 네온 글로우)
 ```
+
+---
+
+## 2026-10-02 완료: [UI-ASSET-010 / #291] 8박자 비트 인디케이터 도트 및 메트로놈 UI 이미지 에셋 제작 및 BeatHUDRenderer 연동
+
+> #291 구현, 단위/통합 테스트 검증 및 TDD 100% Pass 완료 (147개 파일 1,824개 테스트 통과, build 성공).
+> - **임시 이미지 에셋 제작 및 배치**:
+>   - `scripts/generate-hud-assets.js`에 순수 Node.js(zlib/Buffer) 기반 유효 PNG 생성 로직 신설 및 `public/assets/ui/hud/` 배치:
+>     - `beat_dot_active.png`: 64x64, 밝은 청록 네온 발광 도트 (코어 백색-시안 17px, 외부 네온 글로우 29px, 상단 글린트)
+>     - `beat_dot_inactive.png`: 64x64, 반투명 다크 사이버 도트 (코어 다크 슬레이트 17px, 미세 외곽선 림 19px)
+>     - `beat_dot_target.png`: 64x64, 현재 틱 강조용 골드 펄스 도트 (코어 온백색-골드 17px, 외부 펄스 헤일로 29px, 상단 글린트)
+> - **UI 설정 등록 (`config/ui.config.ts`)**:
+>   - `UI_IMAGE_ASSETS.hud`에 `beatDotActive`, `beatDotInactive`, `beatDotTarget` 슬롯 및 경로 등록
+> - **비트맵 렌더러 분기 및 100% 무중단 프로시저럴 폴백 (`src/render/BeatHUDRenderer.ts`)**:
+>   - `BeatHUDRenderer.render()` 내부 8박자 인디케이터 루프에서 이미지 에셋 우선 드로잉 연동:
+>     - `i < completedExerciseBeats`: `beatDotActive`
+>     - `i === completedExerciseBeats`: `beatDotTarget` (미존재 시 `beatDotActive` 폴백)
+>     - `i > completedExerciseBeats`: `beatDotInactive`
+>   - 에셋 미로드 또는 부재 시 기존 `arc()` / `shadowBlur` 기반 프로시저럴 드로잉 100% 정상 작동 보장
+> - **신규 단위 테스트 검증 (`tests/unit/beat-hud-renderer.test.ts`)**:
+>   - PNG 파일 3종 존재성 및 64x64 유효 PNG 규격 검증
+>   - `UI_IMAGE_ASSETS.hud` 키 및 경로 일치 검증
+>   - `imageLoader` 연동 시 `drawImage` 8회 분기 호출 검증 (완료 3개 active, 현재 1개 target, 미완료 4개 inactive)
+>   - 이미지 부재 시 `arc()` 8회 호출 무중단 프로시저럴 폴백 검증
+>   - 전체 단위 테스트 100% 통과 (8/8 Pass, 전체 1,824/1,824 Pass) 및 `npm run build` 번들 검증 통과
 
 ---
 

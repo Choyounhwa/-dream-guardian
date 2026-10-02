@@ -521,6 +521,131 @@ function generateBossNameplate() {
   return img.toBuffer();
 }
 
+// ─── 3.6 8박자 비트 인디케이터 도트 (Issue #291 / UI-ASSET-010) ───
+
+function generateBeatDotActive(w = 64, h = 64) {
+  const img = new RGBAImage(w, h);
+  const cx = w / 2;
+  const cy = h / 2;
+  const coreR = 17;
+  const glowR = 29;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const dist = Math.hypot(x - cx, y - cy);
+      if (dist <= glowR) {
+        if (dist <= coreR) {
+          // 코어 원 (밝은 청록 네온)
+          const t = dist / coreR;
+          const r = Math.round(180 * (1 - t) + 40 * t);
+          const g = Math.round(250 * (1 - t) + 230 * t);
+          const b = 255;
+          const a = 255;
+          img.setPixel(x, y, r, g, b, a);
+        } else {
+          // 외부 네온 발광
+          const t = (dist - coreR) / (glowR - coreR);
+          const r = 40;
+          const g = 230;
+          const b = 255;
+          const a = Math.round(240 * Math.pow(1 - t, 1.8));
+          img.setPixel(x, y, r, g, b, a);
+        }
+      }
+    }
+  }
+
+  // 상단 하이라이트 글린트
+  for (let dy = -6; dy <= -2; dy++) {
+    for (let dx = -6; dx <= -2; dx++) {
+      if (Math.hypot(dx, dy) <= 4) {
+        img.setPixel(Math.round(cx + dx), Math.round(cy + dy), 255, 255, 255, 180);
+      }
+    }
+  }
+
+  return img.toBuffer();
+}
+
+function generateBeatDotInactive(w = 64, h = 64) {
+  const img = new RGBAImage(w, h);
+  const cx = w / 2;
+  const cy = h / 2;
+  const coreR = 17;
+  const rimR = 19;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const dist = Math.hypot(x - cx, y - cy);
+      if (dist <= rimR) {
+        if (dist <= coreR) {
+          // 반투명 다크 사이버 원
+          const t = dist / coreR;
+          const r = Math.round(20 * (1 - t) + 30 * t);
+          const g = Math.round(28 * (1 - t) + 40 * t);
+          const b = Math.round(48 * (1 - t) + 64 * t);
+          const a = Math.round(160 + t * 40);
+          img.setPixel(x, y, r, g, b, a);
+        } else {
+          // 미세 외곽선 림
+          const t = (dist - coreR) / (rimR - coreR);
+          const r = 90;
+          const g = 120;
+          const b = 160;
+          const a = Math.round(150 * (1 - t));
+          img.setPixel(x, y, r, g, b, a);
+        }
+      }
+    }
+  }
+
+  return img.toBuffer();
+}
+
+function generateBeatDotTarget(w = 64, h = 64) {
+  const img = new RGBAImage(w, h);
+  const cx = w / 2;
+  const cy = h / 2;
+  const coreR = 17;
+  const haloR = 29;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const dist = Math.hypot(x - cx, y - cy);
+      if (dist <= haloR) {
+        if (dist <= coreR) {
+          // 코어 원 (골드 펄스)
+          const t = dist / coreR;
+          const r = 255;
+          const g = Math.round(250 * (1 - t) + 195 * t);
+          const b = Math.round(210 * (1 - t) + 50 * t);
+          const a = 255;
+          img.setPixel(x, y, r, g, b, a);
+        } else {
+          // 외부 펄스 헤일로
+          const t = (dist - coreR) / (haloR - coreR);
+          const r = 255;
+          const g = Math.round(210 * (1 - t) + 150 * t);
+          const b = 50;
+          const a = Math.round(245 * Math.pow(1 - t, 1.5));
+          img.setPixel(x, y, r, g, b, a);
+        }
+      }
+    }
+  }
+
+  // 상단 하이라이트 글린트
+  for (let dy = -6; dy <= -2; dy++) {
+    for (let dx = -6; dx <= -2; dx++) {
+      if (Math.hypot(dx, dy) <= 4) {
+        img.setPixel(Math.round(cx + dx), Math.round(cy + dy), 255, 255, 255, 200);
+      }
+    }
+  }
+
+  return img.toBuffer();
+}
+
 // ─── 4. 실행 및 파일 저장 ───
 
 function main() {
@@ -536,6 +661,9 @@ function main() {
     { name: 'hp_bar_fill_boss.png', gen: generateHpBarFillBoss, w: 320, h: 48 },
     { name: 'combo_icon.png', gen: generateComboIcon, w: 48, h: 48 },
     { name: 'boss_nameplate.png', gen: generateBossNameplate, w: 400, h: 60 },
+    { name: 'beat_dot_active.png', gen: generateBeatDotActive, w: 64, h: 64 },
+    { name: 'beat_dot_inactive.png', gen: generateBeatDotInactive, w: 64, h: 64 },
+    { name: 'beat_dot_target.png', gen: generateBeatDotTarget, w: 64, h: 64 },
   ];
 
   for (const asset of assets) {

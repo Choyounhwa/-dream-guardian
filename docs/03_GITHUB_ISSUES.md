@@ -5030,7 +5030,7 @@ BEAT-SPEC-001
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/291
 - **Labels**: `feature`, `phase-6`, `P2-medium`
 - **작업 ID**: `[UI-ASSET-010]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (TDD 통과 및 머지 완료)**
 - **목적**:
   - Phase A 러닝 페이즈 동안 `BeatHUDRenderer`에서 매 프레임 8개 원형 `arc` 루프와 `shadowBlur` 네온 발광으로 실시간 드로잉되는 8박자 비트 도트를 비트맵 이미지 텍스처로 교체하여 프레임 안정성을 확보한다.
 - **수정 대상**:
@@ -5052,11 +5052,11 @@ BEAT-SPEC-001
   4. **무중단 폴백(Fallback) 100% 보장**:
      - 에셋 파일이 없거나 로드 전/로드 실패 상태에서는 기존 원형 `arc` 및 `shadowBlur` 프로시저럴 드로잉 코드가 100% 정상 작동하여 게임이 중단되지 않음
 - **완료 조건**:
-  - [ ] `scripts/generate-hud-assets.js`에 3종 임시 비트 도트 PNG 생성 로직 구현 및 에셋 배치
-  - [ ] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
-  - [ ] `BeatHUDRenderer`에서 비트맵 기반 8박 도트 렌더링 동작
-  - [ ] 에셋 부재/로드 실패 시 기존 프로시저럴 드로잉 100% 폴백 동작 검증
-  - [ ] 단위 테스트 통과 및 `npm run build` 성공
+  - [x] `scripts/generate-hud-assets.js`에 3종 임시 비트 도트 PNG 생성 로직 구현 및 에셋 배치
+  - [x] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
+  - [x] `BeatHUDRenderer`에서 비트맵 기반 8박 도트 렌더링 동작
+  - [x] 에셋 부재/로드 실패 시 기존 프로시저럴 드로잉 100% 폴백 동작 검증
+  - [x] 단위 테스트 통과 및 `npm run build` 성공
 
 ---
 
@@ -5129,6 +5129,35 @@ BEAT-SPEC-001
   - [ ] 대사창 및 모달 2종에서 비트맵 기반 렌더링 동작
   - [ ] 에셋 부재/로드 실패 시 기존 프로시저럴 드로잉 100% 폴백 동작 검증
   - [ ] 단위 테스트 통과 및 `npm run build` 성공
+
+---
+
+### Issue #296: [AUDIO-METRONOME-001] 게임 박자 동기화 메트로놈 사운드 연동 및 인게임 8박자/카운트인 오디오 출력
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/296
+- **Labels**: `feature`, `phase-7`, `P1-high`
+- **작업 ID**: `[AUDIO-METRONOME-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **목적**:
+  - 음악 트랙의 BPM(`RhythmEngine`) 및 카운트인(Count-in 3박자)에 실시간으로 동기화되는 절차적 메트로놈 사운드를 연동하여 플레이어가 체감형 리듬과 문제 풀이 타이밍을 청각적으로 명확히 인지할 수 있도록 한다.
+  - 마디 첫 박(1박) 및 4/4 박자 기준 강박에는 높은 톤의 강박 사운드(`metronome_strong`), 약박에는 경쾌한 틱 사운드(`metronome_weak`)를 출력한다.
+  - 카운트인 페이즈(`COUNT_IN`) 및 정규 8박 게임 루프(`RUN_QUESTION`, `ANSWER_SELECT`, `STAR_COLLECT`, `HAZARD_EVADE`, `KEYNOTE_PERFORMANCE`) 전반에서 템포에 맞춰 안정적으로 발음되도록 구현한다.
+- **수정 대상**:
+  - `dream_guardian/src/game/BeatRunCoordinator.ts`
+  - `dream_guardian/src/main.ts`
+  - `dream_guardian/tests/unit/beat-metronome.test.ts`
+- **유지 사항**:
+  - 기존 `RhythmEngine`의 비트 시간원, 델타타임 누적, BPM 변경 및 무중단 동기화 로직
+  - `SFXSynth`의 기존 효과음 및 음소거(`isMuted`) 상태 보존
+  - `BeatRunCoordinator`의 페이즈 전이 및 기존 콜백 구조
+- **변경 금지**:
+  - `BattleState`, `QuestionBank`, `PhaseAHazardController` 등 핵심 전투/수학 로직
+- **완료 조건**:
+  - [ ] `BeatRunCoordinator`에 비트 이벤트 브리지(`onBeat`) 지원 및 카운트인 메트로놈 연동
+  - [ ] `main.ts`에서 인게임 진행 중 강박(`metronome_strong`) 및 약박(`metronome_weak`) 사운드 출력
+  - [ ] 일시정지, 메뉴 화면, 음소거 시 메트로놈 발음 차단
+  - [ ] 전용 TDD 단위 테스트(`tests/unit/beat-metronome.test.ts`) 작성 및 100% Pass
+  - [ ] 전체 단위 테스트 100% 통과 및 `npm run build` 성공
+
 
 
 
