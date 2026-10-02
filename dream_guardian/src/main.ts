@@ -7,6 +7,7 @@ import { DEFAULT_CONFIG } from './core/Config.js';
 import { GameEngine } from './core/GameEngine.js';
 import { StateMachine } from './core/StateMachine.js';
 import { SessionLifecycle } from './core/SessionLifecycle.js';
+import { GameSessionContext, SceneDirector, type MainSceneContext } from './core/index.js';
 import { CanvasManager } from './render/CanvasManager.js';
 import { CameraLayer } from './render/CameraLayer.js';
 import { PoseManager } from './motion/PoseManager.js';
@@ -50,7 +51,6 @@ import {
   BossClimaxRenderer,
   DialogueOverlayRenderer,
   ReadyPositionRenderer,
-  drawJoinedHandsCursor,
 } from './render/index.js';
 import { dialogueManager } from './story/index.js';
 import { EffectManager, wireAnswerVFX, wireGuardianVFX, TransitionManager } from './effects/index.js';
@@ -67,7 +67,6 @@ import {
   MotionIntentBus,
   type ILocomotionDetector,
   type LocomotionMode,
-  type KneeFramingResult,
 } from './motion/index.js';
 import {
   AnswerSelector,
@@ -86,7 +85,6 @@ import {
   TutorialOverlay,
   GestureFeedbackOverlay,
   LOCOMOTION_MODES,
-  type BottomBarSlot,
 } from './ui/index.js';
 import { getAnswerButtonLayouts, DEFAULT_FITNESS_ZONES } from '../config/zone.config.js';
 import { DEFAULT_PHASE_A_HAZARD_CONFIG } from '../config/phase-a-hazard.config.js';
@@ -239,7 +237,6 @@ const beatRoundResolver = new BeatRoundResolver({
 
 const kneeFramingValidator = new KneeFramingValidator();
 const kneeFramingGuideRenderer = new KneeFramingGuideRenderer();
-let currentKneeFraming: KneeFramingResult = kneeFramingValidator.update(0, null, canvasManager.virtualWidth, canvasManager.virtualHeight);
 
 const footKeynoteDetector = new FootKeynoteDetector({ isMirrored: false });
 const footKeynoteInput = new FootKeynoteInput();
@@ -791,7 +788,6 @@ updateLocomotionLabel();
 // ─── 메뉴 제스처 선택 상태 (Issue #119 / BUG-MENU-001) ───
 let menuHoverItem: { type: 'chapter' | 'sublevel'; id: number } | null = null;
 let menuHoverTimer = 0;
-const MENU_HOVER_DWELL_TIME = 0.8; // 0.8초 체류 시 메뉴 자동 선택
 let resultReturnTimer = 0; // Issue #134: 결과 화면 양손 모으기 복귀 타이머
 
 function selectChapter(ch: number): void {
@@ -828,8 +824,6 @@ function selectSubLevel(sub: number | null): void {
     startChapter(selectedChapter, sub);
   }
 }
-
-const CHAPTER_COLORS = ['', '#4DFFAA', '#28E6FF', '#FFCB4D', '#C889FF', '#FF4444'];
 
 // ─── CSV ───
 async function loadQuestions(): Promise<void> {
@@ -1235,852 +1229,165 @@ function getHUDData() {
 
 let lastFrameDt = 0.016;
 
+// ─── 메인 루프 컨텍스트 및 씬 디렉터 (Issue #301 / REFACTOR-MAIN-001) ───
+const stateRef: any = {
+  get screenMode() { return screenMode; },
+  set screenMode(v) { screenMode = v; },
+  get menuMode() { return menuMode; },
+  set menuMode(v) { menuMode = v; },
+  get gamePhase() { return gamePhase; },
+  set gamePhase(v) { gamePhase = v; },
+  get currentChapter() { return currentChapter; },
+  get selectedChapter() { return selectedChapter; },
+  get selectedSubLevel() { return selectedSubLevel; },
+  get unlockedChapter() { return unlockedChapter; },
+  get starsMap() { return starsMap; },
+  get currentQuestion() { return currentQuestion; },
+  set currentQuestion(v) { currentQuestion = v; },
+  get resultData() { return resultData; },
+  get totalSteps() { return totalSteps; },
+  set totalSteps(v) { totalSteps = v; },
+  get totalJumps() { return totalJumps; },
+  set totalJumps(v) { totalJumps = v; },
+  get settingsHoverTimer() { return settingsHoverTimer; },
+  set settingsHoverTimer(v) { settingsHoverTimer = v; },
+  get actionHoverTimer() { return actionHoverTimer; },
+  set actionHoverTimer(v) { actionHoverTimer = v; },
+  get menuHoverItem() { return menuHoverItem; },
+  set menuHoverItem(v) { menuHoverItem = v; },
+  get menuHoverTimer() { return menuHoverTimer; },
+  set menuHoverTimer(v) { menuHoverTimer = v; },
+  get resultReturnTimer() { return resultReturnTimer; },
+  set resultReturnTimer(v) { resultReturnTimer = v; },
+  get feedbackTimer() { return feedbackTimer; },
+  set feedbackTimer(v) { feedbackTimer = v; },
+  get feedbackCustomText() { return feedbackCustomText; },
+  set feedbackCustomText(v) { feedbackCustomText = v; },
+  get feedbackCustomColor() { return feedbackCustomColor; },
+  set feedbackCustomColor(v) { feedbackCustomColor = v; },
+  get feedbackCorrect() { return feedbackCorrect; },
+  set feedbackCorrect(v) { feedbackCorrect = v; },
+  get castingFlash() { return castingFlash; },
+  set castingFlash(v) { castingFlash = v; },
+  get climaxBarrageTimer() { return climaxBarrageTimer; },
+  set climaxBarrageTimer(v) { climaxBarrageTimer = v; },
+  get lastFrameDt() { return lastFrameDt; },
+  get questionVisible() { return questionVisible; },
+  set questionVisible(v) { questionVisible = v; },
+};
+
+const sessionContext = new GameSessionContext({
+  systems: {
+    eventBus,
+    sessionLifecycle,
+    canvasManager,
+    effectManager,
+  },
+  controllers: {
+    battle,
+    boss,
+    guardian,
+    beatRoundResolver,
+  },
+});
+
+const sceneDirector = new SceneDirector<MainSceneContext>({
+  sessionContext,
+  initialScene: screenMode,
+});
+
+let engine: GameEngine;
+
+const mainSceneContext: MainSceneContext = {
+  canvasManager,
+  cameraLayer,
+  poseManager,
+  skeletonAnimation,
+  stickmanRenderer,
+  boneRenderer,
+  jointRenderer,
+  skeletonEffect,
+  calibrationHelper,
+  xGestureDetector,
+  locomotionDetectors,
+  runDetector,
+  jumpDetector,
+  motionIntentBus,
+  menuInput,
+  answerSelector,
+  armReachAnswerSelector,
+  beatCoordinator,
+  starNoteScheduler,
+  starCollectionInput,
+  bossFeverController,
+  bossHazardController,
+  phaseAHazardController,
+  readyPositionController,
+  readyPositionRenderer,
+  menuRenderer,
+  resultRenderer,
+  hudLayer,
+  dreamGrid,
+  starNoteRenderer,
+  beatHUDRenderer,
+  questionRenderer,
+  answerSelectionRenderer,
+  bossRenderer,
+  guardian,
+  effectManager,
+  transitionManager,
+  settingsModal,
+  pauseModal,
+  locomotionModal,
+  bottomBar,
+  gestureFeedbackOverlay,
+  dialogueOverlayRenderer,
+  tutorial,
+  speech,
+  sfx,
+  stateMachine,
+  battle,
+  boss,
+  questionBank,
+  presentationAdapter,
+  beatRoundResolver,
+  imageLoader,
+  canvas,
+  get engine() { return engine; },
+  kneeFramingValidator,
+  kneeFramingGuideRenderer,
+  getActiveLocomotionDetector,
+  footKeynoteDetector,
+  footKeynoteInput,
+  bossClimaxRenderer,
+  getHUDData,
+  renderFeedback,
+  toNormalizedLandmarks,
+  actions: {
+    goToMenu,
+    updateLocomotionLabel,
+    selectSubLevel,
+    selectChapter,
+    startChapter: (ch: number, sub?: number) => startChapter(ch, sub),
+    startGame: (ch: number, sub?: number) => startChapter(ch, sub),
+    showTutorial: () => tutorial.show(),
+    showResult,
+  },
+  state: stateRef,
+};
+
+sceneDirector.setupMainPipelines(mainSceneContext);
+
 // ─── 게임 엔진 ───
-const engine = new GameEngine({
+engine = new GameEngine({
   update(dt: number): void {
     lastFrameDt = dt;
-    // Issue #278 (VFX-006): 화면 전환 및 모달 애니메이션 / 메뉴 펄스 타이머 갱신
-    transitionManager.update(dt);
-    settingsModal.update(dt);
-    pauseModal.update(dt);
-    menuRenderer.update(dt);
-    readyPositionRenderer.update(dt);
-
-    // Issue #140: 전 장면(메뉴·달리기·문제·결과) 커서 펄스 타이머 상시 갱신
-    answerSelectionRenderer.update(dt);
-    tutorial.update(dt);
-
-    // Issue #276 (VFX-004): 스켈레톤 시각 이펙트 상태 및 타이머 갱신
-    skeletonEffect.setMana(battle.mana, DEFAULT_CONFIG.mana.spellCost);
-    skeletonEffect.setHp(battle.hp, battle.maxHp);
-    skeletonEffect.update(dt);
-
-    // Issue #265 (A11Y-004): 저시력 모드 음성 피드백 (HP 50% 이하 알림)
-    if (screenMode === 'game' && battle.isAlive && battle.hp <= battle.maxHp * 0.5) {
-      speech.speakFeedback('low_hp');
-    }
-
-    // 웹캠 비디오 프레임 추출 및 스켈레톤 보간 파이프라인
-    if (cameraLayer.isActive && cameraLayer.videoElement) {
-      poseManager.send(cameraLayer.videoElement, performance.now()).catch(() => {});
-    }
-    if (poseManager.hasPose) {
-      skeletonAnimation.update(dt, poseManager.virtualLandmarks);
-      const sourceLandmarks =
-        skeletonAnimation.smoothedLandmarks.length >= 25
-          ? skeletonAnimation.smoothedLandmarks
-          : poseManager.virtualLandmarks;
-
-      stickmanRenderer.update(
-        dt,
-        sourceLandmarks,
-        skeletonAnimation.breathScale,
-      );
-
-      // Issue #140: 모든 장면(메뉴·달리기·문제·결과)에서 4색 커서가 상시 유지되도록 매 프레임 커서 트래커 갱신
-      if (sourceLandmarks.length >= 25) {
-        const jointMap: Record<number, { x: number; y: number }> = {};
-        for (let i = 0; i < sourceLandmarks.length; i++) {
-          const lm = sourceLandmarks[i];
-          if ((lm.visibility ?? 0) >= 0.3) {
-            jointMap[i] = { x: lm.x, y: lm.y };
-          }
-        }
-        skeletonEffect.recordJointPositions(jointMap);
-
-        answerSelector.cursorTracker.update(
-          sourceLandmarks,
-          undefined,
-          false,
-          { isVirtual: true, virtualWidth: canvasManager.virtualWidth, virtualHeight: canvasManager.virtualHeight },
-        );
-      }
-
-      // Issue #171 & #172: X자 교차 제스처 갱신 (서브메뉴 뒤로가기 & 인게임 일시정지)
-      if (sourceLandmarks.length >= 17) {
-        const xResult = xGestureDetector.update(sourceLandmarks, dt);
-        if (xResult.triggered) {
-          if (screenMode === 'menu' && menuMode === 'sub') {
-            selectSubLevel(-1);
-          } else if (screenMode === 'game') {
-            pauseModal.toggle();
-            sfx.play('hover');
-          }
-        }
-      }
-
-      // 사용자 신체 기준선 자동 보정 (Issue #238 / BUG-JUMP-BASELINE-001)
-      if (sourceLandmarks.length >= 25 && !calibrationHelper.isDone) {
-        calibrationHelper.update(dt, sourceLandmarks);
-      }
-
-      const userBaselineY = calibrationHelper.isDone
-        ? calibrationHelper.baselineShoulderY
-        : canvasManager.virtualHeight * 0.28;
-
-      const isSafetyGuarded = menuInput.isActive || pauseModal.isOpen;
-      const time = performance.now() / 1000;
-      const activeDetector = getActiveLocomotionDetector();
-      const stepped = activeDetector.update(
-        sourceLandmarks,
-        userBaselineY,
-        time,
-        canvasManager.virtualHeight,
-      );
-      const jumped = jumpDetector.update(
-        sourceLandmarks,
-        userBaselineY,
-        canvasManager.virtualHeight,
-        dt,
-        {
-          isPaused: pauseModal.isOpen,
-          isSafetyGuarded,
-          isCalibrated: calibrationHelper.isDone,
-        },
-      );
-      motionIntentBus.processLandmarks(sourceLandmarks, dt, time, {
-        baselineY: userBaselineY,
-        virtualHeight: canvasManager.virtualHeight,
-        isPaused: pauseModal.isOpen,
-      });
-
-      if (stepped && screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
-        totalSteps++;
-        beatCoordinator.recordStep();
-        effectManager.playBurst({
-          x: canvasManager.virtualWidth * 0.5,
-          y: canvasManager.virtualHeight * 0.65,
-          count: 8,
-          colors: ['#28E6FF', '#4DFFAA'],
-          duration: 0.3,
-        });
-      }
-      if (jumped && screenMode === 'game' && !pauseModal.isOpen) {
-        totalJumps++;
-        if (stateMachine.currentState === 'HAZARD_EVADE') {
-          if (phaseAHazardController.activePattern === 'jump') {
-            phaseAHazardController.recordAction('jump');
-            sfx.play('jump_whoosh');
-          }
-        } else if (stateMachine.currentState === 'BOSS_CLIMAX' && bossHazardController) {
-          if (bossHazardController.recordAction('jump')) {
-            sfx.play('jump_whoosh');
-          }
-        }
-        effectManager.playBurst({
-          x: canvasManager.virtualWidth * 0.5,
-          y: canvasManager.virtualHeight * 0.65,
-          count: 10,
-          colors: ['#28E6FF', '#FFFFFF'],
-          duration: 0.3,
-        });
-      }
-    } else {
-      skeletonAnimation.reset();
-      const isRunning = screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen;
-      stickmanRenderer.updateFallback(dt, isRunning);
-      motionIntentBus.reset();
-      Object.values(locomotionDetectors).forEach((d) => d.reset());
-      jumpDetector.reset();
-      menuInput.reset();
-      xGestureDetector.reset();
-      menuHoverItem = null;
-      menuHoverTimer = 0;
-    }
-
-    const vw = canvasManager.virtualWidth;
-    const vh = canvasManager.virtualHeight;
-    const leftHand = answerSelector.cursorTracker.getCursor('leftHand');
-    const rightHand = answerSelector.cursorTracker.getCursor('rightHand');
-
-    // Issue #169 & #172: 전 화면(menu, game, result) 공통 매 프레임 양손 합장 제스처 갱신 및 문제선택/모달 일시정지 동기화
-    if (leftHand && rightHand) {
-      menuInput.update(leftHand.x, leftHand.y, rightHand.x, rightHand.y);
-    } else {
-      menuInput.reset();
-    }
-    answerSelector.paused = menuInput.isActive || pauseModal.isOpen;
-
-    let hoverTarget: { x: number; y: number } | null = null;
-
-    if (menuInput.isActive) {
-      hoverTarget = { x: menuInput.cursorX * vw, y: menuInput.cursorY * vh };
-    } else if (leftHand || rightHand) {
-      if (leftHand && rightHand) {
-        hoverTarget = leftHand.y > rightHand.y
-          ? { x: leftHand.x, y: leftHand.y }
-          : { x: rightHand.x, y: rightHand.y };
-      } else if (leftHand) {
-        hoverTarget = { x: leftHand.x, y: leftHand.y };
-      } else if (rightHand) {
-        hoverTarget = { x: rightHand.x, y: rightHand.y };
-      }
-    }
-
-    // Issue #172: 일시정지 모달 호버(0.8초) 판정
-    if (pauseModal.isOpen) {
-      if (hoverTarget) {
-        const pauseRes = pauseModal.updateHover(hoverTarget.x, hoverTarget.y, vw, vh, dt);
-        if (pauseRes.action === 'resume') {
-          pauseModal.close();
-          sfx.play('correct');
-        } else if (pauseRes.action === 'quit') {
-          pauseModal.close();
-          goToMenu();
-          sfx.play('hover');
-        }
-      }
-    } else if (locomotionModal.isOpen) {
-      if (hoverTarget) {
-        const hoverRes = locomotionModal.updateHover(hoverTarget.x, hoverTarget.y, vw, vh, dt);
-        if (hoverRes.modeSelected) {
-          sfx.play('correct');
-          updateLocomotionLabel();
-        }
-      }
-    } else if (!settingsModal.isOpen && !tutorial.isVisible) {
-      if (hoverTarget) {
-        if (bottomBar.hitTestSettings(hoverTarget.x, hoverTarget.y, vw, vh, 15)) {
-          settingsHoverTimer += dt;
-          if (settingsHoverTimer >= MENU_HOVER_DWELL_TIME) {
-            settingsModal.open();
-            sfx.play('hover');
-            settingsHoverTimer = 0;
-          }
-        } else {
-          settingsHoverTimer = Math.max(0, settingsHoverTimer - dt * 2);
-        }
-
-        const customSlot = (screenMode === 'menu' && menuMode === 'sub')
-          ? { x: 780, y: 1990, w: 270, h: 140 }
-          : undefined;
-        const hasAction = (screenMode === 'menu' && menuMode === 'sub') || screenMode === 'game' || screenMode === 'result';
-
-        if (hasAction && bottomBar.hitTestAction(hoverTarget.x, hoverTarget.y, vw, vh, 15, customSlot)) {
-          actionHoverTimer += dt;
-          if (actionHoverTimer >= MENU_HOVER_DWELL_TIME) {
-            actionHoverTimer = 0;
-            if (screenMode === 'menu' && menuMode === 'sub') {
-              selectSubLevel(-1);
-            } else if (screenMode === 'game') {
-              pauseModal.open();
-              sfx.play('hover');
-            } else if (screenMode === 'result') {
-              goToMenu();
-            }
-          }
-        } else {
-          actionHoverTimer = Math.max(0, actionHoverTimer - dt * 2);
-        }
-      } else {
-        settingsHoverTimer = 0;
-        actionHoverTimer = 0;
-      }
-    } else {
-      settingsHoverTimer = 0;
-      actionHoverTimer = 0;
-    }
-
-    if (screenMode === 'menu') {
-      dreamGrid.update(dt, 0.8);
-      effectManager.update(dt);
-
-      // Issue #119 & Issue #133: 메뉴 선택 판정 (양손 모으기 우선)
-      let activeTargetPos: { x: number; y: number } | null = null;
-      if (menuInput.isActive) {
-        activeTargetPos = { x: menuInput.cursorX, y: menuInput.cursorY };
-      }
-
-      if (activeTargetPos) {
-        const vw = canvasManager.virtualWidth;
-        const vh = canvasManager.virtualHeight;
-        const mx = activeTargetPos.x * vw;
-        const my = activeTargetPos.y * vh;
-        // Issue #133: 호버 중일 때는 히스테리시스 패딩(+24px), 미호버 시에는 기본 패딩(+12px) 적용
-        const hitPadding = menuHoverItem ? 24 : 12;
-
-        if (menuMode === 'main') {
-          const hitCh = menuRenderer.hitTest(mx, my, vw, vh, hitPadding);
-          if (hitCh > 0 && hitCh <= unlockedChapter) {
-            if (menuHoverItem?.type === 'chapter' && menuHoverItem.id === hitCh) {
-              menuHoverTimer += dt;
-              if (menuHoverTimer >= MENU_HOVER_DWELL_TIME) {
-                selectChapter(hitCh);
-              }
-            } else {
-              menuHoverItem = { type: 'chapter', id: hitCh };
-              menuHoverTimer = 0;
-            }
-          } else {
-            menuHoverItem = null;
-            menuHoverTimer = 0;
-          }
-        } else {
-          const subLevels = questionBank.getSubLevels(selectedChapter);
-          const hitSub = menuRenderer.hitTestSub(mx, my, vw, vh, selectedChapter, subLevels, hitPadding);
-          if (hitSub !== null) {
-            if (menuHoverItem?.type === 'sublevel' && menuHoverItem.id === hitSub) {
-              menuHoverTimer += dt;
-              if (menuHoverTimer >= MENU_HOVER_DWELL_TIME) {
-                selectSubLevel(hitSub);
-              }
-            } else {
-              menuHoverItem = { type: 'sublevel', id: hitSub };
-              menuHoverTimer = 0;
-            }
-          } else {
-            menuHoverItem = null;
-            menuHoverTimer = 0;
-          }
-        }
-      } else {
-        menuInput.reset();
-        menuHoverItem = null;
-        menuHoverTimer = 0;
-      }
-      return;
-    }
-
-    if (screenMode === 'result') {
-      resultRenderer.update(dt);
-      dreamGrid.update(dt, 0.8);
-      effectManager.update(dt);
-
-      // Issue #134: 결과 화면 양손 모으기(합장) 0.8초 체류 시 메뉴 자동 복귀
-      if (menuInput.isActive) {
-        resultReturnTimer += dt;
-        if (resultReturnTimer >= MENU_HOVER_DWELL_TIME) {
-          resultReturnTimer = 0;
-          goToMenu();
-        }
-      } else {
-        resultReturnTimer = 0;
-      }
-      return;
-    }
-
-    if (screenMode !== 'game' || pauseModal.isOpen) {
-      engine.pauseGame();
-      beatCoordinator.pause();
-      starCollectionInput.setPaused(true);
-      starNoteScheduler.setPaused(true);
-      dreamGrid.update(dt, 0.8);
-      effectManager.update(dt);
-      sfx.stopDwellCharge();
-      return;
-    }
-    if (engine.isGamePaused) {
-      engine.resumeGame();
-    }
-    if (beatCoordinator.isPaused) {
-      beatCoordinator.resume();
-    }
-    starCollectionInput.setPaused(false);
-    starNoteScheduler.setPaused(false);
-
-    // 드림 그리드 속도 및 8박 코디네이터 업데이트
-    const isRunning = gamePhase === 'running';
-    const speedMult = isRunning ? 2.5 : 0.8;
-    dreamGrid.update(dt, speedMult);
-
-    const sourceLandmarks =
-      skeletonAnimation.smoothedLandmarks.length >= 25
-        ? skeletonAnimation.smoothedLandmarks
-        : poseManager.virtualLandmarks;
-
-    // 무릎 프레이밍 및 가이드 업데이트 (Issue #198, #199, #206)
-    currentKneeFraming = kneeFramingValidator.update(
-      dt,
-      sourceLandmarks,
-      canvasManager.virtualWidth,
-      canvasManager.virtualHeight,
-    );
-    kneeFramingGuideRenderer.update(dt);
-
-    // Issue #202: READY_POSITION 프레임 정렬 검증 및 카운트다운 업데이트
-    if (stateMachine.currentState === 'READY_POSITION') {
-      readyPositionController.setPaused(pauseModal.isOpen);
-      const isAligned =
-        currentKneeFraming.status === 'ready' ||
-        readyPositionController.checkAlignment(
-          sourceLandmarks,
-          canvasManager.virtualWidth,
-          canvasManager.virtualHeight,
-        );
-      readyPositionController.setAligned(isAligned);
-      readyPositionController.update(dt);
-    }
-
-    // Issue #205 & #237: 가상 픽셀 좌표(0~1080 / 0~2160)를 정규화 좌표계(0~1)로 비파괴 변환하여 전달
-    // CenterReturnGate, ArmReachAnswerSelector, FootKeynoteDetector가 정합성 있게 동작하도록 보장
-    const normalizedLandmarks =
-      sourceLandmarks.length >= 25
-        ? toNormalizedLandmarks(
-            sourceLandmarks,
-            canvasManager.virtualWidth,
-            canvasManager.virtualHeight,
-          )
-        : null;
-
-    // 발 키노트 감지 (Issue #197, #206, #237: 정규화 좌표 전달, 프레이밍/합장/pause 안전 가드 및 공통 라우터 경유)
-    const isSafetyGuarded = menuInput.isActive || pauseModal.isOpen;
-    footKeynoteInput.setSafetyGuarded(isSafetyGuarded);
-    const footEvents = footKeynoteDetector.update(
-      dt,
-      normalizedLandmarks,
-      engine.elapsedTime,
-      {
-        isSafetyGuarded,
-        isPoseInputAllowed: currentKneeFraming.isFootKeynotePoseInputAllowed,
-        virtualHeight: 1,
-      },
-    );
-    for (const event of footEvents) {
-      footKeynoteInput.routeEvent(event);
-    }
-
-    // Issue #200: 문제 페이즈(gamePhase === 'question')에서도 코디네이터에 시간(dt)을 지속 전달하여
-    // 내부 8박 시계 및 라운드 정산(_resolveRound)이 멈추지 않도록 보장
-    beatCoordinator.update(dt, normalizedLandmarks);
-    currentQuestion = beatCoordinator.currentQuestion;
-    if (stateMachine.currentState === 'HAZARD_EVADE' && phaseAHazardController.isActive) {
-      phaseAHazardController.update(dt);
-      if (!battle.isAlive) {
-        showResult(false);
-        return;
-      }
-    }
-
-    // 2~8박 키노트 퍼포먼스 별 수집 판정 (Issue #206, #207, #210, #235 / StarNoteScheduler 연동)
-    if (
-      beatCoordinator.phase === 'KEYNOTE_PERFORMANCE' ||
-      beatCoordinator.phase === 'STAR_COLLECT' ||
-      stateMachine.currentState === 'STAR_COLLECT'
-    ) {
-      if (!starNoteScheduler.isStarted) {
-        starNoteScheduler.start(engine.elapsedTime, {
-          roundId: beatRoundResolver.currentRoundIndex,
-          notes: beatCoordinator.keynotes,
-        });
-      }
-      starNoteScheduler.update(engine.elapsedTime, sourceLandmarks);
-      starCollectionInput.setTarget(starNoteScheduler.currentTarget);
-    } else if (
-      stateMachine.currentState === 'BOSS_CLIMAX' ||
-      (bossFeverController && bossFeverController.isActive)
-    ) {
-      // Issue #213: Phase B 무제한 피버 루프 갱신 및 커서 판정
-      bossFeverController.update(engine.elapsedTime, sourceLandmarks);
-      starCollectionInput.setTarget(starNoteScheduler.currentTarget);
-      // Issue #193: Phase B 보스 패턴 공격 타이머 및 회피/피격 판정 갱신
-      if (bossHazardController && !pauseModal.isOpen) {
-        bossHazardController.update(dt);
-      }
-      // Issue #194: Phase B 아군 미니언 군단 자동 탄막 쿨다운 및 화력 투사
-      if (!pauseModal.isOpen) {
-        beatRoundResolver.resourceManager.troopManager.update(dt, { autoConsumeStardust: true });
-      }
-    }
-
-    // Issue #207, #210, #226: 0s 무체류 팔 선택 정착으로 골반 체류 충전음 잔재 정리
-    sfx.stopDwellCharge();
-
-    if (feedbackTimer > 0) {
-      feedbackTimer -= dt;
-      if (feedbackTimer <= 0) {
-        feedbackCustomText = null;
-        feedbackCustomColor = null;
-      }
-    }
-    if (castingFlash > 0) castingFlash -= dt;
-    if (climaxBarrageTimer > 0) climaxBarrageTimer = Math.max(0, climaxBarrageTimer - dt);
-    guardian.update(dt);
-    bossRenderer.update(dt);
-    effectManager.update(dt);
-    boss.update(dt);
-    dialogueOverlayRenderer.update(dt);
-
-    hudLayer.update(dt, getHUDData());
-
-    if (!battle.isAlive && screenMode === 'game') {
-      showResult(false);
-    }
+    sceneDirector.setScene(screenMode);
+    sceneDirector.update(dt, mainSceneContext);
   },
 
   render(): void {
-    const ctx = canvasManager.ctx;
-    const vw = canvasManager.virtualWidth;
-    const vh = canvasManager.virtualHeight;
-
-    // 1. 전체 화면 배경 클리어 (물리 캔버스 기준)
-    canvasManager.resetTransform();
-    ctx.fillStyle = '#0a0a1a';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // 2. 가상 좌표계 (1080 x 2160) 통일 적용
-    canvasManager.applyVirtualTransform();
-
-    // 3. 카메라 미러 피드 렌더링 (가상 해상도 기준 Cover 드로잉)
-    if (cameraLayer.isActive) {
-      cameraLayer.render(ctx, vw, vh);
-    }
-
-    // 4. 웹캠 위 앙상한 스켈레톤 선/점/트레일은 settingsModal.skeletonEnabled 설정에 따라 ON/OFF
-    if (settingsModal.skeletonEnabled && poseManager.hasPose && skeletonAnimation.smoothedLandmarks.length > 0) {
-      boneRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, 1);
-      jointRenderer.render(ctx, skeletonAnimation.smoothedLandmarks, skeletonAnimation.breathScale);
-      skeletonEffect.renderTrails(ctx);
-    }
-
-    // 5. 메뉴 / 인게임 / 결과 렌더링 (모두 vw, vh 가상 좌표계 기준으로 일관 드로잉)
-    if (screenMode === 'menu') {
-      const menuBg = !cameraLayer.isActive ? imageLoader.get('bg', 'menu') : null;
-      dreamGrid.render(ctx, vw, vh, {
-        alpha: 0.08,
-        color: '#28E6FF',
-        renderZoneConnections: false,
-        bgImage: menuBg,
-      });
-
-      // 메뉴 모드 중앙 모션 아바타 시각화
-      stickmanRenderer.render(ctx, vw, vh, { alpha: 0.85, alwaysRender: true });
-      if (menuMode === 'main') {
-        const currentLoco = LOCOMOTION_MODES.find((m) => m.mode === locomotionModal.selectedMode);
-        menuRenderer.render(ctx, vw, vh, {
-          unlockedChapter,
-          stars: starsMap,
-          selectedChapter: menuHoverItem?.type === 'chapter' ? menuHoverItem.id : 0,
-          locomotionLabel: currentLoco?.label,
-          locomotionIcon: currentLoco?.icon,
-        });
-      } else {
-        const subLevels = questionBank.getSubLevels(selectedChapter);
-        menuRenderer.renderSubMenu(
-          ctx,
-          vw,
-          vh,
-          selectedChapter,
-          subLevels,
-          menuHoverItem?.type === 'sublevel' ? menuHoverItem.id : selectedSubLevel,
-        );
-      }
-
-      // 카메라 상태 안내 오버레이 (대기 중 또는 권한 거부 시 안내)
-      if (cameraLayer.status === 'requesting') {
-        ctx.fillStyle = '#28E6FF';
-        ctx.font = `bold 28px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.fillText('📷 카메라 권한 요청 중... 브라우저에서 허용을 눌러주세요', vw / 2, vh * 0.88);
-      } else if (cameraLayer.status === 'denied') {
-        ctx.fillStyle = '#FF8844';
-        ctx.font = `bold 26px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.fillText('⚠️ 카메라 권한 차단됨 (1~5번 키 또는 화면 클릭으로 플레이 가능)', vw / 2, vh * 0.88);
-      }
-      effectManager.render(ctx, vw, vh);
-    } else if (screenMode === 'game') {
-      const bossX = vw * 0.5;
-      const bossY = vh * HORIZON_RATIO;
-      const bossRadius = Math.min(180, vw * 0.12);
-
-      let gridColor = CHAPTER_COLORS[currentChapter] || '#28E6FF';
-      if (gamePhase === 'running') {
-        gridColor = beatCoordinator.phase === 'REST_READY' ? '#28E6FF' : '#FF8844';
-      }
-
-      const chapterKey = `ch${currentChapter}`;
-      const gameBg = !cameraLayer.isActive ? imageLoader.get('bg', chapterKey) : null;
-
-      dreamGrid.render(ctx, vw, vh, {
-        vanishingX: bossX,
-        vanishingY: bossY,
-        color: gridColor,
-        bgImage: gameBg,
-      });
-
-      // Issue #192, #232 & #235: 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링
-      if (presentationAdapter.canRenderStarCollect(stateMachine.currentState)) {
-        starNoteRenderer.render(ctx, vw, vh, {
-          target: starNoteScheduler.currentTarget,
-          targets: starNoteScheduler.activeNotes,
-          elapsedTime: engine.elapsedTime,
-          vanishingX: bossX,
-          vanishingY: bossY,
-          isPaused: engine.paused || starNoteScheduler.isPaused,
-        });
-      }
-
-      // Issue #195: Phase B 보스 결전(BOSS_CLIMAX) 충격파·군단·피버·광폭화 시각화 (DreamGrid 이후, HUD 이전)
-      if (stateMachine.currentState === 'BOSS_CLIMAX') {
-        const hazardState =
-          bossHazardController && bossHazardController.isAttacking
-            ? {
-                activePattern: bossHazardController.currentAttack,
-                progress: bossHazardController.attackProgress,
-                isResolved: bossHazardController.attackState === 'resolved',
-                isEvaded: bossHazardController.isEvaded,
-              }
-            : null;
-
-        bossClimaxRenderer.render(ctx, vw, vh, {
-          bossHp: boss.hp,
-          bossMaxHp: boss.maxHp,
-          isEnraged: bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3),
-          minionCount: beatRoundResolver.resourceManager.troopManager.minionCount,
-          guardianStage: guardian.stage,
-          stardust: beatRoundResolver.resourceManager.stardust,
-          feverCombo: bossFeverController ? bossFeverController.feverCombo : 0,
-          hazard: hazardState,
-          barrageActive: climaxBarrageTimer > 0,
-          barrageProgress: climaxBarrageTimer > 0 ? 1 - (climaxBarrageTimer / CLIMAX_BARRAGE_DURATION) : 0,
-          elapsedTime: engine.elapsedTime,
-          vanishingX: bossX,
-          vanishingY: bossY,
-        });
-      }
-
-      bossRenderer.render(ctx, currentChapter, bossX, bossY, bossRadius, boss.phase);
-      hudLayer.render(ctx, vw, vh, getHUDData());
-
-      // Issue #232 & #279: GameState 기반 상태별 렌더 허용표(Render Allow Matrix) 적용
-      if (presentationAdapter.canRenderRunningHUD(stateMachine.currentState)) {
-        beatHUDRenderer.render(ctx, vw, vh, {
-          question: currentQuestion,
-          totalSteps,
-          completedExerciseBeats: beatCoordinator.completedExerciseBeats,
-          exerciseBeats: beatCoordinator.exerciseBeats,
-          locomotionMode: locomotionModal.selectedMode,
-          activeHazardPattern: null,
-          hazardBeatProgress: 0,
-          questionApproachProgress: beatCoordinator.questionApproachProgress,
-          vanishingX: bossX,
-          vanishingY: bossY,
-        });
-
-        // Issue #279: 러닝 페이즈 approachStartBeat(기본 6박) 이후 답안 카드 원근 접근 프리뷰 렌더링
-        if (
-          presentationAdapter.canRenderAnswerPreview(
-            stateMachine.currentState,
-            beatCoordinator.answerApproachProgress,
-          )
-        ) {
-          questionRenderer.render(ctx, vw, vh, {
-            question: currentQuestion,
-            questionVisible: true,
-            selectedChoiceIndex: null,
-            answerApproachProgress: beatCoordinator.answerApproachProgress,
-            vanishingX: bossX,
-            vanishingY: bossY,
-            buttonsOnly: true,
-            answerSelectable: false,
-          });
-        }
-      } else if (presentationAdapter.canRenderQuestion(stateMachine.currentState)) {
-        // Issue #285 (UI-ANSWER-002): ArmReachAnswerSelector 점수 및 조준/확정 상태 실시간 연동
-        const armState = armReachAnswerSelector.state;
-        let choiceProgress0 = 0;
-        let choiceProgress1 = 0;
-
-        const leftIdx = armState.leftHand.answerIndex ?? (armState.leftHand.zoneId === 4 ? 0 : (armState.leftHand.zoneId === 5 ? 1 : null));
-        if (leftIdx === 0) {
-          choiceProgress0 = Math.max(choiceProgress0, armState.leftHand.score ?? 0);
-        } else if (leftIdx === 1) {
-          choiceProgress1 = Math.max(choiceProgress1, armState.leftHand.score ?? 0);
-        }
-
-        const rightIdx = armState.rightHand.answerIndex ?? (armState.rightHand.zoneId === 4 ? 0 : (armState.rightHand.zoneId === 5 ? 1 : null));
-        if (rightIdx === 0) {
-          choiceProgress0 = Math.max(choiceProgress0, armState.rightHand.score ?? 0);
-        } else if (rightIdx === 1) {
-          choiceProgress1 = Math.max(choiceProgress1, armState.rightHand.score ?? 0);
-        }
-
-        const selectedIndex = beatCoordinator.selectedChoiceIndex ?? armState.confirmedAnswerIndex;
-        if (selectedIndex === 0) {
-          choiceProgress0 = 1.0;
-        } else if (selectedIndex === 1) {
-          choiceProgress1 = 1.0;
-        }
-
-        let activeHoverIndex: number | null = armState.activeAnswerIndex;
-        if (activeHoverIndex === null) {
-          if (choiceProgress0 >= 0.25 && choiceProgress0 > choiceProgress1) {
-            activeHoverIndex = 0;
-          } else if (choiceProgress1 >= 0.25 && choiceProgress1 > choiceProgress0) {
-            activeHoverIndex = 1;
-          }
-        }
-
-        questionRenderer.render(ctx, vw, vh, {
-          question: currentQuestion,
-          questionVisible,
-          selectedChoiceIndex: selectedIndex,
-          answerApproachProgress: 1.0,
-          vanishingX: bossX,
-          vanishingY: bossY,
-          choiceProgress: [choiceProgress0, choiceProgress1],
-          activeHoverIndex,
-          answerSelectable: beatCoordinator.isAnswerOpen,
-        });
-
-        // Issue #255: ANSWER_SELECT 상태에서 부분 진행도 시각화 및 실패 사유 힌트 렌더링
-        const answerFeedback = presentationAdapter.getAnswerSelectFeedback(
-          stateMachine.currentState,
-          armReachAnswerSelector.state,
-          lastFrameDt,
-        );
-        presentationAdapter.renderAnswerFeedback(ctx, vw, vh, answerFeedback);
-      } else if (presentationAdapter.canRenderHazardEvade(stateMachine.currentState)) {
-        const isActionSafe =
-          phaseAHazardController.isEvaded ||
-          (phaseAHazardController.performedAction !== null &&
-            phaseAHazardController.performedAction === phaseAHazardController.activePattern);
-        presentationAdapter.renderHazardEvade(ctx, vw, vh, {
-          activePattern: phaseAHazardController.activePattern,
-          beatProgress: phaseAHazardController.beatProgress,
-          vanishingX: bossX,
-          vanishingY: bossY,
-          isEvaded: phaseAHazardController.isEvaded,
-          isResolved: phaseAHazardController.isResolved,
-          performedAction: phaseAHazardController.performedAction,
-          isActionDetected: isActionSafe,
-          isCurrentlySafe: isActionSafe,
-        });
-      } else if (presentationAdapter.canRenderReadyPosition(stateMachine.currentState)) {
-        readyPositionRenderer.render(
-          ctx,
-          vw,
-          vh,
-          readyPositionController.getState(),
-        );
-      }
-
-      // 모션 아바타(화이트 클레이 졸라맨): 드림 그리드·보스·정렬 가이드 위, HUD/문제 카드 아래 화면 중앙 2/3 높이 상시 렌더링
-      stickmanRenderer.render(ctx, vw, vh, { alwaysRender: true });
-
-      renderFeedback(ctx, vw, vh);
-      effectManager.render(ctx, vw, vh);
-    } else if (screenMode === 'result' && resultData) {
-      resultRenderer.render(ctx, vw, vh, resultData);
-      stickmanRenderer.render(ctx, vw, vh, { alpha: 0.9, alwaysRender: true });
-      effectManager.render(ctx, vw, vh);
-    }
-
-    // 6. Issue #141: 공통 하단 고정 바 (Yellow Bar) 렌더링
-    let actionLabel: string | undefined;
-    let actionColor: string | undefined;
-    let customActionSlot: BottomBarSlot | undefined;
-
-    if (screenMode === 'menu') {
-      if (menuMode === 'sub') {
-        actionLabel = '← 뒤로';
-        actionColor = '#28E6FF';
-        customActionSlot = { x: 780, y: 1990, w: 270, h: 140 };
-      }
-    } else if (screenMode === 'game') {
-      actionLabel = '정지';
-      actionColor = '#FF4444';
-    } else if (screenMode === 'result') {
-      actionLabel = '메뉴로';
-      actionColor = '#FFCB4D';
-    }
-
-    bottomBar.render(ctx, vw, vh, {
-      actionLabel,
-      actionColor,
-      customActionSlot,
-      settingsHoverProgress: settingsHoverTimer / MENU_HOVER_DWELL_TIME,
-      actionHoverProgress: actionHoverTimer / MENU_HOVER_DWELL_TIME,
-      mana: screenMode === 'game' ? battle.mana : undefined,
-      manaMax: screenMode === 'game' ? DEFAULT_CONFIG.mana.spellCost : undefined,
-      combo: screenMode === 'game' ? battle.combo : undefined,
-    });
-
-    // 7. Issue #141: 설정 모달 렌더링 (오버레이 및 팝업 카드)
-    if (settingsModal.isOpen) {
-      settingsModal.render(ctx, vw, vh);
-    }
-
-    // 7.5 Issue #154: 운동 모드(이동 방식 4종) 모달 렌더링
-    if (locomotionModal.isOpen) {
-      locomotionModal.render(ctx, vw, vh);
-    }
-
-    // 7.6 Issue #172: 일시정지 모달 렌더링
-    if (pauseModal.isOpen) {
-      pauseModal.render(ctx, vw, vh);
-    }
-
-    // 7.7 Issue #199 & #206: 무릎 프레이밍 가이드 렌더링 (READY_POSITION 중에는 전용 가이드 사용)
-    if (screenMode === 'game' && stateMachine.currentState !== 'READY_POSITION') {
-      kneeFramingGuideRenderer.render(ctx, vw, vh, currentKneeFraming);
-    }
-
-    // 8. Issue #140, #141, #233: 전 장면(메뉴·달리기·문제·결과) 4색 스켈레톤 커서 상시 지속 렌더링
-    // (구형 피트니스 존 및 마법진 렌더링을 완전히 분리하고, 커서 전용 렌더링 수행)
-    if (answerSelector.cursorTracker.cursors.size > 0) {
-      // Issue #169: 합장 시 개별 손 커서(시안/노랑)를 숨기고 단일 금빛 합장 링으로 대체
-      const renderCursors = new Map(answerSelector.cursorTracker.cursors.entries());
-      if (menuInput.isActive) {
-        renderCursors.delete('leftHand');
-        renderCursors.delete('rightHand');
-      }
-
-      answerSelectionRenderer.render(
-        ctx,
-        vw,
-        vh,
-        [],
-        renderCursors,
-        [0, 0],
-      );
-    }
-
-    // 8.5 Issue #119, #134, #169, #172: 양손 모으기(합장) 활성화 시 전 화면 공통 금빛 합장 링 렌더링
-    if (menuInput.isActive) {
-      let label = '손모으기';
-      let progress = 0;
-
-      if (pauseModal.isOpen) {
-        label = pauseModal.hoverAction === 'resume' ? '재개' : (pauseModal.hoverAction === 'quit' ? '나가기' : '선택');
-        progress = pauseModal.hoverProgress;
-      } else if (screenMode === 'menu') {
-        label = menuHoverItem ? '선택' : (settingsHoverTimer > 0 ? '설정' : (actionHoverTimer > 0 ? '뒤로' : '손모으기'));
-        progress = Math.max(menuHoverTimer, settingsHoverTimer, actionHoverTimer) / MENU_HOVER_DWELL_TIME;
-      } else if (screenMode === 'game') {
-        label = settingsHoverTimer > 0 ? '설정' : (actionHoverTimer > 0 ? '정지' : '손모으기');
-        progress = Math.max(settingsHoverTimer, actionHoverTimer) / MENU_HOVER_DWELL_TIME;
-      } else if (screenMode === 'result') {
-        label = '메뉴복귀';
-        progress = Math.max(resultReturnTimer, settingsHoverTimer, actionHoverTimer) / MENU_HOVER_DWELL_TIME;
-      }
-
-      drawJoinedHandsCursor(ctx, vw, vh, menuInput.cursorX, menuInput.cursorY, label, progress);
-    }
-
-    // 8.8 Issue #171 & #172: X자 제스처 진행 시 상단 비주얼 피드백 표시
-    gestureFeedbackOverlay.render(ctx, vw, vh, {
-      isCrossing: xGestureDetector.isCrossing,
-      inCooldown: xGestureDetector.inCooldown,
-      isPaused: pauseModal.isOpen,
-      progress: xGestureDetector.progress,
-      screenMode,
-      menuMode,
-    });
-
-    // 8.9 Issue #219 (STORY-RENDER-001): 인게임 캐릭터 대사창 오버레이 렌더링
-    dialogueOverlayRenderer.render(ctx, vw, vh);
-
-    // 9. Issue #137: 튜토리얼 인터랙티브 오버레이 렌더링
-    if (tutorial.isVisible) {
-      tutorial.render(ctx, vw, vh);
-    }
-
-    // 9.5 Issue #278 (VFX-006): 화면 전환 트랜지션 (원형 와이프 / 페이드) 최상단 오버레이 렌더링
-    transitionManager.render(ctx, vw, vh);
-
-    // 10. 가상 좌표계 복원
-    canvasManager.resetTransform();
+    sceneDirector.render(mainSceneContext);
   },
 });
 
