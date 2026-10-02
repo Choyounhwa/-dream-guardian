@@ -159,4 +159,141 @@ describe('QuestionRenderer (Issue #209 / REFACTOR-RENDER-001)', () => {
       expect(textCalls.some((t: string) => t.includes('1010101010101'))).toBe(true);
     });
   });
+
+  describe('답안 버튼 실시간 0~100% 충전 프로그레스 및 체결 연출 (Issue #285 / UI-ANSWER-002)', () => {
+    it('choiceProgress에 따라 버튼 내부 네온 충전 필 및 하단 프로그레스 바를 렌더링한다', () => {
+      const renderer = new QuestionRenderer();
+      const ctx = createMockCtx();
+      const fillStyles: string[] = [];
+      let maxProgressFillW = 0;
+
+      const origRoundRect = ctx.roundRect as any;
+      (ctx.roundRect as any) = vi.fn((x: number, y: number, w: number, h: number, r?: any) => {
+        if (typeof ctx.fillStyle === 'string') {
+          fillStyles.push(ctx.fillStyle);
+          if (ctx.fillStyle.includes('40, 230, 255') || ctx.fillStyle.includes('#28E6FF')) {
+            if (w > maxProgressFillW) maxProgressFillW = w;
+          }
+        }
+        if (origRoundRect) origRoundRect(x, y, w, h, r);
+      });
+
+      const state: QuestionRenderState = {
+        question: mockQuestion,
+        questionVisible: true,
+        choiceProgress: [0.6, 0.0],
+      };
+
+      renderer.render(ctx, 1080, 2160, state);
+
+      const hasCyanFill = fillStyles.some((s) => s.includes('40, 230, 255') || s.includes('#28E6FF'));
+      expect(hasCyanFill).toBe(true);
+      expect(maxProgressFillW).toBeGreaterThan(0);
+    });
+
+    it('activeHoverIndex가 지정되었을 때 버튼이 1.05배 확대되고 20px 글로우(shadowBlur)가 적용된다', () => {
+      const renderer = new QuestionRenderer();
+      const ctx = createMockCtx();
+      let maxRecordedBlur = 0;
+      let blurVal = 0;
+      Object.defineProperty(ctx, 'shadowBlur', {
+        get: () => blurVal,
+        set: (v: number) => {
+          blurVal = v;
+          if (v > maxRecordedBlur) maxRecordedBlur = v;
+        },
+        configurable: true,
+      });
+
+      const recordedWidths: number[] = [];
+      const origRoundRect = ctx.roundRect as any;
+      (ctx.roundRect as any) = vi.fn((x: number, y: number, w: number, h: number, r?: any) => {
+        recordedWidths.push(w);
+        if (origRoundRect) origRoundRect(x, y, w, h, r);
+      });
+
+      // 1. 호버 없을 때 기본 너비 측정
+      const stateNormal: QuestionRenderState = {
+        question: mockQuestion,
+        questionVisible: true,
+        activeHoverIndex: null,
+      };
+      renderer.render(ctx, 1080, 2160, stateNormal);
+      const normalBtn0W = recordedWidths[0];
+
+      // 2. 0번 버튼 호버 활성화
+      recordedWidths.length = 0;
+      const stateHover: QuestionRenderState = {
+        question: mockQuestion,
+        questionVisible: true,
+        activeHoverIndex: 0,
+      };
+      renderer.render(ctx, 1080, 2160, stateHover);
+      const hoverBtn0W = recordedWidths[0];
+
+      // 1.05배 확대 검증 (오차 허용 범위 1.04 ~ 1.06)
+      expect(hoverBtn0W).toBeGreaterThan(normalBtn0W);
+      expect(hoverBtn0W / normalBtn0W).toBeCloseTo(1.05, 2);
+
+      // 버튼 발광 글로우(shadowBlur: 20px 이상) 검증
+      expect(maxRecordedBlur).toBeGreaterThanOrEqual(20);
+    });
+
+    it('selectedChoiceIndex가 지정되었을 때 강력한 녹색 테두리(#00FF88)와 선택 완료! [V] 스탬프를 렌더링한다', () => {
+      const renderer = new QuestionRenderer();
+      const ctx = createMockCtx();
+      const strokes: string[] = [];
+      Object.defineProperty(ctx, 'strokeStyle', {
+        get: () => strokes[strokes.length - 1] || '',
+        set: (v: string) => {
+          strokes.push(v);
+        },
+        configurable: true,
+      });
+
+      const state: QuestionRenderState = {
+        question: mockQuestion,
+        questionVisible: true,
+        selectedChoiceIndex: 1,
+      };
+
+      renderer.render(ctx, 1080, 2160, state);
+
+      // 녹색 테두리(#00FF88) 적용 검증
+      expect(strokes.some((s) => s.toUpperCase() === '#00FF88' || s.includes('0, 255, 136'))).toBe(true);
+
+      // '선택 완료! [V]' 네온 뱃지/스탬프 텍스트 렌더링 검증
+      const textCalls = (ctx.fillText as any).mock.calls.map((c: any) => c[0]);
+      expect(textCalls.some((t: string) => t.includes('선택 완료! [V]'))).toBe(true);
+    });
+
+    it('choiceProgress 진행도에 비례하여 하단 프로그레스 바 너비가 증가한다 (0%, 50%, 100%)', () => {
+      const renderer = new QuestionRenderer();
+      const getBarWidthForProgress = (prog: number) => {
+        const ctx = createMockCtx();
+        const widths: number[] = [];
+        const origRoundRect = ctx.roundRect as any;
+        (ctx.roundRect as any) = vi.fn((x: number, y: number, w: number, h: number, r?: any) => {
+          if (h <= 12 && h >= 4) {
+            widths.push(w);
+          }
+          if (origRoundRect) origRoundRect(x, y, w, h, r);
+        });
+
+        renderer.render(ctx, 1080, 2160, {
+          question: mockQuestion,
+          questionVisible: true,
+          choiceProgress: [prog, 0],
+        });
+        return widths.length > 0 ? widths[0] : 0;
+      };
+
+      const w50 = getBarWidthForProgress(0.5);
+      const w100 = getBarWidthForProgress(1.0);
+
+      expect(w50).toBeGreaterThan(0);
+      expect(w100).toBeGreaterThan(w50);
+      expect(w100 / w50).toBeCloseTo(2.0, 1);
+    });
+  });
 });

@@ -25,6 +25,10 @@ export interface QuestionRenderState {
   vanishingY?: number;
   /** 러닝 페이즈 6박 이후 답안 프리뷰 시 헤더 중복 방지 플래그 */
   buttonsOnly?: boolean;
+  /** Issue #285 (UI-ANSWER-002): 각 보기 버튼의 0.0 ~ 1.0 충전 진행도 */
+  choiceProgress?: [number, number];
+  /** Issue #285 (UI-ANSWER-002): 현재 조준/타겟팅된 보기 버튼 인덱스 0 또는 1 */
+  activeHoverIndex?: number | null;
 }
 
 export interface QuestionHeaderMathOptions {
@@ -151,43 +155,150 @@ export class QuestionRenderer {
       const curCenterX = isApproaching ? vx + (targetCenterX - vx) * eased : targetCenterX;
       const curCenterY = isApproaching ? vy + (targetCenterY - vy) * eased : targetCenterY;
 
-      const curW = btn.width * scale;
-      const curH = btn.height * scale;
+      // Issue #285 (UI-ANSWER-002): 조준 시 미세 확대 (Magnet Hover State: 1.05x)
+      const isHovered = state.activeHoverIndex === i;
+      const hoverScale = isHovered ? 1.05 : 1.0;
+      const effectiveScale = scale * hoverScale;
+
+      const curW = btn.width * effectiveScale;
+      const curH = btn.height * effectiveScale;
       const bx = curCenterX - curW / 2;
       const btnY = curCenterY - curH / 2;
 
       ctx.save();
       ctx.globalAlpha *= alpha;
 
-      // Issue #233: 구형 방사형 레시피 색상 분할 제거 -> 모던 반투명 네온 버튼 배경
+      // Issue #285 (UI-ANSWER-002): 호버 시 글로우 효과 (shadowBlur 20px)
+      if (isHovered) {
+        ctx.shadowColor = i === 0 ? 'rgba(40, 230, 255, 0.8)' : 'rgba(255, 203, 77, 0.8)';
+        ctx.shadowBlur = 20 * scaleX * scale;
+      }
+
+      // 모던 반투명 네온 버튼 배경
       ctx.fillStyle = 'rgba(16, 24, 48, 0.88)';
       ctx.beginPath();
       if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(bx, btnY, curW, curH, 20 * scaleX * scale);
+        ctx.roundRect(bx, btnY, curW, curH, 20 * scaleX * effectiveScale);
       } else {
         ctx.rect(bx, btnY, curW, curH);
       }
       ctx.fill();
 
-      // 기본 네온 테두리 (좌측 Zone 4: 시안 #28E6FF, 우측 Zone 5: 노랑 #FFCB4D)
-      ctx.strokeStyle = i === 0 ? 'rgba(40, 230, 255, 0.7)' : 'rgba(255, 203, 77, 0.7)';
-      ctx.lineWidth = 6 * scaleX * scale;
-      ctx.stroke();
+      // Issue #285 (UI-ANSWER-002): 실시간 0~100% 충전 프로그레스 바 및 부드러운 네온 내부 채우기 (Fill)
+      const rawProgress = state.selectedChoiceIndex === i ? 1.0 : (state.choiceProgress ? state.choiceProgress[i] : 0);
+      const choiceProgress = Math.max(0, Math.min(1.0, rawProgress ?? 0));
 
-      // Issue #200 & #233: 답안 선택 즉시 녹색 선택 하이라이트 테두리 점등
-      if (state.selectedChoiceIndex === i) {
+      if (choiceProgress > 0) {
         ctx.save();
-        ctx.strokeStyle = '#4DFFAA';
-        ctx.lineWidth = 10 * scaleX * scale;
-        ctx.shadowColor = '#4DFFAA';
-        ctx.shadowBlur = 18 * scale;
+        // 1) 내부 네온 충전 필 (진행도 비례 너비)
+        ctx.fillStyle = i === 0
+          ? `rgba(40, 230, 255, ${0.12 + choiceProgress * 0.13})`
+          : `rgba(255, 203, 77, ${0.12 + choiceProgress * 0.13})`;
+        ctx.beginPath();
+        const fillW = curW * choiceProgress;
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(bx, btnY, fillW, curH, 18 * scaleX * effectiveScale);
+        } else {
+          ctx.rect(bx, btnY, fillW, curH);
+        }
+        ctx.fill();
+
+        // 2) 버튼 하단 네온 프로그레스 바
+        const barH = Math.max(4, 8 * scaleY * effectiveScale);
+        const barY = btnY + curH - barH - 6 * scaleY * effectiveScale;
+        const barPad = 8 * scaleX * effectiveScale;
+        const barMaxW = curW - barPad * 2;
+        const barW = Math.max(0, barMaxW * choiceProgress);
+
+        ctx.fillStyle = i === 0 ? '#28E6FF' : '#FFCB4D';
+        ctx.shadowColor = i === 0 ? '#28E6FF' : '#FFCB4D';
+        ctx.shadowBlur = 12 * effectiveScale;
         ctx.beginPath();
         if (typeof ctx.roundRect === 'function') {
-          ctx.roundRect(bx - 3 * scale, btnY - 3 * scale, curW + 6 * scale, curH + 6 * scale, 22 * scaleX * scale);
+          ctx.roundRect(bx + barPad, barY, barW, barH, barH / 2);
+        } else {
+          ctx.rect(bx + barPad, barY, barW, barH);
+        }
+        ctx.fill();
+
+        // 3) 네온 프로그레스 테두리 (진행도 비례 발광 강화)
+        ctx.strokeStyle = i === 0 ? '#28E6FF' : '#FFCB4D';
+        ctx.lineWidth = (6 + choiceProgress * 2) * scaleX * effectiveScale;
+        ctx.shadowColor = i === 0 ? '#28E6FF' : '#FFCB4D';
+        ctx.shadowBlur = (10 + choiceProgress * 10) * effectiveScale;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(bx, btnY, curW, curH, 20 * scaleX * effectiveScale);
+        } else {
+          ctx.rect(bx, btnY, curW, curH);
+        }
+        ctx.stroke();
+
+        ctx.restore();
+      } else {
+        // 기본 네온 테두리 (진행도 없을 때)
+        ctx.strokeStyle = i === 0 ? 'rgba(40, 230, 255, 0.7)' : 'rgba(255, 203, 77, 0.7)';
+        ctx.lineWidth = 6 * scaleX * effectiveScale;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(bx, btnY, curW, curH, 20 * scaleX * effectiveScale);
+        } else {
+          ctx.rect(bx, btnY, curW, curH);
+        }
+        ctx.stroke();
+      }
+
+      ctx.shadowBlur = 0;
+
+      // Issue #200 & #285 (UI-ANSWER-002): 확정 즉시 체결 및 판정 스탬프 (Confirm Stamp)
+      if (state.selectedChoiceIndex === i) {
+        ctx.save();
+        // 강력한 녹색 테두리 (#00FF88)
+        ctx.strokeStyle = '#00FF88';
+        ctx.lineWidth = 10 * scaleX * effectiveScale;
+        ctx.shadowColor = '#00FF88';
+        ctx.shadowBlur = 24 * scale;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(
+            bx - 3 * scale,
+            btnY - 3 * scale,
+            curW + 6 * scale,
+            curH + 6 * scale,
+            22 * scaleX * effectiveScale,
+          );
         } else {
           ctx.strokeRect(bx - 3 * scale, btnY - 3 * scale, curW + 6 * scale, curH + 6 * scale);
         }
         ctx.stroke();
+
+        // 버튼 중앙 '선택 완료! [V]' 네온 뱃지/스탬프
+        const badgeText = '선택 완료! [V]';
+        ctx.font = UIText.getFont('badge', scaleX * effectiveScale, 'bold');
+        const textMetrics = ctx.measureText ? ctx.measureText(badgeText) : { width: 100 };
+        const badgeW = (textMetrics.width || 100) + 24 * scaleX * effectiveScale;
+        const badgeH = 34 * scaleY * effectiveScale;
+        const badgeX = curCenterX - badgeW / 2;
+        const badgeY = curCenterY - badgeH / 2;
+
+        ctx.fillStyle = 'rgba(16, 40, 24, 0.95)';
+        ctx.strokeStyle = '#00FF88';
+        ctx.lineWidth = 2 * scaleX * effectiveScale;
+        ctx.shadowColor = '#00FF88';
+        ctx.shadowBlur = 14 * scale;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 10 * scaleX * effectiveScale);
+        } else {
+          ctx.rect(badgeX, badgeY, badgeW, badgeH);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#00FF88';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(badgeText, curCenterX, badgeY + badgeH / 2);
         ctx.restore();
       }
 
@@ -195,15 +306,18 @@ export class QuestionRenderer {
       const choiceStr = String(state.question.choices[i]);
       const choiceLen = choiceStr.length;
       const baseChoiceFontSize = choiceLen > 6 ? Math.max(50 * scaleX, (96 - (choiceLen - 6) * 5) * scaleX) : 96 * scaleX;
-      const choiceFontSize = baseChoiceFontSize * scale;
+      const choiceFontSize = baseChoiceFontSize * effectiveScale;
+      const choiceTargetY = state.selectedChoiceIndex === i
+        ? curCenterY - 48 * scaleY * effectiveScale
+        : curCenterY;
 
-      renderMath(ctx, choiceStr, curCenterX, curCenterY, {
+      renderMath(ctx, choiceStr, curCenterX, choiceTargetY, {
         fontSize: choiceFontSize,
         color: '#FFCB4D',
         align: 'center',
-        maxWidth: Math.max(20, (btn.width - 32 * scaleX) * scale),
-        maxHeight: Math.max(20, (btn.height - 32 * scaleY) * scale),
-        minFontSize: Math.round(32 * scaleX * scale),
+        maxWidth: Math.max(20, (btn.width - 32 * scaleX) * effectiveScale),
+        maxHeight: Math.max(20, (btn.height - 32 * scaleY) * effectiveScale),
+        minFontSize: Math.round(32 * scaleX * effectiveScale),
         fractionLineColor: '#FFCB4D',
         placeholderColor: '#FFCB4D',
       });

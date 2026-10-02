@@ -1837,13 +1837,50 @@ const engine = new GameEngine({
           });
         }
       } else if (presentationAdapter.canRenderQuestion(stateMachine.currentState)) {
+        // Issue #285 (UI-ANSWER-002): ArmReachAnswerSelector 점수 및 조준/확정 상태 실시간 연동
+        const armState = armReachAnswerSelector.state;
+        let choiceProgress0 = 0;
+        let choiceProgress1 = 0;
+
+        const leftIdx = armState.leftHand.answerIndex ?? (armState.leftHand.zoneId === 4 ? 0 : (armState.leftHand.zoneId === 5 ? 1 : null));
+        if (leftIdx === 0) {
+          choiceProgress0 = Math.max(choiceProgress0, armState.leftHand.score ?? 0);
+        } else if (leftIdx === 1) {
+          choiceProgress1 = Math.max(choiceProgress1, armState.leftHand.score ?? 0);
+        }
+
+        const rightIdx = armState.rightHand.answerIndex ?? (armState.rightHand.zoneId === 4 ? 0 : (armState.rightHand.zoneId === 5 ? 1 : null));
+        if (rightIdx === 0) {
+          choiceProgress0 = Math.max(choiceProgress0, armState.rightHand.score ?? 0);
+        } else if (rightIdx === 1) {
+          choiceProgress1 = Math.max(choiceProgress1, armState.rightHand.score ?? 0);
+        }
+
+        const selectedIndex = beatCoordinator.selectedChoiceIndex ?? armState.confirmedAnswerIndex;
+        if (selectedIndex === 0) {
+          choiceProgress0 = 1.0;
+        } else if (selectedIndex === 1) {
+          choiceProgress1 = 1.0;
+        }
+
+        let activeHoverIndex: number | null = armState.activeAnswerIndex;
+        if (activeHoverIndex === null) {
+          if (choiceProgress0 >= 0.25 && choiceProgress0 > choiceProgress1) {
+            activeHoverIndex = 0;
+          } else if (choiceProgress1 >= 0.25 && choiceProgress1 > choiceProgress0) {
+            activeHoverIndex = 1;
+          }
+        }
+
         questionRenderer.render(ctx, vw, vh, {
           question: currentQuestion,
           questionVisible,
-          selectedChoiceIndex: beatCoordinator.selectedChoiceIndex,
+          selectedChoiceIndex: selectedIndex,
           answerApproachProgress: 1.0,
           vanishingX: bossX,
           vanishingY: bossY,
+          choiceProgress: [choiceProgress0, choiceProgress1],
+          activeHoverIndex,
         });
 
         // Issue #255: ANSWER_SELECT 상태에서 부분 진행도 시각화 및 실패 사유 힌트 렌더링
