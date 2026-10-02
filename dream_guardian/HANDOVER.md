@@ -160,8 +160,8 @@
 |:---:|---|---|---|:---:|
 | 43 | **#297** | [REFACTOR-GEOM-001] 모션·포즈 공통 기하학 유틸리티(PoseGeometry) 신설 및 ArmReachAnswerSelector 연동 | 없음 | `[✔] 완료` |
 | 44 | **#298** | [REFACTOR-GEOM-002] 포즈 매처 및 커서 트래커 공통 기하학 유틸리티(PoseGeometry) 2차 연동 | #297 | `[✔] 완료` |
-| 45 | **#299** | [REFACTOR-FX-001] EffectManager 비주얼 이펙트 서브모듈 분리 (CombatVFX & ScreenFX) | 없음 | `[▶ NEXT]` |
-| 46 | **#300** | [REFACTOR-CORE-001] 런타임 게임 세션 컨텍스트 구조화 (GameSessionContext) | 없음 | `[ ] 대기` |
+| 45 | **#299** | [REFACTOR-FX-001] EffectManager 비주얼 이펙트 서브모듈 분리 (CombatVFX & ScreenFX) | 없음 | `[✔] 완료` |
+| 46 | **#300** | [REFACTOR-CORE-001] 런타임 게임 세션 컨텍스트 구조화 (GameSessionContext) | 없음 | `[▶ NEXT]` |
 | 47 | **#301** | [REFACTOR-MAIN-001] 메인 게임 루프 씬 디렉터 분리 (SceneDirector) | #300 | `[ ] 대기` |
 | 48 | **#302** | [REFACTOR-MAIN-002] 메인 앱 부트스트랩 및 이벤트 리스너 분리 (AppBootstrap) | #301 | `[ ] 대기` |
 
@@ -193,8 +193,25 @@
                          ↓
 [그리드 개선]   #294 (완료) → #295 (완료) (원근 그리드 두께 증가, 세로선 2-Pass 글로우, 메트로놈 비트 플래시)
                          ↓
-[시스템 리팩토링] #297 (완료) → #298 (완료) → #299 [▶ NEXT] (EffectManager 서브모듈 분리: CombatVFX & ScreenFX)
+[시스템 리팩토링] #297 (완료) → #298 (완료) → #299 (완료) → #300 [▶ NEXT] (런타임 게임 세션 컨텍스트 구조화: GameSessionContext)
 ```
+
+---
+
+## 2026-10-03 완료: [REFACTOR-FX-001 / #299] EffectManager 비주얼 이펙트 서브모듈 분리 (CombatVFX & ScreenFX)
+
+> #299 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (152개 파일 1,939개 테스트 통과, build 성공).
+> - **CombatVFX 신설 (`src/effects/CombatVFX.ts`)**:
+>   - 슬래시(Slash) 참격 궤적 효과(`SlashEffect`, `SlashOptions`), 가디언 스펠 투사체 및 3단계 연쇄 시퀀스(`GuardianCastSequence`), 리듬 판정 플로팅 텍스트(`FloatingJudgmentText`, `JUDGMENT_CONFIGS`), 보스 피격 충격(`playBossHitImpact`), 장판 피격(`playHazardHit`), 마나 풀(`playManaFullEffect`), 가디언 이벤트 버스 연동(`wireGuardianVFX`) 이관.
+> - **ScreenFX 신설 (`src/effects/ScreenFX.ts`)**:
+>   - 화면 흔들림(shake) 감쇠 오프셋 계산(`triggerShake`, `shakeOffsetX`, `shakeOffsetY`), 플래시(flash) 오버레이 관리 및 렌더링(`triggerFlash`, `flashAlpha`, `render`), 암전/비네팅 다크 오버레이(`playDefeatDarken`, `triggerFade`, `defeatDarkenAlpha`, `render`) 이관.
+> - **EffectManager Facade 위임 및 경량화 (`src/effects/EffectManager.ts`)**:
+>   - `CombatVFX` 및 `ScreenFX` 인스턴스 소유 및 모든 public getter/method 100% 하위 호환 위임.
+>   - 1,418라인에서 602라인으로 57.5% 대폭 감축 (목표 700라인 이하 완료).
+> - **단위 테스트 증빙**:
+>   - `tests/unit/effect-modules.test.ts` (12개 테스트) 100% Pass
+>   - `tests/unit/effect-manager.test.ts` (14개 테스트) 100% Pass
+>   - 전체 152개 테스트 파일 1,939개 테스트 100% 통과 (회귀 결함 0건)
 
 ---
 
