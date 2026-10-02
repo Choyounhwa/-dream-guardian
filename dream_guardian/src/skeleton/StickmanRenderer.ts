@@ -58,6 +58,7 @@ export interface StickmanRenderOptions {
   showCore?: boolean;
   showVisor?: boolean;
   scale?: number;
+  alwaysRender?: boolean;
 }
 
 function diffAngle(target: number, current: number): number {
@@ -114,6 +115,24 @@ export class StickmanRenderer {
     this._animTimer = 0;
     this._verticalOffset = 0;
     this._initialized = false;
+  }
+
+  /** 포즈 미인식 시 대기/러닝 폴백 애니메이션 업데이트 */
+  updateFallback(dt: number, isRunning = false): void {
+    this._animTimer += dt;
+    this._breathScale = 1.0 + Math.sin(this._animTimer * 3.5) * 0.05;
+    const def = this._getDefaultAngles();
+    if (isRunning) {
+      const runCycle = Math.sin(this._animTimer * 8.0);
+      def.leftUpperArm += runCycle * 0.4;
+      def.rightUpperArm -= runCycle * 0.4;
+      def.leftUpperLeg += runCycle * 0.5;
+      def.rightUpperLeg -= runCycle * 0.5;
+      this._verticalOffset = Math.abs(Math.sin(this._animTimer * 8.0)) * -0.015;
+    } else {
+      this._verticalOffset = Math.sin(this._animTimer * 2.0) * 0.005;
+    }
+    this._angles = def;
   }
 
   /**
@@ -338,7 +357,7 @@ export class StickmanRenderer {
     vh: number,
     options?: StickmanRenderOptions,
   ): void {
-    if (!this._hasValidPose) return;
+    if (!this._hasValidPose && !options?.alwaysRender) return;
 
     const cfg = this._config;
     const colors = cfg.colors;

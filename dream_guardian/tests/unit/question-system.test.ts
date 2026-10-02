@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import { parseCSV } from '../../src/question/CSVLoader.js';
 import { QuestionBank } from '../../src/question/QuestionBank.js';
 import { safeEval, generateQuestion } from '../../src/question/QuestionEvaluator.js';
@@ -499,5 +501,123 @@ describe('QuestionSpeech - class', () => {
   it('destroy()가 에러 없이 작동한다', () => {
     const speech = new QuestionSpeech();
     expect(() => speech.destroy()).not.toThrow();
+  });
+});
+
+// ═══════════════════════════════════
+// Issue #248: [DATA-QUESTION-COMPAT-001]
+// ═══════════════════════════════════
+
+describe('Issue #248: [DATA-QUESTION-COMPAT-001] 7초 암산 최적화 및 Level 9-4 쌓기나무 계산 오류 검증', () => {
+  const csvContent = fs.readFileSync(path.resolve(__dirname, '../../public/questions.csv'), 'utf8');
+  const allRecords = parseCSV(csvContent);
+
+  it('전체 685문항이 파싱되어야 한다', () => {
+    expect(allRecords).toHaveLength(685);
+  });
+
+  describe('Level 9-4 쌓기나무 모양 H 및 모양 J 계산 오류 6건 수정 검증', () => {
+    it('모양 H의 2층 수, 3층 수, 2층 이상 자릿수가 올바르게 교정되어야 한다', () => {
+      const qH2 = allRecords.find((r) => r.questionTemplate.includes('[모양 H] 2층에 올려진'));
+      expect(qH2).toBeDefined();
+      expect(qH2!.answerEval).toBe('2');
+      expect(qH2!.wrongEval).toBe('3');
+
+      const qH3 = allRecords.find((r) => r.questionTemplate.includes('[모양 H] 3층(꼭대기)에 있는'));
+      expect(qH3).toBeDefined();
+      expect(qH3!.answerEval).toBe('2');
+      expect(qH3!.wrongEval).toBe('1');
+
+      const qH2Plus = allRecords.find((r) => r.questionTemplate.includes('[모양 H] 2층 이상으로 겹쳐 쌓여 있는'));
+      expect(qH2Plus).toBeDefined();
+      expect(qH2Plus!.answerEval).toBe('2');
+      expect(qH2Plus!.wrongEval).toBe('3');
+    });
+
+    it('모양 J의 2층 수, 3층 수, 2층 이상 자릿수가 올바르게 교정되어야 한다', () => {
+      const qJ2 = allRecords.find((r) => r.questionTemplate.includes('[모양 J] 2층에 올려진'));
+      expect(qJ2).toBeDefined();
+      expect(qJ2!.answerEval).toBe('3');
+      expect(qJ2!.wrongEval).toBe('4');
+
+      const qJ3 = allRecords.find((r) => r.questionTemplate.includes('[모양 J] 3층(꼭대기)에 있는'));
+      expect(qJ3).toBeDefined();
+      expect(qJ3!.answerEval).toBe('2');
+      expect(qJ3!.wrongEval).toBe('1');
+
+      const qJ2Plus = allRecords.find((r) => r.questionTemplate.includes('[모양 J] 2층 이상으로 겹쳐 쌓여 있는'));
+      expect(qJ2Plus).toBeDefined();
+      expect(qJ2Plus!.answerEval).toBe('3');
+      expect(qJ2Plus!.wrongEval).toBe('4');
+    });
+  });
+
+  describe('7초 암산 최적화 호환수 데이터 규칙 검증', () => {
+    it('Level 2-3 및 2-5 두자리/복합 곱셈의 두 번째 수가 호환수/10진수여야 한다', () => {
+      const qL23 = allRecords.find((r) => r.level === 2 && r.subLevel === 3 && r.questionTemplate.includes('{A} × {B} = ?'));
+      expect(qL23).toBeDefined();
+      expect(qL23!.varB).toContain('pick(2, 4, 5, 10, 20)');
+
+      const qL25 = allRecords.filter((r) => r.level === 2 && r.subLevel === 5);
+      expect(qL25.length).toBeGreaterThan(0);
+      for (const q of qL25) {
+        expect(q.varB).toMatch(/pick\(10,\s*20/);
+      }
+    });
+
+    it('Level 1-4 혼합 2 연산이 100/200 호환수(Friendly Numbers) 보수 규칙을 따라야 한다', () => {
+      const qL14 = allRecords.filter((r) => r.level === 1 && r.subLevel === 4);
+      expect(qL14).toHaveLength(4);
+      expect(qL14[0].varB).toContain('100 - A');
+      expect(qL14[1].varB).toContain('A - 100');
+      expect(qL14[2].varB).toContain('100 - A');
+    });
+
+    it('Level 3-4 분수 덧뺄셈 2의 분모 곱이 20 이하이거나 직관적 배수 관계여야 한다', () => {
+      const qL34Add = allRecords.find((r) => r.level === 3 && r.subLevel === 4 && r.questionTemplate.includes('1/{A} + 1/{B}'));
+      expect(qL34Add).toBeDefined();
+      expect(qL34Add!.varA).toContain('pick(2, 3, 4)');
+
+      const qL34Sub = allRecords.find((r) => r.level === 3 && r.subLevel === 4 && r.questionTemplate.includes('1/{A} - 1/{B}'));
+      expect(qL34Sub).toBeDefined();
+      expect(qL34Sub!.varA).toContain('pick(2, 3, 4)');
+    });
+
+    it('Level 5-3 제곱 2의 대상 수가 친화적 어림수(11, 15, 20, 21, 25 등)여야 한다', () => {
+      const qL53 = allRecords.find((r) => r.level === 5 && r.subLevel === 3 && r.questionTemplate === '{A}² = ?');
+      expect(qL53).toBeDefined();
+      expect(qL53!.varA).toContain('pick(11, 15, 20, 21, 25)');
+    });
+
+    it('Level 6 2진수 5자리/6자리 변환이 2의 거듭제곱 및 친화적 패턴으로 한정되어야 한다', () => {
+      const qL61_5 = allRecords.find((r) => r.level === 6 && r.subLevel === 1 && r.questionTemplate.includes('5자리 2진수'));
+      expect(qL61_5).toBeDefined();
+      expect(qL61_5!.varA).toContain('pick(16, 17, 18, 20, 24, 30, 31)');
+
+      const qL61_6 = allRecords.find((r) => r.level === 6 && r.subLevel === 1 && r.questionTemplate.includes('6자리 2진수'));
+      expect(qL61_6).toBeDefined();
+      expect(qL61_6!.varA).toContain('pick(32, 33, 34, 40, 48, 60, 62, 63)');
+    });
+  });
+
+  describe('685문항 전수 시뮬레이션 무결성 검증 (100회)', () => {
+    it('모든 문항이 100회 시뮬레이션에서 NaN 없이 정답 및 고유 오답을 생성한다', () => {
+      for (const record of allRecords) {
+        for (let t = 0; t < 100; t++) {
+          const generated = generateQuestion(record);
+          expect(generated, `문항 생성 실패: L${record.level}-${record.subLevel} ${record.questionTemplate}`).not.toBeNull();
+          if (generated) {
+            expect(generated.correctAnswer).not.toBeNaN();
+            expect(generated.wrongAnswer).not.toBeNaN();
+            expect(generated.correctAnswer).not.toBe('');
+            expect(generated.wrongAnswer).not.toBe('');
+            expect(generated.correctAnswer).not.toBe(generated.wrongAnswer);
+            expect(generated.choices).toHaveLength(2);
+            expect(generated.choices).toContain(generated.correctAnswer);
+            expect(generated.choices).toContain(generated.wrongAnswer);
+          }
+        }
+      }
+    }, 30000);
   });
 });

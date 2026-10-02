@@ -4340,7 +4340,7 @@ BEAT-SPEC-001
 - **Labels**: `data`, `phase-4`, `P1-high`, `bug`
 - **Milestone**: `v0.4-gameplay-systems`
 - **작업 ID**: `[DATA-QUESTION-COMPAT-001]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (TDD 100% Pass)**
 - **제목**: 7초 암산 최적화를 위한 2자릿수 복합 연산·호환수 데이터 변형 및 Level 9-4 쌓기나무(모양 H·J 6건) 계산 오류 수정
 - **목적**:
   - BPM 120 (1박 0.5초) 기준 문제 출제(8박/4초) + 답 선택(2박/1초) 등 약 5~7초의 빠른 피트니스 템포에서, 복잡한 2자리 임의 곱셈(`43 × 29`), 복잡한 세 자리 혼합 덧뺄셈, 통분이 까다로운 분수, 5~6자리 임의 2진수 변환 등은 신체 활동 중 7초 이내 암산이 불가능함.
@@ -4381,10 +4381,10 @@ BEAT-SPEC-001
   - 문제 CSV 컬럼 구조 (Level, SubLevel, LevelTitle, SubLevelTitle, QuestionTemplate, AnswerEval, WrongEval, VarA, VarB, VarC, VarD, ShapeCode).
   - 전투, 리듬, 모션 시스템.
 - **완료 조건**:
-  - [ ] Level 9-4 쌓기나무 모양 H, 모양 J 계산 오류 6건이 올바른 정답으로 수정 완료됨.
-  - [ ] 7초 이내 암산 불가했던 60개 고난도 문항의 변수 규칙이 10진수/호환수/어림수로 전면 개편됨.
-  - [ ] 모든 문항의 `ansEval`과 `wrongEval`이 100% 정상 작동하며 100회 시뮬레이션에서 오류 0건.
-  - [ ] 전체 `npm test` 100% Pass 및 `npm run build` 검증 완료.
+  - [x] Level 9-4 쌓기나무 모양 H, 모양 J 계산 오류 6건이 올바른 정답으로 수정 완료됨.
+  - [x] 7초 이내 암산 불가했던 60개 고난도 문항의 변수 규칙이 10진수/호환수/어림수로 전면 개편됨.
+  - [x] 모든 문항의 `ansEval`과 `wrongEval`이 100% 정상 작동하며 100회 시뮬레이션에서 오류 0건.
+  - [x] 전체 `npm test` 100% Pass 및 `npm run build` 검증 완료.
 - **테스트**:
   - `tests/unit/question-system.test.ts` 내 변형된 호환수 문제 생성 및 정답/오답 분별 단위 테스트.
   - 685문항 전수 시뮬레이션(100회) 무결성 테스트.
