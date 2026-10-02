@@ -206,6 +206,22 @@ export class StickmanRenderer {
     const midShoulder = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
     const midHip = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 };
 
+    // Issue #304 [BUG-SKEL-006]: 무릎·종아리 프레이밍에서 잘린 다리 각도 폭주 방지
+    // 무릎/발목 visibility가 부족하거나 화면 하단(정규화 1 또는 가상 높이 1080)을 넘으면 수직 기본 자세로 폴백
+    const maxY = currentHipY > 2.0 ? 1080 : 1.0;
+    const isLegLandmarkValid = (p?: NormalizedLandmark): boolean => {
+      if (!p) return false;
+      if ((p.visibility ?? 0) < minVis) return false;
+      if (p.y >= maxY) return false;
+      return true;
+    };
+
+    const defaultAngles = this._getDefaultAngles();
+    const isLeftKneeValid = isLegLandmarkValid(lk);
+    const isLeftAnkleValid = isLegLandmarkValid(la);
+    const isRightKneeValid = isLegLandmarkValid(rk);
+    const isRightAnkleValid = isLegLandmarkValid(ra);
+
     const targetAngles: StickmanAngles = {
       torso: Math.atan2(midShoulder.y - midHip.y, getDx(midShoulder, midHip)),
       head: nose ? Math.atan2(nose.y - midShoulder.y, getDx(nose, midShoulder)) : -Math.PI / 2,
@@ -213,10 +229,18 @@ export class StickmanRenderer {
       leftForearm: Math.atan2(lw.y - le.y, getDx(lw, le)),
       rightUpperArm: Math.atan2(re.y - rs.y, getDx(re, rs)),
       rightForearm: Math.atan2(rw.y - re.y, getDx(rw, re)),
-      leftUpperLeg: Math.atan2(lk.y - lh.y, getDx(lk, lh)),
-      leftLowerLeg: Math.atan2(la.y - lk.y, getDx(la, lk)),
-      rightUpperLeg: Math.atan2(rk.y - rh.y, getDx(rk, rh)),
-      rightLowerLeg: Math.atan2(ra.y - rk.y, getDx(ra, rk)),
+      leftUpperLeg: isLeftKneeValid
+        ? Math.atan2(lk.y - lh.y, getDx(lk, lh))
+        : defaultAngles.leftUpperLeg,
+      leftLowerLeg: isLeftKneeValid && isLeftAnkleValid
+        ? Math.atan2(la.y - lk.y, getDx(la, lk))
+        : defaultAngles.leftLowerLeg,
+      rightUpperLeg: isRightKneeValid
+        ? Math.atan2(rk.y - rh.y, getDx(rk, rh))
+        : defaultAngles.rightUpperLeg,
+      rightLowerLeg: isRightKneeValid && isRightAnkleValid
+        ? Math.atan2(ra.y - rk.y, getDx(ra, rk))
+        : defaultAngles.rightLowerLeg,
     };
 
     // 4. 각도 스무딩 (Damping)

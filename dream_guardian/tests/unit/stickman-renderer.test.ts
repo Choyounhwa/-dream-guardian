@@ -421,4 +421,86 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       expect(mockCtx.beginPath).toHaveBeenCalled();
     });
   });
+
+  describe('6. Issue #304 [BUG-SKEL-006] 무릎·종아리 프레이밍에서 졸라맨 다리 각도 폭주 방지', () => {
+    let renderer: StickmanRenderer;
+
+    beforeEach(() => {
+      renderer = new StickmanRenderer();
+    });
+
+    it('발목 visibility가 임계값 미만(예: < 0.25 또는 undefined)인 경우 종아리(lowerLeg) 각도가 수직 기본 자세를 유지한다', () => {
+      const pose = createSamplePoseLandmarks();
+      // 발목 좌표가 엉뚱한 곳(예: X=0.95로 심하게 왜곡)으로 튀었으나 visibility가 낮음
+      pose[POSE_LANDMARKS.LEFT_ANKLE] = { x: 0.95, y: 0.80, z: 0, visibility: 0.1 };
+      pose[POSE_LANDMARKS.RIGHT_ANKLE] = { x: 0.05, y: 0.80, z: 0, visibility: 0.15 };
+
+      // 여러 프레임 업데이트하여 수렴 확인
+      for (let i = 0; i < 10; i++) {
+        renderer.update(0.016, pose);
+      }
+      const angles = renderer.getSmoothedAngles();
+
+      // 수직 기본 각도 (leftLowerLeg, rightLowerLeg = Math.PI * 0.50) 유지
+      expect(angles.leftLowerLeg).toBeCloseTo(Math.PI * 0.50, 2);
+      expect(angles.rightLowerLeg).toBeCloseTo(Math.PI * 0.50, 2);
+    });
+
+    it('발목이 화면 하단 밖(y >= 1.0 또는 1080)으로 벗어난 경우 종아리 각도가 수직 기본 자세로 폴백된다', () => {
+      const pose = createSamplePoseLandmarks();
+      // 화면 밖으로 잘린 발목 (y = 1.05)
+      pose[POSE_LANDMARKS.LEFT_ANKLE] = { x: 0.80, y: 1.05, z: 0, visibility: 0.9 };
+      pose[POSE_LANDMARKS.RIGHT_ANKLE] = { x: 0.20, y: 1.10, z: 0, visibility: 0.9 };
+
+      for (let i = 0; i < 10; i++) {
+        renderer.update(0.016, pose);
+      }
+      const angles = renderer.getSmoothedAngles();
+
+      expect(angles.leftLowerLeg).toBeCloseTo(Math.PI * 0.50, 2);
+      expect(angles.rightLowerLeg).toBeCloseTo(Math.PI * 0.50, 2);
+    });
+
+    it('무릎이 화면 밖(y >= 1.0)이거나 visibility 부족인 경우 허벅지(upperLeg)와 종아리 모두 기본 자세를 유지한다', () => {
+      const pose = createSamplePoseLandmarks();
+      // 무릎이 화면 밖으로 잘림
+      pose[POSE_LANDMARKS.LEFT_KNEE] = { x: 0.80, y: 1.02, z: 0, visibility: 0.9 };
+      pose[POSE_LANDMARKS.RIGHT_KNEE] = { x: 0.20, y: 0.70, z: 0, visibility: 0.1 };
+
+      for (let i = 0; i < 10; i++) {
+        renderer.update(0.016, pose);
+      }
+      const angles = renderer.getSmoothedAngles();
+
+      // leftUpperLeg: Math.PI * 0.48, leftLowerLeg: Math.PI * 0.50
+      expect(angles.leftUpperLeg).toBeCloseTo(Math.PI * 0.48, 2);
+      expect(angles.leftLowerLeg).toBeCloseTo(Math.PI * 0.50, 2);
+      // rightUpperLeg: Math.PI * 0.52, rightLowerLeg: Math.PI * 0.50
+      expect(angles.rightUpperLeg).toBeCloseTo(Math.PI * 0.52, 2);
+      expect(angles.rightLowerLeg).toBeCloseTo(Math.PI * 0.50, 2);
+    });
+
+    it('다리가 잘려서 기본 각도로 폴백되더라도 팔, 어깨, 머리, 몸통 각도 추종은 정상 동작한다', () => {
+      const pose = createSamplePoseLandmarks();
+      // 다리 전체 잘림
+      pose[POSE_LANDMARKS.LEFT_KNEE] = { x: 0.5, y: 1.2, z: 0, visibility: 0.1 };
+      pose[POSE_LANDMARKS.RIGHT_KNEE] = { x: 0.5, y: 1.2, z: 0, visibility: 0.1 };
+      // 오른팔 수평 뻗기
+      pose[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.55, y: 0.35, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_ELBOW] = { x: 0.75, y: 0.35, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_WRIST] = { x: 0.90, y: 0.35, z: 0, visibility: 0.95 };
+
+      for (let i = 0; i < 10; i++) {
+        renderer.update(0.016, pose);
+      }
+      const angles = renderer.getSmoothedAngles();
+
+      // 오른팔은 정상적으로 오른쪽을 향해야 함
+      expect(Math.cos(angles.rightUpperArm)).toBeGreaterThan(0);
+      expect(Math.cos(angles.rightForearm)).toBeGreaterThan(0);
+      // 다리는 기본 각도 유지
+      expect(angles.leftLowerLeg).toBeCloseTo(Math.PI * 0.50, 2);
+      expect(angles.rightLowerLeg).toBeCloseTo(Math.PI * 0.50, 2);
+    });
+  });
 });
