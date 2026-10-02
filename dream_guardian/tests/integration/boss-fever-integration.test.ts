@@ -137,7 +137,8 @@ describe('BossFeverController Integration - [BOSS-FEVER-001 / #213]', () => {
 
     feverController.start(0);
 
-    // 보스 HP가 0이 될 때까지 지속 수집
+    // 보스 HP가 0이 될 때까지 지속 수집 (피버 별 격파 검증을 위해 잔여 체력 15로 설정)
+    bossController.takeDamage(485);
     let noteIdx = 1;
     while (!bossController.isDefeated && noteIdx <= 20) {
       feverController.recordRating('Perfect', `fever_star_${noteIdx++}`);

@@ -76,7 +76,7 @@ describe('Phase B Boss Attack & Evasion Integration - [BATTLE-BOSS-001 / #193]',
     feverController.recordRating('Perfect', 'fever_1');
     feverController.recordRating('Perfect', 'fever_2');
     expect(battleState.feverCombo).toBe(2);
-    expect(bossController.hp).toBeLessThan(10);
+    expect(bossController.hp).toBeLessThan(500);
 
     // 3. 보스 패턴 1: dual_slam (양손 쿵 충격파) 발생
     hazardController.triggerAttack('dual_slam');
@@ -110,9 +110,9 @@ describe('Phase B Boss Attack & Evasion Integration - [BATTLE-BOSS-001 / #193]',
     // 초기 공격 주기: 4.0초
     expect(hazardController.effectiveAttackInterval).toBe(4.0);
 
-    // 보스에게 대량 피해를 가해 HP를 3(30%)으로 낮춤
-    bossController.takeDamage(7);
-    expect(bossController.hp).toBe(3);
+    // 보스에게 대량 피해를 가해 HP를 150(30%)으로 낮춤
+    bossController.takeDamage(350);
+    expect(bossController.hp).toBe(150);
 
     hazardController.update(0.1);
     expect(hazardController.isEnraged).toBe(true);
@@ -120,7 +120,7 @@ describe('Phase B Boss Attack & Evasion Integration - [BATTLE-BOSS-001 / #193]',
     expect(hazardController.effectiveAttackInterval).toBeCloseTo(4.0 / 1.5);
 
     // 보스 최종 격파
-    bossController.takeDamage(3);
+    bossController.takeDamage(150);
     expect(bossController.isDefeated).toBe(true);
 
     hazardController.update(0.1);

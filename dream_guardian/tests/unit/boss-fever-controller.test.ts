@@ -16,8 +16,8 @@ describe('BossFeverController - [BOSS-FEVER-001 / #213]', () => {
     playerHp: 100,
     maxPlayerHp: 100,
     playerMana: 100,
-    bossHp: 1,
-    maxBossHp: 10,
+    bossHp: 500,
+    maxBossHp: 500,
     bossChapter: 1,
     combo: 10,
     maxCombo: 10,
@@ -85,7 +85,7 @@ describe('BossFeverController - [BOSS-FEVER-001 / #213]', () => {
     expect(controller.maxFeverCombo).toBe(1);
     expect(controller.collectedStars).toBe(1);
     expect(controller.totalFeverDamage).toBeCloseTo(1.5);
-    expect(bossController.hp).toBeCloseTo(8.5);
+    expect(bossController.hp).toBeCloseTo(500 - 1.5);
 
     // 2nd hit: Good (baseDamage: 1, Good weight: 1.0, combo: 2 -> multiplier 1.0 + 1 * 0.1 = 1.1) => damage 1.1
     controller.recordRating('Good', 'note_2');
@@ -93,7 +93,7 @@ describe('BossFeverController - [BOSS-FEVER-001 / #213]', () => {
     expect(controller.maxFeverCombo).toBe(2);
     expect(controller.collectedStars).toBe(2);
     expect(controller.totalFeverDamage).toBeCloseTo(1.5 + 1.1);
-    expect(bossController.hp).toBeCloseTo(10 - 2.6);
+    expect(bossController.hp).toBeCloseTo(500 - 2.6);
 
     // 3rd hit: Late (baseDamage: 1, Late weight: 0.5, combo: 3 -> multiplier 1.0 + 2 * 0.1 = 1.2) => damage 0.6
     controller.recordRating('Late', 'note_3');
@@ -101,7 +101,7 @@ describe('BossFeverController - [BOSS-FEVER-001 / #213]', () => {
     expect(controller.maxFeverCombo).toBe(3);
     expect(controller.collectedStars).toBe(3);
     expect(controller.totalFeverDamage).toBeCloseTo(2.6 + 0.6);
-    expect(bossController.hp).toBeCloseTo(10 - 3.2);
+    expect(bossController.hp).toBeCloseTo(500 - 3.2);
   });
 
   it('동일한 noteId에 대한 중복 평가는 멱등하게 1회만 처리된다', () => {
@@ -134,7 +134,7 @@ describe('BossFeverController - [BOSS-FEVER-001 / #213]', () => {
     expect(controller.feverCombo).toBe(1);
   });
 
-  it('콤보 배율은 maxComboMultiplier 상한(3.0)을 초과하지 않는다', () => {
+  it('콤보 배율은 maxComboMultiplier 상한(2.5)을 초과하지 않는다', () => {
     // 보스 조기 처치로 인한 피버 종료 방지를 위해 보스 없는 단독 컨트롤러 사용
     const testController = new BossFeverController({
       battleState,
@@ -150,10 +150,10 @@ describe('BossFeverController - [BOSS-FEVER-001 / #213]', () => {
     expect(testController.feverCombo).toBe(30);
     expect(testController.maxFeverCombo).toBe(30);
 
-    // combo 30에서 multiplier = Math.min(3.0, 1.0 + 29 * 0.1) = 3.0
-    // damage = 1 * 1.5 * 3.0 = 4.5
+    // combo 30에서 multiplier = Math.min(2.5, 1.0 + 29 * 0.1) = 2.5
+    // damage = 1 * 1.5 * 2.5 = 3.75
     const singleDamage = testController.computeDamage('Perfect', 30);
-    expect(singleDamage).toBeCloseTo(4.5);
+    expect(singleDamage).toBeCloseTo(3.75);
   });
 
   it('onPlayerHit() 호출 시 피버 콤보가 0으로 즉시 리셋된다 (#193 연동 규약)', () => {
@@ -179,7 +179,8 @@ describe('BossFeverController - [BOSS-FEVER-001 / #213]', () => {
 
     controller.start(0);
 
-    // 보스 HP가 10이므로 치명 피해를 누적하여 처치
+    // 잔여 체력을 10으로 만들어 6타 격파 검증
+    bossController.takeDamage(490);
     // combo 1: 1.5, combo 2: 1.65, combo 3: 1.8, combo 4: 1.95, combo 5: 2.1, combo 6: 2.25 => 누적 11.25 >= 10
     for (let i = 1; i <= 6; i++) {
       controller.recordRating('Perfect', `hit_${i}`);

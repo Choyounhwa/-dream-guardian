@@ -4792,6 +4792,128 @@ BEAT-SPEC-001
   - `tests/unit/music-track-config.test.ts` (readyBeats 변경 검증)
   - `npm run build` 및 전체 회귀 테스트 통과 확인
 
+---
+
+### Issue #288: [BATTLE-PHASE-B-PACING-001] Phase A 보스 체력 무감소(Full HP 보존) 및 Phase B(결전) 40~60초 템포 밸런싱 (보스 HP 500/750 & 군단·피버 DPS 재설계)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/288
+- **Labels**: `phase-5`, `bug`, `P1-high`
+- **작업 ID**: `[BATTLE-PHASE-B-PACING-001]`
+- **상태**: 🟢 **완료 (TDD 100% Pass 및 밸런스 검증 완료)**
+- **제목**: Phase A 보스 체력 무감소(Full HP 보존) 및 Phase B(결전) 40~60초 템포 밸런싱 (보스 HP 500/750 & 군단·피버 DPS 재설계)
+- **목적**:
+  1. Phase A(10문제 러닝) 동안 문제 정답 및 수호신 스펠로 인한 보스 체력 감소를 0으로 차단하여 100% Full HP 상태로 Phase B에 인계한다.
+  2. Phase B 진입 시 1.0초 만에 보스가 즉사하던 결함을 근본 해결하고, 보스 결전 플레이 타임을 40초 ~ 1분(약 45~50초)으로 정밀 튜닝하여 5초 주기 보스 장판 공격(점프/스텝) 8~10회 회피 및 30% 광폭화 패턴이 온전히 동작하도록 밸런스를 확립한다.
+- **수정 대상**:
+  - `dream_guardian/config/battle.config.ts`
+  - `dream_guardian/src/core/Config.ts`
+  - `dream_guardian/src/game/BeatRoundResolver.ts`
+  - `dream_guardian/src/game/MinionTroopManager.ts`
+  - `dream_guardian/src/game/BossFeverController.ts`
+  - `dream_guardian/tests/unit/phase-b-pacing.test.ts`
+  - `dream_guardian/tests/unit/beat-round-resolver.test.ts`
+  - `dream_guardian/tests/unit/minion-troop-manager.test.ts`
+  - `dream_guardian/tests/integration/troop-combat.test.ts`
+  - `dream_guardian/tests/integration/phase-b-boss-attack.test.ts`
+  - `dream_guardian/tests/e2e/beat-motion.e2e.ts`
+- **구현 내용**:
+  1. **Phase A 보스 피해 0 (체력 100% 완전 보존)**:
+     - `DEFAULT_CONFIG.battle.correctDamage = 0` (정답 직접 피해 0)
+     - Phase A 스펠 시전 시 마나 100 소비 및 연출/별가루 보너스는 유지하되 보스 HP 차감은 0 (`BeatRoundResolver.ts`)
+     - Phase B 진입 시 보스는 100% Full HP 상태로 대치
+  2. **보스 Max HP 재설계 (40~60초 결전 목표)**:
+     - Ch.1~4 (일반 보스): `bossHpNormal = 500`
+     - Ch.5 (나이트메어 보스): `bossHpNightmare = 750`
+     - 광폭화 기준선: HP 30% 이하 (150 HP / 225 HP) 도달 시 발동
+  3. **화력(DPS) 밸런싱 (목표: 평균 초당 ~10 DPS)**:
+     - 아군 미니언 군단 탄막 (`MinionTroopManager`):
+       - 발사 쿨다운: 1.0초 -> 2.0초
+       - 기본 피해량: `baseDamage = 8`, `damagePerMinion = 1`, `stardustCost = 5`, `stardustBonusDamage = 6`
+       - 평균 사격 화력: 15~20 데미지 / 2초 = 초당 ~7.5~10 DPS
+     - 유저 피버 별 타격 (`BossFeverController`):
+       - 기본 피해: `baseDamage = 1`, 콤보 배율 최대 2.5배
+       - 별 1개당 1~3 데미지 = 초당 ~2~3 DPS
+     - 합산 화력: 초당 약 10~12 DPS -> 500 HP 격파에 약 42~50초 소요 (목표 40~60초 완벽 부합)
+  4. **피트니스 모션 인터랙션 확보**:
+     - 보스 장판 공격(5초 주기): 결전 중 8~10회 발동 (점프/발구르기 유산소 운동 보장)
+     - 광폭화: 30초대 후반(HP 150 이하)에 발동하여 공격 주기 3.3초로 가속
+  5. **신규 단위/통합 테스트 슈트 구축**:
+     - `tests/unit/phase-b-pacing.test.ts` 신규 작성
+     - Phase A 10문제 완주 후 보스 HP 500/500(100%) 불변 검증
+     - Phase B 45초 시뮬레이션(군단 2초 주기 발사 + 초당 1개 피버 별 수집) 시 보스 격파(HP 0) 시간 40~55초 범위 정밀 검증
+     - 보스 HP 30%(150 HP) 도달 시 광폭화 발동 및 장판 주기 가속 검증
+     - 45~50초 결전 동안 보스 장판 공격 8~10회 실행 검증
+- **유지 사항**:
+  - Phase A 10문제 러닝-답안-별모으기 루틴 및 라운드 정산
+  - Phase A 정답 시 마나 +25, 콤보 +1, 미니언 +1, 별가루 적립
+  - Phase B 1회 단일 인계(Zero-Reset) 및 세션 안전성
+  - 보스 공격 회피(점프/스텝) 판정 및 미니언 탈락/피격 규칙
+- **변경 금지**:
+  - 11개 피트니스 존 좌표 및 판정기
+  - 스토리/대사 시스템
+  - 문제 CSV 파싱 및 출제
+- **완료 조건**:
+  - [x] Phase A 10문제를 모두 정답/오답 처리해도 보스 HP가 500/500(100%)으로 온전히 유지됨
+  - [x] Phase B 진입 1.0초 시점에 보스가 즉사하지 않고 정상 생존함
+  - [x] 아군 미니언 군단 사격 쿨다운이 2.0초로 동작함
+  - [x] 평균 플레이 기준 Phase B 결전 소요 시간이 40초 ~ 1분(40~60s) 범위 내에서 보스 격파로 종결됨
+  - [x] Phase B 진행 중 보스 패턴 공격(5초 주기)이 최소 8회 이상 발생하며 점프/스텝 회피가 정상 작동함
+  - [x] 보스 HP 30%(150 HP) 이하 도달 시 광폭화가 정상 발동함
+  - [x] 단위, 통합, E2E 테스트 100% Pass 및 `npm run build` 성공
+- **테스트**:
+  - `tests/unit/phase-b-pacing.test.ts`
+  - `tests/unit/beat-round-resolver.test.ts`
+  - `tests/unit/minion-troop-manager.test.ts`
+  - `tests/integration/troop-combat.test.ts`
+  - `tests/integration/phase-b-boss-attack.test.ts`
+  - `tests/e2e/beat-motion.e2e.ts`
+
+---
+
+### Issue #289: [RENDER-GRID-003] 드림 그리드 하단 전경 패널 음영(검은색 바닥 면 채우기) 제거 및 투명 SFX 네온 런웨이 와이어프레임 전환
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/289
+- **Labels**: `phase-7`, `bug`, `P1-high`
+- **작업 ID**: `[RENDER-GRID-003]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 드림 그리드 하단 전경 패널 음영(검은색 바닥 면 채우기) 제거 및 투명 SFX 네온 런웨이 와이어프레임 전환
+- **목적**:
+  1. Issue #282(SFX 런웨이)에서 도입된 전경 패널 음영(`_renderFloorGrid`의 quad fill, `PANEL_BG_COLOR = 'rgba(6, 10, 18, 0.90)'`)이 화면 하단 22%(y >= 0.78) 영역을 거의 불투명한 검은색으로 덮어 웹캠 피드 및 플레이어 하체(발/다리/스쿼트 동작)를 가리던 문제를 근본 해결한다.
+  2. 검은색 바닥 면 채우기(quad fill)를 완전히 제거/비활성화하고, 세로 네온 시안선, 가로 네온 오렌지선, 고휘도 중앙 척추선, 교차 노드 등 SFX 런웨이의 핵심 와이어프레임 라인만 웹캠/배경 위에 투명하게 표시되도록 전환한다.
+- **수정 대상**:
+  - `dream_guardian/config/grid.config.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
+- **구현 내용**:
+  1. **그리드 설정 수정 (`config/grid.config.ts`)**:
+     - `PANEL_BG_COLOR`: 기본값을 `'transparent'`로 변경 (또는 면 채우기 비활성화 플래그 지원)
+  2. **그리드 렌더러 로직 개선 (`src/render/DreamGrid.ts`)**:
+     - `_renderFloorGrid` 내 전경 패널 음영 드로잉 루프에서 `panelBgColor`가 `'transparent'`이거나 falsy인 경우 quad fill 연산을 건너뛰도록 처리하여 렌더링 성능 향상 및 웹캠 투과율 100% 확보
+     - 세로/가로 듀얼 네온 라인, 중앙 척추선(Center Spine), 교차점 노드(Intersection Nodes)는 그대로 유지
+  3. **단위 테스트 갱신 (`tests/unit/dream-grid.test.ts`)**:
+     - 기본 렌더링 시 불투명 검은색 quad fill이 실행되지 않음을 검증
+     - SFX 런웨이 네온 라인 및 중앙 척추선, 교차점 노드 렌더링 테스트 유지
+- **유지 사항**:
+  - 듀얼 네온 라인(세로 시안 `#00E5FF`, 가로 오렌지 `#FF7A28`) 및 2-Pass 글로우
+  - 중앙 척추선(Center Spine) 고휘도 3.5px 순백 코어
+  - 교차점 노드(Intersection Nodes) 드로잉
+  - 소실점 심도 안개(Depth Fog) 및 런웨이 원근 투영 공식
+- **변경 금지**:
+  - 카메라 미러 피드 렌더링(`CameraLayer`)
+  - 하단 고정 바(`BottomBar`) 레이아웃 및 설정 버튼
+  - 피트니스 존 판정 및 좌표계
+- **완료 조건**:
+  - [ ] 드림 그리드 기본 렌더링 시 하단 검은색 바닥 면 채우기(quad fill)가 제거되어 웹캠 영상이 가림 없이 100% 투과됨
+  - [ ] 듀얼 네온 라인, 중앙 척추선, 교차점 노드 등 SFX 런웨이 와이어프레임 비주얼은 정상 유지됨
+  - [ ] `tests/unit/dream-grid.test.ts` 및 전체 단위 테스트 100% Pass
+  - [ ] `npm run build` 번들 검증 성공
+- **테스트**:
+  - `npx vitest run tests/unit/dream-grid.test.ts`
+  - `npm test`
+  - `npm run build`
+- **관련 파일**:
+  - `dream_guardian/config/grid.config.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
+
 
 
 

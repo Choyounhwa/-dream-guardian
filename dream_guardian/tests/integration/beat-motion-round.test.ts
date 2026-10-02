@@ -494,16 +494,16 @@ describe('[E2E-BEAT-001] Phase A 10문제 → Phase B → 결과 루틴 E2E 통�
       resourceManager.recordStarRating('Perfect', 'stardust-2'); // +4 (총 8)
       expect(resourceManager.stardust).toBeGreaterThanOrEqual(5);
 
-      // 쿨다운 1.5s 경과하여 탄막 발사 트리거
-      resourceManager.troopManager.update(1.6, { autoConsumeStardust: true });
+      // 쿨다운 2.0s 경과하여 탄막 발사 트리거
+      resourceManager.troopManager.update(2.1, { autoConsumeStardust: true });
       expect(resourceManager.troopManager.barrageCount).toBeGreaterThan(0);
       expect(resourceManager.troopManager.totalBarrageDamage).toBeGreaterThan(0);
 
-      // 3. 보스 광폭화(Enrage) 검증: HP <= 30% 시 발동 (보스가 살아있는 상태 3/10)
-      boss.reset(1); // HP 10으로 초기화 후 7 피해 적용하여 3/10 달성
-      boss.takeDamage(7); // 10 -> 3 (30%)
+      // 3. 보스 광폭화(Enrage) 검증: HP <= 30% 시 발동 (보스가 살아있는 상태 150/500)
+      boss.reset(1); // HP 500으로 초기화 후 350 피해 적용하여 150/500 달성
+      boss.takeDamage(350); // 500 -> 150 (30%)
       expect(boss.isDefeated).toBe(false);
-      expect(boss.hp).toBe(3);
+      expect(boss.hp).toBe(150);
 
       bossHazardController.update(0.1);
       expect(bossHazardController.isEnraged).toBe(true);
@@ -536,7 +536,7 @@ describe('[E2E-BEAT-001] Phase A 10문제 → Phase B → 결과 루틴 E2E 통�
       resourceManager.troopManager.startPhaseB();
 
       // 보스 HP 0 도달
-      boss.takeDamage(10);
+      boss.takeDamage(boss.hp);
       expect(boss.isDefeated).toBe(true);
 
       bossFeverController.recordRating('Perfect', 'kill-note');

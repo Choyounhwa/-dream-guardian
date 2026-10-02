@@ -91,15 +91,15 @@ describe('Beat Motion Module Integration - [INTEGRATE-BEAT-001]', () => {
       expect(onConfirmedSpy).toHaveBeenCalledTimes(1);
       expect(onConfirmedSpy).toHaveBeenCalledWith(correctIdx, true, 'correct');
 
-      // 단일 정산 결과 확인: 마나 +25, 보스 피해 1
+      // 단일 정산 결과 확인: 마나 +25, 보스 체력 보존(500)
       expect(battle.mana).toBe(25);
       expect(battle.combo).toBe(1);
-      expect(boss.hp).toBe(9); // 10 - 1
+      expect(boss.hp).toBe(500);
 
       // 중복 호출 시 Idempotency Guard로 추가 피해/마나 획득 없음
       resolver.resolveRound('correct');
       expect(battle.mana).toBe(25);
-      expect(boss.hp).toBe(9);
+      expect(boss.hp).toBe(500);
     });
 
     it('미응답 라운드는 timeout으로 분류되어 wrongAnswerCount와 분리 집계된다', () => {
@@ -292,7 +292,7 @@ describe('Beat Motion Module Integration - [INTEGRATE-BEAT-001]', () => {
       // 전투 자원(HP, 마나, 보스 HP) 불변 검증
       expect(battle.hp).toBe(100);
       expect(battle.mana).toBe(0);
-      expect(boss.hp).toBe(10);
+      expect(boss.hp).toBe(500);
     });
   });
 });

@@ -53,34 +53,34 @@ describe('MinionTroopManager - Phase B 군단 화력 및 자원 소비 단위 �
 
   describe('2. 군단 화력 공식 (Troop DPS Calculation)', () => {
     it('화력 공식 (baseDamage + minionCount * damagePerMinion) * gaugeMultiplier를 준수한다', () => {
-      // 기본 설정: baseDamage: 10, damagePerMinion: 2, gaugeMultiplier: 1.0
-      // minionCount = 3 -> (10 + 3 * 2) * 1.0 = 16
-      expect(troopManager.computeDamage(1.0)).toBe(16);
+      // 기본 설정: baseDamage: 8, damagePerMinion: 1, gaugeMultiplier: 1.0
+      // minionCount = 3 -> (8 + 3 * 1) * 1.0 = 11
+      expect(troopManager.computeDamage(1.0)).toBe(11);
 
-      // minionCount = 8 -> (10 + 8 * 2) * 1.0 = 26
+      // minionCount = 8 -> (8 + 8 * 1) * 1.0 = 16
       troopManager.addMinion(5);
       expect(troopManager.minionCount).toBe(8);
-      expect(troopManager.computeDamage(1.0)).toBe(26);
+      expect(troopManager.computeDamage(1.0)).toBe(16);
 
-      // minionCount = 13 (최대) -> (10 + 13 * 2) * 1.0 = 36
+      // minionCount = 13 (최대) -> (8 + 13 * 1) * 1.0 = 21
       troopManager.addMinion(5);
       expect(troopManager.minionCount).toBe(13);
-      expect(troopManager.computeDamage(1.0)).toBe(36);
+      expect(troopManager.computeDamage(1.0)).toBe(21);
 
-      // 게이지 최대 배율 1.5x 적용 시 -> 36 * 1.5 = 54
-      expect(troopManager.computeDamage(1.5)).toBe(54);
+      // 게이지 최대 배율 1.5x 적용 시 -> 21 * 1.5 = 31.5
+      expect(troopManager.computeDamage(1.5)).toBe(31.5);
     });
 
-    it('미니언이 전멸(0마리)해도 수호신 단독 대치로 baseDamage(10)를 발휘한다', () => {
+    it('미니언이 전멸(0마리)해도 수호신 단독 대치로 baseDamage(8)를 발휘한다', () => {
       troopManager.removeMinion(10);
       expect(troopManager.minionCount).toBe(0);
       expect(troopManager.guardianCount).toBe(1);
       expect(troopManager.totalTroopCount).toBe(1);
 
-      // (10 + 0 * 2) * 1.0 = 10
-      expect(troopManager.computeDamage(1.0)).toBe(10);
-      // 배율 1.5x -> 15
-      expect(troopManager.computeDamage(1.5)).toBe(15);
+      // (8 + 0 * 1) * 1.0 = 8
+      expect(troopManager.computeDamage(1.0)).toBe(8);
+      // 배율 1.5x -> 8 * 1.5 = 12
+      expect(troopManager.computeDamage(1.5)).toBe(12);
     });
 
     it('커스텀 TroopCombatConfig 주입 시 설정값을 충실히 반영한다', () => {
@@ -171,8 +171,8 @@ describe('MinionTroopManager - Phase B 군단 화력 및 자원 소비 단위 �
       expect(fired.fired).toBe(true);
       expect(fired.isEnhanced).toBe(true);
       expect(troopManager.stardust).toBe(7); // 12 - 5 = 7
-      // 기본 피해 (10 + 5 * 2) = 20, 강화 보너스 10 -> 총 30
-      expect(fired.damage).toBe(30);
+      // 기본 피해 (8 + 5 * 1) = 13, 강화 보너스 6 -> 총 19
+      expect(fired.damage).toBe(19);
     });
 
     it('별가루 부족 시 오버드래프트(초과 차감)를 거부하고 일반 탄막으로 발사되거나 실패한다', () => {
@@ -231,12 +231,12 @@ describe('MinionTroopManager - Phase B 군단 화력 및 자원 소비 단위 �
     });
 
     it('미니언 탈락 시 화력이 즉시 감소하여 DPS 정합성을 보장한다', () => {
-      // 4마리 화력: (10 + 4 * 2) = 18
-      expect(troopManager.computeDamage(1.0)).toBe(18);
+      // 4마리 화력: (8 + 4 * 1) = 12
+      expect(troopManager.computeDamage(1.0)).toBe(12);
 
       troopManager.removeMinion(2); // 2마리 남음
-      // 2마리 화력: (10 + 2 * 2) = 14
-      expect(troopManager.computeDamage(1.0)).toBe(14);
+      // 2마리 화력: (8 + 2 * 1) = 10
+      expect(troopManager.computeDamage(1.0)).toBe(10);
     });
   });
 
@@ -256,18 +256,19 @@ describe('MinionTroopManager - Phase B 군단 화력 및 자원 소비 단위 �
     });
 
     it('탄막 발사 시 보스에게 치명 피해를 입히며 bossController.takeDamage가 호출된다', () => {
-      expect(boss.hp).toBe(10);
+      expect(boss.hp).toBe(500);
       expect(boss.isDefeated).toBe(false);
 
-      // 탄막 1회 발사 (damage = 16)
+      // 탄막 1회 발사 (damage = (8 + 3 * 1) = 11)
       const res = troopManager.fireBarrage();
       expect(res.fired).toBe(true);
-      expect(boss.hp).toBe(0);
-      expect(boss.isDefeated).toBe(true);
+      expect(res.damage).toBe(11);
+      expect(boss.hp).toBe(489);
+      expect(boss.isDefeated).toBe(false);
     });
 
     it('보스가 처치되면 추가 탄막 발사가 즉시 중단된다', () => {
-      troopManager.fireBarrage();
+      boss.takeDamage(500);
       expect(boss.isDefeated).toBe(true);
 
       const nextFire = troopManager.fireBarrage();
@@ -275,16 +276,16 @@ describe('MinionTroopManager - Phase B 군단 화력 및 자원 소비 단위 �
     });
 
     it('update 루프에서 쿨다운 경과 시 자동으로 탄막을 발사한다', () => {
-      // 쿨다운 1.0초
-      let fired = troopManager.update(0.5);
+      // 쿨다운 2.0초
+      let fired = troopManager.update(1.0);
       expect(fired).toBeNull();
-      expect(boss.hp).toBe(10);
+      expect(boss.hp).toBe(500);
 
-      // 0.6초 추가 경과 -> 총 1.1초 경과로 발사
-      fired = troopManager.update(0.6);
+      // 1.1초 추가 경과 -> 총 2.1초 경과로 발사
+      fired = troopManager.update(1.1);
       expect(fired).not.toBeNull();
       expect(fired?.fired).toBe(true);
-      expect(boss.isDefeated).toBe(true);
+      expect(boss.hp).toBe(489);
     });
   });
 });

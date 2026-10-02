@@ -209,17 +209,24 @@ export class BeatRoundResolver {
       this._battle.onCorrect();
       manaGained = DEFAULT_CONFIG.mana.correctReward;
 
-      // 보스 기본 피해 (correctDamage: 1)
+      // 보스 기본 피해 (Issue #288: correctDamage = 0)
       const baseDamage = DEFAULT_CONFIG.battle.correctDamage;
-      damageDealt += baseDamage;
-      this._boss.takeDamage(baseDamage, damageOptions);
+      if (baseDamage > 0) {
+        damageDealt += baseDamage;
+        this._boss.takeDamage(baseDamage, damageOptions);
+      }
 
       // 마나 100 도달 시 수호신 스펠 자동 시전 (spellDamage: 4)
       if (this._battle.trySpendMana()) {
         spellCast = true;
         const spellDmg = this._guardian.cast();
-        damageDealt += spellDmg;
-        this._boss.takeDamage(spellDmg, damageOptions);
+        // Phase A 보스 체력 100% 완전 보존 (Issue #288):
+        // nonLethalPhaseA(기본값 true)에서는 Phase A 스펠로 인한 보스 HP 차감을 0으로 차단.
+        // nonLethalPhaseA: false인 경우에만 실제 데미지를 보스에게 적용.
+        if (!this._nonLethalPhaseA) {
+          damageDealt += spellDmg;
+          this._boss.takeDamage(spellDmg, damageOptions);
+        }
         this._options.onSpellCast?.(spellDmg);
       }
 

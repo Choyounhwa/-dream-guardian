@@ -319,18 +319,18 @@ describe('BossHazardController Unit Tests - [BATTLE-BOSS-001 / #193]', () => {
       expect(controller.isEnraged).toBe(false);
       expect(controller.effectiveAttackInterval).toBe(4.5);
 
-      // 보스 HP: 10 -> 4 (40%: 미발동)
-      bossController.takeDamage(6);
+      // 보스 HP: 500 -> 200 (40%: 미발동)
+      bossController.takeDamage(300);
       controller.update(0.1);
       expect(controller.isEnraged).toBe(false);
       expect(onEnrage).not.toHaveBeenCalled();
 
-      // 보스 HP: 4 -> 3 (30%: 광폭화 트리거)
-      bossController.takeDamage(1);
+      // 보스 HP: 200 -> 150 (30%: 광폭화 트리거)
+      bossController.takeDamage(50);
       controller.update(0.1);
       expect(controller.isEnraged).toBe(true);
       expect(onEnrage).toHaveBeenCalledTimes(1);
-      expect(enrageSpy).toHaveBeenCalledWith({ hp: 3, maxHp: 10 });
+      expect(enrageSpy).toHaveBeenCalledWith({ hp: 150, maxHp: 500 });
 
       // 공격 주기가 4.5 / 1.5 = 3.0초로 단축됨
       expect(controller.effectiveAttackInterval).toBeCloseTo(3.0);
@@ -354,7 +354,7 @@ describe('BossHazardController Unit Tests - [BATTLE-BOSS-001 / #193]', () => {
       expect(controller.isAttacking).toBe(true);
 
       // 보스 격파
-      bossController.takeDamage(10);
+      bossController.takeDamage(500);
       expect(bossController.isDefeated).toBe(true);
 
       controller.update(0.1);

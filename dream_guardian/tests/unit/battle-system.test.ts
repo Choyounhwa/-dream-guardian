@@ -133,34 +133,34 @@ describe('BattleState', () => {
 // ═══════════════════════════════════
 
 describe('BossController', () => {
-  it('Ch.1~4 HP가 10이다', () => {
+  it('Ch.1~4 HP가 500이다', () => {
     const bc = new BossController(1);
-    expect(bc.hp).toBe(10);
-    expect(bc.maxHp).toBe(10);
+    expect(bc.hp).toBe(500);
+    expect(bc.maxHp).toBe(500);
   });
 
-  it('Ch.5 HP가 20이다', () => {
+  it('Ch.5 HP가 750이다', () => {
     const bc = new BossController(5);
-    expect(bc.hp).toBe(20);
-    expect(bc.maxHp).toBe(20);
+    expect(bc.hp).toBe(750);
+    expect(bc.maxHp).toBe(750);
   });
 
   it('takeDamage로 보스 HP를 감소시킨다', () => {
     const bc = new BossController(1);
     bc.takeDamage(4);
-    expect(bc.hp).toBe(6);
+    expect(bc.hp).toBe(496);
   });
 
   it('HP 0 이하 시 defeated 상태', () => {
     const bc = new BossController(1);
-    bc.takeDamage(10);
+    bc.takeDamage(500);
     expect(bc.isDefeated).toBe(true);
     expect(bc.phase).toBe('defeated');
   });
 
   it('defeated 상태에서 update는 false만 반환', () => {
     const bc = new BossController(1);
-    bc.takeDamage(10);
+    bc.takeDamage(500);
     expect(bc.update(10.0)).toBe(false);
   });
 
@@ -168,7 +168,7 @@ describe('BossController', () => {
     const bc = new BossController(1);
     bc.takeDamage(5);
     bc.reset(3);
-    expect(bc.hp).toBe(10);
+    expect(bc.hp).toBe(500);
     expect(bc.chapter).toBe(3);
     expect(bc.phase).toBe('idle');
   });
@@ -216,7 +216,7 @@ describe('BossController', () => {
 
   it('defeated 상태에서는 triggerAttack()을 호출해도 공격 상태가 되지 않는다', () => {
     const bc = new BossController(1);
-    bc.takeDamage(10);
+    bc.takeDamage(500);
     expect(bc.isDefeated).toBe(true);
     bc.triggerAttack();
     expect(bc.phase).toBe('defeated');
@@ -301,38 +301,38 @@ describe('GuardianSystem', () => {
 // 전투 통합 흐름 (Issue #146 - BUG-BATTLE-001)
 // ═══════════════════════════════════
 
-describe('정답 시 보스 HP 즉시 감소 타격 검증 (Issue #146 - BUG-BATTLE-001)', () => {
-  it('DEFAULT_CONFIG.battle.correctDamage가 1로 정의되어 있다', () => {
-    expect(DEFAULT_CONFIG.battle.correctDamage).toBe(1);
+describe('Phase A 보스 체력 무감소(Full HP 보존) 및 correctDamage=0 검증 (Issue #288)', () => {
+  it('DEFAULT_CONFIG.battle.correctDamage가 0으로 정의되어 있다', () => {
+    expect(DEFAULT_CONFIG.battle.correctDamage).toBe(0);
   });
 
-  it('매 정답마다 보스가 즉시 기본 데미지(1)를 입는다 (1~3문제 정답 시에도 HP 감소)', () => {
+  it('매 정답마다 correctDamage(0)로 보스 HP가 감소하지 않고 Full HP(500)를 유지한다', () => {
     const battle = new BattleState();
-    const boss = new BossController(1); // maxHp = 10
+    const boss = new BossController(1); // maxHp = 500
     const correctDmg = DEFAULT_CONFIG.battle.correctDamage;
 
     // 문제 1 정답
     battle.onCorrect();
     boss.takeDamage(correctDmg);
-    expect(boss.hp).toBe(9);
+    expect(boss.hp).toBe(500);
     expect(battle.mana).toBe(25);
 
     // 문제 2 정답
     battle.onCorrect();
     boss.takeDamage(correctDmg);
-    expect(boss.hp).toBe(8);
+    expect(boss.hp).toBe(500);
     expect(battle.mana).toBe(50);
 
     // 문제 3 정답
     battle.onCorrect();
     boss.takeDamage(correctDmg);
-    expect(boss.hp).toBe(7);
+    expect(boss.hp).toBe(500);
     expect(battle.mana).toBe(75);
   });
 
-  it('4번째 정답 시 기본 데미지(1)와 마나 100 달성에 따른 수호신 스펠 캐스팅(4)이 함께 적용된다', () => {
+  it('4번째 정답 시 마나 100 달성에 따른 수호신 스펠 캐스팅(4)이 정상 발동한다', () => {
     const battle = new BattleState();
-    const boss = new BossController(1); // maxHp = 10
+    const boss = new BossController(1); // maxHp = 500
     const guardian = new GuardianSystem();
     const correctDmg = DEFAULT_CONFIG.battle.correctDamage;
 
@@ -341,28 +341,25 @@ describe('정답 시 보스 HP 즉시 감소 타격 검증 (Issue #146 - BUG-BAT
       battle.onCorrect();
       boss.takeDamage(correctDmg);
     }
-    expect(boss.hp).toBe(7);
+    expect(boss.hp).toBe(500);
 
     // 4번째 문제 정답
     battle.onCorrect();
-    boss.takeDamage(correctDmg); // 7 -> 6
-    expect(boss.hp).toBe(6);
+    boss.takeDamage(correctDmg);
+    expect(boss.hp).toBe(500);
 
     // 마나 100 도달 시 캐스팅
     expect(battle.trySpendMana()).toBe(true);
     const spellDmg = guardian.cast();
-    boss.takeDamage(spellDmg); // 6 -> 2
-    expect(boss.hp).toBe(2);
+    expect(spellDmg).toBe(4);
+    expect(guardian.castCount).toBe(1);
+    expect(boss.hp).toBe(500);
     expect(boss.isDefeated).toBe(false);
   });
 
-  it('기본 데미지로 보스 체력이 0이 되면 즉시 isDefeated가 true가 된다', () => {
-    const boss = new BossController(1); // maxHp = 10
-    const correctDmg = DEFAULT_CONFIG.battle.correctDamage;
-    // 10문제 정답 가정
-    for (let i = 0; i < 10; i++) {
-      boss.takeDamage(correctDmg);
-    }
+  it('보스 체력이 0이 되면 즉시 isDefeated가 true가 된다', () => {
+    const boss = new BossController(1); // maxHp = 500
+    boss.takeDamage(500);
     expect(boss.hp).toBe(0);
     expect(boss.isDefeated).toBe(true);
   });

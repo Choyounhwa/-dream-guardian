@@ -56,9 +56,9 @@ export const DEFAULT_BOSS_HAZARD_CONFIG: BossHazardConfig = {
 };
 
 export interface TroopCombatConfig {
-  /** 기본 화력 (기본: 10) */
+  /** 기본 화력 (기본: 8) */
   baseDamage: number;
-  /** 미니언 1체당 추가 화력 (기본: 2) */
+  /** 미니언 1체당 추가 화력 (기본: 1) */
   damagePerMinion: number;
   /** 기본 게이지 배율 (기본: 1.0) */
   baseGaugeMultiplier: number;
@@ -66,26 +66,26 @@ export interface TroopCombatConfig {
   maxGaugeMultiplier: number;
   /** 별 획득당 게이지 배율 증가량 (기본: 0.1) */
   gaugePerStar: number;
-  /** 탄막 발사 쿨다운/주기 (초, 기본: 1.0) */
+  /** 탄막 발사 쿨다운/주기 (초, 기본: 2.0) */
   cooldown: number;
   /** Miss 판정 시 쿨다운 지연 패널티 (초, 기본: 0.5) */
   missPenaltyDelay: number;
   /** 강화 탄막 1회 발사 시 필요한 별가루 비용 (기본: 5) */
   stardustCost: number;
-  /** 별가루 소비 시 강화 추가 화력 (기본: 10) */
+  /** 별가루 소비 시 강화 추가 화력 (기본: 6) */
   stardustBonusDamage: number;
 }
 
 export const DEFAULT_TROOP_COMBAT_CONFIG: TroopCombatConfig = {
-  baseDamage: 10,
-  damagePerMinion: 2,
+  baseDamage: 8,
+  damagePerMinion: 1,
   baseGaugeMultiplier: 1.0,
   maxGaugeMultiplier: 1.5,
   gaugePerStar: 0.1,
-  cooldown: 1.0,
+  cooldown: 2.0,
   missPenaltyDelay: 0.5,
   stardustCost: 5,
-  stardustBonusDamage: 10,
+  stardustBonusDamage: 6,
 };
 
 export interface BattleConfig {
@@ -133,10 +133,10 @@ export interface BattleConfig {
 }
 
 export const DEFAULT_BATTLE_CONFIG: BattleConfig = {
-  correctDamage: 1,
+  correctDamage: 0,
   spellDamage: 4,
-  bossHpNormal: 10,
-  bossHpNightmare: 20,
+  bossHpNormal: 500,
+  bossHpNightmare: 750,
   phaseAQuestionCount: 10,
   phaseAMinBossHp: 1,
   playerMaxHp: 100,
@@ -162,7 +162,7 @@ export const DEFAULT_BATTLE_CONFIG: BattleConfig = {
       Miss: 0,
     },
     comboMultiplierStep: 0.1,
-    maxComboMultiplier: 3.0,
+    maxComboMultiplier: 2.5,
   },
   bossHazard: DEFAULT_BOSS_HAZARD_CONFIG,
   troopCombat: DEFAULT_TROOP_COMBAT_CONFIG,

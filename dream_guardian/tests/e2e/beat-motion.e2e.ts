@@ -303,10 +303,11 @@ describe('[E2E-BEAT-001] End-to-End Session Execution & Telemetry Tracing', () =
     expect(bossFeverController.isActive).toBe(true);
     expect(bossHazardController.isActive).toBe(true);
     expect(resourceManager.troopManager.isActive).toBe(true);
-    expect(boss.hp).toBe(1);
+    expect(boss.hp).toBe(500);
 
     // 1. 군단 탄막 발사 (보스 생존 중 탄막 발사 및 피해)
-    resourceManager.troopManager.update(1.6, { autoConsumeStardust: true });
+    boss.takeDamage(500 - 15); // 탄막 1발 치명 범위로 체력 조정
+    resourceManager.troopManager.update(2.1, { autoConsumeStardust: true });
     expect(resourceManager.troopManager.barrageCount).toBeGreaterThan(0);
     expect(resourceManager.troopManager.totalBarrageDamage).toBeGreaterThan(0);
     expect(boss.isDefeated).toBe(true);

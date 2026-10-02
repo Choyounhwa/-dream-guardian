@@ -85,11 +85,9 @@ describe('미니언 군단 및 Phase B 결전 통합 검증 (tests/integration/t
     expect(troopManager.gaugeMultiplier).toBeCloseTo(1.3, 5);
 
     // ── 별가루 소비형 강화 탄막 발사 ──
-    // 화력 = (base 10 + 10 * 2 + bonus 10) * 1.3 = 40 * 1.3 = 52
-    // 보스 HP가 20이므로 단 1발로 보스 체력 0 도달
-    // 테스트를 위해 잔여 HP 20을 보장하는 일반 사격 먼저 검증
+    // 화력 = (base 8 + 10 * 1 + bonus 6) * 1.3 = 24 * 1.3 = 31.2
     const unenhancedDmg = troopManager.computeDamage(1.0, false);
-    expect(unenhancedDmg).toBe(30); // (10 + 10 * 2) = 30
+    expect(unenhancedDmg).toBe(18); // (8 + 10 * 1) = 18
 
     // ── #193 보스 패턴 공격 피격 시 아군 미니언 1체 탈락 검증 ──
     // dual_slam 경고 후 회피 실패 유도
@@ -99,10 +97,12 @@ describe('미니언 군단 및 Phase B 결전 통합 검증 (tests/integration/t
 
     // 미니언 1체 탈락 확인: 10 -> 9
     expect(troopManager.minionCount).toBe(9);
-    // 화력 재계산: (10 + 9 * 2) = 28
-    expect(troopManager.computeDamage(1.0, false)).toBe(28);
+    // 화력 재계산: (8 + 9 * 1) = 17
+    expect(troopManager.computeDamage(1.0, false)).toBe(17);
 
     // ── 별가루 소비 및 보스 격파 ──
+    // 보스 잔여 체력을 탄막 1발 범위로 조정 후 격파 검증
+    bossController.takeDamage(bossController.hp - 20);
     // stardustCost: 5 소비
     const barrageRes = troopManager.fireBarrage({ consumeStardust: true });
     expect(barrageRes.fired).toBe(true);

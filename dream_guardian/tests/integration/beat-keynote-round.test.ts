@@ -260,10 +260,10 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
       expect(onAnswerConfirmedSpy).toHaveBeenCalledWith(correctIdx, true, 'correct');
       expect(coordinator.roundResolveCount).toBe(1);
 
-      // 전투 자원 확인: 마나 +25, 콤보 1, 보스 피해 1
+      // 전투 자원 확인: 마나 +25, 콤보 1, 보스 체력 보존(500)
       expect(battle.mana).toBe(25);
       expect(battle.combo).toBe(1);
-      expect(boss.hp).toBe(9);
+      expect(boss.hp).toBe(500);
     });
 
     it('오답 선택 즉시 HAZARD_EVADE로 전이되며, 플레이어 HP는 감소하지 않고 ROUND_RESOLVE에서 1회 정산된다', () => {

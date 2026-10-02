@@ -27,21 +27,21 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
   });
 
   describe('1. 정답 라운드 종료 시 단일 정산', () => {
-    it('정답 시 마나 +25, 콤보 +1, 보스 기본 피해 1이 단 한 번 적용된다', () => {
+    it('정답 시 마나 +25, 콤보 +1이 적용되고 Phase A 보스 체력은 100% 보존(damageDealt=0)된다', () => {
       const res = resolver.resolveRound('correct');
 
       expect(res.status).toBe('correct');
       expect(res.manaGained).toBe(DEFAULT_CONFIG.mana.correctReward); // 25
-      expect(res.damageDealt).toBe(DEFAULT_CONFIG.battle.correctDamage); // 1
+      expect(res.damageDealt).toBe(DEFAULT_CONFIG.battle.correctDamage); // 0
       expect(res.damageTaken).toBe(0);
       expect(res.combo).toBe(1);
 
       expect(battle.mana).toBe(25);
       expect(battle.combo).toBe(1);
-      expect(boss.hp).toBe(9); // 10 - 1
+      expect(boss.hp).toBe(500); // Full HP 유지
     });
 
-    it('4회 연속 정답 시 마나 100 도달하여 수호신 스펠 시전 및 추가 보스 피해 4가 발동한다', () => {
+    it('4회 연속 정답 시 마나 100 도달하여 수호신 스펠 시전되나 Phase A 보스 HP는 500으로 보존된다', () => {
       // 1~3라운드 정답
       for (let i = 1; i <= 3; i++) {
         resolver.startNewRound(i);
@@ -49,17 +49,17 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
       }
       expect(battle.mana).toBe(75);
       expect(battle.combo).toBe(3);
-      expect(boss.hp).toBe(7); // 10 - 3
+      expect(boss.hp).toBe(500); // 100% 보존
 
       // 4라운드 정답 -> 마나 100 도달 및 스펠 시전
       resolver.startNewRound(4);
       const res4 = resolver.resolveRound('correct');
 
       expect(res4.spellCast).toBe(true);
-      expect(res4.damageDealt).toBe(1 + 4); // 기본 1 + 스펠 4 = 5
+      expect(res4.damageDealt).toBe(0); // Phase A 보스 피해 0
       expect(battle.mana).toBe(0); // 100 소모
       expect(battle.combo).toBe(4);
-      expect(boss.hp).toBe(2); // 7 - 5 = 2
+      expect(boss.hp).toBe(500); // 500 유지
       expect(guardian.castCount).toBe(1);
     });
   });
@@ -112,14 +112,14 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
       const first = resolver.resolveRound('correct');
       expect(battle.mana).toBe(25);
       expect(battle.combo).toBe(1);
-      expect(boss.hp).toBe(9);
+      expect(boss.hp).toBe(500);
 
       // 동일 라운드 두 번째 resolve (중복 호출)
       const second = resolver.resolveRound('correct');
       expect(second).toEqual(first);
       expect(battle.mana).toBe(25); // 50으로 증가하지 않음
       expect(battle.combo).toBe(1); // 2로 증가하지 않음
-      expect(boss.hp).toBe(9); // 8로 감소하지 않음
+      expect(boss.hp).toBe(500); // 감소하지 않음
     });
 
     it('오답 시 동일 라운드 중복 호출해도 통계가 두 번 가산되지 않는다', () => {
@@ -163,7 +163,7 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
       expect(battle.hp).toBe(100);
       expect(battle.mana).toBe(0);
       expect(battle.combo).toBe(0);
-      expect(boss.hp).toBe(10);
+      expect(boss.hp).toBe(500);
     });
 
     it('별 성공/실패와 무관하게 정답 시 기본 마나 +25 및 콤보 +1이 보장된다', () => {
@@ -209,7 +209,7 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
   });
 
   describe('8. 콜백 및 패배/승리 조건 감지', () => {
-    it('Phase A 기본 모드(nonLethal)에서는 10연속 정답에도 보스 HP가 1로 보존되어 onBossDefeated가 호출되지 않는다', () => {
+    it('Phase A 기본 모드(nonLethal)에서는 10연속 정답에도 보스 HP가 500(Full HP)으로 보존되어 onBossDefeated가 호출되지 않는다', () => {
       let bossDefeatedCalled = false;
       const customResolver = new BeatRoundResolver({
         battle,
@@ -220,22 +220,24 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
         },
       });
 
-      // 보스 HP 10 -> 10회 정답
+      // 보스 HP 500 -> 10회 정답
       for (let i = 1; i <= 10; i++) {
         customResolver.startNewRound(i);
         customResolver.resolveRound('correct');
       }
 
-      expect(boss.hp).toBe(1);
+      expect(boss.hp).toBe(500);
       expect(boss.isDefeated).toBe(false);
       expect(bossDefeatedCalled).toBe(false);
     });
 
-    it('nonLethalPhaseA: false 지정 시에는 보스 격파 시 onBossDefeated 콜백이 트리거된다', () => {
+    it('nonLethalPhaseA: false 지정 시에는 스펠 피해로 보스 격파 시 onBossDefeated 콜백이 트리거된다', () => {
       let bossDefeatedCalled = false;
+      const testBoss = new BossController(1);
+      testBoss.takeDamage(496); // 4 HP 남김
       const lethalResolver = new BeatRoundResolver({
         battle,
-        boss,
+        boss: testBoss,
         guardian,
         nonLethalPhaseA: false,
         onBossDefeated: () => {
@@ -243,14 +245,14 @@ describe('BeatRoundResolver (Issue #184 - GAME-ROUND-001)', () => {
         },
       });
 
-      // 보스 HP 10 -> 10회 정답
-      for (let i = 1; i <= 10; i++) {
+      // 4회 정답 시 스펠 데미지 4로 격파
+      for (let i = 1; i <= 4; i++) {
         lethalResolver.startNewRound(i);
         lethalResolver.resolveRound('correct');
-        if (boss.isDefeated) break;
+        if (testBoss.isDefeated) break;
       }
 
-      expect(boss.isDefeated).toBe(true);
+      expect(testBoss.isDefeated).toBe(true);
       expect(bossDefeatedCalled).toBe(true);
     });
 

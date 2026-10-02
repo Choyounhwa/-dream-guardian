@@ -265,9 +265,9 @@ describe('Phase Presentation & Render Allow Matrix - [BUG-PHASE-PRESENTATION-001
       const initialHp = boss.hp;
       const resolveResult = resolver.resolveRound('correct');
 
-      // 정상 정산 확인 (보스 HP 감소 및 마나 증가)
+      // 정상 정산 확인 (보스 HP 완전 보존 및 마나 증가)
       expect(resolveResult.bossDefeated).toBe(false);
-      expect(boss.hp).toBe(initialHp - 1);
+      expect(boss.hp).toBe(initialHp);
       expect(battle.mana).toBe(25);
       expect(battle.combo).toBe(1);
 

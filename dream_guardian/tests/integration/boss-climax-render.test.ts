@@ -128,9 +128,9 @@ describe('BossClimaxRenderer Integration (Issue #195)', () => {
   });
 
   it('보스 HP가 30% 이하로 하강 시 광폭화 상태가 렌더러에 전달되어 붉은 아우라를 그린다', () => {
-    // 보스 HP 10 -> 2 (20% <= 30%)
-    boss.takeDamage(8);
-    expect(boss.hp).toBe(2);
+    // 보스 HP 500 -> 100 (20% <= 30%)
+    boss.takeDamage(400);
+    expect(boss.hp).toBe(100);
 
     hazardController.start();
     hazardController.update(0.1);

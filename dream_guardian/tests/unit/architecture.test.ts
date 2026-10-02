@@ -34,8 +34,8 @@ describe('Architecture Test', () => {
     expect(DEFAULT_CONFIG.mana.correctReward).toBe(25);
     expect(DEFAULT_CONFIG.mana.spellCost).toBe(100);
     expect(DEFAULT_CONFIG.battle.spellDamage).toBe(4);
-    expect(DEFAULT_CONFIG.battle.bossHpNormal).toBe(10);
-    expect(DEFAULT_CONFIG.battle.bossHpNightmare).toBe(20);
+    expect(DEFAULT_CONFIG.battle.bossHpNormal).toBe(500);
+    expect(DEFAULT_CONFIG.battle.bossHpNightmare).toBe(750);
   });
 
   it('DEFAULT_CONFIG 모션 임계값이 GDD와 일치한다', () => {

@@ -55,7 +55,7 @@ describe('Phase A 보상 정산과 처치 분리 통합 검증 (Issue #240)', ()
       // 10문제 완료 시점 확인
       expect(resolver.settledRoundCount).toBe(10);
       expect(resolver.isPhaseAComplete).toBe(true);
-      expect(boss.hp).toBe(1); // 10 정답 + 2회 스펠(각 4)에도 최소 1 보장
+      expect(boss.hp).toBe(500); // 10 정답 + 2회 스펠에도 체력 100% 완전 보존 (Issue #288)
       expect(boss.isDefeated).toBe(false);
       expect(onBossDefeatedMock).not.toHaveBeenCalled(); // Phase A에서는 조기 승리 콜백 0회
       expect(onSpellCastMock).toHaveBeenCalledTimes(2); // 마나 100 도달 2회 (4번, 8번 정답)
