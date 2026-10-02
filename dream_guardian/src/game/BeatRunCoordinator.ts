@@ -62,6 +62,7 @@ export interface BeatRunCoordinatorOptions {
   onAnswerConfirmed?: (choiceIndex: number, correct: boolean, status: RoundAnswerStatus) => void;
   onAnswerSelected?: (choiceIndex: number) => void;
   onCountInBeat?: (currentBeat: number, totalBeats: number) => void;
+  onTimeout?: () => void;
 }
 
 export class BeatRunCoordinator {
@@ -86,6 +87,7 @@ export class BeatRunCoordinator {
   private _performanceElapsed = 0;
   private _answerSelectElapsed = 0;
   private _branchElapsed = 0;
+  private _isTimedOut = false;
   private _countInElapsed = 0;
   private _countInCurrentBeat = 0;
   private _selectedChoiceIndex: number | null = null;
@@ -244,6 +246,10 @@ export class BeatRunCoordinator {
     return this._armReachAnswerSelector;
   }
 
+  get isTimedOut(): boolean {
+    return this._isTimedOut;
+  }
+
   get keynotes(): readonly Keynote[] {
     return this._keynotes;
   }
@@ -359,6 +365,7 @@ export class BeatRunCoordinator {
     withCountIn?: boolean;
     difficultyProfile?: DifficultyBeatProfile;
   }): void {
+    this._isTimedOut = false;
     if (options?.difficultyProfile) {
       this.setDifficultyProfile(options.difficultyProfile);
     } else if (options?.chapter !== undefined) {
@@ -385,6 +392,7 @@ export class BeatRunCoordinator {
     subLevel?: number;
     difficultyProfile?: DifficultyBeatProfile;
   }): void {
+    this._isTimedOut = false;
     if (options?.difficultyProfile) {
       this.setDifficultyProfile(options.difficultyProfile);
     } else if (options?.chapter !== undefined) {
@@ -422,6 +430,7 @@ export class BeatRunCoordinator {
   }
 
   private _startRunQuestion(): void {
+    this._isTimedOut = false;
     this._rhythmEngine.reset();
     this._rhythmEngine.start();
     this._phase = 'RUN_QUESTION';
@@ -557,7 +566,9 @@ export class BeatRunCoordinator {
         remainingDt -= step;
 
         if (this._answerSelectElapsed >= maxAnswerTime - 1e-9 && this._selectedChoiceIndex === null) {
-          // 2박 타임아웃 만료 -> HAZARD_EVADE 즉시 전이
+          // 4박 타임아웃 만료 -> HAZARD_EVADE 즉시 전이 (Issue #283)
+          this._isTimedOut = true;
+          this._options.onTimeout?.();
           this._armReachAnswerSelector.closeWindow();
           this._selectedChoiceIndex = null;
           this._phase = 'HAZARD_EVADE';
@@ -678,6 +689,16 @@ export class BeatRunCoordinator {
       this.recordStep();
       return;
     }
+    if (this._phase === 'ANSWER_SELECT') {
+      this._isTimedOut = true;
+      this._options.onTimeout?.();
+      this._armReachAnswerSelector.closeWindow();
+      this._selectedChoiceIndex = null;
+      this._phase = 'HAZARD_EVADE';
+      this._branchElapsed = 0;
+      this._options.onPhaseChange?.(this._phase);
+      return;
+    }
     if (this._phase === 'REST_READY') {
       this._centerReturnGate.forceFallbackLock();
       this._readyElapsed = this.readyBeats * this._rhythmEngine.secondsPerBeat;
@@ -702,6 +723,7 @@ export class BeatRunCoordinator {
    */
   private _handleAnswer(choiceIndex: number): void {
     if (!this._currentQuestion) return;
+    this._isTimedOut = false;
     this._selectedChoiceIndex = choiceIndex;
     this._armReachAnswerSelector.closeWindow();
     this._options.onAnswerSelected?.(choiceIndex);

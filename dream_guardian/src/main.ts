@@ -91,6 +91,7 @@ import {
 import { getAnswerButtonLayouts, DEFAULT_FITNESS_ZONES } from '../config/zone.config.js';
 import { DEFAULT_PHASE_A_HAZARD_CONFIG } from '../config/phase-a-hazard.config.js';
 import { HORIZON_RATIO } from '../config/grid.config.js';
+import { CHAPTER_TRACK_PRESETS } from '../config/beat-motion.config.js';
 import type { RoundAnswerStatus, RoundResolveResult } from './types/result.js';
 
 if (typeof document === 'undefined') {
@@ -425,6 +426,8 @@ let currentChapter = 1;
 let currentQuestion: GeneratedQuestion | null = null;
 let feedbackTimer = 0;
 let feedbackCorrect = false;
+let feedbackCustomText: string | null = null;
+let feedbackCustomColor: string | null = null;
 let questionVisible = false;
 let answerLocked = false; // 답 연속 입력 방지
 let resultData: ResultData | null = null;
@@ -628,7 +631,33 @@ const beatCoordinator = new BeatRunCoordinator({
       stateMachine.changeState('ROUND_RESOLVE');
     }
   },
+  onTimeout: () => {
+    // Issue #283: 답안 선택 4박 타임아웃 발생 즉시 명확한 인과관계 알림 ("시간 초과!")
+    feedbackCustomText = '시간 초과!';
+    feedbackCustomColor = '#FFAA33';
+    feedbackCorrect = false;
+    feedbackTimer = 0.8;
+    sfx.play('wrong');
+    speech.speak('시간 초과!');
+    skeletonEffect.triggerHit();
+    effectManager.playFade({
+      x: canvasManager.virtualWidth * 0.5,
+      y: canvasManager.virtualHeight * 0.22 - 30,
+      text: '시간 초과!',
+      color: '#FFAA33',
+      fontSize: 36,
+      duration: 0.8,
+    });
+    effectManager.playAnswerEffect(
+      'timeout',
+      canvasManager.virtualWidth * 0.5,
+      canvasManager.virtualHeight * 0.5,
+    );
+    (eventBus as any).emit('answer:timeout');
+  },
   onAnswerSelected: (idx) => {
+    feedbackCustomText = null;
+    feedbackCustomColor = null;
     sfx.play('hover');
     answerLocked = true;
     const correct = idx === beatCoordinator.currentQuestion?.correctIndex;
@@ -687,7 +716,8 @@ const phaseAHazardController = new PhaseAHazardController({
     battle.applyHazardDamage(appliedDamage);
     sfx.play('player_hurt');
     skeletonEffect.triggerHit();
-    effectManager.playPreset('wrong', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.76);
+    // Issue #283: 오답 프리셋('wrong') 대신 장판 피격 전용 이펙트('HIT! -25 HP') 적용
+    effectManager.playHazardHit(canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.76, appliedDamage);
     if (!battle.isAlive) {
       showResult(false);
     }
@@ -974,6 +1004,12 @@ function startChapter(ch: number, subLevel?: number): void {
   hudLayer.reset();
   questionBank.setLevel(ch, subLevel);
   feedbackTimer = 0;
+  feedbackCustomText = null;
+  feedbackCustomColor = null;
+  const trackPreset = CHAPTER_TRACK_PRESETS[ch];
+  if (trackPreset) {
+    beatCoordinator.setTrackConfig(trackPreset);
+  }
   questionVisible = false;
   answerLocked = true;
   castingFlash = 0;
@@ -1064,20 +1100,10 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
     }
   } else {
     consecutiveWrongCount++;
-    if (status === 'timeout') {
-      sfx.play('wrong');
-      skeletonEffect.triggerHit();
-      speech.speakFeedback('wrong');
-      feedbackCorrect = false;
-      feedbackTimer = 0.8;
-      effectManager.playAnswerEffect(
-        'timeout',
-        canvasManager.virtualWidth * 0.5,
-        canvasManager.virtualHeight * 0.5,
-      );
-      (eventBus as any).emit('answer:timeout');
-    }
-    console.log(`[DG] 오답 정산 완료! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
+    // Issue #283: 타임아웃 및 오답 피드백은 이미 ANSWER_SELECT 단계(onTimeout / onAnswerSelected)에서
+    // 즉시 표출되었으므로, 장판 페이즈 종료 후 ROUND_RESOLVE 시점에 뒤늦게 중복으로 "오답..." 텍스트나
+    // "틀렸습니다!" 음성을 뒷북 발화하지 않도록 억제한다.
+    console.log(`[DG] ${status === 'timeout' ? '타임아웃' : '오답'} 정산 완료! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
 
     // Issue #219 (STORY-RENDER-001): 오답/연속 오답 시 깨비 위로 대사 발화
     const wrongDialogue = dialogueManager.getDialogue({
@@ -1168,10 +1194,12 @@ function renderFeedback(ctx: CanvasRenderingContext2D, w: number, h: number): vo
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = `bold ${Math.min(84, w * 0.075)}px sans-serif`;
-  ctx.fillStyle = feedbackCorrect ? '#4DFFAA' : '#FF4444';
-  ctx.shadowColor = feedbackCorrect ? '#4DFFAA' : '#FF4444';
+  const color = feedbackCustomColor ?? (feedbackCorrect ? '#4DFFAA' : '#FF4444');
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
   ctx.shadowBlur = 30;
-  ctx.fillText(feedbackCorrect ? '정답!' : '오답...', w / 2, h * 0.22);
+  const text = feedbackCustomText ?? (feedbackCorrect ? '정답!' : '오답...');
+  ctx.fillText(text, w / 2, h * 0.22);
   ctx.shadowBlur = 0;
 
   if (castingFlash > 0) {
@@ -1653,7 +1681,13 @@ const engine = new GameEngine({
     // Issue #207, #210, #226: 0s 무체류 팔 선택 정착으로 골반 체류 충전음 잔재 정리
     sfx.stopDwellCharge();
 
-    if (feedbackTimer > 0) feedbackTimer -= dt;
+    if (feedbackTimer > 0) {
+      feedbackTimer -= dt;
+      if (feedbackTimer <= 0) {
+        feedbackCustomText = null;
+        feedbackCustomColor = null;
+      }
+    }
     if (castingFlash > 0) castingFlash -= dt;
     if (climaxBarrageTimer > 0) climaxBarrageTimer = Math.max(0, climaxBarrageTimer - dt);
     guardian.update(dt);

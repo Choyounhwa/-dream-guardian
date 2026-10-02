@@ -929,6 +929,16 @@ export class EffectManager {
   }
 
   /**
+   * 장판 피격 전용 이펙트 연출 (오답 wrong 프리셋 분리 - Issue #283 / UX-ANSWER-TIMEOUT-001)
+   * 피격 시 'HIT! -25 HP' 텍스트 플로팅 및 충격파·파티클 버스트 재생
+   */
+  playHazardHit(x: number, y: number, damage: number = 25): void {
+    this.playExpand({ x, y, startRadius: 20, endRadius: 130, color: '#FF3333', lineWidth: 5, duration: 0.45 });
+    this.playBurst({ x, y, count: 20, colors: ['#FF2222', '#FF6600', '#FFAA00'], duration: 0.5 });
+    this.playFade({ x, y: y - 25, text: `HIT! -${damage} HP`, color: '#FF3333', fontSize: 34, duration: 0.85 });
+  }
+
+  /**
    * 마나 100 도달 이펙트 재생 (VFX-003 / Issue #275)
    * 마나 바에서 보라빛(#C889FF) 펄스 파동 방출 및 화면 하단에서 상단으로 솟구치는 빛줄기 파티클 (0.5초)
    */

@@ -169,7 +169,7 @@ export const DEFAULT_BEAT_MOTION_CONFIG: BeatMotionConfig = {
 
 export const DEFAULT_LOOP_PATTERN: LoopPattern = {
   exerciseBeats: 8,
-  readyBeats: 2,
+  readyBeats: 4,
   performanceBeats: 8,
 };
 
@@ -197,7 +197,7 @@ export const CHAPTER_TRACK_PRESETS: Readonly<Record<number, MusicTrackConfig>> =
     },
     loopPattern: {
       exerciseBeats: 8,
-      readyBeats: 2,
+      readyBeats: 4,
       performanceBeats: 8,
     },
   },
@@ -212,7 +212,7 @@ export const CHAPTER_TRACK_PRESETS: Readonly<Record<number, MusicTrackConfig>> =
     },
     loopPattern: {
       exerciseBeats: 8,
-      readyBeats: 2,
+      readyBeats: 4,
       performanceBeats: 8,
     },
   },
@@ -227,7 +227,7 @@ export const CHAPTER_TRACK_PRESETS: Readonly<Record<number, MusicTrackConfig>> =
     },
     loopPattern: {
       exerciseBeats: 8,
-      readyBeats: 2,
+      readyBeats: 4,
       performanceBeats: 8,
     },
   },
@@ -242,7 +242,7 @@ export const CHAPTER_TRACK_PRESETS: Readonly<Record<number, MusicTrackConfig>> =
     },
     loopPattern: {
       exerciseBeats: 8,
-      readyBeats: 2,
+      readyBeats: 4,
       performanceBeats: 8,
     },
   },
@@ -257,11 +257,13 @@ export const CHAPTER_TRACK_PRESETS: Readonly<Record<number, MusicTrackConfig>> =
     },
     loopPattern: {
       exerciseBeats: 8,
-      readyBeats: 2,
+      readyBeats: 4,
       performanceBeats: 8,
     },
   },
 });
+
+export const TRACK_TEMPLATES = CHAPTER_TRACK_PRESETS;
 
 // ─── Difficulty Beat Profile & Variable Loop (Issue #279 / BEAT-DIFFICULTY-001) ───
 

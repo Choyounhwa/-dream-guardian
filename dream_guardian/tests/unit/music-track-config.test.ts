@@ -5,6 +5,7 @@ import {
   DEFAULT_LOOP_PATTERN,
   DEFAULT_TRACK_CONFIG,
   CHAPTER_TRACK_PRESETS,
+  TRACK_TEMPLATES,
 } from '../../config/beat-motion.config.js';
 import type { MusicTrackConfig } from '../../src/types/index.js';
 
@@ -83,10 +84,10 @@ describe('MusicTrackConfig & Variable Beat Architecture (Issue #204 / BEAT-TRACK
   });
 
   describe('2. BeatRunCoordinator 가변 LoopPattern (8+4+8, 4+2+4) 동적 수용 검증', () => {
-    it('기본 설정 시 8+2+8 루프 패턴과 BPM 120이 적용된다', () => {
+    it('기본 설정 시 8+4+8 루프 패턴과 BPM 120이 적용된다', () => {
       const coordinator = new BeatRunCoordinator();
       expect(coordinator.exerciseBeats).toBe(8);
-      expect(coordinator.readyBeats).toBe(2);
+      expect(coordinator.readyBeats).toBe(4);
       expect(coordinator.performanceBeats).toBe(8);
       expect(coordinator.rhythmEngine.bpm).toBe(120);
     });
@@ -252,10 +253,10 @@ describe('MusicTrackConfig & Variable Beat Architecture (Issue #204 / BEAT-TRACK
   });
 
   describe('4. 기존 기본값 및 챕터별 프리셋 하위 호환성 검증', () => {
-    it('기본 DEFAULT_TRACK_CONFIG 및 DEFAULT_LOOP_PATTERN이 정의되어 있다', () => {
+    it('기본 DEFAULT_TRACK_CONFIG 및 DEFAULT_LOOP_PATTERN이 정의되어 있다 (readyBeats: 4)', () => {
       expect(DEFAULT_LOOP_PATTERN).toEqual({
         exerciseBeats: 8,
-        readyBeats: 2,
+        readyBeats: 4,
         performanceBeats: 8,
       });
       expect(DEFAULT_TRACK_CONFIG.bpm).toBe(120);
@@ -263,13 +264,15 @@ describe('MusicTrackConfig & Variable Beat Architecture (Issue #204 / BEAT-TRACK
       expect(DEFAULT_TRACK_CONFIG.intro?.countInBeats).toBe(3);
     });
 
-    it('CHAPTER_TRACK_PRESETS에 1~5 챕터 프리셋이 올바르게 등록되어 있다', () => {
+    it('CHAPTER_TRACK_PRESETS 및 TRACK_TEMPLATES에 1~5 챕터 프리셋이 올바르게 등록되어 있다 (readyBeats: 4)', () => {
+      expect(TRACK_TEMPLATES).toBe(CHAPTER_TRACK_PRESETS);
       for (let ch = 1; ch <= 5; ch++) {
         const preset = CHAPTER_TRACK_PRESETS[ch];
         expect(preset).toBeDefined();
         expect(preset.bpm).toBeGreaterThanOrEqual(100);
         expect(preset.bpm).toBeLessThanOrEqual(140);
         expect(preset.loopPattern).toBeDefined();
+        expect(preset.loopPattern!.readyBeats).toBe(4);
         expect(preset.intro?.countInBeats).toBe(3);
       }
     });
