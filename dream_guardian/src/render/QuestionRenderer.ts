@@ -12,6 +12,7 @@ import { getAnswerButtonLayouts } from '../../config/zone.config.js';
 import type { QuestionRecipePlan } from '../input/RecipeGenerator.js';
 import { ShapeRenderer, deriveShapeFromQuestion } from './ShapeRenderer.js';
 import { UIText } from '../utils/UIText.js';
+import { imageLoader } from '../utils/UIImageLoader.js';
 
 export interface QuestionRenderState {
   question: GeneratedQuestion | null;
@@ -118,6 +119,16 @@ export class QuestionRenderer {
       // 도형 존재 시 문제 텍스트를 상단으로 정렬하여 중앙 3D 뷰포트 영역(480~820px)과 겹침 0% 보장
       const qY = shape ? boxY + 70 * scaleY : boxY + 220 * scaleY;
 
+      // 1. 문제 수식 배경 패널 (Issue #290 / UI-ASSET-009)
+      const boardBgImg = imageLoader.get('question', 'questionBoardBg');
+      if (boardBgImg) {
+        const boardW = (shape ? 760 : 880) * scaleX;
+        const boardH = (shape ? 200 : 280) * scaleY;
+        const boardX = cx - boardW / 2;
+        const boardY = shape ? boxY - 30 * scaleY : boxY;
+        ctx.drawImage(boardBgImg, boardX, boardY, boardW, boardH);
+      }
+
       // 2. 문제 수식 텍스트 (Issue #167 & #234: 긴 자연어/복합 수식 높이 및 너비 안전 수용)
       renderQuestionHeaderMath(ctx, state.question.questionText, cx, qY, scaleX, false, {
         hasShape: Boolean(shape),
@@ -177,15 +188,24 @@ export class QuestionRenderer {
         ctx.shadowBlur = 20 * scaleX * scale;
       }
 
-      // 모던 반투명 네온 버튼 배경
-      ctx.fillStyle = 'rgba(16, 24, 48, 0.88)';
-      ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(bx, btnY, curW, curH, 20 * scaleX * effectiveScale);
+      // Issue #290 (UI-ASSET-009): 사전 렌더링된 버튼 프레임 비트맵 이미지 에셋 연동
+      const isSelected = state.selectedChoiceIndex === i;
+      const assetKey = isHovered ? 'answerBtnHover' : (isSelected ? 'answerBtnSelected' : 'answerBtnDefault');
+      const btnImg = imageLoader.get('question', assetKey) ?? imageLoader.get('question', 'answerBtnDefault');
+
+      if (btnImg) {
+        ctx.drawImage(btnImg, bx, btnY, curW, curH);
       } else {
-        ctx.rect(bx, btnY, curW, curH);
+        // 모던 반투명 네온 버튼 배경 (프로시저럴 폴백)
+        ctx.fillStyle = 'rgba(16, 24, 48, 0.88)';
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(bx, btnY, curW, curH, 20 * scaleX * effectiveScale);
+        } else {
+          ctx.rect(bx, btnY, curW, curH);
+        }
+        ctx.fill();
       }
-      ctx.fill();
 
       // Issue #285 (UI-ANSWER-002): 실시간 0~100% 충전 프로그레스 바 및 부드러운 네온 내부 채우기 (Fill)
       const rawProgress = state.selectedChoiceIndex === i ? 1.0 : (state.choiceProgress ? state.choiceProgress[i] : 0);
@@ -250,8 +270,8 @@ export class QuestionRenderer {
         }
         ctx.stroke();
         ctx.setLineDash([]);
-      } else {
-        // 기본 네온 테두리 (진행도 없을 때)
+      } else if (!btnImg) {
+        // 기본 네온 테두리 (진행도 없을 때 & 비트맵 미로드 프로시저럴 폴백)
         ctx.strokeStyle = i === 0 ? 'rgba(40, 230, 255, 0.7)' : 'rgba(255, 203, 77, 0.7)';
         ctx.lineWidth = 6 * scaleX * effectiveScale;
         ctx.beginPath();

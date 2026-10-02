@@ -283,6 +283,7 @@ export interface UIImageAssetsConfig {
   boss: Record<string, string | null>;
   guardian: Record<string, string | null>;
   bg: Record<string, string | null>;
+  question?: Record<string, string | null>;
 }
 
 export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
@@ -294,6 +295,12 @@ export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
     lockIcon: '/assets/ui/menu/lock_icon.png',
     starFull: '/assets/ui/menu/star_full.png',
     starEmpty: '/assets/ui/menu/star_empty.png',
+  },
+  question: {
+    questionBoardBg: '/assets/ui/question/question_board_bg.png',
+    answerBtnDefault: '/assets/ui/question/answer_btn_default.png',
+    answerBtnHover: '/assets/ui/question/answer_btn_hover.png',
+    answerBtnSelected: '/assets/ui/question/answer_btn_selected.png',
   },
   hud: {
     playerHpBar: null,

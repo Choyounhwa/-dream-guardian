@@ -4869,7 +4869,46 @@ BEAT-SPEC-001
 
 ---
 
-### Issue #294: [RENDER-GRID-003] 드림 그리드 하단 전경 패널 음영(검은색 바닥 면 채우기) 제거 및 투명 SFX 네온 런웨이 와이어프레임 전환
+### Issue #295: [RENDER-GRID-004] 3D 원근 드림 그리드 라인 두께 증가 및 세로선 2-Pass 네온 글로우 효과 추가
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/295
+- **Labels**: `phase-7`, `feature`, `P2-medium`
+- **작업 ID**: `[RENDER-GRID-004]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 3D 원근 드림 그리드 라인 두께 증가 및 세로선 2-Pass 네온 글로우 효과 추가
+- **목적**:
+  1. 3D 원근 런웨이 그리드의 기본 선 두께(가로선/세로선)를 증가시켜 1080p 대화면 및 웹캠 피드 대비 시인성을 대폭 강화한다.
+  2. 일반 세로선(Longitudinal Lines)에 외곽 소프트 네온 글로우 패스(Soft Glow Pass)와 중심 코어 빔(Core Beam Pass)의 2-Pass 렌더링을 적용하여 중앙 척추선과 조화를 이루는 일렉트릭 사이버 런웨이 연출을 구현한다.
+- **수정 대상**:
+  - `dream_guardian/config/grid.config.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
+- **구현 내용**:
+  1. **그리드 설정 확장 (`config/grid.config.ts`)**:
+     - 가로선 및 세로선 두께 파라미터 상향 조정 (`TRANSVERSE_MAX_WIDTH`, `TRANSVERSE_MIN_WIDTH`, `LONGITUDINAL_MAX_WIDTH`, `LONGITUDINAL_MIN_WIDTH`)
+     - 일반 세로선 외곽 글로우 두께 상수(`LONGITUDINAL_GLOW_WIDTH`) 정의
+  2. **그리드 렌더러 로직 개선 (`src/render/DreamGrid.ts`)**:
+     - 일반 세로선 드로잉 루프에 외곽 글로우 패스(반투명 넓은 획)와 중심 코어 패스(고휘도 획) 2-Pass 발광 연출 적용
+     - 런웨이 하단부로 갈수록 원근감에 따른 두께 스케일링 강화
+  3. **단위 테스트 추가 및 갱신 (`tests/unit/dream-grid.test.ts`)**:
+     - 세로선 글로우 패스 두께 및 렌더링 호출 검증
+     - 전체 단위 테스트 100% Pass 및 빌드 검증
+- **유지 사항**:
+  - 중앙 척추선(Center Spine) 3-Pass 초고휘도 레이저 코어 렌더링
+  - 교차점 노드(Intersection Nodes) 렌더링 및 소실점 심도 안개(Depth Fog) 공식
+  - 런웨이 투명 와이어프레임 구조
+- **변경 금지**:
+  - 카메라 미러 피드 및 피트니스 존 좌표계
+  - 하단 고정 바 및 HUD UI 레이아웃
+- **완료 조건**:
+  - [ ] 세로선/가로선 두께 상향 및 세로선 2-Pass 글로우 효과 렌더링 구현
+  - [ ] `tests/unit/dream-grid.test.ts` 통과
+  - [ ] 전체 단위 테스트 100% Pass (`npm test`)
+  - [ ] 번들 빌드 성공 (`npm run build`)
+- **관련 파일**:
+  - `dream_guardian/config/grid.config.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
+
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/294
 - **Labels**: `phase-7`, `bug`, `P1-high`
 - **작업 ID**: `[RENDER-GRID-003]`
@@ -4929,15 +4968,26 @@ BEAT-SPEC-001
   - `dream_guardian/scripts/generate-icon-assets.js`
   - `dream_guardian/tests/unit/part-icon-renderer.test.ts`
 - **구현 내용**:
-  1. `dream_guardian/public/assets/ui/icon/`에 5종 신체 부위 PNG 에셋 생성 배치 (`icon_hand_left.png`, `icon_hand_right.png`, `icon_head.png`, `icon_hip.png`, `icon_shoulder.png`)
-  2. `config/ui.config.ts`의 `UI_IMAGE_ASSETS`에 `icon` 슬롯 등록
-  3. `PartIconRenderer.drawIcon()`에서 `imageLoader.get('icon', partKey)` 조회 후 `drawImage` 비트맵 렌더링 수행
-  4. 이미지 미로드 시 기존 베지어 곡선 프로시저럴 드로잉 폴백 100% 보장
+  1. **임시 이미지 에셋 제작 및 배치**:
+     - `scripts/generate-icon-assets.js` 스크립트를 통해 실제 디자인 에셋 도입 전 즉각 테스트 가능한 5종 유효 임시 PNG 생성:
+       - `icon_hand_left.png` (128x128, 시안 #28E6FF 좌향 손바닥)
+       - `icon_hand_right.png` (128x128, 노랑 #FFCB4D 우향 손바닥)
+       - `icon_head.png` (128x128, 보라 #C889FF 원형 얼굴 + 2점 눈)
+       - `icon_hip.png` (128x128, 주황 #FF865E 마름모 다이아몬드)
+       - `icon_shoulder.png` (128x128, 청록 #4DFFAA 어깨 라인)
+     - `dream_guardian/public/assets/ui/icon/` 디렉토리에 자동 배치
+  2. **UI 토큰 설정 등록**:
+     - `config/ui.config.ts`의 `UI_IMAGE_ASSETS`에 `icon: Record<string, string | null>` 슬롯 등록
+  3. **비트맵 렌더러 분기 구현**:
+     - `PartIconRenderer.drawIcon()`에서 `imageLoader.get('icon', partKey)` 조회 후 `ctx.drawImage`로 초경량 비트맵 렌더링 수행
+  4. **무중단 폴백(Fallback) 100% 보장**:
+     - 에셋 파일이 없거나 로드 전/로드 실패 상태에서는 기존 `drawHand`, `drawHead`, `drawHip`, `drawShoulder` 베지어 곡선 벡터 프로시저럴 드로잉 코드가 100% 작동하여 중단 없는 게임 루프 보장
 - **완료 조건**:
-  - [ ] 5종 신체 부위 PNG 에셋 생성 및 `public/assets/ui/icon/` 배치
+  - [ ] `scripts/generate-icon-assets.js` 구현 및 5종 임시 PNG 에셋 생성 배치
+  - [ ] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
   - [ ] `PartIconRenderer`에서 비트맵 로딩 시 `drawImage` 렌더링 동작
-  - [ ] 이미지 부재 시 기존 벡터 프로시저럴 렌더링 정상 동작 (폴백 검증)
-  - [ ] 단위 테스트 100% Pass 및 빌드 성공
+  - [ ] 에셋 부재/로드 실패 시 기존 벡터 프로시저럴 렌더링 100% 폴백 동작 검증
+  - [ ] 단위 테스트 100% Pass 및 `npm run build` 번들 성공
 
 ---
 
@@ -4945,7 +4995,7 @@ BEAT-SPEC-001
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/290
 - **Labels**: `feature`, `phase-6`, `P2-medium`
 - **작업 ID**: `[UI-ASSET-009]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (DONE)**
 - **목적**:
   - `QuestionRenderer`에서 매 프레임 실시간 연산되는 상단 문제 수식 배경 패널과 2개 답안 버튼(기본/호버/선택 상태)의 다중 외곽선 및 섀도우 블러 연산을 사전 렌더링된 PNG 이미지 에셋으로 교체하여 프레임 드랍을 방지하고 비주얼 완성도를 극대화한다.
 - **수정 대상**:
@@ -4954,15 +5004,25 @@ BEAT-SPEC-001
   - `dream_guardian/scripts/generate-question-assets.js`
   - `dream_guardian/tests/unit/question-renderer.test.ts`
 - **구현 내용**:
-  1. `public/assets/ui/question/`에 `question_board_bg.png`, `answer_btn_default.png`, `answer_btn_hover.png`, `answer_btn_selected.png` 생성 배치
-  2. `config/ui.config.ts`의 `UI_IMAGE_ASSETS`에 `question` 슬롯 추가 등록
-  3. `QuestionRenderer.render()`에서 버튼 프레임 렌더링 시 이미지 에셋 조회 후 `drawImage` 처리
-  4. 이미지 미로드 시 기존 `roundRect` 및 캔버스 패스 기반 프로시저럴 드로잉 폴백
+  1. **임시 이미지 에셋 제작 및 배치**:
+     - `scripts/generate-question-assets.js`를 통해 규격에 맞는 유효한 임시 PNG 4종 생성:
+       - `question_board_bg.png`: 상단 문제 영역 라운드 반투명 패널 (1080x280)
+       - `answer_btn_default.png`: 답안 선택 버튼 기본 상태 외곽선 프레임 (480x160)
+       - `answer_btn_hover.png`: 타겟팅 조준 시 네온 골드 발광 프레임 (480x160)
+       - `answer_btn_selected.png`: 최종 확정 체결 시 네온 시안/마젠타 충전 프레임 (480x160)
+     - `dream_guardian/public/assets/ui/question/` 디렉토리에 자동 배치
+  2. **UI 설정 등록**:
+     - `config/ui.config.ts`의 `UI_IMAGE_ASSETS`에 `question` 슬롯 등록
+  3. **비트맵 렌더러 분기 구현**:
+     - `QuestionRenderer.render()`에서 버튼 프레임 렌더링 시 이미지 에셋 조회 후 `drawImage` 처리
+  4. **무중단 폴백(Fallback) 100% 보장**:
+     - 에셋 파일이 없거나 로드 전/로드 실패 상태에서는 기존 `roundRect` 및 캔버스 패스 기반 프로시저럴 드로잉 코드가 100% 정상 작동하여 게임이 중단되지 않음
 - **완료 조건**:
-  - [ ] 문제 패널 1종 및 버튼 상태 프레임 3종 PNG 생성 및 배치
-  - [ ] `QuestionRenderer`에서 비트맵 프레임 기반 렌더링 정상 동작
-  - [ ] 이미지 미로드 시 프로시저럴 드로잉 100% 폴백 보장
-  - [ ] 단위 테스트 통과 및 빌드 성공
+  - [x] `scripts/generate-question-assets.js` 구현 및 4종 임시 PNG 에셋 생성 배치
+  - [x] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
+  - [x] `QuestionRenderer`에서 비트맵 프레임 기반 렌더링 정상 동작
+  - [x] 에셋 부재/로드 실패 시 기존 프로시저럴 드로잉 100% 폴백 동작 검증
+  - [x] 단위 테스트 통과 및 `npm run build` 성공
 
 ---
 
@@ -4979,15 +5039,24 @@ BEAT-SPEC-001
   - `dream_guardian/scripts/generate-hud-assets.js`
   - `dream_guardian/tests/unit/beat-hud-renderer.test.ts`
 - **구현 내용**:
-  1. `public/assets/ui/hud/`에 `beat_dot_active.png`, `beat_dot_inactive.png`, `beat_dot_target.png` 생성 배치
-  2. `config/ui.config.ts`의 `UI_IMAGE_ASSETS.hud`에 등록
-  3. `BeatHUDRenderer.render()` 내부 8박자 도트 루프에서 이미지 우선 드로잉 연동
-  4. 이미지 미로드 시 기존 원형 `arc` 및 `shadowBlur` 프로시저럴 드로잉 폴백
+  1. **임시 이미지 에셋 제작 및 배치**:
+     - `scripts/generate-hud-assets.js`를 통해 3종 임시 비트 도트 PNG 생성:
+       - `beat_dot_active.png` (64x64, 밝은 청록 네온 발광 도트)
+       - `beat_dot_inactive.png` (64x64, 반투명 다크 도트)
+       - `beat_dot_target.png` (64x64, 현재 틱 강조용 골드 펄스 도트)
+     - `dream_guardian/public/assets/ui/hud/` 디렉토리에 자동 배치
+  2. **UI 설정 등록**:
+     - `config/ui.config.ts`의 `UI_IMAGE_ASSETS.hud`에 `beatDotActive`, `beatDotInactive`, `beatDotTarget` 등록
+  3. **비트맵 렌더러 분기 구현**:
+     - `BeatHUDRenderer.render()` 내부 8박자 도트 루프에서 이미지 우선 드로잉 연동
+  4. **무중단 폴백(Fallback) 100% 보장**:
+     - 에셋 파일이 없거나 로드 전/로드 실패 상태에서는 기존 원형 `arc` 및 `shadowBlur` 프로시저럴 드로잉 코드가 100% 정상 작동하여 게임이 중단되지 않음
 - **완료 조건**:
-  - [ ] 3종 비트 도트 PNG 에셋 생성 및 배치
+  - [ ] `scripts/generate-hud-assets.js`에 3종 임시 비트 도트 PNG 생성 로직 구현 및 에셋 배치
+  - [ ] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
   - [ ] `BeatHUDRenderer`에서 비트맵 기반 8박 도트 렌더링 동작
-  - [ ] 이미지 미로드 시 기존 프로시저럴 드로잉 정상 폴백
-  - [ ] 단위 테스트 통과 및 빌드 성공
+  - [ ] 에셋 부재/로드 실패 시 기존 프로시저럴 드로잉 100% 폴백 동작 검증
+  - [ ] 단위 테스트 통과 및 `npm run build` 성공
 
 ---
 
@@ -5002,17 +5071,26 @@ BEAT-SPEC-001
   - `dream_guardian/config/ui.config.ts`
   - `dream_guardian/src/ui/MenuRenderer.ts`
   - `dream_guardian/src/ui/ResultRenderer.ts`
+  - `dream_guardian/scripts/generate-menu-assets.js`
+  - `dream_guardian/scripts/generate-result-assets.js`
   - `dream_guardian/tests/unit/menu-renderer.test.ts`
   - `dream_guardian/tests/unit/result-renderer.test.ts`
 - **구현 내용**:
-  1. `public/assets/ui/menu/sublevel_card_bg.png` (440x240) 및 `public/assets/ui/result/rank_stamp_*.png` (180x180) 배치
-  2. `config/ui.config.ts`의 `UI_IMAGE_ASSETS.menu` 및 `result`에 슬롯 등록
-  3. `MenuRenderer` 및 `ResultRenderer`에서 이미지 에셋 우선 조회 및 렌더링, 미로드 시 프로시저럴 폴백 보장
+  1. **임시 이미지 에셋 제작 및 배치**:
+     - `scripts/generate-menu-assets.js`: `public/assets/ui/menu/sublevel_card_bg.png` (440x240 와이드 라운드 패널) 임시 PNG 생성
+     - `scripts/generate-result-assets.js`: `public/assets/ui/result/rank_stamp_s.png`, `rank_stamp_a.png`, `rank_stamp_b.png`, `rank_stamp_c.png` (180x180 엠블럼 스탬프) 임시 PNG 생성
+  2. **UI 설정 등록**:
+     - `config/ui.config.ts`의 `UI_IMAGE_ASSETS.menu` 및 `result`에 슬롯 등록
+  3. **비트맵 렌더러 분기 구현**:
+     - `MenuRenderer` 및 `ResultRenderer`에서 이미지 에셋 우선 조회 및 `drawImage` 렌더링
+  4. **무중단 폴백(Fallback) 100% 보장**:
+     - 에셋 파일이 없거나 로드 전/로드 실패 상태에서는 기존 Canvas 프로시저럴 드로잉 코드가 100% 정상 작동하여 게임이 중단되지 않음
 - **완료 조건**:
-  - [ ] 서브레벨 카드 배경 1종 및 랭크 스탬프 4종 PNG 생성 및 배치
+  - [ ] 서브레벨 카드 배경 1종 및 랭크 스탬프 4종 임시 PNG 에셋 생성 및 배치
+  - [ ] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
   - [ ] `MenuRenderer`와 `ResultRenderer`에서 이미지 렌더링 동작
-  - [ ] 이미지 미로드 시 프로시저럴 폴백 정상 동작
-  - [ ] 단위 테스트 100% Pass 및 빌드 성공
+  - [ ] 에셋 부재/로드 실패 시 기존 프로시저럴 드로잉 100% 폴백 동작 검증
+  - [ ] 단위 테스트 100% Pass 및 `npm run build` 성공
 
 ---
 
@@ -5028,17 +5106,29 @@ BEAT-SPEC-001
   - `dream_guardian/src/render/DialogueOverlayRenderer.ts`
   - `dream_guardian/src/ui/SettingsModal.ts`
   - `dream_guardian/src/ui/PauseModal.ts`
+  - `dream_guardian/scripts/generate-dialogue-modal-assets.js`
   - `dream_guardian/tests/unit/dialogue-overlay-renderer.test.ts`
+  - `dream_guardian/tests/unit/settings-modal.test.ts`
 - **구현 내용**:
-  1. `public/assets/ui/dialogue/dialogue_box_bg.png`, `speaker_badge_*.png` 생성 배치
-  2. `public/assets/ui/modal/`에 버튼 및 기능 아이콘 6종 배치
-  3. `config/ui.config.ts`의 `UI_IMAGE_ASSETS`에 해당 슬롯 등록
-  4. `DialogueOverlayRenderer`, `SettingsModal`, `PauseModal`에서 비트맵 우선 렌더링 및 미로드 시 프로시저럴 폴백 보장
+  1. **임시 이미지 에셋 제작 및 배치**:
+     - `scripts/generate-dialogue-modal-assets.js`를 통해 유효한 임시 PNG 9종 생성:
+       - `public/assets/ui/dialogue/dialogue_box_bg.png` (960x140 대사창 패널)
+       - `public/assets/ui/dialogue/speaker_badge_kkebi.png`, `speaker_badge_boss.png` (80x80 화자 엠블럼)
+       - `public/assets/ui/modal/btn_resume.png`, `btn_quit.png` (680x130 네온 액션 버튼)
+       - `public/assets/ui/modal/btn_close_x.png` (60x60 원형 닫기 ✕)
+       - `public/assets/ui/modal/icon_camera.png`, `icon_sound.png`, `icon_skeleton.png`, `icon_fullscreen.png` (64x64 설정 아이콘)
+  2. **UI 설정 등록**:
+     - `config/ui.config.ts`의 `UI_IMAGE_ASSETS`에 슬롯 등록
+  3. **비트맵 렌더러 분기 구현**:
+     - `DialogueOverlayRenderer`, `SettingsModal`, `PauseModal`에서 비트맵 우선 렌더링 수행
+  4. **무중단 폴백(Fallback) 100% 보장**:
+     - 에셋 파일이 없거나 로드 전/로드 실패 상태에서는 기존 Canvas 프로시저럴 드로잉 코드가 100% 정상 작동하여 게임이 중단되지 않음
 - **완료 조건**:
-  - [ ] 대사창 패널 및 모달 버튼/아이콘 9종 PNG 에셋 생성 및 배치
+  - [ ] 대사창 패널 및 모달 버튼/아이콘 9종 임시 PNG 에셋 생성 및 배치
+  - [ ] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
   - [ ] 대사창 및 모달 2종에서 비트맵 기반 렌더링 동작
-  - [ ] 이미지 미로드 시 기존 프로시저럴 드로잉 정상 폴백
-  - [ ] 단위 테스트 통과 및 빌드 성공
+  - [ ] 에셋 부재/로드 실패 시 기존 프로시저럴 드로잉 100% 폴백 동작 검증
+  - [ ] 단위 테스트 통과 및 `npm run build` 성공
 
 
 

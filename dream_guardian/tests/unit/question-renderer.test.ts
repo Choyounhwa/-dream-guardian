@@ -1,10 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
   QuestionRenderer,
   renderQuestionHeaderMath,
   type QuestionRenderState,
 } from '../../src/render/QuestionRenderer.js';
 import type { GeneratedQuestion } from '../../src/question/QuestionEvaluator.js';
+import { imageLoader } from '../../src/utils/UIImageLoader.js';
+import { UI_IMAGE_ASSETS } from '../../config/ui.config.js';
 
 function createMockCtx(): CanvasRenderingContext2D {
   return {
@@ -23,6 +27,7 @@ function createMockCtx(): CanvasRenderingContext2D {
     lineTo: vi.fn(),
     fillText: vi.fn(),
     measureText: vi.fn((text: string) => ({ width: text.length * 10 })),
+    drawImage: vi.fn(),
     globalAlpha: 1,
     fillStyle: '',
     strokeStyle: '',
@@ -294,6 +299,103 @@ describe('QuestionRenderer (Issue #209 / REFACTOR-RENDER-001)', () => {
       expect(w50).toBeGreaterThan(0);
       expect(w100).toBeGreaterThan(w50);
       expect(w100 / w50).toBeCloseTo(2.0, 1);
+    });
+  });
+
+  describe('[UI-ASSET-009 / #290] 답안 버튼(Zone 4/5) 및 문제 수식 배경 패널 이미지 에셋 연동', () => {
+    const assetsDir = path.resolve(__dirname, '../../public/assets/ui/question');
+
+    function createMockImage(w = 256, h = 256): HTMLImageElement {
+      return {
+        src: 'mock_question.png',
+        width: w,
+        height: h,
+        naturalWidth: w,
+        naturalHeight: h,
+        complete: true,
+      } as unknown as HTMLImageElement;
+    }
+
+    it('UI_IMAGE_ASSETS.question 설정에 4개 슬롯이 등록되어 있다', () => {
+      expect((UI_IMAGE_ASSETS as any).question).toBeDefined();
+      expect((UI_IMAGE_ASSETS as any).question.questionBoardBg).toBe('/assets/ui/question/question_board_bg.png');
+      expect((UI_IMAGE_ASSETS as any).question.answerBtnDefault).toBe('/assets/ui/question/answer_btn_default.png');
+      expect((UI_IMAGE_ASSETS as any).question.answerBtnHover).toBe('/assets/ui/question/answer_btn_hover.png');
+      expect((UI_IMAGE_ASSETS as any).question.answerBtnSelected).toBe('/assets/ui/question/answer_btn_selected.png');
+    });
+
+    it('public/assets/ui/question/ 디렉토리에 4종 PNG 에셋이 유효하게 존재한다', () => {
+      const files = [
+        'question_board_bg.png',
+        'answer_btn_default.png',
+        'answer_btn_hover.png',
+        'answer_btn_selected.png',
+      ];
+      for (const file of files) {
+        const fullPath = path.join(assetsDir, file);
+        expect(fs.existsSync(fullPath), `${file} 파일이 존재해야 합니다`).toBe(true);
+        const stat = fs.statSync(fullPath);
+        expect(stat.size).toBeGreaterThan(100);
+      }
+    });
+
+    it('이미지 에셋이 있을 때 drawImage를 호출하여 비트맵 프레임을 렌더링한다', () => {
+      const renderer = new QuestionRenderer();
+      const ctx = createMockCtx();
+      const mockBoard = createMockImage(800, 300);
+      const mockDefault = createMockImage(400, 150);
+      const mockHover = createMockImage(400, 150);
+      const mockSelected = createMockImage(400, 150);
+
+      const getImageSpy = vi.spyOn(imageLoader, 'get').mockImplementation((cat: string, key: string) => {
+        if (cat === 'question') {
+          if (key === 'questionBoardBg') return mockBoard;
+          if (key === 'answerBtnDefault') return mockDefault;
+          if (key === 'answerBtnHover') return mockHover;
+          if (key === 'answerBtnSelected') return mockSelected;
+        }
+        return null;
+      });
+
+      const state: QuestionRenderState = {
+        question: mockQuestion,
+        questionVisible: true,
+        activeHoverIndex: 0,
+        selectedChoiceIndex: 1,
+      };
+
+      renderer.render(ctx, 1080, 2160, state);
+
+      const drawCalls = (ctx.drawImage as any).mock.calls;
+      expect(drawCalls.length).toBeGreaterThanOrEqual(3);
+
+      expect(drawCalls.some((c: any) => c[0] === mockBoard)).toBe(true);
+      expect(drawCalls.some((c: any) => c[0] === mockHover)).toBe(true);
+      expect(drawCalls.some((c: any) => c[0] === mockSelected)).toBe(true);
+
+      getImageSpy.mockRestore();
+    });
+
+    it('이미지 에셋이 로드되지 않았을 때(null) 프로시저럴 드로잉으로 100% 정상 폴백한다', () => {
+      const renderer = new QuestionRenderer();
+      const ctx = createMockCtx();
+
+      const getImageSpy = vi.spyOn(imageLoader, 'get').mockReturnValue(null);
+
+      const state: QuestionRenderState = {
+        question: mockQuestion,
+        questionVisible: true,
+        activeHoverIndex: 0,
+        selectedChoiceIndex: null,
+      };
+
+      renderer.render(ctx, 1080, 2160, state);
+
+      expect(ctx.drawImage).not.toHaveBeenCalled();
+      expect(ctx.fill).toHaveBeenCalled();
+      expect(ctx.stroke).toHaveBeenCalled();
+
+      getImageSpy.mockRestore();
     });
   });
 });
