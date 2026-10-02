@@ -308,7 +308,8 @@ export class PauseModal {
       ctx.save();
 
       const btnKey = action === 'resume' ? 'resumeBtn' : 'quitBtn';
-      const btnImg = imageLoader.get('pause', btnKey);
+      const modalBtnKey = action === 'resume' ? 'btnResume' : 'btnQuit';
+      const btnImg = imageLoader.get('modal', modalBtnKey) ?? imageLoader.get('pause', btnKey);
 
       if (btnImg) {
         if (isHovered) {

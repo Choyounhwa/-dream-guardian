@@ -407,7 +407,7 @@ export class SettingsModal {
 
     // 4. 닫기 버튼
     const closeBtn = this.getButtonLayout('close', w, h);
-    const closeIconImg = imageLoader.get('settings', 'closeIcon');
+    const closeIconImg = imageLoader.get('modal', 'btnCloseX') ?? imageLoader.get('settings', 'closeIcon');
     if (closeIconImg) {
       ctx.drawImage(closeIconImg, closeBtn.x, closeBtn.y, closeBtn.w, closeBtn.h);
     } else {
@@ -435,7 +435,8 @@ export class SettingsModal {
       btn: ModalButtonSlot,
       title: string,
       statusText: string,
-      isActive: boolean
+      isActive: boolean,
+      iconKey?: string,
     ) => {
       ctx.fillStyle = isActive ? 'rgba(40, 230, 255, 0.15)' : 'rgba(255, 255, 255, 0.05)';
       ctx.strokeStyle = isActive ? '#28E6FF' : 'rgba(255, 255, 255, 0.2)';
@@ -449,12 +450,26 @@ export class SettingsModal {
       ctx.fill();
       ctx.stroke();
 
+      // 옵션 아이콘 비트맵 우선 드로잉
+      const iconImg = iconKey
+        ? (imageLoader.get('modal', iconKey) ?? imageLoader.get('settings', iconKey))
+        : null;
+
+      let textStartX = btn.x + 36 * scaleX;
+      if (iconImg) {
+        const iconSize = Math.min(btn.h * 0.7, 44 * scaleX);
+        const iconX = btn.x + 24 * scaleX;
+        const iconY = btn.y + (btn.h - iconSize) / 2;
+        ctx.drawImage(iconImg, iconX, iconY, iconSize, iconSize);
+        textStartX = iconX + iconSize + 14 * scaleX;
+      }
+
       // 옵션 명
       ctx.font = UIText.getFont('body', scaleX, 'bold');
       ctx.fillStyle = '#FFFFFF';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(title, btn.x + 36 * scaleX, btn.y + btn.h / 2);
+      ctx.fillText(title, textStartX, btn.y + btn.h / 2);
 
       // 상태 태그 또는 토글 버튼 이미지 (이미지 우선 분기)
       const isToggleState = statusText === 'ON' || statusText === 'OFF';
@@ -482,7 +497,8 @@ export class SettingsModal {
       this.getButtonLayout('camera', w, h),
       '📷 카메라',
       this._cameraEnabled ? 'ON' : 'OFF',
-      this._cameraEnabled
+      this._cameraEnabled,
+      'iconCamera',
     );
 
     // 전체화면 버튼
@@ -491,7 +507,8 @@ export class SettingsModal {
       this.getButtonLayout('fullscreen', w, h),
       '⛶ 전체화면',
       isFull ? 'ON' : 'OFF',
-      isFull
+      isFull,
+      'iconFullscreen',
     );
 
     // 스켈레톤 본(웹캠 선/점) 표시 버튼 (Issue #280)
@@ -499,7 +516,8 @@ export class SettingsModal {
       this.getButtonLayout('skeleton', w, h),
       '🦴 스켈레톤 본',
       this._skeletonEnabled ? 'ON' : 'OFF',
-      this._skeletonEnabled
+      this._skeletonEnabled,
+      'iconSkeleton',
     );
 
     // 사운드 버튼
@@ -507,7 +525,8 @@ export class SettingsModal {
       this.getButtonLayout('sound', w, h),
       '🔊 사운드 효과음',
       this._soundEnabled ? 'ON' : 'OFF',
-      this._soundEnabled
+      this._soundEnabled,
+      'iconSound',
     );
 
     // 운동 방식 선택 버튼

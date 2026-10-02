@@ -18,6 +18,7 @@ function createMockCtx(): CanvasRenderingContext2D {
     strokeRect: vi.fn(),
     roundRect: vi.fn(),
     measureText: vi.fn((text: string) => ({ width: text.length * 16 })),
+    drawImage: vi.fn(),
     createLinearGradient: vi.fn(() => ({
       addColorStop: vi.fn(),
     })),
@@ -228,6 +229,90 @@ describe('DialogueOverlayRenderer (Issue #219 / STORY-RENDER-001)', () => {
       expect(panelH).toBeLessThanOrEqual(200);
       // 너비는 화면의 80% 이상
       expect(panelW).toBeGreaterThan(800);
+    });
+  });
+
+  describe('7. 비트맵 에셋 연동 및 무중단 절차적 폴백 (Issue #293 / UI-ASSET-012)', () => {
+    it('대사창 패널 및 화자 엠블럼 에셋 파일이 public 경로에 존재하고 올바른 규격(PNG)이다', async () => {
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const baseDir = path.resolve(process.cwd(), 'public/assets/ui/dialogue');
+
+      const expectedFiles = [
+        { file: 'dialogue_box_bg.png', w: 960, h: 140 },
+        { file: 'speaker_badge_kkebi.png', w: 80, h: 80 },
+        { file: 'speaker_badge_boss.png', w: 80, h: 80 },
+      ];
+
+      for (const item of expectedFiles) {
+        const filePath = path.join(baseDir, item.file);
+        expect(fs.existsSync(filePath), `에셋 파일 부재: ${item.file}`).toBe(true);
+        const buf = fs.readFileSync(filePath);
+        expect(buf[0]).toBe(0x89);
+        expect(buf[1]).toBe(0x50);
+        expect(buf[2]).toBe(0x4E);
+        expect(buf[3]).toBe(0x47);
+        const width = buf.readUInt32BE(16);
+        const height = buf.readUInt32BE(20);
+        expect(width).toBe(item.w);
+        expect(height).toBe(item.h);
+      }
+    });
+
+    it('UI_IMAGE_ASSETS.dialogue 설정에 대사창 에셋 슬롯이 등록되어 있다', async () => {
+      const { UI_IMAGE_ASSETS } = await import('../../config/ui.config.js');
+      expect((UI_IMAGE_ASSETS as any).dialogue).toBeDefined();
+      expect((UI_IMAGE_ASSETS as any).dialogue.boxBg).toBe('/assets/ui/dialogue/dialogue_box_bg.png');
+      expect((UI_IMAGE_ASSETS as any).dialogue.badgeKkebi).toBe('/assets/ui/dialogue/speaker_badge_kkebi.png');
+      expect((UI_IMAGE_ASSETS as any).dialogue.badgeBoss).toBe('/assets/ui/dialogue/speaker_badge_boss.png');
+    });
+
+    it('이미지 로더에 에셋이 준비되어 있을 때 drawImage로 비트맵을 우선 렌더링한다', async () => {
+      const { imageLoader } = await import('../../src/utils/UIImageLoader.js');
+      const mockBox = { src: 'box.png', width: 960, height: 140 } as HTMLImageElement;
+      const mockKkebi = { src: 'kkebi.png', width: 80, height: 80 } as HTMLImageElement;
+
+      vi.spyOn(imageLoader, 'get').mockImplementation((cat: string, key: string) => {
+        if (cat === 'dialogue' && key === 'boxBg') return mockBox;
+        if (cat === 'dialogue' && key === 'badgeKkebi') return mockKkebi;
+        return null;
+      });
+
+      renderer.showDialogue('kkebi', '비트맵 렌더링 테스트');
+      renderer.update(0.1);
+      renderer.render(ctx, 1080, 2160);
+
+      expect(ctx.drawImage).toHaveBeenCalledWith(
+        mockBox,
+        expect.any(Number),
+        expect.any(Number),
+        expect.any(Number),
+        expect.any(Number),
+      );
+      expect(ctx.drawImage).toHaveBeenCalledWith(
+        mockKkebi,
+        expect.any(Number),
+        expect.any(Number),
+        expect.any(Number),
+        expect.any(Number),
+      );
+
+      vi.restoreAllMocks();
+    });
+
+    it('이미지가 없을 때는 100% Canvas 절차적 드로잉(roundRect/fill/stroke)으로 안전 폴백한다', async () => {
+      const { imageLoader } = await import('../../src/utils/UIImageLoader.js');
+      vi.spyOn(imageLoader, 'get').mockReturnValue(null);
+
+      renderer.showDialogue('boss', '절차적 폴백 테스트');
+      renderer.update(0.1);
+      renderer.render(ctx, 1080, 2160);
+
+      expect(ctx.roundRect).toHaveBeenCalled();
+      expect(ctx.fill).toHaveBeenCalled();
+      expect(ctx.stroke).toHaveBeenCalled();
+
+      vi.restoreAllMocks();
     });
   });
 });

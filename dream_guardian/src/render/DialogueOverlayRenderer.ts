@@ -17,6 +17,7 @@
 
 import type { DialogueLine, Speaker } from '../types/story.js';
 import { UIText } from '../utils/UIText.js';
+import { imageLoader } from '../utils/UIImageLoader.js';
 
 export interface DialogueOverlayOptions {
   /** 1080p 가상 좌표 기준 기본 Y 위치 (기본값: 160) */
@@ -277,23 +278,28 @@ export class DialogueOverlayRenderer {
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1, this._alpha));
 
-    // 1. 고대비 다크 배경 패널 드로잉
-    ctx.beginPath();
-    if (typeof ctx.roundRect === 'function') {
-      ctx.roundRect(panelX, panelY, panelW, panelH, cornerRadius);
+    // 1. 고대비 다크 배경 패널 드로잉 (비트맵 우선 렌더링 및 절차적 폴백)
+    const panelBgImg = imageLoader.get('dialogue', 'boxBg');
+    if (panelBgImg) {
+      ctx.drawImage(panelBgImg, panelX, panelY, panelW, panelH);
     } else {
-      ctx.rect(panelX, panelY, panelW, panelH);
-    }
-    ctx.fillStyle = 'rgba(10, 15, 30, 0.90)';
-    ctx.fill();
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(panelX, panelY, panelW, panelH, cornerRadius);
+      } else {
+        ctx.rect(panelX, panelY, panelW, panelH);
+      }
+      ctx.fillStyle = 'rgba(10, 15, 30, 0.90)';
+      ctx.fill();
 
-    // 2. 네온 테두리 및 글로우 이펙트
-    ctx.shadowColor = theme.glowColor;
-    ctx.shadowBlur = 12 * scaleX;
-    ctx.strokeStyle = theme.borderColor;
-    ctx.lineWidth = 2.5 * scaleX;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+      // 2. 네온 테두리 및 글로우 이펙트
+      ctx.shadowColor = theme.glowColor;
+      ctx.shadowBlur = 12 * scaleX;
+      ctx.strokeStyle = theme.borderColor;
+      ctx.lineWidth = 2.5 * scaleX;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
 
     // 3. 좌측 화자 아바타 / 아이콘 영역 드로잉
     const avatarW = 60 * scaleX;
@@ -344,7 +350,15 @@ export class DialogueOverlayRenderer {
     h: number,
     scaleX: number,
   ): void {
-    // 배경 원형 뱃지
+    // 화자 엠블럼 비트맵 우선 렌더링
+    const badgeKey = speaker === 'kkebi' ? 'badgeKkebi' : speaker === 'boss' ? 'badgeBoss' : null;
+    const badgeImg = badgeKey ? imageLoader.get('dialogue', badgeKey) : null;
+    if (badgeImg) {
+      ctx.drawImage(badgeImg, x, y, w, h);
+      return;
+    }
+
+    // 절차적 드로잉 폴백: 배경 원형 뱃지
     const cx = x + w / 2;
     const cy = y + h / 2;
     const r = Math.min(w, h) / 2;

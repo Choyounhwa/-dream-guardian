@@ -5102,7 +5102,7 @@ BEAT-SPEC-001
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/293
 - **Labels**: `feature`, `phase-6`, `P2-medium`
 - **작업 ID**: `[UI-ASSET-012]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (TDD 통과)**
 - **목적**:
   - `DialogueOverlayRenderer`의 화자별 대사창 배경 박스 및 `SettingsModal` / `PauseModal` 내 조작 버튼(재개/종료/닫기)과 기능별 아이콘(카메라, 스피커, 스켈레톤, 전체화면)을 PNG 이미지 에셋으로 교체하여, 모달 및 컷신 렌더링 시 발생하는 다중 외곽선/글로우 연산을 최소화한다.
 - **수정 대상**:
@@ -5115,7 +5115,7 @@ BEAT-SPEC-001
   - `dream_guardian/tests/unit/settings-modal.test.ts`
 - **구현 내용**:
   1. **임시 이미지 에셋 제작 및 배치**:
-     - `scripts/generate-dialogue-modal-assets.js`를 통해 유효한 임시 PNG 9종 생성:
+     - `scripts/generate-dialogue-modal-assets.js`를 통해 유효한 임시 PNG 10종 생성:
        - `public/assets/ui/dialogue/dialogue_box_bg.png` (960x140 대사창 패널)
        - `public/assets/ui/dialogue/speaker_badge_kkebi.png`, `speaker_badge_boss.png` (80x80 화자 엠블럼)
        - `public/assets/ui/modal/btn_resume.png`, `btn_quit.png` (680x130 네온 액션 버튼)
@@ -5128,11 +5128,11 @@ BEAT-SPEC-001
   4. **무중단 폴백(Fallback) 100% 보장**:
      - 에셋 파일이 없거나 로드 전/로드 실패 상태에서는 기존 Canvas 프로시저럴 드로잉 코드가 100% 정상 작동하여 게임이 중단되지 않음
 - **완료 조건**:
-  - [ ] 대사창 패널 및 모달 버튼/아이콘 9종 임시 PNG 에셋 생성 및 배치
-  - [ ] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
-  - [ ] 대사창 및 모달 2종에서 비트맵 기반 렌더링 동작
-  - [ ] 에셋 부재/로드 실패 시 기존 프로시저럴 드로잉 100% 폴백 동작 검증
-  - [ ] 단위 테스트 통과 및 `npm run build` 성공
+  - [x] 대사창 패널 및 모달 버튼/아이콘 임시 PNG 에셋 10종 생성 및 배치
+  - [x] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
+  - [x] 대사창 및 모달 2종에서 비트맵 기반 렌더링 동작
+  - [x] 에셋 부재/로드 실패 시 기존 프로시저럴 드로잉 100% 폴백 동작 검증
+  - [x] 단위 테스트 통과 및 `npm run build` 성공
 
 ---
 

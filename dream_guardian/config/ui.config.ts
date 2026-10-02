@@ -284,6 +284,8 @@ export interface UIImageAssetsConfig {
   guardian: Record<string, string | null>;
   bg: Record<string, string | null>;
   question?: Record<string, string | null>;
+  dialogue?: Record<string, string | null>;
+  modal?: Record<string, string | null>;
 }
 
 export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
@@ -399,5 +401,19 @@ export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
     ch3: '/assets/bg/ch3_bg.png',
     ch4: '/assets/bg/ch4_bg.png',
     ch5: '/assets/bg/ch5_bg.png',
+  },
+  dialogue: {
+    boxBg: '/assets/ui/dialogue/dialogue_box_bg.png',
+    badgeKkebi: '/assets/ui/dialogue/speaker_badge_kkebi.png',
+    badgeBoss: '/assets/ui/dialogue/speaker_badge_boss.png',
+  },
+  modal: {
+    btnResume: '/assets/ui/modal/btn_resume.png',
+    btnQuit: '/assets/ui/modal/btn_quit.png',
+    btnCloseX: '/assets/ui/modal/btn_close_x.png',
+    iconCamera: '/assets/ui/modal/icon_camera.png',
+    iconSound: '/assets/ui/modal/icon_sound.png',
+    iconSkeleton: '/assets/ui/modal/icon_skeleton.png',
+    iconFullscreen: '/assets/ui/modal/icon_fullscreen.png',
   },
 };
