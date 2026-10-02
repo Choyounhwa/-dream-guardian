@@ -161,8 +161,8 @@
 | 43 | **#297** | [REFACTOR-GEOM-001] 모션·포즈 공통 기하학 유틸리티(PoseGeometry) 신설 및 ArmReachAnswerSelector 연동 | 없음 | `[✔] 완료` |
 | 44 | **#298** | [REFACTOR-GEOM-002] 포즈 매처 및 커서 트래커 공통 기하학 유틸리티(PoseGeometry) 2차 연동 | #297 | `[✔] 완료` |
 | 45 | **#299** | [REFACTOR-FX-001] EffectManager 비주얼 이펙트 서브모듈 분리 (CombatVFX & ScreenFX) | 없음 | `[✔] 완료` |
-| 46 | **#300** | [REFACTOR-CORE-001] 런타임 게임 세션 컨텍스트 구조화 (GameSessionContext) | 없음 | `[▶ NEXT]` |
-| 47 | **#301** | [REFACTOR-MAIN-001] 메인 게임 루프 씬 디렉터 분리 (SceneDirector) | #300 | `[ ] 대기` |
+| 46 | **#300** | [REFACTOR-CORE-001] 런타임 게임 세션 컨텍스트 구조화 (GameSessionContext) | 없음 | `[✔] 완료` |
+| 47 | **#301** | [REFACTOR-MAIN-001] 메인 게임 루프 씬 디렉터 분리 (SceneDirector) | #300 | `[▶ NEXT]` |
 | 48 | **#302** | [REFACTOR-MAIN-002] 메인 앱 부트스트랩 및 이벤트 리스너 분리 (AppBootstrap) | #301 | `[ ] 대기` |
 
 
@@ -193,8 +193,26 @@
                          ↓
 [그리드 개선]   #294 (완료) → #295 (완료) (원근 그리드 두께 증가, 세로선 2-Pass 글로우, 메트로놈 비트 플래시)
                          ↓
-[시스템 리팩토링] #297 (완료) → #298 (완료) → #299 (완료) → #300 [▶ NEXT] (런타임 게임 세션 컨텍스트 구조화: GameSessionContext)
+[시스템 리팩토링] #297 (완료) → #298 (완료) → #299 (완료) → #300 (완료) → #301 [▶ NEXT] (메인 게임 루프 씬 디렉터 분리: SceneDirector)
 ```
+
+---
+
+## 2026-10-03 완료: [REFACTOR-CORE-001 / #300] 런타임 게임 세션 컨텍스트 구조화 (GameSessionContext)
+
+> #300 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (153개 파일 1,953개 테스트 통과, build 성공).
+> - **GameSessionContext 신설 (`src/core/GameSessionContext.ts`)**:
+>   - 세션 메타데이터 (`chapterId`, `difficulty`, `gameMode`, `score`, `elapsedTime`, `phase`) 캡슐화
+>   - 신체/플레이 지표 (`totalSteps`, `totalJumps`, `totalDwellTime`, `combo`, `consecutiveWrongCount`) 관리
+>   - 시스템 및 컨트롤러 동적 레지스트리 (`registerSystem`, `getSystem`, `registerController`, `getController`)
+>   - 세션 생명주기 통일 (`resetSession`, `startChapter`, `update(dt)`)
+>   - 헬퍼 질의 메서드 (`isBossDefeated`, `isPlayerDefeated`, `isEnraged`)
+> - **코어 타입 정의 (`src/core/types.ts`)**:
+>   - `SessionMetadata`, `SessionMetrics`, `CoreSystems`, `GameControllers`, `GameSessionContextOptions` 등 정의
+> - **코어 엔트리포인트 내보내기 (`src/core/index.ts`)**:
+>   - `GameSessionContext` 및 타입 export 추가
+> - **단위 테스트 (`tests/unit/game-session-context.test.ts`)**:
+>   - 14개 테스트 케이스 작성 및 100% Pass 확인
 
 ---
 

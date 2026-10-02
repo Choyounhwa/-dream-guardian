@@ -6,4 +6,15 @@ export { StateMachine } from './StateMachine.js';
 export { RhythmEngine } from './RhythmEngine.js';
 export type { BeatEvent, RhythmEngineOptions } from './RhythmEngine.js';
 export { SessionLifecycle } from './SessionLifecycle.js';
+export { GameSessionContext } from './GameSessionContext.js';
+export type {
+  GameDifficulty,
+  GameMode,
+  SessionPhase,
+  SessionMetadata,
+  SessionMetrics,
+  CoreSystems,
+  GameControllers,
+  GameSessionContextOptions,
+} from './types.js';
 
