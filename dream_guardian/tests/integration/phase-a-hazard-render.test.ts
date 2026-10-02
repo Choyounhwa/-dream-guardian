@@ -182,4 +182,72 @@ describe('Phase A Hazard Evade Render Integration (Issue #228 - RENDER-HAZARD-00
       expect(textCalls.some((txt) => txt.includes('25'))).toBe(true);
     });
   });
+
+  describe('4. 실시간 회피 상태 인디케이터 및 대형 DODGE/HIT 배너 (Issue #286 - RENDER-HAZARD-002)', () => {
+    it('회피 동작 미감지(isCurrentlySafe=false) 시 [위험] 장판이 다가옵니다! 상태 배지를 표시한다', () => {
+      controller.start({ pattern: 'jump' });
+      controller.update(1.0);
+
+      adapter.renderHazardEvade(ctx, vw, vh, {
+        activePattern: controller.activePattern,
+        beatProgress: controller.beatProgress,
+        vanishingX: vx,
+        vanishingY: vy,
+        isCurrentlySafe: false,
+        isActionDetected: false,
+      });
+
+      const textCalls = vi.mocked(ctx.fillText).mock.calls.map((c) => String(c[0]));
+      expect(textCalls.some((txt) => txt.includes('[위험]') && txt.includes('장판이 다가옵니다'))).toBe(true);
+    });
+
+    it('유효 회피 동작 감지 중(isCurrentlySafe=true 또는 isActionDetected=true)일 때 [안전] 회피 자세 유지 중! 상태 배지를 표시한다', () => {
+      controller.start({ pattern: 'jump' });
+      controller.update(2.8);
+
+      adapter.renderHazardEvade(ctx, vw, vh, {
+        activePattern: controller.activePattern,
+        beatProgress: controller.beatProgress,
+        vanishingX: vx,
+        vanishingY: vy,
+        isCurrentlySafe: true,
+        isActionDetected: true,
+      });
+
+      const textCalls = vi.mocked(ctx.fillText).mock.calls.map((c) => String(c[0]));
+      expect(textCalls.some((txt) => txt.includes('[안전]') && txt.includes('회피 자세 유지 중'))).toBe(true);
+    });
+
+    it('회피 성공(isResolved=true, isEvaded=true) 판정 시 대형 DODGE! 배너 및 방패 충격파를 렌더링한다', () => {
+      adapter.renderHazardEvade(ctx, vw, vh, {
+        activePattern: 'jump',
+        beatProgress: 1.0,
+        vanishingX: vx,
+        vanishingY: vy,
+        isResolved: true,
+        isEvaded: true,
+      });
+
+      const textCalls = vi.mocked(ctx.fillText).mock.calls.map((c) => String(c[0]));
+      expect(textCalls.some((txt) => txt === 'DODGE!')).toBe(true);
+      // 충격파 타원 또는 원형 스트로크 확인
+      expect(ctx.ellipse).toHaveBeenCalled();
+    });
+
+    it('피격(isResolved=true, isEvaded=false) 판정 시 대형 HIT! (-25 HP) 배너 및 붉은색 플래시를 렌더링한다', () => {
+      adapter.renderHazardEvade(ctx, vw, vh, {
+        activePattern: 'jump',
+        beatProgress: 1.0,
+        vanishingX: vx,
+        vanishingY: vy,
+        isResolved: true,
+        isEvaded: false,
+      });
+
+      const textCalls = vi.mocked(ctx.fillText).mock.calls.map((c) => String(c[0]));
+      expect(textCalls.some((txt) => txt === 'HIT! (-25 HP)')).toBe(true);
+      // 붉은 플래시 fillRect 확인
+      expect(ctx.fillRect).toHaveBeenCalled();
+    });
+  });
 });

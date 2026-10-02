@@ -1891,6 +1891,10 @@ const engine = new GameEngine({
         );
         presentationAdapter.renderAnswerFeedback(ctx, vw, vh, answerFeedback);
       } else if (presentationAdapter.canRenderHazardEvade(stateMachine.currentState)) {
+        const isActionSafe =
+          phaseAHazardController.isEvaded ||
+          (phaseAHazardController.performedAction !== null &&
+            phaseAHazardController.performedAction === phaseAHazardController.activePattern);
         presentationAdapter.renderHazardEvade(ctx, vw, vh, {
           activePattern: phaseAHazardController.activePattern,
           beatProgress: phaseAHazardController.beatProgress,
@@ -1899,6 +1903,8 @@ const engine = new GameEngine({
           isEvaded: phaseAHazardController.isEvaded,
           isResolved: phaseAHazardController.isResolved,
           performedAction: phaseAHazardController.performedAction,
+          isActionDetected: isActionSafe,
+          isCurrentlySafe: isActionSafe,
         });
       } else if (presentationAdapter.canRenderReadyPosition(stateMachine.currentState)) {
         readyPositionRenderer.render(

@@ -37,6 +37,15 @@ export class HazardZoneRenderer {
   }
 
   /**
+   * 박자 진행도(beatProgress: 0.0 ~ 1.0)에 동기화되어 전경 위험 발판 지점으로 수축하는 배율 계산
+   * - 진행도 0.0일 때 발판 반경의 2.5배 -> 1.0 도달 시 정확히 1.0배로 수축 (Issue #286)
+   */
+  computeTimingRingScale(progress: number): number {
+    const p = Math.max(0, Math.min(1.0, progress));
+    return 2.5 - 1.5 * p;
+  }
+
+  /**
    * 3D 원근 바닥 장판 렌더링
    */
   render(
@@ -74,7 +83,108 @@ export class HazardZoneRenderer {
         break;
     }
 
+    // Issue #286: 전경 발판 수축 타이밍 서클 및 임팩트 직전 가이드 렌더링
+    if (!state.isResolved) {
+      this._renderTimingCircle(ctx, vw, vh, vx, vy, floorH, state.activePattern, p);
+    }
+
     ctx.restore();
+  }
+
+  /**
+   * 바닥 발판 수축 타이밍 서클(Timing Circle) 및 타이밍 유도 가이드 렌더링 (Issue #286)
+   */
+  private _renderTimingCircle(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    _vh: number,
+    vx: number,
+    vy: number,
+    floorH: number,
+    pattern: PhaseAHazardPattern,
+    progress: number,
+  ): void {
+    const targetY = vy + floorH * 0.92;
+    let targetX = vx;
+    let baseRx = vw * 0.40;
+    let baseRy = baseRx * 0.26;
+    let guideText = '지금 점프!';
+
+    switch (pattern) {
+      case 'jump':
+        targetX = vx;
+        baseRx = vw * 0.40;
+        baseRy = baseRx * 0.26;
+        guideText = '지금 점프!';
+        break;
+      case 'left_step':
+        targetX = laneToScreenX(vx, -vw * 0.35, 1.0);
+        baseRx = vw * 0.16;
+        baseRy = baseRx * 0.30;
+        guideText = '지금 스텝!';
+        break;
+      case 'right_step':
+        targetX = laneToScreenX(vx, vw * 0.35, 1.0);
+        baseRx = vw * 0.16;
+        baseRy = baseRx * 0.30;
+        guideText = '지금 스텝!';
+        break;
+      case 'balance_left':
+        // 안전 구역: 좌측(-0.35), 위험 구역: 우측(0.35)
+        targetX = laneToScreenX(vx, vw * 0.35, 1.0);
+        baseRx = vw * 0.18;
+        baseRy = baseRx * 0.28;
+        guideText = '지금 스텝!';
+        break;
+      case 'balance_right':
+        // 안전 구역: 우측(0.35), 위험 구역: 좌측(-0.35)
+        targetX = laneToScreenX(vx, -vw * 0.35, 1.0);
+        baseRx = vw * 0.18;
+        baseRy = baseRx * 0.28;
+        guideText = '지금 스텝!';
+        break;
+    }
+
+    const scale = this.computeTimingRingScale(progress);
+    const ringRx = baseRx * scale;
+    const ringRy = baseRy * scale;
+
+    const originalStrokeStyle = ctx.strokeStyle;
+    ctx.save();
+
+    // 1. 목표 전경 발판 베이스 가이드 타원
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.beginPath();
+    ctx.ellipse(targetX, targetY, baseRx, baseRy, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 2. 수축 타이밍 서클 (progress < 0.8: 황금빛 앰버, >= 0.8: 긴급 붉은색 펄스)
+    const isUrgent = progress >= 0.8;
+    ctx.lineWidth = isUrgent ? 7 : 4;
+    ctx.strokeStyle = isUrgent ? 'rgb(255, 68, 68)' : 'rgba(255, 203, 77, 0.85)';
+    ctx.shadowColor = isUrgent ? 'rgba(255, 68, 68, 0.95)' : 'rgba(255, 203, 77, 0.6)';
+    ctx.shadowBlur = isUrgent ? 26 : 14;
+
+    ctx.beginPath();
+    ctx.ellipse(targetX, targetY, ringRx, ringRy, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 3. 80%~100% 구간: 직관적 타이밍 유도 가이드 텍스트
+    if (isUrgent) {
+      ctx.font = 'bold 34px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#FF4444';
+      ctx.shadowColor = 'rgba(255, 68, 68, 0.9)';
+      ctx.shadowBlur = 18;
+      ctx.fillText(guideText, targetX, targetY - baseRy - 28);
+    }
+
+    ctx.restore();
+    if (originalStrokeStyle) {
+      ctx.strokeStyle = originalStrokeStyle;
+    }
   }
 
   /**

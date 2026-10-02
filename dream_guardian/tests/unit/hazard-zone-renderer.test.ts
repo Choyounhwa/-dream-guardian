@@ -232,4 +232,72 @@ describe('HazardZoneRenderer (Issue #228 - RENDER-HAZARD-001)', () => {
       expect(ctx.strokeStyle).toContain('255, 68, 68');
     });
   });
+
+  describe('5. 수축 타이밍 서클(Timing Circle) 및 타이밍 유도 가이드 (Issue #286 - RENDER-HAZARD-002)', () => {
+    it('computeTimingRingScale은 진행도 0.0일 때 2.5, 1.0일 때 1.0으로 단조 감소한다', () => {
+      expect(renderer.computeTimingRingScale(0.0)).toBeCloseTo(2.5, 5);
+      expect(renderer.computeTimingRingScale(1.0)).toBeCloseTo(1.0, 5);
+      expect(renderer.computeTimingRingScale(0.5)).toBeCloseTo(1.75, 5);
+      expect(renderer.computeTimingRingScale(-0.5)).toBeCloseTo(2.5, 5);
+      expect(renderer.computeTimingRingScale(1.5)).toBeCloseTo(1.0, 5);
+
+      // 단조 감소 확인
+      let prevScale = renderer.computeTimingRingScale(0.0);
+      for (let p = 0.1; p <= 1.0; p += 0.1) {
+        const curScale = renderer.computeTimingRingScale(p);
+        expect(curScale).toBeLessThan(prevScale);
+        prevScale = curScale;
+      }
+    });
+
+    it('beatProgress < 0.8일 때 타이밍 링을 드로잉하고 타이밍 가이드 텍스트는 드로잉하지 않는다', () => {
+      const state: HazardRenderState = {
+        activePattern: 'jump',
+        beatProgress: 0.5,
+        vanishingX: vx,
+        vanishingY: vy,
+      };
+
+      renderer.render(ctx, vw, vh, state);
+
+      expect(ctx.ellipse).toHaveBeenCalled();
+      const textCalls = vi.mocked(ctx.fillText).mock.calls.map((c) => String(c[0]));
+      expect(textCalls.some((txt) => txt.includes('지금 점프!'))).toBe(false);
+    });
+
+    it('beatProgress >= 0.8(임팩트 직전) 구간에서 붉은색 펄스 및 "지금 점프!" 가이드 텍스트를 렌더링한다', () => {
+      const state: HazardRenderState = {
+        activePattern: 'jump',
+        beatProgress: 0.85,
+        vanishingX: vx,
+        vanishingY: vy,
+      };
+
+      renderer.render(ctx, vw, vh, state);
+
+      const textCalls = vi.mocked(ctx.fillText).mock.calls.map((c) => String(c[0]));
+      expect(textCalls.some((txt) => txt.includes('지금 점프!'))).toBe(true);
+      // 붉은색 펄스 확인
+      expect(ctx.stroke).toHaveBeenCalled();
+    });
+
+    it('left_step/right_step 패턴에서 beatProgress >= 0.8일 때 "지금 스텝!" 가이드 텍스트를 렌더링한다', () => {
+      const patterns: PhaseAHazardPattern[] = ['left_step', 'right_step'];
+
+      for (const pattern of patterns) {
+        const mockCtx = createMockContext();
+        const state: HazardRenderState = {
+          activePattern: pattern,
+          beatProgress: 0.9,
+          vanishingX: vx,
+          vanishingY: vy,
+        };
+
+        renderer.render(mockCtx, vw, vh, state);
+
+        const textCalls = vi.mocked(mockCtx.fillText).mock.calls.map((c) => String(c[0]));
+        expect(textCalls.some((txt) => txt.includes('지금 스텝!'))).toBe(true);
+      }
+    });
+  });
 });
