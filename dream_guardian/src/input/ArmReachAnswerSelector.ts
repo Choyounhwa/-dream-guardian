@@ -76,6 +76,7 @@ export interface ArmEvaluationResult {
   armExtensionRatio: number;
   isInside: boolean;
   isDynamicReach: boolean;
+  isDirectionSatisfied?: boolean;
 }
 
 export interface ArmReachAnswerResult {
@@ -156,6 +157,9 @@ export class ArmReachAnswerSelector {
   private _lastTime: number | null = null;
   private _baseLeftWristX: number | null = null;
   private _baseRightWristX: number | null = null;
+  private _heldDirection: 0 | 1 | null = null;
+  private _heldHand: ArmHandType | null = null;
+  private _heldDuration = 0;
   private _intentBus: MotionIntentBus | null = null;
   private _intentBusUnsub: UnsubscribeFn | null = null;
   private _adaptiveTolerance?: AdaptiveToleranceTracker;
@@ -293,6 +297,18 @@ export class ArmReachAnswerSelector {
     return this._lastResult;
   }
 
+  get heldDirection(): 0 | 1 | null {
+    return this._heldDirection;
+  }
+
+  get heldDuration(): number {
+    return this._heldDuration;
+  }
+
+  get heldHand(): ArmHandType | null {
+    return this._heldHand;
+  }
+
   get state(): ArmReachAnswerState {
     const leftStatus = this._lastLeftEval
       ? {
@@ -399,6 +415,9 @@ export class ArmReachAnswerSelector {
     this._lastTime = null;
     this._baseLeftWristX = null;
     this._baseRightWristX = null;
+    this._heldDirection = null;
+    this._heldHand = null;
+    this._heldDuration = 0;
     this._cursorTracker.reset();
   }
 
@@ -614,7 +633,8 @@ export class ArmReachAnswerSelector {
       const minOutwardTravel = dirConfig.outwardTravelRatio * effectiveShoulderWidth;
       const isOutwardTraveled = outwardTravel >= minOutwardTravel;
 
-      const isValid = (isLeft || isRight) && isHorizontalDominant && isOutwardTraveled && !this._isJumpBlocked && pos.visibility >= hardMinVis;
+      const isDirectionSatisfied = (isLeft || isRight) && isHorizontalDominant && !this._isJumpBlocked && pos.visibility >= hardMinVis;
+      const isValid = isDirectionSatisfied && isOutwardTraveled;
 
       // Progress metrics
       const lateralProgress = Math.min(1.0, Math.max(0, Math.abs(lateral) / lateralThreshold));
@@ -652,6 +672,7 @@ export class ArmReachAnswerSelector {
         armExtensionRatio,
         isInside,
         isDynamicReach: Math.abs(vx) >= this._config.dynamicMinHorizontalSpeed,
+        isDirectionSatisfied,
       };
     }
 
@@ -842,35 +863,44 @@ export class ArmReachAnswerSelector {
     }
 
     const minVis = this._config.minVisibility;
+    const hardMinVis = this._judgmentConfig.hardMinVisibility;
 
-    // 4. 손 위치 추출: MediaPipe Hands palm 우선, 없으면 MediaPipe Pose 손목 사용
+    // 4. 손/팔 판정점 추출: 보이는 손목(palm/wrist) > 보이는 팔꿈치(elbow) > 실패 (#303)
     const lWristLM = landmarks[POSE_LANDMARKS.LEFT_WRIST];
     const rWristLM = landmarks[POSE_LANDMARKS.RIGHT_WRIST];
+    const lElbowLM = landmarks[POSE_LANDMARKS.LEFT_ELBOW];
+    const rElbowLM = landmarks[POSE_LANDMARKS.RIGHT_ELBOW];
 
     let leftPt: TrackedHandPoint;
-    if (palms?.leftPalm && (palms.leftPalm.confidence ?? 1) >= minVis) {
+    if (palms?.leftPalm && (palms.leftPalm.confidence ?? 1) >= hardMinVis) {
       const sp = this._toScreenPoint(palms.leftPalm);
       leftPt = { x: sp.x, y: sp.y, visibility: palms.leftPalm.confidence ?? 1 };
-    } else if (lWristLM) {
+    } else if (lWristLM && (lWristLM.visibility ?? 1) >= hardMinVis) {
       const sp = this._toScreenPoint(lWristLM);
       leftPt = { x: sp.x, y: sp.y, visibility: lWristLM.visibility ?? 1 };
+    } else if (lElbowLM && (lElbowLM.visibility ?? 1) >= hardMinVis) {
+      const sp = this._toScreenPoint(lElbowLM);
+      leftPt = { x: sp.x, y: sp.y, visibility: lElbowLM.visibility ?? 1 };
     } else {
       leftPt = { x: 0.5, y: 0.5, visibility: 0 };
     }
 
     let rightPt: TrackedHandPoint;
-    if (palms?.rightPalm && (palms.rightPalm.confidence ?? 1) >= minVis) {
+    if (palms?.rightPalm && (palms.rightPalm.confidence ?? 1) >= hardMinVis) {
       const sp = this._toScreenPoint(palms.rightPalm);
       rightPt = { x: sp.x, y: sp.y, visibility: palms.rightPalm.confidence ?? 1 };
-    } else if (rWristLM) {
+    } else if (rWristLM && (rWristLM.visibility ?? 1) >= hardMinVis) {
       const sp = this._toScreenPoint(rWristLM);
       rightPt = { x: sp.x, y: sp.y, visibility: rWristLM.visibility ?? 1 };
+    } else if (rElbowLM && (rElbowLM.visibility ?? 1) >= hardMinVis) {
+      const sp = this._toScreenPoint(rElbowLM);
+      rightPt = { x: sp.x, y: sp.y, visibility: rElbowLM.visibility ?? 1 };
     } else {
       rightPt = { x: 0.5, y: 0.5, visibility: 0 };
     }
 
     // 양손 모두 가시성 미달 시 추적 유실
-    if (leftPt.visibility < minVis && rightPt.visibility < minVis) {
+    if (leftPt.visibility < hardMinVis && rightPt.visibility < hardMinVis) {
       this._isTrackingLost = true;
       return null;
     }
@@ -973,6 +1003,9 @@ export class ArmReachAnswerSelector {
       // Issue #287: Strict Mutual Exclusion (양팔 동시 유효 및 반대 방향 차단)
       if (leftEval.isValid && rightEval.isValid) {
         this._isMutualExclusionBlocked = true;
+        this._heldDirection = null;
+        this._heldDuration = 0;
+        this._heldHand = null;
         return null;
       }
       if (
@@ -981,13 +1014,22 @@ export class ArmReachAnswerSelector {
         leftEval.answerIndex !== rightEval.answerIndex
       ) {
         this._isMutualExclusionBlocked = true;
+        this._heldDirection = null;
+        this._heldDuration = 0;
+        this._heldHand = null;
         return null;
       }
       if (leftEval.isValid && !rightEval.isValid) {
         if (rightEval.answerIndex !== null && rightEval.answerIndex !== leftEval.answerIndex) {
           this._isMutualExclusionBlocked = true;
+          this._heldDirection = null;
+          this._heldDuration = 0;
+          this._heldHand = null;
           return null;
         }
+        this._heldDirection = null;
+        this._heldDuration = 0;
+        this._heldHand = null;
         return this._confirmAnswer(
           leftEval.answerIndex!,
           leftEval.zoneId!,
@@ -1004,8 +1046,14 @@ export class ArmReachAnswerSelector {
       if (rightEval.isValid && !leftEval.isValid) {
         if (leftEval.answerIndex !== null && leftEval.answerIndex !== rightEval.answerIndex) {
           this._isMutualExclusionBlocked = true;
+          this._heldDirection = null;
+          this._heldDuration = 0;
+          this._heldHand = null;
           return null;
         }
+        this._heldDirection = null;
+        this._heldDuration = 0;
+        this._heldHand = null;
         return this._confirmAnswer(
           rightEval.answerIndex!,
           rightEval.zoneId!,
@@ -1019,6 +1067,94 @@ export class ArmReachAnswerSelector {
           rightEval.gates,
         );
       }
+
+      // 7-B. 사전 뻗기 1초 유지 (Hold) 판정 (#303 / INPUT-ARM-HOLD-001)
+      const leftSatisfied = leftEval.isDirectionSatisfied ?? false;
+      const rightSatisfied = rightEval.isDirectionSatisfied ?? false;
+
+      let candidateDir: 0 | 1 | null = null;
+      let candidateHand: ArmHandType | null = null;
+      let candidateEval: ArmEvaluationResult | null = null;
+      let candidatePt: TrackedHandPoint | null = null;
+
+      if (leftSatisfied && rightSatisfied) {
+        if (leftEval.answerIndex !== rightEval.answerIndex) {
+          // 상반된 양팔 방향 -> 상호배제 차단 및 타이머 리셋
+          this._isMutualExclusionBlocked = true;
+          this._heldDirection = null;
+          this._heldDuration = 0;
+          this._heldHand = null;
+          return null;
+        } else if (leftEval.answerIndex !== null) {
+          candidateDir = leftEval.answerIndex;
+          candidateHand = 'left';
+          candidateEval = leftEval;
+          candidatePt = leftPt;
+        }
+      } else if (leftSatisfied && !rightSatisfied) {
+        if (rightEval.answerIndex !== null && rightEval.answerIndex !== leftEval.answerIndex) {
+          this._isMutualExclusionBlocked = true;
+          this._heldDirection = null;
+          this._heldDuration = 0;
+          this._heldHand = null;
+          return null;
+        }
+        candidateDir = leftEval.answerIndex;
+        candidateHand = 'left';
+        candidateEval = leftEval;
+        candidatePt = leftPt;
+      } else if (rightSatisfied && !leftSatisfied) {
+        if (leftEval.answerIndex !== null && leftEval.answerIndex !== rightEval.answerIndex) {
+          this._isMutualExclusionBlocked = true;
+          this._heldDirection = null;
+          this._heldDuration = 0;
+          this._heldHand = null;
+          return null;
+        }
+        candidateDir = rightEval.answerIndex;
+        candidateHand = 'right';
+        candidateEval = rightEval;
+        candidatePt = rightPt;
+      }
+
+      if (candidateDir !== null && candidateHand !== null && candidateEval !== null && candidatePt !== null) {
+        if (this._heldDirection === candidateDir) {
+          this._heldDuration += dt;
+        } else {
+          this._heldDirection = candidateDir;
+          this._heldHand = candidateHand;
+          this._heldDuration = dt;
+        }
+
+        const dirConfig = this._judgmentConfig.direction ?? DEFAULT_ARM_DIRECTION_ANSWER_CONFIG;
+        const heldConfirmSec = dirConfig.heldReachConfirmSec ?? 1.0;
+
+        if (this._heldDuration >= (heldConfirmSec - 1e-4)) {
+          const zoneId: 4 | 5 = candidateDir === 0 ? 4 : 5;
+          const score = Math.max(this._judgmentConfig.confirmThreshold, candidateEval.score);
+          const res = this._confirmAnswer(
+            candidateDir,
+            zoneId,
+            candidateHand,
+            currentTime,
+            'motion',
+            { x: candidatePt.x, y: candidatePt.y },
+            { vx: candidateEval.vx, vy: candidateEval.vy },
+            candidateEval.isDynamicReach,
+            score,
+            candidateEval.gates,
+          );
+          this._heldDirection = null;
+          this._heldDuration = 0;
+          this._heldHand = null;
+          return res;
+        }
+      } else {
+        this._heldDirection = null;
+        this._heldDuration = 0;
+        this._heldHand = null;
+      }
+
       return null;
     }
 

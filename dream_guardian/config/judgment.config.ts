@@ -43,6 +43,8 @@ export interface ArmDirectionAnswerConfig {
   horizontalDominanceRatio: number;
   /** 창 개방 이후 바깥 방향 최소 이동 비율 (기본 0.18 * 어깨너비) */
   outwardTravelRatio: number;
+  /** 사전 뻗기 1초 유지 확정 시간 (초, 기본 1.0) */
+  heldReachConfirmSec: number;
   /** 답안 선택 유효 창 비트 수 (기본 2박, 최대 1.0초 @ BPM 120) */
   answerSelectBeats: number;
 }
@@ -51,6 +53,7 @@ export const DEFAULT_ARM_DIRECTION_ANSWER_CONFIG: ArmDirectionAnswerConfig = {
   lateralThreshold: 0.55,
   horizontalDominanceRatio: 1.6,
   outwardTravelRatio: 0.18,
+  heldReachConfirmSec: 1.0,
   answerSelectBeats: 2,
 };
 

@@ -15,6 +15,8 @@ import { POSE_LANDMARKS, type NormalizedLandmark } from '../../src/types/index.j
 function createMockPose(options: {
   leftWrist?: { x: number; y: number; visibility?: number };
   rightWrist?: { x: number; y: number; visibility?: number };
+  leftElbow?: { x: number; y: number; visibility?: number };
+  rightElbow?: { x: number; y: number; visibility?: number };
   leftShoulder?: { x: number; y: number; visibility?: number };
   rightShoulder?: { x: number; y: number; visibility?: number };
   leftHip?: { x: number; y: number; visibility?: number };
@@ -40,6 +42,20 @@ function createMockPose(options: {
     y: options.rightShoulder?.y ?? 0.35,
     z: 0,
     visibility: options.rightShoulder?.visibility ?? 0.9,
+  };
+
+  // Elbows (기본 몸통 부근 x 0.45 / 0.55, y 0.48)
+  landmarks[POSE_LANDMARKS.LEFT_ELBOW] = {
+    x: options.leftElbow?.x ?? 0.45,
+    y: options.leftElbow?.y ?? 0.48,
+    z: 0,
+    visibility: options.leftElbow?.visibility ?? 0.9,
+  };
+  landmarks[POSE_LANDMARKS.RIGHT_ELBOW] = {
+    x: options.rightElbow?.x ?? 0.55,
+    y: options.rightElbow?.y ?? 0.48,
+    z: 0,
+    visibility: options.rightElbow?.visibility ?? 0.9,
   };
 
   // Wrists (기본 차려 자세: 몸통 부근 x 0.40 / 0.60, y 0.60)
@@ -487,6 +503,176 @@ describe('ArmReachAnswerSelector (Issue #287 / INPUT-ARM-DIRECTION-001)', () => 
       expect(res?.answerIndex).toBe(0);
       expect(res?.zoneId).toBe(4);
       expect(mirroredSelector.isConfirmed).toBe(true);
+    });
+  });
+
+  describe('11. Issue #303 [INPUT-ARM-HOLD-001] 사전 뻗기 1초 유지 인정 (Hold)', () => {
+    it('창 개방 시점에 이미 뻗어 있는 팔은 즉시 확정되지 않고(0초), 1.0초 유지 시 확정된다', () => {
+      // Frame 1: 답안 창 시작 시점에 이미 x=0.17 위치에 존재 (lateral = 1.15 >= 0.55)
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.17, y: 0.35, visibility: 0.95 },
+      });
+      const res1 = selector.update(0.0, pose1);
+      expect(res1).toBeNull();
+      expect(selector.isConfirmed).toBe(false);
+
+      // Frame 2: 0.5초 경과 (1.0초 미만이므로 미확정)
+      const res2 = selector.update(0.5, pose1);
+      expect(res2).toBeNull();
+      expect(selector.isConfirmed).toBe(false);
+
+      // Frame 3: 1.0초 경과 (1.0초 유지 달성으로 1회 확정)
+      const res3 = selector.update(1.0, pose1);
+      expect(res3).not.toBeNull();
+      expect(res3?.answerIndex).toBe(0);
+      expect(res3?.zoneId).toBe(4);
+      expect(selector.isConfirmed).toBe(true);
+
+      // Frame 4: 이후 추가 호출 시 번복이나 재트리거 없음
+      const res4 = selector.update(1.1, pose1);
+      expect(res4).toBeNull();
+    });
+
+    it('1.0초 미만 유지 후 팔을 내리면 확정되지 않고 유지 타이머가 리셋된다', () => {
+      const poseReaching = createMockPose({
+        leftWrist: { x: 0.17, y: 0.35, visibility: 0.95 },
+      });
+      selector.update(0.0, poseReaching);
+      selector.update(0.6, poseReaching);
+      expect(selector.isConfirmed).toBe(false);
+
+      // 0.7초 시점에 팔을 내림 (차려 자세: x=0.40)
+      const poseResting = createMockPose({
+        leftWrist: { x: 0.40, y: 0.60, visibility: 0.95 },
+      });
+      const resDrop = selector.update(0.7, poseResting);
+      expect(resDrop).toBeNull();
+      expect(selector.isConfirmed).toBe(false);
+
+      // 1.2초 시점까지 내려진 상태 유지 -> 미확정 유지
+      const resAfter = selector.update(1.2, poseResting);
+      expect(resAfter).toBeNull();
+      expect(selector.isConfirmed).toBe(false);
+    });
+
+    it('유지 도중 반대 방향으로 전환하면 타이머가 리셋되어 새 방향에서 다시 1.0초를 채워야 한다', () => {
+      const poseLeft = createMockPose({
+        leftWrist: { x: 0.17, y: 0.35, visibility: 0.95 },
+        rightWrist: { x: 0.85, y: 0.35, visibility: 0.1 },
+        rightElbow: { x: 0.85, y: 0.35, visibility: 0.1 },
+      });
+      selector.update(0.0, poseLeft);
+      selector.update(0.8, poseLeft);
+      expect(selector.isConfirmed).toBe(false);
+
+      // 0.9초 시점에 우측으로 전환 (우측 뻗은 상태로 나타남 x=0.85, baseRightWristX=0.85 기록되어 outwardTravel=0)
+      const poseRight = createMockPose({
+        leftWrist: { x: 0.40, y: 0.60, visibility: 0.95 },
+        rightWrist: { x: 0.85, y: 0.35, visibility: 0.95 },
+      });
+      const resSwitch = selector.update(0.9, poseRight);
+      expect(resSwitch).toBeNull();
+      expect(selector.isConfirmed).toBe(false);
+
+      // 우측 전환 후 0.6초 경과 (합계 1.5초 시점 -> 우측 유지 시간 0.6초 < 1.0초)
+      const resMid = selector.update(1.5, poseRight);
+      expect(resMid).toBeNull();
+      expect(selector.isConfirmed).toBe(false);
+
+      // 우측 전환 후 1.0초 경과 (1.9초 시점 -> 우측 유지 1.0초 달성)
+      const resFinal = selector.update(1.9, poseRight);
+      expect(resFinal).not.toBeNull();
+      expect(resFinal?.answerIndex).toBe(1);
+      expect(resFinal?.zoneId).toBe(5);
+      expect(selector.isConfirmed).toBe(true);
+    });
+
+    it('창 개방 후 바깥으로 새로 뻗는 경우(outwardTravel 충족)는 1초를 기다리지 않고 즉시 확정된다', () => {
+      // Frame 1: 시작 시점 손 위치 x=0.40 (차려자세/몸통)
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.40, y: 0.35, visibility: 0.95 },
+      });
+      selector.update(0.0, pose1);
+
+      // Frame 2: 0.1초 후 바깥으로 뻗음 (x=0.17, outwardTravel = 0.23 >= 0.036)
+      const pose2 = createMockPose({
+        leftWrist: { x: 0.17, y: 0.35, visibility: 0.95 },
+      });
+      const res = selector.update(0.1, pose2);
+      expect(res).not.toBeNull();
+      expect(res?.answerIndex).toBe(0);
+      expect(selector.isConfirmed).toBe(true);
+    });
+  });
+
+  describe('12. Issue #303 [INPUT-ARM-HOLD-001] 손목 소실 시 팔꿈치 방향 폴백 (Elbow Fallback)', () => {
+    it('손목 가시성이 0.30 미만(소실)일 때 팔꿈치 좌표로 방향을 계산하여 동적 뻗기 즉시 확정된다', () => {
+      // Frame 1: 기준 위치 (손목 소실, 팔꿈치 몸 부근 x=0.40)
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.40, y: 0.35, visibility: 0.1 },
+        leftElbow: { x: 0.40, y: 0.35, visibility: 0.9 },
+      });
+      selector.update(0.0, pose1);
+
+      // Frame 2: 팔꿈치가 바깥으로 뻗음 (x=0.15, lateral = (0.40 - 0.15)/0.20 = 1.25 >= 0.55)
+      // 손목은 여전히 화면 밖/소실 상태 (visibility 0.1)
+      const pose2 = createMockPose({
+        leftWrist: { x: -0.20, y: 0.35, visibility: 0.1 },
+        leftElbow: { x: 0.15, y: 0.35, visibility: 0.9 },
+      });
+      const res = selector.update(0.1, pose2);
+      expect(res).not.toBeNull();
+      expect(res?.answerIndex).toBe(0);
+      expect(res?.zoneId).toBe(4);
+      expect(selector.isConfirmed).toBe(true);
+    });
+
+    it('손목과 팔꿈치가 둘 다 가시성 미만(0.30 미만)이면 미선택된다', () => {
+      const poseLost = createMockPose({
+        leftWrist: { x: 0.15, y: 0.35, visibility: 0.1 },
+        leftElbow: { x: 0.15, y: 0.35, visibility: 0.2 },
+      });
+      const res1 = selector.update(0.0, poseLost);
+      expect(res1).toBeNull();
+      const res2 = selector.update(1.2, poseLost);
+      expect(res2).toBeNull();
+      expect(selector.isConfirmed).toBe(false);
+    });
+
+    it('화면 좌표 0~1 밖이어도 가시성이 0.30 이상인 손목은 그대로 방향 계산에 사용된다', () => {
+      const pose1 = createMockPose({
+        leftWrist: { x: 0.40, y: 0.35, visibility: 0.9 },
+      });
+      selector.update(0.0, pose1);
+
+      // 손목이 화면 밖(x=-0.15)으로 나갔지만 MediaPipe가 유효 가시성(0.85)으로 검출
+      const pose2 = createMockPose({
+        leftWrist: { x: -0.15, y: 0.35, visibility: 0.85 },
+      });
+      const res = selector.update(0.1, pose2);
+      expect(res).not.toBeNull();
+      expect(res?.answerIndex).toBe(0);
+      expect(selector.isConfirmed).toBe(true);
+    });
+
+    it('팔꿈치 폴백 상태에서도 사전 뻗기 1.0초 유지가 정상 작동한다', () => {
+      // 시작 시점에 이미 팔꿈치가 바깥에 위치 (x=0.15, lateral = 1.25)
+      const poseHeldElbow = createMockPose({
+        leftWrist: { x: -0.20, y: 0.35, visibility: 0.0 },
+        leftElbow: { x: 0.15, y: 0.35, visibility: 0.9 },
+      });
+
+      const res1 = selector.update(0.0, poseHeldElbow);
+      expect(res1).toBeNull();
+
+      const res2 = selector.update(0.5, poseHeldElbow);
+      expect(res2).toBeNull();
+      expect(selector.isConfirmed).toBe(false);
+
+      const res3 = selector.update(1.0, poseHeldElbow);
+      expect(res3).not.toBeNull();
+      expect(res3?.answerIndex).toBe(0);
+      expect(selector.isConfirmed).toBe(true);
     });
   });
 });
