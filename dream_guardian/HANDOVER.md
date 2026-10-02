@@ -159,8 +159,8 @@
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
 | 43 | **#297** | [REFACTOR-GEOM-001] 모션·포즈 공통 기하학 유틸리티(PoseGeometry) 신설 및 ArmReachAnswerSelector 연동 | 없음 | `[✔] 완료` |
-| 44 | **#298** | [REFACTOR-GEOM-002] 포즈 매처 및 커서 트래커 공통 기하학 유틸리티(PoseGeometry) 2차 연동 | #297 | `[▶ NEXT]` |
-| 45 | **#299** | [REFACTOR-FX-001] EffectManager 비주얼 이펙트 서브모듈 분리 (CombatVFX & ScreenFX) | 없음 | `[ ] 대기` |
+| 44 | **#298** | [REFACTOR-GEOM-002] 포즈 매처 및 커서 트래커 공통 기하학 유틸리티(PoseGeometry) 2차 연동 | #297 | `[✔] 완료` |
+| 45 | **#299** | [REFACTOR-FX-001] EffectManager 비주얼 이펙트 서브모듈 분리 (CombatVFX & ScreenFX) | 없음 | `[▶ NEXT]` |
 | 46 | **#300** | [REFACTOR-CORE-001] 런타임 게임 세션 컨텍스트 구조화 (GameSessionContext) | 없음 | `[ ] 대기` |
 | 47 | **#301** | [REFACTOR-MAIN-001] 메인 게임 루프 씬 디렉터 분리 (SceneDirector) | #300 | `[ ] 대기` |
 | 48 | **#302** | [REFACTOR-MAIN-002] 메인 앱 부트스트랩 및 이벤트 리스너 분리 (AppBootstrap) | #301 | `[ ] 대기` |
@@ -193,8 +193,26 @@
                          ↓
 [그리드 개선]   #294 (완료) → #295 (완료) (원근 그리드 두께 증가, 세로선 2-Pass 글로우, 메트로놈 비트 플래시)
                          ↓
-[시스템 리팩토링] #297 (완료) → #298 [▶ NEXT] (PoseGeometry 2차 연동: PostureMatcher & CursorTracker)
+[시스템 리팩토링] #297 (완료) → #298 (완료) → #299 [▶ NEXT] (EffectManager 서브모듈 분리: CombatVFX & ScreenFX)
 ```
+
+---
+
+## 2026-10-03 완료: [REFACTOR-GEOM-002 / #298] 포즈 매처 및 커서 트래커 공통 기하학 유틸리티(PoseGeometry) 2차 연동
+
+> #298 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (151개 파일 1,927개 테스트 통과, build 성공).
+> - **PoseGeometry 기하 함수 확장**:
+>   - `src/utils/PoseGeometry.ts`: `calcJointAngle`, `clamp`, `clamp01`, `lerp`, `lerpPoint`, `calcMidpoint`, `calcVector`, `isPointInRect`, `calcRectOutsideDistance`, `calcNormalizedRadialDistance`, `calcPointsVariance`, `clampPointToRect` 순수 함수 추가 및 `mirrorPoint` clamp 옵션 지원.
+> - **PostureMatcher 연동**:
+>   - `src/input/PostureMatcher.ts`: 분산 계산, 존 내외부 판정, 자석 존 외곽 거리 및 유클리드 방사형 정규화 거리 감쇠, 좌표 클램핑 연산을 `PoseGeometry` 순수 함수로 일원화.
+> - **CursorTracker 연동**:
+>   - `src/input/CursorTracker.ts`: 좌표 변환/미러링, 손바닥 및 관절 간 거리/벡터 추정, 머리/골반/손 반경 클램핑, 상위 관절 Fallback 지수 보간(Lerp) 연산을 `PoseGeometry` 순수 함수로 일원화.
+> - **단위 테스트 증빙**:
+>   - `tests/unit/pose-geometry.test.ts` (51개 테스트) 100% Pass
+>   - `tests/unit/posture-matcher.test.ts` (30개 테스트) 100% Pass
+>   - `tests/unit/cursor-tracker.test.ts` (5개 테스트) 100% Pass
+>   - `tests/unit/cursor-tracker-recipe.test.ts` (35개 테스트) 100% Pass
+>   - 전체 151개 테스트 파일 1,927개 테스트 100% 통과 (회귀 결함 0건)
 
 ---
 
