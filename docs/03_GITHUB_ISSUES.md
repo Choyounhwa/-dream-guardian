@@ -5136,7 +5136,7 @@ BEAT-SPEC-001
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/296
 - **Labels**: `feature`, `phase-7`, `P1-high`
 - **작업 ID**: `[AUDIO-METRONOME-001]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (TDD 100% Pass, Build 검증 완료)**
 - **목적**:
   - 음악 트랙의 BPM(`RhythmEngine`) 및 카운트인(Count-in 3박자)에 실시간으로 동기화되는 절차적 메트로놈 사운드를 연동하여 플레이어가 체감형 리듬과 문제 풀이 타이밍을 청각적으로 명확히 인지할 수 있도록 한다.
   - 마디 첫 박(1박) 및 4/4 박자 기준 강박에는 높은 톤의 강박 사운드(`metronome_strong`), 약박에는 경쾌한 틱 사운드(`metronome_weak`)를 출력한다.
@@ -5152,11 +5152,11 @@ BEAT-SPEC-001
 - **변경 금지**:
   - `BattleState`, `QuestionBank`, `PhaseAHazardController` 등 핵심 전투/수학 로직
 - **완료 조건**:
-  - [ ] `BeatRunCoordinator`에 비트 이벤트 브리지(`onBeat`) 지원 및 카운트인 메트로놈 연동
-  - [ ] `main.ts`에서 인게임 진행 중 강박(`metronome_strong`) 및 약박(`metronome_weak`) 사운드 출력
-  - [ ] 일시정지, 메뉴 화면, 음소거 시 메트로놈 발음 차단
-  - [ ] 전용 TDD 단위 테스트(`tests/unit/beat-metronome.test.ts`) 작성 및 100% Pass
-  - [ ] 전체 단위 테스트 100% 통과 및 `npm run build` 성공
+  - [x] `BeatRunCoordinator`에 비트 이벤트 브리지(`onBeat`) 지원 및 카운트인 메트로놈 연동
+  - [x] `main.ts`에서 인게임 진행 중 강박(`metronome_strong`) 및 약박(`metronome_weak`) 사운드 출력
+  - [x] 일시정지, 메뉴 화면, 음소거 시 메트로놈 발음 차단
+  - [x] 전용 TDD 단위 테스트(`tests/unit/beat-metronome.test.ts`) 작성 및 100% Pass
+  - [x] 전체 단위 테스트 100% 통과 및 `npm run build` 성공
 
 
 

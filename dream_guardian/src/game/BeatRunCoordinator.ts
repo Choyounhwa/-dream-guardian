@@ -16,7 +16,7 @@
  * @see Issue #204 [BEAT-TRACK-001]
  */
 
-import { RhythmEngine } from '../core/RhythmEngine.js';
+import { RhythmEngine, type BeatEvent } from '../core/RhythmEngine.js';
 import { CenterReturnGate } from '../motion/CenterReturnGate.js';
 import { ArmReachAnswerSelector } from '../input/ArmReachAnswerSelector.js';
 import { QuestionBank } from '../question/QuestionBank.js';
@@ -58,11 +58,14 @@ export interface BeatRunCoordinatorOptions {
   routineMode?: BeatRoutineMode;
   trackConfig?: MusicTrackConfig;
   difficultyProfile?: DifficultyBeatProfile;
+  sfx?: { play: (type: 'metronome_strong' | 'metronome_weak' | any) => void | boolean };
+  playMetronome?: boolean;
   onQuestionGenerated?: (question: GeneratedQuestion) => void;
   onPhaseChange?: (phase: BeatPhase) => void;
   onAnswerConfirmed?: (choiceIndex: number, correct: boolean, status: RoundAnswerStatus) => void;
   onAnswerSelected?: (choiceIndex: number) => void;
   onCountInBeat?: (currentBeat: number, totalBeats: number) => void;
+  onBeat?: (event: BeatEvent) => void;
   onTimeout?: () => void;
 }
 
@@ -75,6 +78,7 @@ export class BeatRunCoordinator {
   private readonly _routineMode: BeatRoutineMode;
   private _trackConfig: MusicTrackConfig;
   private _difficultyProfile: DifficultyBeatProfile;
+  private _playMetronome = true;
 
   private _phase: BeatPhase = 'RUN_QUESTION';
   private _currentQuestion: GeneratedQuestion | null = null;
@@ -129,6 +133,40 @@ export class BeatRunCoordinator {
       options?.armReachAnswerSelector ?? new ArmReachAnswerSelector({ isMirrored: false });
     this._questionBank = options?.questionBank ?? new QuestionBank();
     this._keynotes = options?.keynotes ? [...options.keynotes] : [];
+    this._playMetronome = options?.playMetronome ?? true;
+
+    this._rhythmEngine.onBeat((event) => {
+      this._handleBeat(event);
+    });
+  }
+
+  get playMetronome(): boolean {
+    return this._playMetronome;
+  }
+
+  setPlayMetronome(enabled: boolean): void {
+    this._playMetronome = enabled;
+  }
+
+  /**
+   * 해당 비트 인덱스가 4/4 또는 트랙 박자표 기준 강박(첫 박)인지 여부 반환
+   * - 기본 4/4 박자: 0 (1박), 4 (5박/2마디 1박) -> true
+   * - 그 외: false
+   */
+  isStrongBeat(beatIndex: number): boolean {
+    const beatsPerBar = this._trackConfig.timeSignature?.[0] ?? 4;
+    return beatsPerBar > 0 ? beatIndex % beatsPerBar === 0 : beatIndex === 0;
+  }
+
+  private _handleBeat(event: BeatEvent): void {
+    if (this.isPaused) return;
+
+    if (this._options.sfx && this._playMetronome) {
+      const isStrong = this.isStrongBeat(event.beatIndex);
+      this._options.sfx.play(isStrong ? 'metronome_strong' : 'metronome_weak');
+    }
+
+    this._options.onBeat?.(event);
   }
 
   get routineMode(): BeatRoutineMode {
@@ -429,6 +467,9 @@ export class BeatRunCoordinator {
 
     this._options.onPhaseChange?.(this._phase);
     this._options.onCountInBeat?.(1, totalBeats);
+    if (this._options.sfx && this._playMetronome && !this.isPaused) {
+      this._options.sfx.play('metronome_strong');
+    }
   }
 
   private _startRunQuestion(): void {
@@ -501,6 +542,10 @@ export class BeatRunCoordinator {
             remainingDt -= step;
             this._countInCurrentBeat++;
             this._options.onCountInBeat?.(this._countInCurrentBeat, totalBeats);
+            if (this._options.sfx && this._playMetronome && !this.isPaused) {
+              const isStrong = this._countInCurrentBeat === 1;
+              this._options.sfx.play(isStrong ? 'metronome_strong' : 'metronome_weak');
+            }
           } else {
             this._countInElapsed += remainingDt;
             remainingDt = 0;

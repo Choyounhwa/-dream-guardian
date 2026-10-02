@@ -144,13 +144,13 @@
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
 | 40 | **#294** | [RENDER-GRID-003] 드림 그리드 하단 전경 패널 음영(검은색 바닥 면 채우기) 제거 및 투명 SFX 네온 런웨이 와이어프레임 전환 | #282 권장 | `[ ] 대기` |
-| 41 | **#295** | [RENDER-GRID-004] 3D 원근 드림 그리드 라인 두께 증가 및 세로선 2-Pass 네온 글로우 효과 추가 | #282 권장 | `[ ] 대기` |
+| 41 | **#295** | [RENDER-GRID-004] 3D 원근 드림 그리드 라인 두께 증가 및 세로선 2-Pass 네온 글로우 효과 추가 | #282 권장 | `[▶ NEXT]` |
 
 ### 📌 M. 오디오 메트로놈 동기화 (AUDIO-METRONOME)
 
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
-| 42 | **#296** | [AUDIO-METRONOME-001] 게임 박자 동기화 메트로놈 사운드 연동 및 인게임 8박자/카운트인 오디오 출력 | 없음 | `[▶ NEXT]` |
+| 42 | **#296** | [AUDIO-METRONOME-001] 게임 박자 동기화 메트로놈 사운드 연동 및 인게임 8박자/카운트인 오디오 출력 | 없음 | `[✔] 완료` |
 
 ### 📌 N. 코드베이스 리팩토링 및 모듈화 (SYSTEM-REFACTOR)
 
@@ -191,6 +191,23 @@
                          ↓
 [그리드 개선]   #295 [▶ NEXT] (원근 그리드 두께 증가 및 세로선 2-Pass 네온 글로우)
 ```
+
+---
+
+## 2026-10-02 완료: [AUDIO-METRONOME-001 / #296] 게임 박자 동기화 메트로놈 사운드 연동 및 인게임 8박자/카운트인 오디오 출력
+
+> #296 구현, 단위/통합 테스트 검증 및 TDD 100% Pass 완료 (148개 파일 1,839개 테스트 통과, build 성공).
+> - **BeatRunCoordinator 비트 이벤트 브리지 및 메트로놈 연동**:
+>   - `BeatRunCoordinatorOptions`에 `onBeat?: (event: BeatEvent) => void`, `sfx?: { play: ... }`, `playMetronome?: boolean` 옵션 추가
+>   - `isStrongBeat(beatIndex: number)` 강박 판정 로직 구현 (기본 4/4 박자: 1박(index 0), 5박(index 4) 강박, 그 외 약박; 커스텀 timeSignature 대응)
+>   - 카운트인(3박자) 진행 중 1박 강박(`metronome_strong`), 2~3박 약박(`metronome_weak`) 사운드 자동 발음
+>   - 인게임 8박 루프(`RUN_QUESTION`, `ANSWER_SELECT`, `STAR_COLLECT`, `HAZARD_EVADE`, `KEYNOTE_PERFORMANCE`) 전반에서 템포에 맞춰 안정적으로 강박/약박 출력
+> - **main.ts 오디오 신디사이저(SFXSynth) 및 이벤트 브리지 주입**:
+>   - `beatCoordinator` 생성 시 `sfx` 인스턴스 주입 및 `onBeat` 브리지 이벤트(`rhythm:beat`) 연결
+>   - 일시정지, 메뉴 화면 진입, 설정 모달 음소거 시 메트로놈 발음 차단 완벽 보장
+> - **신규 TDD 단위 테스트 검증 (`tests/unit/beat-metronome.test.ts`)**:
+>   - onBeat 브리지, 강박/약박 판정, 카운트인 3박 연동, 8박 루프 발음, pause 차단, SFXSynth 음소거 차단 등 10개 테스트 100% 통과
+>   - 전체 회귀 테스트 100% 통과 (148/148 test files, 1,839/1,839 tests) 및 `npm run build` 번들 검증 통과
 
 ---
 

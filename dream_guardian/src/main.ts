@@ -617,7 +617,11 @@ const beatCoordinator = new BeatRunCoordinator({
   questionBank,
   battle,
   armReachAnswerSelector,
+  sfx,
   speakFn: (text) => speech.speak(text),
+  onBeat: (event) => {
+    (eventBus as any).emit?.('beat:tick', event);
+  },
   onPhaseChange: (phase) => {
     if (phase === 'RUN_QUESTION' || phase === 'REST_READY') {
       stateMachine.changeState('RUN_QUESTION');
