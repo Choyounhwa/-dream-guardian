@@ -24,14 +24,23 @@ export const CROSSING_NODE_SECONDARY_COLOR = '#FFCB4D'; // 교차점 노드 보�
 export const PANEL_DEPTH_START = 0.50; // 전경 패널 음영 시작 깊이 비율 (0.50 ~ 1.0)
 export const PANEL_BG_COLOR = 'transparent'; // 전경 패널 기본 투명 (Issue #294: 웹캠 및 배경 투과율 100% 보장)
 
-// 선 두께 원근 다이내믹스 규격
-export const TRANSVERSE_MAX_WIDTH = 6.0; // 가로선 전경 최대 두께
-export const TRANSVERSE_MIN_WIDTH = 1.0; // 가로선 원경 최소 두께
-export const LONGITUDINAL_MAX_WIDTH = 4.5; // 세로선 전경 최대 두께
-export const LONGITUDINAL_MIN_WIDTH = 0.8; // 세로선 원경 최소 두께
+// 선 두께 원근 다이내믹스 규격 (Issue #295: 1080p 시인성 대폭 상향)
+export const TRANSVERSE_MAX_WIDTH = 8.0; // 가로선 전경 최대 두께 (기존 6.0에서 상향)
+export const TRANSVERSE_MIN_WIDTH = 1.8; // 가로선 원경 최소 두께 (기존 1.0에서 상향)
+export const LONGITUDINAL_MAX_WIDTH = 6.0; // 세로선 전경 최대 두께 (기존 4.5에서 상향)
+export const LONGITUDINAL_MIN_WIDTH = 1.5; // 세로선 원경 최소 두께 (기존 0.8에서 상향)
 export const CENTER_SPINE_MAX_WIDTH = 8.0; // 중앙 척추선 전경 최대 두께
 export const CENTER_SPINE_GLOW_WIDTH = 12.0; // 중앙 척추선 외곽 글로우 두께
 export const CENTER_SPINE_CORE_WIDTH = 3.5; // 중앙 척추선 중심 순백 코어 두께
+
+// Issue #295: 일반 세로선 2-Pass 네온 글로우 파라미터
+export const LONGITUDINAL_GLOW_WIDTH_MULT = 2.5; // 외곽 소프트 글로우 선폭 배율 (코어 선폭의 2.5배)
+export const LONGITUDINAL_GLOW_ALPHA_MULT = 0.40; // 외곽 글로우 알파 배율
+
+// Issue #295: 메트로놈 비트 플래시 파라미터
+export const BEAT_FLASH_MAX_ALPHA = 0.35; // 비트 직후 최대 추가 알파 부스트
+export const BEAT_FLASH_WIDTH_BOOST = 1.5; // 비트 직후 선폭 배율 부스트 (최대 1.5배)
+export const BEAT_FLASH_DECAY = 4.5; // 비트 진행도에 따른 지수 감쇄율
 
 export const DEFAULT_GRID_CONFIG = {
   Z_NEAR,
@@ -57,6 +66,11 @@ export const DEFAULT_GRID_CONFIG = {
   CENTER_SPINE_MAX_WIDTH,
   CENTER_SPINE_GLOW_WIDTH,
   CENTER_SPINE_CORE_WIDTH,
+  LONGITUDINAL_GLOW_WIDTH_MULT,
+  LONGITUDINAL_GLOW_ALPHA_MULT,
+  BEAT_FLASH_MAX_ALPHA,
+  BEAT_FLASH_WIDTH_BOOST,
+  BEAT_FLASH_DECAY,
 } as const;
 
 export const GRID_CONFIG = DEFAULT_GRID_CONFIG;

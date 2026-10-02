@@ -15,6 +15,11 @@ import {
   CENTER_SPINE_MAX_WIDTH,
   CENTER_SPINE_GLOW_WIDTH,
   CENTER_SPINE_CORE_WIDTH,
+  LONGITUDINAL_GLOW_WIDTH_MULT,
+  LONGITUDINAL_GLOW_ALPHA_MULT,
+  BEAT_FLASH_MAX_ALPHA,
+  BEAT_FLASH_WIDTH_BOOST,
+  BEAT_FLASH_DECAY,
   DEFAULT_GRID_CONFIG,
 } from '../../config/grid.config.js';
 
@@ -205,13 +210,18 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
       expect(PANEL_DEPTH_START).toBe(0.50);
       expect(PANEL_BG_COLOR).toBe('transparent');
 
-      expect(TRANSVERSE_MAX_WIDTH).toBe(6.0);
-      expect(TRANSVERSE_MIN_WIDTH).toBe(1.0);
-      expect(LONGITUDINAL_MAX_WIDTH).toBe(4.5);
-      expect(LONGITUDINAL_MIN_WIDTH).toBe(0.8);
+      expect(TRANSVERSE_MAX_WIDTH).toBe(8.0);
+      expect(TRANSVERSE_MIN_WIDTH).toBe(1.8);
+      expect(LONGITUDINAL_MAX_WIDTH).toBe(6.0);
+      expect(LONGITUDINAL_MIN_WIDTH).toBe(1.5);
       expect(CENTER_SPINE_MAX_WIDTH).toBe(8.0);
       expect(CENTER_SPINE_GLOW_WIDTH).toBe(12.0);
       expect(CENTER_SPINE_CORE_WIDTH).toBe(3.5);
+      expect(LONGITUDINAL_GLOW_WIDTH_MULT).toBe(2.5);
+      expect(LONGITUDINAL_GLOW_ALPHA_MULT).toBe(0.40);
+      expect(BEAT_FLASH_MAX_ALPHA).toBe(0.35);
+      expect(BEAT_FLASH_WIDTH_BOOST).toBe(1.5);
+      expect(BEAT_FLASH_DECAY).toBe(4.5);
 
       expect(DEFAULT_GRID_CONFIG.HORIZON_RATIO).toBe(0.56);
       expect(DEFAULT_GRID_CONFIG.LONGITUDINAL_COLOR).toBe('#00E5FF');
@@ -220,6 +230,15 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
       expect(DEFAULT_GRID_CONFIG.CROSSING_NODE_COLOR).toBe('#FFFFFF');
       expect(DEFAULT_GRID_CONFIG.PANEL_DEPTH_START).toBe(0.50);
       expect(DEFAULT_GRID_CONFIG.PANEL_BG_COLOR).toBe('transparent');
+      expect(DEFAULT_GRID_CONFIG.TRANSVERSE_MAX_WIDTH).toBe(8.0);
+      expect(DEFAULT_GRID_CONFIG.TRANSVERSE_MIN_WIDTH).toBe(1.8);
+      expect(DEFAULT_GRID_CONFIG.LONGITUDINAL_MAX_WIDTH).toBe(6.0);
+      expect(DEFAULT_GRID_CONFIG.LONGITUDINAL_MIN_WIDTH).toBe(1.5);
+      expect(DEFAULT_GRID_CONFIG.LONGITUDINAL_GLOW_WIDTH_MULT).toBe(2.5);
+      expect(DEFAULT_GRID_CONFIG.LONGITUDINAL_GLOW_ALPHA_MULT).toBe(0.40);
+      expect(DEFAULT_GRID_CONFIG.BEAT_FLASH_MAX_ALPHA).toBe(0.35);
+      expect(DEFAULT_GRID_CONFIG.BEAT_FLASH_WIDTH_BOOST).toBe(1.5);
+      expect(DEFAULT_GRID_CONFIG.BEAT_FLASH_DECAY).toBe(4.5);
     });
 
     it('DreamGrid 인스턴스가 듀얼 네온 및 SFX 런웨이 기본 설정을 보유한다', () => {
@@ -399,6 +418,80 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
       expect(mockCtx.fillStyles.includes('#FFFFFF')).toBe(true);
       // 교차점 노드 보조 앰버 (#FFCB4D) 렌더링 확인
       expect(mockCtx.strokeStyles.includes('#FFCB4D')).toBe(true);
+    });
+
+    it('[RENDER-GRID-004] 일반 세로선(Longitudinal)이 2-Pass 네온 글로우(Pass 1: 외곽 소프트 글로우, Pass 2: 중심 코어)로 렌더링된다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+      const mockCtx = createMockCtx();
+      grid.render(mockCtx, 1920, 1080);
+
+      // 세로선 코어 두께: LONGITUDINAL_MIN_WIDTH(1.5) + (LONGITUDINAL_MAX_WIDTH(6.0) - 1.5) * 0.7 = 4.65
+      const expectedCoreWidth = LONGITUDINAL_MIN_WIDTH + (LONGITUDINAL_MAX_WIDTH - LONGITUDINAL_MIN_WIDTH) * 0.7;
+      const expectedGlowWidth = expectedCoreWidth * LONGITUDINAL_GLOW_WIDTH_MULT;
+
+      // Pass 1 외곽 소프트 글로우 선폭과 Pass 2 중심 코어 선폭 모두 드로잉 호출에 포함되어야 함
+      expect(mockCtx.lineWidths.some((w) => Math.abs(w - expectedCoreWidth) < 0.01)).toBe(true);
+      expect(mockCtx.lineWidths.some((w) => Math.abs(w - expectedGlowWidth) < 0.01)).toBe(true);
+    });
+
+    it('[RENDER-GRID-004] 메트로놈 beatProgress에 따라 비트 직후(0.0) 선폭 및 알파 부스트 플래시가 적용된다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+
+      // 1. 비트 직후 피크 (beatProgress = 0.0)
+      const mockCtxPeak = createMockCtx();
+      grid.render(mockCtxPeak, 1920, 1080, { beatProgress: 0.0 });
+
+      // 2. 비트 끝자락 감쇄 (beatProgress = 0.9)
+      const mockCtxDecayed = createMockCtx();
+      grid.render(mockCtxDecayed, 1920, 1080, { beatProgress: 0.9 });
+
+      // 피크 시점 세로선 코어 두께: expectedCoreWidth * BEAT_FLASH_WIDTH_BOOST
+      const baseCoreWidth = LONGITUDINAL_MIN_WIDTH + (LONGITUDINAL_MAX_WIDTH - LONGITUDINAL_MIN_WIDTH) * 0.7;
+      const boostedCoreWidth = baseCoreWidth * BEAT_FLASH_WIDTH_BOOST;
+
+      expect(mockCtxPeak.lineWidths.some((w) => Math.abs(w - boostedCoreWidth) < 0.01)).toBe(true);
+
+      // 피크 시점 최대 선폭이 감쇄 시점 최대 선폭보다 유의미하게 큼
+      const maxPeakWidth = Math.max(...mockCtxPeak.lineWidths);
+      const maxDecayedWidth = Math.max(...mockCtxDecayed.lineWidths);
+      expect(maxPeakWidth).toBeGreaterThan(maxDecayedWidth);
+    });
+
+    it('[RENDER-GRID-004] setBeatProgress, triggerBeatFlash, enableBeatFlash 제어 메서드가 올바르게 작동한다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+
+      // setBeatProgress
+      grid.setBeatProgress(0.0);
+      expect(grid.beatProgress).toBe(0.0);
+
+      const mockCtx1 = createMockCtx();
+      grid.render(mockCtx1, 1920, 1080);
+      const baseCoreWidth = LONGITUDINAL_MIN_WIDTH + (LONGITUDINAL_MAX_WIDTH - LONGITUDINAL_MIN_WIDTH) * 0.7;
+      expect(mockCtx1.lineWidths.some((w) => Math.abs(w - baseCoreWidth * BEAT_FLASH_WIDTH_BOOST) < 0.01)).toBe(true);
+
+      // enableBeatFlash: false 일 경우 비트 플래시 미적용
+      grid.setEnableBeatFlash(false);
+      expect(grid.enableBeatFlash).toBe(false);
+
+      const mockCtxDisabled = createMockCtx();
+      grid.render(mockCtxDisabled, 1920, 1080);
+      expect(mockCtxDisabled.lineWidths.some((w) => Math.abs(w - baseCoreWidth * BEAT_FLASH_WIDTH_BOOST) < 0.01)).toBe(false);
+
+      // 다시 활성화 후 triggerBeatFlash() 및 update 감쇄 검증
+      grid.setEnableBeatFlash(true);
+      grid.setBeatProgress(undefined);
+      grid.triggerBeatFlash(1.0);
+
+      const mockCtxTriggered = createMockCtx();
+      grid.render(mockCtxTriggered, 1920, 1080);
+      expect(mockCtxTriggered.lineWidths.some((w) => Math.abs(w - baseCoreWidth * BEAT_FLASH_WIDTH_BOOST) < 0.01)).toBe(true);
+
+      // update 후 수동 플래시 감쇄
+      grid.update(0.5); // 0.5초 경과
+      const mockCtxAfterUpdate = createMockCtx();
+      grid.render(mockCtxAfterUpdate, 1920, 1080);
+      const maxAfterWidth = Math.max(...mockCtxAfterUpdate.lineWidths);
+      expect(maxAfterWidth).toBeLessThan(Math.max(...mockCtxTriggered.lineWidths));
     });
   });
 });

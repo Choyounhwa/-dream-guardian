@@ -144,7 +144,7 @@
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
 | 40 | **#294** | [RENDER-GRID-003] 드림 그리드 하단 전경 패널 음영(검은색 바닥 면 채우기) 제거 및 투명 SFX 네온 런웨이 와이어프레임 전환 | #282 권장 | `[✔] 완료` |
-| 41 | **#295** | [RENDER-GRID-004] 3D 원근 드림 그리드 라인 두께 증가, 세로선 2-Pass 네온 글로우 및 메트로놈 비트 플래시(Flash) 효과 추가 | #282 권장 | `[▶ NEXT]` |
+| 41 | **#295** | [RENDER-GRID-004] 3D 원근 드림 그리드 라인 두께 증가, 세로선 2-Pass 네온 글로우 및 메트로놈 비트 플래시(Flash) 효과 추가 | #282 권장 | `[✔] 완료` |
 
 ### 📌 M. 오디오 메트로놈 동기화 (AUDIO-METRONOME)
 
@@ -156,7 +156,7 @@
 
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
-| 43 | **#297** | [REFACTOR-GEOM-001] 모션·포즈 공통 기하학 유틸리티(PoseGeometry) 신설 및 ArmReachAnswerSelector 연동 | 없음 | `[ ] 대기` |
+| 43 | **#297** | [REFACTOR-GEOM-001] 모션·포즈 공통 기하학 유틸리티(PoseGeometry) 신설 및 ArmReachAnswerSelector 연동 | 없음 | `[▶ NEXT]` |
 | 44 | **#298** | [REFACTOR-GEOM-002] 포즈 매처 및 커서 트래커 공통 기하학 유틸리티(PoseGeometry) 2차 연동 | #297 | `[ ] 대기` |
 | 45 | **#299** | [REFACTOR-FX-001] EffectManager 비주얼 이펙트 서브모듈 분리 (CombatVFX & ScreenFX) | 없음 | `[ ] 대기` |
 | 46 | **#300** | [REFACTOR-CORE-001] 런타임 게임 세션 컨텍스트 구조화 (GameSessionContext) | 없음 | `[ ] 대기` |
@@ -189,8 +189,29 @@
                          ↓
 [전투 밸런스]   #288 (완료) (Phase B 40~60초 템포 & Phase A 체력 보존)
                          ↓
-[그리드 개선]   #294 (완료) (하단 전경 패널 음영 제거/투명 네온 전환) → #295 [▶ NEXT] (원근 그리드 두께 증가, 세로선 2-Pass 글로우, 메트로놈 비트 플래시)
+[그리드 개선]   #294 (완료) → #295 (완료) (원근 그리드 두께 증가, 세로선 2-Pass 글로우, 메트로놈 비트 플래시)
+                         ↓
+[시스템 리팩토링] #297 [▶ NEXT] (PoseGeometry 유틸리티 및 ArmReachAnswerSelector 연동)
 ```
+
+---
+
+## 2026-10-02 완료: [RENDER-GRID-004 / #295] 3D 원근 드림 그리드 라인 두께 증가, 세로선 2-Pass 네온 글로우 및 메트로놈 비트 플래시(Flash) 효과 추가
+
+> #295 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (149개 파일 1,859개 테스트 통과, build 성공).
+> - **드림 그리드 라인 두께 원근 다이내믹스 상향 (1080p 시인성 확보)**:
+>   - `config/grid.config.ts`: `TRANSVERSE_MAX_WIDTH` 6.0 → 8.0, `TRANSVERSE_MIN_WIDTH` 1.0 → 1.8, `LONGITUDINAL_MAX_WIDTH` 4.5 → 6.0, `LONGITUDINAL_MIN_WIDTH` 0.8 → 1.5 상향 조정. 중앙 척추선 3-Pass 기존 규격(8.0/12.0/3.5) 유지.
+> - **일반 세로선(Longitudinal lines) 2-Pass 네온 글로우 드로잉 적용**:
+>   - `LONGITUDINAL_GLOW_WIDTH_MULT` (2.5배), `LONGITUDINAL_GLOW_ALPHA_MULT` (0.40) 신설.
+>   - Pass 1: 외곽 소프트 네온 시안 글로우(선폭 11.6px, 반투명 감쇄 그라데이션) 드로잉.
+>   - Pass 2: 중심 코어 네온 시안 라인(선폭 4.65px) 선명 드로잉.
+> - **메트로놈 비트 플래시(Beat Flash) 효과 및 반응형 연동**:
+>   - `BEAT_FLASH_MAX_ALPHA` (0.35), `BEAT_FLASH_WIDTH_BOOST` (1.5x), `BEAT_FLASH_DECAY` (4.5) 파라미터 정의.
+>   - `DreamGridConfig`에 `beatProgress?: number` (0.0~1.0), `enableBeatFlash?: boolean` 추가.
+>   - `DreamGrid`: `setBeatProgress()`, `triggerBeatFlash()`, `setEnableBeatFlash()`, `update()` 감쇄 로직 구현. 비트 직후(progress 0.0) 선폭 최대 1.5배 부스트 및 알파 +0.35 펄스 플래시 발생 후 부드러운 지수 감쇄.
+> - **단위 테스트 및 회귀 검증**:
+>   - `tests/unit/dream-grid.test.ts`: 1080p 상향 선폭 상수 검증, 세로선 2-Pass 글로우/코어 선폭 호출 검증, beatProgress 피크/감쇄 시점 선폭/알파 부스트 비교 검증, 메서드 제어 및 update 감쇄 검증 추가 (26개 테스트 100% Pass)
+>   - 전체 단위 테스트 149개 파일 1,859개 테스트 100% Pass 및 `npm run build` 번들 검증 완료
 
 ---
 

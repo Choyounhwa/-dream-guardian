@@ -34,6 +34,11 @@ import {
   CENTER_SPINE_MAX_WIDTH,
   CENTER_SPINE_GLOW_WIDTH,
   CENTER_SPINE_CORE_WIDTH,
+  LONGITUDINAL_GLOW_WIDTH_MULT,
+  LONGITUDINAL_GLOW_ALPHA_MULT,
+  BEAT_FLASH_MAX_ALPHA,
+  BEAT_FLASH_WIDTH_BOOST,
+  BEAT_FLASH_DECAY,
 } from '../../config/grid.config.js';
 import { projectDepthY, depthRatioFromY } from './GridProjection.js';
 
@@ -57,6 +62,8 @@ export interface DreamGridConfig {
   zones?: readonly FitnessZone[]; // 대상 피트니스 존 목록 (기본값: DEFAULT_FITNESS_ZONES)
   bgImage?: HTMLImageElement | null; // 챕터/메뉴 배경 이미지
   bgDimAlpha?: number; // 배경 이미지 디밍 오버레이 투명도 (기본값: 0.45)
+  beatProgress?: number; // 0.0 ~ 1.0 (메트로놈 박자 진행도, 비트 시점 0.0)
+  enableBeatFlash?: boolean; // 비트 플래시 활성화 여부 (기본값: true)
 }
 
 function isColorTransparent(color?: string | null): boolean {
@@ -103,6 +110,9 @@ export class DreamGrid {
   private _hasCeiling = true;
   private _bgImage: HTMLImageElement | null = null;
   private _bgDimAlpha = 0.45; // 배경 이미지 디밍 오버레이 기본값 (45%)
+  private _beatProgress?: number = undefined;
+  private _enableBeatFlash = true;
+  private _flashIntensity = 0;
 
   constructor(config?: DreamGridConfig) {
     if (config?.color) {
@@ -126,6 +136,8 @@ export class DreamGrid {
     if (config?.hasCeiling !== undefined) this._hasCeiling = config.hasCeiling;
     if (config?.bgImage !== undefined) this._bgImage = config.bgImage;
     if (config?.bgDimAlpha !== undefined) this._bgDimAlpha = config.bgDimAlpha;
+    if (config?.beatProgress !== undefined) this._beatProgress = config.beatProgress;
+    if (config?.enableBeatFlash !== undefined) this._enableBeatFlash = config.enableBeatFlash;
   }
 
   get offset(): number {
@@ -226,14 +238,41 @@ export class DreamGrid {
     this._bgDimAlpha = alpha;
   }
 
+  get beatProgress(): number | undefined {
+    return this._beatProgress;
+  }
+
+  setBeatProgress(progress: number | undefined): void {
+    this._beatProgress = progress !== undefined ? Math.max(0, Math.min(1, progress)) : undefined;
+  }
+
+  get enableBeatFlash(): boolean {
+    return this._enableBeatFlash;
+  }
+
+  setEnableBeatFlash(enable: boolean): void {
+    this._enableBeatFlash = enable;
+  }
+
+  get flashIntensity(): number {
+    return this._flashIntensity;
+  }
+
+  triggerBeatFlash(intensity = 1.0): void {
+    this._flashIntensity = Math.max(this._flashIntensity, Math.max(0, Math.min(1, intensity)));
+  }
+
   /**
-   * 매 프레임 스크롤 오프셋 갱신
+   * 매 프레임 스크롤 오프셋 갱신 및 비트 플래시 수동 감쇄
    * @param dt 델타 타임
    * @param speedMultiplier 달리기 속도 배율
    */
   update(dt: number, speedMultiplier = 1.0): void {
     const delta = dt * this._speed * speedMultiplier;
     this._offset = (this._offset + delta) % 1.0;
+    if (this._flashIntensity > 0) {
+      this._flashIntensity = Math.max(0, this._flashIntensity - dt * 4.0);
+    }
   }
 
   /**
@@ -251,6 +290,20 @@ export class DreamGrid {
     const panelBgColor = config?.panelBgColor ?? this._panelBgColor;
     const baseAlpha = config?.alpha ?? this._alpha;
     const hasCeiling = config?.hasCeiling ?? this._hasCeiling;
+    const beatProg = config?.beatProgress !== undefined ? config.beatProgress : this._beatProgress;
+    const enableFlash = config?.enableBeatFlash ?? this._enableBeatFlash;
+
+    // Issue #295: 메트로놈 비트 플래시 계수 계산
+    let flashFactor = 0;
+    if (enableFlash) {
+      if (beatProg !== undefined && beatProg >= 0) {
+        const p = Math.max(0, Math.min(1, beatProg));
+        flashFactor = Math.max(flashFactor, Math.exp(-BEAT_FLASH_DECAY * p));
+      }
+      if (this._flashIntensity > 0) {
+        flashFactor = Math.max(flashFactor, this._flashIntensity);
+      }
+    }
 
     ctx.save();
 
@@ -278,7 +331,7 @@ export class DreamGrid {
     ctx.arc(vx, vy, voidRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // 2. 바닥 원근 그리드 렌더링 (Issue #282: SFX 런웨이 비주얼)
+    // 2. 바닥 원근 그리드 렌더링 (Issue #282: SFX 런웨이 비주얼 + Issue #295: 2-Pass 글로우 및 비트 플래시)
     this._renderFloorGrid(
       ctx,
       w,
@@ -293,6 +346,7 @@ export class DreamGrid {
       panelDepthStart,
       panelBgColor,
       baseAlpha,
+      flashFactor,
     );
 
     // 2.5 피트니스 존 연한 연결선 렌더링 (Issue #188: RENDER-TRACK-001)
@@ -330,9 +384,15 @@ export class DreamGrid {
     panelDepthStart: number,
     panelBgColor: string,
     baseAlpha: number,
+    flashFactor: number = 0,
   ): void {
     const floorH = h - vy;
     if (floorH <= 0) return;
+
+    // Issue #295: 비트 플래시 알파 및 선폭 배율 계수 적용
+    const flashAlphaBoost = BEAT_FLASH_MAX_ALPHA * flashFactor;
+    const effAlpha = Math.min(1.0, baseAlpha + flashAlphaBoost);
+    const widthBoost = 1.0 + (BEAT_FLASH_WIDTH_BOOST - 1.0) * flashFactor;
 
     // 가로선 깊이 및 Y 좌표 계산
     const hLinesY: number[] = [];
@@ -396,11 +456,11 @@ export class DreamGrid {
 
       if (depthRatio < FOG_START) continue;
       const fogFactor = Math.min(1, (depthRatio - FOG_START) / FOG_RANGE);
-      const lineAlpha = baseAlpha * Math.pow(fogFactor, 1.25);
+      const lineAlpha = effAlpha * Math.pow(fogFactor, 1.25);
       if (lineAlpha < 0.005) continue;
 
       const halfW = (w * 0.5 + 50) * depthRatio;
-      const lineWidth = TRANSVERSE_MIN_WIDTH + (TRANSVERSE_MAX_WIDTH - TRANSVERSE_MIN_WIDTH) * Math.pow(depthRatio, 1.4);
+      const lineWidth = (TRANSVERSE_MIN_WIDTH + (TRANSVERSE_MAX_WIDTH - TRANSVERSE_MIN_WIDTH) * Math.pow(depthRatio, 1.4)) * widthBoost;
 
       // Pass 1: 외곽 네온 오렌지/앰버 글로우 라인
       ctx.strokeStyle = transColor;
@@ -426,28 +486,48 @@ export class DreamGrid {
       }
     }
 
-    // ── 3. 세로(Longitudinal) 네온 시안 방사선 드로잉 (2-Pass 발광) ──
-    const vertGrad = ctx.createLinearGradient(0, h, 0, vy);
-    vertGrad.addColorStop(0, toRgba(longColor, baseAlpha));
-    vertGrad.addColorStop(0.45, toRgba(longColor, baseAlpha * 0.85));
-    vertGrad.addColorStop(0.72, toRgba(longColor, baseAlpha * 0.25));
-    vertGrad.addColorStop(0.86, toRgba(longColor, 0));
-    vertGrad.addColorStop(1, toRgba(longColor, 0));
+    // ── 3. 세로(Longitudinal) 네온 시안 방사선 드로잉 (2-Pass 발광: 외곽 소프트 글로우 + 중심 코어) ──
+    const vertCoreGrad = ctx.createLinearGradient(0, h, 0, vy);
+    vertCoreGrad.addColorStop(0, toRgba(longColor, effAlpha));
+    vertCoreGrad.addColorStop(0.45, toRgba(longColor, effAlpha * 0.85));
+    vertCoreGrad.addColorStop(0.72, toRgba(longColor, effAlpha * 0.25));
+    vertCoreGrad.addColorStop(0.86, toRgba(longColor, 0));
+    vertCoreGrad.addColorStop(1, toRgba(longColor, 0));
 
-    ctx.strokeStyle = vertGrad;
+    const vertGlowGrad = ctx.createLinearGradient(0, h, 0, vy);
+    vertGlowGrad.addColorStop(0, toRgba(longColor, Math.min(1, effAlpha * LONGITUDINAL_GLOW_ALPHA_MULT)));
+    vertGlowGrad.addColorStop(0.45, toRgba(longColor, effAlpha * 0.85 * LONGITUDINAL_GLOW_ALPHA_MULT));
+    vertGlowGrad.addColorStop(0.72, toRgba(longColor, effAlpha * 0.25 * LONGITUDINAL_GLOW_ALPHA_MULT));
+    vertGlowGrad.addColorStop(0.86, toRgba(longColor, 0));
+    vertGlowGrad.addColorStop(1, toRgba(longColor, 0));
+
     ctx.globalAlpha = 1;
 
     const yStart = vy + floorH * FADE_DEPTH;
+    const coreLineWidth = (LONGITUDINAL_MIN_WIDTH + (LONGITUDINAL_MAX_WIDTH - LONGITUDINAL_MIN_WIDTH) * 0.7) * widthBoost;
+    const glowLineWidth = coreLineWidth * LONGITUDINAL_GLOW_WIDTH_MULT;
 
-    // 3-a. 일반 세로선 (j !== 0)
+    // 3-a-1. Pass 1: 일반 세로선 외곽 소프트 네온 글로우
+    ctx.strokeStyle = vertGlowGrad;
+    ctx.lineWidth = glowLineWidth;
     for (let j = -colCount; j <= colCount; j++) {
       if (j === 0) continue; // 중앙 척추선은 아래에서 특수 고광도 렌더링
       const xBottom = vx + j * stepXBottom;
       const xStart = vx + (xBottom - vx) * FADE_DEPTH;
 
-      // 외곽 시안 네온 라인
-      ctx.strokeStyle = vertGrad;
-      ctx.lineWidth = LONGITUDINAL_MIN_WIDTH + (LONGITUDINAL_MAX_WIDTH - LONGITUDINAL_MIN_WIDTH) * 0.7;
+      ctx.beginPath();
+      ctx.moveTo(xStart, yStart);
+      ctx.lineTo(xBottom, h);
+      ctx.stroke();
+    }
+
+    // 3-a-2. Pass 2: 일반 세로선 중심 코어 네온 라인
+    ctx.strokeStyle = vertCoreGrad;
+    ctx.lineWidth = coreLineWidth;
+    for (let j = -colCount; j <= colCount; j++) {
+      if (j === 0) continue;
+      const xBottom = vx + j * stepXBottom;
+      const xStart = vx + (xBottom - vx) * FADE_DEPTH;
 
       ctx.beginPath();
       ctx.moveTo(xStart, yStart);
@@ -457,22 +537,22 @@ export class DreamGrid {
 
     // 3-b. 중앙 척추선(Center Spine, j === 0): 3-Pass 초고휘도 레이저 라인 (외곽 12px 글로우, 8px 미드 글로우, 3.5px 순백 코어)
     const spineOuterGrad = ctx.createLinearGradient(0, h, 0, vy);
-    spineOuterGrad.addColorStop(0, toRgba(longColor, Math.min(1, baseAlpha * 1.8)));
-    spineOuterGrad.addColorStop(0.45, toRgba(longColor, baseAlpha * 0.9));
-    spineOuterGrad.addColorStop(0.72, toRgba(longColor, baseAlpha * 0.3));
+    spineOuterGrad.addColorStop(0, toRgba(longColor, Math.min(1, effAlpha * 1.8)));
+    spineOuterGrad.addColorStop(0.45, toRgba(longColor, effAlpha * 0.9));
+    spineOuterGrad.addColorStop(0.72, toRgba(longColor, effAlpha * 0.3));
     spineOuterGrad.addColorStop(0.86, toRgba(longColor, 0));
     spineOuterGrad.addColorStop(1, toRgba(longColor, 0));
 
     // Pass 1: 외곽 12px 시안 소프트 글로우
     ctx.strokeStyle = spineOuterGrad;
-    ctx.lineWidth = CENTER_SPINE_GLOW_WIDTH;
+    ctx.lineWidth = CENTER_SPINE_GLOW_WIDTH * widthBoost;
     ctx.beginPath();
     ctx.moveTo(vx, yStart);
     ctx.lineTo(vx, h);
     ctx.stroke();
 
     // Pass 2: 미드 8px 인텐스 시안 빔
-    ctx.lineWidth = CENTER_SPINE_MAX_WIDTH;
+    ctx.lineWidth = CENTER_SPINE_MAX_WIDTH * widthBoost;
     ctx.beginPath();
     ctx.moveTo(vx, yStart);
     ctx.lineTo(vx, h);
@@ -480,14 +560,14 @@ export class DreamGrid {
 
     // Pass 3: 중심 3.5px 순백색 레이저 코어
     const spineCoreGrad = ctx.createLinearGradient(0, h, 0, vy);
-    spineCoreGrad.addColorStop(0, toRgba(spineColor, Math.min(1, baseAlpha * 2.8)));
-    spineCoreGrad.addColorStop(0.45, toRgba(spineColor, Math.min(1, baseAlpha * 2.0)));
-    spineCoreGrad.addColorStop(0.72, toRgba(spineColor, baseAlpha * 0.6));
+    spineCoreGrad.addColorStop(0, toRgba(spineColor, Math.min(1, effAlpha * 2.8)));
+    spineCoreGrad.addColorStop(0.45, toRgba(spineColor, Math.min(1, effAlpha * 2.0)));
+    spineCoreGrad.addColorStop(0.72, toRgba(spineColor, effAlpha * 0.6));
     spineCoreGrad.addColorStop(0.86, toRgba(spineColor, 0));
     spineCoreGrad.addColorStop(1, toRgba(spineColor, 0));
 
     ctx.strokeStyle = spineCoreGrad;
-    ctx.lineWidth = CENTER_SPINE_CORE_WIDTH;
+    ctx.lineWidth = CENTER_SPINE_CORE_WIDTH * widthBoost;
     ctx.beginPath();
     ctx.moveTo(vx, yStart);
     ctx.lineTo(vx, h);
@@ -500,8 +580,8 @@ export class DreamGrid {
       const depthRatio = depthRatioFromY(y, vy, floorH);
       if (depthRatio < panelDepthStart) continue;
 
-      const nodeSize = Math.max(2, Math.min(3.5, depthRatio * 3.2));
-      const nodeAlpha = Math.min(1, baseAlpha * 2.2 * depthRatio);
+      const nodeSize = Math.max(2, Math.min(4.5, depthRatio * 3.2 * widthBoost));
+      const nodeAlpha = Math.min(1, effAlpha * 2.2 * depthRatio);
 
       for (let j = -colCount; j <= colCount; j++) {
         const ix = vx + j * stepXBottom * depthRatio;
