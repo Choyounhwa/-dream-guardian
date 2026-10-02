@@ -81,7 +81,7 @@ export class StarNoteRenderer {
   }
 
   /**
-   * 노트 비행 진행도에 따른 목표 피트니스 존 어프로치 링 수축 배율 계산 (Issue #283 / VFX-JUDGMENT-001)
+   * 노트 비행 진행도에 따른 목표 피트니스 존 어프로치 링 수축 배율 계산 (Issue #284 / VFX-JUDGMENT-001)
    * - 진행도 0.0일 때 2.5배 -> 1.0 안착 시 1.0배
    * - formula: approachScale = 1.0 + 1.5 * (1.0 - progress)
    */
@@ -218,7 +218,7 @@ export class StarNoteRenderer {
 
     ctx.save();
 
-    // 1. 목표 존 어프로치 링 (Issue #283 / VFX-JUDGMENT-001): 비행 진행도에 따라 목표 존 테두리로 수축
+    // 1. 목표 존 어프로치 링 (Issue #284 / VFX-JUDGMENT-001): 비행 진행도에 따라 목표 존 테두리로 수축
     if (zone) {
       this._renderApproachRing(ctx, vw, vh, zone, color, pos.progress);
     }
@@ -247,9 +247,9 @@ export class StarNoteRenderer {
     ctx.shadowBlur = 18 * pos.scale;
     ctx.stroke();
 
-    // 4. 중앙 별/음표 아이콘
-    ctx.font = `bold ${Math.round(26 * pos.scale)}px sans-serif`;
+    // 5. 5각 황금 별똥별 플룸 & 아이콘
     ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold ${Math.round(20 * pos.scale)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const icon = (target as any).icon ?? ((target as any).instrument === 'foot' ? '♪' : '★');
@@ -260,7 +260,7 @@ export class StarNoteRenderer {
   }
 
   /**
-   * 목표 존 어프로치 링 (진행도에 따라 목표 존 테두리로 수축, Issue #283 / VFX-JUDGMENT-001)
+   * 목표 존 어프로치 링 (진행도에 따라 목표 존 테두리로 수축, Issue #284 / VFX-JUDGMENT-001)
    */
   private _renderApproachRing(
     ctx: CanvasRenderingContext2D,

@@ -318,7 +318,7 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
     });
   });
 
-  describe('5. 목표 존 어프로치 링 (Approach Ring) 수축 계산 및 렌더링 (Issue #283 - VFX-JUDGMENT-001)', () => {
+  describe('5. 목표 존 어프로치 링 (Approach Ring) 수축 계산 및 렌더링 (Issue #284 - VFX-JUDGMENT-001)', () => {
     it('진행도에 따른 어프로치 링 수축 배율을 올바르게 계산한다 (0.0일 때 2.5배, 1.0일 때 1.0배)', () => {
       // approachScale = 1.0 + 1.5 * (1.0 - progress)
       expect(renderer.computeApproachScale(0.0)).toBeCloseTo(2.5, 4);
@@ -358,6 +358,49 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
       const baseH = zone4.height * vh + 8;
       expect(rw).toBeCloseTo(baseW * expectedScale, 0);
       expect(rh).toBeCloseTo(baseH * expectedScale, 0);
+    });
+
+    it('노트의 타겟 파트(rightHand)에 따른 고유 네온 색상(#FFCB4D)으로 어프로치 링을 렌더링한다', () => {
+      const target: ActiveStarTarget = {
+        patternId: 'p-righthand',
+        part: 'rightHand',
+        zoneId: 5,
+        beatIndex: 1,
+        landingTime: 4.0,
+      };
+
+      renderer.render(ctx, vw, vh, {
+        target,
+        elapsedTime: 3.75,
+        vanishingX: vx,
+        vanishingY: vy,
+      });
+
+      expect(ctx.strokeStyle).toBe('#FFCB4D');
+    });
+
+    it('이미 판정/수집 완료된 노트(resolved/isCollected)는 어프로치 링을 렌더링하지 않는다', () => {
+      const target: ActiveStarTarget & { resolved?: boolean } = {
+        patternId: 'p-resolved',
+        part: 'leftHand',
+        zoneId: 4,
+        beatIndex: 1,
+        landingTime: 4.0,
+        resolved: true,
+      };
+
+      vi.mocked(ctx.roundRect).mockClear();
+      vi.mocked(ctx.stroke).mockClear();
+
+      renderer.render(ctx, vw, vh, {
+        target,
+        elapsedTime: 3.75,
+        vanishingX: vx,
+        vanishingY: vy,
+      });
+
+      expect(ctx.roundRect).not.toHaveBeenCalled();
+      expect(ctx.stroke).not.toHaveBeenCalled();
     });
 
     it('비행 시작 시점(progress = 0.0)에는 2.5배 크기로 어프로치 링이 렌더링된다', () => {

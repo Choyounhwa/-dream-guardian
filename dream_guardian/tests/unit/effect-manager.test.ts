@@ -135,7 +135,7 @@ describe('EffectManager & Particle Integration Tests (VFX-001 / #273)', () => {
     expect(manager.particleEmitter.activeCount).toBe(0);
   });
 
-  describe('리듬 판정 플로팅 텍스트 (Issue #283 - VFX-JUDGMENT-001)', () => {
+  describe('리듬 판정 플로팅 텍스트 (Issue #284 - VFX-JUDGMENT-001)', () => {
     it('playJudgmentText("PERFECT")가 올바른 수명(0.6s), 골드 색상(#FFCB4D), 콤보를 갖는 텍스트를 생성한다', () => {
       manager.playJudgmentText(200, 300, 'PERFECT', 5);
       expect(manager.activeJudgmentTexts.length).toBe(1);
@@ -169,6 +169,11 @@ describe('EffectManager & Particle Integration Tests (VFX-001 / #273)', () => {
       expect(manager.activeJudgmentTexts[0].duration).toBeCloseTo(0.5, 2);
       manager.clear();
 
+      manager.playJudgmentText(100, 100, 'EARLY');
+      expect(manager.activeJudgmentTexts[0].color).toBe('#FF8844');
+      expect(manager.activeJudgmentTexts[0].duration).toBeCloseTo(0.5, 2);
+      manager.clear();
+
       manager.playJudgmentText(100, 100, 'LATE');
       expect(manager.activeJudgmentTexts[0].color).toBe('#FF8844');
       expect(manager.activeJudgmentTexts[0].duration).toBeCloseTo(0.5, 2);
@@ -178,10 +183,30 @@ describe('EffectManager & Particle Integration Tests (VFX-001 / #273)', () => {
       const missJt = manager.activeJudgmentTexts[0];
       expect(missJt.color).toBe('#FF4444');
       expect(missJt.duration).toBeCloseTo(0.45, 2);
+      expect(missJt.shake).toBe(true);
+
+      // MISS는 아래로 처짐
       manager.update(0.2);
-      // MISS는 아래로 처지므로 currentY > y
-      expect(missJt.currentY).toBeGreaterThanOrEqual(100);
-      manager.clear();
+      expect(missJt.currentY).toBeGreaterThan(100);
+    });
+
+    it('PERFECT 판정은 파티클 버스트를 격발하지만, MISS 판정은 파티클을 발생시키지 않는다', () => {
+      const burstSpy = vi.spyOn(manager.particleEmitter, 'burst');
+
+      manager.playJudgmentText(150, 250, 'PERFECT', 1);
+      expect(burstSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          x: 150,
+          y: 250,
+          count: 10,
+          colors: expect.arrayContaining(['#FFCB4D', '#FFFFFF']),
+        }),
+      );
+
+      burstSpy.mockClear();
+
+      manager.playJudgmentText(150, 250, 'MISS');
+      expect(burstSpy).not.toHaveBeenCalled();
     });
 
     it('소문자 혼합("Perfect", "Good", "Late", "Miss") 입력 시에도 대문자로 정상 정규화된다', () => {

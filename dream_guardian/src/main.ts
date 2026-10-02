@@ -368,7 +368,7 @@ starNoteScheduler.onRating((starResult) => {
     beatRoundResolver.recordStarRating(starResult.rating, noteId);
   }
 
-  // Issue #283 (VFX-JUDGMENT-001): 리듬 판정 플로팅 텍스트(PERFECT/GOOD/LATE/MISS) 및 콤보 팝업 연동
+  // Issue #284 (VFX-JUDGMENT-001): 리듬 판정 플로팅 텍스트(PERFECT/GOOD/LATE/MISS) 및 콤보 팝업 연동
   if (starResult.rating === 'Miss') {
     rhythmStarCombo = 0;
   } else {

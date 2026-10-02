@@ -282,7 +282,7 @@ export const JUDGMENT_CONFIGS: Record<JudgmentRating, JudgmentTextConfig> = {
 };
 
 /**
- * 리듬 판정 플로팅 텍스트 인스턴스 (Issue #283 / VFX-JUDGMENT-001)
+ * 리듬 판정 플로팅 텍스트 인스턴스 (Issue #284 / VFX-JUDGMENT-001)
  */
 export class FloatingJudgmentText {
   readonly x: number;
@@ -1113,7 +1113,7 @@ export class EffectManager {
   }
 
   /**
-   * 리듬 판정 플로팅 텍스트 재생 (Issue #283 / VFX-JUDGMENT-001)
+   * 리듬 판정 플로팅 텍스트 재생 (Issue #284 / VFX-JUDGMENT-001)
    *
    * @param x 화면 X 좌표
    * @param y 화면 Y 좌표
@@ -1198,7 +1198,7 @@ export class EffectManager {
       }
     }
 
-    // 활성 리듬 판정 플로팅 텍스트 업데이트 (VFX-JUDGMENT-001 / Issue #283)
+    // 활성 리듬 판정 플로팅 텍스트 업데이트 (VFX-JUDGMENT-001 / Issue #284)
     let j = 0;
     while (j < this._activeJudgmentTexts.length) {
       const jt = this._activeJudgmentTexts[j];
