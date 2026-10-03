@@ -1121,6 +1121,7 @@ export class SceneDirector<TContext = any> {
           vanishingY: bossY,
           buttonsOnly: true,
           answerSelectable: false,
+          showAnswerTime: false,
         });
       }
     } else if (ctx.presentationAdapter.canRenderQuestion(ctx.stateMachine.currentState)) {
@@ -1156,6 +1157,13 @@ export class SceneDirector<TContext = any> {
         }
       }
 
+      const answerTime = ctx.beatCoordinator.getAnswerSnapshot?.() ?? null;
+      const showAnswerTime =
+        ctx.stateMachine.currentState === 'ANSWER_SELECT' &&
+        ctx.beatCoordinator.phase === 'ANSWER_SELECT' &&
+        answerTime?.inputOpen === true &&
+        (answerTime.phase === 'primary' || answerTime.phase === 'extension');
+
       ctx.questionRenderer.render(context2d, vw, vh, {
         question: ctx.state.currentQuestion,
         questionVisible: ctx.state.questionVisible ?? true,
@@ -1166,6 +1174,8 @@ export class SceneDirector<TContext = any> {
         choiceProgress: [choiceProgress0, choiceProgress1],
         activeHoverIndex,
         answerSelectable: ctx.beatCoordinator.isAnswerOpen,
+        answerTime,
+        showAnswerTime,
       });
 
       // Issue #255: ANSWER_SELECT 상태에서 부분 진행도 시각화 및 실패 사유 힌트 렌더링
