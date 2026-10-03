@@ -142,7 +142,8 @@ describe('Phase Presentation & Render Allow Matrix - [BUG-PHASE-PRESENTATION-001
       expect(adapter.canRenderStarCollect(coordinator.phase as GameState)).toBe(false);
     });
 
-    it('답안 선택 2박 타임아웃 만료 시 HAZARD_EVADE로 전이되어 회피 표시 경로를 탄다', () => {
+    // #309: 구 2박 timeout 기대를 4박(primary 2 + 연장 2)으로 교체. 테스트는 삭제하지 않음.
+    it('답안 선택 4박 타임아웃 만료 시 HAZARD_EVADE로 전이되어 회피 표시 경로를 탄다', () => {
       const { coordinator } = createFixture();
       coordinator.startRound({ chapter: 1, subLevel: 1 });
 
@@ -152,8 +153,8 @@ describe('Phase Presentation & Render Allow Matrix - [BUG-PHASE-PRESENTATION-001
       }
       expect(coordinator.phase).toBe('ANSWER_SELECT');
 
-      // 2박(1.0초) 동안 미입력 방치
-      coordinator.update(1.0);
+      // #309: 미응답 timeout은 4박(2.0초)
+      coordinator.update(2.0);
 
       expect(coordinator.phase).toBe('HAZARD_EVADE');
       expect(adapter.canRenderHazardEvade(coordinator.phase as GameState)).toBe(true);

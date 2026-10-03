@@ -45,8 +45,17 @@ export interface ArmDirectionAnswerConfig {
   outwardTravelRatio: number;
   /** 사전 뻗기 1초 유지 확정 시간 (초, 기본 1.0) */
   heldReachConfirmSec: number;
-  /** 답안 선택 유효 창 비트 수 (기본 2박, 최대 1.0초 @ BPM 120) */
+  /**
+   * primary 창 별칭 (기본 2박). #309 이후 총 창 길이가 아니다.
+   * 총 창은 answerPrimaryBeats + answerExtensionBeats = answerMaxBeats.
+   */
   answerSelectBeats: number;
+  /** 기본 답안 창 (박, #309) */
+  answerPrimaryBeats: number;
+  /** 미응답 시 같은 창에 1회만 더하는 연장 (박, #309) */
+  answerExtensionBeats: number;
+  /** primary + extension 상한. 6박 창 금지 (박, #309) */
+  answerMaxBeats: number;
 }
 
 export const DEFAULT_ARM_DIRECTION_ANSWER_CONFIG: ArmDirectionAnswerConfig = {
@@ -55,6 +64,9 @@ export const DEFAULT_ARM_DIRECTION_ANSWER_CONFIG: ArmDirectionAnswerConfig = {
   outwardTravelRatio: 0.18,
   heldReachConfirmSec: 1.0,
   answerSelectBeats: 2,
+  answerPrimaryBeats: 2,
+  answerExtensionBeats: 2,
+  answerMaxBeats: 4,
 };
 
 export interface ArmReachJudgmentConfig {

@@ -125,7 +125,9 @@ describe('MusicTrackConfig & Variable Beat Architecture (Issue #204 / BEAT-TRACK
       expect(coordinator.phase).toBe('ANSWER_SELECT');
       expect(coordinator.isAnswerOpen).toBe(true);
 
-      // 2박(1.0초 @ BPM 120) 도달: 타임아웃 만료로 HAZARD_EVADE 전이 (Issue #287)
+      // #309: 구 max-2 timeout(#287)을 primary 2 + 연장 1회(총 4박)로 교체. 1.0초는 연장이다.
+      coordinator.update(1.0);
+      expect(coordinator.phase).toBe('ANSWER_SELECT');
       coordinator.update(1.0);
       expect(coordinator.phase).toBe('HAZARD_EVADE');
       expect(coordinator.isAnswerOpen).toBe(false);

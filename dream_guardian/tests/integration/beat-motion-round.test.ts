@@ -299,8 +299,8 @@ describe('[E2E-BEAT-001] Phase A 10문제 → Phase B → 결과 루틴 E2E 통�
     it('답안 선택 시간 초과(timeout) 시 즉시 HAZARD_EVADE로 전이한다', () => {
       advanceToAnswerSelect();
 
-      // 2박(1.0s) 동안 무응답 경과
-      beatCoordinator.update(1.05, createStationaryLandmarks());
+      // #309: 무응답 timeout은 4박(2.0s). 2박은 같은 창 연장이다.
+      beatCoordinator.update(2.05, createStationaryLandmarks());
 
       expect(beatCoordinator.phase).toBe('HAZARD_EVADE');
       expect(stateMachine.currentState).toBe('HAZARD_EVADE');

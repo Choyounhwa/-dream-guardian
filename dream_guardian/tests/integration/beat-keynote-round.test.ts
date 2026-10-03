@@ -153,7 +153,8 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
       expect(coordinator.isAnswerOpen).toBe(true);
     });
 
-    it('답안 입력 창은 최대 2박(1.0초) 동안만 열리며, 2박 초과 시 timeout 처리되어 HAZARD_EVADE로 자동 분기한다', () => {
+    // #309: 구 max-2 timeout을 primary 2 + 연장 1회(총 4박)로 교체. 1.05초는 연장이며 timeout은 4박이다.
+    it('답안 입력 창은 기본 2박 후 1회 연장되어 최대 4박이며, 4박 초과 시 timeout으로 HAZARD_EVADE에 분기한다', () => {
       coordinator.startRound({ chapter: 1 });
       for (let i = 0; i < 8; i++) {
         coordinator.recordStep('run');
@@ -166,8 +167,13 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
       expect(coordinator.isAnswerOpen).toBe(true);
       expect(coordinator.phase).toBe('ANSWER_SELECT');
 
-      // 추가 0.25초 경과 (총 1.05초 > 1.0초 2박 만료)
+      // 추가 0.25초 경과 (총 1.05초): #309 연장 구간, 아직 timeout 아님
       coordinator.update(0.25);
+      expect(coordinator.isAnswerOpen).toBe(true);
+      expect(coordinator.phase).toBe('ANSWER_SELECT');
+
+      // 총 4박(2.0초) 초과
+      coordinator.update(1.0);
       expect(coordinator.isAnswerOpen).toBe(false);
       expect(coordinator.phase).toBe('HAZARD_EVADE');
     });
@@ -300,8 +306,8 @@ describe('BeatKeynoteRound Integration (Issue #210 - BEAT-KEYNOTE-ENGINE-001)', 
         coordinator.update(0.5);
       }
 
-      // 2박(1.0s) 미응답 경과
-      coordinator.update(1.0);
+      // #309: 미응답 timeout은 4박(2.0s). 2박은 같은 창 연장이다.
+      coordinator.update(2.0);
 
       expect(coordinator.phase).toBe('HAZARD_EVADE');
       expect(coordinator.selectedChoiceIndex).toBeNull();

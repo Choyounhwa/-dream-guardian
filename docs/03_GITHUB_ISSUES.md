@@ -19,7 +19,7 @@
 
 - 목표: 기본 운동 `8(6+2) → 답안 기본2박 → 미응답일 때 추가2박(최대4) → 분기8박`. 기존 운동 난이도 8/12/16은 보존한다.
 - 기본/연장 중 선택 즉시 정답은 STAR_COLLECT, 오답은 HAZARD_EVADE로 전환하고 그때부터 8박을 시작한다. 미응답4박만 timeout으로 별도 집계하며 오답/timeout 자체의 직접 HP 차감은 금지한다.
-- **현재 arm-reach 런타임은 최대2박**이다. #283의 readyBeats=4와 별개로 #287 이후 `DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats=2`가 사용된다. #309는 이 시간 정책의 후속 대체이며 #287 방향 판정 및 #303 Hold·팔꿈치 폴백을 폐기하지 않는다. 과거 계약·카드 본문은 감사 이력으로 보존한다.
+- **#309 완료**: arm-reach 답안 시간은 `answerPrimaryBeats=2` + `answerExtensionBeats=2` = `answerMaxBeats=4`. `answerSelectBeats=2`는 primary 별칭으로 남는다. 구 max-2(#287)는 이 시간 정책에서만 대체되었고, #287 방향 판정과 #303 Hold·팔꿈치 폴백은 폐기하지 않는다. 과거 계약·카드 본문은 감사 이력으로 보존한다.
 - 선택 즉시 분기, 분기8박, timeout 통계/스냅샷/결과 표시 등 기존 구현은 유지·회귀 조건이지 신규 재구현 대상이 아니다. #303은 조회 시 GitHub OPEN이나 완료 코멘트와 소스 구현이 존재한다.
 - 정확2/4박은 동일 활성시간 timestamp에서 입력 우선, >4박 입력/stale는 거부한다. 늦은 프레임 포즈 소급 인정, 연장 시 창/Hold 초기화, readyBeats 또는 난이도4에 +2하여 6박으로 만드는 처리를 금지한다.
 - 분기 로컬 BPM/시작 기준을 통일하되 메트로놈 리셋·연속 BGM/transport 재설계는 범위 밖이다. 필요하면 별도 카드로 분리한다.
@@ -33,7 +33,7 @@
 | [#306](https://github.com/Choyounhwa/-dream-guardian/issues/306) `BUG-ARM-INTENT-GATE-001` | 후보/최종검증·창/stale: `src/input/ArmReachAnswerSelector.ts` | 1 | 신규 없음; #287/#303 보존 | bug, phase-3, P1-high |
 | [#307](https://github.com/Choyounhwa/-dream-guardian/issues/307) `BUG-ARM-HOLD-TIME-001` | 명시적 dt/Hold: `src/input/ArmReachAnswerSelector.ts` | 1 | #306 | bug, phase-3, P1-high |
 | [#308](https://github.com/Choyounhwa/-dream-guardian/issues/308) `BUG-ANSWER-CONSUME-001` | 유효 선확정 단일 소비: `src/game/BeatRunCoordinator.ts` | 1 | #306, #307 | bug, step-9, P1-high |
-| [#309](https://github.com/Choyounhwa/-dream-guardian/issues/309) `FEAT-ANSWER-GRACE-001` | 2+2박·공개 snapshot/분기 시간: `src/game/BeatRunCoordinator.ts`, `config/judgment.config.ts` | 2 | #308 | feature, step-9, P1-high |
+| [#309](https://github.com/Choyounhwa/-dream-guardian/issues/309) `FEAT-ANSWER-GRACE-001` | **완료**: 2+2박·`getAnswerSnapshot`/`getBranchClock`: `src/game/BeatRunCoordinator.ts`, `config/judgment.config.ts` | 2 | #308 | feature, step-9, P1-high |
 | [#310](https://github.com/Choyounhwa/-dream-guardian/issues/310) `BUG-BRANCH-BEAT-CLOCK-001` | 가변 BPM 8박: `src/game/StarNoteScheduler.ts`, `src/game/PhaseAHazardController.ts`, `config/phase-a-hazard.config.ts` | 최대3 | #309 | bug, step-9, P1-high |
 | [#311](https://github.com/Choyounhwa/-dream-guardian/issues/311) `RENDER-ANSWER-STATUS-001` | 기본/연장/남은 박수 표시: `src/render/QuestionRenderer.ts` | 1 | #309 | feature, phase-6, P2-medium |
 | [#312](https://github.com/Choyounhwa/-dream-guardian/issues/312) `BUG-RUNTIME-ANSWER-BRANCH-001` | 실제 입력·분기 시간 연결: `src/core/SceneDirector.ts`, `src/core/AppBootstrap.ts` | 최대2 | #306~#310, #302 완료·안정화; #301 경로 재확인 | bug, phase-1, P1-high |

@@ -3,7 +3,7 @@
  *
  * 실제 운동 8회 루프:
  * - RUN_QUESTION (0/8~8/8): 문제 출제, 비블로킹 TTS 낭독, 실제 locomotion 입력마다 1박 기록
- * - ANSWER_SELECT (최대 2박/1.0s): ArmReachAnswerSelector 0s 무체류 한 팔 도달 즉시 선택
+ * - ANSWER_SELECT (기본 2박, 미응답 시 같은 창 +2박, 최대 4박): 선택 즉시 8박 분기
  * - STAR_COLLECT (2~8박/3.5s): 정답 시 7개 키노트 순차 진행
  * - HAZARD_EVADE (2~8박/3.5s): 오답/타임아웃 시 바닥 충격파 회피 진행
  * - ROUND_RESOLVE: 분기 루틴 완료 후 단 1회 정산
@@ -36,6 +36,28 @@ import {
 import { DEFAULT_ARM_DIRECTION_ANSWER_CONFIG } from '../../config/judgment.config.js';
 
 export type BeatRoutineMode = 'arm_reach' | 'legacy';
+
+export type AnswerWindowPhase = 'primary' | 'extension' | 'closed';
+
+export interface AnswerTimeSnapshot {
+  windowId: number;
+  phase: AnswerWindowPhase;
+  primaryBeats: number;
+  extensionBeats: number;
+  maxBeats: number;
+  elapsedBeats: number;
+  remainingBeats: number;
+  inputOpen: boolean;
+}
+
+export interface BranchClock {
+  bpm: number;
+  secondsPerBeat: number;
+  startElapsed: number;
+  elapsed: number;
+  endElapsed: number;
+  durationBeats: 8;
+}
 
 export type BeatPhase =
   | 'COUNT_IN'
@@ -92,6 +114,7 @@ export class BeatRunCoordinator {
   private _performanceElapsed = 0;
   private _answerSelectElapsed = 0;
   private _branchElapsed = 0;
+  private _branchStartElapsed = 0;
   private _isTimedOut = false;
   private _countInElapsed = 0;
   private _countInCurrentBeat = 0;
@@ -241,10 +264,9 @@ export class BeatRunCoordinator {
 
   get isAnswerOpen(): boolean {
     if (this._phase === 'ANSWER_SELECT') {
-      const answerWindowBeats = DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats;
       return (
         this._selectedChoiceIndex === null &&
-        this._answerSelectElapsed < answerWindowBeats * this._rhythmEngine.secondsPerBeat
+        this._answerSelectElapsed < this._answerMaxSeconds() - 1e-9
       );
     }
     if (this._phase === 'KEYNOTE_PERFORMANCE') {
@@ -284,6 +306,51 @@ export class BeatRunCoordinator {
 
   get armReachAnswerSelector(): ArmReachAnswerSelector {
     return this._armReachAnswerSelector;
+  }
+
+  /** #309 읽기 전용 답안 시간. 매 호출 새 객체. */
+  getAnswerSnapshot(): Readonly<AnswerTimeSnapshot> {
+    const policy = DEFAULT_ARM_DIRECTION_ANSWER_CONFIG;
+    const spb = this._rhythmEngine.secondsPerBeat || 0.5;
+    const elapsedBeats = this._answerSelectElapsed / spb;
+    const maxBeats = policy.answerMaxBeats;
+    const phase: AnswerWindowPhase =
+      this._phase !== 'ANSWER_SELECT' || this._selectedChoiceIndex !== null || elapsedBeats >= maxBeats - 1e-9
+        ? 'closed'
+        : elapsedBeats >= policy.answerPrimaryBeats - 1e-9
+          ? 'extension'
+          : 'primary';
+    const remainingBeats = phase === 'closed' ? 0 : Math.max(0, maxBeats - elapsedBeats);
+    return {
+      windowId: this._questionGeneratedCount,
+      phase,
+      primaryBeats: policy.answerPrimaryBeats,
+      extensionBeats: policy.answerExtensionBeats,
+      maxBeats,
+      elapsedBeats: phase === 'closed' ? Math.min(elapsedBeats, maxBeats) : elapsedBeats,
+      remainingBeats,
+      inputOpen: phase !== 'closed' && !this.isPaused,
+    };
+  }
+
+  /** #310용 읽기 전용 분기 시계. 분기 시작 전 null. */
+  getBranchClock(): Readonly<BranchClock> | null {
+    if (this._phase !== 'STAR_COLLECT' && this._phase !== 'HAZARD_EVADE' && this._phase !== 'ROUND_RESOLVE') {
+      return null;
+    }
+    const spb = this._rhythmEngine.secondsPerBeat;
+    return {
+      bpm: this._rhythmEngine.bpm,
+      secondsPerBeat: spb,
+      startElapsed: this._branchStartElapsed,
+      elapsed: this._branchElapsed,
+      endElapsed: this._branchStartElapsed + 8 * spb,
+      durationBeats: 8,
+    };
+  }
+
+  private _answerMaxSeconds(): number {
+    return DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerMaxBeats * this._rhythmEngine.secondsPerBeat;
   }
 
   get isTimedOut(): boolean {
@@ -593,9 +660,8 @@ export class BeatRunCoordinator {
     if (this._routineMode === 'arm_reach') {
       // 1. ANSWER_SELECT 페이즈 처리
       if (this._phase === 'ANSWER_SELECT') {
-        // Issue #287: 선택 창은 최대 2박(1.0초, BPM 120). readyBeats: 4를 답안 창 길이로 쓰지 않는다.
-        const answerWindowBeats = DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats;
-        const maxAnswerTime = answerWindowBeats * this._rhythmEngine.secondsPerBeat;
+        // #309: primary 2 + 미응답 연장 1회(총 4). readyBeats(4)와 구 max-2는 창 길이가 아니다.
+        const maxAnswerTime = this._answerMaxSeconds();
         const samplePastDeadline = this._answerSelectElapsed + remainingDt > maxAnswerTime + 1e-9;
         const windowAcceptsInput =
           this._selectedChoiceIndex === null &&
@@ -616,19 +682,23 @@ export class BeatRunCoordinator {
           }
         }
 
+        if (this.isPaused) {
+          return;
+        }
+
         const remainingAnswerTime = maxAnswerTime - this._answerSelectElapsed;
-        const step = Math.min(remainingDt, remainingAnswerTime);
+        const step = Math.min(remainingDt, Math.max(0, remainingAnswerTime));
         this._answerSelectElapsed += step;
         remainingDt -= step;
 
         if (this._answerSelectElapsed >= maxAnswerTime - 1e-9 && this._selectedChoiceIndex === null) {
-          // 2박 타임아웃 만료 -> HAZARD_EVADE 즉시 전이 (Issue #287)
           this._isTimedOut = true;
           this._options.onTimeout?.();
           this._armReachAnswerSelector.closeWindow();
           this._selectedChoiceIndex = null;
           this._phase = 'HAZARD_EVADE';
           this._branchElapsed = 0;
+          this._branchStartElapsed = this._answerSelectElapsed;
           this._options.onPhaseChange?.(this._phase);
         }
       }
@@ -682,6 +752,8 @@ export class BeatRunCoordinator {
     if (this._routineMode === 'arm_reach') {
       this._phase = 'ANSWER_SELECT';
       this._answerSelectElapsed = 0;
+      this._branchElapsed = 0;
+      this._branchStartElapsed = 0;
       this._armReachAnswerSelector.openWindow();
       this._options.onPhaseChange?.(this._phase);
     } else {
@@ -788,6 +860,7 @@ export class BeatRunCoordinator {
     if (this._routineMode === 'arm_reach') {
       const correct = choiceIndex === this._currentQuestion.correctIndex;
       this._phase = correct ? 'STAR_COLLECT' : 'HAZARD_EVADE';
+      this._branchStartElapsed = this._answerSelectElapsed;
       this._branchElapsed = 0;
       this._options.onPhaseChange?.(this._phase);
     }
