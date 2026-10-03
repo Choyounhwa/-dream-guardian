@@ -850,11 +850,34 @@ export class SceneDirector<TContext = any> {
       ctx.footKeynoteInput.routeEvent(event);
     }
 
-    ctx.beatCoordinator.update(dt, normalizedLandmarks);
+    const sampleTime = ctx.engine?.elapsedTime ?? 0;
+    const stampedLandmarks = normalizedLandmarks
+      ? normalizedLandmarks.map((lm: { x: number; y: number; timestamp?: number }) => ({ ...lm, timestamp: sampleTime }))
+      : normalizedLandmarks;
+    const phaseBefore = ctx.beatCoordinator.phase;
+    ctx.beatCoordinator.update(dt, stampedLandmarks);
     ctx.state.currentQuestion = ctx.beatCoordinator.currentQuestion;
+    const phaseAfter = ctx.beatCoordinator.phase;
+    const clock = ctx.beatCoordinator.getBranchClock?.() ?? null;
+    const branchStarted =
+      (phaseAfter === 'STAR_COLLECT' || phaseAfter === 'HAZARD_EVADE') &&
+      phaseBefore !== phaseAfter;
+    const branchRemainder = branchStarted ? Math.max(0, dt - (clock?.elapsed ?? 0)) : dt;
 
-    if (ctx.stateMachine.currentState === 'HAZARD_EVADE' && ctx.phaseAHazardController.isActive) {
-      ctx.phaseAHazardController.update(dt);
+    if (
+      (ctx.stateMachine.currentState === 'HAZARD_EVADE' || phaseAfter === 'HAZARD_EVADE') &&
+      !ctx.phaseAHazardController.isActive
+    ) {
+      const branchClock = clock;
+      ctx.phaseAHazardController.start({
+        roundIndex: ctx.beatRoundResolver.currentRoundIndex,
+        ...(branchClock
+          ? { branchClock, secondsPerBeat: branchClock.secondsPerBeat }
+          : { secondsPerBeat: ctx.beatCoordinator.rhythmEngine?.secondsPerBeat }),
+      });
+    }
+    if (ctx.stateMachine.currentState === 'HAZARD_EVADE' && ctx.phaseAHazardController.isActive && !branchStarted) {
+      ctx.phaseAHazardController.update(branchRemainder);
       if (!ctx.battle.isAlive) {
         ctx.actions.showResult(false);
         return;
@@ -867,12 +890,18 @@ export class SceneDirector<TContext = any> {
       ctx.stateMachine.currentState === 'STAR_COLLECT'
     ) {
       if (!ctx.starNoteScheduler.isStarted) {
-        ctx.starNoteScheduler.start(ctx.engine?.elapsedTime ?? 0, {
+        const branchClock = clock;
+        ctx.starNoteScheduler.start(branchClock?.startElapsed ?? sampleTime, {
           roundId: ctx.beatRoundResolver.currentRoundIndex,
           notes: ctx.beatCoordinator.keynotes,
+          ...(branchClock
+            ? { branchClock, secondsPerBeat: branchClock.secondsPerBeat }
+            : { secondsPerBeat: ctx.beatCoordinator.rhythmEngine?.secondsPerBeat }),
         });
       }
-      ctx.starNoteScheduler.update(ctx.engine?.elapsedTime ?? 0, sourceLandmarks);
+      if (!branchStarted) {
+        ctx.starNoteScheduler.update(sampleTime, sourceLandmarks);
+      }
       ctx.starCollectionInput.setTarget(ctx.starNoteScheduler.currentTarget);
     } else if (
       ctx.stateMachine.currentState === 'BOSS_CLIMAX' ||

@@ -644,7 +644,6 @@ stateMachine.registerState('ANSWER_SELECT', {
   enter: () => {
     questionVisible = true;
     answerLocked = false;
-    armReachAnswerSelector.openWindow();
   },
   exit: () => {
     answerLocked = true;
@@ -657,9 +656,13 @@ stateMachine.registerState('STAR_COLLECT', {
     questionVisible = false;
     answerLocked = true;
     playedNoteAudioIds.clear();
-    starNoteScheduler.start(engine.elapsedTime, {
+    const branchClock = beatCoordinator.getBranchClock();
+    starNoteScheduler.start(branchClock?.startElapsed ?? engine.elapsedTime, {
       roundId: beatRoundResolver.currentRoundIndex,
       notes: beatCoordinator.keynotes,
+      ...(branchClock
+        ? { branchClock, secondsPerBeat: branchClock.secondsPerBeat }
+        : { secondsPerBeat: beatCoordinator.rhythmEngine.secondsPerBeat }),
     });
   },
   exit: () => {
@@ -675,8 +678,12 @@ stateMachine.registerState('HAZARD_EVADE', {
     questionVisible = false;
     answerLocked = true;
     if (!phaseAHazardController.isActive) {
+      const branchClock = beatCoordinator.getBranchClock();
       phaseAHazardController.start({
         roundIndex: beatRoundResolver.currentRoundIndex,
+        ...(branchClock
+          ? { branchClock, secondsPerBeat: branchClock.secondsPerBeat }
+          : { secondsPerBeat: beatCoordinator.rhythmEngine.secondsPerBeat }),
       });
     }
   },
@@ -1558,6 +1565,7 @@ engine = new GameEngine({
     };
 
     const answerCurrentQuestion = (idx: number) => {
+      if (pauseModal.isOpen) return;
       if (beatCoordinator.isAnswerOpen) {
         sfx.play('hover');
         beatCoordinator.confirmAnswerByFallback(idx);
@@ -1807,7 +1815,7 @@ engine = new GameEngine({
       currentQuestion = beatCoordinator.currentQuestion;
       return;
     }
-    if (presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked, beatCoordinator.isAnswerOpen) && currentQuestion) {
+    if (!pauseModal.isOpen && presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked, beatCoordinator.isAnswerOpen) && currentQuestion) {
       const buttonLayouts = getAnswerButtonLayouts(vw, vh);
 
       for (let i = 0; i < 2; i++) {
@@ -2007,7 +2015,7 @@ engine = new GameEngine({
       footKeynoteInput.fromKeyboard('rightFoot', engine.elapsedTime);
     }
 
-    if (presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked, beatCoordinator.isAnswerOpen)) {
+    if (!pauseModal.isOpen && presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked, beatCoordinator.isAnswerOpen)) {
       if (e.key === '1') {
         sfx.play('hover');
         beatCoordinator.confirmAnswerByFallback(0);
