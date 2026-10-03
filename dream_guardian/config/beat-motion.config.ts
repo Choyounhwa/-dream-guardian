@@ -120,6 +120,53 @@ export const DEFAULT_STAR_COLLECTION_CONFIG: StarCollectionConfig = {
   entryMargin: 0,
 };
 
+// ─── Star Note Visual & Instrument Config (Issue #316 / RENDER-NOTE-CONFIG-001) ───
+
+export interface StarNoteVisualConfig {
+  /** 기준 반지름 (px, 기본값 28) */
+  baseRadius: number;
+  /** 노트 본체 채우기 색상 (기본값 'rgba(12, 18, 30, 0.9)') */
+  bodyFillColor: string;
+  /** 노트 테두리 굵기 배율 (기본값 4) */
+  strokeWidthFactor: number;
+  /** 노트 외곽 글로우 블러 배율 (기본값 18) */
+  glowBlurFactor: number;
+  /** 악기별 기본 심볼 (기본: foot -> '♪', hand -> '★') */
+  instrumentSymbols: Record<string, string>;
+  /** 신체 부위별 렌더링 색상 */
+  partColors: Record<string, string>;
+  /** 심볼 폰트 크기 배율 (기본값 20) */
+  symbolFontSizeFactor: number;
+  /** 심볼 폰트 패밀리 (기본값 'sans-serif') */
+  symbolFontFamily: string;
+  /** 심볼 텍스트 색상 (기본값 '#FFFFFF') */
+  symbolColor: string;
+  /** 동적 심볼 해석 함수 (선택적) */
+  resolveSymbol?: (target: any) => string;
+}
+
+export const DEFAULT_STAR_NOTE_VISUAL_CONFIG: StarNoteVisualConfig = Object.freeze({
+  baseRadius: 28,
+  bodyFillColor: 'rgba(12, 18, 30, 0.9)',
+  strokeWidthFactor: 4,
+  glowBlurFactor: 18,
+  instrumentSymbols: {
+    hand: '★',
+    foot: '♪',
+  },
+  partColors: {
+    leftHand: '#28E6FF',
+    rightHand: '#FFCB4D',
+    head: '#C889FF',
+    shoulder: '#C889FF',
+    hip: '#FF865E',
+    foot: '#FF865E',
+  },
+  symbolFontSizeFactor: 20,
+  symbolFontFamily: 'sans-serif',
+  symbolColor: '#FFFFFF',
+});
+
 export interface RunQuestionConfig {
   /** 라운드당 필요한 유효 운동 박자 수 (기본 8) */
   exerciseBeats: number;

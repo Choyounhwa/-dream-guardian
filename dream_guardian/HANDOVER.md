@@ -137,19 +137,19 @@
 
 #### J 후속: 답안 입력·2+2박·분기8박 계약 시리즈 (2026-10-03 카드 등록)
 
-> **#306 완료 (`8d0e695`).** 이 시리즈의 다음 구현은 **#307**이다. #308~#314는 OPEN·구현 전 재검증이 필요하다.
+> **#306~#313 완료.** #314 자동화 계약 테스트는 `6565ca1` (2074 pass). 브라우저 합성Pose·Chrome 실카메라·10문제 Phase B 완주는 **미확인**이라 #314는 OPEN이다.
 
 | 카드 / 작업 ID | 단일 책임 | src/config 허용 파일 수 | 필수 선행 | 상태 |
 |---|---|:---:|---|---|
 | [#306](https://github.com/Choyounhwa/-dream-guardian/issues/306) `BUG-ARM-INTENT-GATE-001` | 버스 후보/최종검증 분리, 창 밖·stale 차단 | 1 | 신규 없음; #287/#303 보존 | `[✔] 완료` (`8d0e695`) |
-| [#307](https://github.com/Choyounhwa/-dream-guardian/issues/307) `BUG-ARM-HOLD-TIME-001` | 명시적 dt API·가변 FPS Hold 시간 | 1 | #306 | `[▶ NEXT]` |
-| [#308](https://github.com/Choyounhwa/-dream-guardian/issues/308) `BUG-ANSWER-CONSUME-001` | 코디네이터 선확정 단일 소비·기본2박 유지 | 1 | #306, #307 | OPEN / 구현 승인 대기 |
-| [#309](https://github.com/Choyounhwa/-dream-guardian/issues/309) `FEAT-ANSWER-GRACE-001` | 기본2+추가2박·읽기 전용 답안/분기 시간 API | 2 | #308 | OPEN / 구현 승인 대기 |
-| [#310](https://github.com/Choyounhwa/-dream-guardian/issues/310) `BUG-BRANCH-BEAT-CLOCK-001` | 별/장판의 가변 BPM 8박 시간 정합 | 최대3 | #309 | OPEN / 구현 승인 대기 |
-| [#311](https://github.com/Choyounhwa/-dream-guardian/issues/311) `RENDER-ANSWER-STATUS-001` | 기본/연장/남은 박수 수동 렌더링 | 1 | #309 | OPEN / 구현 승인 대기 |
-| [#312](https://github.com/Choyounhwa/-dream-guardian/issues/312) `BUG-RUNTIME-ANSWER-BRANCH-001` | 실제 조립계층의 입력→만료→분기 시간 연결 | 최대2 | #306~#310, #302 완료·안정화; #301 경로 재확인 | OPEN / 구현 승인 대기 |
-| [#313](https://github.com/Choyounhwa/-dream-guardian/issues/313) `CORE-ANSWER-PRESENTATION-001` | Game snapshot→Render 전달 | 1 | #311, #312 | OPEN / 구현 승인 대기 |
-| [#314](https://github.com/Choyounhwa/-dream-guardian/issues/314) `QA-ANSWER-BRANCH-001` | 실제 부트스트랩·브라우저·실카메라 최종 검증 | 0 | #313 | OPEN / 구현 승인 대기 |
+| [#307](https://github.com/Choyounhwa/-dream-guardian/issues/307) `BUG-ARM-HOLD-TIME-001` | 명시적 dt API·가변 FPS Hold 시간 | 1 | #306 | `[✔] 완료` (`b679d49`) |
+| [#308](https://github.com/Choyounhwa/-dream-guardian/issues/308) `BUG-ANSWER-CONSUME-001` | 코디네이터 선확정 단일 소비·기본2박 유지 | 1 | #306, #307 | `[✔] 완료` (`b422c78`) |
+| [#309](https://github.com/Choyounhwa/-dream-guardian/issues/309) `FEAT-ANSWER-GRACE-001` | 기본2+추가2박·읽기 전용 답안/분기 시간 API | 2 | #308 | `[✔] 완료` (`98e3500`) |
+| [#310](https://github.com/Choyounhwa/-dream-guardian/issues/310) `BUG-BRANCH-BEAT-CLOCK-001` | 별/장판의 가변 BPM 8박 시간 정합 | 최대3 | #309 | `[✔] 완료` (`6aa4df4`) |
+| [#311](https://github.com/Choyounhwa/-dream-guardian/issues/311) `RENDER-ANSWER-STATUS-001` | 기본/연장/남은 박수 수동 렌더링 | 1 | #309 | `[✔] 완료` (`a0f27d0`) |
+| [#312](https://github.com/Choyounhwa/-dream-guardian/issues/312) `BUG-RUNTIME-ANSWER-BRANCH-001` | 실제 조립계층의 입력→만료→분기 시간 연결 | 최대2 | #306~#310, #302 완료·안정화; #301 경로 재확인 | `[✔] 완료` (`d9e5400`) |
+| [#313](https://github.com/Choyounhwa/-dream-guardian/issues/313) `CORE-ANSWER-PRESENTATION-001` | Game snapshot→Render 전달 | 1 | #311, #312 | `[✔] 완료` (`05ebf20`) |
+| [#314](https://github.com/Choyounhwa/-dream-guardian/issues/314) `QA-ANSWER-BRANCH-001` | 실제 부트스트랩·브라우저·실카메라 최종 검증 | 0 | #313 | `[▶ NEXT]` 자동화 `6565ca1` / 실카메라·브라우저 미확인 / OPEN |
 
 - **목표 정책(미구현):** 기본 운동 `8(6+2) → 답안2 → 미응답일 때만 +2(최대4) → 분기8박`. 기존 운동 난이도 8/12/16은 유지한다. 기본/연장 중 선택 즉시 정답은 별, 오답은 회피8박으로 전환한다. 4박 미응답은 timeout 별도 통계이며 직접 HP 차감은 없다.
 - **현재/후속 구분:** 현재 arm-reach 실행 경로는 `judgment.config.ts`의 2박이다. #309는 #283/#287의 시간 정책만 후속 대체한다. #303 Hold/팔꿈치, 즉시 분기·timeout 통계·결과 표시는 이미 있으므로 중복 구현하지 않는다.
@@ -190,7 +190,14 @@
 | 48 | **#302** | [REFACTOR-MAIN-002] 메인 앱 부트스트랩 및 이벤트 리스너 분리 (AppBootstrap) | #301 | `[✔] 완료` |
 | 49 | **#315** | [BUG-SCENE-DIRECTOR-001] 리팩토링 후 스테이지 런타임 동결 및 렌더링 예외 결함 복구 (KneeFraming·CursorTracker·ReadyPosition 정합화) | #302 | `[✔] 완료` |
 | 50 | **#306** | [BUG-ARM-INTENT-GATE-001] 버스 팔 intent의 최종 답안 판정 우회 및 창 밖·stale 확정 차단 | #315 | `[✔] 완료` |
-| 51 | **#307** | [BUG-ARM-HOLD-TIME-001] 팔 선택기의 명시적 dt API로 가변 프레임 Hold 과소계산 제거 | #306 | `[▶ NEXT]` |
+| 51 | **#307** | [BUG-ARM-HOLD-TIME-001] 팔 선택기의 명시적 dt API로 가변 프레임 Hold 과소계산 제거 | #306 | `[✔] 완료` |
+| 52 | **#308** | [BUG-ANSWER-CONSUME-001] 코디네이터 선확정 단일 소비·기본2박 유지 | #306, #307 | `[✔] 완료` |
+| 53 | **#309** | [FEAT-ANSWER-GRACE-001] 답안 기본2박·미응답 추가2박과 읽기 전용 답안/분기 시간 계약 | #308 | `[✔] 완료` |
+| 54 | **#310** | [BUG-BRANCH-BEAT-CLOCK-001] 별 노트·Phase A 장판의 가변 BPM 8박 종료 정합화 | #309 | `[✔] 완료` |
+| 55 | **#311** | [RENDER-ANSWER-STATUS-001] 기본/연장/남은 박수 수동 렌더링 | #309 | `[✔] 완료` |
+| 56 | **#312** | [BUG-RUNTIME-ANSWER-BRANCH-001] 실제 조립계층의 답안 입력·만료·분기8박 활성시간 계약 연결 | #306~#310, #302 | `[✔] 완료` |
+| 57 | **#313** | [CORE-ANSWER-PRESENTATION-001] 읽기 전용 답안 snapshot의 기본·연장 표시 연결 | #311, #312 | `[✔] 완료` |
+| 58 | **#314** | [QA-ANSWER-BRANCH-001] 실제 부트스트랩·브라우저·실카메라 최종 검증 | #313 | `[▶ NEXT]` 자동화만 / OPEN |
 
 
 ### 권장 실행 순서
@@ -222,6 +229,21 @@
                          ↓
 [시스템 리팩토링] #297 (완료) → #298 (완료) → #299 (완료) → #300 (완료) → #301 (완료) → #302 (완료) → #315 (완료)
 ```
+
+---
+
+## 2026-10-03 완료: [RENDER-NOTE-CONFIG-001 / #316] 별가루 악기 노트 하드코딩 제거 및 설정(config) 기반 아이콘·에셋 동적 렌더링 전환
+
+> #316 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (163개 파일 2,079개 테스트 통과, build 성공).
+> - **설정 분리 (`config/beat-motion.config.ts`)**:
+>   - `StarNoteVisualConfig` 인터페이스 및 `DEFAULT_STAR_NOTE_VISUAL_CONFIG` 신설
+>   - 하드코딩 제거: 악기별 심볼(`instrumentSymbols`), 신체 부위별 색상(`partColors`), 본체 배경색(`bodyFillColor`), 테두리/글로우 배율, 폰트 크기/패밀리/색상 분리
+> - **렌더러 동적 매핑 전환 (`src/render/StarNoteRenderer.ts`)**:
+>   - 소스 코드 내 인라인 하드코딩된 `'♪'`, `'★'`, 폰트/색상 상수 제거
+>   - 생성자 옵션 `visualConfig` 지원 및 `getVisualConfig()` 메서드 제공
+>   - `(targetPart as string) === 'foot' || 'hip'` 안전 타입 처리 및 `resolveSymbol` 커스텀 오버라이드 지원
+> - **단위 테스트 증빙 (`tests/unit/star-note-renderer.test.ts`)**:
+>   - 25개 단위 테스트 100% Pass (기본 config 일치, 커스텀 심볼 주입, 동적 resolveSymbol, 폰트 크기 배율, 커스텀 partColors 등 신규 5종 테스트 추가)
 
 ---
 

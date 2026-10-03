@@ -11,6 +11,10 @@ import {
 } from '../../src/render/StarNoteRenderer.js';
 import type { ActiveStarTarget } from '../../src/input/StarCollectionInput.js';
 import { DEFAULT_FITNESS_ZONES } from '../../config/zone.config.js';
+import {
+  DEFAULT_STAR_NOTE_VISUAL_CONFIG,
+  type StarNoteVisualConfig,
+} from '../../config/beat-motion.config.js';
 
 function createMockContext(): CanvasRenderingContext2D {
   return {
@@ -425,6 +429,123 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
       expect(calls.length).toBeGreaterThanOrEqual(1);
       const [, , rw] = calls[0];
       expect(rw).toBeCloseTo(baseW * 2.5, 0);
+    });
+  });
+
+  describe('6. 설정(config) 기반 아이콘/심볼 및 비주얼 동적 렌더링 (Issue #316 - RENDER-NOTE-CONFIG-001)', () => {
+    it('기본 visualConfig가 DEFAULT_STAR_NOTE_VISUAL_CONFIG와 일치하며 하드코딩 없이 적용된다', () => {
+      const visualConfig: StarNoteVisualConfig = renderer.getVisualConfig();
+      expect(visualConfig).toBeDefined();
+      expect(visualConfig.baseRadius).toBe(DEFAULT_STAR_NOTE_VISUAL_CONFIG.baseRadius);
+      expect(visualConfig.instrumentSymbols.foot).toBe(DEFAULT_STAR_NOTE_VISUAL_CONFIG.instrumentSymbols.foot);
+      expect(visualConfig.instrumentSymbols.hand).toBe(DEFAULT_STAR_NOTE_VISUAL_CONFIG.instrumentSymbols.hand);
+    });
+
+    it('생성자 visualConfig 옵션을 통해 foot 악기 심볼을 커스텀 변경하면 해당 심볼이 렌더링된다', () => {
+      const customRenderer = new StarNoteRenderer({
+        visualConfig: {
+          instrumentSymbols: {
+            foot: '✨',
+            hand: '⭐',
+          },
+        },
+      });
+
+      const target: ActiveStarTarget = {
+        patternId: 'p-foot',
+        part: 'hip',
+        zoneId: 9,
+        beatIndex: 1,
+        landingTime: 4.0,
+        instrument: 'foot',
+      } as any;
+
+      customRenderer.render(ctx, vw, vh, {
+        target,
+        elapsedTime: 3.8,
+        vanishingX: vx,
+        vanishingY: vy,
+      });
+
+      expect(ctx.fillText).toHaveBeenCalledWith('✨', expect.any(Number), expect.any(Number));
+    });
+
+    it('커스텀 resolveSymbol 함수가 제공되면 target에 맞춰 동적 심볼을 반환하여 렌더링한다', () => {
+      const customRenderer = new StarNoteRenderer({
+        visualConfig: {
+          resolveSymbol: (t) => `N-${t.zoneId}`,
+        },
+      });
+
+      const target: ActiveStarTarget = {
+        patternId: 'p-custom',
+        part: 'leftHand',
+        zoneId: 3,
+        beatIndex: 1,
+        landingTime: 4.0,
+      };
+
+      customRenderer.render(ctx, vw, vh, {
+        target,
+        elapsedTime: 3.8,
+        vanishingX: vx,
+        vanishingY: vy,
+      });
+
+      expect(ctx.fillText).toHaveBeenCalledWith('N-3', expect.any(Number), expect.any(Number));
+    });
+
+    it('visualConfig의 폰트 크기 배율(symbolFontSizeFactor)이 텍스트 폰트 설정에 반영된다', () => {
+      const customRenderer = new StarNoteRenderer({
+        visualConfig: {
+          symbolFontSizeFactor: 40,
+        },
+      });
+
+      const target: ActiveStarTarget = {
+        patternId: 'p-font',
+        part: 'rightHand',
+        zoneId: 5,
+        beatIndex: 1,
+        landingTime: 4.0,
+      };
+
+      customRenderer.render(ctx, vw, vh, {
+        target,
+        elapsedTime: 4.0, // progress = 1.0 -> scale = 1.2
+        vanishingX: vx,
+        vanishingY: vy,
+      });
+
+      // scale 1.2 * factor 40 = 48px
+      expect(ctx.font).toContain('48px');
+    });
+
+    it('visualConfig의 partColors 설정을 오버라이드하면 변경된 색상으로 테두리가 렌더링된다', () => {
+      const customRenderer = new StarNoteRenderer({
+        visualConfig: {
+          partColors: {
+            leftHand: '#FF0055',
+          },
+        },
+      });
+
+      const target: ActiveStarTarget = {
+        patternId: 'p-color',
+        part: 'leftHand',
+        zoneId: 1,
+        beatIndex: 1,
+        landingTime: 4.0,
+      };
+
+      customRenderer.render(ctx, vw, vh, {
+        target,
+        elapsedTime: 3.8,
+        vanishingX: vx,
+        vanishingY: vy,
+      });
+
+      expect(ctx.strokeStyle).toContain('FF0055');
     });
   });
 });

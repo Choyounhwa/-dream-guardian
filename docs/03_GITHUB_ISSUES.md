@@ -5248,6 +5248,40 @@ BEAT-SPEC-001
   - `src/main.ts`
   - `tests/unit/stage-bgm-synthesizer.test.ts`
 
+---
+
+### Issue #316: [RENDER-NOTE-CONFIG-001] 별가루 악기 노트 하드코딩 제거 및 설정(config) 기반 아이콘·에셋 동적 렌더링 전환
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/316
+- **Labels**: `bug`, `phase-7`, `P1-high`, `refactor`
+- **작업 ID**: `[RENDER-NOTE-CONFIG-001]`
+- **상태**: 🟢 **완료 (TDD 100% 통과)**
+- **제목**: 별가루 악기 노트 하드코딩 제거 및 설정(config) 기반 아이콘·에셋 동적 렌더링 전환
+- **목적**:
+  - `StarNoteRenderer.ts` 내에 유니코드 음표(`♪`), 별(`★`) 문자 및 폰트 크기, 스타일 등이 직접 하드코딩되어 개발 규칙(데이터/설정 분리)을 위반하고, 원근 스케일 축소 시 '아주 작은 음표 아이콘'으로만 왜소하게 표시되던 결함을 해소한다.
+  - `config/beat-motion.config.ts`에 악기별/신체 부위별 노트 아이콘 심볼, 렌더링 스케일, 비주얼 스타일 및 에셋 매핑 설정을 분리 정의하고, `StarNoteRenderer`가 이를 주입받아 동적으로 렌더링하도록 전환한다.
+- **수정 대상 (Scope Guard: 3개 파일)**:
+  - `dream_guardian/config/beat-motion.config.ts`
+  - `dream_guardian/src/render/StarNoteRenderer.ts`
+  - `dream_guardian/tests/unit/star-note-renderer.test.ts`
+- **유지 사항**:
+  - 기존 레일 원근 비행 궤적(`GridProjection.projectAlongRail`), 타겟 타이밍 윈도우(Perfect/Late), 어프로치 링 및 펄스 링 연출 유지
+- **변경 금지**:
+  - `BattleState`, `PoseManager`, `MinionTroopManager`, `SceneDirector` 등 타 레이어 임의 수정 금지
+- **완료 조건**:
+  - [x] `config/beat-motion.config.ts`에 악기/부위별 노트 시각 스타일 및 아이콘 설정 분리 (`DEFAULT_STAR_NOTE_VISUAL_CONFIG`)
+  - [x] `StarNoteRenderer` 내부의 하드코딩된 `'♪'`, `'★'` 및 인라인 폰트/스타일 값 완전 제거
+  - [x] config 주입 및 커스텀 오버라이드 지원 단위 테스트 작성 및 통과
+  - [x] `npm test` 전체 100% Pass 및 `npm run build` 컴파일 무결성 확보
+- **테스트**:
+  - `npx vitest run tests/unit/star-note-renderer.test.ts`
+  - `npm test`
+  - `npm run build`
+- **관련 파일**:
+  - `dream_guardian/config/beat-motion.config.ts`
+  - `dream_guardian/src/render/StarNoteRenderer.ts`
+  - `dream_guardian/tests/unit/star-note-renderer.test.ts`
+
+
 
 
 

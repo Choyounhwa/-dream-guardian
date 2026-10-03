@@ -13,7 +13,9 @@ import type { StarTarget } from '../types/star.js';
 import { DEFAULT_FITNESS_ZONES, type FitnessZone } from '../../config/zone.config.js';
 import {
   DEFAULT_STAR_TIMING_WINDOWS,
+  DEFAULT_STAR_NOTE_VISUAL_CONFIG,
   type StarTimingWindows,
+  type StarNoteVisualConfig,
 } from '../../config/beat-motion.config.js';
 import { projectAlongRail } from './GridProjection.js';
 
@@ -32,6 +34,8 @@ export interface StarNoteRenderOptions {
   lateWindow?: number;
   /** 타이밍 윈도우 설정 일괄 연동 */
   timingWindows?: Partial<StarTimingWindows>;
+  /** 시각 스타일 및 아이콘 설정 (Issue #316 / RENDER-NOTE-CONFIG-001) */
+  visualConfig?: Partial<StarNoteVisualConfig>;
 }
 
 export interface StarNotePositionResult {
@@ -52,17 +56,9 @@ export interface StarNoteRenderState {
   isPaused?: boolean;
 }
 
-const PART_COLORS: Record<string, string> = {
-  leftHand: '#28E6FF',
-  rightHand: '#FFCB4D',
-  head: '#C889FF',
-  shoulder: '#C889FF',
-  hip: '#FF865E',
-  foot: '#FF865E',
-};
-
 export class StarNoteRenderer {
-  private readonly _options: Required<Omit<StarNoteRenderOptions, 'timingWindows'>>;
+  private readonly _options: Required<Omit<StarNoteRenderOptions, 'timingWindows' | 'visualConfig'>>;
+  private readonly _visualConfig: StarNoteVisualConfig;
 
   constructor(options?: StarNoteRenderOptions) {
     const timing = options?.timingWindows;
@@ -70,14 +66,31 @@ export class StarNoteRenderer {
       travelDuration: options?.travelDuration ?? 0.5,
       minScale: options?.minScale ?? 0.3,
       maxScale: options?.maxScale ?? 1.2,
-      baseRadius: options?.baseRadius ?? 28,
+      baseRadius: options?.baseRadius ?? options?.visualConfig?.baseRadius ?? DEFAULT_STAR_NOTE_VISUAL_CONFIG.baseRadius,
       perfectWindow: options?.perfectWindow ?? timing?.perfect ?? DEFAULT_STAR_TIMING_WINDOWS.perfect,
       lateWindow: options?.lateWindow ?? timing?.late ?? DEFAULT_STAR_TIMING_WINDOWS.late,
     };
+
+    this._visualConfig = {
+      ...DEFAULT_STAR_NOTE_VISUAL_CONFIG,
+      ...options?.visualConfig,
+      instrumentSymbols: {
+        ...DEFAULT_STAR_NOTE_VISUAL_CONFIG.instrumentSymbols,
+        ...options?.visualConfig?.instrumentSymbols,
+      },
+      partColors: {
+        ...DEFAULT_STAR_NOTE_VISUAL_CONFIG.partColors,
+        ...options?.visualConfig?.partColors,
+      },
+    };
   }
 
-  get options(): Readonly<Required<Omit<StarNoteRenderOptions, 'timingWindows'>>> {
+  get options(): Readonly<Required<Omit<StarNoteRenderOptions, 'timingWindows' | 'visualConfig'>>> {
     return this._options;
+  }
+
+  getVisualConfig(): Readonly<StarNoteVisualConfig> {
+    return this._visualConfig;
   }
 
   /**
@@ -213,7 +226,7 @@ export class StarNoteRenderer {
     if (!pos.inFlight) return;
 
     const targetPart = target.part || 'leftHand';
-    const color = PART_COLORS[targetPart] || '#28E6FF';
+    const color = this._visualConfig.partColors[targetPart] || this._visualConfig.partColors.leftHand || '#28E6FF';
     const zone = zones.find((z) => z.id === target.zoneId);
 
     ctx.save();
@@ -238,21 +251,24 @@ export class StarNoteRenderer {
     ctx.save();
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(12, 18, 30, 0.9)';
+    ctx.fillStyle = this._visualConfig.bodyFillColor;
     ctx.fill();
 
     ctx.strokeStyle = color;
-    ctx.lineWidth = 4 * pos.scale;
+    ctx.lineWidth = this._visualConfig.strokeWidthFactor * pos.scale;
     ctx.shadowColor = color;
-    ctx.shadowBlur = 18 * pos.scale;
+    ctx.shadowBlur = this._visualConfig.glowBlurFactor * pos.scale;
     ctx.stroke();
 
-    // 5. 5각 황금 별똥별 플룸 & 아이콘
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${Math.round(20 * pos.scale)}px sans-serif`;
+    // 5. 악기 / 별가루 심볼 렌더링 (하드코딩 제거 및 config 동적 매핑)
+    const fontSize = Math.max(1, Math.round(this._visualConfig.symbolFontSizeFactor * pos.scale));
+    ctx.fillStyle = this._visualConfig.symbolColor;
+    ctx.font = `bold ${fontSize}px ${this._visualConfig.symbolFontFamily}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const icon = (target as any).icon ?? ((target as any).instrument === 'foot' ? '♪' : '★');
+    const instrument = (target as any).instrument ?? ((targetPart as string) === 'hip' || (targetPart as string) === 'foot' ? 'foot' : 'hand');
+    const defaultSymbol = this._visualConfig.instrumentSymbols[instrument] || this._visualConfig.instrumentSymbols.hand || '★';
+    const icon = (target as any).icon ?? (this._visualConfig.resolveSymbol ? this._visualConfig.resolveSymbol(target) : defaultSymbol);
     ctx.fillText(icon, pos.x, pos.y);
 
     ctx.restore();
