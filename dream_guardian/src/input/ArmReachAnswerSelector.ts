@@ -173,6 +173,16 @@ export class ArmReachAnswerSelector {
   private _intentBus: MotionIntentBus | null = null;
   private _intentBusUnsub: UnsubscribeFn | null = null;
   private _adaptiveTolerance?: AdaptiveToleranceTracker;
+  private _isWindowOpen = false;
+  private _windowGen = 0;
+  private _windowOpenedAt: number | null = null;
+  private _pendingIntent: {
+    side: 0 | 1;
+    zoneId: 4 | 5;
+    windowGen: number;
+    arrivedAt: number;
+    confidence: number;
+  } | null = null;
 
   private _listeners: Set<ArmReachSelectCallback> = new Set();
   public onSelect?: ArmReachSelectCallback;
@@ -243,7 +253,9 @@ export class ArmReachAnswerSelector {
   }
 
   /**
-   * MotionIntent 기반 답안 선택 처리
+   * MotionIntent를 현재 창의 후보로만 등록한다.
+   * 최종 확정은 update()의 기존 포즈 판정 경로에서만 이루어진다. (#306)
+   * 현재 포즈가 이미 최종 게이트를 통과한 경우에만 확정 결과를 반환한다.
    */
   public selectByReachIntent(
     answerIndex: 0 | 1,
@@ -251,19 +263,66 @@ export class ArmReachAnswerSelector {
     intent: MotionIntent,
   ): ArmReachAnswerResult | null {
     if (this._isConfirmed) return null;
-    const hand: ArmHandType = intent.sourceCursor === 'right_hand' ? 'right' : 'left';
-    const posX = intent.payload?.x !== undefined ? (intent.payload.x as number) : (zoneId === 4 ? 0.2 : 0.8);
-    const posY = intent.payload?.y !== undefined ? (intent.payload.y as number) : 0.5;
-    return this._confirmAnswer(
-      answerIndex,
+    if (!this._isWindowOpen) return null;
+    if (this._windowOpenedAt !== null && intent.timestamp + 1e-6 < this._windowOpenedAt) {
+      return null;
+    }
+
+    const arrivedAt = this._lastTime ?? intent.timestamp;
+    this._pendingIntent = {
+      side: answerIndex,
       zoneId,
-      hand,
-      intent.timestamp,
+      windowGen: this._windowGen,
+      arrivedAt,
+      confidence: intent.confidence,
+    };
+
+    return this._confirmPendingIfPoseAgrees(arrivedAt);
+  }
+
+  /**
+   * 이미 평가된 현재 창 포즈가 후보 측면과 최종 게이트에 일치할 때만 확정한다.
+   */
+  private _confirmPendingIfPoseAgrees(currentTime: number): ArmReachAnswerResult | null {
+    const pending = this._pendingIntent;
+    if (!pending || !this._isWindowOpen) return null;
+    if (pending.windowGen !== this._windowGen) return null;
+    if (this._windowOpenedAt !== null && pending.arrivedAt + 1e-6 < this._windowOpenedAt) return null;
+
+    const leftEval = this._lastLeftEval;
+    const rightEval = this._lastRightEval;
+    if (!leftEval || !rightEval) return null;
+
+    if (leftEval.isValid && rightEval.isValid) return null;
+    if (
+      leftEval.answerIndex !== null &&
+      rightEval.answerIndex !== null &&
+      leftEval.answerIndex !== rightEval.answerIndex
+    ) {
+      return null;
+    }
+
+    const chosen = pending.side === 0 ? leftEval : rightEval;
+    const other = pending.side === 0 ? rightEval : leftEval;
+    if (!chosen.isValid || chosen.answerIndex !== pending.side || chosen.zoneId !== pending.zoneId) {
+      return null;
+    }
+    if (other.answerIndex !== null && other.answerIndex !== pending.side) return null;
+    if (this._isJumpBlocked) return null;
+
+    const pt = pending.side === 0 ? this._prevLeftHand : this._prevRightHand;
+    this._pendingIntent = null;
+    return this._confirmAnswer(
+      pending.side,
+      pending.zoneId,
+      pending.side === 0 ? 'left' : 'right',
+      currentTime,
       'motion',
-      { x: posX, y: posY },
-      undefined,
-      true,
-      intent.confidence,
+      pt ? { x: pt.x, y: pt.y } : undefined,
+      { vx: chosen.vx, vy: chosen.vy },
+      chosen.isDynamicReach,
+      chosen.score,
+      chosen.gates,
     );
   }
 
@@ -428,6 +487,7 @@ export class ArmReachAnswerSelector {
     this._heldDirection = null;
     this._heldHand = null;
     this._heldDuration = 0;
+    this._pendingIntent = null;
     this._cursorTracker.reset();
   }
 
@@ -436,13 +496,19 @@ export class ArmReachAnswerSelector {
    */
   openWindow(): void {
     this.reset();
+    this._isWindowOpen = true;
+    this._windowGen += 1;
+    this._windowOpenedAt = this._lastTime;
+    this._pendingIntent = null;
   }
 
   /**
-   * 답안 입력 창 닫기
+   * 답안 입력 창 닫기. 미확정 후보를 폐기해 늦은 intent가 확정되지 않게 한다.
    */
   closeWindow(): void {
-    // 확정 상태 보존
+    this._isWindowOpen = false;
+    this._windowGen += 1;
+    this._pendingIntent = null;
   }
 
   private _toScreenPoint(pt: { x: number; y: number }): { x: number; y: number } {
@@ -850,6 +916,9 @@ export class ArmReachAnswerSelector {
       }
     }
     this._lastTime = currentTime;
+    if (this._isWindowOpen && this._windowOpenedAt === null) {
+      this._windowOpenedAt = currentTime;
+    }
 
     // 3. 랜드마크 존재 여부 검증
     if (!landmarks || landmarks.length === 0) {
@@ -1025,6 +1094,7 @@ export class ArmReachAnswerSelector {
         this._heldDirection = null;
         this._heldDuration = 0;
         this._heldHand = null;
+        this._pendingIntent = null;
         return this._confirmAnswer(
           leftEval.answerIndex!,
           leftEval.zoneId!,

@@ -115,9 +115,8 @@ describe('Phase Motion Ownership & MotionIntentBus Integration (Issue #252)', ()
     });
 
     expect(published).toBe(true);
-    expect(armSelector.isConfirmed).toBe(true);
-    expect(armSelector.confirmedAnswerIndex).toBe(0);
-    expect(armSelector.confirmedZoneId).toBe(4);
+    // #306: reach intent는 후보이고, 포즈 판정 전에는 확정되지 않는다.
+    expect(armSelector.isConfirmed).toBe(false);
   });
 
   // Red 시나리오 5
@@ -126,11 +125,8 @@ describe('Phase Motion Ownership & MotionIntentBus Integration (Issue #252)', ()
     armSelector.openWindow();
 
     // 1.00s에 답안 확정 -> 불응기 0.25s 발동 (1.25s까지 잠금)
-    armSelector.selectByReachIntent(0, 4, {
-      type: 'reachLeft',
-      confidence: 0.9,
-      timestamp: 1.00,
-    });
+    // #306: 버스 intent만으로는 확정되지 않으므로 키보드 fallback으로 확정한다.
+    armSelector.selectByFallback(0, 1.00);
     expect(armSelector.isConfirmed).toBe(true);
 
     // 확정 직후 0.20s 시점 (1.20s) intent 발행
