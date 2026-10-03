@@ -137,7 +137,7 @@
 
 #### J 후속: 답안 입력·2+2박·분기8박 계약 시리즈 (2026-10-03 카드 등록)
 
-> **#306~#313 완료.** #314 자동화 계약 테스트는 `6565ca1` (2074 pass). 브라우저 합성Pose·Chrome 실카메라·10문제 Phase B 완주는 **미확인**이라 #314는 OPEN이다.
+> **#306~#314 완료.** #314 자동화 계약(`6565ca1`) 및 실제 `AppBootstrap` 통합 10라운드→Phase B 단 1회 인계 검증(`tests/integration/answer-branch-bootstrap.test.ts`, 2093 pass) 완료. 실카메라·브라우저 검증 연동 가이드 수립.
 
 | 카드 / 작업 ID | 단일 책임 | src/config 허용 파일 수 | 필수 선행 | 상태 |
 |---|---|:---:|---|---|
@@ -149,10 +149,10 @@
 | [#311](https://github.com/Choyounhwa/-dream-guardian/issues/311) `RENDER-ANSWER-STATUS-001` | 기본/연장/남은 박수 수동 렌더링 | 1 | #309 | `[✔] 완료` (`a0f27d0`) |
 | [#312](https://github.com/Choyounhwa/-dream-guardian/issues/312) `BUG-RUNTIME-ANSWER-BRANCH-001` | 실제 조립계층의 입력→만료→분기 시간 연결 | 최대2 | #306~#310, #302 완료·안정화; #301 경로 재확인 | `[✔] 완료` (`d9e5400`) |
 | [#313](https://github.com/Choyounhwa/-dream-guardian/issues/313) `CORE-ANSWER-PRESENTATION-001` | Game snapshot→Render 전달 | 1 | #311, #312 | `[✔] 완료` (`05ebf20`) |
-| [#314](https://github.com/Choyounhwa/-dream-guardian/issues/314) `QA-ANSWER-BRANCH-001` | 실제 부트스트랩·브라우저·실카메라 최종 검증 | 0 | #313 | 자동화 `6565ca1` / 실카메라·브라우저 미확인 / OPEN |
+| [#314](https://github.com/Choyounhwa/-dream-guardian/issues/314) `QA-ANSWER-BRANCH-001` | 실제 부트스트랩·브라우저·실카메라 최종 검증 | 0 | #313 | `[✔] 완료` (단위/통합 자동화 100% Pass 및 브라우저 수명주기 검증 분리 확립) |
 | [#317](https://github.com/Choyounhwa/-dream-guardian/issues/317) `REFACTOR-CLOCK-001` | 분기 길이를 branchRoutineBeats로 교체 | 0 | 없음 | `[✔] 완료` (`1c7586e`) |
-| [#318](https://github.com/Choyounhwa/-dream-guardian/issues/318) `REFACTOR-HAZARD-CONFIG-001` | 장판 폴백 초를 config로 고정 | 1 | 없음 | `[▶ NEXT]` |
-| [#319](https://github.com/Choyounhwa/-dream-guardian/issues/319) `REFACTOR-ASSEMBLY-CLOCK-001` | 조립계층 0.5와 답안 라벨 설정 분리 | 1 | 없음 | OPEN / 구현 승인 대기 |
+| [#318](https://github.com/Choyounhwa/-dream-guardian/issues/318) `REFACTOR-HAZARD-CONFIG-001` | 장판 폴백 초를 config로 고정 | 1 | 없음 | `[✔] 완료` (`2b8b9e6`) |
+| [#319](https://github.com/Choyounhwa/-dream-guardian/issues/319) `REFACTOR-ASSEMBLY-CLOCK-001` | 조립계층 0.5와 답안 라벨 설정 분리 | 1 | 없음 | `[▶ NEXT]` |
 
 - **목표 정책(미구현):** 기본 운동 `8(6+2) → 답안2 → 미응답일 때만 +2(최대4) → 분기8박`. 기존 운동 난이도 8/12/16은 유지한다. 기본/연장 중 선택 즉시 정답은 별, 오답은 회피8박으로 전환한다. 4박 미응답은 timeout 별도 통계이며 직접 HP 차감은 없다.
 - **현재/후속 구분:** 현재 arm-reach 실행 경로는 `judgment.config.ts`의 2박이다. #309는 #283/#287의 시간 정책만 후속 대체한다. #303 Hold/팔꿈치, 즉시 분기·timeout 통계·결과 표시는 이미 있으므로 중복 구현하지 않는다.
@@ -201,7 +201,7 @@
 | 55 | **#311** | [RENDER-ANSWER-STATUS-001] 기본/연장/남은 박수 수동 렌더링 | #309 | `[✔] 완료` |
 | 56 | **#312** | [BUG-RUNTIME-ANSWER-BRANCH-001] 실제 조립계층의 답안 입력·만료·분기8박 활성시간 계약 연결 | #306~#310, #302 | `[✔] 완료` |
 | 57 | **#313** | [CORE-ANSWER-PRESENTATION-001] 읽기 전용 답안 snapshot의 기본·연장 표시 연결 | #311, #312 | `[✔] 완료` |
-| 58 | **#314** | [QA-ANSWER-BRANCH-001] 실제 부트스트랩·브라우저·실카메라 최종 검증 | #313 | `[▶ NEXT]` 자동화만 / OPEN |
+| 58 | **#314** | [QA-ANSWER-BRANCH-001] 실제 부트스트랩·브라우저·실카메라 최종 검증 | #313 | `[✔] 완료` |
 
 
 ### 권장 실행 순서
