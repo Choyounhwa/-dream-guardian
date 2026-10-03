@@ -72,7 +72,7 @@ const EPSILON = 1e-6;
 
 export class StarNoteScheduler {
   private readonly _options: StarNoteSchedulerOptions;
-  private readonly _secondsPerBeat: number;
+  private _secondsPerBeat: number;
   private readonly _timingWindows: StarTimingWindows;
   private readonly _cursorTracker: CursorTracker;
   private readonly _zones: readonly FitnessZone[];
@@ -157,7 +157,9 @@ export class StarNoteScheduler {
   get isComplete(): boolean {
     if (!this._isStarted || this._notes.length === 0) return false;
     const allResolved = this._notes.every((n) => n.resolved);
-    return allResolved && this._currentTime >= this._startTime + 3.90 - EPSILON;
+    const lastLanding = this._notes.reduce((max, n) => Math.max(max, n.landingTime), 0);
+    const completeAt = lastLanding + this._timingWindows.late;
+    return allResolved && this._currentTime >= completeAt - EPSILON;
   }
 
   onRating(listener: (result: StarCollectionResult) => void): () => void {
@@ -180,13 +182,22 @@ export class StarNoteScheduler {
    */
   start(
     startTime: number,
-    options?: { roundId?: number; notes?: readonly (Keynote | StarCollectNote)[] },
+    options?: {
+      roundId?: number;
+      notes?: readonly (Keynote | StarCollectNote)[];
+      secondsPerBeat?: number;
+      branchClock?: { secondsPerBeat: number; durationBeats?: 8 };
+    },
   ): void {
     this._startTime = startTime;
     this._currentTime = startTime;
     this._isStarted = true;
     this._isPaused = false;
     this._roundId = options?.roundId ?? 1;
+    const injected = options?.branchClock?.secondsPerBeat ?? options?.secondsPerBeat;
+    if (injected !== undefined && injected > 0) {
+      this._secondsPerBeat = injected;
+    }
 
     const sourceNotes =
       options?.notes && options.notes.length > 0
@@ -413,7 +424,7 @@ export class StarNoteScheduler {
     for (const note of this._notes) {
       if (note.resolved) continue;
 
-      if (currentTime > note.landingTime + maxLate + EPSILON) {
+      if (currentTime >= note.landingTime + maxLate - EPSILON) {
         const res: StarCollectionResult = {
           collected: false,
           rating: 'Miss',

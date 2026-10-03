@@ -1,6 +1,7 @@
 import {
   DEFAULT_PHASE_A_HAZARD_CONFIG,
   PHASE_A_ACTIVE_HAZARD_PATTERNS,
+  scaleHazardSchedule,
   type PhaseAHazardConfig,
   type PhaseAHazardPattern,
 } from '../../config/phase-a-hazard.config.js';
@@ -31,6 +32,8 @@ export interface PhaseAHazardStartOptions {
   roundIndex?: number;
   pattern?: PhaseAHazardPattern;
   attackId?: string;
+  secondsPerBeat?: number;
+  branchClock?: { secondsPerBeat: number; durationBeats?: 8 };
 }
 
 export interface PhaseAHazardControllerOptions extends Partial<PhaseAHazardConfig> {
@@ -57,6 +60,8 @@ export class PhaseAHazardController {
   private _isResolved = false;
   private _performedAction: PhaseAHazardPattern | null = null;
   private _beatIndex = 0;
+  private _isPaused = false;
+  private _schedule: PhaseAHazardConfig = DEFAULT_PHASE_A_HAZARD_CONFIG;
 
   constructor(
     options?: PhaseAHazardControllerOptions,
@@ -122,7 +127,7 @@ export class PhaseAHazardController {
 
   get beatProgress(): number {
     if (!this._active) return 0;
-    const judgmentTime = this._config.judgmentTime ?? 3.5;
+    const judgmentTime = this._schedule.judgmentTime ?? this._config.judgmentTime ?? 3.5;
     return Math.max(0, Math.min(1.0, this._elapsed / judgmentTime));
   }
 
@@ -146,9 +151,30 @@ export class PhaseAHazardController {
     return this._elapsed;
   }
 
+  get schedule(): PhaseAHazardConfig {
+    return this._schedule;
+  }
+
+  pause(): void {
+    this._isPaused = true;
+  }
+
+  resume(): void {
+    this._isPaused = false;
+  }
+
   start(options?: PhaseAHazardStartOptions | PhaseAHazardPattern): void {
     this._active = true;
     this._elapsed = 0;
+    this._isPaused = false;
+    const spb =
+      typeof options === 'object' && options
+        ? options.branchClock?.secondsPerBeat ?? options.secondsPerBeat
+        : undefined;
+    this._schedule =
+      spb !== undefined && spb > 0
+        ? scaleHazardSchedule(this._config, spb)
+        : scaleHazardSchedule(this._config, this._config.secondsPerBeat || 0.5);
     this._evaded = false;
     this._viaGrace = false;
     this._isResolved = false;
@@ -192,8 +218,8 @@ export class PhaseAHazardController {
     if (!this._active || this._isResolved) return;
     this._performedAction = action;
 
-    const warningDuration = this._config.warningDuration ?? 2.6;
-    const inputWindowEnd = this._config.inputWindowEnd ?? 3.4;
+    const warningDuration = this._schedule.warningDuration ?? 2.6;
+    const inputWindowEnd = this._schedule.inputWindowEnd ?? 3.4;
     const leniency = this._leniencyConfig;
 
     // elapsed가 0인 경우(테스트/직접 호출): 하위 호환 즉시 반영
@@ -236,11 +262,11 @@ export class PhaseAHazardController {
   }
 
   update(dt: number): void {
-    if (!this._active) return;
+    if (!this._active || this._isPaused) return;
     const step = Math.max(0, dt);
     this._elapsed += step;
 
-    const warningDuration = this._config.warningDuration ?? 2.6;
+    const warningDuration = this._schedule.warningDuration ?? 2.6;
     // 창 개시 시점에 버퍼에 저장된 일치 동작 소비
     if (
       !this._evaded &&
@@ -257,12 +283,12 @@ export class PhaseAHazardController {
       }
     }
 
-    const judgmentTime = this._config.judgmentTime ?? 3.5;
+    const judgmentTime = this._schedule.judgmentTime ?? 3.5;
     if (!this._isResolved && this._elapsed >= judgmentTime - 1e-9) {
       this._resolveAttack();
     }
 
-    const totalDuration = this._config.totalDuration ?? 4.0;
+    const totalDuration = this._schedule.totalDuration ?? 4.0;
     if (this._elapsed >= totalDuration - 1e-9) {
       this.stop();
     }
