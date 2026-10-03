@@ -32,6 +32,20 @@ export interface QuestionRenderState {
   choiceProgress?: [number, number];
   /** Issue #285 (UI-ANSWER-002): 현재 조준/타겟팅된 보기 버튼 인덱스 0 또는 1 */
   activeHoverIndex?: number | null;
+  /** Issue #311: #309 AnswerTimeSnapshot과 호환되는 읽기 전용 표시 입력 */
+  answerTime?: AnswerTimeDisplay | null;
+  /** 프리뷰/비활성/분기 후 경로가 true를 넘기기 전까지 시간 라벨을 숨긴다 */
+  showAnswerTime?: boolean;
+}
+
+export interface AnswerTimeDisplay {
+  phase: 'primary' | 'extension' | 'closed';
+  primaryBeats: number;
+  extensionBeats: number;
+  maxBeats: number;
+  elapsedBeats: number;
+  remainingBeats: number;
+  inputOpen: boolean;
 }
 
 export interface QuestionHeaderMathOptions {
@@ -383,6 +397,39 @@ export class QuestionRenderer {
       ctx.restore();
     }
 
+    this.renderAnswerTimeStatus(ctx, w, h, scaleX, scaleY, state);
+
+    ctx.restore();
+  }
+
+  private renderAnswerTimeStatus(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    scaleX: number,
+    scaleY: number,
+    state: QuestionRenderState,
+  ): void {
+    const snap = state.answerTime;
+    const visible = state.showAnswerTime === true
+      && !state.buttonsOnly
+      && state.answerSelectable !== false
+      && snap != null
+      && snap.inputOpen
+      && (snap.phase === 'primary' || snap.phase === 'extension');
+    if (!visible || !snap) return;
+
+    const phaseLabel = snap.phase === 'primary' ? '기본' : '연장';
+    const label = `${phaseLabel} ${snap.remainingBeats}박 남음`;
+    const y = 860 * scaleY;
+
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.font = UIText.getFont('caption', scaleX, 'bold');
+    ctx.fillStyle = snap.phase === 'primary' ? '#28E6FF' : '#FFCB4D';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, w / 2, Math.min(y, h * 0.4));
     ctx.restore();
   }
 }

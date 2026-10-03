@@ -4,11 +4,29 @@ import * as path from 'node:path';
 import {
   QuestionRenderer,
   renderQuestionHeaderMath,
+  type AnswerTimeDisplay,
   type QuestionRenderState,
 } from '../../src/render/QuestionRenderer.js';
 import type { GeneratedQuestion } from '../../src/question/QuestionEvaluator.js';
 import { imageLoader } from '../../src/utils/UIImageLoader.js';
 import { UI_IMAGE_ASSETS } from '../../config/ui.config.js';
+
+function textsOf(ctx: CanvasRenderingContext2D): string[] {
+  return (ctx.fillText as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
+}
+
+function primarySnapshot(overrides: Partial<AnswerTimeDisplay> = {}): AnswerTimeDisplay {
+  return {
+    phase: 'primary',
+    primaryBeats: 2,
+    extensionBeats: 2,
+    maxBeats: 4,
+    elapsedBeats: 0,
+    remainingBeats: 2,
+    inputOpen: true,
+    ...overrides,
+  };
+}
 
 function createMockCtx(): CanvasRenderingContext2D {
   return {
@@ -23,6 +41,7 @@ function createMockCtx(): CanvasRenderingContext2D {
     roundRect: vi.fn(),
     fill: vi.fn(),
     stroke: vi.fn(),
+    setLineDash: vi.fn(),
     moveTo: vi.fn(),
     lineTo: vi.fn(),
     fillText: vi.fn(),
@@ -397,5 +416,138 @@ describe('QuestionRenderer (Issue #209 / REFACTOR-RENDER-001)', () => {
 
       getImageSpy.mockRestore();
     });
+  });
+});
+
+describe('QuestionRenderer answer time status (Issue #311 / RENDER-ANSWER-STATUS-001)', () => {
+  const visible: QuestionRenderState = {
+    question: mockQuestion,
+    questionVisible: true,
+    buttonsOnly: false,
+    answerSelectable: true,
+    showAnswerTime: true,
+  };
+
+  it('primary 스냅샷은 기본 구간과 남은 박수를 표시한다', () => {
+    const renderer = new QuestionRenderer();
+    const ctx = createMockCtx();
+    renderer.render(ctx, 1080, 2160, {
+      ...visible,
+      answerTime: primarySnapshot({ phase: 'primary', remainingBeats: 2, elapsedBeats: 0 }),
+    });
+    const label = textsOf(ctx).find((t) => t.includes('기본'));
+    expect(label).toBeDefined();
+    expect(label).toContain('2');
+    expect(label).not.toMatch(/연장/);
+  });
+
+  it('extension 스냅샷은 연장 구간과 남은 박수를 표시한다', () => {
+    const renderer = new QuestionRenderer();
+    const ctx = createMockCtx();
+    renderer.render(ctx, 1080, 2160, {
+      ...visible,
+      answerTime: primarySnapshot({
+        phase: 'extension',
+        elapsedBeats: 3,
+        remainingBeats: 1,
+      }),
+    });
+    const label = textsOf(ctx).find((t) => t.includes('연장'));
+    expect(label).toBeDefined();
+    expect(label).toContain('1');
+    expect(label).not.toMatch(/기본/);
+  });
+
+  it('남은 박수 0이어도 구간 라벨을 그리고 충전 게이지를 채우지 않는다', () => {
+    const renderer = new QuestionRenderer();
+    const ctx = createMockCtx();
+    renderer.render(ctx, 1080, 2160, {
+      ...visible,
+      choiceProgress: [0, 0],
+      answerTime: primarySnapshot({ phase: 'extension', remainingBeats: 0, elapsedBeats: 4 }),
+    });
+    const label = textsOf(ctx).find((t) => t.includes('연장'));
+    expect(label).toBeDefined();
+    expect(label).toContain('0');
+    const zeroCtx = createMockCtx();
+    const fullCtx = createMockCtx();
+    renderer.render(zeroCtx, 1080, 2160, {
+      ...visible,
+      choiceProgress: [0, 0],
+      answerTime: primarySnapshot({ phase: 'extension', remainingBeats: 0, elapsedBeats: 4 }),
+    });
+    renderer.render(fullCtx, 1080, 2160, {
+      ...visible,
+      choiceProgress: [1, 0],
+      answerTime: primarySnapshot({ phase: 'extension', remainingBeats: 0, elapsedBeats: 4 }),
+    });
+    const fillCount = (c: CanvasRenderingContext2D) =>
+      (c.fill as ReturnType<typeof vi.fn>).mock.calls.length;
+    expect(fillCount(zeroCtx)).toBeLessThan(fillCount(fullCtx));
+  });
+
+  it('closed, 스냅샷 없음, 프리뷰, 분기 후에는 시간 라벨을 숨긴다', () => {
+    const renderer = new QuestionRenderer();
+    const cases: QuestionRenderState[] = [
+      { ...visible, answerTime: primarySnapshot({ phase: 'closed', inputOpen: false, remainingBeats: 0 }) },
+      { ...visible, answerTime: undefined },
+      { ...visible, buttonsOnly: true, answerTime: primarySnapshot() },
+      { ...visible, answerSelectable: false, answerTime: primarySnapshot() },
+      { ...visible, showAnswerTime: false, answerTime: primarySnapshot() },
+    ];
+    for (const state of cases) {
+      const ctx = createMockCtx();
+      renderer.render(ctx, 1080, 2160, state);
+      const joined = textsOf(ctx).join(' ');
+      expect(joined).not.toMatch(/기본|연장|남음/);
+    }
+  });
+
+  it('선택 점수와 Hold 진행이 바뀌어도 시간 라벨은 같다', () => {
+    const renderer = new QuestionRenderer();
+    const snapshot = primarySnapshot({ phase: 'primary', remainingBeats: 2 });
+    const ctxA = createMockCtx();
+    const ctxB = createMockCtx();
+    renderer.render(ctxA, 1080, 2160, {
+      ...visible,
+      choiceProgress: [0, 0],
+      answerTime: snapshot,
+    });
+    renderer.render(ctxB, 1080, 2160, {
+      ...visible,
+      choiceProgress: [1, 0],
+      activeHoverIndex: 0,
+      answerTime: snapshot,
+    });
+    const labelA = textsOf(ctxA).find((t) => t.includes('기본'));
+    const labelB = textsOf(ctxB).find((t) => t.includes('기본'));
+    expect(labelA).toBe(labelB);
+    expect(labelA).toContain('2');
+  });
+
+  it('같은 스냅샷을 두 번 그려도 시간 텍스트가 변하지 않는다', () => {
+    const renderer = new QuestionRenderer();
+    const snapshot = primarySnapshot({ phase: 'primary', remainingBeats: 2, elapsedBeats: 0 });
+    const ctx = createMockCtx();
+    const state: QuestionRenderState = { ...visible, answerTime: snapshot };
+    renderer.render(ctx, 1080, 2160, state);
+    const first = textsOf(ctx).filter((t) => t.includes('기본') || t.includes('남음'));
+    renderer.render(ctx, 1080, 2160, state);
+    const second = textsOf(ctx).filter((t) => t.includes('기본') || t.includes('남음'));
+    expect(second).toEqual([...first, ...first]);
+    expect(second.every((t) => t === first[0])).toBe(true);
+  });
+
+  it('여러 해상도에서 시간 라벨 레이아웃이 예외 없이 그려진다', () => {
+    const renderer = new QuestionRenderer();
+    const resolutions: Array<[number, number]> = [[1080, 2160], [720, 1280], [390, 844], [1920, 1080]];
+    for (const [w, h] of resolutions) {
+      const ctx = createMockCtx();
+      expect(() => renderer.render(ctx, w, h, {
+        ...visible,
+        answerTime: primarySnapshot(),
+      })).not.toThrow();
+      expect(textsOf(ctx).some((t) => t.includes('기본'))).toBe(true);
+    }
   });
 });
