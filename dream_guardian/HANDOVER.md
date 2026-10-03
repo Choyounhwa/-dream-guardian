@@ -135,6 +135,30 @@
 | 38 | **#287** | [INPUT-ARM-DIRECTION-001] 답안 선택을 Zone 점유에서 몸 기준 팔 뻗기 방향으로 교체 | #224 완료 | `[✔] 완료` |
 | 38-1 | **#303** | [INPUT-ARM-HOLD-001] 사전 뻗기 1초 유지 인정 및 손목 소실 시 팔꿈치 방향 폴백 | #287 완료 | `[✔] 완료` |
 
+#### J 후속: 답안 입력·2+2박·분기8박 계약 시리즈 (2026-10-03 카드 등록)
+
+> **카드 등록 완료 / 구현 미착수 / 9개 모두 OPEN·구현 승인 대기.** 이번 승인은 카드 제작에 한정된다. 기존 NEXT·다른 작업 상태는 바꾸지 않는다. **이 시리즈만의 첫 구현 추천은 #306**이며, 구현 전 별도 승인과 실제 파일/API·이슈 재검증이 필요하다.
+
+| 카드 / 작업 ID | 단일 책임 | src/config 허용 파일 수 | 필수 선행 | 상태 |
+|---|---|:---:|---|---|
+| [#306](https://github.com/Choyounhwa/-dream-guardian/issues/306) `BUG-ARM-INTENT-GATE-001` | 버스 후보/최종검증 분리, 창 밖·stale 차단 | 1 | 신규 없음; #287/#303 보존 | OPEN / 구현 승인 대기 |
+| [#307](https://github.com/Choyounhwa/-dream-guardian/issues/307) `BUG-ARM-HOLD-TIME-001` | 명시적 dt API·가변 FPS Hold 시간 | 1 | #306 | OPEN / 구현 승인 대기 |
+| [#308](https://github.com/Choyounhwa/-dream-guardian/issues/308) `BUG-ANSWER-CONSUME-001` | 코디네이터 선확정 단일 소비·기본2박 유지 | 1 | #306, #307 | OPEN / 구현 승인 대기 |
+| [#309](https://github.com/Choyounhwa/-dream-guardian/issues/309) `FEAT-ANSWER-GRACE-001` | 기본2+추가2박·읽기 전용 답안/분기 시간 API | 2 | #308 | OPEN / 구현 승인 대기 |
+| [#310](https://github.com/Choyounhwa/-dream-guardian/issues/310) `BUG-BRANCH-BEAT-CLOCK-001` | 별/장판의 가변 BPM 8박 시간 정합 | 최대3 | #309 | OPEN / 구현 승인 대기 |
+| [#311](https://github.com/Choyounhwa/-dream-guardian/issues/311) `RENDER-ANSWER-STATUS-001` | 기본/연장/남은 박수 수동 렌더링 | 1 | #309 | OPEN / 구현 승인 대기 |
+| [#312](https://github.com/Choyounhwa/-dream-guardian/issues/312) `BUG-RUNTIME-ANSWER-BRANCH-001` | 실제 조립계층의 입력→만료→분기 시간 연결 | 최대2 | #306~#310, #302 완료·안정화; #301 경로 재확인 | OPEN / 구현 승인 대기 |
+| [#313](https://github.com/Choyounhwa/-dream-guardian/issues/313) `CORE-ANSWER-PRESENTATION-001` | Game snapshot→Render 전달 | 1 | #311, #312 | OPEN / 구현 승인 대기 |
+| [#314](https://github.com/Choyounhwa/-dream-guardian/issues/314) `QA-ANSWER-BRANCH-001` | 실제 부트스트랩·브라우저·실카메라 최종 검증 | 0 | #313 | OPEN / 구현 승인 대기 |
+
+- **목표 정책(미구현):** 기본 운동 `8(6+2) → 답안2 → 미응답일 때만 +2(최대4) → 분기8박`. 기존 운동 난이도 8/12/16은 유지한다. 기본/연장 중 선택 즉시 정답은 별, 오답은 회피8박으로 전환한다. 4박 미응답은 timeout 별도 통계이며 직접 HP 차감은 없다.
+- **현재/후속 구분:** 현재 arm-reach 실행 경로는 `judgment.config.ts`의 2박이다. #309는 #283/#287의 시간 정책만 후속 대체한다. #303 Hold/팔꿈치, 즉시 분기·timeout 통계·결과 표시는 이미 있으므로 중복 구현하지 않는다.
+- 같은 활성시간 timestamp의 정확2/4박은 입력 우선, >4박은 거부한다. 늦은 프레임 포즈 소급 인정·연장 시 Hold reset·난이도4+2=6박은 금지한다. 별/장판에는 같은 BPM·분기 시작 기준을 주입하고 최종 판정 후 정산한다. 메트로놈 리셋/연속 BGM 정책은 변경하지 않는다.
+- 각 카드에 정확 파일 경계·유지/금지·Red 선작성·전체 테스트/빌드·Issue comment·서버 안내를 명시했다. 한 번에 한 카드만 구현하며 범위 초과는 중단·별도 카드로 분리한다. 커밋은 별도 명시 승인 시만 한다.
+- **이번 검증:** `gh issue create` 9건 및 `gh issue view` 본문·의존성·파일 수·미체크 완료조건 확인. npm test/build·브라우저·실카메라·서버 실행은 하지 않았다. 구현/테스트 Pass 완료 주장이 아니다. #314는 브라우저/실카메라 미확인 또는 전체 테스트 실패 시 완료 불가다.
+- **동시작업 보존:** 조사 중 #302의 완료 코멘트 및 커밋 `2a1a100`/`01540e7`이 다른 작업에서 추가되었음을 재확인했다(GitHub 상태는 조회 시 OPEN). 이 기록을 수정하지 않았으며 #312 착수 때 안정화/API를 다시 확인한다. 별도 #305 BGM 카드도 이번 시리즈에 포함하지 않는다.
+- **Project 미연결:** `gh project list`가 `read:project` scope 부족으로 실패했다. 인증은 변경하지 않았다. #309 구현 완료 조건에 GDD/WBS의 답안 정책 동기화를 포함했으나 이번에는 이 HANDOVER와 `docs/03_GITHUB_ISSUES.md`만 동기화한다.
+
 ### 📌 K. Phase B 보스 결전 40~60초 템포 밸런싱 (BATTLE-PACING)
 
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
@@ -164,6 +188,8 @@
 | 46 | **#300** | [REFACTOR-CORE-001] 런타임 게임 세션 컨텍스트 구조화 (GameSessionContext) | 없음 | `[✔] 완료` |
 | 47 | **#301** | [REFACTOR-MAIN-001] 메인 게임 루프 씬 디렉터 분리 (SceneDirector) | #300 | `[✔] 완료` |
 | 48 | **#302** | [REFACTOR-MAIN-002] 메인 앱 부트스트랩 및 이벤트 리스너 분리 (AppBootstrap) | #301 | `[✔] 완료` |
+| 49 | **#315** | [BUG-SCENE-DIRECTOR-001] 리팩토링 후 스테이지 런타임 동결 및 렌더링 예외 결함 복구 (KneeFraming·CursorTracker·ReadyPosition 정합화) | #302 | `[✔] 완료` |
+| 50 | **#306** | [BUG-ARM-INTENT-GATE-001] 버스 팔 intent의 최종 답안 판정 우회 및 창 밖·stale 확정 차단 | #315 | `[▶ NEXT]` |
 
 
 ### 권장 실행 순서
@@ -193,10 +219,27 @@
                          ↓
 [그리드 개선]   #294 (완료) → #295 (완료) (원근 그리드 두께 증가, 세로선 2-Pass 글로우, 메트로놈 비트 플래시)
                          ↓
-[시스템 리팩토링] #297 (완료) → #298 (완료) → #299 (완료) → #300 (완료) → #301 (완료) → #302 (완료)
+[시스템 리팩토링] #297 (완료) → #298 (완료) → #299 (완료) → #300 (완료) → #301 (완료) → #302 (완료) → #315 (완료)
 ```
 
 ---
+
+## 2026-10-03 완료: [BUG-SCENE-DIRECTOR-001 / #315] 리팩토링 후 스테이지 런타임 동결 및 렌더링 예외 결함 복구 (KneeFraming·CursorTracker·ReadyPosition 정합화)
+
+> #315 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (155개 파일 1,976개 테스트 통과, build 성공).
+> - **인게임 루프 및 정렬 판정 복구 (`src/core/SceneDirector.ts`)**:
+>   - `kneeFramingValidator.validate` 오호출을 `kneeFramingValidator.update(dt, landmarks, vw, vh)`로 정합화
+>   - `currentKneeFraming.status === 'ready'`로 `isAligned` 판정 복구하여 `READY_POSITION` 3초 카운트다운 정상 진행
+>   - 무릎 프레이밍 가이드(`kneeFramingGuideRenderer.render`) 인게임 렌더링 연동
+>   - 존재하지 않는 `readyPositionRenderer.renderGuideSilhouette` 호출 제거
+>   - 매 프레임 무조건 호출되던 `stopDwellCharge()` 제거하여 인게임 체류 조작음 정상화
+> - **커서 렌더링 파이프라인 무결성 확보 (`src/core/AppBootstrap.ts`, `src/core/SceneDirector.ts`)**:
+>   - `mainSceneContext`에 `cursorTracker` 명시 주입
+>   - `answerSelectionRenderer.render`에 Map(`new Map(tracker.cursors.entries())`)으로 올바르게 전달하여 Array 순회 TypeError 해소
+> - **단위 테스트 증빙**:
+>   - `tests/unit/scene-director.test.ts` (19개 테스트) 100% Pass
+>
+> ---
 
 ## 2026-10-03 완료: [REFACTOR-MAIN-002 / #302] 메인 앱 부트스트랩 및 이벤트 리스너 분리 (AppBootstrap)
 

@@ -1,5 +1,58 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-10-03 긴급 등록: 리팩토링 후 스테이지 런타임 동결 결함 복구 (#315)
+
+**[BUG-SCENE-DIRECTOR-001 / #315] 등록 완료 / 구현 미착수. OPEN·구현 승인 대기.**
+#301(SceneDirector) 및 #302(AppBootstrap) 분리 작업 직후 발생한 인게임 업데이트 루프 중단 및 렌더링 예외를 해결하기 위한 최우선 긴급 버그 수정 카드입니다.
+
+| 카드 / 작업 ID | 책임 및 src/config 허용 파일 | 수 | 필수 선행 | 라벨 |
+|---|---|:---:|---|---|
+| [#315](https://github.com/Choyounhwa/-dream-guardian/issues/315) `BUG-SCENE-DIRECTOR-001` | 인게임 루프 및 렌더 정합화: `src/core/SceneDirector.ts`, `src/core/AppBootstrap.ts` | 2 | #302 | bug, P0-critical, phase-1 |
+
+---
+
+## 2026-10-03 등록: 답안 입력·2+2박·분기8박 후속 계약 (#306~#314)
+
+**카드 등록 완료 / 구현 미착수. 9개 모두 OPEN·구현 승인 대기.** 사용자의 승인은 카드 제작과 이 문서/HANDOVER 동기화만 포함한다. 코드·테스트 구현, 커밋·push는 수행하지 않았다. 기존 NEXT 및 다른 카드 상태는 변경하지 않으며, **이번 시리즈의 첫 구현 추천은 #306**이다.
+
+### 신규 목표와 현재 구현의 구분
+
+- 목표: 기본 운동 `8(6+2) → 답안 기본2박 → 미응답일 때 추가2박(최대4) → 분기8박`. 기존 운동 난이도 8/12/16은 보존한다.
+- 기본/연장 중 선택 즉시 정답은 STAR_COLLECT, 오답은 HAZARD_EVADE로 전환하고 그때부터 8박을 시작한다. 미응답4박만 timeout으로 별도 집계하며 오답/timeout 자체의 직접 HP 차감은 금지한다.
+- **현재 arm-reach 런타임은 최대2박**이다. #283의 readyBeats=4와 별개로 #287 이후 `DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats=2`가 사용된다. #309는 이 시간 정책의 후속 대체이며 #287 방향 판정 및 #303 Hold·팔꿈치 폴백을 폐기하지 않는다. 과거 계약·카드 본문은 감사 이력으로 보존한다.
+- 선택 즉시 분기, 분기8박, timeout 통계/스냅샷/결과 표시 등 기존 구현은 유지·회귀 조건이지 신규 재구현 대상이 아니다. #303은 조회 시 GitHub OPEN이나 완료 코멘트와 소스 구현이 존재한다.
+- 정확2/4박은 동일 활성시간 timestamp에서 입력 우선, >4박 입력/stale는 거부한다. 늦은 프레임 포즈 소급 인정, 연장 시 창/Hold 초기화, readyBeats 또는 난이도4에 +2하여 6박으로 만드는 처리를 금지한다.
+- 분기 로컬 BPM/시작 기준을 통일하되 메트로놈 리셋·연속 BGM/transport 재설계는 범위 밖이다. 필요하면 별도 카드로 분리한다.
+
+### 등록 카드·파일 경계·의존성
+
+아래 경로는 `dream_guardian/` 기준이다. 각 GitHub 본문에는 표준 작업 ID/제목/목적/수정 대상/구현 내용/유지 사항/변경 금지/완료 조건/테스트/관련 파일과 실제 선행 번호를 기록했다. 완료 조건은 모두 미체크다.
+
+| 카드 / 작업 ID | 책임 및 src/config 허용 파일 | 수 | 필수 선행 | 라벨 |
+|---|---|:---:|---|---|
+| [#306](https://github.com/Choyounhwa/-dream-guardian/issues/306) `BUG-ARM-INTENT-GATE-001` | 후보/최종검증·창/stale: `src/input/ArmReachAnswerSelector.ts` | 1 | 신규 없음; #287/#303 보존 | bug, phase-3, P1-high |
+| [#307](https://github.com/Choyounhwa/-dream-guardian/issues/307) `BUG-ARM-HOLD-TIME-001` | 명시적 dt/Hold: `src/input/ArmReachAnswerSelector.ts` | 1 | #306 | bug, phase-3, P1-high |
+| [#308](https://github.com/Choyounhwa/-dream-guardian/issues/308) `BUG-ANSWER-CONSUME-001` | 유효 선확정 단일 소비: `src/game/BeatRunCoordinator.ts` | 1 | #306, #307 | bug, step-9, P1-high |
+| [#309](https://github.com/Choyounhwa/-dream-guardian/issues/309) `FEAT-ANSWER-GRACE-001` | 2+2박·공개 snapshot/분기 시간: `src/game/BeatRunCoordinator.ts`, `config/judgment.config.ts` | 2 | #308 | feature, step-9, P1-high |
+| [#310](https://github.com/Choyounhwa/-dream-guardian/issues/310) `BUG-BRANCH-BEAT-CLOCK-001` | 가변 BPM 8박: `src/game/StarNoteScheduler.ts`, `src/game/PhaseAHazardController.ts`, `config/phase-a-hazard.config.ts` | 최대3 | #309 | bug, step-9, P1-high |
+| [#311](https://github.com/Choyounhwa/-dream-guardian/issues/311) `RENDER-ANSWER-STATUS-001` | 기본/연장/남은 박수 표시: `src/render/QuestionRenderer.ts` | 1 | #309 | feature, phase-6, P2-medium |
+| [#312](https://github.com/Choyounhwa/-dream-guardian/issues/312) `BUG-RUNTIME-ANSWER-BRANCH-001` | 실제 입력·분기 시간 연결: `src/core/SceneDirector.ts`, `src/core/AppBootstrap.ts` | 최대2 | #306~#310, #302 완료·안정화; #301 경로 재확인 | bug, phase-1, P1-high |
+| [#313](https://github.com/Choyounhwa/-dream-guardian/issues/313) `CORE-ANSWER-PRESENTATION-001` | snapshot→Render 전달: `src/core/SceneDirector.ts` | 1 | #311, #312 | feature, phase-1, P1-high |
+| [#314](https://github.com/Choyounhwa/-dream-guardian/issues/314) `QA-ANSWER-BRANCH-001` | tests/unit・integration・e2e만 추가/실행 | 0 | #313 | test, phase-9, P1-high |
+
+### 근거·검증·실행 게이트
+
+- 정적 결함 근거: selector의 버스 직접 confirm 우회, currentTimeOrDt 추측, coordinator의 `!isConfirmed` 내부 소비, 별 스케줄러 기본0.5초/완료3.90초 및 장판 고정4.0/3.5초와 챕터 가변 BPM 간 불일치. 실제 브라우저 재현을 완료했다고 주장하지 않는다.
+- #306~#313: 별도 구현 승인 및 파일/이슈 재검증 → `npm test` Baseline → `tests/unit/` 실패 테스트 선작성 → `npx vitest run <카드별 실제 파일>` Red 확인 → 허용 레이어 최소 구현 → Green → `npm run build` 및 전체 `npm test` 100% Pass. 기존 기대 변경은 계약 변경 사유를 명시한다.
+- #314는 제품코드 변경0. 발견 결함은 새 카드로 분리하며 전체 실패 또는 브라우저/실카메라 미확인 시 완료 불가. 기존 `tests/e2e/beat-motion.e2e.ts`는 Vitest 모듈 조립 테스트로 실제 브라우저 완주와 구분하고 수집 여부를 확인한다. 새 framework/러너 설정은 도입하지 않는다.
+- 검증 매트릭스: 기본/연장 좌우·키보드/클릭/모션 정오답·미응답, 정확2/4박 및 ±epsilon, stale/pause/가변FPS/overshoot, BPM110/135/115/125/140/120, 분기 마지막 판정→8박 종료→정산, wrong/timeout 통계·10문제→PhaseB·11번째 출제 차단. 합성Pose와 실제 Chrome 카메라 증거를 분리한다.
+- 구현 완료 시 변경파일·Red/Green·전체100% Pass·완료조건을 `gh issue comment`와 HANDOVER에 기록하고 `npm run dev` 또는 기존 서버 상태 확인·재사용 후 `http://localhost:3000/`을 안내한다. 커밋은 별도 명시 승인 시만 한다. 이번 등록에서는 테스트/빌드/서버를 실행하지 않았다.
+- #309 완료 조건에 GDD/WBS의 답안 시간·timeout 정책 동기화를 명시했다. **이번에는 GDD/WBS/PROJECT_BOARD를 수정하지 않는다.**
+- 동시 작업 보호: 조사 중 #302의 완료 코멘트와 커밋 `2a1a100`/`01540e7`이 추가되었지만 GitHub는 조회 시 OPEN이다. 완료 기록을 덮어쓰지 않고 #312 구현 직전 안정화/API를 재확인한다. 별도 #305 BGM 카드는 이번 시리즈와 분리한다.
+- Project 연결 미수행: `gh project list --owner Choyounhwa --format json`가 `read:project` scope 부족으로 실패했다. 인증 변경은 하지 않았다. 신규9건은 `gh issue view`로 제목·본문·의존성·파일 한도·OPEN/승인대기·미체크 완료조건을 재확인했다.
+
+---
+
 ## 2026-09-30 확정: [SPEC-ROUTINE-VERIFY-001 / #229] Phase A 10문제 → Phase B 계약
 
 **확정:** 정답/오답/타임아웃 합계10문제의 최종판정·정산 후 Phase A 종료. 보스 처치/승리는 Phase B 전용. HP0이면 게임오버 우선,11번째 출제 금지.
@@ -5161,6 +5214,39 @@ BEAT-SPEC-001
   - [x] 일시정지, 메뉴 화면, 음소거 시 메트로놈 발음 차단
   - [x] 전용 TDD 단위 테스트(`tests/unit/beat-metronome.test.ts`) 작성 및 100% Pass
   - [x] 전체 단위 테스트 100% 통과 및 `npm run build` 성공
+
+---
+
+### Issue #305: [AUDIO-BGM-001] 스테이지 진입 실시간 록 드럼 비트 및 베이스 그루브 Web Audio BGM 합성기 (StageBGMSynthesizer)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/305
+- **Labels**: `feature`, `phase-7`, `P1-high`
+- **작업 ID**: `[AUDIO-BGM-001]`
+- **상태**: 🟡 **대기 (승인 대기)**
+- **목적**:
+  - 스테이지 진입(`READY_POSITION` 및 `RUN_QUESTION`) 시 단순 메트로놈 틱음 대신, 게임의 리듬감과 운동 몰입감을 고조시키는 4/4 박자 록 드럼 비트(Kick, Snare, Hi-hat) 및 드라이빙 베이스 라인을 외부 오디오 파일 없이 Web Audio API로 실시간 절차적 합성하여 재생한다.
+- **수정 대상**:
+  - `dream_guardian/src/audio/StageBGMSynthesizer.ts` (신규 BGM 합성기 클래스)
+  - `dream_guardian/config/audio.config.ts` (BGM 비트 패턴, 주파수 및 게인 밸런스 설정)
+  - `dream_guardian/src/main.ts` (스테이지 진입/일시정지/종료 시 BGM 생명주기 및 RhythmEngine 동기화)
+- **유지 사항**:
+  - 기존 `BandSynthesizer`(유저 손/발 키사운드) 및 `SFXSynth`(정답/오답 효과음)의 정상 출력 보존
+  - `RhythmEngine`의 결정론적 8박 비트 타임라인 유지
+- **변경 금지**:
+  - `BattleState`, `PoseManager`, `CanvasManager` 등 타 비관련 레이어 로직 변경 금지
+  - 외부 오디오 파일 의존성 추가 금지 (100% 절차적 코드 합성 원칙 준수)
+- **완료 조건**:
+  - [ ] `StageBGMSynthesizer` 단위 테스트 통과 (start, stop, pause, resume, mute, bpm 변경 등)
+  - [ ] 스테이지 진입 시 드럼 비트 + 베이스 BGM 자동 재생
+  - [ ] 유저 입력 키사운드 및 SFX와 볼륨 밸런스 정상 동작
+  - [ ] `npm test` 전체 100% Pass 및 `npm run build` 컴파일 무결성 확보
+- **테스트**:
+  - `tests/unit/stage-bgm-synthesizer.test.ts`
+  - Chrome 브라우저에서 인게임 스테이지 진입 시 실제 비트 음악 출력 확인
+- **관련 파일**:
+  - `src/audio/StageBGMSynthesizer.ts`
+  - `config/audio.config.ts`
+  - `src/main.ts`
+  - `tests/unit/stage-bgm-synthesizer.test.ts`
 
 
 

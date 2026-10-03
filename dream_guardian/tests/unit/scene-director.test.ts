@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SceneDirector, RENDER_LAYER_ORDER } from '../../src/core/SceneDirector.js';
 import { GameSessionContext } from '../../src/core/GameSessionContext.js';
+import { AppBootstrap } from '../../src/core/AppBootstrap.js';
 
 describe('SceneDirector (REFACTOR-MAIN-001 / #301)', () => {
   let sessionContext: GameSessionContext;
@@ -229,6 +230,122 @@ describe('SceneDirector (REFACTOR-MAIN-001 / #301)', () => {
 
       expect(() => director.render()).not.toThrow();
       expect(onError).toHaveBeenCalledWith(boomError, 'render', 'game');
+    });
+  });
+
+  describe('4. 실제 AppBootstrap 씬 파이프라인 및 인게임 런타임 무결성 검증 (BUG-SCENE-DIRECTOR-001 / #315)', () => {
+    function createMockCanvas(clientW = 800, clientH = 600) {
+      let width = clientW;
+      let height = clientH;
+      const gradient = { addColorStop: vi.fn() };
+      const ctx = {
+        clearRect: vi.fn(),
+        setTransform: vi.fn(),
+        fillRect: vi.fn(),
+        drawImage: vi.fn(),
+        save: vi.fn(),
+        restore: vi.fn(),
+        beginPath: vi.fn(),
+        closePath: vi.fn(),
+        stroke: vi.fn(),
+        fill: vi.fn(),
+        roundRect: vi.fn(),
+        fillText: vi.fn(),
+        strokeRect: vi.fn(),
+        arc: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        rect: vi.fn(),
+        measureText: vi.fn(() => ({ width: 10 })),
+        createLinearGradient: vi.fn(() => gradient),
+        createRadialGradient: vi.fn(() => gradient),
+        translate: vi.fn(),
+        scale: vi.fn(),
+        ellipse: vi.fn(),
+        setLineDash: vi.fn(),
+        getLineDash: vi.fn(() => []),
+      };
+      return {
+        clientWidth: clientW,
+        clientHeight: clientH,
+        get width() { return width; },
+        set width(v: number) { width = v; },
+        get height() { return height; },
+        set height(v: number) { height = v; },
+        getContext: () => ctx,
+        getBoundingClientRect: () => ({ left: 0, top: 0, width: clientW, height: clientH }),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      };
+    }
+
+    it('인게임 진입 후 update 실행 시 kneeFramingValidator.validate 오류 없이 readyPosition 카운트다운이 정상 갱신된다', async () => {
+      const mockCanvas = createMockCanvas() as any;
+      const app = new AppBootstrap({ canvas: mockCanvas, autoStartCamera: false, preloadAssets: false });
+      await app.init();
+      app.start();
+
+      app.startChapter(1);
+      expect(app.stateMachine.currentState).toBe('READY_POSITION');
+      expect(app.readyPositionController.readyTimer).toBe(3.0);
+
+      const errSpy = vi.spyOn(console, 'error');
+
+      // 1프레임 (dt = 0.5초) 엔진 업데이트 틱
+      (app.engine as any)._loop(0);
+      (app.engine as any)._loop(500);
+
+      // 에러 핸들러로 넘어가지 않고 readyTimer가 정상 감소해야 함
+      expect(errSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('[SceneDirector] Error during update in scene game:'),
+        expect.anything(),
+      );
+      expect(app.readyPositionController.readyTimer).toBeLessThan(3.0);
+    });
+
+    it('인게임 진입 후 render 실행 시 cursorTracker 누락 및 Map/Array 타입 불일치 렌더 예외가 발생하지 않는다', async () => {
+      const mockCanvas = createMockCanvas() as any;
+      const app = new AppBootstrap({ canvas: mockCanvas, autoStartCamera: false, preloadAssets: false });
+      await app.init();
+      app.start();
+
+      app.startChapter(1);
+      const errSpy = vi.spyOn(console, 'error');
+
+      // 1프레임 렌더 틱 실행
+      (app.engine as any)._loop(0);
+      (app.engine as any)._loop(16);
+
+      expect(errSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('[SceneDirector] Error during render in scene game:'),
+        expect.anything(),
+      );
+    });
+
+    it('READY_POSITION 스킵 또는 카운트다운 완료 후 RUN_QUESTION으로 정상 전이되고 비트 코디네이터가 동작한다', async () => {
+      const mockCanvas = createMockCanvas() as any;
+      const app = new AppBootstrap({ canvas: mockCanvas, autoStartCamera: false, preloadAssets: false });
+      await app.init();
+      app.start();
+
+      app.startChapter(1);
+      expect(app.stateMachine.currentState).toBe('READY_POSITION');
+
+      // 3초 카운트다운 스킵
+      app.readyPositionController.skip();
+      expect(app.stateMachine.currentState).toBe('RUN_QUESTION');
+
+      const errSpy = vi.spyOn(console, 'error');
+
+      // 1프레임 업데이트 및 렌더
+      (app.engine as any)._loop(0);
+      (app.engine as any)._loop(16);
+
+      expect(errSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('[SceneDirector] Error'),
+        expect.anything(),
+      );
     });
   });
 });

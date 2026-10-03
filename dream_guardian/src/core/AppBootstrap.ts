@@ -1498,6 +1498,7 @@ const mainSceneContext: MainSceneContext = {
   imageLoader,
   canvas,
   get engine() { return engine; },
+  cursorTracker: answerSelector.cursorTracker,
   kneeFramingValidator,
   kneeFramingGuideRenderer,
   getActiveLocomotionDetector,

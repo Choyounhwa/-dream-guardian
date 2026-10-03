@@ -176,6 +176,7 @@ export class SceneDirector<TContext = any> {
 
   // 메인 루프 임시 프레임 캐시
   private _frameHoverTarget: { x: number; y: number } | null = null;
+  private _currentKneeFraming: any = null;
 
   constructor(options?: SceneDirectorOptions<TContext>) {
     this._options = options ?? {};
@@ -797,21 +798,24 @@ export class SceneDirector<TContext = any> {
         : ctx.poseManager.virtualLandmarks;
 
     // Issue #206 & #246: 무릎 프레이밍 유효성 검사 및 정렬 가이드 시각화
-    let currentKneeFraming = ctx.kneeFramingValidator
-      ? ctx.kneeFramingValidator.validate(
+    const currentKneeFraming = ctx.kneeFramingValidator
+      ? ctx.kneeFramingValidator.update(
+          dt,
           sourceLandmarks,
           ctx.canvasManager.virtualWidth,
           ctx.canvasManager.virtualHeight,
         )
-      : (ctx.kneeFraming ? ctx.kneeFraming.update(sourceLandmarks, ctx.canvasManager.virtualHeight) : { isFootKeynotePoseInputAllowed: true, isFramed: true });
+      : (ctx.kneeFraming ? ctx.kneeFraming.update(sourceLandmarks, ctx.canvasManager.virtualHeight) : { isFootKeynotePoseInputAllowed: true, status: 'ready' as const });
+    this._currentKneeFraming = currentKneeFraming;
 
     if (ctx.kneeFramingGuideRenderer) {
       ctx.kneeFramingGuideRenderer.update(dt);
     }
 
     if (ctx.stateMachine.currentState === 'READY_POSITION') {
+      ctx.readyPositionController.setPaused(ctx.pauseModal.isOpen);
       const isAligned =
-        currentKneeFraming.isFramed &&
+        currentKneeFraming.status === 'ready' ||
         ctx.readyPositionController.checkAlignment(
           sourceLandmarks,
           ctx.canvasManager.virtualWidth,
@@ -883,8 +887,6 @@ export class SceneDirector<TContext = any> {
         ctx.beatRoundResolver.resourceManager.troopManager.update(dt, { autoConsumeStardust: true });
       }
     }
-
-    ctx.sfx.stopDwellCharge();
 
     if (ctx.state.feedbackTimer > 0) {
       ctx.state.feedbackTimer -= dt;
@@ -989,15 +991,6 @@ export class SceneDirector<TContext = any> {
       context2d.fillText('⚠️ 카메라 권한 차단됨 (1~5번 키 또는 화면 클릭으로 플레이 가능)', vw / 2, vh * 0.88);
     }
     ctx.effectManager.render(context2d, vw, vh);
-
-    if (!ctx.calibrationHelper.isDone || !(ctx.kneeFramingValidator?.status?.isFramed ?? ctx.kneeFraming?.status?.isFramed ?? true)) {
-      ctx.readyPositionRenderer.renderGuideSilhouette(
-        context2d,
-        vw,
-        vh,
-        !ctx.calibrationHelper.isDone ? 'CALIBRATION' : 'KNEE_ALIGN',
-      );
-    }
   }
 
   renderGameScene(ctx: MainSceneContext): void {
@@ -1245,40 +1238,33 @@ export class SceneDirector<TContext = any> {
       ctx.pauseModal.render(context2d, vw, vh);
     }
 
-    // 커서 렌더링
-    if (ctx.state.screenMode === 'menu' || ctx.state.screenMode === 'result' || ctx.pauseModal.isOpen) {
-      ctx.cursorTracker.render(context2d, vw, vh);
-    } else if (ctx.state.screenMode === 'game') {
-      const renderCursors: Array<{
-        x: number;
-        y: number;
-        color: string;
-        radius: number;
-        label: string;
-        isActive: boolean;
-      }> = [];
+    // 무릎 프레이밍 가이드 렌더링 (인게임 중, READY_POSITION 제외)
+    if (ctx.state.screenMode === 'game' && ctx.stateMachine.currentState !== 'READY_POSITION' && this._currentKneeFraming) {
+      ctx.kneeFramingGuideRenderer?.render(context2d, vw, vh, this._currentKneeFraming);
+    }
 
-      for (const cursor of ctx.cursorTracker.getAllCursors()) {
-        if (cursor.isActive && cursor.x > 0) {
-          renderCursors.push({
-            x: cursor.x,
-            y: cursor.y,
-            color: cursor.color,
-            radius: cursor.radius,
-            label: cursor.name,
-            isActive: true,
-          });
+    // 커서 렌더링
+    const tracker = ctx.answerSelector?.cursorTracker ?? ctx.cursorTracker;
+    if (tracker) {
+      if (ctx.state.screenMode === 'menu' || ctx.state.screenMode === 'result' || ctx.pauseModal.isOpen) {
+        tracker.render(context2d, vw, vh);
+      } else if (ctx.state.screenMode === 'game') {
+        if (tracker.cursors && tracker.cursors.size > 0) {
+          const renderCursors = new Map(tracker.cursors.entries());
+          if (ctx.menuInput?.isActive) {
+            renderCursors.delete('leftHand');
+            renderCursors.delete('rightHand');
+          }
+          ctx.answerSelectionRenderer.render(
+            context2d,
+            vw,
+            vh,
+            [],
+            renderCursors,
+            [0, 0],
+          );
         }
       }
-
-      ctx.answerSelectionRenderer.render(
-        context2d,
-        vw,
-        vh,
-        [],
-        renderCursors,
-        [0, 0],
-      );
     }
 
     // 금빛 합장 링 렌더링
