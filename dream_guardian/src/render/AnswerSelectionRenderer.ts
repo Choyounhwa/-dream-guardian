@@ -11,7 +11,7 @@
 
 import type { FitnessZone } from '../../config/zone.config.js';
 import type { CursorType } from '../../config/cursor.config.js';
-import { CURSOR_COLORS, CURSOR_DIMENSIONS } from '../../config/cursor.config.js';
+import { CURSOR_COLORS, CURSOR_DIMENSIONS, CURSOR_VISIBILITY } from '../../config/cursor.config.js';
 import type { CursorPosition } from '../input/CursorTracker.js';
 import type { MagicCircleRenderer } from './MagicCircleRenderer.js';
 import { UIText } from '../utils/UIText.js';
@@ -157,6 +157,8 @@ export class AnswerSelectionRenderer {
     const fontScale = UIText.getAccessibility().fontScale ?? 1.0;
 
     for (const [type, pos] of cursors) {
+      if (!pos || CURSOR_VISIBILITY[type] === false) continue;
+
       const cx = pos.x * w;
       const cy = pos.y * h;
       const color = CURSOR_COLORS[type];

@@ -22,6 +22,15 @@ export const CURSOR_COLORS: Record<CursorType, string> = {
 /** 커서 인식 유효성 신뢰도 임계값 */
 export const CURSOR_CONFIDENCE_THRESHOLD = 0.45;
 
+/** 커서 가시성 설정 (Issue #369 / FEAT-CURSOR-006: 답안 판정 미사용 머리·골반 커서 화면 숨김) */
+export const CURSOR_VISIBILITY: Record<CursorType, boolean> = {
+  leftHand: true,
+  rightHand: true,
+  head: false,      // 머리/얼굴 (답안 판정 미사용으로 화면 숨김)
+  shoulder: false,  // 어깨 (미사용)
+  hip: false,       // 골반/엉덩이 (답안 판정 미사용으로 화면 숨김)
+};
+
 /** 양손 모으기(합장) 메뉴 커서 3배 확대 규격 (Issue #201 / FEAT-CURSOR-005) */
 export const JOINED_HANDS_CURSOR = {
   ringRadius: 100,         // 합장 외곽 네온 링 반경 (기존 34px -> 100px, 지름 200px, 3배 확대)

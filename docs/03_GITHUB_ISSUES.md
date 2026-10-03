@@ -1,5 +1,66 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-10-04 등록: UI 추출 전용 에디터 전체 Phase 0~7 (UIX)
+
+**등록 승인 / 구현·검증 실행 승인 대기. 실행44개(MVP18+후속26) + 추적1개 = 총45개, 모두 OPEN·미착수.** 추적: [UIX-TRACK-001 #323](https://github.com/Choyounhwa/-dream-guardian/issues/323).
+최신 설계는 `08_UI_EDITOR_UX_DATA_DESIGN.md` 2차 개정이다. 이전 UIE/게임 적용 계획은 채택하지 않는다. 설계가 로컬 미커밋 상태일 수 있어 각 이슈 본문에 계약·고유 수락기준/실패 사례·정확 파일 경계·선행 링크를 자체 포함했다.
+
+| ID | 이슈 | 단계 | 제목 | 필수 선행 이슈 | source/config 수 |
+|---|---|:---:|---|---|:---:|
+| UIX-001 | [#324](https://github.com/Choyounhwa/-dream-guardian/issues/324) | 0 | 편집 원본·전달 파일 및 속성 허용 계약 | 없음 | 2 |
+| UIX-004 | [#325](https://github.com/Choyounhwa/-dream-guardian/issues/325) | 0 | 정규 JSON·SHA-256·왕복 테스트 벡터 | #324 | 1 |
+| UIX-002 | [#326](https://github.com/Choyounhwa/-dream-guardian/issues/326) | 0 | 버전 고정 기준 프리셋·해시 목록 | #324, #325 | 1 |
+| UIX-003 | [#327](https://github.com/Choyounhwa/-dream-guardian/issues/327) | 0 | 프로젝트·전달 데이터 구조/의미 검증 | #324, #326 | 1 |
+| UIX-005 | [#328](https://github.com/Choyounhwa/-dream-guardian/issues/328) | 0 | 저장본 기반 순수 전달 데이터 생성 | #326, #327, #325 | 1 |
+| UIX-006 | [#329](https://github.com/Choyounhwa/-dream-guardian/issues/329) | 1 | 격리 미리보기 어댑터·부작용 차단 | #326, #327 | 2 |
+| UIX-007 | [#330](https://github.com/Choyounhwa/-dream-guardian/issues/330) | 1 | 주변 UI 합성·보호 영역·모의 액션 | #329 | 2 |
+| UIX-007A | [#331](https://github.com/Choyounhwa/-dream-guardian/issues/331) | 1 | 재현 가능한 시각 검증 profile·보고서 | #325, #330 | 2 |
+| UIX-008 | [#332](https://github.com/Choyounhwa/-dream-guardian/issues/332) | 1 | 독립 에디터 진입점·셸·개발/빌드 구성 | #331 | 3 |
+| UIX-009 | [#333](https://github.com/Choyounhwa/-dream-guardian/issues/333) | 2 | 문서 상태·명령·Undo/Redo·기본값 복원 | #327, #332 | 2 |
+| UIX-010 | [#334](https://github.com/Choyounhwa/-dream-guardian/issues/334) | 2 | 속성 폼·입력 버퍼·공통값/변경 비교 | #333 | 2 |
+| UIX-011 | [#335](https://github.com/Choyounhwa/-dream-guardian/issues/335) | 2 | 직접 조작·좌표 변환·preview 통신 연결 | #329, #333, #334 | 3 |
+| UIX-012 | [#336](https://github.com/Choyounhwa/-dream-guardian/issues/336) | 3 | 전용 IndexedDB·원자적 저장·충돌/보존 정책 | #327, #333 | 2 |
+| UIX-013 | [#337](https://github.com/Choyounhwa/-dream-guardian/issues/337) | 3 | 저장·초안 복구·프로젝트 교체 UX 연결 | #334, #335, #336 | 2 |
+| UIX-014 | [#338](https://github.com/Choyounhwa/-dream-guardian/issues/338) | 3 | 프로젝트 백업·가져오기·변환 및 셸 연결 | #325, #337 | 3 |
+| UIX-015 | [#339](https://github.com/Choyounhwa/-dream-guardian/issues/339) | 4 | 전달 파일·해시·diff·검증 보고서 재검사 | #328, #331, #338 | 1 |
+| UIX-016 | [#340](https://github.com/Choyounhwa/-dream-guardian/issues/340) | 4 | 추출 마법사·이력·파일 검사 UX 연결 | #335, #336, #338, #339 | 2 |
+| UIX-017 | [#341](https://github.com/Choyounhwa/-dream-guardian/issues/341) | 4 | MVP 종단 인수·게임 비변경 검증 | #340 | 0 |
+| UIX-030 | [#342](https://github.com/Choyounhwa/-dream-guardian/issues/342) | 5 | 화면별 버전 계약·명시적 scope 등록/검증 확장 | #341 | 3 |
+| UIX-031 | [#343](https://github.com/Choyounhwa/-dream-guardian/issues/343) | 5 | 확장 계약의 추출·재검사·프로젝트 변환 연결 | #342 | 3 |
+| UIX-018 | [#344](https://github.com/Choyounhwa/-dream-guardian/issues/344) | 5 | 서브메뉴 지원 계약·기준·잠금 사유 | #343 | 3 |
+| UIX-019 | [#345](https://github.com/Choyounhwa/-dream-guardian/issues/345) | 5 | 서브메뉴 미리보기·편집·추출 연결 | #344 | 3 |
+| UIX-020 | [#346](https://github.com/Choyounhwa/-dream-guardian/issues/346) | 5 | HUD 지원 계약·기준·잠금 사유 | #345 | 3 |
+| UIX-021 | [#347](https://github.com/Choyounhwa/-dream-guardian/issues/347) | 5 | HUD 미리보기·편집·추출 연결 | #346 | 3 |
+| UIX-022 | [#348](https://github.com/Choyounhwa/-dream-guardian/issues/348) | 5 | 하단바 지원 계약·기준·잠금 사유 | #347 | 3 |
+| UIX-023 | [#349](https://github.com/Choyounhwa/-dream-guardian/issues/349) | 5 | 하단바 미리보기·편집·추출 연결 | #348 | 3 |
+| UIX-024 | [#350](https://github.com/Choyounhwa/-dream-guardian/issues/350) | 5 | 결과 화면 지원 계약·기준·잠금 사유 | #349 | 3 |
+| UIX-025 | [#351](https://github.com/Choyounhwa/-dream-guardian/issues/351) | 5 | 결과 화면 미리보기·편집·추출 연결 | #350 | 3 |
+| UIX-026 | [#352](https://github.com/Choyounhwa/-dream-guardian/issues/352) | 5 | 설정 모달 지원 계약·기준·잠금 사유 | #351 | 3 |
+| UIX-027 | [#353](https://github.com/Choyounhwa/-dream-guardian/issues/353) | 5 | 설정 모달 미리보기·편집·추출 연결 | #352 | 3 |
+| UIX-028 | [#354](https://github.com/Choyounhwa/-dream-guardian/issues/354) | 5 | 일시정지 모달 지원 계약·기준·잠금 사유 | #353 | 3 |
+| UIX-029 | [#355](https://github.com/Choyounhwa/-dream-guardian/issues/355) | 5 | 일시정지 모달 미리보기·편집·추출 연결 | #354 | 3 |
+| UIX-032 | [#356](https://github.com/Choyounhwa/-dream-guardian/issues/356) | 6 | 스타일 전달 버전·승인 리소스 요구 계약 | #355 | 3 |
+| UIX-033 | [#357](https://github.com/Choyounhwa/-dream-guardian/issues/357) | 6 | 스타일 버전·리소스 목록 추출/검사/변환 | #356 | 3 |
+| UIX-034 | [#358](https://github.com/Choyounhwa/-dream-guardian/issues/358) | 6 | 지원 글자 속성·소비자 매핑·기준 | #357 | 3 |
+| UIX-035 | [#359](https://github.com/Choyounhwa/-dream-guardian/issues/359) | 6 | 글자 스타일 미리보기·폼·추출 연결 | #358 | 3 |
+| UIX-036 | [#360](https://github.com/Choyounhwa/-dream-guardian/issues/360) | 6 | 지원 색상·테마 계약 및 대비 기준 | #359 | 3 |
+| UIX-037 | [#361](https://github.com/Choyounhwa/-dream-guardian/issues/361) | 6 | 테마 미리보기·편집·추출 연결 | #360 | 3 |
+| UIX-038 | [#362](https://github.com/Choyounhwa/-dream-guardian/issues/362) | 6 | 승인 에셋 선택 계약·목록·속성 연결 | #361 | 3 |
+| UIX-039 | [#363](https://github.com/Choyounhwa/-dream-guardian/issues/363) | 6 | 승인 에셋 미리보기·캐시 수명·추출 연결 | #362 | 3 |
+| UIX-040 | [#364](https://github.com/Choyounhwa/-dream-guardian/issues/364) | 7 | 데스크톱·모바일 브라우저/호스팅 호환 QA | #363 | 0 |
+| UIX-041 | [#365](https://github.com/Choyounhwa/-dream-guardian/issues/365) | 7 | 키보드·큰 글자·고대비·오류 초점 접근성 QA | #364 | 0 |
+| UIX-042 | [#366](https://github.com/Choyounhwa/-dream-guardian/issues/366) | 7 | 장기 복구·구버전 파일·시각 재현성 QA | #365 | 0 |
+| UIX-043 | [#367](https://github.com/Choyounhwa/-dream-guardian/issues/367) | 7 | 운영·백업·파일 호환/수신 인계 문서와 최종 점검 | #366 | 0 |
+
+- 실행 순서는 표 순서다. Phase5의 UIX-030→031은018~029보다 먼저다. 모든 기능 카드는 source/config 최대3개이며 정확 경로는 각 이슈와 설계 §14에 기록했다. QA/문서는 인위적 기능 Red 없이 특성화/실측·미검증 기준을 적용한다.
+- UIX-008: main/셸/전용 Vite설정3개 + 독립 HTML2개/package script 추가만. UIX-014: IO/Migration/셸3개로 백업/열기 버튼까지 연결. UIX-015 report 재검사와016 실제 검증/추출 UX를 분리한다.
+- 절대 경계: export only. 게임 loader/apply/bootstrap/기존 UI renderer/config/세이브 쓰기·자동 전송·배포·저장소 파일 쓰기 금지. 지원 불가 잠금. 기존 #319·EDITOR-SCHEMA NEXT, #321·#322 및 타 dirty 작업 보존.
+- 등록 검증: 검색 인덱스 대신 REST 전체 이슈 제목의 정확 ID를 비교하고 생성 결과를 즉시 반영했다. 생성 직후 본문/제목/라벨/OPEN을 확인했으며 최종 전체45개·중복0·실제 선행 링크·본문 일치를 재조회 검증했다. 최근 목록 반영 지연은 재조회로 해결했고 재생성하지 않았다.
+- 라벨: feature39 / test4 / documentation2, P1-high11 / P2-medium34. 기존 게임 phase-N 라벨은 사용하지 않았다. Project scope 부족으로 미연결이며 인증 변경/추가 권한 요청 없음.
+- 이번에는 이슈 등록과 승인된 문서3개만 동기화했다. npm test/build·브라우저·서버·기능 구현·commit/push 없음. Pass 주장 없음. 구현 완료 후에는 실제 증빙을 gh issue comment, HANDOVER에 기록하고 실제 에디터 서버/URL을 안내하도록 각 카드에 명시했다.
+
+---
+
 ## 2026-10-03 긴급 등록: 리팩토링 후 스테이지 런타임 동결 결함 복구 (#315)
 
 **[BUG-SCENE-DIRECTOR-001 / #315] 등록 완료 / 구현 미착수. OPEN·구현 승인 대기.**
@@ -5330,6 +5391,82 @@ BEAT-SPEC-001
   - `dream_guardian/config/beat-motion.config.ts`
   - `dream_guardian/src/render/StarNoteRenderer.ts`
   - `dream_guardian/tests/unit/star-note-renderer.test.ts`
+
+---
+
+### Issue #322: [RENDER-QUESTION-UNIFY-001] 러닝·답선택 페이즈 간 문제 수식 렌더링 일원화 및 단일 뷰(SSOT) 통합
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/322
+- **Labels**: `feature`, `refactor`, `P1-high`, `phase-6`
+- **작업 ID**: `[RENDER-QUESTION-UNIFY-001]`
+- **상태**: ⚪ **대기 (승인 대기)**
+- **제목**: 러닝·답선택 페이즈 간 문제 수식 렌더링 일원화 및 단일 뷰(SSOT) 통합
+- **목적**:
+  - 러닝 페이즈(`BeatHUDRenderer`)와 답 선택 페이즈(`QuestionRenderer`)로 이원화되어 있던 문제 수식 렌더링을 `QuestionRenderer` 단일 렌더러(SSOT)로 일원화한다.
+  - 러닝 페이즈 시작(1~2박 원근 접근)부터 답 선택 페이즈까지 목판 배경 패널(`questionBoardBg`), 132px 대형 폰트, 동일한 Y 기준 위치를 일관되게 적용하여 페이즈 전이 시의 시각적 튐(Popping/Jumping)을 완전히 제거한다.
+  - `BeatHUDRenderer`의 중복 수식 렌더링 코드를 제거하여 순수 러닝 HUD(보스 장판, 8박 도트/링, 운동 카운터) 전담으로 책임을 분리하고, 향후 문제 크기·디자인 수정이 두 페이즈에 동시에 일관 적용되도록 한다.
+- **수정 대상 (Scope Guard: 3개 파일)**:
+  - `dream_guardian/src/render/QuestionRenderer.ts`
+  - `dream_guardian/src/render/BeatHUDRenderer.ts`
+  - `dream_guardian/src/core/SceneDirector.ts`
+- **유지 사항**:
+  - Phase A 보스 장판 회피 안내, 8박 인디케이터, 걸음/운동 카운터 HUD 기능
+  - 3D 쌓기나무/전개도/회전 도형 렌더러 정합성
+  - 답안 카드 원근 접근(6박 이후) 및 ArmReach / 마우스 / 키보드 답 선택 입력 판정
+- **변경 금지**:
+  - 피트니스 존 1~11 및 4색 신체 커서 판정 시스템
+  - 전투 시스템(HP, 마나, 데미지, 콤보) 및 스토리/사운드 로직
+  - 카메라 계층 및 스켈레톤 트래킹 파이프라인
+- **완료 조건**:
+  - [ ] `QuestionRenderer.ts`에서 러닝 및 답 선택 페이즈 공통 목판+132px 수식 단일 렌더링 지원
+  - [ ] `BeatHUDRenderer.ts`에서 중복 수식 렌더링 제거 및 SRP 순수 러닝 HUD 유지
+  - [ ] `SceneDirector.ts`에서 러닝 페이즈부터 `QuestionRenderer`를 통한 일관된 수식 출력 연결
+  - [ ] `npm test` 전체 테스트 슈트 100% 통과
+  - [ ] `npm run build` tsc 컴파일 및 번들 검증 성공
+- **테스트**:
+  - `npx vitest run tests/unit/question-renderer.test.ts`
+  - `npx vitest run tests/unit/beat-hud-renderer.test.ts`
+  - `npm test`
+  - `npm run build`
+- **관련 파일**:
+  - `dream_guardian/src/render/QuestionRenderer.ts`
+  - `dream_guardian/src/render/BeatHUDRenderer.ts`
+  - `dream_guardian/src/core/SceneDirector.ts`
+  - `dream_guardian/tests/unit/question-renderer.test.ts`
+  - `dream_guardian/tests/unit/beat-hud-renderer.test.ts`
+
+---
+
+### Issue #369: [FEAT-CURSOR-006] 답안 판정 미사용 머리·골반 커서 화면 숨김 및 가시성 설정 분리
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/369
+- **Labels**: `feature`, `phase-6`, `P2-medium`
+- **작업 ID**: `[FEAT-CURSOR-006]`
+- **상태**: 🟢 **완료 (TDD 통과 및 머지)**
+- **제목**: 답안 판정 미사용 머리·골반 커서 화면 숨김 및 가시성 설정 분리
+- **목적**:
+  - 팔 뻗기(Zone 4/5) 및 손 기반 답안 판정으로 전환됨에 따라, 더 이상 판정에 사용되지 않는 머리(보라색 타원) 및 골반(주황색 다이아몬드) 커서의 불필요한 시각적 노출을 가려 화면 시인성을 개선한다.
+- **수정 대상 (Scope Guard: 2개 파일)**:
+  - `dream_guardian/config/cursor.config.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+- **유지 사항**:
+  - `CursorTracker` 내부의 좌표/크기 계산 로직 및 기존 API 유지
+  - 양손 커서(왼손 Cyan, 오른손 Yellow), 합장 링 렌더링 로직 유지
+  - 존 하이라이트 및 프로그레스 아크 렌더링 로직 유지
+- **변경 금지**:
+  - `CursorTracker.ts` 내부 트래킹 및 포즈 랜드마크 추출 로직
+  - `PostureMatcher.ts`, `ArmReachAnswerSelector.ts` 등 입력 판정 로직
+  - 스켈레톤 관절/뼈대 렌더링 로직
+- **완료 조건**:
+  - [x] `config/cursor.config.ts`에 `CURSOR_VISIBILITY` 설정 분리 정의
+  - [x] `AnswerSelectionRenderer`에서 `head`, `hip` 커서가 캔버스에 렌더링되지 않음
+  - [x] `leftHand`, `rightHand` 커서는 기존과 동일하게 정상 렌더링됨
+  - [x] 단위 테스트 통과 (`npm test` 2,133/2,133 Pass) 및 `npm run build` 성공
+- **테스트**:
+  - `dream_guardian/tests/unit/cursor-visibility.test.ts` (3/3 Pass)
+- **관련 파일**:
+  - `dream_guardian/config/cursor.config.ts`
+  - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
+  - `dream_guardian/tests/unit/cursor-visibility.test.ts`
+
 
 
 
