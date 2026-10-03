@@ -3,7 +3,7 @@ import { BeatRunCoordinator } from '../../src/game/BeatRunCoordinator.js';
 import { BattleState } from '../../src/game/BattleState.js';
 import { ArmReachAnswerSelector } from '../../src/input/ArmReachAnswerSelector.js';
 import { POSE_LANDMARKS, type NormalizedLandmark } from '../../src/types/index.js';
-import { DEFAULT_LOOP_PATTERN } from '../../config/beat-motion.config.js';
+import { DEFAULT_DIFFICULTY_BEAT_PROFILE, DEFAULT_LOOP_PATTERN } from '../../config/beat-motion.config.js';
 import { DEFAULT_ARM_DIRECTION_ANSWER_CONFIG } from '../../config/judgment.config.js';
 
 describe('BeatRunCoordinator Unit Tests (Issue #309 / FEAT-ANSWER-GRACE-001)', () => {
@@ -658,5 +658,41 @@ describe('[FEAT-ANSWER-GRACE-001 / #309] 기본 2박 · 미응답 추가 2박 ·
     expect(onTimeout).toHaveBeenCalledTimes(1);
     expect(coordinator.getBranchClock()?.bpm).toBe(bpm);
     expect(coordinator.getBranchClock()?.secondsPerBeat).toBeCloseTo(60 / bpm, 6);
+  });
+
+  it('분기 시계 durationBeats는 기본 프로필 branchRoutineBeats(8)를 따른다', () => {
+    const coordinator = new BeatRunCoordinator({
+      battle: new BattleState(),
+      routineMode: 'arm_reach',
+    });
+    enterAnswer(coordinator);
+    coordinator.confirmAnswerByFallback(coordinator.currentQuestion?.correctIndex ?? 0);
+
+    const clock = coordinator.getBranchClock();
+    expect(clock).not.toBeNull();
+    expect(coordinator.performanceBeats).toBe(8);
+    expect(clock!.durationBeats).toBe(coordinator.performanceBeats);
+    expect(clock!.endElapsed - clock!.startElapsed).toBeCloseTo(
+      coordinator.performanceBeats * clock!.secondsPerBeat,
+      6,
+    );
+  });
+
+  it('setDifficultyProfile의 branchRoutineBeats가 8이 아니면 분기 시계가 그 길이를 따른다 (#317, BranchClock.durationBeats는 소비처 리터럴 8 때문에 number로 넓히지 않음)', () => {
+    const coordinator = new BeatRunCoordinator({
+      battle: new BattleState(),
+      routineMode: 'arm_reach',
+    });
+    coordinator.setDifficultyProfile({
+      ...DEFAULT_DIFFICULTY_BEAT_PROFILE,
+      branchRoutineBeats: 10,
+    });
+    enterAnswer(coordinator);
+    coordinator.confirmAnswerByFallback(coordinator.currentQuestion?.correctIndex ?? 0);
+
+    const clock = coordinator.getBranchClock();
+    expect(coordinator.performanceBeats).toBe(10);
+    expect(clock!.durationBeats).toBe(10);
+    expect(clock!.endElapsed).toBeCloseTo(clock!.startElapsed + 10 * clock!.secondsPerBeat, 6);
   });
 });

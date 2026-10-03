@@ -239,6 +239,10 @@ export class BeatRunCoordinator {
   }
 
   get performanceBeats(): number {
+    return this.branchRoutineBeats;
+  }
+
+  get branchRoutineBeats(): number {
     return this._difficultyProfile.branchRoutineBeats;
   }
 
@@ -344,8 +348,8 @@ export class BeatRunCoordinator {
       secondsPerBeat: spb,
       startElapsed: this._branchStartElapsed,
       elapsed: this._branchElapsed,
-      endElapsed: this._branchStartElapsed + 8 * spb,
-      durationBeats: 8,
+      endElapsed: this._branchStartElapsed + this.branchRoutineBeats * spb,
+      durationBeats: this.branchRoutineBeats as BranchClock['durationBeats'],
     };
   }
 
