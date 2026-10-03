@@ -4922,6 +4922,56 @@ BEAT-SPEC-001
 
 ---
 
+### Issue #320: [RENDER-GRID-005] 3D 원근 드림 그리드 가로선 확장 및 와이드 지대(Wide Terrain) 연출
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/320
+- **Labels**: `phase-7`, `feature`, `P2-medium`
+- **작업 ID**: `[RENDER-GRID-005]`
+- **상태**: `[✔] 완료`
+- **제목**: 3D 원근 드림 그리드 가로선 확장 및 와이드 지대(Wide Terrain) 연출
+- **목적**:
+  1. 현재 소실점에 비례해 좁은 런웨이 형태로 수렴하는 드림 그리드 바닥 가로선(Transverse Lines)의 좌우 길이를 확장하여 광활한 지대(Wide Cyber Terrain) 느낌의 개방감 있는 무대 비주얼 연출.
+  2. 가로선 너비 계산식의 매직 넘버(`(w * 0.5 + 50) * depthRatio`)를 `config/grid.config.ts`의 설정값(`TRANSVERSE_SPAN_MULTIPLIER` 등)으로 외재화하여 지대 폭과 원근 확장율을 유연하게 조절 가능하도록 구조화.
+  3. 가로선 폭 확장에 맞춰 교차점 노드(Intersection Nodes) 및 바닥 세로선 방사 표시 범위와의 시각적 정합성 유지.
+- **수정 대상**:
+  - `dream_guardian/config/grid.config.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
+- **구현 내용**:
+  1. **그리드 설정 확장 (`config/grid.config.ts`)**:
+     - 바닥 가로선 좌우 확장 배율 상수(`TRANSVERSE_SPAN_MULTIPLIER` 등) 정의
+     - 화면 해상도 대비 넓은 지대를 형성하는 기본 파라미터 구성
+  2. **그리드 렌더러 로직 개선 (`src/render/DreamGrid.ts`)**:
+     - 바닥 가로선 2-Pass(`Pass 1 네온 글로우`, `Pass 2 중심 코어`) 드로잉 시 `halfW` 계산식에 확장 배율 연동
+     - 가로선 확장에 맞춰 바닥 전경 및 교차점 노드, 세로선 방사선 가시 영역과 자연스러운 융합 유지
+  3. **단위 테스트 추가 및 갱신 (`tests/unit/dream-grid.test.ts`)**:
+     - 가로선 폭 확장 설정값 반영 시 `halfW` 계산값 및 드로잉 좌표 검증
+     - 1080p 및 기준 해상도에서 가로선이 기존 대비 확장되어 렌더링되는지 검증
+     - 전체 단위 테스트 100% Pass 및 번들 빌드 검증
+- **유지 사항**:
+  - 일반 세로선 2-Pass 네온 글로우 및 중앙 척추선(Center Spine) 3-Pass 레이저 코어 렌더링
+  - 메트로놈 비트 플래시(Beat Flash) 및 소실점 심도 안개(Depth Fog) 공식
+  - 런웨이 투명 와이어프레임 구조(`PANEL_BG_COLOR: 'transparent'`) 및 웹캠 투과율
+- **변경 금지**:
+  - 카메라 미러 피드 및 피트니스 존(Zone 1~11) 좌표계
+  - 하단 고정 바, 문제 표시창, HUD UI 레이아웃
+  - 천장 그리드(Ceiling Grid) 독립 원근 비율
+- **완료 조건**:
+  - [x] `config/grid.config.ts`에 가로선 지대 폭 확장 설정 상수 정의
+  - [x] `src/render/DreamGrid.ts`에 가로선 좌우 길이 확장 로직 반영 (지대가 넓어보이는 와이드 런웨이 비주얼 구현)
+  - [x] `tests/unit/dream-grid.test.ts`에 가로선 확장 검증 테스트 추가 및 통과
+  - [x] 전체 단위 테스트 100% Pass (`npm test`)
+  - [x] 번들 빌드 성공 (`npm run build`)
+- **테스트**:
+  - `npm test -- tests/unit/dream-grid.test.ts`
+  - `npm test`
+  - `npm run build`
+- **관련 파일**:
+  - `dream_guardian/config/grid.config.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
+
+---
+
 ### Issue #295: [RENDER-GRID-004] 3D 원근 드림 그리드 라인 두께 증가, 세로선 2-Pass 네온 글로우 및 메트로놈 비트 플래시(Flash) 효과 추가
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/295
 - **Labels**: `phase-7`, `feature`, `P2-medium`

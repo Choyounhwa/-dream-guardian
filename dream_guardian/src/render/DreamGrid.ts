@@ -39,6 +39,7 @@ import {
   BEAT_FLASH_MAX_ALPHA,
   BEAT_FLASH_WIDTH_BOOST,
   BEAT_FLASH_DECAY,
+  TRANSVERSE_SPAN_MULTIPLIER,
 } from '../../config/grid.config.js';
 import { projectDepthY, depthRatioFromY } from './GridProjection.js';
 
@@ -64,6 +65,7 @@ export interface DreamGridConfig {
   bgDimAlpha?: number; // 배경 이미지 디밍 오버레이 투명도 (기본값: 0.45)
   beatProgress?: number; // 0.0 ~ 1.0 (메트로놈 박자 진행도, 비트 시점 0.0)
   enableBeatFlash?: boolean; // 비트 플래시 활성화 여부 (기본값: true)
+  transverseSpanMultiplier?: number; // 바닥 가로선 좌우 확장 배율 (기본값: TRANSVERSE_SPAN_MULTIPLIER, 1.8)
 }
 
 function isColorTransparent(color?: string | null): boolean {
@@ -113,6 +115,7 @@ export class DreamGrid {
   private _beatProgress?: number = undefined;
   private _enableBeatFlash = true;
   private _flashIntensity = 0;
+  private _transverseSpanMultiplier = TRANSVERSE_SPAN_MULTIPLIER;
 
   constructor(config?: DreamGridConfig) {
     if (config?.color) {
@@ -138,6 +141,9 @@ export class DreamGrid {
     if (config?.bgDimAlpha !== undefined) this._bgDimAlpha = config.bgDimAlpha;
     if (config?.beatProgress !== undefined) this._beatProgress = config.beatProgress;
     if (config?.enableBeatFlash !== undefined) this._enableBeatFlash = config.enableBeatFlash;
+    if (config?.transverseSpanMultiplier !== undefined) {
+      this._transverseSpanMultiplier = config.transverseSpanMultiplier;
+    }
   }
 
   get offset(): number {
@@ -262,6 +268,14 @@ export class DreamGrid {
     this._flashIntensity = Math.max(this._flashIntensity, Math.max(0, Math.min(1, intensity)));
   }
 
+  get transverseSpanMultiplier(): number {
+    return this._transverseSpanMultiplier;
+  }
+
+  setTransverseSpanMultiplier(val: number): void {
+    this._transverseSpanMultiplier = val;
+  }
+
   /**
    * 매 프레임 스크롤 오프셋 갱신 및 비트 플래시 수동 감쇄
    * @param dt 델타 타임
@@ -292,6 +306,7 @@ export class DreamGrid {
     const hasCeiling = config?.hasCeiling ?? this._hasCeiling;
     const beatProg = config?.beatProgress !== undefined ? config.beatProgress : this._beatProgress;
     const enableFlash = config?.enableBeatFlash ?? this._enableBeatFlash;
+    const spanMult = config?.transverseSpanMultiplier ?? this._transverseSpanMultiplier;
 
     // Issue #295: 메트로놈 비트 플래시 계수 계산
     let flashFactor = 0;
@@ -347,6 +362,7 @@ export class DreamGrid {
       panelBgColor,
       baseAlpha,
       flashFactor,
+      spanMult,
     );
 
     // 2.5 피트니스 존 연한 연결선 렌더링 (Issue #188: RENDER-TRACK-001)
@@ -385,6 +401,7 @@ export class DreamGrid {
     panelBgColor: string,
     baseAlpha: number,
     flashFactor: number = 0,
+    transverseSpanMultiplier: number = TRANSVERSE_SPAN_MULTIPLIER,
   ): void {
     const floorH = h - vy;
     if (floorH <= 0) return;
@@ -459,7 +476,7 @@ export class DreamGrid {
       const lineAlpha = effAlpha * Math.pow(fogFactor, 1.25);
       if (lineAlpha < 0.005) continue;
 
-      const halfW = (w * 0.5 + 50) * depthRatio;
+      const halfW = (w * 0.5 + 50) * depthRatio * transverseSpanMultiplier;
       const lineWidth = (TRANSVERSE_MIN_WIDTH + (TRANSVERSE_MAX_WIDTH - TRANSVERSE_MIN_WIDTH) * Math.pow(depthRatio, 1.4)) * widthBoost;
 
       // Pass 1: 외곽 네온 오렌지/앰버 글로우 라인

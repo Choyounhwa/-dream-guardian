@@ -20,6 +20,7 @@ import {
   BEAT_FLASH_MAX_ALPHA,
   BEAT_FLASH_WIDTH_BOOST,
   BEAT_FLASH_DECAY,
+  TRANSVERSE_SPAN_MULTIPLIER,
   DEFAULT_GRID_CONFIG,
 } from '../../config/grid.config.js';
 
@@ -492,6 +493,54 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
       grid.render(mockCtxAfterUpdate, 1920, 1080);
       const maxAfterWidth = Math.max(...mockCtxAfterUpdate.lineWidths);
       expect(maxAfterWidth).toBeLessThan(Math.max(...mockCtxTriggered.lineWidths));
+    });
+
+    it('[RENDER-GRID-005] 바닥 가로선 좌우 길이가 TRANSVERSE_SPAN_MULTIPLIER 설정값에 비례하여 확장되어 와이드 지대를 렌더링한다', () => {
+      // TRANSVERSE_SPAN_MULTIPLIER 상수가 1.0보다 크며 지대를 넓혀주는 값으로 정의되어 있는지 확인
+      expect(TRANSVERSE_SPAN_MULTIPLIER).toBeGreaterThanOrEqual(1.5);
+
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+      const mockCtx = createMockCtx();
+      const w = 1920;
+      const h = 1080;
+
+      grid.render(mockCtx, w, h);
+
+      // moveTo/lineTo 호출 중 바닥 가로선 드로잉 좌표(vx - halfW, vx + halfW) 추적
+      const lineToCalls = vi.mocked(mockCtx.lineTo).mock.calls;
+      const moveToCalls = vi.mocked(mockCtx.moveTo).mock.calls;
+
+      // 기존 1.0 배율 기준 최대 halfW: (w * 0.5 + 50) * 1.0 = 1010
+      // 신규 TRANSVERSE_SPAN_MULTIPLIER(예: 1.8배) 기준 최대 halfW는 기존 1010보다 명확히 커야 함
+      const maxTransverseX = Math.max(...lineToCalls.map((call) => call[0]));
+      const minTransverseX = Math.min(...moveToCalls.map((call) => call[0]));
+
+      expect(maxTransverseX).toBeGreaterThan(w * 0.5 + 50);
+      expect(minTransverseX).toBeLessThan(w * 0.5 - 50);
+
+      // 확장된 가로선이 화면 좌우 경계를 충분히 커버하여 와이드 지대를 형성하는지 검증
+      // 1080p 기준 depthRatio가 큰 전경 가로선의 경우 화면 폭 1920을 넉넉히 초과하는 좌표로 드로잉됨
+      expect(maxTransverseX).toBeGreaterThanOrEqual(w * 0.7);
+      expect(minTransverseX).toBeLessThanOrEqual(w * 0.3);
+    });
+
+    it('[RENDER-GRID-005] transverseSpanMultiplier 옵션 및 setTransverseSpanMultiplier 메서드로 가로선 지대 폭을 동적 제어할 수 있다', () => {
+      const grid = new DreamGrid({ transverseSpanMultiplier: 2.5, hasCeiling: false, renderZoneConnections: false });
+      expect(grid.transverseSpanMultiplier).toBe(2.5);
+
+      const mockCtx1 = createMockCtx();
+      grid.render(mockCtx1, 1920, 1080);
+      const maxTransverseX1 = Math.max(...vi.mocked(mockCtx1.lineTo).mock.calls.map((c) => c[0]));
+
+      grid.setTransverseSpanMultiplier(1.0);
+      expect(grid.transverseSpanMultiplier).toBe(1.0);
+
+      const mockCtx2 = createMockCtx();
+      grid.render(mockCtx2, 1920, 1080);
+      const maxTransverseX2 = Math.max(...vi.mocked(mockCtx2.lineTo).mock.calls.map((c) => c[0]));
+
+      // 2.5 배율일 때의 최대 x 좌표가 1.0 배율일 때보다 훨씬 커야 함
+      expect(maxTransverseX1).toBeGreaterThan(maxTransverseX2);
     });
   });
 });

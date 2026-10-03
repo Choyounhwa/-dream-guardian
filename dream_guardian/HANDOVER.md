@@ -149,7 +149,10 @@
 | [#311](https://github.com/Choyounhwa/-dream-guardian/issues/311) `RENDER-ANSWER-STATUS-001` | 기본/연장/남은 박수 수동 렌더링 | 1 | #309 | `[✔] 완료` (`a0f27d0`) |
 | [#312](https://github.com/Choyounhwa/-dream-guardian/issues/312) `BUG-RUNTIME-ANSWER-BRANCH-001` | 실제 조립계층의 입력→만료→분기 시간 연결 | 최대2 | #306~#310, #302 완료·안정화; #301 경로 재확인 | `[✔] 완료` (`d9e5400`) |
 | [#313](https://github.com/Choyounhwa/-dream-guardian/issues/313) `CORE-ANSWER-PRESENTATION-001` | Game snapshot→Render 전달 | 1 | #311, #312 | `[✔] 완료` (`05ebf20`) |
-| [#314](https://github.com/Choyounhwa/-dream-guardian/issues/314) `QA-ANSWER-BRANCH-001` | 실제 부트스트랩·브라우저·실카메라 최종 검증 | 0 | #313 | `[▶ NEXT]` 자동화 `6565ca1` / 실카메라·브라우저 미확인 / OPEN |
+| [#314](https://github.com/Choyounhwa/-dream-guardian/issues/314) `QA-ANSWER-BRANCH-001` | 실제 부트스트랩·브라우저·실카메라 최종 검증 | 0 | #313 | 자동화 `6565ca1` / 실카메라·브라우저 미확인 / OPEN |
+| [#317](https://github.com/Choyounhwa/-dream-guardian/issues/317) `REFACTOR-CLOCK-001` | 분기 길이를 branchRoutineBeats로 교체 | 0 | 없음 | `[✔] 완료` (`1c7586e`) |
+| [#318](https://github.com/Choyounhwa/-dream-guardian/issues/318) `REFACTOR-HAZARD-CONFIG-001` | 장판 폴백 초를 config로 고정 | 1 | 없음 | `[▶ NEXT]` |
+| [#319](https://github.com/Choyounhwa/-dream-guardian/issues/319) `REFACTOR-ASSEMBLY-CLOCK-001` | 조립계층 0.5와 답안 라벨 설정 분리 | 1 | 없음 | OPEN / 구현 승인 대기 |
 
 - **목표 정책(미구현):** 기본 운동 `8(6+2) → 답안2 → 미응답일 때만 +2(최대4) → 분기8박`. 기존 운동 난이도 8/12/16은 유지한다. 기본/연장 중 선택 즉시 정답은 별, 오답은 회피8박으로 전환한다. 4박 미응답은 timeout 별도 통계이며 직접 HP 차감은 없다.
 - **현재/후속 구분:** 현재 arm-reach 실행 경로는 `judgment.config.ts`의 2박이다. #309는 #283/#287의 시간 정책만 후속 대체한다. #303 Hold/팔꿈치, 즉시 분기·timeout 통계·결과 표시는 이미 있으므로 중복 구현하지 않는다.
@@ -171,6 +174,7 @@
 |:---:|---|---|---|:---:|
 | 40 | **#294** | [RENDER-GRID-003] 드림 그리드 하단 전경 패널 음영(검은색 바닥 면 채우기) 제거 및 투명 SFX 네온 런웨이 와이어프레임 전환 | #282 권장 | `[✔] 완료` |
 | 41 | **#295** | [RENDER-GRID-004] 3D 원근 드림 그리드 라인 두께 증가, 세로선 2-Pass 네온 글로우 및 메트로놈 비트 플래시(Flash) 효과 추가 | #282 권장 | `[✔] 완료` |
+| 41-1 | **#320** | [RENDER-GRID-005] 3D 원근 드림 그리드 가로선 확장 및 와이드 지대(Wide Terrain) 연출 | #295 | `[✔] 완료` |
 
 ### 📌 M. 오디오 메트로놈 동기화 (AUDIO-METRONOME)
 
@@ -428,6 +432,22 @@
 > - **단위 테스트 검증**:
 >   - `tests/unit/arm-reach-answer-selector.test.ts`: 사전 뻗기 1초 유지 확정, 1초 미만 취소 시 리셋, 반대 방향 전환 시 리셋, 신규 뻗기 즉시 확정, 손목 소실 시 팔꿈치 폴백 즉시 확정, 손목/팔꿈치 동시 소실 시 미선택, 화면 밖 손목 유효 방향 판정, 팔꿈치 폴백 상태 1초 유지 확정 등 총 8개 시나리오 100% Pass.
 >   - 전체 단위 테스트 149개 파일 1,867개 테스트 100% Pass 및 `npm run build` 번들 검증 완료
+
+---
+
+## 2026-10-03 완료: [RENDER-GRID-005 / #320] 3D 원근 드림 그리드 가로선 확장 및 와이드 지대(Wide Terrain) 연출
+
+> #320 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (163개 파일 2,083개 테스트 통과, build 성공).
+> - **드림 그리드 가로선 좌우 확장 배율 상수 신설 (`config/grid.config.ts`)**:
+>   - `TRANSVERSE_SPAN_MULTIPLIER` 1.8 정의 및 `DEFAULT_GRID_CONFIG` 등록.
+>   - 좁은 런웨이 형태의 기본 가로선 길이를 1.8배로 확장하여 광활한 지대감(Wide Cyber Terrain) 연출.
+> - **드림 그리드 렌더러 가로선 확장 및 동적 제어 연동 (`src/render/DreamGrid.ts`)**:
+>   - `DreamGridConfig`에 `transverseSpanMultiplier?: number` 옵션 추가.
+>   - `transverseSpanMultiplier` getter 및 `setTransverseSpanMultiplier(val)` 제어 메서드 구현.
+>   - 바닥 가로선 드로잉 2-Pass(Pass 1 네온 오렌지 글로우 + Pass 2 순백 코어)의 좌우 폭 `halfW` 계산 시 확장 배율 연동 (`(w * 0.5 + 50) * depthRatio * transverseSpanMultiplier`).
+> - **단위 테스트 및 전체 회귀 검증**:
+>   - `tests/unit/dream-grid.test.ts`: `TRANSVERSE_SPAN_MULTIPLIER` 상수 규격 검증, 확장된 좌표 드로잉 추적 검증, 동적 옵션 및 setter 배율 제어 검증 추가 (28개 테스트 100% Pass).
+>   - 전체 단위 테스트 163개 파일 2,083개 테스트 100% Pass 및 `npm run build` 번들 검증 완료.
 
 ---
 

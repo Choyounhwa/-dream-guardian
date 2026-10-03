@@ -42,6 +42,9 @@ export const BEAT_FLASH_MAX_ALPHA = 0.35; // 비트 직후 최대 추가 알파 
 export const BEAT_FLASH_WIDTH_BOOST = 1.5; // 비트 직후 선폭 배율 부스트 (최대 1.5배)
 export const BEAT_FLASH_DECAY = 4.5; // 비트 진행도에 따른 지수 감쇄율
 
+// Issue #320 (RENDER-GRID-005): 바닥 가로선 확장 및 와이드 지대(Wide Terrain) 파라미터
+export const TRANSVERSE_SPAN_MULTIPLIER = 1.8; // 바닥 가로선 좌우 확장 배율 (기존 1.0 대비 1.8배로 확장하여 광활한 지대감 연출)
+
 export const DEFAULT_GRID_CONFIG = {
   Z_NEAR,
   DELTA_Z,
@@ -71,6 +74,7 @@ export const DEFAULT_GRID_CONFIG = {
   BEAT_FLASH_MAX_ALPHA,
   BEAT_FLASH_WIDTH_BOOST,
   BEAT_FLASH_DECAY,
+  TRANSVERSE_SPAN_MULTIPLIER,
 } as const;
 
 export const GRID_CONFIG = DEFAULT_GRID_CONFIG;
