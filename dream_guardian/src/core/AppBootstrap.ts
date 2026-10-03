@@ -99,7 +99,7 @@ import {
 import { getAnswerButtonLayouts, DEFAULT_FITNESS_ZONES } from '../../config/zone.config.js';
 import { DEFAULT_PHASE_A_HAZARD_CONFIG } from '../../config/phase-a-hazard.config.js';
 import { HORIZON_RATIO } from '../../config/grid.config.js';
-import { CHAPTER_TRACK_PRESETS } from '../../config/beat-motion.config.js';
+import { CHAPTER_TRACK_PRESETS, DEFAULT_BEAT_MOTION_CONFIG } from '../../config/beat-motion.config.js';
 import type { RoundAnswerStatus, RoundResolveResult } from '../types/result.js';
 
 // Fallback canvas for Node/test environment
@@ -399,8 +399,9 @@ starCollectionInput.setViewport(
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
 
-// Issue #235: 별모으기 7개 노트 스케줄러 & 단일 결과 라우터 연동
-const starNoteScheduler = new StarNoteScheduler({ secondsPerBeat: 0.5 });
+// Issue #235 & #319: 별모으기 7개 노트 스케줄러 & 기본 BPM 환산 박 시간 연동
+const defaultSecondsPerBeat = 60 / DEFAULT_BEAT_MOTION_CONFIG.bpm;
+const starNoteScheduler = new StarNoteScheduler({ secondsPerBeat: defaultSecondsPerBeat });
 starNoteScheduler.setViewport(
   canvasManager.virtualWidth,
   canvasManager.virtualHeight,
@@ -1087,7 +1088,7 @@ bossFeverController = new BossFeverController({
   stateMachine,
   scheduler: starNoteScheduler,
   config: DEFAULT_CONFIG.battle.fever,
-  secondsPerBeat: 0.5,
+  secondsPerBeat: defaultSecondsPerBeat,
   onVictory: (stats) => {
     console.log('[DG] Phase B 보스 격파 승리! 통계:', stats);
     const purifyDialogue = dialogueManager.getDialogue({

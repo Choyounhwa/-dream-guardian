@@ -9,7 +9,7 @@ import {
 } from '../../src/render/QuestionRenderer.js';
 import type { GeneratedQuestion } from '../../src/question/QuestionEvaluator.js';
 import { imageLoader } from '../../src/utils/UIImageLoader.js';
-import { UI_IMAGE_ASSETS } from '../../config/ui.config.js';
+import { UI_IMAGE_ASSETS, QUESTION_ANSWER_TIME_TOKENS } from '../../config/ui.config.js';
 
 function textsOf(ctx: CanvasRenderingContext2D): string[] {
   return (ctx.fillText as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
@@ -633,6 +633,80 @@ describe('QuestionRenderer answer time status (Issue #311 / RENDER-ANSWER-STATUS
       expect(runTextCall).toBeDefined();
       expect(playTextCall).toBeDefined();
       expect(runTextCall[2]).toBe(playTextCall[2]); // Y 좌표 완벽 일치
+    });
+  });
+
+  describe('[Issue #319] REFACTOR-ASSEMBLY-CLOCK-001 답안 시간 라벨 설정 토큰 분리', () => {
+    it('QuestionRenderer.ts 소스에 phase 기본/연장 리터럴 및 Y 860, 색상 리터럴이 직접 존재하지 않아야 한다', () => {
+      const filePath = path.resolve(__dirname, '../../src/render/QuestionRenderer.ts');
+      const content = fs.readFileSync(filePath, 'utf-8');
+      expect(content).not.toMatch(/860\s*\*\s*scaleY/);
+      expect(content).not.toMatch(/snap\.phase\s*===\s*'primary'\s*\?\s*'기본'\s*:\s*'연장'/);
+    });
+
+    it('ui.config.ts의 QUESTION_ANSWER_TIME_TOKENS 설정 토큰이 존재하고 기본값을 제공한다', () => {
+      expect(QUESTION_ANSWER_TIME_TOKENS).toBeDefined();
+      expect(QUESTION_ANSWER_TIME_TOKENS.primaryLabel).toBe('기본');
+      expect(QUESTION_ANSWER_TIME_TOKENS.extensionLabel).toBe('연장');
+      expect(QUESTION_ANSWER_TIME_TOKENS.primaryColor).toBe('#28E6FF');
+      expect(QUESTION_ANSWER_TIME_TOKENS.extensionColor).toBe('#FFCB4D');
+      expect(QUESTION_ANSWER_TIME_TOKENS.y).toBe(860);
+    });
+
+    it('QUESTION_ANSWER_TIME_TOKENS 토큰 변경 시 렌더링 문구와 색상 및 좌표가 동적으로 반영된다', () => {
+      const renderer = new QuestionRenderer();
+      const origPrimaryLabel = QUESTION_ANSWER_TIME_TOKENS.primaryLabel;
+      const origPrimaryColor = QUESTION_ANSWER_TIME_TOKENS.primaryColor;
+      const origY = QUESTION_ANSWER_TIME_TOKENS.y;
+
+      try {
+        QUESTION_ANSWER_TIME_TOKENS.primaryLabel = '메인페이즈';
+        QUESTION_ANSWER_TIME_TOKENS.primaryColor = '#123456';
+        QUESTION_ANSWER_TIME_TOKENS.y = 800;
+
+        const ctx = createMockCtx();
+        renderer.render(ctx, 1080, 2160, {
+          ...visible,
+          answerTime: primarySnapshot(),
+        });
+
+        const texts = textsOf(ctx);
+        expect(texts.some((t) => t.includes('메인페이즈'))).toBe(true);
+        expect(ctx.fillStyle).toBe('#123456');
+
+        const fillTextCall = (ctx.fillText as any).mock.calls.find((c: any) => String(c[0]).includes('메인페이즈'));
+        expect(fillTextCall).toBeDefined();
+        // y 좌표는 800 * (2160 / 2160) = 800
+        expect(fillTextCall[2]).toBe(800);
+      } finally {
+        QUESTION_ANSWER_TIME_TOKENS.primaryLabel = origPrimaryLabel;
+        QUESTION_ANSWER_TIME_TOKENS.primaryColor = origPrimaryColor;
+        QUESTION_ANSWER_TIME_TOKENS.y = origY;
+      }
+    });
+
+    it('연장 페이즈에서도 토큰 변경 시 반영된다', () => {
+      const renderer = new QuestionRenderer();
+      const origExtLabel = QUESTION_ANSWER_TIME_TOKENS.extensionLabel;
+      const origExtColor = QUESTION_ANSWER_TIME_TOKENS.extensionColor;
+
+      try {
+        QUESTION_ANSWER_TIME_TOKENS.extensionLabel = '보너스타임';
+        QUESTION_ANSWER_TIME_TOKENS.extensionColor = '#654321';
+
+        const ctx = createMockCtx();
+        renderer.render(ctx, 1080, 2160, {
+          ...visible,
+          answerTime: primarySnapshot({ phase: 'extension' }),
+        });
+
+        const texts = textsOf(ctx);
+        expect(texts.some((t) => t.includes('보너스타임'))).toBe(true);
+        expect(ctx.fillStyle).toBe('#654321');
+      } finally {
+        QUESTION_ANSWER_TIME_TOKENS.extensionLabel = origExtLabel;
+        QUESTION_ANSWER_TIME_TOKENS.extensionColor = origExtColor;
+      }
     });
   });
 });

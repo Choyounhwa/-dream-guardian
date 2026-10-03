@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { AppBootstrap } from '../../src/core/AppBootstrap.js';
 
 /**
@@ -200,5 +202,13 @@ describe('AppBootstrap (Issue #302)', () => {
     await bootstrap.init();
     bootstrap.dispose();
     expect(() => bootstrap.dispose()).not.toThrow();
+  });
+
+  describe('[Issue #319] REFACTOR-ASSEMBLY-CLOCK-001 조립계층 리터럴 제거', () => {
+    it('AppBootstrap.ts 소스에 secondsPerBeat: 0.5 하드코딩 리터럴이 존재하지 않아야 한다', () => {
+      const filePath = path.resolve(__dirname, '../../src/core/AppBootstrap.ts');
+      const content = fs.readFileSync(filePath, 'utf-8');
+      expect(content).not.toMatch(/secondsPerBeat:\s*0\.5/);
+    });
   });
 });

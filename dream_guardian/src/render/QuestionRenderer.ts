@@ -13,6 +13,7 @@ import type { QuestionRecipePlan } from '../input/RecipeGenerator.js';
 import { ShapeRenderer, deriveShapeFromQuestion } from './ShapeRenderer.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
+import { QUESTION_ANSWER_TIME_TOKENS } from '../../config/ui.config.js';
 
 export interface QuestionRenderState {
   question: GeneratedQuestion | null;
@@ -452,14 +453,18 @@ export class QuestionRenderer {
       && (snap.phase === 'primary' || snap.phase === 'extension');
     if (!visible || !snap) return;
 
-    const phaseLabel = snap.phase === 'primary' ? '기본' : '연장';
+    const phaseLabel = snap.phase === 'primary'
+      ? QUESTION_ANSWER_TIME_TOKENS.primaryLabel
+      : QUESTION_ANSWER_TIME_TOKENS.extensionLabel;
     const label = `${phaseLabel} ${snap.remainingBeats}박 남음`;
-    const y = 860 * scaleY;
+    const y = QUESTION_ANSWER_TIME_TOKENS.y * scaleY;
 
     ctx.save();
     ctx.globalAlpha = 1;
     ctx.font = UIText.getFont('caption', scaleX, 'bold');
-    ctx.fillStyle = snap.phase === 'primary' ? '#28E6FF' : '#FFCB4D';
+    ctx.fillStyle = snap.phase === 'primary'
+      ? QUESTION_ANSWER_TIME_TOKENS.primaryColor
+      : QUESTION_ANSWER_TIME_TOKENS.extensionColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, w / 2, Math.min(y, h * 0.4));

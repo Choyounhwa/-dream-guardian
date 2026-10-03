@@ -425,3 +425,22 @@ export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
     shoulder: '/assets/ui/icon/icon_shoulder.png',
   },
 };
+
+// ─── 6. Question Answer Time Tokens (Issue #319 / REFACTOR-ASSEMBLY-CLOCK-001) ───
+
+export interface QuestionAnswerTimeTokens {
+  y: number;
+  primaryLabel: string;
+  extensionLabel: string;
+  primaryColor: string;
+  extensionColor: string;
+}
+
+export const QUESTION_ANSWER_TIME_TOKENS: QuestionAnswerTimeTokens = {
+  y: 860,
+  primaryLabel: '기본',
+  extensionLabel: '연장',
+  primaryColor: '#28E6FF',
+  extensionColor: '#FFCB4D',
+};
+

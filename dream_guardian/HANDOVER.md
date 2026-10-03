@@ -4,7 +4,7 @@
 
 ## UI 추출 전용 에디터 별도 등록 트랙 (UIX, 2026-10-04)
 
-**사용자 승인 범위는 전체 카드 등록과 문서 동기화뿐이며 구현·검증 실행 승인이 아니다. 기존 #319 NEXT 및 아래 EDITOR-SCHEMA NEXT를 그대로 유지한다.** UIE/게임 적용은 포함하지 않는다.
+**사용자 승인 범위는 전체 카드 등록과 문서 동기화뿐이며 구현·검증 실행 승인이 아니다. #319는 완료되었으며 아래 EDITOR-SCHEMA NEXT를 유지한다.** UIE/게임 적용은 포함하지 않는다.
 
 | 항목 | 등록 결과 | 상태 |
 |---|---|---|
@@ -25,7 +25,7 @@
 
 ## 통합 에디터 별도 승인 트랙 (#321, 2026-10-04)
 
-기존 로드맵 #319의 NEXT는 유지한다. 사용자가 별도로 승인한 에디터 트랙이며, 다음 승인 없는 소스 구현은 하지 않는다.
+기존 로드맵 #319는 완료되었다. 사용자가 별도로 승인한 에디터 트랙이며, 다음 승인 없는 소스 구현은 하지 않는다.
 
 | 카드 | 목표 | 상태 |
 |---|---|---|
@@ -191,7 +191,7 @@
 | [#314](https://github.com/Choyounhwa/-dream-guardian/issues/314) `QA-ANSWER-BRANCH-001` | 실제 부트스트랩·브라우저·실카메라 최종 검증 | 0 | #313 | `[✔] 완료` (단위/통합 자동화 100% Pass 및 브라우저 수명주기 검증 분리 확립) |
 | [#317](https://github.com/Choyounhwa/-dream-guardian/issues/317) `REFACTOR-CLOCK-001` | 분기 길이를 branchRoutineBeats로 교체 | 0 | 없음 | `[✔] 완료` (`1c7586e`) |
 | [#318](https://github.com/Choyounhwa/-dream-guardian/issues/318) `REFACTOR-HAZARD-CONFIG-001` | 장판 폴백 초를 config로 고정 | 1 | 없음 | `[✔] 완료` (`2b8b9e6`) |
-| [#319](https://github.com/Choyounhwa/-dream-guardian/issues/319) `REFACTOR-ASSEMBLY-CLOCK-001` | 조립계층 0.5와 답안 라벨 설정 분리 | 1 | 없음 | `[▶ NEXT]` |
+| [#319](https://github.com/Choyounhwa/-dream-guardian/issues/319) `REFACTOR-ASSEMBLY-CLOCK-001` | 조립계층 0.5와 답안 라벨 설정 분리 | 1 | 없음 | `[✔] 완료` |
 
 - **목표 정책(미구현):** 기본 운동 `8(6+2) → 답안2 → 미응답일 때만 +2(최대4) → 분기8박`. 기존 운동 난이도 8/12/16은 유지한다. 기본/연장 중 선택 즉시 정답은 별, 오답은 회피8박으로 전환한다. 4박 미응답은 timeout 별도 통계이며 직접 HP 차감은 없다.
 - **현재/후속 구분:** 현재 arm-reach 실행 경로는 `judgment.config.ts`의 2박이다. #309는 #283/#287의 시간 정책만 후속 대체한다. #303 Hold/팔꿈치, 즉시 분기·timeout 통계·결과 표시는 이미 있으므로 중복 구현하지 않는다.
@@ -276,6 +276,24 @@
                          ↓
 [시스템 리팩토링] #297 (완료) → #298 (완료) → #299 (완료) → #300 (완료) → #301 (완료) → #302 (완료) → #315 (완료)
 ```
+
+---
+
+## 2026-10-04 완료: [REFACTOR-ASSEMBLY-CLOCK-001 / #319] 조립계층 BPM120 생성 리터럴과 답안 시간 라벨을 설정으로 분리
+
+> #319 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (167개 파일 2,142개 테스트 통과, build 성공).
+> - **설정 토큰 분리 (`config/ui.config.ts`)**:
+>   - `QuestionAnswerTimeTokens` 인터페이스 및 `QUESTION_ANSWER_TIME_TOKENS` 신설
+>   - 답안 시간 표시 라벨('기본'/'연장'), 색상(`#28E6FF`/`#FFCB4D`), Y좌표(`860`)를 UI 디자인 토큰으로 분리
+> - **QuestionRenderer 토큰 렌더링 전환 (`src/render/QuestionRenderer.ts`)**:
+>   - 하드코딩 리터럴 제거 및 `QUESTION_ANSWER_TIME_TOKENS` 참조로 순수 표시 계층화
+> - **AppBootstrap secondsPerBeat 리터럴 제거 (`src/core/AppBootstrap.ts`)**:
+>   - `StarNoteScheduler` 및 `BossFeverController` 생성 시 하드코딩 `0.5` 제거
+>   - `60 / DEFAULT_BEAT_MOTION_CONFIG.bpm` 기반으로 동적 박당 소요 시간 연동
+> - **단위 테스트 증빙 (`tests/unit/app-bootstrap.test.ts`, `tests/unit/question-renderer.test.ts`)**:
+>   - `AppBootstrap.ts` 소스 내 `secondsPerBeat: 0.5` 리터럴 부재 검증
+>   - `QuestionRenderer.ts` 소스 내 라벨/색상/Y 하드코딩 부재 및 토큰 동적 변경 렌더링 반영 검증
+>   - 33개 관련 단위 테스트 100% Pass
 
 ---
 
