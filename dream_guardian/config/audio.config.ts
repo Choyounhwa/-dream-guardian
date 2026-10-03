@@ -63,6 +63,35 @@ export interface BandAudioConfig {
   };
 }
 
+/**
+ * Issue #305 [AUDIO-BGM-001]:
+ * 스테이지 진입 4/4 박자 록 드럼 및 베이스 그루브 Web Audio 절차적 합성 설정
+ */
+export interface BGMAudioConfig {
+  readonly bpm: number;
+  readonly masterVolume: number;
+  readonly drum: {
+    readonly kickGain: number;
+    readonly snareGain: number;
+    readonly hihatGain: number;
+    readonly kickStartFreq: number;
+    readonly kickEndFreq: number;
+    readonly kickDuration: number;
+    readonly snareDuration: number;
+    readonly snareToneFreq: number;
+    readonly hihatDuration: number;
+    readonly hihatFilterFreq: number;
+  };
+  readonly bass: {
+    readonly gain: number;
+    readonly filterFreq: number;
+    readonly filterQ: number;
+    readonly durationRatio: number;
+    /** 16스텝(2마디 8비트) 베이스 주파수 시퀀스 (E2, G2, A2 록 그루브) */
+    readonly patternNotes: readonly number[];
+  };
+}
+
 export const DEFAULT_BAND_AUDIO_CONFIG: BandAudioConfig = Object.freeze({
   guitarFrequencies: Object.freeze({
     1: 164.81, // E3 파워코드
@@ -114,5 +143,36 @@ export const DEFAULT_BAND_AUDIO_CONFIG: BandAudioConfig = Object.freeze({
     setStartFreq: 880,
     setEndFreq: 1046.5,
     setDuration: 0.25,
+  }),
+});
+
+/**
+ * 기본 스테이지 실시간 BGM 오디오 파라미터 (Issue #305)
+ * E2 = 82.41Hz, G2 = 98.00Hz, A2 = 110.00Hz, B2 = 123.47Hz
+ */
+export const DEFAULT_BGM_AUDIO_CONFIG: BGMAudioConfig = Object.freeze({
+  bpm: 120,
+  masterVolume: 0.32,
+  drum: Object.freeze({
+    kickGain: 0.40,
+    snareGain: 0.30,
+    hihatGain: 0.18,
+    kickStartFreq: 130,
+    kickEndFreq: 42,
+    kickDuration: 0.18,
+    snareDuration: 0.16,
+    snareToneFreq: 160,
+    hihatDuration: 0.05,
+    hihatFilterFreq: 7500,
+  }),
+  bass: Object.freeze({
+    gain: 0.28,
+    filterFreq: 650,
+    filterQ: 2.5,
+    durationRatio: 0.75, // 8분음표 길이 대비 75% 연주 (자연스러운 핑거링 스타카토)
+    patternNotes: Object.freeze([
+      82.41, 82.41, 82.41, 82.41, 98.00, 98.00, 110.00, 110.00, // Bar 1: E E E E G G A A
+      82.41, 82.41, 82.41, 82.41, 110.00, 110.00, 98.00, 98.00, // Bar 2: E E E E A A G G
+    ]),
   }),
 });

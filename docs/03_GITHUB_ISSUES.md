@@ -5221,13 +5221,13 @@ BEAT-SPEC-001
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/305
 - **Labels**: `feature`, `phase-7`, `P1-high`
 - **작업 ID**: `[AUDIO-BGM-001]`
-- **상태**: 🟡 **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (TDD 100% 통과)**
 - **목적**:
   - 스테이지 진입(`READY_POSITION` 및 `RUN_QUESTION`) 시 단순 메트로놈 틱음 대신, 게임의 리듬감과 운동 몰입감을 고조시키는 4/4 박자 록 드럼 비트(Kick, Snare, Hi-hat) 및 드라이빙 베이스 라인을 외부 오디오 파일 없이 Web Audio API로 실시간 절차적 합성하여 재생한다.
 - **수정 대상**:
   - `dream_guardian/src/audio/StageBGMSynthesizer.ts` (신규 BGM 합성기 클래스)
   - `dream_guardian/config/audio.config.ts` (BGM 비트 패턴, 주파수 및 게인 밸런스 설정)
-  - `dream_guardian/src/main.ts` (스테이지 진입/일시정지/종료 시 BGM 생명주기 및 RhythmEngine 동기화)
+  - `dream_guardian/src/core/AppBootstrap.ts` (스테이지 진입/일시정지/종료 시 BGM 생명주기 및 상태 동기화)
 - **유지 사항**:
   - 기존 `BandSynthesizer`(유저 손/발 키사운드) 및 `SFXSynth`(정답/오답 효과음)의 정상 출력 보존
   - `RhythmEngine`의 결정론적 8박 비트 타임라인 유지
@@ -5235,10 +5235,10 @@ BEAT-SPEC-001
   - `BattleState`, `PoseManager`, `CanvasManager` 등 타 비관련 레이어 로직 변경 금지
   - 외부 오디오 파일 의존성 추가 금지 (100% 절차적 코드 합성 원칙 준수)
 - **완료 조건**:
-  - [ ] `StageBGMSynthesizer` 단위 테스트 통과 (start, stop, pause, resume, mute, bpm 변경 등)
-  - [ ] 스테이지 진입 시 드럼 비트 + 베이스 BGM 자동 재생
-  - [ ] 유저 입력 키사운드 및 SFX와 볼륨 밸런스 정상 동작
-  - [ ] `npm test` 전체 100% Pass 및 `npm run build` 컴파일 무결성 확보
+  - [x] `StageBGMSynthesizer` 단위 테스트 통과 (start, stop, pause, resume, mute, bpm 변경 등)
+  - [x] 스테이지 진입 시 드럼 비트 + 베이스 BGM 자동 재생
+  - [x] 유저 입력 키사운드 및 SFX와 볼륨 밸런스 정상 동작
+  - [x] `npm test` 전체 100% Pass 및 `npm run build` 컴파일 무결성 확보
 - **테스트**:
   - `tests/unit/stage-bgm-synthesizer.test.ts`
   - Chrome 브라우저에서 인게임 스테이지 진입 시 실제 비트 음악 출력 확인

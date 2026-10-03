@@ -224,6 +224,26 @@
 
 ---
 
+## 2026-10-03 완료: [AUDIO-BGM-001 / #305] 스테이지 진입 실시간 록 드럼 비트 및 베이스 그루브 Web Audio BGM 합성기 (StageBGMSynthesizer)
+
+> #305 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (157개 파일 1,995개 테스트 통과, build 성공).
+> - **StageBGMSynthesizer 신설 (`src/audio/StageBGMSynthesizer.ts`)**:
+>   - 외부 오디오 파일 의존성 없이 Web Audio API(Oscillator, BiquadFilter, BufferSource, Gain) 100% 절차적 합성
+>   - 4/4 박자 8비트 드럼 루프 (Kick: 1/3박, Snare: 2/4박 헤드톤+노이즈, Hi-hat: 8분음표 악센트)
+>   - Ch.1 록 테마 driving bass 그루브 시퀀스 (Sawtooth + Lowpass 필터)
+>   - start, stop, pause, resume, fadeOut, setVolume, setMuted, setBpm 생명주기 제어
+> - **오디오 설정 확장 (`config/audio.config.ts`)**:
+>   - `DEFAULT_BGM_AUDIO_CONFIG` 및 `BGMAudioConfig` 타입 추가
+> - **앱 부트스트랩 연동 (`src/core/AppBootstrap.ts`)**:
+>   - 스테이지 진입(`READY_POSITION`, `RUN_QUESTION`) 시 자동 재생
+>   - 일시정지(`pauseModal` 및 키보드 P/Esc) 시 정지/재개 연동
+>   - `settingsModal` 사운드 토글 시 일괄 음소거 연동
+>   - `RESULT` / `GAMEOVER` 시 부드러운 페이드아웃(`fadeOut(0.4)`)
+> - **단위 테스트 증빙**:
+>   - `tests/unit/stage-bgm-synthesizer.test.ts` (14개 테스트) 100% Pass
+
+---
+
 ## 2026-10-03 완료: [BUG-SCENE-DIRECTOR-001 / #315] 리팩토링 후 스테이지 런타임 동결 및 렌더링 예외 결함 복구 (KneeFraming·CursorTracker·ReadyPosition 정합화)
 
 > #315 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (155개 파일 1,976개 테스트 통과, build 성공).

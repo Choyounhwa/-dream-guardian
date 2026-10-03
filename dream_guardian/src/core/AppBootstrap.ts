@@ -86,6 +86,7 @@ import {
 import { toNormalizedLandmarks, imageLoader } from '../utils/index.js';
 import { MenuInput } from '../input/MenuInput.js';
 import { SFXSynth, BandSynthesizer, type BandTimingQuality } from '../audio/index.js';
+import { StageBGMSynthesizer } from '../audio/StageBGMSynthesizer.js';
 import {
   BottomBar,
   SettingsModal,
@@ -193,6 +194,7 @@ export class AppBootstrap {
   public readonly menuInput: MenuInput;
   public readonly sfx: SFXSynth;
   public readonly bandSynth: BandSynthesizer;
+  public readonly stageBgm: StageBGMSynthesizer;
   public readonly tutorial: TutorialOverlay;
   public readonly bottomBar: BottomBar;
   public readonly settingsModal: SettingsModal;
@@ -323,10 +325,12 @@ const answerSelectionRenderer = new AnswerSelectionRenderer();
 const menuInput = new MenuInput();
 const sfx = new SFXSynth();
 const bandSynth = new BandSynthesizer({ audioContext: sfx.audioContext ?? undefined });
+const stageBgm = new StageBGMSynthesizer({ audioContext: sfx.audioContext ?? undefined });
 const tutorial = new TutorialOverlay();
 const bottomBar = new BottomBar();
 const settingsModal = new SettingsModal();
 speech.enabled = settingsModal.soundEnabled;
+stageBgm.setMuted(!settingsModal.soundEnabled);
 const locomotionModal = new LocomotionModal();
 const pauseModal = new PauseModal();
 const xGestureDetector = new XGestureDetector();
@@ -620,6 +624,9 @@ stateMachine.registerState('READY_POSITION', {
   enter: () => {
     questionVisible = false;
     answerLocked = true;
+    if (!stageBgm.isPlaying) {
+      stageBgm.start();
+    }
   },
 });
 
@@ -627,6 +634,9 @@ stateMachine.registerState('RUN_QUESTION', {
   enter: () => {
     questionVisible = true;
     answerLocked = true;
+    if (!stageBgm.isPlaying && !stageBgm.isPaused) {
+      stageBgm.start();
+    }
   },
 });
 
@@ -717,6 +727,7 @@ stateMachine.registerState('BOSS_CLIMAX', {
 stateMachine.registerState('MENU_MAIN', {
   enter: () => {
     sfx.stopDwellCharge();
+    stageBgm.stop();
     menuInput.reset();
     pauseModal.close();
   },
@@ -730,6 +741,7 @@ stateMachine.registerState('MENU_SUB', {
 
 stateMachine.registerState('RESULT', {
   enter: () => {
+    stageBgm.fadeOut(0.4);
     resultRenderer.resetAnimation();
     const vw = canvasManager.virtualWidth;
     const vh = canvasManager.virtualHeight;
@@ -740,6 +752,7 @@ stateMachine.registerState('RESULT', {
 
 stateMachine.registerState('GAMEOVER', {
   enter: () => {
+    stageBgm.fadeOut(0.4);
     resultRenderer.resetAnimation();
     const vw = canvasManager.virtualWidth;
     const vh = canvasManager.virtualHeight;
@@ -1319,6 +1332,7 @@ function goToMenu(): void {
   consecutiveWrongCount = 0;
   dialogueOverlayRenderer.clear();
   sfx.stopDwellCharge();
+  stageBgm.stop();
   pauseModal.close(true);
   engine.resumeGame();
   console.log('[DG] 메뉴 복귀');
@@ -1582,6 +1596,7 @@ engine = new GameEngine({
     this.menuInput = menuInput;
     this.sfx = sfx;
     this.bandSynth = bandSynth;
+    this.stageBgm = stageBgm;
     this.tutorial = tutorial;
     this.bottomBar = bottomBar;
     this.settingsModal = settingsModal;
@@ -1663,13 +1678,16 @@ engine = new GameEngine({
     const action = pauseModal.hitTest(x, y, vw, vh);
     if (action === 'resume') {
       pauseModal.close();
+      stageBgm.resume();
       sfx.play('correct');
     } else if (action === 'quit') {
       pauseModal.close();
+      stageBgm.stop();
       goToMenu();
       sfx.play('hover');
     } else if (action === 'backdrop') {
       pauseModal.close();
+      stageBgm.resume();
       sfx.play('hover');
     }
     return;
@@ -1721,6 +1739,7 @@ engine = new GameEngine({
       settingsModal.soundEnabled = !settingsModal.soundEnabled;
       sfx.setMuted(!settingsModal.soundEnabled);
       bandSynth.setMuted(!settingsModal.soundEnabled);
+      stageBgm.setMuted(!settingsModal.soundEnabled);
       speech.enabled = settingsModal.soundEnabled;
       if (settingsModal.soundEnabled) sfx.play('correct');
     } else if (action === 'fontScale' || action === 'highContrast') {
@@ -1746,6 +1765,7 @@ engine = new GameEngine({
     if (screenMode === 'menu' && menuMode === 'sub') {
       selectSubLevel(-1);
     } else if (screenMode === 'game') {
+      stageBgm.pause();
       pauseModal.open();
       sfx.play('hover');
     } else if (screenMode === 'result') {
@@ -1868,6 +1888,7 @@ engine = new GameEngine({
   if (e.key === 'Escape' || e.code === 'KeyP') {
     if (pauseModal.isOpen) {
       pauseModal.close();
+      stageBgm.resume();
       sfx.play('hover');
       return;
     }
@@ -1880,6 +1901,7 @@ engine = new GameEngine({
       return;
     }
     if (screenMode === 'game') {
+      stageBgm.pause();
       pauseModal.open();
       sfx.play('hover');
       return;
