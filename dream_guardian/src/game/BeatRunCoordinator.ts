@@ -593,22 +593,29 @@ export class BeatRunCoordinator {
     if (this._routineMode === 'arm_reach') {
       // 1. ANSWER_SELECT 페이즈 처리
       if (this._phase === 'ANSWER_SELECT') {
-        if (this.isAnswerOpen) {
-          if (!this._armReachAnswerSelector.isConfirmed) {
-            this._armReachAnswerSelector.update(remainingDt, landmarks);
-            if (this._armReachAnswerSelector.isConfirmed) {
-              const choiceIndex = this._armReachAnswerSelector.confirmedChoiceIndex;
-              if (choiceIndex !== null) {
-                this._handleAnswer(choiceIndex);
-                return;
-              }
-            }
-          }
-        }
-
         // Issue #287: 선택 창은 최대 2박(1.0초, BPM 120). readyBeats: 4를 답안 창 길이로 쓰지 않는다.
         const answerWindowBeats = DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats;
         const maxAnswerTime = answerWindowBeats * this._rhythmEngine.secondsPerBeat;
+        const samplePastDeadline = this._answerSelectElapsed + remainingDt > maxAnswerTime + 1e-9;
+        const windowAcceptsInput =
+          this._selectedChoiceIndex === null &&
+          this._answerSelectElapsed <= maxAnswerTime + 1e-9 &&
+          !this.isPaused;
+
+        if (windowAcceptsInput) {
+          const consume = (choiceIndex: number | null): boolean => {
+            if (choiceIndex === null) return false;
+            this._handleAnswer(choiceIndex);
+            return true;
+          };
+          if (this._armReachAnswerSelector.isConfirmed) {
+            if (consume(this._armReachAnswerSelector.confirmedChoiceIndex)) return;
+          } else if (!samplePastDeadline && remainingDt > 0) {
+            this._armReachAnswerSelector.updateDelta(remainingDt, landmarks);
+            if (consume(this._armReachAnswerSelector.confirmedChoiceIndex)) return;
+          }
+        }
+
         const remainingAnswerTime = maxAnswerTime - this._answerSelectElapsed;
         const step = Math.min(remainingDt, remainingAnswerTime);
         this._answerSelectElapsed += step;
@@ -760,6 +767,7 @@ export class BeatRunCoordinator {
    * 답안 선택 fallback 즉시 확정
    */
   confirmAnswerByFallback(choiceIndex: number): void {
+    if (this.isPaused || this._rhythmEngine.paused) return;
     if (this.isAnswerOpen) {
       const armChoice: 0 | 1 = choiceIndex === 0 ? 0 : 1;
       this._armReachAnswerSelector.selectByFallback(armChoice);
