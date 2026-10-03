@@ -165,6 +165,9 @@ export class ArmReachAnswerSelector {
   private _prevRightInside5 = false;
   private _prevBodyY: number | null = null;
   private _lastTime: number | null = null;
+  private _monotonicTime = 0;
+  private _isPaused = false;
+  private _pendingExplicitDt = 0;
   private _baseLeftWristX: number | null = null;
   private _baseRightWristX: number | null = null;
   private _heldDirection: 0 | 1 | null = null;
@@ -374,6 +377,20 @@ export class ArmReachAnswerSelector {
     return this._heldDuration;
   }
 
+  /** updateDelta가 수용한 dt(초)만 누적한 내부 단조 시계. */
+  get monotonicTime(): number {
+    return this._monotonicTime;
+  }
+
+  get isPaused(): boolean {
+    return this._isPaused;
+  }
+
+  /** 로컬 pause. true면 updateDelta가 Hold/시계를 전진시키지 않는다. */
+  setPaused(paused: boolean): void {
+    this._isPaused = paused;
+  }
+
   get heldHand(): ArmHandType | null {
     return this._heldHand;
   }
@@ -492,14 +509,39 @@ export class ArmReachAnswerSelector {
   }
 
   /**
-   * 답안 입력 창 개방 (리셋 및 입력 수신 시작)
+   * 답안 입력 창 개방.
+   * 이미 열린 창의 재호출은 Hold/기준점을 유지한다(basic→extension은 재오픈이 아님).
+   * closeWindow 이후의 openWindow만 새 창으로 Hold를 리셋한다.
    */
   openWindow(): void {
+    if (this._isWindowOpen) return;
     this.reset();
     this._isWindowOpen = true;
     this._windowGen += 1;
     this._windowOpenedAt = this._lastTime;
     this._pendingIntent = null;
+  }
+
+  /**
+   * 명시적 dt(초) 진입. 인자 증감으로 절대시각/델타를 추론하지 않는다.
+   * dt === 0, dt < 0, 비유한 값(NaN/Infinity), pause 중에는 누적하지 않고 시계를 뒤로 돌리지 않는다.
+   */
+  updateDelta(
+    dt: number,
+    landmarks?: readonly NormalizedLandmark[] | null,
+    palms?: PalmPositions,
+    _isMirrored?: boolean,
+    options?: CursorUpdateOptions,
+  ): ArmReachAnswerResult | null {
+    if (!Number.isFinite(dt) || dt < 0) return null;
+    if (this._isPaused || dt === 0) return null;
+    this._pendingExplicitDt = dt;
+    this._monotonicTime += dt;
+    try {
+      return this.update(this._monotonicTime, landmarks, palms, options);
+    } finally {
+      this._pendingExplicitDt = 0;
+    }
   }
 
   /**
@@ -904,10 +946,12 @@ export class ArmReachAnswerSelector {
     this._isMutualExclusionBlocked = false;
     this._isJumpBlocked = false;
 
-    // 2. 시간 및 dt 산출
+    // 2. 시간 및 dt 산출. updateDelta는 이미 초 단위 dt를 확정했으므로 증감 추론을 하지 않는다.
     let dt = 0;
     let currentTime = currentTimeOrDt;
-    if (this._lastTime !== null) {
+    if (this._pendingExplicitDt > 0) {
+      dt = this._pendingExplicitDt;
+    } else if (this._lastTime !== null) {
       if (currentTimeOrDt > this._lastTime) {
         dt = currentTimeOrDt - this._lastTime;
       } else if (currentTimeOrDt > 0 && currentTimeOrDt < 1.0) {
@@ -1197,7 +1241,7 @@ export class ArmReachAnswerSelector {
         if (this._heldDuration >= (heldConfirmSec - 1e-4)) {
           const zoneId: 4 | 5 = candidateDir === 0 ? 4 : 5;
           const score = Math.max(this._judgmentConfig.confirmThreshold, candidateEval.score);
-          const res = this._confirmAnswer(
+          return this._confirmAnswer(
             candidateDir,
             zoneId,
             candidateHand,
@@ -1209,10 +1253,6 @@ export class ArmReachAnswerSelector {
             score,
             candidateEval.gates,
           );
-          this._heldDirection = null;
-          this._heldDuration = 0;
-          this._heldHand = null;
-          return res;
         }
       } else {
         this._heldDirection = null;
