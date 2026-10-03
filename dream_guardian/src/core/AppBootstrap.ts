@@ -85,7 +85,7 @@ import {
 } from '../input/index.js';
 import { toNormalizedLandmarks, imageLoader } from '../utils/index.js';
 import { MenuInput } from '../input/MenuInput.js';
-import { SFXSynth, BandSynthesizer, type BandTimingQuality } from '../audio/index.js';
+import { SFXSynth, BandSynthesizer, type BandTimingQuality, BGMManager } from '../audio/index.js';
 import { StageBGMSynthesizer } from '../audio/StageBGMSynthesizer.js';
 import {
   BottomBar,
@@ -195,6 +195,7 @@ export class AppBootstrap {
   public readonly sfx: SFXSynth;
   public readonly bandSynth: BandSynthesizer;
   public readonly stageBgm: StageBGMSynthesizer;
+  public readonly bgmManager: BGMManager;
   public readonly tutorial: TutorialOverlay;
   public readonly bottomBar: BottomBar;
   public readonly settingsModal: SettingsModal;
@@ -326,11 +327,13 @@ const menuInput = new MenuInput();
 const sfx = new SFXSynth();
 const bandSynth = new BandSynthesizer({ audioContext: sfx.audioContext ?? undefined });
 const stageBgm = new StageBGMSynthesizer({ audioContext: sfx.audioContext ?? undefined });
+const bgmManager = new BGMManager({ audioContext: sfx.audioContext ?? undefined });
 const tutorial = new TutorialOverlay();
 const bottomBar = new BottomBar();
 const settingsModal = new SettingsModal();
 speech.enabled = settingsModal.soundEnabled;
 stageBgm.setMuted(!settingsModal.soundEnabled);
+bgmManager.setMuted(!settingsModal.soundEnabled);
 const locomotionModal = new LocomotionModal();
 const pauseModal = new PauseModal();
 const xGestureDetector = new XGestureDetector();
@@ -624,6 +627,9 @@ stateMachine.registerState('READY_POSITION', {
   enter: () => {
     questionVisible = false;
     answerLocked = true;
+    if (!bgmManager.isPlaying && !bgmManager.isPaused) {
+      bgmManager.fadeIn(0.5);
+    }
     if (!stageBgm.isPlaying) {
       stageBgm.start();
     }
@@ -634,6 +640,10 @@ stateMachine.registerState('RUN_QUESTION', {
   enter: () => {
     questionVisible = true;
     answerLocked = true;
+    bgmManager.setPhase('RUN_QUESTION');
+    if (!bgmManager.isPlaying && !bgmManager.isPaused) {
+      bgmManager.play();
+    }
     if (!stageBgm.isPlaying && !stageBgm.isPaused) {
       stageBgm.start();
     }
@@ -735,6 +745,7 @@ stateMachine.registerState('MENU_MAIN', {
   enter: () => {
     sfx.stopDwellCharge();
     stageBgm.stop();
+    bgmManager.stop();
     menuInput.reset();
     pauseModal.close();
   },
@@ -749,6 +760,7 @@ stateMachine.registerState('MENU_SUB', {
 stateMachine.registerState('RESULT', {
   enter: () => {
     stageBgm.fadeOut(0.4);
+    bgmManager.fadeOut(0.4);
     resultRenderer.resetAnimation();
     const vw = canvasManager.virtualWidth;
     const vh = canvasManager.virtualHeight;
@@ -760,6 +772,7 @@ stateMachine.registerState('RESULT', {
 stateMachine.registerState('GAMEOVER', {
   enter: () => {
     stageBgm.fadeOut(0.4);
+    bgmManager.fadeOut(0.4);
     resultRenderer.resetAnimation();
     const vw = canvasManager.virtualWidth;
     const vh = canvasManager.virtualHeight;
@@ -779,14 +792,25 @@ const beatCoordinator = new BeatRunCoordinator({
   battle,
   armReachAnswerSelector,
   sfx,
-  speakFn: (text) => speech.speak(text),
+  speakFn: (text) => {
+    bgmManager.setDucking(true);
+    speech.speak(text);
+    setTimeout(() => bgmManager.setDucking(false), 2200);
+  },
   onBeat: (event) => {
     (eventBus as any).emit?.('beat:tick', event);
   },
   onPhaseChange: (phase) => {
-    if (phase === 'RUN_QUESTION' || phase === 'REST_READY') {
+    if (phase === 'RUN_QUESTION') {
+      bgmManager.setPhase('RUN_QUESTION');
       stateMachine.changeState('RUN_QUESTION');
-    } else if (phase === 'ANSWER_SELECT' || phase === 'KEYNOTE_PERFORMANCE') {
+    } else if (phase === 'REST_READY') {
+      bgmManager.setPhase('REST_READY');
+      stateMachine.changeState('RUN_QUESTION');
+    } else if (phase === 'KEYNOTE_PERFORMANCE') {
+      bgmManager.setPhase('KEYNOTE_PERFORMANCE');
+      enterQuestionPhase();
+    } else if (phase === 'ANSWER_SELECT') {
       enterQuestionPhase();
     } else if (phase === 'STAR_COLLECT') {
       stateMachine.changeState('STAR_COLLECT');
@@ -1340,6 +1364,7 @@ function goToMenu(): void {
   dialogueOverlayRenderer.clear();
   sfx.stopDwellCharge();
   stageBgm.stop();
+  bgmManager.stop();
   pauseModal.close(true);
   engine.resumeGame();
   console.log('[DG] 메뉴 복귀');
@@ -1605,6 +1630,7 @@ engine = new GameEngine({
     this.sfx = sfx;
     this.bandSynth = bandSynth;
     this.stageBgm = stageBgm;
+    this.bgmManager = bgmManager;
     this.tutorial = tutorial;
     this.bottomBar = bottomBar;
     this.settingsModal = settingsModal;
@@ -1660,6 +1686,7 @@ engine = new GameEngine({
     };
 
     this._onCanvasClick = (e: MouseEvent) => {
+      bgmManager.unlock();
 
   // 브라우저 사용자 제스처 시 카메라 미시작 상태면 자동 재요청
   if (!cameraLayer.isActive && cameraLayer.status !== 'requesting') {
@@ -1687,15 +1714,18 @@ engine = new GameEngine({
     if (action === 'resume') {
       pauseModal.close();
       stageBgm.resume();
+      bgmManager.resume();
       sfx.play('correct');
     } else if (action === 'quit') {
       pauseModal.close();
       stageBgm.stop();
+      bgmManager.stop();
       goToMenu();
       sfx.play('hover');
     } else if (action === 'backdrop') {
       pauseModal.close();
       stageBgm.resume();
+      bgmManager.resume();
       sfx.play('hover');
     }
     return;
@@ -1748,6 +1778,7 @@ engine = new GameEngine({
       sfx.setMuted(!settingsModal.soundEnabled);
       bandSynth.setMuted(!settingsModal.soundEnabled);
       stageBgm.setMuted(!settingsModal.soundEnabled);
+      bgmManager.setMuted(!settingsModal.soundEnabled);
       speech.enabled = settingsModal.soundEnabled;
       if (settingsModal.soundEnabled) sfx.play('correct');
     } else if (action === 'fontScale' || action === 'highContrast') {
@@ -1774,6 +1805,7 @@ engine = new GameEngine({
       selectSubLevel(-1);
     } else if (screenMode === 'game') {
       stageBgm.pause();
+      bgmManager.pause();
       pauseModal.open();
       sfx.play('hover');
     } else if (screenMode === 'result') {
@@ -1897,6 +1929,7 @@ engine = new GameEngine({
     if (pauseModal.isOpen) {
       pauseModal.close();
       stageBgm.resume();
+      bgmManager.resume();
       sfx.play('hover');
       return;
     }
@@ -1910,6 +1943,7 @@ engine = new GameEngine({
     }
     if (screenMode === 'game') {
       stageBgm.pause();
+      bgmManager.pause();
       pauseModal.open();
       sfx.play('hover');
       return;
