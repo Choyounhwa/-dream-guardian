@@ -70,7 +70,7 @@
 | 15 | **#270** | [UI-ASSET-005] 보스 캐릭터 이미지 에셋 제작 (5종 보스 스프라이트) | #261 | `[✔] 완료` |
 | 16 | **#271** | [UI-ASSET-006] 수호신(깨비) 캐릭터 이미지 에셋 제작 (4단계) | #261 | `[✔] 완료` |
 | 17 | **#272** | [UI-ASSET-007] 챕터별 배경 이미지 에셋 제작 및 DreamGrid 교체 | #261 | `[✔] 완료` |
-| 17-1 | **#289** | [UI-ASSET-008] 신체 부위 벡터 아이콘(손/머리/골반/어깨) 이미지 에셋 제작 및 PartIconRenderer 비트맵 렌더링/폴백 연동 | #261 | `[▶ NEXT]` |
+| 17-1 | **#289** | [UI-ASSET-008] 신체 부위 벡터 아이콘(손/머리/골반/어깨) 이미지 에셋 제작 및 PartIconRenderer 비트맵 렌더링/폴백 연동 | #261 | `[✔] 완료` |
 | 17-2 | **#290** | [UI-ASSET-009] 답안 버튼(Zone 4/5) 및 문제 수식 배경 패널 이미지 에셋 제작 및 QuestionRenderer 연동 | #261 | `[✔] 완료` |
 | 17-3 | **#291** | [UI-ASSET-010] 8박자 비트 인디케이터 도트 및 메트로놈 UI 이미지 에셋 제작 및 BeatHUDRenderer 연동 | #267 | `[✔] 완료` |
 | 17-4 | **#292** | [UI-ASSET-011] 서브레벨 선택 카드 배경 및 결과 화면 랭크 등급 스탬프(S/A/B/C) 이미지 에셋 제작 및 연동 | #266, #268 | `[✔] 완료` |
@@ -137,12 +137,12 @@
 
 #### J 후속: 답안 입력·2+2박·분기8박 계약 시리즈 (2026-10-03 카드 등록)
 
-> **카드 등록 완료 / 구현 미착수 / 9개 모두 OPEN·구현 승인 대기.** 이번 승인은 카드 제작에 한정된다. 기존 NEXT·다른 작업 상태는 바꾸지 않는다. **이 시리즈만의 첫 구현 추천은 #306**이며, 구현 전 별도 승인과 실제 파일/API·이슈 재검증이 필요하다.
+> **#306 완료 (`8d0e695`).** 이 시리즈의 다음 구현은 **#307**이다. #308~#314는 OPEN·구현 전 재검증이 필요하다.
 
 | 카드 / 작업 ID | 단일 책임 | src/config 허용 파일 수 | 필수 선행 | 상태 |
 |---|---|:---:|---|---|
-| [#306](https://github.com/Choyounhwa/-dream-guardian/issues/306) `BUG-ARM-INTENT-GATE-001` | 버스 후보/최종검증 분리, 창 밖·stale 차단 | 1 | 신규 없음; #287/#303 보존 | OPEN / 구현 승인 대기 |
-| [#307](https://github.com/Choyounhwa/-dream-guardian/issues/307) `BUG-ARM-HOLD-TIME-001` | 명시적 dt API·가변 FPS Hold 시간 | 1 | #306 | OPEN / 구현 승인 대기 |
+| [#306](https://github.com/Choyounhwa/-dream-guardian/issues/306) `BUG-ARM-INTENT-GATE-001` | 버스 후보/최종검증 분리, 창 밖·stale 차단 | 1 | 신규 없음; #287/#303 보존 | `[✔] 완료` (`8d0e695`) |
+| [#307](https://github.com/Choyounhwa/-dream-guardian/issues/307) `BUG-ARM-HOLD-TIME-001` | 명시적 dt API·가변 FPS Hold 시간 | 1 | #306 | `[▶ NEXT]` |
 | [#308](https://github.com/Choyounhwa/-dream-guardian/issues/308) `BUG-ANSWER-CONSUME-001` | 코디네이터 선확정 단일 소비·기본2박 유지 | 1 | #306, #307 | OPEN / 구현 승인 대기 |
 | [#309](https://github.com/Choyounhwa/-dream-guardian/issues/309) `FEAT-ANSWER-GRACE-001` | 기본2+추가2박·읽기 전용 답안/분기 시간 API | 2 | #308 | OPEN / 구현 승인 대기 |
 | [#310](https://github.com/Choyounhwa/-dream-guardian/issues/310) `BUG-BRANCH-BEAT-CLOCK-001` | 별/장판의 가변 BPM 8박 시간 정합 | 최대3 | #309 | OPEN / 구현 승인 대기 |
@@ -189,7 +189,8 @@
 | 47 | **#301** | [REFACTOR-MAIN-001] 메인 게임 루프 씬 디렉터 분리 (SceneDirector) | #300 | `[✔] 완료` |
 | 48 | **#302** | [REFACTOR-MAIN-002] 메인 앱 부트스트랩 및 이벤트 리스너 분리 (AppBootstrap) | #301 | `[✔] 완료` |
 | 49 | **#315** | [BUG-SCENE-DIRECTOR-001] 리팩토링 후 스테이지 런타임 동결 및 렌더링 예외 결함 복구 (KneeFraming·CursorTracker·ReadyPosition 정합화) | #302 | `[✔] 완료` |
-| 50 | **#306** | [BUG-ARM-INTENT-GATE-001] 버스 팔 intent의 최종 답안 판정 우회 및 창 밖·stale 확정 차단 | #315 | `[▶ NEXT]` |
+| 50 | **#306** | [BUG-ARM-INTENT-GATE-001] 버스 팔 intent의 최종 답안 판정 우회 및 창 밖·stale 확정 차단 | #315 | `[✔] 완료` |
+| 51 | **#307** | [BUG-ARM-HOLD-TIME-001] 팔 선택기의 명시적 dt API로 가변 프레임 Hold 과소계산 제거 | #306 | `[▶ NEXT]` |
 
 
 ### 권장 실행 순서
@@ -221,6 +222,26 @@
                          ↓
 [시스템 리팩토링] #297 (완료) → #298 (완료) → #299 (완료) → #300 (완료) → #301 (완료) → #302 (완료) → #315 (완료)
 ```
+
+---
+
+## 2026-10-03 완료: [UI-ASSET-008 / #289] 신체 부위 벡터 아이콘(손/머리/골반/어깨) 이미지 에셋 제작 및 PartIconRenderer 비트맵 렌더링/폴백 연동
+
+> #289 구현, 단위 테스트 검증 및 TDD 100% Pass 완료 (158개 파일 2,010개 테스트 통과, build 성공).
+> - **신체 부위 5종 임시 PNG 에셋 생성 (`scripts/generate-icon-assets.js`)**:
+>   - Node.js 내장 zlib/fs 기반 128x128 유효 표준 PNG 생성 및 `public/assets/ui/icon/` 배치
+>   - `icon_hand_left.png` (시안 #28E6FF 좌향 손바닥 실루엣 + 5지 + 네온 글로우)
+>   - `icon_hand_right.png` (노랑 #FFCB4D 우향 손바닥 실루엣 + 5지 + 네온 글로우)
+>   - `icon_head.png` (보라 #C889FF 원형 얼굴 + 2점 눈 하이라이트 + 미소 아치)
+>   - `icon_hip.png` (주황 #FF865E 마름모 다이아몬드 + 코어 링)
+>   - `icon_shoulder.png` (청록 #4DFFAA 어깨 라인 + 좌우 관절 조인트 캡슐)
+> - **UI 에셋 설정 등록 (`config/ui.config.ts`)**:
+>   - `UIImageAssetsConfig` 및 `UI_IMAGE_ASSETS`에 `icon` 카테고리 5종 경로 슬롯 등록
+> - **PartIconRenderer 비트맵 렌더러 분기 및 무중단 폴백 (`src/render/PartIconRenderer.ts`)**:
+>   - `imageLoader.get('icon', part)` 조회 후 유효 이미지 존재 시 `ctx.drawImage`로 초경량 비트맵 드로잉
+>   - 이미지 부재 또는 로드 전/실패 시 기존 베지어 곡선 벡터 프로시저럴 드로잉 100% 무중단 폴백 보장
+> - **단위 테스트 증빙 (`tests/unit/part-icon-renderer.test.ts`)**:
+>   - 15개 단위 테스트 100% Pass (에셋 파일 유효성 검증, UI_IMAGE_ASSETS 등록 확인, 비트맵 drawImage 호출, null 시 벡터 폴백 검증)
 
 ---
 

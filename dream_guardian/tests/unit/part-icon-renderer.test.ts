@@ -1,6 +1,10 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
 import { PartIconRenderer, drawPartIcon } from '../../src/render/PartIconRenderer.js';
 import { CURSOR_COLORS } from '../../config/cursor.config.js';
+import { imageLoader } from '../../src/utils/UIImageLoader.js';
+import { UI_IMAGE_ASSETS } from '../../config/ui.config.js';
 
 function createMockCtx(): CanvasRenderingContext2D {
   return {
@@ -16,6 +20,7 @@ function createMockCtx(): CanvasRenderingContext2D {
     fill: vi.fn(),
     roundRect: vi.fn(),
     clip: vi.fn(),
+    drawImage: vi.fn(),
     fillStyle: '',
     strokeStyle: '',
     lineWidth: 1,
@@ -159,6 +164,89 @@ describe('PartIconRenderer (Issue #127 / ICON-001)', () => {
       const recipeDouble = { requiredCursors: ['leftHand', 'rightHand'] as const, targetZoneIds: [4, 8] };
       PartIconRenderer.drawRadialAnswerButton(ctx3, recipeDouble as any, 100, 200, 300, 150, 16, 8.0);
       expect(ctx3.lineWidth).toBeGreaterThanOrEqual(3.0); // 분할선 3.0 이상
+    });
+  });
+
+  describe('Bitmap Asset Rendering & Fallback (Issue #289 / UI-ASSET-008)', () => {
+    it('5종 신체 부위 아이콘 PNG 파일이 public 디렉토리에 정상 생성되어 있다', () => {
+      const iconDir = path.resolve(__dirname, '../../public/assets/ui/icon');
+      const expectedFiles = [
+        'icon_hand_left.png',
+        'icon_hand_right.png',
+        'icon_head.png',
+        'icon_hip.png',
+        'icon_shoulder.png',
+      ];
+      for (const file of expectedFiles) {
+        const filePath = path.join(iconDir, file);
+        expect(fs.existsSync(filePath), `${file} 에셋 파일이 존재해야 합니다`).toBe(true);
+        const buf = fs.readFileSync(filePath);
+        expect(buf.length).toBeGreaterThan(100);
+        // PNG 헤더 확인: 137, 80, 78, 71, 13, 10, 26, 10
+        expect(buf[0]).toBe(0x89);
+        expect(buf[1]).toBe(0x50);
+        expect(buf[2]).toBe(0x4e);
+        expect(buf[3]).toBe(0x47);
+      }
+    });
+
+    it('UI_IMAGE_ASSETS에 icon 카테고리 및 5종 에셋 경로가 올바르게 등록되어 있다', () => {
+      expect(UI_IMAGE_ASSETS.icon).toBeDefined();
+      expect(UI_IMAGE_ASSETS.icon?.leftHand).toBe('/assets/ui/icon/icon_hand_left.png');
+      expect(UI_IMAGE_ASSETS.icon?.rightHand).toBe('/assets/ui/icon/icon_hand_right.png');
+      expect(UI_IMAGE_ASSETS.icon?.head).toBe('/assets/ui/icon/icon_head.png');
+      expect(UI_IMAGE_ASSETS.icon?.hip).toBe('/assets/ui/icon/icon_hip.png');
+      expect(UI_IMAGE_ASSETS.icon?.shoulder).toBe('/assets/ui/icon/icon_shoulder.png');
+    });
+
+    it('비트맵 이미지가 로드되어 있을 때 drawImage를 호출하여 비트맵 렌더링한다', () => {
+      const mockImg = { width: 128, height: 128 } as HTMLImageElement;
+      const getSpy = vi.spyOn(imageLoader, 'get').mockReturnValue(mockImg);
+
+      const ctx = createMockCtx();
+      PartIconRenderer.drawIcon(ctx, 'leftHand', 100, 100, 40, { alpha: 0.8 });
+
+      expect(getSpy).toHaveBeenCalledWith('icon', 'leftHand');
+      expect(ctx.drawImage).toHaveBeenCalledWith(
+        mockImg,
+        100 - 20,
+        100 - 20,
+        40,
+        40
+      );
+      expect(ctx.save).toHaveBeenCalled();
+      expect(ctx.restore).toHaveBeenCalled();
+
+      getSpy.mockRestore();
+    });
+
+    it('비트맵 이미지가 null일 때 기존 벡터 프로시저럴 드로잉 코드가 100% 무중단 폴백으로 동작한다', () => {
+      const getSpy = vi.spyOn(imageLoader, 'get').mockReturnValue(null);
+
+      const ctx = createMockCtx();
+      PartIconRenderer.drawIcon(ctx, 'head', 100, 100, 32);
+
+      expect(getSpy).toHaveBeenCalledWith('icon', 'head');
+      expect(ctx.drawImage).not.toHaveBeenCalled();
+      // 기존 원형 및 눈 드로잉 확인
+      expect(ctx.arc).toHaveBeenCalled();
+      expect(ctx.stroke).toHaveBeenCalled();
+
+      getSpy.mockRestore();
+    });
+
+    it('5종 신체 부위 전수에 대해 비트맵 이미지 렌더링이 일관되게 지원된다', () => {
+      const mockImg = { width: 128, height: 128 } as HTMLImageElement;
+      const getSpy = vi.spyOn(imageLoader, 'get').mockReturnValue(mockImg);
+
+      const parts = ['leftHand', 'rightHand', 'head', 'hip', 'shoulder'] as const;
+      for (const part of parts) {
+        const ctx = createMockCtx();
+        PartIconRenderer.drawIcon(ctx, part, 50, 50, 24);
+        expect(ctx.drawImage).toHaveBeenCalledWith(mockImg, 50 - 12, 50 - 12, 24, 24);
+      }
+
+      getSpy.mockRestore();
     });
   });
 });

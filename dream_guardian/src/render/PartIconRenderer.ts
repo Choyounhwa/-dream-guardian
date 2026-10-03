@@ -11,6 +11,7 @@
  */
 
 import { CURSOR_COLORS, type CursorType } from '../../config/cursor.config.js';
+import { imageLoader } from '../utils/UIImageLoader.js';
 
 export type BodyPartIconType = CursorType;
 
@@ -269,6 +270,14 @@ export class PartIconRenderer {
     if (options?.glow) {
       ctx.shadowColor = color;
       ctx.shadowBlur = size * 0.4;
+    }
+
+    // Issue #289 (UI-ASSET-008): 비트맵 이미지 에셋 조회 및 렌더링 (폴백: 기존 벡터 프로시저럴 드로잉)
+    const iconImg = imageLoader.get('icon', part);
+    if (iconImg) {
+      ctx.drawImage(iconImg, cx - size / 2, cy - size / 2, size, size);
+      ctx.restore();
+      return;
     }
 
     switch (part) {

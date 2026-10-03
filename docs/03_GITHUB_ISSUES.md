@@ -5016,7 +5016,7 @@ BEAT-SPEC-001
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/289
 - **Labels**: `feature`, `phase-6`, `P2-medium`
 - **작업 ID**: `[UI-ASSET-008]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: 🟢 **완료 (DONE)**
 - **목적**:
   - `PartIconRenderer`에서 매 프레임 수십 개의 베지어 곡선 및 `shadowBlur`로 실시간 연산되는 신체 부위(왼손, 오른손, 머리, 골반, 어깨) 벡터 드로잉을 PNG 이미지 에셋으로 교체하여, 인게임 답안 버튼 및 피트니스 존 가이드 렌더링 시 발생하는 캔버스 연산 부하를 획기적으로 절감한다.
 - **수정 대상**:
@@ -5040,11 +5040,11 @@ BEAT-SPEC-001
   4. **무중단 폴백(Fallback) 100% 보장**:
      - 에셋 파일이 없거나 로드 전/로드 실패 상태에서는 기존 `drawHand`, `drawHead`, `drawHip`, `drawShoulder` 베지어 곡선 벡터 프로시저럴 드로잉 코드가 100% 작동하여 중단 없는 게임 루프 보장
 - **완료 조건**:
-  - [ ] `scripts/generate-icon-assets.js` 구현 및 5종 임시 PNG 에셋 생성 배치
-  - [ ] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
-  - [ ] `PartIconRenderer`에서 비트맵 로딩 시 `drawImage` 렌더링 동작
-  - [ ] 에셋 부재/로드 실패 시 기존 벡터 프로시저럴 렌더링 100% 폴백 동작 검증
-  - [ ] 단위 테스트 100% Pass 및 `npm run build` 번들 성공
+  - [x] `scripts/generate-icon-assets.js` 구현 및 5종 임시 PNG 에셋 생성 배치
+  - [x] 작업 완료 시 제작된 임시 파일 목록(경로, 해상도, 시각 특성) 코멘트 및 보고서 공유
+  - [x] `PartIconRenderer`에서 비트맵 로딩 시 `drawImage` 렌더링 동작
+  - [x] 에셋 부재/로드 실패 시 기존 벡터 프로시저럴 렌더링 100% 폴백 동작 검증
+  - [x] 단위 테스트 100% Pass 및 `npm run build` 번들 성공
 
 ---
 

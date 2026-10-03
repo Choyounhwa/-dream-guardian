@@ -286,6 +286,7 @@ export interface UIImageAssetsConfig {
   question?: Record<string, string | null>;
   dialogue?: Record<string, string | null>;
   modal?: Record<string, string | null>;
+  icon?: Record<string, string | null>;
 }
 
 export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
@@ -415,5 +416,12 @@ export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
     iconSound: '/assets/ui/modal/icon_sound.png',
     iconSkeleton: '/assets/ui/modal/icon_skeleton.png',
     iconFullscreen: '/assets/ui/modal/icon_fullscreen.png',
+  },
+  icon: {
+    leftHand: '/assets/ui/icon/icon_hand_left.png',
+    rightHand: '/assets/ui/icon/icon_hand_right.png',
+    head: '/assets/ui/icon/icon_head.png',
+    hip: '/assets/ui/icon/icon_hip.png',
+    shoulder: '/assets/ui/icon/icon_shoulder.png',
   },
 };
