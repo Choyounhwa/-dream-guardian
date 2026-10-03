@@ -5,6 +5,7 @@ import {
   PHASE_A_ACTIVE_HAZARD_PATTERNS,
   PhaseAHazardController,
 } from '../../src/game/PhaseAHazardController.js';
+import { scaleHazardSchedule } from '../../config/phase-a-hazard.config.js';
 
 describe('PhaseAHazardController', () => {
   it('uses 25-HP damage for a missed Phase A floor hazard per GDD contract', () => {
@@ -105,5 +106,44 @@ describe('PhaseAHazardController', () => {
 
     controller.update(0.5); // 4.0s (after judgment)
     expect(controller.beatProgress).toBe(0); // stopped
+  });
+
+  describe('[#318] REFACTOR-HAZARD-CONFIG-001 - config 단일 출처 및 폴백 리터럴 부재', () => {
+    it('scaleHazardSchedule uses DEFAULT_PHASE_A_HAZARD_CONFIG as single source of truth for all omitted durations', () => {
+      const minimalConfig = {
+        secondsPerBeat: 0.5,
+        damagePerMiss: 25,
+        pattern: PHASE_A_ACTIVE_HAZARD_PATTERNS,
+      };
+      const scaled = scaleHazardSchedule(minimalConfig, 0.5);
+      expect(scaled.warningDuration).toBe(DEFAULT_PHASE_A_HAZARD_CONFIG.warningDuration);
+      expect(scaled.inputWindowEnd).toBe(DEFAULT_PHASE_A_HAZARD_CONFIG.inputWindowEnd);
+      expect(scaled.judgmentTime).toBe(DEFAULT_PHASE_A_HAZARD_CONFIG.judgmentTime);
+      expect(scaled.totalDuration).toBe(DEFAULT_PHASE_A_HAZARD_CONFIG.totalDuration);
+    });
+
+    it('PhaseAHazardController source code contains no raw 2.6/3.4/3.5/4.0 fallback literals', async () => {
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const controllerPath = path.resolve(__dirname, '../../src/game/PhaseAHazardController.ts');
+      const configPath = path.resolve(__dirname, '../../config/phase-a-hazard.config.ts');
+
+      const controllerCode = fs.readFileSync(controllerPath, 'utf-8');
+      const configCode = fs.readFileSync(configPath, 'utf-8');
+
+      // 1) PhaseAHazardController must not contain any 2.6, 3.4, 3.5, 4.0 literals
+      expect(controllerCode).not.toMatch(/\b2\.6\b/);
+      expect(controllerCode).not.toMatch(/\b3\.4\b/);
+      expect(controllerCode).not.toMatch(/\b3\.5\b/);
+      expect(controllerCode).not.toMatch(/\b4\.0\b/);
+
+      // 2) scaleHazardSchedule function body must not contain 2.6, 3.4, 3.5, 4.0 fallbacks or CANONICAL_SECONDS_PER_BEAT
+      const scaleFunctionBody = configCode.slice(configCode.indexOf('function scaleHazardSchedule'));
+      expect(scaleFunctionBody).not.toMatch(/\b2\.6\b/);
+      expect(scaleFunctionBody).not.toMatch(/\b3\.4\b/);
+      expect(scaleFunctionBody).not.toMatch(/\b3\.5\b/);
+      expect(scaleFunctionBody).not.toMatch(/\b4\.0\b/);
+      expect(configCode).not.toContain('CANONICAL_SECONDS_PER_BEAT');
+    });
   });
 });

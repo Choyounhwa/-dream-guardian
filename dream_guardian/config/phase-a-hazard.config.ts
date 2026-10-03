@@ -34,21 +34,19 @@ export const DEFAULT_PHASE_A_HAZARD_CONFIG: PhaseAHazardConfig = {
   inputWindowEnd: 3.4,
 };
 
-const CANONICAL_SECONDS_PER_BEAT = 0.5;
-
 /** BPM120 초 단위 일정을 박 비율로 환산한 뒤 주입된 secondsPerBeat로 스케일한다. */
 export function scaleHazardSchedule(
   config: PhaseAHazardConfig,
   secondsPerBeat: number,
 ): PhaseAHazardConfig {
-  const base = CANONICAL_SECONDS_PER_BEAT;
+  const base = DEFAULT_PHASE_A_HAZARD_CONFIG.secondsPerBeat;
   const ratio = secondsPerBeat / base;
   return {
     ...config,
     secondsPerBeat,
-    warningDuration: (config.warningDuration ?? 2.6) * ratio,
-    inputWindowEnd: (config.inputWindowEnd ?? 3.4) * ratio,
-    judgmentTime: (config.judgmentTime ?? 3.5) * ratio,
-    totalDuration: (config.totalDuration ?? 4.0) * ratio,
+    warningDuration: (config.warningDuration ?? DEFAULT_PHASE_A_HAZARD_CONFIG.warningDuration ?? 0) * ratio,
+    inputWindowEnd: (config.inputWindowEnd ?? DEFAULT_PHASE_A_HAZARD_CONFIG.inputWindowEnd ?? 0) * ratio,
+    judgmentTime: (config.judgmentTime ?? DEFAULT_PHASE_A_HAZARD_CONFIG.judgmentTime ?? 0) * ratio,
+    totalDuration: (config.totalDuration ?? DEFAULT_PHASE_A_HAZARD_CONFIG.totalDuration ?? 0) * ratio,
   };
 }
