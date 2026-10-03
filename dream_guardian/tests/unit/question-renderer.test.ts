@@ -44,6 +44,8 @@ function createMockCtx(): CanvasRenderingContext2D {
     setLineDash: vi.fn(),
     moveTo: vi.fn(),
     lineTo: vi.fn(),
+    scale: vi.fn(),
+    translate: vi.fn(),
     fillText: vi.fn(),
     measureText: vi.fn((text: string) => ({ width: text.length * 10 })),
     drawImage: vi.fn(),
@@ -549,5 +551,88 @@ describe('QuestionRenderer answer time status (Issue #311 / RENDER-ANSWER-STATUS
       })).not.toThrow();
       expect(textsOf(ctx).some((t) => t.includes('기본'))).toBe(true);
     }
+  });
+
+  describe('[Issue #322] 러닝·답선택 페이즈 간 문제 수식 렌더링 일원화 및 단일 뷰(SSOT) 통합', () => {
+    it('headerOnly: true일 때 목판 배경 및 132px 수식만 렌더링하고 보기 버튼을 렌더링하지 않는다', () => {
+      const renderer = new QuestionRenderer();
+      const ctx = createMockCtx();
+
+      renderer.render(ctx, 1080, 2160, {
+        question: mockQuestion,
+        questionVisible: true,
+        headerOnly: true,
+      });
+
+      const texts = textsOf(ctx);
+      // 문제 수식 토큰(12)은 렌더링되어야 함
+      expect(texts.some((t) => t.includes('12'))).toBe(true);
+      // 보기 버튼 텍스트(choices: 27, 25)는 렌더링되지 않아야 함
+      expect(texts.some((t) => t === '27' || t === '25')).toBe(false);
+    });
+
+    it('questionApproachProgress < 1.0일 때 원근 접근 transform(scale, alpha, translate)을 적용하여 목판+수식을 렌더링한다', () => {
+      const renderer = new QuestionRenderer();
+      const ctx = createMockCtx();
+
+      renderer.render(ctx, 1080, 2160, {
+        question: mockQuestion,
+        questionVisible: true,
+        headerOnly: true,
+        questionApproachProgress: 0.5,
+        vanishingX: 540,
+        vanishingY: 400,
+      });
+
+      // scale < 1.0 호출 검증
+      const scaleCalls = (ctx.scale as any).mock.calls;
+      expect(scaleCalls.length).toBeGreaterThan(0);
+      const [sx, sy] = scaleCalls[0];
+      expect(sx).toBeLessThan(1.0);
+      expect(sx).toBeGreaterThan(0.15);
+      expect(sy).toBe(sx);
+
+      // translate 호출 검증
+      expect(ctx.translate).toHaveBeenCalled();
+    });
+
+    it('러닝 페이즈(원근 접근 완료)와 답 선택 페이즈에서 목판 패널 위치/크기 및 수식 렌더링 기준 좌표가 동일하여 시각적 튐이 없다', () => {
+      const renderer = new QuestionRenderer();
+      const mockBoardImg = { src: 'board.png', width: 880, height: 280 } as HTMLImageElement;
+      vi.spyOn(imageLoader, 'get').mockImplementation((cat: string, key: string) => {
+        if (cat === 'question' && key === 'questionBoardBg') return mockBoardImg;
+        return null;
+      });
+
+      // 1. 러닝 페이즈 헤더
+      const ctxRun = createMockCtx();
+      renderer.render(ctxRun, 1080, 2160, {
+        question: mockQuestion,
+        questionVisible: true,
+        headerOnly: true,
+        questionApproachProgress: 1.0,
+      });
+
+      // 2. 답 선택 페이즈
+      const ctxPlay = createMockCtx();
+      renderer.render(ctxPlay, 1080, 2160, {
+        question: mockQuestion,
+        questionVisible: true,
+      });
+
+      // 목판 drawImage 인자 비교
+      const runDrawCall = (ctxRun.drawImage as any).mock.calls.find((c: any) => c[0] === mockBoardImg);
+      const playDrawCall = (ctxPlay.drawImage as any).mock.calls.find((c: any) => c[0] === mockBoardImg);
+      expect(runDrawCall).toBeDefined();
+      expect(playDrawCall).toBeDefined();
+      expect(runDrawCall).toEqual(playDrawCall);
+
+      // 수식 fillText의 Y 좌표 비교 (수식 토큰 '12')
+      const runTextCall = (ctxRun.fillText as any).mock.calls.find((c: any) => String(c[0]).includes('12'));
+      const playTextCall = (ctxPlay.fillText as any).mock.calls.find((c: any) => String(c[0]).includes('12'));
+      expect(runTextCall).toBeDefined();
+      expect(playTextCall).toBeDefined();
+      expect(runTextCall[2]).toBe(playTextCall[2]); // Y 좌표 완벽 일치
+    });
   });
 });

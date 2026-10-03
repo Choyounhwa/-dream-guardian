@@ -19,6 +19,8 @@ export interface QuestionRenderState {
   questionVisible: boolean;
   selectedChoiceIndex?: number | null;
   answerPlan?: QuestionRecipePlan | null;
+  /** Issue #322: 문제 출제 첫 2박 원근 접근 진행도 (0.0: 소실점 ~ 1.0: 정면 안착) */
+  questionApproachProgress?: number;
   /** Issue #279: 답안 원근 접근 진행도 (0.0: 소실점 ~ 1.0: 정면 안착) */
   answerApproachProgress?: number;
   /** 원근 접근 소실점 좌표 (기본 중앙 상단 / 보스 위치) */
@@ -26,6 +28,8 @@ export interface QuestionRenderState {
   vanishingY?: number;
   /** 러닝 페이즈 6박 이후 답안 프리뷰 시 헤더 중복 방지 플래그 */
   buttonsOnly?: boolean;
+  /** Issue #322: 러닝 페이즈(1~5박) 등 답안 버튼 숨김 및 수식 목판 헤더만 렌더링 */
+  headerOnly?: boolean;
   /** 8박 종료 후 2박 선택 창에서만 true. 6~8박 프리뷰는 false(비활성) */
   answerSelectable?: boolean;
   /** Issue #285 (UI-ANSWER-002): 각 보기 버튼의 0.0 ~ 1.0 충전 진행도 */
@@ -71,19 +75,20 @@ export function renderQuestionHeaderMath(
   cx: number,
   qY: number,
   scaleX: number,
-  isRunningPhase: boolean = false,
+  _isRunningPhase: boolean = false,
   options?: QuestionHeaderMathOptions,
 ): { width: number; height: number } {
   const qLen = questionText.length;
-  const baseSize = isRunningPhase ? 110 : 132;
-  const minSize = options?.minFontSize ?? (isRunningPhase ? 60 : (options?.hasShape ? 44 : 64));
+  // Issue #322: 러닝·답선택 페이즈 간 132px 대형 폰트 일원화 (SSOT)
+  const baseSize = 132;
+  const minSize = options?.minFontSize ?? (options?.hasShape ? 44 : 64);
 
   let qFontSize = baseSize * scaleX;
   if (qLen > 10) {
     qFontSize = Math.max(minSize * scaleX, (baseSize - (qLen - 10) * 2.8) * scaleX);
   }
 
-  const defaultMaxHeight = options?.hasShape ? 150 * scaleX : (isRunningPhase ? 220 * scaleX : 340 * scaleX);
+  const defaultMaxHeight = options?.hasShape ? 150 * scaleX : 340 * scaleX;
   const maxHeight = options?.maxHeight ?? defaultMaxHeight;
   const maxWidth = options?.maxWidth ?? 880 * scaleX;
 
@@ -133,6 +138,30 @@ export class QuestionRenderer {
       // 도형 존재 시 문제 텍스트를 상단으로 정렬하여 중앙 3D 뷰포트 영역(480~820px)과 겹침 0% 보장
       const qY = shape ? boxY + 70 * scaleY : boxY + 220 * scaleY;
 
+      const qProgress = state.questionApproachProgress !== undefined
+        ? Math.max(0, Math.min(1.0, state.questionApproachProgress))
+        : 1.0;
+
+      ctx.save();
+
+      // Issue #322: 러닝 페이즈 첫 2박 동안 소실점(보스)에서 목표 정면으로 원근 접근 연출
+      if (qProgress < 1.0) {
+        const vx = state.vanishingX ?? cx;
+        const vy = state.vanishingY ?? (h * 0.24);
+        const headerCenterY = shape ? boxY + 70 * scaleY : boxY + 140 * scaleY;
+
+        const eased = 1.0 - Math.pow(1.0 - qProgress, 2.0);
+        const curX = vx + (cx - vx) * eased;
+        const curY = vy + (headerCenterY - vy) * eased;
+        const scale = 0.15 + (1.0 - 0.15) * eased;
+        const alpha = 0.10 + (1.0 - 0.10) * eased;
+
+        ctx.globalAlpha = Math.max(0, Math.min(1.0, ctx.globalAlpha * alpha));
+        ctx.translate(curX, curY);
+        ctx.scale(scale, scale);
+        ctx.translate(-cx, -headerCenterY);
+      }
+
       // 1. 문제 수식 배경 패널 (Issue #290 / UI-ASSET-009)
       const boardBgImg = imageLoader.get('question', 'questionBoardBg');
       if (boardBgImg) {
@@ -156,10 +185,13 @@ export class QuestionRenderer {
         const panelCy = 650 * scaleY;
         this._shapeRenderer.renderShape(ctx, shape, cx, panelCy, panelW, panelH);
       }
+
+      ctx.restore();
     }
 
     // 3. 답안 버튼 2개 횡배치 (Issue #164, #233 & #279: Zone 4/5 깔끔한 2버튼 레이아웃 및 소실점 원근 접근)
-    const buttonLayouts = getAnswerButtonLayouts(w, h);
+    if (!state.headerOnly) {
+      const buttonLayouts = getAnswerButtonLayouts(w, h);
     const progress = state.answerApproachProgress !== undefined
       ? Math.max(0, Math.min(1.0, state.answerApproachProgress))
       : 1.0;
@@ -398,6 +430,7 @@ export class QuestionRenderer {
     }
 
     this.renderAnswerTimeStatus(ctx, w, h, scaleX, scaleY, state);
+    }
 
     ctx.restore();
   }

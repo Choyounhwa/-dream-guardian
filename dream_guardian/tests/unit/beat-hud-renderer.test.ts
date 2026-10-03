@@ -190,4 +190,32 @@ describe('Issue #291 (UI-ASSET-010) - 8박자 비트 인디케이터 도트 이�
 
     spyGet.mockRestore();
   });
+
+  describe('[Issue #322] 중복 수식 렌더링 제거 및 순수 러닝 HUD 유지', () => {
+    it('BeatHUDRenderer는 state에 question이 전달되어도 문제 수식을 직접 렌더링하지 않는다 (SRP 분리)', () => {
+      const renderer = new BeatHUDRenderer({ showBeatDots: true });
+      const ctx = createMockCtx();
+
+      const customQuestion: GeneratedQuestion = {
+        questionText: '99 + 88',
+        choices: [187, 177],
+        correctAnswer: 187,
+        wrongAnswer: 177,
+        correctIndex: 0,
+      };
+
+      renderer.render(ctx, 1080, 2160, {
+        question: customQuestion,
+        totalSteps: 10,
+        completedExerciseBeats: 2,
+        exerciseBeats: 8,
+      });
+
+      const textCalls = (ctx.fillText as any).mock.calls.map((c: any) => String(c[0]));
+      // customQuestion.questionText ('99 + 88')의 수식 토큰 ('99', '88')은 BeatHUDRenderer에서 렌더링되지 않아야 함
+      expect(textCalls.some((t: string) => t.includes('99') || t.includes('88'))).toBe(false);
+      // 순수 러닝 HUD 요소(걸음 수 등)는 정상 렌더링되어야 함
+      expect(textCalls.some((t: string) => t.includes('10') || t.includes('걸음') || t.includes('STEPS'))).toBe(true);
+    });
+  });
 });

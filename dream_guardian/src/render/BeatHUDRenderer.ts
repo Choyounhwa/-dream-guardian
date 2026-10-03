@@ -11,8 +11,6 @@ import type { GeneratedQuestion } from '../question/QuestionEvaluator.js';
 import type { PhaseAHazardPattern } from '../../config/phase-a-hazard.config.js';
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import { BEAT_HUD_CONFIG } from '../../config/locomotion.config.js';
-import { renderQuestionHeaderMath } from './QuestionRenderer.js';
-import { QuestionApproachRenderer } from './QuestionApproachRenderer.js';
 import { HazardZoneRenderer } from './HazardZoneRenderer.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
@@ -29,7 +27,7 @@ export interface BeatHUDState {
   locomotionMode?: LocomotionMode;
   activeHazardPattern?: PhaseAHazardPattern | null;
   hazardBeatProgress?: number;
-  /** Issue #212: 첫 2박 원근 접근 진행도 (0~1) */
+  /** Issue #212 / #322: 레거시 호환 필드 (수식 렌더링은 QuestionRenderer로 일원화됨) */
   questionApproachProgress?: number;
   /** 원근 접근 소실점 좌표 */
   vanishingX?: number;
@@ -38,12 +36,10 @@ export interface BeatHUDState {
 
 export class BeatHUDRenderer {
   private _showBeatDots: boolean;
-  private readonly _approachRenderer: QuestionApproachRenderer;
   private readonly _hazardRenderer: HazardZoneRenderer;
 
   constructor(options?: BeatHUDRendererOptions) {
     this._showBeatDots = options?.showBeatDots ?? false;
-    this._approachRenderer = new QuestionApproachRenderer();
     this._hazardRenderer = new HazardZoneRenderer();
   }
 
@@ -73,31 +69,10 @@ export class BeatHUDRenderer {
     const vx = state.vanishingX ?? cx;
     const vy = state.vanishingY ?? vh * 0.24;
 
-    // 1. 문제 수식 헤더 표시 (Issue #212: 첫 2박 원근 접근 연출 연동)
-    if (state.question) {
-      const qY = 320 * scaleY + 160 * scaleY;
-      const progress = state.questionApproachProgress ?? 1.0;
+    // Issue #322: 문제 수식 렌더링은 QuestionRenderer(SSOT)로 일원화되었으므로
+    // BeatHUDRenderer는 순수 러닝 HUD(보스 장판, 박자 도트, 운동 카운터)만 담당한다.
 
-      if (progress < 1.0) {
-        this._approachRenderer.render(
-          ctx,
-          state.question.questionText,
-          cx,
-          qY,
-          scaleX,
-          {
-            progress,
-            vanishingX: vx,
-            vanishingY: vy,
-          },
-          true,
-        );
-      } else {
-        renderQuestionHeaderMath(ctx, state.question.questionText, cx, qY, scaleX, true);
-      }
-    }
-
-    // 2. Phase A 보스 장판 박자 안내
+    // 1. Phase A 보스 장판 박자 안내
     const hazard = state.activeHazardPattern;
     const hazardGuide: Record<PhaseAHazardPattern, { title: string; subtitle: string; color: string }> = {
       left_step: { title: '왼발 피하기!', subtitle: '왼발을 들어 장판을 피하세요', color: '#28E6FF' },

@@ -2,6 +2,45 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## UI 추출 전용 에디터 별도 등록 트랙 (UIX, 2026-10-04)
+
+**사용자 승인 범위는 전체 카드 등록과 문서 동기화뿐이며 구현·검증 실행 승인이 아니다. 기존 #319 NEXT 및 아래 EDITOR-SCHEMA NEXT를 그대로 유지한다.** UIE/게임 적용은 포함하지 않는다.
+
+| 항목 | 등록 결과 | 상태 |
+|---|---|---|
+| 전체 추적 | [UIX-TRACK-001 #323](https://github.com/Choyounhwa/-dream-guardian/issues/323) | OPEN / 하위44개 체크리스트 미체크 |
+| MVP Phase0~4 | UIX-001~017 +007A, #324~341 (18개) | 등록 완료 / 구현 미착수 |
+| 후속 Phase5 | UIX-030/031 기반 #342/#343 →018~029 #344~355 (14개) | 등록 완료 / 구현 미착수 |
+| 후속 Phase6 | UIX-032~039 #356~363 (8개) | 등록 완료 / 구현 미착수 |
+| 후속 Phase7 | UIX-040~043 #364~367 (4개) | 등록 완료 / 검증 실행 대기 |
+| UIX 내부 첫 구현 추천 | [UIX-001 #324](https://github.com/Choyounhwa/-dream-guardian/issues/324) 편집·전달 계약 | 별도 구현 승인 대기, 기존 NEXT 대체 아님 |
+
+- 합계: 실행44(MVP18+후속26)+추적1=45. 전체 ID/링크/선행은 `docs/03_GITHUB_ISSUES.md` 상단과 #323, 정확 수정 경계는 각 이슈 및 설계 §14에 기록했다.
+- 생성 전 REST 전체 목록에서 정확 ID 대조, 생성 후 제목/본문/라벨/OPEN 및 최종45개 중복0 재조회 확인. 라벨 feature39/test4/documentation2, P1-high11/P2-medium34. Project scope 부족으로 미연결, 인증 변경/권한 요청 없음.
+- 이번 세션 통과한 기능 테스트 없음: npm test/build·브라우저/실카메라·서버 실행/확인 미수행. 카드 등록 검증과 구현100% Pass를 혼동하지 않는다. 소스/테스트/설정 파일 수정0, commit/push 없음.
+- 게임 기존 renderer/config/bootstrap/세이브/안무 저장소 무변경, 게임 적용·runtime loader·자동 전송/배포 금지, 지원 불가 잠금. 추출물의 게임 실행 호환성은 항상 범위 밖/미검증.
+- 승인된 문서3개만 최소 갱신하며 기존 #321 계약 기록, #322 및 다른 dirty 파일을 보존했다. 이후 구현 완료 시 실제 테스트/build·미검증·완료 조건을 gh issue comment/HANDOVER에 남기고 실제 에디터 서버/URL을 안내한다. 커밋은 별도 명시 요청 시만 한다.
+
+---
+
+## 통합 에디터 별도 승인 트랙 (#321, 2026-10-04)
+
+기존 로드맵 #319의 NEXT는 유지한다. 사용자가 별도로 승인한 에디터 트랙이며, 다음 승인 없는 소스 구현은 하지 않는다.
+
+| 카드 | 목표 | 상태 |
+|---|---|---|
+| [#321](https://github.com/Choyounhwa/-dream-guardian/issues/321) EDITOR-CONTRACT | 실제 게임의 시간/입력/참조 계약 및 초기 편집 경계 확정 | `[✔] 문서·특성화 검증 완료` (미커밋, 이슈 OPEN 유지) |
+| EDITOR-SCHEMA (번호 미등록) | V2 데이터 타입 및 구조/참조 검증기 | `[▶ NEXT: 에디터 트랙]` 승인 대기 |
+
+- 계약 문서: `docs/09_EDITOR_RUNTIME_CONTRACT.md`. 기존 설계 `docs/07_UNIFIED_EDITOR_INTEGRITY_DESIGN.md`에 후속 계약 참조 추가.
+- 테스트: `tests/unit/editor-runtime-contract.test.ts` 신규 21개. V1 왕복, #243 시간축 관찰, 배열 순서 착지, BPM/판정창, foot-role hip 입력, 장판 스케일/회피, Phase B 8노트와 16박 가이드 차이 확인.
+- Baseline: 164파일/2093개 PASS. 최종: `npm test -- --reporter=dot` 165파일/2114개 PASS, `npm run build` TypeScript/Vite 성공. 미추적 hazard-content-pack 기존 테스트 5개 포함이며 신규 성과는 21개다.
+- src/config 수정 0개. 기존 동작 특성화이므로 인위적인 Red/Green은 수행하지 않았으며 기능 TDD 완료로 주장하지 않는다. V2 저장/검증/게임 연결은 아직 미구현.
+- #243의 마지막 노트 seek(8)->7 제약은 테스트로 확인하고 기존 카드에 연결한다. 수정/닫기 금지, 후속 수정 시 결함 관찰 테스트도 함께 갱신한다.
+- 서버: 기존 Vite PID 7896 재사용. `http://localhost:3000/` 및 `http://localhost:3000/editor.html` HTTP 200, 각 src 진입점 확인. 실브라우저 렌더링/카메라 수동 검증은 하지 않았다.
+- 커밋/푸시 미요청으로 수행하지 않았다. 타 작업의 `docs/08_UI_EDITOR_UX_DATA_DESIGN.md`, `HazardContentPack.ts` 및 해당 테스트, 기존 미추적 파일을 보존했다.
+- 다음 범위: `src/data/EditorProject.ts`, `src/data/ProjectValidator.ts` 두 파일과 `tests/unit/editor-project-validator.test.ts`. unknown/중복 ID/끊어진 참조/페이즈 조합/미지 필드/비정상 숫자 Red 선작성. 저장소/컴파일러/게임 연결은 제외.
+
 ---
 
 ## 🧭 12단계 로드맵 진행 현황 (SSOT)
@@ -176,11 +215,13 @@
 | 41 | **#295** | [RENDER-GRID-004] 3D 원근 드림 그리드 라인 두께 증가, 세로선 2-Pass 네온 글로우 및 메트로놈 비트 플래시(Flash) 효과 추가 | #282 권장 | `[✔] 완료` |
 | 41-1 | **#320** | [RENDER-GRID-005] 3D 원근 드림 그리드 가로선 확장 및 와이드 지대(Wide Terrain) 연출 | #295 | `[✔] 완료` |
 
-### 📌 M. 오디오 메트로놈 동기화 (AUDIO-METRONOME)
+### 📌 M. 오디오 메트로놈 및 BGM 사운드트랙 (AUDIO)
 
 | 순서 | 카드 | 제목 | 선행 조건 | 상태 |
 |:---:|---|---|---|:---:|
 | 42 | **#296** | [AUDIO-METRONOME-001] 게임 박자 동기화 메트로놈 사운드 연동 및 인게임 8박자/카운트인 오디오 출력 | 없음 | `[✔] 완료` |
+| 42-1 | **#305** | [AUDIO-BGM-001] 스테이지 진입 록 드럼 비트 및 베이스 그루브 Web Audio 절차적 합성 BGM 재생기 | 없음 | `[✔] 완료` |
+| 42-2 | **#223** | [AUDIO-SAMPLE-001] 제1장 하얘시니 하드 록 앙상블 사운드트랙 샘플 및 BGMManager 연동 | 없음 | `[✔] 완료` |
 
 ### 📌 N. 코드베이스 리팩토링 및 모듈화 (SYSTEM-REFACTOR)
 
@@ -202,6 +243,7 @@
 | 56 | **#312** | [BUG-RUNTIME-ANSWER-BRANCH-001] 실제 조립계층의 답안 입력·만료·분기8박 활성시간 계약 연결 | #306~#310, #302 | `[✔] 완료` |
 | 57 | **#313** | [CORE-ANSWER-PRESENTATION-001] 읽기 전용 답안 snapshot의 기본·연장 표시 연결 | #311, #312 | `[✔] 완료` |
 | 58 | **#314** | [QA-ANSWER-BRANCH-001] 실제 부트스트랩·브라우저·실카메라 최종 검증 | #313 | `[✔] 완료` |
+| 59 | **#322** | [RENDER-QUESTION-UNIFY-001] 러닝·답선택 페이즈 간 문제 수식 렌더링 일원화 및 단일 뷰(SSOT) 통합 | 없음 | `[✔] 완료` |
 
 
 ### 권장 실행 순서

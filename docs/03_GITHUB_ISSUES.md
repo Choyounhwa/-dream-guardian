@@ -5398,7 +5398,7 @@ BEAT-SPEC-001
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/322
 - **Labels**: `feature`, `refactor`, `P1-high`, `phase-6`
 - **작업 ID**: `[RENDER-QUESTION-UNIFY-001]`
-- **상태**: ⚪ **대기 (승인 대기)**
+- **상태**: `[✔] 완료`
 - **제목**: 러닝·답선택 페이즈 간 문제 수식 렌더링 일원화 및 단일 뷰(SSOT) 통합
 - **목적**:
   - 러닝 페이즈(`BeatHUDRenderer`)와 답 선택 페이즈(`QuestionRenderer`)로 이원화되어 있던 문제 수식 렌더링을 `QuestionRenderer` 단일 렌더러(SSOT)로 일원화한다.
@@ -5417,11 +5417,11 @@ BEAT-SPEC-001
   - 전투 시스템(HP, 마나, 데미지, 콤보) 및 스토리/사운드 로직
   - 카메라 계층 및 스켈레톤 트래킹 파이프라인
 - **완료 조건**:
-  - [ ] `QuestionRenderer.ts`에서 러닝 및 답 선택 페이즈 공통 목판+132px 수식 단일 렌더링 지원
-  - [ ] `BeatHUDRenderer.ts`에서 중복 수식 렌더링 제거 및 SRP 순수 러닝 HUD 유지
-  - [ ] `SceneDirector.ts`에서 러닝 페이즈부터 `QuestionRenderer`를 통한 일관된 수식 출력 연결
-  - [ ] `npm test` 전체 테스트 슈트 100% 통과
-  - [ ] `npm run build` tsc 컴파일 및 번들 검증 성공
+  - [x] `QuestionRenderer.ts`에서 러닝 및 답 선택 페이즈 공통 목판+132px 수식 단일 렌더링 지원
+  - [x] `BeatHUDRenderer.ts`에서 중복 수식 렌더링 제거 및 SRP 순수 러닝 HUD 유지
+  - [x] `SceneDirector.ts`에서 러닝 페이즈부터 `QuestionRenderer`를 통한 일관된 수식 출력 연결
+  - [x] `npm test` 전체 테스트 슈트 100% 통과 (167 test files, 2137 passed)
+  - [x] `npm run build` tsc 컴파일 및 번들 검증 성공 (1.32s)
 - **테스트**:
   - `npx vitest run tests/unit/question-renderer.test.ts`
   - `npx vitest run tests/unit/beat-hud-renderer.test.ts`

@@ -1105,7 +1105,20 @@ export class SceneDirector<TContext = any> {
         vanishingY: bossY,
       });
 
-      // Issue #279: 러닝 페이즈 approachStartBeat(기본 6박) 이후 답안 카드 원근 접근 프리뷰 렌더링
+      // Issue #322: 러닝 페이즈 문제 수식을 QuestionRenderer 단일 뷰(SSOT)로 일원화
+      ctx.questionRenderer.render(context2d, vw, vh, {
+        question: ctx.state.currentQuestion,
+        questionVisible: true,
+        selectedChoiceIndex: null,
+        questionApproachProgress: ctx.beatCoordinator.questionApproachProgress,
+        vanishingX: bossX,
+        vanishingY: bossY,
+        headerOnly: true,
+        answerSelectable: false,
+        showAnswerTime: false,
+      });
+
+      // Issue #279 / #313: 러닝 페이즈 approachStartBeat(기본 6박) 이후 답안 카드 원근 접근 프리뷰 렌더링
       if (
         ctx.presentationAdapter.canRenderAnswerPreview(
           ctx.stateMachine.currentState,
