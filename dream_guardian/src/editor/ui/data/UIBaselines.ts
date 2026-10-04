@@ -5,6 +5,7 @@ import {
   SCHEMA_VERSION,
 } from "./UIContracts";
 import { contentHash, rejectDuplicateKeys } from "./UICanonicalJSON";
+import { SUBMENU_PUBLISHED } from "./screens/UISubmenuContract";
 
 export { LIMITS };
 
@@ -60,6 +61,72 @@ export function clonePresetForEdit(id: string): MenuPreset {
     throw new Error("unknown baseline");
   }
   return deepClone(BASELINE_REGISTRY.preset);
+}
+
+export type SubmenuPreset = {
+  design: { width: number; height: number };
+  placement: "grid";
+  grid: {
+    startX: number;
+    startY: number;
+    gapX: number;
+    gapY: number;
+    cols: number;
+    w: number;
+    h: number;
+  };
+  cardWidth: number;
+  cardHeight: number;
+  backButton: { id: "submenu-back"; x: number; y: number; width: number; height: number };
+  title: { id: "submenu-title"; x: number; y: number; width: number; height: number };
+  cellIds: readonly string[];
+};
+
+const SUBMENU_V1_PRESET = deepFreeze<SubmenuPreset>({
+  design: { width: SUBMENU_PUBLISHED.design.width, height: SUBMENU_PUBLISHED.design.height },
+  placement: "grid",
+  grid: {
+    startX: SUBMENU_PUBLISHED.grid.startX,
+    startY: SUBMENU_PUBLISHED.grid.startY,
+    gapX: SUBMENU_PUBLISHED.grid.gapX,
+    gapY: SUBMENU_PUBLISHED.grid.gapY,
+    cols: SUBMENU_PUBLISHED.grid.cols,
+    w: SUBMENU_PUBLISHED.grid.w,
+    h: SUBMENU_PUBLISHED.grid.h,
+  },
+  cardWidth: SUBMENU_PUBLISHED.cardWidth,
+  cardHeight: SUBMENU_PUBLISHED.cardHeight,
+  backButton: {
+    id: "submenu-back",
+    x: SUBMENU_PUBLISHED.backBtn.x,
+    y: SUBMENU_PUBLISHED.backBtn.y,
+    width: SUBMENU_PUBLISHED.backBtn.w,
+    height: SUBMENU_PUBLISHED.backBtn.h,
+  },
+  title: {
+    id: "submenu-title",
+    x: SUBMENU_PUBLISHED.title.x,
+    y: SUBMENU_PUBLISHED.title.y,
+    width: SUBMENU_PUBLISHED.title.w,
+    height: SUBMENU_PUBLISHED.title.h,
+  },
+  cellIds: ["submenu-cell-0", "submenu-cell-1", "submenu-cell-2", "submenu-cell-3", "submenu-cell-4", "submenu-cell-5"],
+});
+
+export const SUBMENU_BASELINE = {
+  id: "submenu-v1",
+  version: BASELINE_VERSION,
+  preset: SUBMENU_V1_PRESET,
+  presetHash: contentHash(SUBMENU_V1_PRESET),
+  approvedImageHash: APPROVED_IMAGE_HASH,
+  rendererFingerprint: "submenu-grid-v1",
+} as const;
+
+export function cloneSubmenuPresetForEdit(id: string): SubmenuPreset {
+  if (id !== SUBMENU_BASELINE.id) {
+    throw new Error("unknown baseline");
+  }
+  return deepClone(SUBMENU_BASELINE.preset);
 }
 
 export function matchBaseline(input: {

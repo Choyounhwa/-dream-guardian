@@ -1,3 +1,7 @@
+import { SUBMENU_CONTRACT } from "./screens/UISubmenuContract";
+
+export { SUBMENU_SCREEN_ID, resolveSubmenuProperty } from "./screens/UISubmenuContract";
+
 export const MENU_SHARED_SIZE_FIELDS = ["width", "height"] as const;
 
 export const WORKOUT_BUTTON_FIELDS = ["x", "y", "width", "height"] as const;
@@ -68,11 +72,28 @@ const FIXTURES: readonly ScreenFixture[] = Object.freeze([
   Object.freeze({ id: "menu-v1-default", screen: "menu", version: "1.0.0", closed: true as const }),
 ]);
 
-const REGISTRY = new Map<string, ScreenContract>([[contractKey(MENU_V1), MENU_V1]]);
+const SUBMENU_V1: ScreenContract = Object.freeze({
+  registered: true as const,
+  screen: SUBMENU_CONTRACT.screen,
+  version: SUBMENU_CONTRACT.version,
+  scope: SUBMENU_CONTRACT.scope,
+  requiredFields: SUBMENU_CONTRACT.requiredFields,
+  cardFields: SUBMENU_CONTRACT.cardFields,
+  workoutFields: SUBMENU_CONTRACT.workoutFields,
+  supportStatus: "locked" as const,
+  editEnabled: false as const,
+  exportEnabled: false as const,
+  fingerprint: SUBMENU_CONTRACT.fingerprint,
+  protectedRegions: SUBMENU_CONTRACT.protectedRegions,
+});
+
+const SCREEN_CONTRACTS: readonly ScreenContract[] = Object.freeze([MENU_V1, SUBMENU_V1]);
 
 function contractKey(input: { screen: string; version: string; scope: string }): string {
   return `${input.screen}|${input.version}|${input.scope}`;
 }
+
+const REGISTRY = new Map<string, ScreenContract>(SCREEN_CONTRACTS.map((item) => [contractKey(item), item]));
 
 export function lookupScreenContract(screen: string, version: string, scope: string): ScreenContract | { registered: false } {
   const found = REGISTRY.get(contractKey({ screen, version, scope }));
@@ -86,7 +107,7 @@ export function registerScreenContract(input: { screen: string; version: string;
   exportEnabled: false;
 } {
   const found = REGISTRY.get(contractKey(input));
-  if (!found || found.screen !== input.screen || found.version !== input.version || found.scope !== input.scope) {
+  if (!found || found.screen !== input.screen || found.version !== input.version || found.scope !== input.scope || found.supportStatus === "locked") {
     return { accepted: false, editEnabled: false, exportEnabled: false };
   }
   return { accepted: true, editEnabled: false, exportEnabled: false };
