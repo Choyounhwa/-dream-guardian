@@ -61,6 +61,7 @@ import {
   DialogueOverlayRenderer,
   ReadyPositionRenderer,
 } from '../render/index.js';
+import { RunningMatRenderer } from '../render/RunningMatRenderer.js';
 import { dialogueManager } from '../story/index.js';
 import { EffectManager, wireAnswerVFX, wireGuardianVFX, TransitionManager } from '../effects/index.js';
 import {
@@ -182,6 +183,7 @@ export class AppBootstrap {
   public readonly resultRenderer: ResultRenderer;
   public readonly bossRenderer: BossRenderer;
   public readonly dreamGrid: DreamGrid;
+  public readonly runningMatRenderer: RunningMatRenderer;
   public readonly effectManager: EffectManager;
   public readonly runDetector: RunDetector;
   public readonly jumpDetector: JumpDetector;
@@ -292,6 +294,7 @@ const menuRenderer = new MenuRenderer();
 const resultRenderer = new ResultRenderer();
 const bossRenderer = new BossRenderer();
 const dreamGrid = new DreamGrid({ speed: 1.2, hasCeiling: true });
+const runningMatRenderer = new RunningMatRenderer();
 const effectManager = new EffectManager(15);
 effectManager.setViewport(canvasManager.virtualWidth, canvasManager.virtualHeight);
 const runDetector = new RunDetector();
@@ -1519,6 +1522,7 @@ const mainSceneContext: MainSceneContext = {
   resultRenderer,
   hudLayer,
   dreamGrid,
+  runningMatRenderer,
   starNoteRenderer,
   beatHUDRenderer,
   questionRenderer,
@@ -1618,6 +1622,7 @@ engine = new GameEngine({
     this.resultRenderer = resultRenderer;
     this.bossRenderer = bossRenderer;
     this.dreamGrid = dreamGrid;
+    this.runningMatRenderer = runningMatRenderer;
     this.effectManager = effectManager;
     this.runDetector = runDetector;
     this.jumpDetector = jumpDetector;

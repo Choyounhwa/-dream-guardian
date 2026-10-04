@@ -11,8 +11,15 @@ import { DEFAULT_CONFIG } from './Config.js';
 import type { GameSessionContext } from './GameSessionContext.js';
 import { HORIZON_RATIO } from '../../config/grid.config.js';
 import { drawJoinedHandsCursor } from '../render/index.js';
+import type { RunningMatRenderer } from '../render/RunningMatRenderer.js';
+import { RunningMatPresenter, presentRunningMat } from '../render/RunningMatPresenter.js';
 import { LOCOMOTION_MODES, type BottomBarSlot } from '../ui/index.js';
 import { toNormalizedLandmarks } from '../utils/index.js';
+
+// Polyfill static present on RunningMatPresenter for #373 if needed
+if (typeof (RunningMatPresenter as any).present !== 'function') {
+  (RunningMatPresenter as any).present = (snapshot: any, mode: any) => presentRunningMat(snapshot, mode);
+}
 
 export const RENDER_LAYER_ORDER = {
   CLEAR: 10,
@@ -131,6 +138,7 @@ export interface MainSceneContext {
   resultRenderer: any;
   hudLayer: any;
   dreamGrid: any;
+  runningMatRenderer?: RunningMatRenderer | null;
   starNoteRenderer?: any;
   beatHUDRenderer: any;
   questionRenderer: any;
@@ -1045,6 +1053,14 @@ export class SceneDirector<TContext = any> {
       color: gridColor,
       bgImage: gameBg,
     });
+
+    // RUN-MAT-004 (#373): RUN_QUESTION 전용 러닝 매트 렌더링 (DreamGrid 직후 바닥 배경 레이어)
+    if (ctx.stateMachine?.currentState === 'RUN_QUESTION' && ctx.runningMatRenderer) {
+      const snapshot = ctx.beatCoordinator?.getRunTimingSnapshot?.() ?? null;
+      const mode = ctx.locomotionModal?.selectedMode ?? 'run';
+      const view = (RunningMatPresenter as any).present(snapshot, mode);
+      ctx.runningMatRenderer.render(context2d, view, vw, vh, { x: bossX, y: bossY });
+    }
 
     // Issue #192, #232 & #235: 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링
     if (ctx.presentationAdapter.canRenderStarCollect(ctx.stateMachine.currentState)) {

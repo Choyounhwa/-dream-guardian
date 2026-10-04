@@ -11,8 +11,8 @@
 | [RUN-MAT-001 #370](https://github.com/Choyounhwa/-dream-guardian/issues/370) | Game 실제 예약 기반 읽기 전용 run snapshot | 1 | 신규 없음 | [✔] 완료 (2026-10-04) |
 | [RUN-MAT-002 #371](https://github.com/Choyounhwa/-dream-guardian/issues/371) | 표시 패턴 데이터·순수 presenter | 2 | #370 | [✔] 완료 (2026-10-04) |
 | [RUN-MAT-003 #372](https://github.com/Choyounhwa/-dream-guardian/issues/372) | 순수 매트 renderer·시각 config | 2 | #371 | [✔] 완료 (2026-10-04) |
-| [RUN-MAT-004 #373](https://github.com/Choyounhwa/-dream-guardian/issues/373) | SceneDirector/MainSceneContext·AppBootstrap 배선 | 2 | #370~#372 | [▶ NEXT: RUN-MAT] 승인 대기 |
-| [RUN-MAT-005 #368](https://github.com/Choyounhwa/-dream-guardian/issues/368) | null-hazard HUD 오문구·중복 안내 제거 | 2 | #373 | OPEN / 구현 승인 대기 |
+| [RUN-MAT-004 #373](https://github.com/Choyounhwa/-dream-guardian/issues/373) | SceneDirector/MainSceneContext·AppBootstrap 배선 | 2 | #370~#372 | [✔] 완료 (2026-10-04) |
+| [RUN-MAT-005 #368](https://github.com/Choyounhwa/-dream-guardian/issues/368) | null-hazard HUD 오문구·중복 안내 제거 | 2 | #373 | [▶ NEXT: RUN-MAT] 승인 대기 |
 
 - 중복 조사 후 신규4개 + 기존 #368 재사용. 구 `RENDER-RUN-FLOOR-001` 최초 본문은 이슈 하단에 보존하고 바닥 그리기는 #371~#373으로 분리했다. 매트 current/next·인정 수는 RunningMatRenderer가 소유하며 BeatHUD는 진짜 hazard 동작을 보존한다.
 - 시리즈 내부 순서만 **#370 → #371 → #372 → #373 → #368**. 다음 RUN-MAT 후보는 #370이지만 현재 NEXT 승격/구현 승인은 아니다. 정확 제목/파일 경계는 `docs/03_GITHUB_ISSUES.md` 상단 및 각 이슈 참조.
