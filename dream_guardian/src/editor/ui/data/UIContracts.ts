@@ -6,6 +6,7 @@ import {
   PATH_KEYS,
   WORKOUT_BUTTON_FIELDS,
   isRejectedCategoryKey,
+  lookupScreenContract,
 } from "./UIProperties";
 
 export const SCHEMA_VERSION = "1.0.0";
@@ -88,10 +89,14 @@ export function outOfScopeOmissionMeansRestoreDefaults(): false {
 }
 
 export function isFieldAllowed(scope: string, field: string): boolean {
-  if (scope === "menu") return MENU_FIELDS.has(field);
+  if (scope === "menu") {
+    const contract = lookupScreenContract("menu", SCHEMA_VERSION, "menu");
+    if (!("requiredFields" in contract)) return false;
+    return contract.requiredFields.includes(field);
+  }
   if (scope === "menu.workoutButton") return WORKOUT_FIELDS.has(field);
   if (scope === "menu.card") return CARD_FIELDS.has(field);
-  return false;
+  return lookupScreenContract(scope, SCHEMA_VERSION, scope).registered === true && false;
 }
 
 function fail(reason: string): ContractResult {

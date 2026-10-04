@@ -22,3 +22,92 @@ const GAME_STAT_SET = new Set<string>(GAME_STAT_KEYS);
 export function isRejectedCategoryKey(key: string): boolean {
   return GAME_STAT_SET.has(key);
 }
+
+export type ScreenSupportStatus = "supported" | "locked";
+
+export type ScreenContract = {
+  registered: true;
+  screen: string;
+  version: string;
+  scope: string;
+  requiredFields: readonly string[];
+  cardFields: readonly string[];
+  workoutFields: readonly string[];
+  supportStatus: ScreenSupportStatus;
+  editEnabled: false;
+  exportEnabled: false;
+  fingerprint: string;
+  protectedRegions: ReadonlyArray<{ id: string; x: number; y: number; width: number; height: number }>;
+};
+
+export type ScreenFixture = {
+  id: string;
+  screen: string;
+  version: string;
+  closed: true;
+};
+
+const MENU_V1: ScreenContract = Object.freeze({
+  registered: true as const,
+  screen: "menu",
+  version: "1.0.0",
+  scope: "menu",
+  requiredFields: Object.freeze(["cards", ...MENU_SHARED_SIZE_FIELDS, "workoutButton"]),
+  cardFields: Object.freeze(["id", "x", "y"]),
+  workoutFields: Object.freeze([...WORKOUT_BUTTON_FIELDS]),
+  supportStatus: "supported" as const,
+  editEnabled: false as const,
+  exportEnabled: false as const,
+  fingerprint: "menu@1.0.0:cards5+shared-size+workout-rect",
+  protectedRegions: Object.freeze([
+    Object.freeze({ id: "hud-safe", x: 0, y: 0, width: 1080, height: 120 }),
+  ]),
+});
+
+const FIXTURES: readonly ScreenFixture[] = Object.freeze([
+  Object.freeze({ id: "menu-v1-default", screen: "menu", version: "1.0.0", closed: true as const }),
+]);
+
+const REGISTRY = new Map<string, ScreenContract>([[contractKey(MENU_V1), MENU_V1]]);
+
+function contractKey(input: { screen: string; version: string; scope: string }): string {
+  return `${input.screen}|${input.version}|${input.scope}`;
+}
+
+export function lookupScreenContract(screen: string, version: string, scope: string): ScreenContract | { registered: false } {
+  const found = REGISTRY.get(contractKey({ screen, version, scope }));
+  if (!found) return { registered: false };
+  return found;
+}
+
+export function registerScreenContract(input: { screen: string; version: string; scope: string }): {
+  accepted: boolean;
+  editEnabled: false;
+  exportEnabled: false;
+} {
+  const found = REGISTRY.get(contractKey(input));
+  if (!found || found.screen !== input.screen || found.version !== input.version || found.scope !== input.scope) {
+    return { accepted: false, editEnabled: false, exportEnabled: false };
+  }
+  return { accepted: true, editEnabled: false, exportEnabled: false };
+}
+
+export function listScreenFixtures(screen: string, version: string): readonly ScreenFixture[] {
+  return FIXTURES.filter((fixture) => fixture.screen === screen && fixture.version === version);
+}
+
+export function consumeScreenContract(screen: string, version: string, scope: string): {
+  registered: boolean;
+  requiredFields: readonly string[];
+  supportStatus: ScreenSupportStatus | "rejected";
+} {
+  const found = lookupScreenContract(screen, version, scope);
+  if (!("fingerprint" in found)) {
+    return { registered: false, requiredFields: [], supportStatus: "rejected" };
+  }
+  return {
+    registered: true,
+    requiredFields: found.requiredFields,
+    supportStatus: found.supportStatus,
+  };
+}

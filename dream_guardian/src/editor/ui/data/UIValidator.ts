@@ -4,6 +4,7 @@ import {
   LIMITS,
   MENU_CARD_IDS,
   SCHEMA_VERSION,
+  assertProjectContract,
 } from "./UIContracts";
 import { rejectDuplicateKeys } from "./UICanonicalJSON";
 import { inspectBaseline, matchBaseline } from "./UIBaselines";
@@ -13,6 +14,7 @@ import {
   MENU_CARD_FIELDS,
   PATH_KEYS,
   WORKOUT_BUTTON_FIELDS,
+  lookupScreenContract,
 } from "./UIProperties";
 
 export const OUT_OF_SCOPE_MEANS_RESTORE = false;
@@ -48,6 +50,22 @@ const REJECTED = new Set<string>([...GAME_STAT_KEYS, ...PATH_KEYS, ...ASSET_OVER
 
 function fail(errors: ValidationError[]): ValidationResult {
   return { ok: false, errors };
+}
+
+function assertMenuRegistryShape(input: unknown, required: readonly string[]): ValidationResult {
+  const structural = assertProjectContract(input);
+  if (!structural.ok) return fail([{ code: structural.reason, path: "$.menu" }]);
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    return fail([{ code: "invalid-project", path: "$" }]);
+  }
+  const menu = (input as { menu?: unknown }).menu;
+  if (typeof menu !== "object" || menu === null || Array.isArray(menu)) {
+    return fail([{ code: "missing-menu", path: "$.menu" }]);
+  }
+  for (const field of required) {
+    if (!(field in menu)) return fail([{ code: "missing-required-field", path: `$.menu.${field}` }]);
+  }
+  return { ok: true };
 }
 
 function join(path: string, key: string): string {
@@ -250,6 +268,39 @@ function design(value: unknown, path: string, errors: ValidationError[]) {
 function header(input: Record<string, unknown>, expected: string, errors: ValidationError[]) {
   if (input.kind !== expected) errors.push({ code: "kind-mismatch", path: "$.kind" });
   if (input.schemaVersion !== SCHEMA_VERSION) errors.push({ code: "version-mismatch", path: "$.schemaVersion" });
+}
+
+export function formFieldsForContract(
+  screen: string,
+  version: string,
+  scope: string,
+): { ok: true; required: readonly string[]; supportStatus: string; locked: readonly string[] } | { ok: false; reason: string } {
+  const contract = lookupScreenContract(screen, version, scope);
+  if (!("requiredFields" in contract)) return { ok: false, reason: "unregistered-screen-contract" };
+  return {
+    ok: true,
+    required: contract.requiredFields,
+    supportStatus: contract.supportStatus,
+    locked: ["opacity", "label"],
+  };
+}
+
+export function validateAgainstRegistry(
+  input: unknown,
+  screen: string,
+  version: string,
+  scope: string,
+): ValidationResult {
+  const contract = lookupScreenContract(screen, version, scope);
+  if (!("requiredFields" in contract) || contract.supportStatus !== "supported") {
+    return fail([{ code: "unregistered-screen-contract", path: scope }]);
+  }
+  if (screen === "menu" && scope === "menu") {
+    const structural = assertMenuRegistryShape(input, contract.requiredFields);
+    if (!structural.ok) return structural;
+    return { ok: true };
+  }
+  return fail([{ code: "unregistered-screen-contract", path: scope }]);
 }
 
 export function validateProject(input: unknown): ValidationResult {
