@@ -5,6 +5,7 @@ import {
   SCHEMA_VERSION,
 } from "./UIContracts";
 import { contentHash, rejectDuplicateKeys } from "./UICanonicalJSON";
+import { HUD_PUBLISHED, deriveHudSlot } from "./screens/UIHUDContract";
 import { SUBMENU_PUBLISHED } from "./screens/UISubmenuContract";
 
 export { LIMITS };
@@ -127,6 +128,81 @@ export function cloneSubmenuPresetForEdit(id: string): SubmenuPreset {
     throw new Error("unknown baseline");
   }
   return deepClone(SUBMENU_BASELINE.preset);
+}
+
+export type HudPreset = {
+  design: { width: number; height: number };
+  placement: "slots";
+  bounds: { x: number; y: number; w: number; h: number };
+  slots: {
+    playerHpBar: { x: number; y: number; w: number; h: number };
+    bossHpBar: { x: number; y: number; w: number; h: number };
+    combo: { x: number; y: number; w: number; h: number };
+    bossName: { x: number; y: number; w: number; h: number };
+    comboBadge: { x: number; y: number; w: number; h: number; marginRight: number };
+  };
+};
+
+const comboBadgeSlot = deriveHudSlot("comboBadge");
+
+const HUD_V1_PRESET = deepFreeze<HudPreset>({
+  design: { width: HUD_PUBLISHED.design.width, height: HUD_PUBLISHED.design.height },
+  placement: "slots",
+  bounds: {
+    x: HUD_PUBLISHED.bounds.x,
+    y: HUD_PUBLISHED.bounds.y,
+    w: HUD_PUBLISHED.bounds.w,
+    h: HUD_PUBLISHED.bounds.h,
+  },
+  slots: {
+    playerHpBar: {
+      x: HUD_PUBLISHED.playerHpBar.x,
+      y: HUD_PUBLISHED.playerHpBar.y,
+      w: HUD_PUBLISHED.playerHpBar.w,
+      h: HUD_PUBLISHED.playerHpBar.h,
+    },
+    bossHpBar: {
+      x: HUD_PUBLISHED.bossHpBar.x,
+      y: HUD_PUBLISHED.bossHpBar.y,
+      w: HUD_PUBLISHED.bossHpBar.w,
+      h: HUD_PUBLISHED.bossHpBar.h,
+    },
+    combo: {
+      x: HUD_PUBLISHED.combo.x,
+      y: HUD_PUBLISHED.combo.y,
+      w: HUD_PUBLISHED.combo.w,
+      h: HUD_PUBLISHED.combo.h,
+    },
+    bossName: {
+      x: HUD_PUBLISHED.bossName.x,
+      y: HUD_PUBLISHED.bossName.y,
+      w: HUD_PUBLISHED.bossName.w,
+      h: HUD_PUBLISHED.bossName.h,
+    },
+    comboBadge: {
+      x: comboBadgeSlot.x,
+      y: comboBadgeSlot.y,
+      w: comboBadgeSlot.width,
+      h: comboBadgeSlot.height,
+      marginRight: HUD_PUBLISHED.comboBadge.marginRight,
+    },
+  },
+});
+
+export const HUD_BASELINE = {
+  id: "hud-v1",
+  version: BASELINE_VERSION,
+  preset: HUD_V1_PRESET,
+  presetHash: contentHash(HUD_V1_PRESET),
+  approvedImageHash: APPROVED_IMAGE_HASH,
+  rendererFingerprint: "hud-slots-v1",
+} as const;
+
+export function cloneHudPresetForEdit(id: string): HudPreset {
+  if (id !== HUD_BASELINE.id) {
+    throw new Error("unknown baseline");
+  }
+  return deepClone(HUD_BASELINE.preset);
 }
 
 export function matchBaseline(input: {

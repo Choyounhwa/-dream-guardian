@@ -1,5 +1,7 @@
+import { HUD_CONTRACT } from "./screens/UIHUDContract";
 import { SUBMENU_CONTRACT } from "./screens/UISubmenuContract";
 
+export { HUD_SCREEN_ID, resolveHudProperty } from "./screens/UIHUDContract";
 export { SUBMENU_SCREEN_ID, resolveSubmenuProperty } from "./screens/UISubmenuContract";
 
 export const MENU_SHARED_SIZE_FIELDS = ["width", "height"] as const;
@@ -87,7 +89,22 @@ const SUBMENU_V1: ScreenContract = Object.freeze({
   protectedRegions: SUBMENU_CONTRACT.protectedRegions,
 });
 
-const SCREEN_CONTRACTS: readonly ScreenContract[] = Object.freeze([MENU_V1, SUBMENU_V1]);
+const HUD_V1: ScreenContract = Object.freeze({
+  registered: true as const,
+  screen: HUD_CONTRACT.screen,
+  version: HUD_CONTRACT.version,
+  scope: HUD_CONTRACT.scope,
+  requiredFields: HUD_CONTRACT.requiredFields,
+  cardFields: HUD_CONTRACT.cardFields,
+  workoutFields: HUD_CONTRACT.workoutFields,
+  supportStatus: "locked" as const,
+  editEnabled: false as const,
+  exportEnabled: false as const,
+  fingerprint: HUD_CONTRACT.fingerprint,
+  protectedRegions: HUD_CONTRACT.protectedRegions,
+});
+
+const SCREEN_CONTRACTS: readonly ScreenContract[] = Object.freeze([MENU_V1, SUBMENU_V1, HUD_V1]);
 
 function contractKey(input: { screen: string; version: string; scope: string }): string {
   return `${input.screen}|${input.version}|${input.scope}`;
