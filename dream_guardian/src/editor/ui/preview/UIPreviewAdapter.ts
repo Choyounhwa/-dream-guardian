@@ -1,6 +1,7 @@
 import { LIMITS, RENDERER_FINGERPRINT } from "../data/UIBaselines";
 
 export { LIMITS, RENDERER_FINGERPRINT };
+export { composeFrame, hitTest, composeFromRaw, CHROME_READONLY } from "./UIComposition";
 
 export const PREVIEW_CONTEXT_ID = "dream-guardian-ui-preview";
 export const GAME_CONTEXT_ID = "dream-guardian-game";
