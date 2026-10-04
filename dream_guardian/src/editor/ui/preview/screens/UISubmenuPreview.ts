@@ -9,7 +9,9 @@ import {
   resolveSubmenuProperty,
 } from "../../data/screens/UISubmenuContract";
 import { buildTransfer } from "../../data/UITransferBuilder";
-import { PREVIEW_CONTEXT_ID } from "../UIPreviewAdapter";
+
+const PREVIEW_CONTEXT_ID = "dream-guardian-ui-preview";
+const registeredScreens = new Set<string>();
 
 export const SUBMENU_PREVIEW_ID = "submenu";
 
@@ -266,8 +268,6 @@ export function roundTripSubmenu(preview: SubmenuPreview = createSubmenuPreview(
     registrationEnablesExport: false as const,
   };
 }
-
-const registeredScreens = new Set<string>();
 
 export function registerSubmenuPreview(): {
   screen: string;

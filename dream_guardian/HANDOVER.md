@@ -2,6 +2,29 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 사전 예고·입문 플레이 설계 카드 등록 (RHYTHM-INTRO, 2026-10-05)
+
+**사용자 승인 범위는 두 개선의 상세 이슈 제작만이다. 구현 미착수·별도 승인 대기이며 기존 SSOT/EDITOR/UIX NEXT는 유지한다.**
+
+| 순서 | 카드 | 책임 | src/config 수 | 상태 |
+|---|---|---|:---:|---|
+| 추적 | [#406 RHYTHM-INTRO-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/406) | 두 개선 범위·시간 예외·하위 추적 | 0 | OPEN |
+| 1 | [#409 RHYTHM-INTRO-001](https://github.com/Choyounhwa/-dream-guardian/issues/409) | Data: 무릎 교대·손7노트 | 2 | 승인 대기 |
+| 2 | [#408 RHYTHM-INTRO-002](https://github.com/Choyounhwa/-dream-guardian/issues/408) | Render: 발판 다음 두 박·복귀 안내 | 3 | #409 이후 |
+| 3 | [#407 RHYTHM-INTRO-003](https://github.com/Choyounhwa/-dream-guardian/issues/407) | Render: 별 박 기반 사전 예고 | 2 | 승인 대기 |
+| 4 | [#411 RHYTHM-INTRO-004](https://github.com/Choyounhwa/-dream-guardian/issues/411) | Core: Phase A 데이터·시계 연결 | 2 | 앞선3개 이후 |
+| 5 | [#410 RHYTHM-INTRO-005](https://github.com/Choyounhwa/-dream-guardian/issues/410) | QA: 실카메라·종단·회귀 인수 | 0 | #411 이후 |
+
+- 권장 순서 **#409 → #408 → #407 → #411 → #410**. 번호순이 아닌 작업 ID 순이며 다른 트랙 NEXT 승격이 아니다. 상세 파일/선행/테스트는 각 카드와 `docs/03_GITHUB_ISSUES.md` 상단에 있다.
+- 일반 Phase A 기본 구성을 입문형으로 한다. run에서 한 박에 왼무릎 들고 복귀, 다음 박에 오른무릎 들고 복귀; 정답 별은 왼손 Zone4/오른손 Zone5 교대7개. 최초1회 세이브 판별·자동 고급 패턴·새 메뉴 없음. 비run/회피/Phase B는 유지.
+- 발판은 시각 안내로 남고 현재+다음 두 박을 구분한다. 복귀를 별도1박으로 넣지 않아 기존 운동 N-2 요구와 모순을 피한다. 실제 감지기로 진행되는지는 #410 실카메라 필수 인수이며 임의 detector 수정 금지.
+- 별은 착지2박 전 예고, 첫 별은 분기 시점부터1박만 가능하다. 첫 경로는 표시 시작부터 정규화, 분기 지연/판정창/BPM/손 재진입/오디오 변경 없음. 기존 조기 위치 유지 수집도 유지한다.
+- #390과 Core 파일·주입 지점을 공유하므로 착수 시 최신 구현 확인. 명시 편집 팩이 있다면 기본 입문 루틴으로 덮어쓰지 않는다. 기존 RUN-MAT의 HANDOVER 완료/GitHub OPEN 차이도 임의 정리하지 않는다.
+- 등록은 추적1+실행4+QA1=6개. 각 본문 표준필드·미체크 완료조건·파일 최대3개·단일 책임·TDD·Rule12/13 명시. 기존 소스/config/tests 변경0, 테스트/build/실브라우저/서버/commit/push 없음. 기존 dirty 파일과 이 문서의 타 세션 기록 보존.
+- GitHub Project는 `read:project` scope 부족으로 미연결. 인증 변경 없음. 첫 구현 후보는 #409이며 카드 제작을 구현 승인으로 간주하지 않는다.
+
+---
+
 ## 🎵 비트 동기화 세로선 Cyan 글로우 (RENDER-GRID-006, 2026-10-04)
 
 | 카드 | 단일 책임 | src/config 수 | 선행 | 상태 |
@@ -35,6 +58,21 @@
 
 ---
 
+## 브라우저 조작 테스트용 셸 DOM (UIX-VIEW, 2026-10-05)
+
+**등록만 승인. 구현 미착수·별도 승인 대기. 기존 SSOT/EDITOR/Phase 7 NEXT는 유지한다.** #363까지는 로직만 있고 `#app` DOM이 없어 백지다.
+
+| 순서 | 카드 | 책임 | src/config 수 | 상태 |
+|---|---|---|:---:|---|
+| 추적 | [#412 UIX-VIEW-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/412) | 화면 연결 4개 추적. QA 대체 아님 | 0 | OPEN |
+| 1 | [#413 UIX-044](https://github.com/Choyounhwa/-dream-guardian/issues/413) | 셸 DOM·3패널 마운트 | 2 | `[✔]` 완료 |
+| 2 | [#414 UIX-045](https://github.com/Choyounhwa/-dream-guardian/issues/414) | 속성 폼 연결 | 2 | `[▶ NEXT]` |
+| 3 | [#415 UIX-046](https://github.com/Choyounhwa/-dream-guardian/issues/415) | 미리보기 iframe 연결 | 2 | #414 이후 |
+| 4 | [#416 UIX-047](https://github.com/Choyounhwa/-dream-guardian/issues/416) | 저장·백업·추출 버튼 | 2 | #415 이후 |
+
+- 순서 **#413 → #414 → #415 → #416**. #413 후 레이아웃 표시, #416 후 브라우저 조작 테스트. Phase 7 #364~#367은 그 다음이며 이 트랙으로 승격하지 않는다.
+- 화면 조립은 `src/editor/ui/view/` 신규 파일만. 기존 판정/IO 재구현·게임 apply·실행 버튼 금지. 이번 등록은 이슈 5개와 문서 2개만 갱신. npm test/build·구현·commit 없음.
+
 ## UI 추출 전용 에디터 별도 등록 트랙 (UIX, 2026-10-04)
 
 **2026-10-04 사용자 지시로 #336~#341 진행. #336 구현 완료(미커밋). #319 완료 및 EDITOR-SCHEMA NEXT는 유지한다.** UIE/게임 적용은 포함하지 않는다.
@@ -43,10 +81,10 @@
 |---|---|---|
 | 전체 추적 | [UIX-TRACK-001 #323](https://github.com/Choyounhwa/-dream-guardian/issues/323) | OPEN / 하위44개 체크리스트 미체크 |
 | MVP Phase0~4 | UIX-001~017 +007A, #324~341 (18개) | #324~#339 카드 테스트 통과 / #340~341 중단 |
-| 후속 Phase5 | UIX-030/031 기반 #342/#343 →018~029 #344~355 (14개) | #342~#345 구현 `[✔]` (#345 이슈 OPEN: 셸 왕복은 re-export) / [UIX-020 #346](https://github.com/Choyounhwa/-dream-guardian/issues/346) `[▶ NEXT]` |
-| 후속 Phase6 | UIX-032~039 #356~363 (8개) | 등록 완료 / 구현 미착수 |
+| 후속 Phase5 | UIX-030/031 기반 #342/#343 →018~029 #344~355 (14개) | #342~#355 구현 `[✔]` (#345 OPEN) / [UIX-032 #356](https://github.com/Choyounhwa/-dream-guardian/issues/356) `[▶ NEXT]` |
+| 후속 Phase6 | UIX-032~039 #356~363 (8개) | #356~#363 `[✔]` / 범위 종료. 다음 후보는 Phase7 #364 (미승인) |
 | 후속 Phase7 | UIX-040~043 #364~367 (4개) | 등록 완료 / 검증 실행 대기 |
-| UIX 구현 진행 | #324~#339 `[✔]` / #342 499e676 / #343 eedf80f / #344 edd463d / #345 a0e21d8 (이슈 OPEN) / [UIX-020 #346](https://github.com/Choyounhwa/-dream-guardian/issues/346) `[▶ NEXT]` | 전체 npm test는 기존 vfx-answer 1건 실패로 100% 아님. 에디터 포트 3010 |
+| UIX 구현 진행 | #342~#363 구현 `[✔]` (마지막 #363 9ad736e). #345만 이슈 OPEN | tsc는 기존 uix-014/uix-025 셸 export 불일치. 전체 npm test는 vfx-answer 1건 실패. 에디터 포트 3010 |
 
 - 합계: 실행44(MVP18+후속26)+추적1=45. 전체 ID/링크/선행은 `docs/03_GITHUB_ISSUES.md` 상단과 #323, 정확 수정 경계는 각 이슈 및 설계 §14에 기록했다.
 - 생성 전 REST 전체 목록에서 정확 ID 대조, 생성 후 제목/본문/라벨/OPEN 및 최종45개 중복0 재조회 확인. 라벨 feature39/test4/documentation2, P1-high11/P2-medium34. Project scope 부족으로 미연결, 인증 변경/권한 요청 없음.
