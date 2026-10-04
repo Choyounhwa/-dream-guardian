@@ -8,7 +8,10 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:ui-editor": "vite --config vite.ui-editor.config.ts",
+    "build:ui-editor": "tsc && vite build --config vite.ui-editor.config.ts",
+    "preview:ui-editor": "vite preview --config vite.ui-editor.config.ts"
   },
   "devDependencies": {
     "@types/node": "^22.13.9",
