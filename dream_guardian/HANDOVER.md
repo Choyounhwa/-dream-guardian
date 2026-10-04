@@ -9,8 +9,8 @@
 | 카드 | 단일 책임 | src/config 수 | 선행 | 상태 |
 |---|---|:---:|---|---|
 | [RUN-MAT-001 #370](https://github.com/Choyounhwa/-dream-guardian/issues/370) | Game 실제 예약 기반 읽기 전용 run snapshot | 1 | 신규 없음 | [✔] 완료 (2026-10-04) |
-| [RUN-MAT-002 #371](https://github.com/Choyounhwa/-dream-guardian/issues/371) | 표시 패턴 데이터·순수 presenter | 2 | #370 | [▶ NEXT: RUN-MAT] 승인 대기 |
-| [RUN-MAT-003 #372](https://github.com/Choyounhwa/-dream-guardian/issues/372) | 순수 매트 renderer·시각 config | 2 | #371 | OPEN / 구현 승인 대기 |
+| [RUN-MAT-002 #371](https://github.com/Choyounhwa/-dream-guardian/issues/371) | 표시 패턴 데이터·순수 presenter | 2 | #370 | [✔] 완료 (2026-10-04) |
+| [RUN-MAT-003 #372](https://github.com/Choyounhwa/-dream-guardian/issues/372) | 순수 매트 renderer·시각 config | 2 | #371 | [▶ NEXT: RUN-MAT] 승인 대기 |
 | [RUN-MAT-004 #373](https://github.com/Choyounhwa/-dream-guardian/issues/373) | SceneDirector/MainSceneContext·AppBootstrap 배선 | 2 | #370~#372 | OPEN / 구현 승인 대기 |
 | [RUN-MAT-005 #368](https://github.com/Choyounhwa/-dream-guardian/issues/368) | null-hazard HUD 오문구·중복 안내 제거 | 2 | #373 | OPEN / 구현 승인 대기 |
 
@@ -26,16 +26,16 @@
 
 ## UI 추출 전용 에디터 별도 등록 트랙 (UIX, 2026-10-04)
 
-**2026-10-04 구현 승인: #324~#335 순차 TDD. #324~#334 완료, 다음은 #335. #319 완료 및 EDITOR-SCHEMA NEXT는 유지한다.** UIE/게임 적용은 포함하지 않는다.
+**2026-10-04 사용자 지시로 #336~#341 진행. #336 구현 완료(미커밋). #319 완료 및 EDITOR-SCHEMA NEXT는 유지한다.** UIE/게임 적용은 포함하지 않는다.
 
 | 항목 | 등록 결과 | 상태 |
 |---|---|---|
 | 전체 추적 | [UIX-TRACK-001 #323](https://github.com/Choyounhwa/-dream-guardian/issues/323) | OPEN / 하위44개 체크리스트 미체크 |
-| MVP Phase0~4 | UIX-001~017 +007A, #324~341 (18개) | #324~#334 완료 / #335~341 미착수 |
+| MVP Phase0~4 | UIX-001~017 +007A, #324~341 (18개) | #324~#337 완료 / #338~341 진행 |
 | 후속 Phase5 | UIX-030/031 기반 #342/#343 →018~029 #344~355 (14개) | 등록 완료 / 구현 미착수 |
 | 후속 Phase6 | UIX-032~039 #356~363 (8개) | 등록 완료 / 구현 미착수 |
 | 후속 Phase7 | UIX-040~043 #364~367 (4개) | 등록 완료 / 검증 실행 대기 |
-| UIX 구현 진행 | #324~#334 `[✔]` → [UIX-011 #335](https://github.com/Choyounhwa/-dream-guardian/issues/335) `[▶ NEXT]` | #334 `4dfd26a` / 2194 pass / build 성공 |
+| UIX 구현 진행 | #324~#337 `[✔]` → [UIX-014 #338](https://github.com/Choyounhwa/-dream-guardian/issues/338) `[▶ NEXT: UIX]` | #337 미커밋 / 2252 pass. 실브라우저·IDB 미검증. 에디터 포트 3010 |
 
 - 합계: 실행44(MVP18+후속26)+추적1=45. 전체 ID/링크/선행은 `docs/03_GITHUB_ISSUES.md` 상단과 #323, 정확 수정 경계는 각 이슈 및 설계 §14에 기록했다.
 - 생성 전 REST 전체 목록에서 정확 ID 대조, 생성 후 제목/본문/라벨/OPEN 및 최종45개 중복0 재조회 확인. 라벨 feature39/test4/documentation2, P1-high11/P2-medium34. Project scope 부족으로 미연결, 인증 변경/권한 요청 없음.
