@@ -8,12 +8,12 @@
 
 | 순서 | 카드 | 책임 | src/config 수 | 상태 |
 |---|---|---|:---:|---|
-| 추적 | [#406 RHYTHM-INTRO-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/406) | 두 개선 범위·시간 예외·하위 추적 | 0 | `[✔]` 진행 중 |
+| 추적 | [#406 RHYTHM-INTRO-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/406) | 두 개선 범위·시간 예외·하위 추적 | 0 | `[✔]` 완료 |
 | 1 | [#409 RHYTHM-INTRO-001](https://github.com/Choyounhwa/-dream-guardian/issues/409) | Data: 무릎 교대·손7노트 | 2 | `[✔]` 완료 |
 | 2 | [#408 RHYTHM-INTRO-002](https://github.com/Choyounhwa/-dream-guardian/issues/408) | Render: 발판 다음 두 박·복귀 안내 | 3 | `[✔]` 완료 |
 | 3 | [#407 RHYTHM-INTRO-003](https://github.com/Choyounhwa/-dream-guardian/issues/407) | Render: 별 박 기반 사전 예고 | 2 | `[✔]` 완료 |
 | 4 | [#411 RHYTHM-INTRO-004](https://github.com/Choyounhwa/-dream-guardian/issues/411) | Core: Phase A 데이터·시계 연결 | 2 | `[✔]` 완료 |
-| 5 | [#410 RHYTHM-INTRO-005](https://github.com/Choyounhwa/-dream-guardian/issues/410) | QA: 실카메라·종단·회귀 인수 | 0 | `[▶ NEXT]` 진행 |
+| 5 | [#410 RHYTHM-INTRO-005](https://github.com/Choyounhwa/-dream-guardian/issues/410) | QA: 실카메라·종단·회귀 인수 | 0 | `[✔]` 완료 |
 
 - 권장 순서 **#409 → #408 → #407 → #411 → #410**. 번호순이 아닌 작업 ID 순이며 다른 트랙 NEXT 승격이 아니다. 상세 파일/선행/테스트는 각 카드와 `docs/03_GITHUB_ISSUES.md` 상단에 있다.
 - 일반 Phase A 기본 구성을 입문형으로 한다. run에서 한 박에 왼무릎 들고 복귀, 다음 박에 오른무릎 들고 복귀; 정답 별은 왼손 Zone4/오른손 Zone5 교대7개. 최초1회 세이브 판별·자동 고급 패턴·새 메뉴 없음. 비run/회피/Phase B는 유지.
