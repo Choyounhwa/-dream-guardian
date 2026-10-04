@@ -13,6 +13,14 @@ import {
   type PreviewFrameInstance,
   mountPreviewFrame,
 } from "./UIPreviewFrameView";
+import {
+  type FileActionInstance,
+  type Downloader,
+  type FilePicker,
+  type DirtyExportChoice,
+  bindFileActions,
+  GAME_REFLECTION_DISCLAIMER,
+} from "./UIFileActionView";
 
 export interface ShellInstance {
   readonly root: HTMLElement;
@@ -23,6 +31,7 @@ export interface ShellInstance {
   readonly statusPanel: HTMLElement;
   readonly propertyForm: PropertyFormInstance;
   readonly previewFrame: PreviewFrameInstance;
+  readonly fileActions: FileActionInstance;
   getState(): ShellState & { selectedId: (typeof MENU_CARD_IDS)[number] };
   selectElement(indexOrId: number | (typeof MENU_CARD_IDS)[number]): void;
   unmount(): void;
@@ -35,6 +44,12 @@ export interface MountShellOptions {
   onCommitProperty?: (result: CommitResult) => void;
   previewDocId?: string;
   previewOrigin?: string;
+  controller?: any;
+  downloader?: Downloader;
+  picker?: FilePicker;
+  confirm?: (summary: string) => boolean;
+  promptDirtyExport?: () => DirtyExportChoice;
+  onStatus?: (message: string) => void;
 }
 
 const TOOLBAR_ACTION_NAMES = [
@@ -82,6 +97,21 @@ export function mountShell(
   }
   toolbar.appendChild(actionsGroup);
   shellRoot.appendChild(toolbar);
+
+  // 1-1. File Actions Binding
+  const fileActions = bindFileActions(toolbar, {
+    controller: options?.controller,
+    downloader: options?.downloader,
+    picker: options?.picker,
+    confirm: options?.confirm,
+    promptDirtyExport: options?.promptDirtyExport,
+    onStatus: (msg) => {
+      state = announce(state, msg);
+      statusText.textContent = msg;
+      statusPanel.textContent = msg;
+      options?.onStatus?.(msg);
+    },
+  });
 
   // 2. 3-Panel Layout Body
   const layoutBody = doc.createElement("div");
@@ -233,6 +263,7 @@ export function mountShell(
   syncDOMSelection();
 
   const unmount = () => {
+    fileActions.unmount();
     previewFrame.unmount();
     propertyForm.unmount();
     if (keyTarget && typeof keyTarget.removeEventListener === "function") {
@@ -254,6 +285,7 @@ export function mountShell(
     statusPanel,
     propertyForm,
     previewFrame,
+    fileActions,
     getState() {
       return {
         selectedIndex: state.selectedIndex,
