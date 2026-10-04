@@ -6,6 +6,7 @@ import {
 } from "./UIContracts";
 import { contentHash, rejectDuplicateKeys } from "./UICanonicalJSON";
 import { BOTTOM_BAR_LOCK_REASONS, BOTTOM_BAR_PUBLISHED } from "./screens/UIBottomBarContract";
+import { RESULT_LOCK_REASONS, RESULT_PUBLISHED } from "./screens/UIResultContract";
 import { HUD_PUBLISHED, deriveHudSlot } from "./screens/UIHUDContract";
 import { SUBMENU_PUBLISHED } from "./screens/UISubmenuContract";
 
@@ -260,6 +261,54 @@ export function cloneBottomBarPresetForEdit(id: string): BottomBarPreset {
     throw new Error("unknown baseline");
   }
   return deepClone(BOTTOM_BAR_BASELINE.preset);
+}
+
+export type ResultPreset = {
+  design: { width: number; height: number };
+  bounds: { x: number; y: number; w: number; h: number };
+  panel: { x: number; y: number; w: number; h: number };
+  title: { x: number; y: number };
+  stars: { x: number; y: number };
+  chapter: { x: number; y: number };
+  statLineHeight: number;
+  recordWrite: { locked: true; reason: string };
+};
+
+const RESULT_V1_PRESET = deepFreeze<ResultPreset>({
+  design: { width: RESULT_PUBLISHED.design.width, height: RESULT_PUBLISHED.design.height },
+  bounds: {
+    x: RESULT_PUBLISHED.bounds.x,
+    y: RESULT_PUBLISHED.bounds.y,
+    w: RESULT_PUBLISHED.bounds.w,
+    h: RESULT_PUBLISHED.bounds.h,
+  },
+  panel: {
+    x: RESULT_PUBLISHED.panel.x,
+    y: RESULT_PUBLISHED.panel.y,
+    w: RESULT_PUBLISHED.panel.w,
+    h: RESULT_PUBLISHED.panel.h,
+  },
+  title: { x: RESULT_PUBLISHED.title.x, y: RESULT_PUBLISHED.title.y },
+  stars: { x: RESULT_PUBLISHED.stars.x, y: RESULT_PUBLISHED.stars.y },
+  chapter: { x: RESULT_PUBLISHED.chapter.x, y: RESULT_PUBLISHED.chapter.y },
+  statLineHeight: RESULT_PUBLISHED.statLineHeight,
+  recordWrite: { locked: true, reason: RESULT_LOCK_REASONS.recordWriteBlocked },
+});
+
+export const RESULT_BASELINE = {
+  id: "result-v1",
+  version: BASELINE_VERSION,
+  preset: RESULT_V1_PRESET,
+  presetHash: contentHash(RESULT_V1_PRESET),
+  approvedImageHash: APPROVED_IMAGE_HASH,
+  rendererFingerprint: "result-slots-v1",
+} as const;
+
+export function cloneResultPresetForEdit(id: string): ResultPreset {
+  if (id !== RESULT_BASELINE.id) {
+    throw new Error("unknown baseline");
+  }
+  return deepClone(RESULT_BASELINE.preset);
 }
 
 export function matchBaseline(input: {
