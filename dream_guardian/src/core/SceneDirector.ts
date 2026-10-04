@@ -15,6 +15,7 @@ import type { RunningMatRenderer } from '../render/RunningMatRenderer.js';
 import { RunningMatPresenter, presentRunningMat } from '../render/RunningMatPresenter.js';
 import { LOCOMOTION_MODES, type BottomBarSlot } from '../ui/index.js';
 import { toNormalizedLandmarks } from '../utils/index.js';
+import type { Keynote } from '../types/keynote.js';
 
 // Polyfill static present on RunningMatPresenter for #373 if needed
 if (typeof (RunningMatPresenter as any).present !== 'function') {
@@ -129,6 +130,7 @@ export interface MainSceneContext {
   beatCoordinator: any;
   starNoteScheduler: any;
   starCollectionInput: any;
+  getPhaseAStarNotes?: () => readonly Keynote[];
   bossFeverController: any;
   bossHazardController: any;
   phaseAHazardController: any;
@@ -899,9 +901,10 @@ export class SceneDirector<TContext = any> {
     ) {
       if (!ctx.starNoteScheduler.isStarted) {
         const branchClock = clock;
+        const notes = ctx.getPhaseAStarNotes ? ctx.getPhaseAStarNotes() : ctx.beatCoordinator.keynotes;
         ctx.starNoteScheduler.start(branchClock?.startElapsed ?? sampleTime, {
           roundId: ctx.beatRoundResolver.currentRoundIndex,
-          notes: ctx.beatCoordinator.keynotes,
+          notes,
           ...(branchClock
             ? { branchClock, secondsPerBeat: branchClock.secondsPerBeat }
             : { secondsPerBeat: ctx.beatCoordinator.rhythmEngine?.secondsPerBeat }),
@@ -1066,6 +1069,11 @@ export class SceneDirector<TContext = any> {
 
     // Issue #192, #232 & #235: 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링
     if (ctx.presentationAdapter.canRenderStarCollect(ctx.stateMachine.currentState)) {
+      const isPhaseAStarCollect = ctx.stateMachine?.currentState === 'STAR_COLLECT';
+      const branchClock = ctx.beatCoordinator?.getBranchClock?.() ?? null;
+      const secondsPerBeat =
+        branchClock?.secondsPerBeat ?? ctx.beatCoordinator?.rhythmEngine?.secondsPerBeat ?? 0.5;
+
       ctx.starNoteRenderer.render(context2d, vw, vh, {
         target: ctx.starNoteScheduler.currentTarget,
         targets: ctx.starNoteScheduler.activeNotes,
@@ -1073,6 +1081,14 @@ export class SceneDirector<TContext = any> {
         vanishingX: bossX,
         vanishingY: bossY,
         isPaused: ctx.engine?.paused || ctx.starNoteScheduler.isPaused,
+        ...(isPhaseAStarCollect
+          ? {
+              beatPreview: {
+                startTime: ctx.starNoteScheduler.startTime,
+                secondsPerBeat,
+              },
+            }
+          : {}),
       });
     }
 

@@ -28,6 +28,8 @@ import { StickmanRenderer } from '../skeleton/StickmanRenderer.js';
 import { QuestionBank } from '../question/QuestionBank.js';
 import { parseCSV } from '../question/CSVLoader.js';
 import { parseFitnessPatternCSV, createKeynoteSequence } from '../data/index.js';
+import { BEGINNER_PHASE_A_STAR_NOTES } from '../data/beginnerRhythmRoutine.js';
+import type { Keynote } from '../types/keynote.js';
 import type { GeneratedQuestion } from '../question/QuestionEvaluator.js';
 import { QuestionSpeech } from '../question/QuestionSpeech.js';
 import { EventBus } from './EventBus.js';
@@ -229,6 +231,7 @@ export class AppBootstrap {
   public readonly sessionContext: GameSessionContext;
   public readonly sceneDirector: SceneDirector;
   public readonly mainSceneContext: MainSceneContext;
+  public readonly getPhaseAStarNotes: () => readonly Keynote[];
   public readonly engine: GameEngine;
 
   // Actions
@@ -410,6 +413,9 @@ starNoteScheduler.setViewport(
   canvasManager.virtualHeight,
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
+
+// Issue #411 (RHYTHM-INTRO-004): Phase A 입문 7노트 단일 공급원
+const getPhaseAStarNotes = (): readonly Keynote[] => BEGINNER_PHASE_A_STAR_NOTES;
 
 // Issue #213 & #193 & #194: 전역 이벤트 버스 및 Phase B 컨트롤러 인스턴스 참조 선언
 const eventBus = new EventBus();
@@ -673,7 +679,7 @@ stateMachine.registerState('STAR_COLLECT', {
     const branchClock = beatCoordinator.getBranchClock();
     starNoteScheduler.start(branchClock?.startElapsed ?? engine.elapsedTime, {
       roundId: beatRoundResolver.currentRoundIndex,
-      notes: beatCoordinator.keynotes,
+      notes: getPhaseAStarNotes(),
       ...(branchClock
         ? { branchClock, secondsPerBeat: branchClock.secondsPerBeat }
         : { secondsPerBeat: beatCoordinator.rhythmEngine.secondsPerBeat }),
@@ -1513,6 +1519,7 @@ const mainSceneContext: MainSceneContext = {
   beatCoordinator,
   starNoteScheduler,
   starCollectionInput,
+  getPhaseAStarNotes,
   bossFeverController,
   bossHazardController,
   phaseAHazardController,
@@ -1668,6 +1675,7 @@ engine = new GameEngine({
     this.sessionContext = sessionContext;
     this.sceneDirector = sceneDirector;
     this.mainSceneContext = mainSceneContext;
+    this.getPhaseAStarNotes = getPhaseAStarNotes;
     this.engine = engine;
 
     // Actions assignment
