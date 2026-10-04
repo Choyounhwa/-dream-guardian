@@ -42,6 +42,8 @@ export const SOURCE_COMPARISON_NOT_PERFORMED = "원본 대조 미실시";
 
 export const HASHES_ARE_NOT_SIGNATURES = true;
 
+export { RESOURCE_BINARY_GUARANTEED, STYLE_TRANSFER_VERSION } from "./UIResourceCatalog";
+
 const ALLOWED_SCOPES = ["menu"] as const;
 
 const MENU_FIELDS = new Set<string>([

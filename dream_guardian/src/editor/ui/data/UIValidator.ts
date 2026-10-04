@@ -16,6 +16,7 @@ import {
   WORKOUT_BUTTON_FIELDS,
   lookupScreenContract,
 } from "./UIProperties";
+import { STYLE_TRANSFER_VERSION, lookupApprovedResource } from "./UIResourceCatalog";
 
 export const OUT_OF_SCOPE_MEANS_RESTORE = false;
 
@@ -331,6 +332,33 @@ export function validateTransfer(input: unknown): ValidationResult {
   if (typeof input.contentHash !== "string" || typeof input.artifactHash !== "string") {
     errors.push({ code: "incomplete-scope", path: "$.contentHash" });
   }
+  return errors.length === 0 ? { ok: true } : fail(errors);
+}
+
+const UNSAFE_PATH = /^(https?:|blob:|data:|upload:)|css/i;
+
+export function validateStyleTransfer(input: unknown): ValidationResult {
+  const errors: ValidationError[] = [];
+  limits(input, errors);
+  if (!isRecord(input)) return fail(errors.concat({ code: "kind-mismatch", path: "$" }));
+  if (input.styleVersion !== STYLE_TRANSFER_VERSION) {
+    errors.push({ code: "version-mismatch", path: "$.styleVersion" });
+  }
+  if (!Array.isArray(input.resources)) {
+    errors.push({ code: "unknown-resource", path: "$.resources" });
+    return fail(errors);
+  }
+  input.resources.forEach((item, index) => {
+    const path = join("$.resources", String(index));
+    if (!isRecord(item) || typeof item.id !== "string" || typeof item.path !== "string") {
+      errors.push({ code: "unknown-resource", path });
+      return;
+    }
+    const approved = lookupApprovedResource(item.id);
+    if (!approved || item.path !== approved.path || item.hash !== approved.hash || UNSAFE_PATH.test(item.path)) {
+      errors.push({ code: "unknown-resource", path });
+    }
+  });
   return errors.length === 0 ? { ok: true } : fail(errors);
 }
 
