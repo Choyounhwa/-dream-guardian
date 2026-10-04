@@ -1,4 +1,6 @@
 import { MENU_CARD_IDS } from "./data/UIContracts";
+export { roundTripPause } from "./preview/screens/UIPausePreview";
+export type { PausePreview } from "./preview/screens/UIPausePreview";
 export { roundTripSubmenu } from "./preview/screens/UISubmenuPreview";
 export type { SubmenuPreview } from "./preview/screens/UISubmenuPreview";
 
