@@ -1,8 +1,14 @@
 import { MENU_CARD_IDS } from "../data/UIContracts";
 import {
   type ShellState,
+  announce,
   selectElementByKey,
 } from "../UIEditorShell";
+import type { CommitResult } from "../UIPropertyPanel";
+import {
+  type PropertyFormInstance,
+  mountPropertyForm,
+} from "./UIPropertyFormView";
 
 export interface ShellInstance {
   readonly root: HTMLElement;
@@ -11,6 +17,7 @@ export interface ShellInstance {
   readonly previewPanel: HTMLElement;
   readonly propertiesPanel: HTMLElement;
   readonly statusPanel: HTMLElement;
+  readonly propertyForm: PropertyFormInstance;
   getState(): ShellState & { selectedId: (typeof MENU_CARD_IDS)[number] };
   selectElement(indexOrId: number | (typeof MENU_CARD_IDS)[number]): void;
   unmount(): void;
@@ -20,6 +27,7 @@ export interface ShellInstance {
 export interface MountShellOptions {
   keyTarget?: EventTarget;
   initialIndex?: number;
+  onCommitProperty?: (result: CommitResult) => void;
 }
 
 const TOOLBAR_ACTION_NAMES = [
@@ -124,10 +132,19 @@ export function mountShell(
   propertiesTitle.textContent = "요소 속성";
   propertiesPanel.appendChild(propertiesTitle);
 
-  const propertiesPlaceholder = doc.createElement("div");
-  propertiesPlaceholder.className = "properties-placeholder";
-  propertiesPlaceholder.textContent = "속성 폼 영역 (UIX-045 연결 예정)";
-  propertiesPanel.appendChild(propertiesPlaceholder);
+  const initialId = MENU_CARD_IDS[state.selectedIndex];
+  const propertyForm = mountPropertyForm(propertiesPanel, {
+    initialId,
+    onCommit: (result) => {
+      if (result.command) {
+        state = announce(
+          state,
+          `속성 변경: ${result.command.target}.${result.command.field} = ${result.command.value}`
+        );
+      }
+      options?.onCommitProperty?.(result);
+    },
+  });
   layoutBody.appendChild(propertiesPanel);
 
   shellRoot.appendChild(layoutBody);
@@ -161,6 +178,7 @@ export function mountShell(
     const msg = `[선택: ${currentId}] 검증 완료 · 게임에는 반영되지 않음`;
     statusText.textContent = msg;
     statusPanel.textContent = msg;
+    propertyForm.setSelectedId(currentId);
   }
 
   function selectElement(indexOrId: number | (typeof MENU_CARD_IDS)[number]): void {
@@ -205,6 +223,7 @@ export function mountShell(
   syncDOMSelection();
 
   const unmount = () => {
+    propertyForm.unmount();
     if (keyTarget && typeof keyTarget.removeEventListener === "function") {
       keyTarget.removeEventListener("keydown", onKeyDown);
     }
@@ -222,6 +241,7 @@ export function mountShell(
     previewPanel,
     propertiesPanel,
     statusPanel,
+    propertyForm,
     getState() {
       return {
         selectedIndex: state.selectedIndex,
