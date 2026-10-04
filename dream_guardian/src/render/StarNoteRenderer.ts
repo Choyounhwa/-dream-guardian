@@ -17,7 +17,13 @@ import {
   type StarTimingWindows,
   type StarNoteVisualConfig,
 } from '../../config/beat-motion.config.js';
+import {
+  DEFAULT_STAR_PREVIEW_CONFIG,
+  type StarBeatPreviewOptions,
+} from '../../config/star-preview.config.js';
 import { projectAlongRail } from './GridProjection.js';
+
+export type { StarBeatPreviewOptions };
 
 export interface StarNoteRenderOptions {
   /** 노트 비행 소요 시간 (초, 기본값 0.5s = 1박) */
@@ -54,6 +60,7 @@ export interface StarNoteRenderState {
   vanishingY: number;
   zones?: readonly FitnessZone[];
   isPaused?: boolean;
+  beatPreview?: StarBeatPreviewOptions;
 }
 
 export class StarNoteRenderer {
@@ -111,6 +118,7 @@ export class StarNoteRenderer {
       landingTime?: number;
       resolved?: boolean;
       isCollected?: boolean;
+      beatPreview?: StarBeatPreviewOptions;
     },
     elapsedTime: number,
     vx: number,
@@ -118,6 +126,7 @@ export class StarNoteRenderer {
     vw: number,
     vh: number,
     zones: readonly FitnessZone[] = DEFAULT_FITNESS_ZONES,
+    beatPreview?: StarBeatPreviewOptions,
   ): StarNotePositionResult {
     // 1. 이미 수집/판정 완료된 노트(resolved / isCollected)는 비행 중단
     if (target.resolved || target.isCollected) {
@@ -131,21 +140,66 @@ export class StarNoteRenderer {
     }
 
     const landingTime = target.landingTime ?? 0;
-    const timeRemaining = landingTime - elapsedTime;
-    const travelDuration = this._options.travelDuration;
+    const preview = beatPreview ?? target.beatPreview;
 
-    // 비행 진행도: 0.0(소실점 출발) ~ 1.0(목표 존 착지)
-    const progress = 1.0 - timeRemaining / travelDuration;
+    const isPreviewValid =
+      preview !== undefined &&
+      preview !== null &&
+      typeof preview.startTime === 'number' &&
+      Number.isFinite(preview.startTime) &&
+      typeof preview.secondsPerBeat === 'number' &&
+      Number.isFinite(preview.secondsPerBeat) &&
+      preview.secondsPerBeat >= DEFAULT_STAR_PREVIEW_CONFIG.minSecondsPerBeat;
 
-    // 출현 이전(progress < 0) 또는 판정 만료 이후(lateWindow 초과) 상태 판정
-    if (progress < 0 || elapsedTime > landingTime + this._options.lateWindow) {
-      return {
-        x: vx,
-        y: vy,
-        scale: this._options.minScale,
-        progress,
-        inFlight: false,
-      };
+    let progress: number;
+
+    if (isPreviewValid) {
+      const leadBeats =
+        preview.leadBeats !== undefined &&
+        Number.isFinite(preview.leadBeats) &&
+        preview.leadBeats > 0
+          ? preview.leadBeats
+          : DEFAULT_STAR_PREVIEW_CONFIG.leadBeats;
+
+      const displayStart = Math.max(
+        preview.startTime,
+        landingTime - leadBeats * preview.secondsPerBeat,
+      );
+      const duration = landingTime - displayStart;
+
+      if (duration <= 0) {
+        progress = 1.0;
+      } else {
+        progress = (elapsedTime - displayStart) / duration;
+      }
+
+      // 출현 이전(displayStart 미만) 또는 판정 만료 이후(lateWindow 초과) 숨김
+      if (elapsedTime < displayStart || elapsedTime > landingTime + this._options.lateWindow) {
+        return {
+          x: vx,
+          y: vy,
+          scale: this._options.minScale,
+          progress,
+          inFlight: false,
+        };
+      }
+    } else {
+      const timeRemaining = landingTime - elapsedTime;
+      const travelDuration = this._options.travelDuration;
+
+      // 비행 진행도: 0.0(소실점 출발) ~ 1.0(목표 존 착지)
+      progress = 1.0 - timeRemaining / travelDuration;
+
+      // 출현 이전(progress < 0) 또는 판정 만료 이후(lateWindow 초과) 상태 판정
+      if (progress < 0 || elapsedTime > landingTime + this._options.lateWindow) {
+        return {
+          x: vx,
+          y: vy,
+          scale: this._options.minScale,
+          progress,
+          inFlight: false,
+        };
+      }
     }
 
     const zone = zones.find((z) => z.id === target.zoneId);
@@ -187,9 +241,14 @@ export class StarNoteRenderer {
     );
     if (targets.length === 0) return;
 
+    // 렌더 순서: 여러 타겟이 렌더링될 때 가까운 착지(landingTime이 더 빠른 노트)를 우선하여 시인성 확보
+    const sortedTargets = targets.length > 1
+      ? [...targets].sort((a, b) => (a.landingTime ?? 0) - (b.landingTime ?? 0))
+      : targets;
+
     const zones = state.zones ?? DEFAULT_FITNESS_ZONES;
 
-    for (const target of targets) {
+    for (const target of sortedTargets) {
       this._renderSingleTarget(
         ctx,
         vw,
@@ -199,6 +258,7 @@ export class StarNoteRenderer {
         state.vanishingX,
         state.vanishingY,
         zones,
+        state.beatPreview,
       );
     }
   }
@@ -212,6 +272,7 @@ export class StarNoteRenderer {
     vanishingX: number,
     vanishingY: number,
     zones: readonly FitnessZone[],
+    beatPreview?: StarBeatPreviewOptions,
   ): void {
     const pos = this.computeNotePosition(
       target,
@@ -221,6 +282,7 @@ export class StarNoteRenderer {
       vw,
       vh,
       zones,
+      beatPreview,
     );
 
     if (!pos.inFlight) return;

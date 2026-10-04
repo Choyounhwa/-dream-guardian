@@ -15,6 +15,10 @@ import {
   DEFAULT_STAR_NOTE_VISUAL_CONFIG,
   type StarNoteVisualConfig,
 } from '../../config/beat-motion.config.js';
+import {
+  DEFAULT_STAR_PREVIEW_CONFIG,
+  type StarBeatPreviewOptions,
+} from '../../config/star-preview.config.js';
 
 function createMockContext(): CanvasRenderingContext2D {
   return {
@@ -546,6 +550,370 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
       });
 
       expect(ctx.strokeStyle).toContain('FF0055');
+    });
+  });
+
+  describe('9. 2박 사전 비행 및 첫 노트 1박 예외 렌더 계약 (Issue #407 - RHYTHM-INTRO-003)', () => {
+    const t0 = 10.0;
+    const secondsPerBeat = 0.5; // 120 BPM
+    const previewOption: StarBeatPreviewOptions = {
+      startTime: t0,
+      secondsPerBeat,
+      leadBeats: 2,
+    };
+
+    const target1: ActiveStarTarget = {
+      patternId: 'p1',
+      part: 'leftHand',
+      zoneId: 4,
+      beatIndex: 1,
+      landingTime: t0 + 0.5, // 10.5 (1st star)
+    };
+
+    const target2: ActiveStarTarget = {
+      patternId: 'p1',
+      part: 'rightHand',
+      zoneId: 5,
+      beatIndex: 2,
+      landingTime: t0 + 1.0, // 11.0 (2nd star)
+    };
+
+    const target3: ActiveStarTarget = {
+      patternId: 'p1',
+      part: 'head',
+      zoneId: 2,
+      beatIndex: 3,
+      landingTime: t0 + 1.5, // 11.5 (3rd star)
+    };
+
+    it('기본 설정 DEFAULT_STAR_PREVIEW_CONFIG 값은 leadBeats=2, minSecondsPerBeat=0.05 이다', () => {
+      expect(DEFAULT_STAR_PREVIEW_CONFIG.leadBeats).toBe(2);
+      expect(DEFAULT_STAR_PREVIEW_CONFIG.minSecondsPerBeat).toBe(0.05);
+    });
+
+    describe('첫 번째 별 (착지 t0 + 0.5s): 1박 예외 처리 및 소실점 정규화', () => {
+      it('elapsedTime < t0 (10.0) 일 때 inFlight=false로 보이지 않는다', () => {
+        const pos = renderer.computeNotePosition(
+          target1,
+          9.9,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          previewOption,
+        );
+        expect(pos.inFlight).toBe(false);
+      });
+
+      it('분기 시작 시점(elapsedTime = 10.0)에 정확히 소실점(progress = 0.0)에서 출발한다 (중간 생성 방지)', () => {
+        const pos = renderer.computeNotePosition(
+          target1,
+          10.0,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          previewOption,
+        );
+        expect(pos.inFlight).toBe(true);
+        expect(pos.progress).toBeCloseTo(0.0, 4);
+        expect(pos.x).toBeCloseTo(vx, 2);
+        expect(pos.y).toBeCloseTo(vy, 2);
+        expect(pos.scale).toBeCloseTo(0.3, 2);
+      });
+
+      it('elapsedTime = 10.25 (비행 절반)일 때 progress = 0.5 이다', () => {
+        const pos = renderer.computeNotePosition(
+          target1,
+          10.25,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          previewOption,
+        );
+        expect(pos.inFlight).toBe(true);
+        expect(pos.progress).toBeCloseTo(0.5, 4);
+      });
+
+      it('착지 시점(elapsedTime = 10.5)일 때 progress = 1.0으로 목표 존 중심에 도달한다', () => {
+        const zone4 = DEFAULT_FITNESS_ZONES.find((z) => z.id === 4)!;
+        const zone4CenterX = (zone4.x + zone4.width * 0.5) * vw;
+        const zone4CenterY = (zone4.y + zone4.height * 0.5) * vh;
+
+        const pos = renderer.computeNotePosition(
+          target1,
+          10.5,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          previewOption,
+        );
+        expect(pos.inFlight).toBe(true);
+        expect(pos.progress).toBeCloseTo(1.0, 4);
+        expect(Math.abs(pos.x - zone4CenterX)).toBeLessThan(1.0);
+        expect(Math.abs(pos.y - zone4CenterY)).toBeLessThan(1.0);
+      });
+    });
+
+    describe('두 번째 별 (착지 t0 + 1.0s): 2박 예고 (지속 시간 1.0s)', () => {
+      it('displayStart는 max(10.0, 11.0 - 2 * 0.5) = 10.0 이며, 10.0 이전에는 inFlight=false', () => {
+        const before = renderer.computeNotePosition(
+          target2,
+          9.95,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          previewOption,
+        );
+        expect(before.inFlight).toBe(false);
+
+        const start = renderer.computeNotePosition(
+          target2,
+          10.0,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          previewOption,
+        );
+        expect(start.inFlight).toBe(true);
+        expect(start.progress).toBeCloseTo(0.0, 4);
+      });
+
+      it('elapsedTime = 10.5 (1박 경과)일 때 progress = 0.5 이다', () => {
+        const mid = renderer.computeNotePosition(
+          target2,
+          10.5,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          previewOption,
+        );
+        expect(mid.inFlight).toBe(true);
+        expect(mid.progress).toBeCloseTo(0.5, 4);
+      });
+
+      it('착지 시점(elapsedTime = 11.0)에 progress = 1.0 에 도달한다', () => {
+        const end = renderer.computeNotePosition(
+          target2,
+          11.0,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          previewOption,
+        );
+        expect(end.inFlight).toBe(true);
+        expect(end.progress).toBeCloseTo(1.0, 4);
+      });
+    });
+
+    describe('세 번째 별 (착지 t0 + 1.5s): 2박 예고 (displayStart = t0 + 0.5)', () => {
+      it('elapsedTime < 10.5 일 때는 아직 나타나지 않고 inFlight=false 이다', () => {
+        const pos = renderer.computeNotePosition(
+          target3,
+          10.4,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          previewOption,
+        );
+        expect(pos.inFlight).toBe(false);
+      });
+
+      it('elapsedTime = 10.5 에서 소실점(progress = 0.0)으로 출현한다', () => {
+        const pos = renderer.computeNotePosition(
+          target3,
+          10.5,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          previewOption,
+        );
+        expect(pos.inFlight).toBe(true);
+        expect(pos.progress).toBeCloseTo(0.0, 4);
+      });
+
+      it('elapsedTime = 11.0 일 때 progress = 0.5, 착지 시점(11.5)에 progress = 1.0 이다', () => {
+        const mid = renderer.computeNotePosition(
+          target3,
+          11.0,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          previewOption,
+        );
+        expect(mid.progress).toBeCloseTo(0.5, 4);
+
+        const end = renderer.computeNotePosition(
+          target3,
+          11.5,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          previewOption,
+        );
+        expect(end.progress).toBeCloseTo(1.0, 4);
+      });
+    });
+
+    describe('유효하지 않은 preview 데이터 fallback 처리', () => {
+      it('secondsPerBeat <= 0 또는 minSecondsPerBeat(0.05) 미만일 때 기존 travelDuration(0.5s)으로 fallback한다', () => {
+        const invalidPreview: StarBeatPreviewOptions = {
+          startTime: 10.0,
+          secondsPerBeat: 0,
+        };
+        // travelDuration은 0.5s이므로 landingTime 10.5에 대해 10.0 이전엔 inFlight=false, 10.0에서 progress=0.0
+        const pos = renderer.computeNotePosition(
+          target1,
+          10.0,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          invalidPreview,
+        );
+        expect(pos.inFlight).toBe(true);
+        expect(pos.progress).toBeCloseTo(0.0, 4);
+
+        // secondsPerBeat = 0.01 (< 0.05) fallback
+        const tooSmallPreview: StarBeatPreviewOptions = {
+          startTime: 10.0,
+          secondsPerBeat: 0.01,
+        };
+        const pos2 = renderer.computeNotePosition(
+          target1,
+          10.0,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          tooSmallPreview,
+        );
+        expect(pos2.inFlight).toBe(true);
+        expect(pos2.progress).toBeCloseTo(0.0, 4);
+      });
+
+      it('secondsPerBeat 또는 startTime이 NaN / Infinity 일 때도 안전하게 fallback한다', () => {
+        const nanPreview: StarBeatPreviewOptions = {
+          startTime: NaN,
+          secondsPerBeat: 0.5,
+        };
+        const pos = renderer.computeNotePosition(
+          target1,
+          10.25,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          nanPreview,
+        );
+        // fallback to travelDuration=0.5 -> at 10.25, progress = (10.25 - 10.0) / 0.5 = 0.5
+        expect(pos.inFlight).toBe(true);
+        expect(pos.progress).toBeCloseTo(0.5, 4);
+      });
+
+      it('beatPreview가 undefined인 경우 기존 0.5s travelDuration 동작을 100% 유지한다', () => {
+        const pos = renderer.computeNotePosition(
+          target1,
+          10.0,
+          vx,
+          vy,
+          vw,
+          vh,
+          DEFAULT_FITNESS_ZONES,
+          undefined,
+        );
+        expect(pos.inFlight).toBe(true);
+        expect(pos.progress).toBeCloseTo(0.0, 4);
+      });
+    });
+
+    describe('render() 통합 및 렌더 우선순위 정렬', () => {
+      it('state.beatPreview가 제공되면 render 시 반영되어 출현 전 노트는 그려지지 않는다', () => {
+        const renderState: StarNoteRenderState = {
+          target: target3, // landingTime = 11.5, displayStart = 10.5
+          elapsedTime: 10.2, // 아직 출현 전
+          vanishingX: vx,
+          vanishingY: vy,
+          beatPreview: previewOption,
+        };
+
+        renderer.render(ctx, vw, vh, renderState);
+        expect(ctx.save).not.toHaveBeenCalled();
+      });
+
+      it('출현 후 비행 중인 상태에서는 정상적으로 canvas에 렌더링된다', () => {
+        const renderState: StarNoteRenderState = {
+          target: target1,
+          elapsedTime: 10.25,
+          vanishingX: vx,
+          vanishingY: vy,
+          beatPreview: previewOption,
+        };
+
+        renderer.render(ctx, vw, vh, renderState);
+        expect(ctx.save).toHaveBeenCalled();
+        expect(ctx.restore).toHaveBeenCalled();
+      });
+
+      it('여러 타겟이 전달되었을 때 landingTime이 더 이른 노트(가까운 착지)를 우선순위에 두고 렌더링한다', () => {
+        const renderSpy = vi.spyOn(renderer as any, '_renderSingleTarget');
+
+        const renderState: StarNoteRenderState = {
+          targets: [target3, target1, target2], // 무작위 순서: 11.5, 10.5, 11.0
+          elapsedTime: 10.6,
+          vanishingX: vx,
+          vanishingY: vy,
+          beatPreview: previewOption,
+        };
+
+        renderer.render(ctx, vw, vh, renderState);
+
+        expect(renderSpy).toHaveBeenCalledTimes(3);
+        // 착지 시각 순서대로 정렬되어 호출되었는지 검증: target1(10.5) -> target2(11.0) -> target3(11.5)
+        expect(renderSpy.mock.calls[0][3]).toBe(target1);
+        expect(renderSpy.mock.calls[1][3]).toBe(target2);
+        expect(renderSpy.mock.calls[2][3]).toBe(target3);
+
+        renderSpy.mockRestore();
+      });
+
+      it('lateWindow 초과 시 inFlight=false 가 되어 렌더링되지 않는다', () => {
+        const renderState: StarNoteRenderState = {
+          target: target1, // landingTime = 10.5, lateWindow = 0.40 -> 10.9 초과 시 만료
+          elapsedTime: 10.95,
+          vanishingX: vx,
+          vanishingY: vy,
+          beatPreview: previewOption,
+        };
+
+        renderer.render(ctx, vw, vh, renderState);
+        expect(ctx.save).not.toHaveBeenCalled();
+      });
     });
   });
 });
