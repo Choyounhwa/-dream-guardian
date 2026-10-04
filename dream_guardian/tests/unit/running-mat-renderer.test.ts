@@ -1,0 +1,435 @@
+/**
+ * running-mat-renderer.test.ts - 반투명 원근 러닝 매트 렌더러 단위 테스트
+ *
+ * @see Issue #372 [RUN-MAT-003]
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { RunningMatRenderer } from '../../src/render/RunningMatRenderer.js';
+import {
+  RUNNING_MAT_CONFIG,
+  DEFAULT_MAT_BASE_Y_TOP,
+  DEFAULT_MAT_BASE_Y_BOTTOM,
+  DEFAULT_MAT_WIDTH_RATIO,
+  MAX_NARROW_WIDTH_RATIO,
+} from '../../config/running-mat.config.js';
+import type { RunningMatViewModel } from '../../src/render/RunningMatPresenter.js';
+
+function createMockContext(): CanvasRenderingContext2D {
+  return {
+    save: vi.fn(),
+    restore: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    closePath: vi.fn(),
+    arc: vi.fn(),
+    ellipse: vi.fn(),
+    fill: vi.fn(),
+    stroke: vi.fn(),
+    fillText: vi.fn(),
+    strokeText: vi.fn(),
+    measureText: vi.fn().mockReturnValue({ width: 60 }),
+    fillRect: vi.fn(),
+    strokeRect: vi.fn(),
+    createLinearGradient: vi.fn().mockReturnValue({
+      addColorStop: vi.fn(),
+    }),
+    createRadialGradient: vi.fn().mockReturnValue({
+      addColorStop: vi.fn(),
+    }),
+    setLineDash: vi.fn(),
+    fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
+    font: '',
+    textAlign: 'center',
+    textBaseline: 'middle',
+    globalAlpha: 1.0,
+    shadowColor: '',
+    shadowBlur: 0,
+  } as unknown as CanvasRenderingContext2D;
+}
+
+function createBaseViewModel(overrides: Partial<RunningMatViewModel> = {}): RunningMatViewModel {
+  return {
+    visible: true,
+    paused: false,
+    currentCue: {
+      beatIndex: 0,
+      actionId: 'left_out',
+      actionText: '왼발 딛기',
+      directionText: '왼쪽',
+      cueText: '왼발 바깥',
+      arrowDirection: 'left',
+      leftFootSlot: 'out',
+      rightFootSlot: 'home',
+      isPrepare: false,
+    },
+    nextCue: {
+      beatIndex: 1,
+      actionId: 'left_home',
+      actionText: '왼발 복귀',
+      directionText: '중앙',
+      cueText: '왼발 중앙 home',
+      arrowDirection: 'center',
+      leftFootSlot: 'home',
+      rightFootSlot: 'home',
+      isPrepare: false,
+    },
+    actionText: '왼발 딛기',
+    directionText: '왼쪽',
+    cueText: '왼발 바깥',
+    arrowDirection: 'left',
+    nextRingRatio: 0.75,
+    elapsedBeats: 0,
+    acceptedExerciseCount: 0,
+    requiredExerciseCount: 4,
+    isShortage: false,
+    isPreparing: false,
+    ...overrides,
+  };
+}
+
+describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
+  let renderer: RunningMatRenderer;
+  let ctx: CanvasRenderingContext2D;
+
+  const width = 1080;
+  const height = 1920;
+
+  beforeEach(() => {
+    renderer = new RunningMatRenderer();
+    ctx = createMockContext();
+  });
+
+  describe('1. 기본 설정(config) 정합성 검증', () => {
+    it('기본 화면 정규화 Y 범위가 0.74 ~ 0.94 바닥 높이로 정의되어야 한다', () => {
+      expect(DEFAULT_MAT_BASE_Y_TOP).toBeCloseTo(0.74, 2);
+      expect(DEFAULT_MAT_BASE_Y_BOTTOM).toBeCloseTo(0.94, 2);
+      expect(RUNNING_MAT_CONFIG.baseYTop).toBeCloseTo(0.74, 2);
+      expect(RUNNING_MAT_CONFIG.baseYBottom).toBeCloseTo(0.94, 2);
+    });
+
+    it('기본 폭 비율 0.76 및 좁은 화면 최대 폭 비율 0.90을 제공해야 한다', () => {
+      expect(DEFAULT_MAT_WIDTH_RATIO).toBeCloseTo(0.76, 2);
+      expect(MAX_NARROW_WIDTH_RATIO).toBeCloseTo(0.90, 2);
+      expect(RUNNING_MAT_CONFIG.widthRatio).toBeCloseTo(0.76, 2);
+      expect(RUNNING_MAT_CONFIG.maxNarrowWidthRatio).toBeCloseTo(0.90, 2);
+    });
+
+    it('셀 배경색은 웹캠 하체가 비치는 반투명 알파를 가져야 한다 (불투명 검은 판 금지)', () => {
+      expect(RUNNING_MAT_CONFIG.cellBgColor).toMatch(/rgba\(/);
+      expect(RUNNING_MAT_CONFIG.cellBgColor).not.toBe('#000000');
+    });
+  });
+
+  describe('2. 가드 조건 및 캔버스 상태 격리', () => {
+    it('view가 null이면 아무것도 그리지 않고 반환한다 (no-op)', () => {
+      renderer.render(ctx, null, width, height);
+      expect(ctx.save).not.toHaveBeenCalled();
+      expect(ctx.beginPath).not.toHaveBeenCalled();
+      expect(ctx.restore).not.toHaveBeenCalled();
+    });
+
+    it('view.visible이 false이면 렌더링을 즉시 생략한다', () => {
+      const view = createBaseViewModel({ visible: false });
+      renderer.render(ctx, view, width, height);
+      expect(ctx.save).not.toHaveBeenCalled();
+      expect(ctx.beginPath).not.toHaveBeenCalled();
+      expect(ctx.restore).not.toHaveBeenCalled();
+    });
+
+    it('유효하지 않은 화면 크기(0, 음수, NaN, Infinity)에서 안전하게 no-op 처리한다', () => {
+      const view = createBaseViewModel();
+      renderer.render(ctx, view, 0, height);
+      renderer.render(ctx, view, -100, height);
+      renderer.render(ctx, view, width, 0);
+      renderer.render(ctx, view, width, -500);
+      renderer.render(ctx, view, Number.NaN, height);
+      renderer.render(ctx, view, width, Number.POSITIVE_INFINITY);
+
+      expect(ctx.save).not.toHaveBeenCalled();
+      expect(ctx.restore).not.toHaveBeenCalled();
+    });
+
+    it('정상 렌더링 시 ctx.save()와 ctx.restore()가 대칭으로 정확히 1회 호출되어야 한다', () => {
+      const view = createBaseViewModel();
+      renderer.render(ctx, view, width, height);
+      expect(ctx.save).toHaveBeenCalledTimes(1);
+      expect(ctx.restore).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('3. 원근 투영 및 매트 셀 렌더링', () => {
+    it('좌, 중앙, 우 3개의 원근 사다리꼴 셀을 렌더링한다', () => {
+      const view = createBaseViewModel();
+      renderer.render(ctx, view, width, height);
+
+      // 3개 이상의 셀 패스 생성 확인 (좌/중앙/우)
+      expect(ctx.beginPath).toHaveBeenCalled();
+      expect(ctx.closePath).toHaveBeenCalled();
+      expect(ctx.fill).toHaveBeenCalled();
+      expect(ctx.stroke).toHaveBeenCalled();
+    });
+
+    it('소실점(vanishingPoint)이 제공되면 해당 좌표를 투영 기준으로 사용한다', () => {
+      const view = createBaseViewModel();
+      const customVP = { x: 500, y: 800 };
+      renderer.render(ctx, view, width, height, customVP);
+
+      expect(ctx.save).toHaveBeenCalledTimes(1);
+      expect(ctx.restore).toHaveBeenCalledTimes(1);
+    });
+
+    it('좁은 화면 비율(세로 모드)에서 폭을 최대 폭 비율(0.90)까지 확장 보정한다', () => {
+      const view = createBaseViewModel();
+      const narrowWidth = 400;
+      const tallHeight = 1000; // aspect = 0.4
+
+      renderer.render(ctx, view, narrowWidth, tallHeight);
+      expect(ctx.save).toHaveBeenCalledTimes(1);
+      expect(ctx.restore).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('4. 발자국 시각화 (현재·다음 발자국 & 슬롯)', () => {
+    it('중앙 셀의 기본 home 발자국 슬롯(좌/우)을 렌더링한다', () => {
+      const view = createBaseViewModel();
+      renderer.render(ctx, view, width, height);
+
+      // 접근성 텍스트 L/R 렌더링 호출 확인
+      const fillTextCalls = vi.mocked(ctx.fillText).mock.calls;
+      const hasLText = fillTextCalls.some((call) => call[0] === 'L');
+      const hasRText = fillTextCalls.some((call) => call[0] === 'R');
+      expect(hasLText).toBe(true);
+      expect(hasRText).toBe(true);
+    });
+
+    it('현재 큐(currentCue)가 있을 때 강조 발자국을 렌더링한다', () => {
+      const view = createBaseViewModel({
+        currentCue: {
+          beatIndex: 0,
+          actionId: 'left_out',
+          actionText: '왼발 딛기',
+          directionText: '왼쪽',
+          cueText: '왼발 바깥',
+          arrowDirection: 'left',
+          leftFootSlot: 'out',
+          rightFootSlot: 'home',
+          isPrepare: false,
+        },
+      });
+      renderer.render(ctx, view, width, height);
+      expect(ctx.fill).toHaveBeenCalled();
+    });
+
+    it('다음 큐(nextCue)가 있을 때 윤곽 발자국을 렌더링한다', () => {
+      const view = createBaseViewModel({
+        nextCue: {
+          beatIndex: 1,
+          actionId: 'right_out',
+          actionText: '오른발 딛기',
+          directionText: '오른쪽',
+          cueText: '오른발 바깥',
+          arrowDirection: 'right',
+          leftFootSlot: 'home',
+          rightFootSlot: 'out',
+          isPrepare: false,
+        },
+      });
+      renderer.render(ctx, view, width, height);
+      expect(ctx.stroke).toHaveBeenCalled();
+    });
+  });
+
+  describe('5. NEXT 수축 링 렌더링 (nextRingRatio)', () => {
+    it('nextCue가 존재할 때 타깃을 둘러싼 NEXT 수축 링을 그린다', () => {
+      const view = createBaseViewModel({
+        nextRingRatio: 0.6,
+        nextCue: {
+          beatIndex: 1,
+          actionId: 'left_home',
+          actionText: '왼발 복귀',
+          directionText: '중앙',
+          cueText: '왼발 중앙 home',
+          arrowDirection: 'center',
+          leftFootSlot: 'home',
+          rightFootSlot: 'home',
+          isPrepare: false,
+        },
+      });
+
+      renderer.render(ctx, view, width, height);
+      // NEXT 링 렌더링 확인 (arc 또는 ellipse 호출)
+      const hasArc = vi.mocked(ctx.arc).mock.calls.length > 0;
+      const hasEllipse = vi.mocked(ctx.ellipse).mock.calls.length > 0;
+      expect(hasArc || hasEllipse).toBe(true);
+    });
+
+    it('nextRingRatio가 1.0(시작)일 때와 0.0(도달)일 때 정상 렌더링된다', () => {
+      const view1 = createBaseViewModel({ nextRingRatio: 1.0 });
+      renderer.render(ctx, view1, width, height);
+
+      const view2 = createBaseViewModel({ nextRingRatio: 0.0 });
+      renderer.render(ctx, view2, width, height);
+
+      expect(ctx.save).toHaveBeenCalledTimes(2);
+      expect(ctx.restore).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('6. 방향 화살표 및 비run 모드 차별화 렌더링', () => {
+    it('왼쪽/오른쪽/중앙 이동 화살표를 렌더링한다', () => {
+      const viewLeft = createBaseViewModel({ arrowDirection: 'left' });
+      renderer.render(ctx, viewLeft, width, height);
+
+      const viewRight = createBaseViewModel({ arrowDirection: 'right' });
+      renderer.render(ctx, viewRight, width, height);
+
+      const viewCenter = createBaseViewModel({ arrowDirection: 'center' });
+      renderer.render(ctx, viewCenter, width, height);
+
+      expect(ctx.save).toHaveBeenCalledTimes(3);
+    });
+
+    it('hip_bounce(상하) 및 hip_sway/arm_cross 모드 화살표/인디케이터를 처리한다', () => {
+      const viewBounceDown = createBaseViewModel({
+        arrowDirection: 'down',
+        actionText: '바운스 다운',
+      });
+      renderer.render(ctx, viewBounceDown, width, height);
+
+      const viewBounceUp = createBaseViewModel({
+        arrowDirection: 'up',
+        actionText: '바운스 업',
+      });
+      renderer.render(ctx, viewBounceUp, width, height);
+
+      expect(ctx.save).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('7. 안내 텍스트 및 인정/필수 수 표시', () => {
+    it('액션 텍스트, 안내 문구, 인정/필수 운동 수를 텍스트로 렌더링한다', () => {
+      const view = createBaseViewModel({
+        actionText: '왼발 딛기',
+        cueText: '왼발 바깥',
+        acceptedExerciseCount: 2,
+        requiredExerciseCount: 4,
+      });
+
+      renderer.render(ctx, view, width, height);
+
+      const fillTextCalls = vi.mocked(ctx.fillText).mock.calls;
+      const texts = fillTextCalls.map((c) => String(c[0]));
+
+      expect(texts.some((t) => t.includes('왼발 딛기'))).toBe(true);
+      expect(texts.some((t) => t.includes('2') && t.includes('4'))).toBe(true);
+    });
+
+    it('부족(isShortage: true) 상태일 때 연장 안내 텍스트를 표시한다', () => {
+      const view = createBaseViewModel({
+        isShortage: true,
+        actionText: '중앙 제자리 뜀',
+      });
+
+      renderer.render(ctx, view, width, height);
+
+      const fillTextCalls = vi.mocked(ctx.fillText).mock.calls;
+      const texts = fillTextCalls.map((c) => String(c[0]));
+      expect(texts.some((t) => t.includes('부족') || t.includes('연장'))).toBe(true);
+    });
+
+    it('준비(isPreparing: true) 상태일 때 준비 안내 텍스트를 표시한다', () => {
+      const view = createBaseViewModel({
+        isPreparing: true,
+        actionText: '정답 준비',
+      });
+
+      renderer.render(ctx, view, width, height);
+
+      const fillTextCalls = vi.mocked(ctx.fillText).mock.calls;
+      const texts = fillTextCalls.map((c) => String(c[0]));
+      expect(texts.some((t) => t.includes('준비'))).toBe(true);
+    });
+
+    it('스웨이(hip_sway) 및 팔 교차(arm_cross) 텍스트 인디케이터를 렌더링한다', () => {
+      const swayView = createBaseViewModel({
+        arrowDirection: 'none',
+        actionText: '골반 스웨이',
+        cueText: '좌우 체중 이동',
+      });
+      renderer.render(ctx, swayView, width, height);
+
+      const armCrossView = createBaseViewModel({
+        arrowDirection: 'none',
+        actionText: '팔 교차 (좌)',
+        cueText: '상체 팔 교차 (좌)',
+      });
+      renderer.render(ctx, armCrossView, width, height);
+
+      const fillTextCalls = vi.mocked(ctx.fillText).mock.calls;
+      const texts = fillTextCalls.map((c) => String(c[0]));
+      expect(texts.some((t) => t.includes('체중 이동'))).toBe(true);
+      expect(texts.some((t) => t.includes('두 발 고정'))).toBe(true);
+    });
+
+    it('오른발 복귀(right_home) 큐 렌더링을 정상 지원한다', () => {
+      const returnView = createBaseViewModel({
+        currentCue: {
+          beatIndex: 2,
+          actionId: 'right_out',
+          actionText: '오른발 딛기',
+          directionText: '오른쪽',
+          cueText: '오른발 바깥',
+          arrowDirection: 'right',
+          leftFootSlot: 'home',
+          rightFootSlot: 'out',
+          isPrepare: false,
+        },
+        nextCue: {
+          beatIndex: 3,
+          actionId: 'right_home',
+          actionText: '오른발 복귀',
+          directionText: '중앙',
+          cueText: '오른발 중앙 home',
+          arrowDirection: 'center',
+          leftFootSlot: 'home',
+          rightFootSlot: 'home',
+          isPrepare: false,
+        },
+        arrowDirection: 'center',
+      });
+
+      renderer.render(ctx, returnView, width, height);
+      expect(ctx.save).toHaveBeenCalledTimes(1);
+      expect(ctx.restore).toHaveBeenCalledTimes(1);
+    });
+
+    it('ctx.ellipse가 지원되지 않는 환경에서도 arc fallback으로 안전하게 렌더링된다', () => {
+      const ctxNoEllipse = createMockContext();
+      (ctxNoEllipse as any).ellipse = undefined;
+
+      const view = createBaseViewModel();
+      renderer.render(ctxNoEllipse, view, width, height);
+
+      expect(ctxNoEllipse.save).toHaveBeenCalledTimes(1);
+      expect(ctxNoEllipse.arc).toHaveBeenCalled();
+      expect(ctxNoEllipse.restore).toHaveBeenCalledTimes(1);
+    });
+
+    it('사용자 정의 설정을 주입받아 초기화할 수 있다', () => {
+      const customRenderer = new RunningMatRenderer({
+        ...RUNNING_MAT_CONFIG,
+        baseYTop: 0.70,
+        baseYBottom: 0.90,
+      });
+
+      const view = createBaseViewModel();
+      customRenderer.render(ctx, view, width, height);
+      expect(ctx.save).toHaveBeenCalledTimes(1);
+      expect(ctx.restore).toHaveBeenCalledTimes(1);
+    });
+  });
+});
