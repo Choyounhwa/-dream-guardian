@@ -149,6 +149,9 @@ export class RunningMatRenderer {
 
     // 7. 상단 상태 배너 및 인정 수 표시
     this._renderStatusHeader(ctx, view, vx, yTop, width);
+
+    // 8. 다음 두 박 예고 및 현재 동작 플로우 렌더링 (Issue #408)
+    this._renderUpcomingPreviews(ctx, view, vx, yTop, width);
   }
 
   /**
@@ -401,6 +404,33 @@ export class RunningMatRenderer {
         );
       }
     }
+
+    // 3. 그다음 2박 발자국 (약한 윤곽선 / 점선)
+    if (view.upcomingCues && view.upcomingCues.length > 1) {
+      const cue2 = view.upcomingCues[1].cue;
+      if (cue2.leftFootSlot === 'out') {
+        this._drawFootprint(
+          ctx,
+          slots.leftOut.x,
+          slots.leftOut.y,
+          slots.footWidth,
+          slots.footHeight,
+          true,
+          'preview2'
+        );
+      }
+      if (cue2.rightFootSlot === 'out') {
+        this._drawFootprint(
+          ctx,
+          slots.rightOut.x,
+          slots.rightOut.y,
+          slots.footWidth,
+          slots.footHeight,
+          false,
+          'preview2'
+        );
+      }
+    }
   }
 
   /**
@@ -413,12 +443,14 @@ export class RunningMatRenderer {
     w: number,
     h: number,
     isLeft: boolean,
-    style: 'home' | 'current' | 'next'
+    style: 'home' | 'current' | 'next' | 'preview2'
   ): void {
     const rx = w * 0.5;
     const ry = h * 0.5;
 
-    const isDashed = style === 'next' && typeof ctx.setLineDash === 'function';
+    const isDashed =
+      (style === 'next' || style === 'preview2') &&
+      typeof ctx.setLineDash === 'function';
     if (isDashed) {
       ctx.setLineDash(Array.from(this.config.footNextDash));
     }
@@ -441,8 +473,14 @@ export class RunningMatRenderer {
     } else if (style === 'next') {
       ctx.fillStyle = this.config.footNextFill;
       ctx.fill();
-      ctx.strokeStyle = this.config.footNextStroke;
-      ctx.lineWidth = 2.0;
+      ctx.strokeStyle = this.config.preview1StrokeColor || this.config.footNextStroke;
+      ctx.lineWidth = this.config.preview1LineWidth || 2.0;
+      ctx.stroke();
+    } else if (style === 'preview2') {
+      ctx.fillStyle = 'rgba(255, 203, 77, 0.08)';
+      ctx.fill();
+      ctx.strokeStyle = this.config.preview2StrokeColor || 'rgba(255, 203, 77, 0.45)';
+      ctx.lineWidth = this.config.preview2LineWidth || 1.5;
       ctx.stroke();
     } else {
       // home
@@ -586,8 +624,22 @@ export class RunningMatRenderer {
       ctx.fillStyle = this.config.arrowReturnColor;
       ctx.fillText('▶ 중앙 복귀 ◀', centerX, arrowY);
     } else if (dir === 'up') {
-      ctx.fillStyle = this.config.arrowActiveColor;
-      ctx.fillText('▲ ▲ 바운스 업 ▲ ▲', centerX, arrowY);
+      const isKnee =
+        view.currentCue?.actionId === 'knee_left' ||
+        view.currentCue?.actionId === 'knee_right' ||
+        view.actionText.includes('무릎');
+      if (isKnee) {
+        if (view.isReturnPhase || view.currentCue?.isReturnPhase) {
+          ctx.fillStyle = this.config.arrowReturnColor;
+          ctx.fillText(`▼ ▼ ${this.config.kneeReturnText} ▼ ▼`, centerX, arrowY);
+        } else {
+          ctx.fillStyle = this.config.arrowActiveColor;
+          ctx.fillText(`▲ ▲ ${this.config.kneeLiftText} ▲ ▲`, centerX, arrowY);
+        }
+      } else {
+        ctx.fillStyle = this.config.arrowActiveColor;
+        ctx.fillText('▲ ▲ 바운스 업 ▲ ▲', centerX, arrowY);
+      }
     } else if (dir === 'down') {
       ctx.fillStyle = this.config.arrowActiveColor;
       ctx.fillText('▼ ▼ 바운스 다운 ▼ ▼', centerX, arrowY);
@@ -640,5 +692,138 @@ export class RunningMatRenderer {
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = this.config.textSecondaryColor;
     ctx.fillText(countText, width * 0.94, headerY);
+  }
+
+  /**
+   * 다음 두 박 예고 및 현재 동작 플로우 렌더링 (Issue #408)
+   * - 현재 동작: 채운 아이콘/지금
+   * - 다음 1박: 강한 윤곽/다음
+   * - 다음 2박: 약한 윤곽/그다음
+   */
+  private _renderUpcomingPreviews(
+    ctx: CanvasRenderingContext2D,
+    view: RunningMatViewModel,
+    vx: number,
+    yTop: number,
+    width: number
+  ): void {
+    const upcoming = view.upcomingCues ?? (view.nextCue ? [
+      {
+        targetBeat: view.nextCue.beatIndex,
+        remainingBeats: 1,
+        progress: 0,
+        phase: 'hold' as const,
+        cue: {
+          id: view.nextCue.actionId,
+          actionText: view.nextCue.actionText,
+          directionText: view.nextCue.directionText,
+          cueText: view.nextCue.cueText,
+          arrowDirection: view.nextCue.arrowDirection,
+          leftFootSlot: view.nextCue.leftFootSlot,
+          rightFootSlot: view.nextCue.rightFootSlot,
+        },
+      },
+    ] : []);
+
+    interface PreviewNode {
+      readonly label: string;
+      readonly actionText: string;
+      readonly style: 'current' | 'preview1' | 'preview2';
+    }
+
+    const currentText = view.actionText || view.currentCue?.actionText || '운동 동작';
+    const nodes: PreviewNode[] = [
+      { label: '지금', actionText: currentText, style: 'current' },
+    ];
+
+    if (upcoming.length > 0) {
+      nodes.push({
+        label: this.config.preview1Label || '다음',
+        actionText: upcoming[0].cue.actionText,
+        style: 'preview1',
+      });
+    }
+
+    if (upcoming.length > 1) {
+      nodes.push({
+        label: this.config.preview2Label || '그다음',
+        actionText: upcoming[1].cue.actionText,
+        style: 'preview2',
+      });
+    }
+
+    const nodeWidth = Math.min(130, (width * 0.8) / nodes.length);
+    const nodeHeight = 26;
+    const totalW = nodes.length * nodeWidth + (nodes.length - 1) * 8;
+    const startX = vx - totalW * 0.5;
+    const previewY = yTop - 48;
+
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const nx = startX + i * (nodeWidth + 8);
+
+      ctx.beginPath();
+      ctx.moveTo(nx, previewY);
+      ctx.lineTo(nx + nodeWidth, previewY);
+      ctx.lineTo(nx + nodeWidth, previewY + nodeHeight);
+      ctx.lineTo(nx, previewY + nodeHeight);
+      ctx.closePath();
+
+      if (node.style === 'current') {
+        // 현재 동작: 채운 아이콘/지금
+        ctx.fillStyle = this.config.footCurrentFill;
+        ctx.fill();
+        ctx.strokeStyle = this.config.footCurrentStroke;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#061325';
+        ctx.fillText(node.label, nx + nodeWidth * 0.28, previewY + nodeHeight * 0.5);
+
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillStyle = '#061325';
+        const displayTxt = node.actionText.length > 6 ? node.actionText.slice(0, 5) + '..' : node.actionText;
+        ctx.fillText(displayTxt, nx + nodeWidth * 0.72, previewY + nodeHeight * 0.5);
+      } else if (node.style === 'preview1') {
+        // 다음 1박: 강한 윤곽/다음
+        ctx.fillStyle = 'rgba(255, 203, 77, 0.16)';
+        ctx.fill();
+        ctx.strokeStyle = this.config.preview1StrokeColor || '#FFCB4D';
+        ctx.lineWidth = this.config.preview1LineWidth || 2.5;
+        ctx.stroke();
+
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = this.config.textAccentColor;
+        ctx.fillText(node.label, nx + nodeWidth * 0.28, previewY + nodeHeight * 0.5);
+
+        ctx.font = '10px sans-serif';
+        ctx.fillStyle = this.config.textPrimaryColor;
+        const displayTxt = node.actionText.length > 6 ? node.actionText.slice(0, 5) + '..' : node.actionText;
+        ctx.fillText(displayTxt, nx + nodeWidth * 0.72, previewY + nodeHeight * 0.5);
+      } else {
+        // 다음 2박: 약한 윤곽/그다음
+        ctx.fillStyle = 'rgba(255, 203, 77, 0.08)';
+        ctx.fill();
+        ctx.strokeStyle = this.config.preview2StrokeColor || 'rgba(255, 203, 77, 0.45)';
+        ctx.lineWidth = this.config.preview2LineWidth || 1.5;
+        ctx.stroke();
+
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(255, 203, 77, 0.75)';
+        ctx.fillText(node.label, nx + nodeWidth * 0.28, previewY + nodeHeight * 0.5);
+
+        ctx.font = '10px sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        const displayTxt = node.actionText.length > 6 ? node.actionText.slice(0, 5) + '..' : node.actionText;
+        ctx.fillText(displayTxt, nx + nodeWidth * 0.72, previewY + nodeHeight * 0.5);
+      }
+    }
   }
 }

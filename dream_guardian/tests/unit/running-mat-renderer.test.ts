@@ -87,6 +87,7 @@ function createBaseViewModel(overrides: Partial<RunningMatViewModel> = {}): Runn
     requiredExerciseCount: 4,
     isShortage: false,
     isPreparing: false,
+    upcomingCues: overrides.upcomingCues ?? [],
     ...overrides,
   };
 }
@@ -430,6 +431,127 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
       customRenderer.render(ctx, view, width, height);
       expect(ctx.save).toHaveBeenCalledTimes(1);
       expect(ctx.restore).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('9. Issue #408: 러닝 발판 다음 두 박 예고와 무릎 들기·복귀 렌더링', () => {
+    it('설정에 returnPhaseRatio(0.5) 및 다음 2박 시각 안내 스타일이 정의되어 있어야 한다', () => {
+      expect((RUNNING_MAT_CONFIG as any).returnPhaseRatio).toBe(0.5);
+      expect((RUNNING_MAT_CONFIG as any).preview1StrokeColor).toBeDefined();
+      expect((RUNNING_MAT_CONFIG as any).preview1LineWidth).toBeGreaterThanOrEqual(2);
+      expect((RUNNING_MAT_CONFIG as any).preview1Label).toBe('다음');
+      expect((RUNNING_MAT_CONFIG as any).preview2StrokeColor).toBeDefined();
+      expect((RUNNING_MAT_CONFIG as any).preview2LineWidth).toBeGreaterThan(0);
+      expect((RUNNING_MAT_CONFIG as any).preview2Label).toBe('그다음');
+      expect((RUNNING_MAT_CONFIG as any).kneeLiftText).toBe('무릎 들기');
+      expect((RUNNING_MAT_CONFIG as any).kneeReturnText).toBe('기본 자세 복귀');
+    });
+
+    it('무릎 동작 시 전반부(lift)에는 무릎 들기, 후반부(return)에는 기본 자세 복귀 텍스트를 렌더링한다', () => {
+      // 전반부 (들기)
+      const liftView = createBaseViewModel({
+        arrowDirection: 'up',
+        actionText: '왼무릎 들기',
+        isReturnPhase: false,
+        currentCue: {
+          beatIndex: 0,
+          actionId: 'knee_left',
+          actionText: '왼무릎 들기',
+          directionText: '왼쪽',
+          cueText: '왼무릎 들고 복귀',
+          arrowDirection: 'up',
+          leftFootSlot: 'lift',
+          rightFootSlot: 'home',
+          isPrepare: false,
+        },
+      });
+      renderer.render(ctx, liftView, width, height);
+
+      const liftCalls = vi.mocked(ctx.fillText).mock.calls;
+      const liftTexts = liftCalls.map((c) => String(c[0]));
+      expect(liftTexts.some((t) => t.includes('무릎 들기'))).toBe(true);
+
+      // 후반부 (복귀)
+      const returnCtx = createMockContext();
+      const returnView = createBaseViewModel({
+        arrowDirection: 'up',
+        actionText: '왼무릎 복귀',
+        isReturnPhase: true,
+        currentCue: {
+          beatIndex: 0,
+          actionId: 'knee_left',
+          actionText: '왼무릎 복귀',
+          directionText: '왼쪽',
+          cueText: '왼무릎 들고 복귀',
+          arrowDirection: 'up',
+          leftFootSlot: 'lift',
+          rightFootSlot: 'home',
+          isPrepare: false,
+        },
+      });
+      renderer.render(returnCtx, returnView, width, height);
+
+      const returnCalls = vi.mocked(returnCtx.fillText).mock.calls;
+      const returnTexts = returnCalls.map((c) => String(c[0]));
+      expect(returnTexts.some((t) => t.includes('기본 자세 복귀'))).toBe(true);
+    });
+
+    it('현재 동작(지금), 다음 1박(다음), 다음 2박(그다음) 시각 안내 요소를 렌더링한다', () => {
+      const view = createBaseViewModel({
+        actionText: '왼무릎 들기',
+        upcomingCues: [
+          {
+            targetBeat: 1,
+            remainingBeats: 1.0,
+            progress: 0.0,
+            phase: 'lift',
+            cue: {
+              id: 'knee_right',
+              actionText: '오른무릎 들기',
+              directionText: '오른쪽',
+              cueText: '오른무릎 들고 복귀',
+              arrowDirection: 'up',
+              leftFootSlot: 'home',
+              rightFootSlot: 'lift',
+            },
+          },
+          {
+            targetBeat: 2,
+            remainingBeats: 2.0,
+            progress: 0.0,
+            phase: 'lift',
+            cue: {
+              id: 'knee_left',
+              actionText: '왼무릎 들기',
+              directionText: '왼쪽',
+              cueText: '왼무릎 들고 복귀',
+              arrowDirection: 'up',
+              leftFootSlot: 'lift',
+              rightFootSlot: 'home',
+            },
+          },
+        ],
+      });
+
+      renderer.render(ctx, view, width, height);
+
+      const fillTextCalls = vi.mocked(ctx.fillText).mock.calls;
+      const texts = fillTextCalls.map((c) => String(c[0]));
+      expect(texts.some((t) => t.includes('지금'))).toBe(true);
+      expect(texts.some((t) => t.includes('다음'))).toBe(true);
+      expect(texts.some((t) => t.includes('그다음'))).toBe(true);
+    });
+
+    it('동작 안내 시 실제 발자국 또는 채점이라는 표현을 노출하지 않는다', () => {
+      const view = createBaseViewModel({
+        actionText: '왼무릎 들기',
+        cueText: '왼무릎 들기',
+      });
+      renderer.render(ctx, view, width, height);
+
+      const fillTextCalls = vi.mocked(ctx.fillText).mock.calls;
+      const texts = fillTextCalls.map((c) => String(c[0]));
+      expect(texts.some((t) => t.includes('채점') || t.includes('점수'))).toBe(false);
     });
   });
 });

@@ -13,11 +13,23 @@ import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import {
   type MatArrowDirection,
   type MatFootSlot,
+  type MatCue,
   type RunningMatPattern,
   getRunningMatPattern,
 } from '../data/runningMatPatterns.js';
+import { DEFAULT_RETURN_PHASE_RATIO } from '../../config/running-mat.config.js';
 
-export type { MatArrowDirection, MatFootSlot };
+export type { MatArrowDirection, MatFootSlot, MatCue };
+export type CuePhase = 'lift' | 'return' | 'hold';
+
+export interface UpcomingCueViewModel {
+  readonly cue: MatCue;
+  readonly targetBeat: number;
+  readonly remainingBeats: number;
+  readonly progress: number;
+  readonly phase: CuePhase;
+  readonly isReturnPhase?: boolean;
+}
 
 export interface MatCueViewModel {
   readonly beatIndex: number;
@@ -29,6 +41,8 @@ export interface MatCueViewModel {
   readonly leftFootSlot: MatFootSlot;
   readonly rightFootSlot: MatFootSlot;
   readonly isPrepare: boolean;
+  readonly isReturnPhase?: boolean;
+  readonly phase?: CuePhase;
 }
 
 export interface RunningMatViewModel {
@@ -36,6 +50,7 @@ export interface RunningMatViewModel {
   readonly paused: boolean;
   readonly currentCue: MatCueViewModel | null;
   readonly nextCue: MatCueViewModel | null;
+  readonly upcomingCues: readonly UpcomingCueViewModel[];
   readonly actionText: string;
   readonly directionText: string;
   readonly cueText: string;
@@ -46,6 +61,8 @@ export interface RunningMatViewModel {
   readonly requiredExerciseCount: number;
   readonly isShortage: boolean;
   readonly isPreparing: boolean;
+  readonly isReturnPhase?: boolean;
+  readonly phase?: CuePhase;
 }
 
 /**
@@ -59,14 +76,14 @@ function computeNextRingRatio(elapsedBeats: number): number {
 }
 
 /**
- * 특정 정수 박 인덱스에 해당하는 큐 뷰모델 해석
+ * 특정 정수 박 인덱스에 해당하는 순수 MatCue 해석
  */
-function resolveCueForBeat(
+function resolveRawCueForBeat(
   beatIndex: number,
   pattern: RunningMatPattern,
   prepareStartBeat: number | null,
   transitionBeat: number | null
-): MatCueViewModel | null {
+): MatCue | null {
   if (beatIndex < 0) return null;
   if (transitionBeat !== null && beatIndex >= transitionBeat) {
     return null;
@@ -75,54 +92,44 @@ function resolveCueForBeat(
   // 1. 준비 구간 판정 (실제 예약 시작 박자 도달 시)
   if (prepareStartBeat !== null && beatIndex >= prepareStartBeat) {
     const prepareOffset = beatIndex - prepareStartBeat;
-    const prepareCue =
-      prepareOffset < pattern.prepareCues.length
-        ? pattern.prepareCues[prepareOffset]
-        : pattern.prepareCues[pattern.prepareCues.length - 1];
-
-    return {
-      beatIndex,
-      actionId: prepareCue.id,
-      actionText: prepareCue.actionText,
-      directionText: prepareCue.directionText,
-      cueText: prepareCue.cueText,
-      arrowDirection: prepareCue.arrowDirection,
-      leftFootSlot: prepareCue.leftFootSlot,
-      rightFootSlot: prepareCue.rightFootSlot,
-      isPrepare: true,
-    };
+    return prepareOffset < pattern.prepareCues.length
+      ? pattern.prepareCues[prepareOffset]
+      : pattern.prepareCues[pattern.prepareCues.length - 1];
   }
 
   // 2. 명목 운동 큐 구간
   const nominalCount = pattern.exerciseCues.length;
   if (beatIndex < nominalCount) {
-    const cue = pattern.exerciseCues[beatIndex];
-    return {
-      beatIndex,
-      actionId: cue.id,
-      actionText: cue.actionText,
-      directionText: cue.directionText,
-      cueText: cue.cueText,
-      arrowDirection: cue.arrowDirection,
-      leftFootSlot: cue.leftFootSlot,
-      rightFootSlot: cue.rightFootSlot,
-      isPrepare: false,
-    };
+    return pattern.exerciseCues[beatIndex];
   }
 
   // 3. 미달 연장 큐 구간 (준비 미예약 시 중앙 운동 교대 반복)
   const extOffset = beatIndex - nominalCount;
-  const extCue = pattern.extensionCues[extOffset % pattern.extensionCues.length];
+  return pattern.extensionCues[extOffset % pattern.extensionCues.length];
+}
+
+/**
+ * 특정 정수 박 인덱스에 해당하는 큐 뷰모델 해석
+ */
+function resolveCueForBeat(
+  beatIndex: number,
+  pattern: RunningMatPattern,
+  prepareStartBeat: number | null,
+  transitionBeat: number | null
+): MatCueViewModel | null {
+  const cue = resolveRawCueForBeat(beatIndex, pattern, prepareStartBeat, transitionBeat);
+  if (!cue) return null;
+
   return {
     beatIndex,
-    actionId: extCue.id,
-    actionText: extCue.actionText,
-    directionText: extCue.directionText,
-    cueText: extCue.cueText,
-    arrowDirection: extCue.arrowDirection,
-    leftFootSlot: extCue.leftFootSlot,
-    rightFootSlot: extCue.rightFootSlot,
-    isPrepare: false,
+    actionId: cue.id,
+    actionText: cue.actionText,
+    directionText: cue.directionText,
+    cueText: cue.cueText,
+    arrowDirection: cue.arrowDirection,
+    leftFootSlot: cue.leftFootSlot,
+    rightFootSlot: cue.rightFootSlot,
+    isPrepare: Boolean(cue.isPrepare),
   };
 }
 
@@ -139,6 +146,7 @@ export function presentRunningMat(
       paused: snapshot?.paused ?? false,
       currentCue: null,
       nextCue: null,
+      upcomingCues: Object.freeze([]),
       actionText: '',
       directionText: '',
       cueText: '',
@@ -149,19 +157,58 @@ export function presentRunningMat(
       requiredExerciseCount: snapshot?.requiredExerciseCount ?? 0,
       isShortage: false,
       isPreparing: false,
+      isReturnPhase: false,
+      phase: 'hold',
     });
   }
 
   const exerciseBeats = snapshot.exerciseBeats || 8;
   const pattern = getRunningMatPattern(mode, exerciseBeats);
 
-  const currentBeat = Math.floor(snapshot.elapsedBeats);
-  const currentCue = resolveCueForBeat(
+  const b = snapshot.elapsedBeats;
+  const currentBeat = Math.floor(b);
+  const fraction = b >= 0 ? b - Math.floor(b) : 0;
+  const returnPhaseRatio = DEFAULT_RETURN_PHASE_RATIO;
+
+  const rawCurrentCue = resolveCueForBeat(
     currentBeat,
     pattern,
     snapshot.prepareStartBeat,
     snapshot.transitionBeat
   );
+
+  let currentCue: MatCueViewModel | null = rawCurrentCue;
+  let isReturnPhase = false;
+  let currentPhase: CuePhase = 'hold';
+
+  if (rawCurrentCue) {
+    const isKnee =
+      rawCurrentCue.actionId === 'knee_left' ||
+      rawCurrentCue.actionId === 'knee_right';
+
+    if (isKnee) {
+      isReturnPhase = fraction >= returnPhaseRatio;
+      currentPhase = isReturnPhase ? 'return' : 'lift';
+      const actionText = isReturnPhase
+        ? (rawCurrentCue.actionId === 'knee_left' ? '왼무릎 복귀' : '오른무릎 복귀')
+        : (rawCurrentCue.actionId === 'knee_left' ? '왼무릎 들기' : '오른무릎 들기');
+
+      currentCue = {
+        ...rawCurrentCue,
+        actionText,
+        isReturnPhase,
+        phase: currentPhase,
+      };
+    } else {
+      isReturnPhase = false;
+      currentPhase = 'hold';
+      currentCue = {
+        ...rawCurrentCue,
+        isReturnPhase: false,
+        phase: 'hold',
+      };
+    }
+  }
 
   const nextCue = resolveCueForBeat(
     currentBeat + 1,
@@ -169,6 +216,38 @@ export function presentRunningMat(
     snapshot.prepareStartBeat,
     snapshot.transitionBeat
   );
+
+  // upcomingCues: 최대 2개 배열 (1박 후, 2박 후)
+  const upcomingCuesList: UpcomingCueViewModel[] = [];
+  const candidateBeats = [currentBeat + 1, currentBeat + 2];
+
+  for (const targetBeat of candidateBeats) {
+    if (targetBeat < 0) continue;
+    if (snapshot.transitionBeat !== null && targetBeat >= snapshot.transitionBeat) {
+      continue;
+    }
+    const rawCue = resolveRawCueForBeat(
+      targetBeat,
+      pattern,
+      snapshot.prepareStartBeat,
+      snapshot.transitionBeat
+    );
+    if (!rawCue) continue;
+
+    const remainingBeats = Math.max(0, targetBeat - b);
+    const progress = Math.max(0, Math.min(1.0, fraction));
+    const isKnee = rawCue.id === 'knee_left' || rawCue.id === 'knee_right';
+    const phase: CuePhase = isKnee ? 'lift' : 'hold';
+
+    upcomingCuesList.push({
+      cue: rawCue,
+      targetBeat,
+      remainingBeats: Number(remainingBeats.toFixed(4)),
+      progress: Number(progress.toFixed(4)),
+      phase,
+      isReturnPhase: false,
+    });
+  }
 
   const isPreparing = Boolean(
     snapshot.prepareStartBeat !== null &&
@@ -186,6 +265,7 @@ export function presentRunningMat(
     paused: snapshot.paused,
     currentCue,
     nextCue,
+    upcomingCues: Object.freeze(upcomingCuesList),
     actionText: currentCue?.actionText ?? '',
     directionText: currentCue?.directionText ?? '',
     cueText: currentCue?.cueText ?? '',
@@ -196,6 +276,8 @@ export function presentRunningMat(
     requiredExerciseCount: snapshot.requiredExerciseCount,
     isShortage,
     isPreparing,
+    isReturnPhase,
+    phase: currentPhase,
   });
 }
 

@@ -47,6 +47,7 @@ describe('RUN-MAT-002: 러닝 매트 제안 패턴 데이터 및 순수 표시 �
       expect(vm.requiredExerciseCount).toBe(0);
       expect(vm.isShortage).toBe(false);
       expect(vm.isPreparing).toBe(false);
+      expect(vm.upcomingCues).toEqual([]);
     });
 
     it('active가 false인 스냅샷은 visible이 false이고 큐가 노출되지 않는다', () => {
@@ -57,6 +58,7 @@ describe('RUN-MAT-002: 러닝 매트 제안 패턴 데이터 및 순수 표시 �
       expect(vm.paused).toBe(true);
       expect(vm.currentCue).toBeNull();
       expect(vm.nextCue).toBeNull();
+      expect(vm.upcomingCues).toEqual([]);
       expect(vm.nextRingRatio).toBe(0);
       expect(vm.isShortage).toBe(false);
       expect(vm.isPreparing).toBe(false);
@@ -66,6 +68,7 @@ describe('RUN-MAT-002: 러닝 매트 제안 패턴 데이터 및 순수 표시 �
       const vm = presentRunningMat(null);
       expect(vm.visible).toBe(false);
       expect(vm.currentCue).toBeNull();
+      expect(vm.upcomingCues).toEqual([]);
     });
   });
 
@@ -374,6 +377,105 @@ describe('RUN-MAT-002: 러닝 매트 제안 패턴 데이터 및 순수 표시 �
       expect(vm.currentCue?.actionId).toBe('knee_left');
       expect(vm.currentCue?.beatIndex).toBe(4);
       expect(vm.nextRingRatio).toBeCloseTo(0.8, 2);
+    });
+  });
+
+  describe('9. Issue #408: 다음 두 박 예고(upcomingCues) 및 무릎 들기·복귀(returnPhase)', () => {
+    it('0.0박: upcomingCues는 다음 2개 박(1박 후, 2박 후)의 큐와 잔여 박수, progress, phase를 제공한다', () => {
+      const snapshot = createSnapshot({ elapsedBeats: 0.0 });
+      const vm = presenter.present(snapshot);
+
+      expect(vm.upcomingCues).toHaveLength(2);
+
+      const cue1 = vm.upcomingCues[0];
+      expect(cue1.targetBeat).toBe(1);
+      expect(cue1.remainingBeats).toBeCloseTo(1.0, 2);
+      expect(cue1.progress).toBeCloseTo(0.0, 2);
+      expect(cue1.phase).toBe('lift');
+      expect(cue1.cue.id).toBe('knee_right');
+
+      const cue2 = vm.upcomingCues[1];
+      expect(cue2.targetBeat).toBe(2);
+      expect(cue2.remainingBeats).toBeCloseTo(2.0, 2);
+      expect(cue2.progress).toBeCloseTo(0.0, 2);
+      expect(cue2.phase).toBe('lift');
+      expect(cue2.cue.id).toBe('knee_left');
+    });
+
+    it('무릎 동작 박 내 진행도에 따라 전반부(lift)와 후반부(return)를 구분한다 (returnPhaseRatio = 0.5)', () => {
+      // 0.2박: 전반부 들기 (lift)
+      const liftSnapshot = createSnapshot({ elapsedBeats: 0.2 });
+      const liftVm = presenter.present(liftSnapshot);
+
+      expect(liftVm.currentCue?.actionId).toBe('knee_left');
+      expect(liftVm.currentCue?.isReturnPhase).toBe(false);
+      expect(liftVm.currentCue?.phase).toBe('lift');
+      expect(liftVm.isReturnPhase).toBe(false);
+      expect(liftVm.actionText).toContain('왼무릎 들기');
+
+      expect(liftVm.upcomingCues[0].remainingBeats).toBeCloseTo(0.8, 2);
+      expect(liftVm.upcomingCues[0].progress).toBeCloseTo(0.2, 2);
+
+      // 0.6박: 후반부 복귀 (return)
+      const returnSnapshot = createSnapshot({ elapsedBeats: 0.6 });
+      const returnVm = presenter.present(returnSnapshot);
+
+      expect(returnVm.currentCue?.actionId).toBe('knee_left');
+      expect(returnVm.currentCue?.isReturnPhase).toBe(true);
+      expect(returnVm.currentCue?.phase).toBe('return');
+      expect(returnVm.isReturnPhase).toBe(true);
+      expect(returnVm.actionText).toContain('왼무릎 복귀');
+      expect(returnVm.currentCue?.actionText).toContain('왼무릎 복귀');
+
+      expect(returnVm.upcomingCues[0].remainingBeats).toBeCloseTo(0.4, 2);
+      expect(returnVm.upcomingCues[0].progress).toBeCloseTo(0.6, 2);
+
+      // 1.7박: 오른무릎 후반부 복귀 (return)
+      const rightReturnSnapshot = createSnapshot({ elapsedBeats: 1.7 });
+      const rightReturnVm = presenter.present(rightReturnSnapshot);
+
+      expect(rightReturnVm.currentCue?.actionId).toBe('knee_right');
+      expect(rightReturnVm.currentCue?.isReturnPhase).toBe(true);
+      expect(rightReturnVm.currentCue?.phase).toBe('return');
+      expect(rightReturnVm.actionText).toContain('오른무릎 복귀');
+    });
+
+    it('전이 박자(transitionBeat) 이상은 upcomingCues에서 제외한다', () => {
+      // prepareStartBeat: 6, transitionBeat: 8
+      // 5.0박: 6(both_home), 7(ready_answer) -> 2개 예고
+      const vm5 = presenter.present(createSnapshot({ elapsedBeats: 5.0, prepareStartBeat: 6, transitionBeat: 8 }));
+      expect(vm5.upcomingCues).toHaveLength(2);
+      expect(vm5.upcomingCues[0].targetBeat).toBe(6);
+      expect(vm5.upcomingCues[0].cue.id).toBe('both_home');
+      expect(vm5.upcomingCues[1].targetBeat).toBe(7);
+      expect(vm5.upcomingCues[1].cue.id).toBe('ready_answer');
+
+      // 6.0박: 7(ready_answer) -> 1개 예고 (8은 transitionBeat 8 이상이므로 제외)
+      const vm6 = presenter.present(createSnapshot({ elapsedBeats: 6.0, prepareStartBeat: 6, transitionBeat: 8 }));
+      expect(vm6.upcomingCues).toHaveLength(1);
+      expect(vm6.upcomingCues[0].targetBeat).toBe(7);
+
+      // 7.0박: 8, 9는 모두 transitionBeat 이상이므로 예고 배열은 비어 있어야 함
+      const vm7 = presenter.present(createSnapshot({ elapsedBeats: 7.0, prepareStartBeat: 6, transitionBeat: 8 }));
+      expect(vm7.upcomingCues).toHaveLength(0);
+    });
+
+    it('준비가 예약되지 않은 연장 운동 구간에서도 다음 2박 연장 큐를 정상 예고한다', () => {
+      // 7.0박 (exerciseBeats: 8, prepareStartBeat: null, transitionBeat: null)
+      const vmExt = presenter.present(createSnapshot({
+        elapsedBeats: 7.0,
+        exerciseBeats: 8,
+        prepareStartBeat: null,
+        transitionBeat: null,
+        acceptedExerciseCount: 2,
+        requiredExerciseCount: 6,
+      }));
+
+      expect(vmExt.upcomingCues).toHaveLength(2);
+      expect(vmExt.upcomingCues[0].targetBeat).toBe(8);
+      expect(vmExt.upcomingCues[1].targetBeat).toBe(9);
+      expect(vmExt.upcomingCues[0].cue.id).toBe('knee_left');
+      expect(vmExt.upcomingCues[1].cue.id).toBe('knee_right');
     });
   });
 });

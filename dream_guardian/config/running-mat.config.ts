@@ -12,6 +12,7 @@ export const DEFAULT_MAT_BASE_Y_BOTTOM = 0.94;
 export const DEFAULT_MAT_WIDTH_RATIO = 0.76;
 export const MAX_NARROW_WIDTH_RATIO = 0.90;
 export const DEFAULT_VANISHING_Y_RATIO = 0.56;
+export const DEFAULT_RETURN_PHASE_RATIO = 0.5;
 
 export interface RunningMatConfig {
   readonly baseYTop: number;
@@ -56,6 +57,17 @@ export interface RunningMatConfig {
   readonly textAccentColor: string;
   readonly textShortageColor: string;
   readonly textPrepareColor: string;
+
+  // 박 내 단계 분할 및 다음 2박 예고 스타일 (Issue #408)
+  readonly returnPhaseRatio: number;
+  readonly preview1StrokeColor: string;
+  readonly preview1LineWidth: number;
+  readonly preview1Label: string;
+  readonly preview2StrokeColor: string;
+  readonly preview2LineWidth: number;
+  readonly preview2Label: string;
+  readonly kneeLiftText: string;
+  readonly kneeReturnText: string;
 }
 
 export const RUNNING_MAT_CONFIG: RunningMatConfig = Object.freeze({
@@ -96,4 +108,14 @@ export const RUNNING_MAT_CONFIG: RunningMatConfig = Object.freeze({
   textAccentColor: '#FFCB4D',
   textShortageColor: '#FF865E',
   textPrepareColor: '#C889FF',
+
+  returnPhaseRatio: DEFAULT_RETURN_PHASE_RATIO,
+  preview1StrokeColor: 'rgba(255, 203, 77, 0.95)',
+  preview1LineWidth: 2.5,
+  preview1Label: '다음',
+  preview2StrokeColor: 'rgba(255, 203, 77, 0.45)',
+  preview2LineWidth: 1.5,
+  preview2Label: '그다음',
+  kneeLiftText: '무릎 들기',
+  kneeReturnText: '기본 자세 복귀',
 });
