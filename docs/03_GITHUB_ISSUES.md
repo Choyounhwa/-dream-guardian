@@ -1,5 +1,25 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-10-05 등록: 사전 예고·입문 플레이 두 개선 한정 (RHYTHM-INTRO)
+
+**카드 등록만 승인 / 구현 미착수·별도 승인 대기.** [상위 추적 #406](https://github.com/Choyounhwa/-dream-guardian/issues/406) + 실행4개·인수1개, 총6개. 기존 SSOT/에디터/UIX NEXT는 유지한다.
+
+| 순서 | 카드 | 단일 책임 | src/config 허용 | 선행 |
+|---|---|---|---|---|
+| 1 | [RHYTHM-INTRO-001 #409](https://github.com/Choyounhwa/-dream-guardian/issues/409) | 무릎 교대 안내·손7노트 데이터 | `src/data/runningMatPatterns.ts`, 신규 `src/data/beginnerRhythmRoutine.ts` (2) | 기존 #371 API 확인 |
+| 2 | [RHYTHM-INTRO-002 #408](https://github.com/Choyounhwa/-dream-guardian/issues/408) | 발판 다음 두 박·한 박 내 복귀 표시 | `src/render/RunningMatPresenter.ts`, `src/render/RunningMatRenderer.ts`, `config/running-mat.config.ts` (3) | #409 |
+| 3 | [RHYTHM-INTRO-003 #407](https://github.com/Choyounhwa/-dream-guardian/issues/407) | 별2박 예고 렌더 계약 | `src/render/StarNoteRenderer.ts`, 신규 `config/star-preview.config.ts` (2) | 신규 필수 없음 |
+| 4 | [RHYTHM-INTRO-004 #411](https://github.com/Choyounhwa/-dream-guardian/issues/411) | Phase A 데이터·분기 시계 연결 | `src/core/AppBootstrap.ts`, `src/core/SceneDirector.ts` (2) | #409/#408/#407, #390 충돌 확인 |
+| 5 | [RHYTHM-INTRO-005 #410](https://github.com/Choyounhwa/-dream-guardian/issues/410) | 실카메라·종단·회귀 인수 | Tests/docs만 (0) | 앞선4개 |
+
+- 적용은 일반 기본 콘텐츠 Phase A. 최초1회 판별/새 메뉴/저장 변경 없이 run은 왼무릎 들고 복귀→오른무릎 들고 복귀, 정답 별은 왼손4/오른손5 교대7개. 비run/오답회피/Phase B는 기존 유지한다.
+- 복귀는 별도1박 휴식이 아닌 같은 박 후반 안내다. 기존 운동6/10/14회+실제 준비2박을 유지하며 발판은 실제 좌우 착지 채점이 아니다. 새 감지기·손 재진입 판정·음악 동기화 변경은 제외한다.
+- 별2박 예고는 기존 착지를 보존한다. 첫 별만 분기 진입 후1박 예고, 둘째부터2박. 첫 표시 시각 `max(t0, landing-2*s)`로 경로를 정규화한다. ANSWER_SELECT에서 분기 확정 전 별을 표시하지 않는다.
+- 각 카드에 파일 경계/계약/미체크 완료조건/Red→Green/전체테스트·빌드/수동검증/Rule12·13을 명시했다. QA는 실카메라 미검증이면 완료 불가. 기존 위치 유지·조기 수집 제한도 명시적으로 보존한다.
+- 이슈 등록과 선행 링크 연결만 수행. 기능 구현·테스트/build·서버·commit/push 없음. GitHub Project는 `read:project` 권한 부족으로 미연결, 권한 변경 없음. 기존 dirty 소스와 HANDOVER 다른 기록을 보존한다.
+
+---
+
 ## 2026-10-04 등록: 통합 피트니스 에디터 제작·데이터 안전·게임 적용
 
 **추적1개 + 실행30개 = 총31개 등록. 실행 카드는 모두 OPEN·미착수·구현 승인 대기다.** 상위: [FITNESS-EDITOR-TRACK #374](https://github.com/Choyounhwa/-dream-guardian/issues/374). 기존 계약 #321은 재등록하지 않는다. UIX UI 추출 전용 에디터 및 RUN-MAT와 다른 트랙이다.
@@ -118,6 +138,11 @@
 | UIX-041 | [#365](https://github.com/Choyounhwa/-dream-guardian/issues/365) | 7 | 키보드·큰 글자·고대비·오류 초점 접근성 QA | #364 | 0 |
 | UIX-042 | [#366](https://github.com/Choyounhwa/-dream-guardian/issues/366) | 7 | 장기 복구·구버전 파일·시각 재현성 QA | #365 | 0 |
 | UIX-043 | [#367](https://github.com/Choyounhwa/-dream-guardian/issues/367) | 7 | 운영·백업·파일 호환/수신 인계 문서와 최종 점검 | #366 | 0 |
+| UIX-VIEW-TRACK | [#412](https://github.com/Choyounhwa/-dream-guardian/issues/412) | 화면 | 셸 DOM 연결 추적. Phase 7 QA 대체 아님 | #363 로직 참고 | 0 |
+| UIX-044 | [#413](https://github.com/Choyounhwa/-dream-guardian/issues/413) | 화면 | 셸 DOM·3패널 마운트 | #332 참고 | 2 |
+| UIX-045 | [#414](https://github.com/Choyounhwa/-dream-guardian/issues/414) | 화면 | 속성 폼을 PropertyPanel에 연결 | #413 | 2 |
+| UIX-046 | [#415](https://github.com/Choyounhwa/-dream-guardian/issues/415) | 화면 | 미리보기 iframe을 PreviewHost에 연결 | #414 | 2 |
+| UIX-047 | [#416](https://github.com/Choyounhwa/-dream-guardian/issues/416) | 화면 | 저장·백업·추출 버튼을 기존 IO에 연결 | #415 | 2 |
 
 - 실행 순서는 표 순서다. Phase5의 UIX-030→031은018~029보다 먼저다. 모든 기능 카드는 source/config 최대3개이며 정확 경로는 각 이슈와 설계 §14에 기록했다. QA/문서는 인위적 기능 Red 없이 특성화/실측·미검증 기준을 적용한다.
 - UIX-008: main/셸/전용 Vite설정3개 + 독립 HTML2개/package script 추가만. UIX-014: IO/Migration/셸3개로 백업/열기 버튼까지 연결. UIX-015 report 재검사와016 실제 검증/추출 UX를 분리한다.
@@ -5587,7 +5612,6 @@ BEAT-SPEC-001
   - `dream_guardian/src/render/DreamGrid.ts`
   - `dream_guardian/src/core/SceneDirector.ts`
   - `dream_guardian/tests/unit/dream-grid.test.ts`
-
 
 
 
