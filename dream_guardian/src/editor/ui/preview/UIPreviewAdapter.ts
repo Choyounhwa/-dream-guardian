@@ -1,4 +1,5 @@
 import { LIMITS, RENDERER_FINGERPRINT } from "../data/UIBaselines";
+import { registerSubmenuPreview } from "./screens/UISubmenuPreview";
 
 export { LIMITS, RENDERER_FINGERPRINT };
 export { composeFrame, hitTest, composeFromRaw, CHROME_READONLY } from "./UIComposition";
@@ -7,6 +8,8 @@ export const PREVIEW_CONTEXT_ID = "dream-guardian-ui-preview";
 export const GAME_CONTEXT_ID = "dream-guardian-game";
 export const IFRAME_IS_SECURITY_SANDBOX = false;
 export const GAME_APPLY_VERIFIED = false;
+
+export const SUBMENU_PREVIEW_REGISTRATION = registerSubmenuPreview();
 
 export const GAME_KEYS_FORBIDDEN = Object.freeze([
   "dream-guardian-save",

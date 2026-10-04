@@ -1,4 +1,6 @@
 import { MENU_CARD_IDS } from "./data/UIContracts";
+export { roundTripSubmenu } from "./preview/screens/UISubmenuPreview";
+export type { SubmenuPreview } from "./preview/screens/UISubmenuPreview";
 
 export type {
   AcceptResult,
