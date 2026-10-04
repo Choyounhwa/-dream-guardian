@@ -1,6 +1,7 @@
 import { HASHES_ARE_NOT_SIGNATURES, SOURCE_COMPARISON_NOT_PERFORMED } from "../data/UIContracts";
 import { artifactHash, contentHash, sourceCheckpointHash } from "../data/UICanonicalJSON";
-import { validateTransfer } from "../data/UIValidator";
+import { validateStyleTransfer, validateTransfer } from "../data/UIValidator";
+import { APPROVED_RESOURCES, STYLE_TRANSFER_VERSION } from "../data/UIResourceCatalog";
 import { VISUAL_BROWSER_VERIFIED } from "../preview/UIVisualValidator";
 
 export const GAME_APPLY_VERIFIED = false;
@@ -41,6 +42,19 @@ function claimedPass(file: Record<string, unknown>): boolean {
   return validation.passed === true || validation.status === "pass" || validation.ok === true;
 }
 
+function validateStyleResourceFile(file: Record<string, unknown>): { ok: boolean } {
+  if (file.styleVersion !== STYLE_TRANSFER_VERSION) return { ok: false };
+  if (!Array.isArray(file.resources) || file.resources.length !== APPROVED_RESOURCES.length) return { ok: false };
+  const listed = validateStyleTransfer({
+    styleVersion: file.styleVersion,
+    resources: APPROVED_RESOURCES.map((approved) => {
+      const found = (file.resources as unknown[]).find((item) => isRecord(item) && item.id === approved.id);
+      return found ?? { id: approved.id, path: approved.path, hash: "" };
+    }),
+  });
+  return { ok: listed.ok };
+}
+
 function storedArtifactHash(file: Record<string, unknown>): unknown {
   if (typeof file.artifactHash === "string") return file.artifactHash;
   const integrity = file.integrity;
@@ -53,7 +67,27 @@ export function inspectTransfer(input: InspectInput): TransferInspection {
   void input.database;
   void HASHES_ARE_NOT_SIGNATURES;
   const file = isRecord(input.file) ? input.file : {};
-  const recomputed = validateTransfer(input.file);
+  const styleFile = file.scope === "style-resources";
+  const recomputed = styleFile ? validateStyleResourceFile(file) : validateTransfer(input.file);
+  if (styleFile) {
+    const storedArtifact = isRecord(file.integrity) ? file.integrity.artifactHash : undefined;
+    const accepted = recomputed.ok && file.gameApplyVerified !== true;
+    return {
+      contentHashOk: file.contentHash === contentHash(file.content),
+      artifactHashOk: storedArtifact === artifactHash(file),
+      validationRecomputed: true,
+      falsePassRejected: !recomputed.ok,
+      sourceComparison: SOURCE_COMPARISON_NOT_PERFORMED,
+      profileStatus: "미검증",
+      projectMutated: false,
+      checkpointCreated: false,
+      fileCorruptBecauseOriginalMissing: false,
+      accepted,
+      provenanceVerified: false,
+      gameApplyVerified: false,
+      hashesAreSignatures: false,
+    };
+  }
   let contentHashOk = false;
   let artifactHashOk = false;
   try {

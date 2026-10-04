@@ -1,4 +1,5 @@
 import { KINDS, SCHEMA_VERSION } from "../data/UIContracts";
+import { RESOURCE_BINARY_GUARANTEED, STYLE_TRANSFER_VERSION } from "../data/UIResourceCatalog";
 import { lookupScreenContract } from "../data/UIProperties";
 import { validateProject } from "../data/UIValidator";
 
@@ -25,6 +26,32 @@ const TABLE: Record<string, (doc: Record<string, unknown>) => Record<string, unk
 
 function fail(reason: string, originalBytes: string, steps: string[]): MigrationFail {
   return { ok: false, reason, originalBytes, steps };
+}
+
+export function migrateStyleResourceList(raw: string): MigrationResult & {
+  copied?: false;
+  resourceBinaryGuaranteed?: false;
+} {
+  const steps = ["parse", "styleVersion", "resources"];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return fail("parse error", raw, steps);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return fail("parse error", raw, steps);
+  const doc = parsed as Record<string, unknown>;
+  if (doc.styleVersion !== STYLE_TRANSFER_VERSION || doc.scope !== "style-resources") {
+    return fail("unsupported style resource version", raw, steps);
+  }
+  return {
+    ok: true,
+    document: JSON.parse(raw) as Record<string, unknown>,
+    steps,
+    report: steps.map((step) => ({ step, status: "ok" as const, detail: "pure json round-trip" })),
+    copied: false,
+    resourceBinaryGuaranteed: RESOURCE_BINARY_GUARANTEED,
+  };
 }
 
 export function migrateStepwise(raw: string): MigrationResult {

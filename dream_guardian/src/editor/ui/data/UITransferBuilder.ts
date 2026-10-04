@@ -1,8 +1,9 @@
 import { KINDS, LIMITS, SCHEMA_VERSION } from "./UIContracts";
 import { artifactHash, contentHash, rejectDuplicateKeys, sourceCheckpointHash } from "./UICanonicalJSON";
 import { BASELINE_REGISTRY, clonePresetForEdit } from "./UIBaselines";
+import { APPROVED_RESOURCES, RESOURCE_BINARY_GUARANTEED, STYLE_TRANSFER_VERSION } from "./UIResourceCatalog";
 import { lookupScreenContract } from "./UIProperties";
-import { OUT_OF_SCOPE_MEANS_RESTORE, validateProject, validateTransfer } from "./UIValidator";
+import { OUT_OF_SCOPE_MEANS_RESTORE, validateProject, validateStyleTransfer, validateTransfer } from "./UIValidator";
 
 export const GAME_APPLY_VERIFIED = false;
 
@@ -153,4 +154,33 @@ export function buildTransferFromRaw(raw: string, meta: Meta): BuildResult {
     return { ok: false, reason: "invalid-json" };
   }
   return buildTransfer({ checkpoint: parsed, ...meta });
+}
+
+export function buildStyleResourceTransfer(input: {
+  styleVersion: string;
+  sourceId: string;
+  exportId: string;
+  sourceCheckpoint?: unknown;
+}): BuildResult {
+  if (input.styleVersion !== STYLE_TRANSFER_VERSION) return { ok: false, reason: "unsupported-style-version" };
+  const resources = APPROVED_RESOURCES.map((item) => ({ id: item.id, path: item.path, hash: item.hash }));
+  const content = { styleVersion: STYLE_TRANSFER_VERSION, resources };
+  const checked = validateStyleTransfer({ styleVersion: STYLE_TRANSFER_VERSION, resources: APPROVED_RESOURCES });
+  if (!checked.ok) return { ok: false, reason: checked.errors[0]?.code ?? "invalid-style" };
+  const body: Record<string, unknown> = {
+    kind: KINDS.transfer,
+    scope: "style-resources",
+    styleVersion: STYLE_TRANSFER_VERSION,
+    resources,
+    content,
+    sourceId: input.sourceId,
+    exportId: input.exportId,
+    resourceBinaryGuaranteed: RESOURCE_BINARY_GUARANTEED,
+    gameApplyVerified: GAME_APPLY_VERIFIED,
+    hashesAreSignatures: false,
+    sourceCheckpointHash: sourceCheckpointHash(input.sourceCheckpoint ?? null),
+  };
+  body.contentHash = contentHash(content);
+  body.integrity = { artifactHash: artifactHash(body) };
+  return { ok: true, transfer: body };
 }
