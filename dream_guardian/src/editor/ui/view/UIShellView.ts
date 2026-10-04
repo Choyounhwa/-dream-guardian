@@ -19,7 +19,6 @@ import {
   type FilePicker,
   type DirtyExportChoice,
   bindFileActions,
-  GAME_REFLECTION_DISCLAIMER,
 } from "./UIFileActionView";
 
 export interface ShellInstance {

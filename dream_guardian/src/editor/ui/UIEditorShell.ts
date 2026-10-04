@@ -3,6 +3,8 @@ export { roundTripPause } from "./preview/screens/UIPausePreview";
 export type { PausePreview } from "./preview/screens/UIPausePreview";
 export { roundTripSubmenu } from "./preview/screens/UISubmenuPreview";
 export type { SubmenuPreview } from "./preview/screens/UISubmenuPreview";
+export { roundTripResult } from "./preview/screens/UIResultPreview";
+export type { ResultPreview } from "./preview/screens/UIResultPreview";
 
 export type {
   AcceptResult,
