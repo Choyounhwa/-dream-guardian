@@ -2,18 +2,40 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 시각 전용 러닝 매트 별도 백로그 등록 (RUN-MAT, 2026-10-04)
+
+**승인 범위는 카드 등록·문서 동기화만이다. 구현 미착수/별도 승인 대기이며 기존 SSOT·EDITOR-SCHEMA 및 UIX 트랙 NEXT를 그대로 유지한다.** 다른 세션의 UIX 진행 기록을 덮어쓰지 않는다.
+
+| 카드 | 단일 책임 | src/config 수 | 선행 | 상태 |
+|---|---|:---:|---|---|
+| [RUN-MAT-001 #370](https://github.com/Choyounhwa/-dream-guardian/issues/370) | Game 실제 예약 기반 읽기 전용 run snapshot | 1 | 신규 없음 | [✔] 완료 (2026-10-04) |
+| [RUN-MAT-002 #371](https://github.com/Choyounhwa/-dream-guardian/issues/371) | 표시 패턴 데이터·순수 presenter | 2 | #370 | [▶ NEXT: RUN-MAT] 승인 대기 |
+| [RUN-MAT-003 #372](https://github.com/Choyounhwa/-dream-guardian/issues/372) | 순수 매트 renderer·시각 config | 2 | #371 | OPEN / 구현 승인 대기 |
+| [RUN-MAT-004 #373](https://github.com/Choyounhwa/-dream-guardian/issues/373) | SceneDirector/MainSceneContext·AppBootstrap 배선 | 2 | #370~#372 | OPEN / 구현 승인 대기 |
+| [RUN-MAT-005 #368](https://github.com/Choyounhwa/-dream-guardian/issues/368) | null-hazard HUD 오문구·중복 안내 제거 | 2 | #373 | OPEN / 구현 승인 대기 |
+
+- 중복 조사 후 신규4개 + 기존 #368 재사용. 구 `RENDER-RUN-FLOOR-001` 최초 본문은 이슈 하단에 보존하고 바닥 그리기는 #371~#373으로 분리했다. 매트 current/next·인정 수는 RunningMatRenderer가 소유하며 BeatHUD는 진짜 hazard 동작을 보존한다.
+- 시리즈 내부 순서만 **#370 → #371 → #372 → #373 → #368**. 다음 RUN-MAT 후보는 #370이지만 현재 NEXT 승격/구현 승인은 아니다. 정확 제목/파일 경계는 `docs/03_GITHUB_ISSUES.md` 상단 및 각 이슈 참조.
+- 실제 예약 종료−기존 준비 길이로 준비 시작을 관찰하고 recordStep/전이/N-2+2/8·12·16/미달 시 명목 답안 프리뷰를 변경하지 않는다. COUNT_IN 포함 RUN_QUESTION 외 매트 숨김. 미달은 중앙 운동 연장이며 시간 박수≠인정 수다.
+- 반투명 좌/중앙/우 셀·좌우 home·현재/다음 발자국·화살표·NEXT 수축 링은 안내 전용이다. AR/실제 착지 정확도/Perfect/새 detector 금지. 영상 제목만 확인, 안무 미검증으로 교체 가능한 제안 패턴임을 명시했다. 4색 커서 체계/현재 가시성(#369)·투명 DreamGrid·존/입력/전투 보존.
+- 등록 검증만 완료: 5개 제목/본문 표준필드·실제 선행 링크·라벨·OPEN·미체크 완료조건·완료 코멘트0 확인. **이번 세션 구현 완료 ID/통과한 기능 테스트 없음.** npm test/build·브라우저/실카메라·서버 실행/확인 미수행; 기존 다른 세션의 Pass를 본 작업 결과로 인용하지 않는다.
+- 향후 구현 완료 시 각 카드의 TDD·전체100% Pass·빌드·수동 검증/미확인을 `gh issue comment`와 HANDOVER에 기록하고 실제 `npm run dev`/`http://localhost:3000/`을 안내한다. 이번에는 완료 코멘트를 게시하지 않았다.
+- Project 연결 차단: `gh project list --owner Choyounhwa --format json`의 `read:project` scope 부족. 인증/권한 변경 없음. WBS/PROJECT_BOARD 미수정, 이번 로컬 수정은 이 문서와 이슈 인덱스만. 초기 미추적8파일 및 조사 중 다른 세션이 추가한 HANDOVER UIX 진행 변경 보존; 소스/config/tests 수정0, commit/push 없음.
+
+---
+
 ## UI 추출 전용 에디터 별도 등록 트랙 (UIX, 2026-10-04)
 
-**사용자 승인 범위는 전체 카드 등록과 문서 동기화뿐이며 구현·검증 실행 승인이 아니다. #319는 완료되었으며 아래 EDITOR-SCHEMA NEXT를 유지한다.** UIE/게임 적용은 포함하지 않는다.
+**2026-10-04 구현 승인: #324~#335 순차 TDD. #324~#334 완료, 다음은 #335. #319 완료 및 EDITOR-SCHEMA NEXT는 유지한다.** UIE/게임 적용은 포함하지 않는다.
 
 | 항목 | 등록 결과 | 상태 |
 |---|---|---|
 | 전체 추적 | [UIX-TRACK-001 #323](https://github.com/Choyounhwa/-dream-guardian/issues/323) | OPEN / 하위44개 체크리스트 미체크 |
-| MVP Phase0~4 | UIX-001~017 +007A, #324~341 (18개) | 등록 완료 / 구현 미착수 |
+| MVP Phase0~4 | UIX-001~017 +007A, #324~341 (18개) | #324~#334 완료 / #335~341 미착수 |
 | 후속 Phase5 | UIX-030/031 기반 #342/#343 →018~029 #344~355 (14개) | 등록 완료 / 구현 미착수 |
 | 후속 Phase6 | UIX-032~039 #356~363 (8개) | 등록 완료 / 구현 미착수 |
 | 후속 Phase7 | UIX-040~043 #364~367 (4개) | 등록 완료 / 검증 실행 대기 |
-| UIX 내부 첫 구현 추천 | [UIX-001 #324](https://github.com/Choyounhwa/-dream-guardian/issues/324) 편집·전달 계약 | 별도 구현 승인 대기, 기존 NEXT 대체 아님 |
+| UIX 구현 진행 | #324~#334 `[✔]` → [UIX-011 #335](https://github.com/Choyounhwa/-dream-guardian/issues/335) `[▶ NEXT]` | #334 `4dfd26a` / 2194 pass / build 성공 |
 
 - 합계: 실행44(MVP18+후속26)+추적1=45. 전체 ID/링크/선행은 `docs/03_GITHUB_ISSUES.md` 상단과 #323, 정확 수정 경계는 각 이슈 및 설계 §14에 기록했다.
 - 생성 전 REST 전체 목록에서 정확 ID 대조, 생성 후 제목/본문/라벨/OPEN 및 최종45개 중복0 재조회 확인. 라벨 feature39/test4/documentation2, P1-high11/P2-medium34. Project scope 부족으로 미연결, 인증 변경/권한 요청 없음.
@@ -30,7 +52,17 @@
 | 카드 | 목표 | 상태 |
 |---|---|---|
 | [#321](https://github.com/Choyounhwa/-dream-guardian/issues/321) EDITOR-CONTRACT | 실제 게임의 시간/입력/참조 계약 및 초기 편집 경계 확정 | `[✔] 문서·특성화 검증 완료` (미커밋, 이슈 OPEN 유지) |
-| EDITOR-SCHEMA (번호 미등록) | V2 데이터 타입 및 구조/참조 검증기 | `[▶ NEXT: 에디터 트랙]` 승인 대기 |
+| [#375](https://github.com/Choyounhwa/-dream-guardian/issues/375) EDITOR-SCHEMA | V2 데이터 타입 및 구조/참조 검증기 | `[▶ NEXT: 에디터 트랙]` 승인 대기 |
+
+### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
+
+- 사용자 요청은 **카드 제작**. [전체 추적 #374](https://github.com/Choyounhwa/-dream-guardian/issues/374) + 실행30개(#375~#404) 등록 완료, 모두 OPEN/구현 승인 대기. 기존 #321은 계약 결과로 재사용한다.
+- A 기반 #375~#379 → B 편집 안전 #380~#385 → C 게시/실행 #386~#393 → D 별 MVP #394 → E 장판·피버 #395~#402 → F 정적 팩/최종 인수 #403~#404. 전체 ID/선행은 `docs/03_GITHUB_ISSUES.md` 상단, 정확 파일/완료조건/TDD/유지·금지는 각 이슈.
+- 첫 구현은 #375 두 Data 소스와 신규 테스트만. 카드 등록은 구현 승인 아님. 소스 최대3개·단일 레이어·한 카드씩 승인 원칙이며 UIX/RUN-MAT NEXT는 변경하지 않는다.
+- #243은 최신 조회 CLOSED이나 로컬 길이7/표시2~8/seek 제한이 남아 있다. #382 내부 시간모델/#383 표시·클릭 연결로 분리했으며 착수 전 최신 해결 증거 재확인. 기존 이슈 재오픈/타 작업 수정 없음.
+- Phase B binding은 역할/종류를 포함해 별·장판 공존. 초기 미편집 구간은 명시적 versioned builtin profile로 전체 stage bundle 검증하고 누락 부분의 암묵 CSV 혼합은 금지한다.
+- 생성 직후 제목/본문/라벨/OPEN 확인, 최종31개 재조회. 목록 반영 지연2건은 재조회로 해결(중복생성0). Project scope 부족으로 보드 미연결, 인증 변경 없음.
+- **이번 등록 세션의 기능 구현/통과 테스트 없음.** npm test/build·브라우저·서버 재확인·commit/push·배포 미수행. 아래 #321 증빙은 과거 계약 작업 결과이며 신규30개 완료 증거가 아니다. 로컬 문서는 인덱스/HANDOVER만 최소 갱신하고 타 작업을 보존했다.
 
 - 계약 문서: `docs/09_EDITOR_RUNTIME_CONTRACT.md`. 기존 설계 `docs/07_UNIFIED_EDITOR_INTEGRITY_DESIGN.md`에 후속 계약 참조 추가.
 - 테스트: `tests/unit/editor-runtime-contract.test.ts` 신규 21개. V1 왕복, #243 시간축 관찰, 배열 순서 착지, BPM/판정창, foot-role hip 입력, 장판 스케일/회피, Phase B 8노트와 16박 가이드 차이 확인.

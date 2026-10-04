@@ -59,6 +59,22 @@ export interface BranchClock {
   durationBeats: 8;
 }
 
+/**
+ * 읽기 전용 러닝 타이밍 스냅샷
+ * @see Issue #370 [RUN-MAT-001]
+ */
+export interface RunTimingSnapshot {
+  readonly runId: number;
+  readonly active: boolean;
+  readonly paused: boolean;
+  readonly elapsedBeats: number;
+  readonly exerciseBeats: number;
+  readonly requiredExerciseCount: number;
+  readonly acceptedExerciseCount: number;
+  readonly prepareStartBeat: number | null;
+  readonly transitionBeat: number | null;
+}
+
 export type BeatPhase =
   | 'COUNT_IN'
   | 'RUN_QUESTION'
@@ -351,6 +367,51 @@ export class BeatRunCoordinator {
       endElapsed: this._branchStartElapsed + this.branchRoutineBeats * spb,
       durationBeats: this.branchRoutineBeats as BranchClock['durationBeats'],
     };
+  }
+
+  /**
+   * 러닝 실제 예약 시점 기반 읽기 전용 타이밍 스냅샷 반환
+   * @see Issue #370 [RUN-MAT-001]
+   */
+  getRunTimingSnapshot(): RunTimingSnapshot {
+    const active = Boolean(this._rhythmEngine.running && this._phase === 'RUN_QUESTION');
+    const paused = this.isPaused;
+    const spb = this._rhythmEngine.secondsPerBeat || 0.5;
+    const elapsedBeats = spb > 0 ? this._runElapsed / spb : 0;
+    const exerciseBeats = this.exerciseBeats;
+    const requiredExerciseCount = this.approachStartBeat;
+    const acceptedExerciseCount = this._completedExerciseBeats;
+
+    let prepareStartBeat: number | null = null;
+    let transitionBeat: number | null = null;
+
+    if (active && this._targetSlotEndElapsed !== null && spb > 0) {
+      transitionBeat = this._targetSlotEndElapsed / spb;
+      const prepareLength = Math.max(0, exerciseBeats - requiredExerciseCount);
+      prepareStartBeat = transitionBeat - prepareLength;
+    }
+
+    return Object.freeze({
+      runId: this._questionGeneratedCount,
+      active,
+      paused,
+      elapsedBeats,
+      exerciseBeats,
+      requiredExerciseCount,
+      acceptedExerciseCount,
+      prepareStartBeat,
+      transitionBeat,
+    });
+  }
+
+  /** 한 비트당 소요 시간 (초) */
+  get secondsPerBeat(): number {
+    return this._rhythmEngine.secondsPerBeat;
+  }
+
+  /** 실행 중 여부 */
+  get isRunning(): boolean {
+    return this._rhythmEngine.running;
   }
 
   private _answerMaxSeconds(): number {
