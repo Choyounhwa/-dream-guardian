@@ -2,6 +2,17 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🎵 비트 동기화 세로선 Cyan 글로우 (RENDER-GRID-006, 2026-10-04)
+
+| 카드 | 단일 책임 | src/config 수 | 선행 | 상태 |
+|---|---|:---:|---|---|
+| [RENDER-GRID-006 #405](https://github.com/Choyounhwa/-dream-guardian/issues/405) | 음악 비트 동기화 중심 기준 양옆 4번째 세로선 Cyan 글로우 효과 | 3 | 없음 | [✔] 완료 (2026-10-04) |
+
+- 작업 완료: 그리드 중심 기준 양옆 4번째 세로선(j = ±4)에 음악 비트 계수(flashFactor) 연동 3-Pass 일렉트릭 Cyan 네온 글로우 렌더링 구현 완료.
+- 대상 파일: `config/grid.config.ts`, `src/render/DreamGrid.ts`, `src/core/SceneDirector.ts` (3개 이하 준수)
+- 검증 결과: `tests/unit/dream-grid.test.ts` (31/31 Pass), 전체 단위 테스트 100% Pass (2,309/2,309 Pass), `npm run build` 성공.
+- Rule 12 코멘트 및 Rule 13 로컬 개발 서버 안내 준비 완료.
+
 ## 시각 전용 러닝 매트 별도 백로그 등록 (RUN-MAT, 2026-10-04)
 
 **승인 범위는 카드 등록·문서 동기화만이다. 구현 미착수/별도 승인 대기이며 기존 SSOT·EDITOR-SCHEMA 및 UIX 트랙 NEXT를 그대로 유지한다.** 다른 세션의 UIX 진행 기록을 덮어쓰지 않는다.

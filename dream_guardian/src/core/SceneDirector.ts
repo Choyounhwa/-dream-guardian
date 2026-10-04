@@ -1046,12 +1046,14 @@ export class SceneDirector<TContext = any> {
 
     const chapterKey = `ch${ctx.state.currentChapter}`;
     const gameBg = !ctx.cameraLayer.isActive ? ctx.imageLoader?.get?.('bg', chapterKey) : null;
+    const beatProg = ctx.beatCoordinator?.rhythmEngine?.beatProgress ?? undefined;
 
     ctx.dreamGrid.render(context2d, vw, vh, {
       vanishingX: bossX,
       vanishingY: bossY,
       color: gridColor,
       bgImage: gameBg,
+      beatProgress: beatProg,
     });
 
     // RUN-MAT-004 (#373): RUN_QUESTION 전용 러닝 매트 렌더링 (DreamGrid 직후 바닥 배경 레이어)

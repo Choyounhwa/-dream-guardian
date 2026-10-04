@@ -1,5 +1,72 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-10-04 등록: 통합 피트니스 에디터 제작·데이터 안전·게임 적용
+
+**추적1개 + 실행30개 = 총31개 등록. 실행 카드는 모두 OPEN·미착수·구현 승인 대기다.** 상위: [FITNESS-EDITOR-TRACK #374](https://github.com/Choyounhwa/-dream-guardian/issues/374). 기존 계약 #321은 재등록하지 않는다. UIX UI 추출 전용 에디터 및 RUN-MAT와 다른 트랙이다.
+
+| 단계 | 작업 ID | 카드 | 단일 책임 | 소스 수 | 필수 선행 (#321 공통) |
+|---|---|---|---|:---:|---|
+| A | EDITOR-SCHEMA | [#375](https://github.com/Choyounhwa/-dream-guardian/issues/375) | V2 구조·참조 검증 | 2 | 신규 없음 |
+| A | EDITOR-CAPABILITY | [#376](https://github.com/Choyounhwa/-dream-guardian/issues/376) | 지원 입력·시간·규칙 프로필 | 2 | #375 |
+| A | EDITOR-COMPILE | [#377](https://github.com/Choyounhwa/-dream-guardian/issues/377) | 결정적 적용본 생성/재검사 | 3 | #375, #376 |
+| A | EDITOR-MIGRATE | [#378](https://github.com/Choyounhwa/-dream-guardian/issues/378) | V1/라이브러리 무손실 변환 | 2 | #375, #376 |
+| A | EDITOR-STORE | [#379](https://github.com/Choyounhwa/-dream-guardian/issues/379) | 전용 IndexedDB 원자적 초안 저장 | 2 | #375 |
+| B | EDITOR-COMMAND | [#380](https://github.com/Choyounhwa/-dream-guardian/issues/380) | 불변 문서 명령/Undo/참조 삭제 | 3 | #375 |
+| B | EDITOR-IO | [#381](https://github.com/Choyounhwa/-dream-guardian/issues/381) | 전체 열기/자동저장/복구 연결 | 3 | #378~#380 |
+| B | EDITOR-TIME-MODEL | [#382](https://github.com/Choyounhwa/-dream-guardian/issues/382) | #243 후속 내부 시간/탐색 정합 | 3 | #380, #376 |
+| B | EDITOR-TIME-VIEW | [#383](https://github.com/Choyounhwa/-dream-guardian/issues/383) | 표시/클릭/재생/루프 시간 통일 | 3 | #382 |
+| B | EDITOR-STAR | [#384](https://github.com/Choyounhwa/-dream-guardian/issues/384) | 별 7슬롯/부위·존/오류 UX | 3 | #381, #383, #377 |
+| B | EDITOR-BINDING | [#385](https://github.com/Choyounhwa/-dream-guardian/issues/385) | 프로젝트/구간·역할별 연결 UX | 3 | #384 |
+| C | EDITOR-RELEASE-STORE | [#386](https://github.com/Choyounhwa/-dream-guardian/issues/386) | 불변 게시본/적용 예약 저장 | 2 | #379, #377 |
+| C | EDITOR-PUBLISH | [#387](https://github.com/Choyounhwa/-dream-guardian/issues/387) | 검증/게시/적용 예약 UI | 3 | #385, #386 |
+| C | CONTENT-SESSION | [#388](https://github.com/Choyounhwa/-dream-guardian/issues/388) | 전체 스테이지 snapshot 고정 | 2 | #377 |
+| C | CONTENT-LOAD | [#389](https://github.com/Choyounhwa/-dream-guardian/issues/389) | 명시적 로컬 팩 수신/재검증 | 1 | #388, #386 |
+| C | CONTENT-BOOT-STAR | [#390](https://github.com/Choyounhwa/-dream-guardian/issues/390) | 별 팩 주입/CSV 경쟁 차단 | 3 | #389 |
+| C | CONTENT-TEST-SESSION | [#391](https://github.com/Choyounhwa/-dream-guardian/issues/391) | 테스트 세션/실제 기록 격리 | 3 | #390 |
+| C | EDITOR-PREVIEW | [#392](https://github.com/Choyounhwa/-dream-guardian/issues/392) | 컴파일 이벤트 기반 미리보기 | 3 | #387, #383, #388 |
+| C | EDITOR-TEST-LAUNCH | [#393](https://github.com/Choyounhwa/-dream-guardian/issues/393) | 게시 hash 테스트 실행 UX | 3 | #391, #392 |
+| D | EDITOR-MVP-QA | [#394](https://github.com/Choyounhwa/-dream-guardian/issues/394) | 별 제작→게임→롤백 종단 인수 | 0 | #393 |
+| E | EDITOR-HAZARD-A | [#395](https://github.com/Choyounhwa/-dream-guardian/issues/395) | Phase A 장판 편집 | 3 | #394 |
+| E | GAME-HAZARD-A-CONTENT | [#396](https://github.com/Choyounhwa/-dream-guardian/issues/396) | Phase A 장판 소비 | 2 | #395, #388 |
+| E | BOOT-HAZARD-A-CONTENT | [#397](https://github.com/Choyounhwa/-dream-guardian/issues/397) | 오답 장판 실제 분기 연결 | 2 | #396, #390 |
+| E | EDITOR-FEVER | [#398](https://github.com/Choyounhwa/-dream-guardian/issues/398) | 16박 가이드/8노트 피버 분리 편집 | 3 | #397 |
+| E | GAME-FEVER-CONTENT | [#399](https://github.com/Choyounhwa/-dream-guardian/issues/399) | 피버 공급/반복/마지막 판정 | 3 | #398 |
+| E | EDITOR-HAZARD-B | [#400](https://github.com/Choyounhwa/-dream-guardian/issues/400) | Phase B 공격 순서 편집 | 3 | #399 |
+| E | GAME-HAZARD-B-CONTENT | [#401](https://github.com/Choyounhwa/-dream-guardian/issues/401) | Phase B 장판 공급 | 2 | #400 |
+| E | BOOT-PHASE-B-CONTENT | [#402](https://github.com/Choyounhwa/-dream-guardian/issues/402) | 동일 팩 Phase B 인계/연결 | 3 | #399, #401, #397 |
+| F | CONTENT-DEPLOY | [#403](https://github.com/Choyounhwa/-dream-guardian/issues/403) | 정적 manifest 수신/검증 | 2 | #402 |
+| F | FITNESS-EDITOR-QA | [#404](https://github.com/Choyounhwa/-dream-guardian/issues/404) | 전체 제작/복구/게임 적용 인수 | 0 | #403 |
+
+- 순서는 표 순서로 한 카드씩 승인 후 실행. 첫 대상 #375, 별 실사용 인수 #394 통과 후 장판·피버 확장. src/config 단일 레이어 최대3개, 정확 파일/테스트/유지·금지/실패사례는 각 본문에 명시했다.
+- 계약 보완: Phase B 별과 장판은 binding의 시퀀스 종류/역할로 구분해 공존시킨다. 초기에 미편집 구간을 사용하려면 명시적 버전 고정 builtin profile 참조를 검증한다. 누락을 CSV/다른 팩으로 암묵 보충하지 않는다.
+- #243은 CLOSED지만 조사 시 로컬 시간축 불일치가 남아 있어 후속 #382/#383으로 책임을 분리했다. 착수 시 최신 완료 증거를 확인하고 이미 해결된 부분은 중복 구현하지 않는다. 기존 이슈 재오픈/종료 상태 변경 없음.
+- 생성 전 REST 전체 이슈의 정확 ID 조회, 생성 직후 제목/본문/OPEN/라벨 검증, 최종31개 재조회. 최근2개 목록 반영 지연은 재조회로 확인했으며 재생성하지 않았다.
+- GitHub Project는 `read:project` scope 부족으로 미연결. 인증/권한 변경 없음. 등록은 기능 구현/테스트 Pass가 아니며 이번에는 npm test/build/브라우저/서버 재검증·commit/push·실제 배포를 수행하지 않았다.
+- 로컬 갱신은 이슈 인덱스와 HANDOVER뿐이다. 기존 설계·계약 문서는 역사적 기준으로 보존하며 카드의 구체화 내용과 함께 읽는다. UIX/RUN-MAT·다른 dirty 파일은 수정하지 않는다.
+
+---
+
+## 2026-10-04 등록: 시각 전용 러닝 매트 (RUN-MAT)
+
+**등록 승인만 / 5개 모두 OPEN·별도 구현 승인 대기.** 전체 OPEN/CLOSED 이슈를 대조하여 중복 #368을 발견했고, 신규4개 + 기존 #368 재정의로 등록했다. #368의 구 ID `RENDER-RUN-FLOOR-001` 및 최초 본문은 이슈 하단 역사 기록으로 보존한다. 기존 NEXT/다른 트랙 우선순위는 변경하지 않는다.
+
+| ID / 이슈 | 정확 제목 (ID 접두어 제외) | src/config 수정 허용 경로 (dream_guardian 기준) | 수 | 필수 선행 |
+|---|---|---|:---:|---|
+| [RUN-MAT-001 #370](https://github.com/Choyounhwa/-dream-guardian/issues/370) | 러닝 실제 예약 시점 기반 읽기 전용 타이밍 스냅샷 | `src/game/BeatRunCoordinator.ts` | 1 | 신규 없음 |
+| [RUN-MAT-002 #371](https://github.com/Choyounhwa/-dream-guardian/issues/371) | 러닝 매트 제안 패턴 데이터와 순수 표시 모델 | `src/data/runningMatPatterns.ts`, `src/render/RunningMatPresenter.ts` | 2 | #370 |
+| [RUN-MAT-003 #372](https://github.com/Choyounhwa/-dream-guardian/issues/372) | 반투명 원근 러닝 매트와 현재·다음 발자국 렌더링 | `src/render/RunningMatRenderer.ts`, `config/running-mat.config.ts` | 2 | #371 |
+| [RUN-MAT-004 #373](https://github.com/Choyounhwa/-dream-guardian/issues/373) | RUN_QUESTION 전용 러닝 매트 스냅샷·표시 모델·렌더러 연결 | `src/core/SceneDirector.ts`, `src/core/AppBootstrap.ts` | 2 | #370, #371, #372 |
+| [RUN-MAT-005 #368](https://github.com/Choyounhwa/-dream-guardian/issues/368) | 러닝 HUD의 잘못된 완료 문구와 매트 안내 중복 제거 | `src/render/BeatHUDRenderer.ts`, `config/locomotion.config.ts` | 2 | #373 |
+
+- 의존 순서: **#370 → #371 → #372 → #373 → #368**. #368 원안의 바닥 그리기는 #371~#373으로 이관하며 BeatHUD에 재구현하지 않는다. 각 이슈에 표준9필드·미체크 완료조건·정확 파일 경계·Baseline/Red/Green/전체 테스트/빌드·수동 QA·향후 Rule12/13을 포함했다.
+- 고정 원근 좌/중앙/우 반투명 셀, 좌우 home, 현재 안내/다음 윤곽 발자국·화살표·NEXT 타깃 수축 링. 실제 발 위치/착지 정확도/AR/Perfect/새 detector는 범위 밖. 모드별 안내는 run 이동/복귀, hip_bounce 중앙 상하, hip_sway 중앙 체중 이동(발 이동 아님), arm_cross 고정발+기존 팔 안내 의미를 보존한다.
+- 8/12/16의 필수6/10/14+2박 정책 불변. 준비는 실제 예약 종료에서 기존 준비 길이를 뺀 snapshot 시점만 따른다. 시간 박수와 인정 수를 분리하고 미달 시 중앙 운동 연장; 기존 answerApproachProgress 명목 경과 프리뷰는 변경하지 않는다. 초기 y .74~.94/폭 .76~.90은 조정 시작값이며 실제 무가림 검증 전 확정하지 않는다.
+- 영상 https://youtube.com/shorts/U6Cxgr0UIik?si=1eDhzczKGuuPf814 은 제목만 확인된 참고이며 실제 안무 미검증. 패턴은 교체 가능한 제안이지 정확 복원 아님. 투명 DreamGrid·4색 커서 체계 및 현행 가시성(#369 포함)·존·입력·전투를 보존한다.
+- 등록 검증: 실제 이슈 재조회로 제목/본문 필드/선행 링크/라벨/OPEN·완료조건 미체크·완료 코멘트 미등록 확인. 라벨 feature4/bug1, 전체 P2-medium, step-9(001)/phase-6(002·003·005)/phase-1(004). Project 조회는 `read:project` 권한 부족으로 실패하여 미연결; 인증 변경 없음.
+- 이번 변경은 이 문서와 HANDOVER의 등록 기록뿐이다. src/config/tests 수정0, npm test/build·브라우저·서버 실행/확인·구현 완료 코멘트·commit/push 없음. 다른 세션의 HANDOVER UIX 진행/NEXT 변경과 기존 미추적8파일을 보존한다.
+
+---
+
 ## 2026-10-04 등록: UI 추출 전용 에디터 전체 Phase 0~7 (UIX)
 
 **등록 승인 / 구현·검증 실행 승인 대기. 실행44개(MVP18+후속26) + 추적1개 = 총45개, 모두 OPEN·미착수.** 추적: [UIX-TRACK-001 #323](https://github.com/Choyounhwa/-dream-guardian/issues/323).
@@ -5467,6 +5534,59 @@ BEAT-SPEC-001
   - `dream_guardian/src/render/AnswerSelectionRenderer.ts`
   - `dream_guardian/tests/unit/cursor-visibility.test.ts`
 
+---
+
+### Issue #405: [RENDER-GRID-006] 음악 비트 동기화 드림 그리드 중심 기준 양옆 4번째 세로선 Cyan 글로우 효과 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/405
+- **Labels**: `phase-7`, `feature`, `P2-medium`
+- **작업 ID**: `[RENDER-GRID-006]`
+- **상태**: `[✔] 완료`
+- **제목**: 음악 비트 동기화 드림 그리드 중심 기준 양옆 4번째 세로선 Cyan 글로우 효과 구현
+- **목적**:
+  1. 음악의 비트(Beat) 펄스에 반응하여 드림 그리드 중심선(j = 0) 기준 양옆 4번째 세로선(j = ±4)이 일렉트릭 Cyan 네온 글로우로 다이내믹하게 발광하는 시각 연출 추가.
+  2. 4번째 세로선 인덱스(`BEAT_GLOW_COLUMN_INDEX = 4`), Cyan 색상(`#00E5FF`), 글로우 선폭 배율 및 알파 부스트 파라미터를 `config/grid.config.ts`로 외재화.
+  3. 게임 루프(`SceneDirector.ts`)에서 `beatCoordinator`의 비트 진행률(`beatProgress`)을 `DreamGrid`에 전달하여 음악 리듬과의 정밀한 시각적 동기화 구현.
+- **수정 대상**:
+  - `dream_guardian/config/grid.config.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/src/core/SceneDirector.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
+- **구현 내용**:
+  1. **그리드 설정 분리 (`config/grid.config.ts`)**:
+     - `BEAT_GLOW_COLUMN_INDEX = 4`
+     - `BEAT_GLOW_COLOR = '#00E5FF'`
+     - `BEAT_GLOW_CORE_COLOR = '#E0FFFF'`
+     - `BEAT_GLOW_WIDTH_MULT`, `BEAT_GLOW_ALPHA_BOOST` 등 비트 반응 계수 정의
+  2. **그리드 렌더러 비트 글로우 레일 드로잉 (`src/render/DreamGrid.ts`)**:
+     - 세로선 렌더링 시 `Math.abs(j) === BEAT_GLOW_COLUMN_INDEX` (j = -4, 4) 전용 2-Pass Cyan 네온 글로우 렌더링
+     - 음악 비트 계수(`flashFactor`)에 따른 선폭 팽창 및 고휘도 알파 펄스 적용
+  3. **씬 디렉터 비트 데이터 연동 (`src/core/SceneDirector.ts`)**:
+     - `ctx.dreamGrid.render(...)` 호출 시 `beatCoordinator`의 `beatProgress`를 전달하여 비트 펄스 실시간 연동
+  4. **TDD 단위 테스트 작성 (`tests/unit/dream-grid.test.ts`)**:
+     - j = ±4 세로선의 Cyan 발광 및 비트 피크/감쇄에 따른 선폭/알파 검증 단위 테스트 작성
+- **유지 사항**:
+  - 기존 중앙 척추선(j = 0, Center Spine) 3-Pass 초고휘도 레이저 라인 연출 유지
+  - 일반 세로선 및 가로선 2-Pass 네온 렌더링 유지
+  - 웹캠 투과율 100% 보장 및 투명 바닥 패널 유지
+- **변경 금지**:
+  - 카메라 미러 피드 및 피트니스 존(Zone 1~11) 좌표계
+  - HUD/문제창 UI 레이아웃 및 러닝 매트 렌더러
+  - 게임 상태 머신 전이 규칙
+- **완료 조건**:
+  - [x] `config/grid.config.ts`에 4번째 세로선 비트 발광 설정 추가
+  - [x] `DreamGrid.ts`에서 j = -4, 4 세로선의 Cyan 글로우 렌더링 구현
+  - [x] `SceneDirector.ts`에서 `beatProgress` 연동
+  - [x] `tests/unit/dream-grid.test.ts`에 비트 반응 검증 테스트 통과 (100% Pass)
+  - [x] 전체 단위 테스트 100% Pass 및 `npm run build` 성공
+- **테스트**:
+  - `npx vitest run tests/unit/dream-grid.test.ts`
+  - `npm test`
+  - `npm run build`
+- **관련 파일**:
+  - `dream_guardian/config/grid.config.ts`
+  - `dream_guardian/src/render/DreamGrid.ts`
+  - `dream_guardian/src/core/SceneDirector.ts`
+  - `dream_guardian/tests/unit/dream-grid.test.ts`
 
 
 

@@ -45,6 +45,13 @@ export const BEAT_FLASH_DECAY = 4.5; // 비트 진행도에 따른 지수 감쇄
 // Issue #320 (RENDER-GRID-005): 바닥 가로선 확장 및 와이드 지대(Wide Terrain) 파라미터
 export const TRANSVERSE_SPAN_MULTIPLIER = 1.8; // 바닥 가로선 좌우 확장 배율 (기존 1.0 대비 1.8배로 확장하여 광활한 지대감 연출)
 
+// Issue #405 (RENDER-GRID-006): 음악 비트 동기화 세로선 Cyan 글로우 파라미터
+export const BEAT_GLOW_COLUMN_INDEX = 4; // 그리드 중심선(j=0) 기준 양옆 4번째 세로선
+export const BEAT_GLOW_COLOR = '#00E5FF'; // 일렉트릭 Cyan 글로우 색상
+export const BEAT_GLOW_CORE_COLOR = '#E0FFFF'; // 중심 고휘도 순백/Cyan 코어 색상
+export const BEAT_GLOW_WIDTH_MULT = 3.5; // 비트 발광 외곽 소프트 글로우 선폭 배율
+export const BEAT_GLOW_ALPHA_BOOST = 0.50; // 비트 피크 시 최대 추가 알파
+
 export const DEFAULT_GRID_CONFIG = {
   Z_NEAR,
   DELTA_Z,
@@ -75,6 +82,11 @@ export const DEFAULT_GRID_CONFIG = {
   BEAT_FLASH_WIDTH_BOOST,
   BEAT_FLASH_DECAY,
   TRANSVERSE_SPAN_MULTIPLIER,
+  BEAT_GLOW_COLUMN_INDEX,
+  BEAT_GLOW_COLOR,
+  BEAT_GLOW_CORE_COLOR,
+  BEAT_GLOW_WIDTH_MULT,
+  BEAT_GLOW_ALPHA_BOOST,
 } as const;
 
 export const GRID_CONFIG = DEFAULT_GRID_CONFIG;

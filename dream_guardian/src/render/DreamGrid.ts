@@ -40,6 +40,11 @@ import {
   BEAT_FLASH_WIDTH_BOOST,
   BEAT_FLASH_DECAY,
   TRANSVERSE_SPAN_MULTIPLIER,
+  BEAT_GLOW_COLUMN_INDEX,
+  BEAT_GLOW_COLOR,
+  BEAT_GLOW_CORE_COLOR,
+  BEAT_GLOW_WIDTH_MULT,
+  BEAT_GLOW_ALPHA_BOOST,
 } from '../../config/grid.config.js';
 import { projectDepthY, depthRatioFromY } from './GridProjection.js';
 
@@ -66,6 +71,8 @@ export interface DreamGridConfig {
   beatProgress?: number; // 0.0 ~ 1.0 (메트로놈 박자 진행도, 비트 시점 0.0)
   enableBeatFlash?: boolean; // 비트 플래시 활성화 여부 (기본값: true)
   transverseSpanMultiplier?: number; // 바닥 가로선 좌우 확장 배율 (기본값: TRANSVERSE_SPAN_MULTIPLIER, 1.8)
+  beatGlowColumnIndex?: number; // 비트 글로우 세로선 인덱스 (기본값: BEAT_GLOW_COLUMN_INDEX = 4)
+  beatGlowColor?: string; // 비트 글로우 시안 색상 (기본값: BEAT_GLOW_COLOR = '#00E5FF')
 }
 
 function isColorTransparent(color?: string | null): boolean {
@@ -116,6 +123,8 @@ export class DreamGrid {
   private _enableBeatFlash = true;
   private _flashIntensity = 0;
   private _transverseSpanMultiplier = TRANSVERSE_SPAN_MULTIPLIER;
+  private _beatGlowColumnIndex = BEAT_GLOW_COLUMN_INDEX;
+  private _beatGlowColor = BEAT_GLOW_COLOR;
 
   constructor(config?: DreamGridConfig) {
     if (config?.color) {
@@ -143,6 +152,12 @@ export class DreamGrid {
     if (config?.enableBeatFlash !== undefined) this._enableBeatFlash = config.enableBeatFlash;
     if (config?.transverseSpanMultiplier !== undefined) {
       this._transverseSpanMultiplier = config.transverseSpanMultiplier;
+    }
+    if (config?.beatGlowColumnIndex !== undefined) {
+      this._beatGlowColumnIndex = config.beatGlowColumnIndex;
+    }
+    if (config?.beatGlowColor !== undefined) {
+      this._beatGlowColor = config.beatGlowColor;
     }
   }
 
@@ -276,6 +291,22 @@ export class DreamGrid {
     this._transverseSpanMultiplier = val;
   }
 
+  get beatGlowColumnIndex(): number {
+    return this._beatGlowColumnIndex;
+  }
+
+  setBeatGlowColumnIndex(val: number): void {
+    this._beatGlowColumnIndex = val;
+  }
+
+  get beatGlowColor(): string {
+    return this._beatGlowColor;
+  }
+
+  setBeatGlowColor(color: string): void {
+    this._beatGlowColor = color;
+  }
+
   /**
    * 매 프레임 스크롤 오프셋 갱신 및 비트 플래시 수동 감쇄
    * @param dt 델타 타임
@@ -307,6 +338,8 @@ export class DreamGrid {
     const beatProg = config?.beatProgress !== undefined ? config.beatProgress : this._beatProgress;
     const enableFlash = config?.enableBeatFlash ?? this._enableBeatFlash;
     const spanMult = config?.transverseSpanMultiplier ?? this._transverseSpanMultiplier;
+    const beatGlowCol = config?.beatGlowColumnIndex ?? this._beatGlowColumnIndex;
+    const beatGlowColColor = config?.beatGlowColor ?? this._beatGlowColor;
 
     // Issue #295: 메트로놈 비트 플래시 계수 계산
     let flashFactor = 0;
@@ -363,6 +396,8 @@ export class DreamGrid {
       baseAlpha,
       flashFactor,
       spanMult,
+      beatGlowCol,
+      beatGlowColColor,
     );
 
     // 2.5 피트니스 존 연한 연결선 렌더링 (Issue #188: RENDER-TRACK-001)
@@ -402,6 +437,8 @@ export class DreamGrid {
     baseAlpha: number,
     flashFactor: number = 0,
     transverseSpanMultiplier: number = TRANSVERSE_SPAN_MULTIPLIER,
+    beatGlowCol: number = BEAT_GLOW_COLUMN_INDEX,
+    beatGlowColColor: string = BEAT_GLOW_COLOR,
   ): void {
     const floorH = h - vy;
     if (floorH <= 0) return;
@@ -550,6 +587,65 @@ export class DreamGrid {
       ctx.moveTo(xStart, yStart);
       ctx.lineTo(xBottom, h);
       ctx.stroke();
+    }
+
+    // 3-a-3. Issue #405 (RENDER-GRID-006): 중심 기준 양옆 4번째 세로선(j = ±4) 음악 비트 동기화 Cyan 글로우 효과
+    if (beatGlowCol > 0 && colCount >= beatGlowCol) {
+      const railGlowAlpha = Math.min(1.0, effAlpha + BEAT_GLOW_ALPHA_BOOST * flashFactor);
+      const railGlowLineWidth = coreLineWidth * BEAT_GLOW_WIDTH_MULT * (1.0 + 0.6 * flashFactor);
+      const railBeamLineWidth = coreLineWidth * 1.8 * widthBoost;
+      const railCoreLineWidth = Math.max(1.5, coreLineWidth * 0.9 * (1.0 + 0.3 * flashFactor));
+
+      const beatGlowOuterGrad = ctx.createLinearGradient(0, h, 0, vy);
+      beatGlowOuterGrad.addColorStop(0, toRgba(beatGlowColColor, railGlowAlpha));
+      beatGlowOuterGrad.addColorStop(0.45, toRgba(beatGlowColColor, railGlowAlpha * 0.8));
+      beatGlowOuterGrad.addColorStop(0.72, toRgba(beatGlowColColor, railGlowAlpha * 0.3));
+      beatGlowOuterGrad.addColorStop(0.86, toRgba(beatGlowColColor, 0));
+      beatGlowOuterGrad.addColorStop(1, toRgba(beatGlowColColor, 0));
+
+      const beatGlowCoreGrad = ctx.createLinearGradient(0, h, 0, vy);
+      beatGlowCoreGrad.addColorStop(0, toRgba(BEAT_GLOW_CORE_COLOR, Math.min(1.0, railGlowAlpha * 1.6)));
+      beatGlowCoreGrad.addColorStop(0.45, toRgba(BEAT_GLOW_CORE_COLOR, Math.min(1.0, railGlowAlpha * 1.2)));
+      beatGlowCoreGrad.addColorStop(0.72, toRgba(beatGlowColColor, railGlowAlpha * 0.5));
+      beatGlowCoreGrad.addColorStop(0.86, toRgba(beatGlowColColor, 0));
+      beatGlowCoreGrad.addColorStop(1, toRgba(beatGlowColColor, 0));
+
+      const railCols = [-beatGlowCol, beatGlowCol];
+
+      // Pass 1: 와이드 소프트 Cyan 네온 오라 (비트에 맞춰 팽창 및 플래시)
+      ctx.strokeStyle = beatGlowOuterGrad;
+      ctx.lineWidth = railGlowLineWidth;
+      for (const j of railCols) {
+        const xBottom = vx + j * stepXBottom;
+        const xStart = vx + (xBottom - vx) * FADE_DEPTH;
+        ctx.beginPath();
+        ctx.moveTo(xStart, yStart);
+        ctx.lineTo(xBottom, h);
+        ctx.stroke();
+      }
+
+      // Pass 2: 인텐스 Cyan 빔
+      ctx.lineWidth = railBeamLineWidth;
+      for (const j of railCols) {
+        const xBottom = vx + j * stepXBottom;
+        const xStart = vx + (xBottom - vx) * FADE_DEPTH;
+        ctx.beginPath();
+        ctx.moveTo(xStart, yStart);
+        ctx.lineTo(xBottom, h);
+        ctx.stroke();
+      }
+
+      // Pass 3: 중심 초고휘도 Cyan/순백 레이저 코어
+      ctx.strokeStyle = beatGlowCoreGrad;
+      ctx.lineWidth = railCoreLineWidth;
+      for (const j of railCols) {
+        const xBottom = vx + j * stepXBottom;
+        const xStart = vx + (xBottom - vx) * FADE_DEPTH;
+        ctx.beginPath();
+        ctx.moveTo(xStart, yStart);
+        ctx.lineTo(xBottom, h);
+        ctx.stroke();
+      }
     }
 
     // 3-b. 중앙 척추선(Center Spine, j === 0): 3-Pass 초고휘도 레이저 라인 (외곽 12px 글로우, 8px 미드 글로우, 3.5px 순백 코어)

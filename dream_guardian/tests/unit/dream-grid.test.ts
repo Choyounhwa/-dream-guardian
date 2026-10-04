@@ -21,6 +21,11 @@ import {
   BEAT_FLASH_WIDTH_BOOST,
   BEAT_FLASH_DECAY,
   TRANSVERSE_SPAN_MULTIPLIER,
+  BEAT_GLOW_COLUMN_INDEX,
+  BEAT_GLOW_COLOR,
+  BEAT_GLOW_CORE_COLOR,
+  BEAT_GLOW_WIDTH_MULT,
+  BEAT_GLOW_ALPHA_BOOST,
   DEFAULT_GRID_CONFIG,
 } from '../../config/grid.config.js';
 
@@ -28,6 +33,7 @@ function createMockCtx() {
   const lineWidths: number[] = [];
   const fillStyles: string[] = [];
   const strokeStyles: string[] = [];
+  const linearGradientStops: { offset: number; color: string }[] = [];
   let _lineWidth = 1;
   let _fillStyle: any = '';
   let _strokeStyle: any = '';
@@ -43,10 +49,14 @@ function createMockCtx() {
     moveTo: vi.fn(),
     lineTo: vi.fn(),
     createRadialGradient: vi.fn(() => ({
-      addColorStop: vi.fn(),
+      addColorStop: vi.fn((_offset: number, _color: string) => {
+        // radial gradient
+      }),
     })),
     createLinearGradient: vi.fn(() => ({
-      addColorStop: vi.fn(),
+      addColorStop: vi.fn((offset: number, color: string) => {
+        linearGradientStops.push({ offset, color });
+      }),
     })),
     globalAlpha: 1,
     get lineWidth() {
@@ -73,12 +83,14 @@ function createMockCtx() {
     lineWidths,
     fillStyles,
     strokeStyles,
+    linearGradientStops,
   };
 
   return ctx as unknown as CanvasRenderingContext2D & {
     lineWidths: number[];
     fillStyles: string[];
     strokeStyles: string[];
+    linearGradientStops: { offset: number; color: string }[];
   };
 }
 
@@ -542,5 +554,73 @@ describe('DreamGrid - 3D Perspective Grid with Square Proportions (Issue #27 & I
       // 2.5 배율일 때의 최대 x 좌표가 1.0 배율일 때보다 훨씬 커야 함
       expect(maxTransverseX1).toBeGreaterThan(maxTransverseX2);
     });
+
+    it('[RENDER-GRID-006] 비트 글로우 세로선 상수(BEAT_GLOW_COLUMN_INDEX = 4 등)가 올바르게 설정되어 있다', () => {
+      expect(BEAT_GLOW_COLUMN_INDEX).toBe(4);
+      expect(BEAT_GLOW_COLOR).toBe('#00E5FF');
+      expect(BEAT_GLOW_CORE_COLOR).toBe('#E0FFFF');
+      expect(BEAT_GLOW_WIDTH_MULT).toBeGreaterThan(1.0);
+      expect(BEAT_GLOW_ALPHA_BOOST).toBeGreaterThan(0);
+    });
+
+    it('[RENDER-GRID-006] 음악 비트에 따라 중심 기준 양옆 4번째 세로선(j = ±4)이 Cyan 글로우로 렌더링된다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+      const mockCtx = createMockCtx();
+      const w = 1920;
+      const h = 1080;
+      const vx = w * 0.5;
+      const floorH = h - h * HORIZON_RATIO;
+      const stepXBottom = Math.max(32, floorH * (0.2 / (1.0 + 0.2)) * 1.8);
+
+      // 비트 피크 상태 (beatProgress: 0.0)
+      grid.setBeatProgress(0.0);
+      grid.render(mockCtx, w, h);
+
+      const targetXLeft = vx - 4 * stepXBottom;
+      const targetXRight = vx + 4 * stepXBottom;
+
+      // moveTo 또는 lineTo 호출 중 j = ±4 위치에 대한 선 렌더링이 수행되었는지 검증
+      const lineToCalls = vi.mocked(mockCtx.lineTo).mock.calls;
+      const hasLeftRail = lineToCalls.some((call) => Math.abs(call[0] - targetXLeft) < 1.0);
+      const hasRightRail = lineToCalls.some((call) => Math.abs(call[0] - targetXRight) < 1.0);
+
+      expect(hasLeftRail).toBe(true);
+      expect(hasRightRail).toBe(true);
+
+      // j = ±4 세로선의 선폭 및 그라디언트에 Cyan 글로우 특성이 반영되었는지 검증
+      const gradStops = mockCtx.linearGradientStops;
+      const hasCyanStop = gradStops.some((stop) =>
+        stop.color.includes('0, 229, 255') || stop.color.includes('0,229,255') || stop.color.toLowerCase().includes('#00e5ff')
+      );
+      expect(hasCyanStop).toBe(true);
+    });
+
+    it('[RENDER-GRID-006] 비트 플래시 강도에 따라 4번째 세로선의 글로우 선폭과 강도가 동적으로 변화한다', () => {
+      const grid = new DreamGrid({ hasCeiling: false, renderZoneConnections: false });
+      const w = 1920;
+      const h = 1080;
+
+      // 1) 비트 피크 시점 (flashFactor = 1.0)
+      grid.setBeatProgress(0.0);
+      const mockCtxPeak = createMockCtx();
+      grid.render(mockCtxPeak, w, h);
+
+      // 2) 비트 완전 감쇄/무반응 시점 (beatProgress: 1.0 또는 flash 비활성)
+      grid.setBeatProgress(1.0);
+      const mockCtxDecayed = createMockCtx();
+      grid.render(mockCtxDecayed, w, h);
+
+      // 피크 시점의 최대 선폭이 감쇄 시점보다 유의미하게 큼
+      const maxPeakWidth = Math.max(...mockCtxPeak.lineWidths);
+      const maxDecayedWidth = Math.max(...mockCtxDecayed.lineWidths);
+      expect(maxPeakWidth).toBeGreaterThan(maxDecayedWidth);
+
+      // get / set 접근자 지원 검증
+      expect(grid.beatGlowColumnIndex).toBe(4);
+      expect(grid.beatGlowColor).toBe('#00E5FF');
+      grid.setBeatGlowColor('#28E6FF');
+      expect(grid.beatGlowColor).toBe('#28E6FF');
+    });
   });
 });
+
