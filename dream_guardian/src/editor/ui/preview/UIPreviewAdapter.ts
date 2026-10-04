@@ -4,6 +4,7 @@ import { registerPausePreview } from "./screens/UIPausePreview";
 import { registerSettingsPreview } from "./screens/UISettingsPreview";
 import { registerSubmenuPreview } from "./screens/UISubmenuPreview";
 import { registerTextStylePreview } from "./styles/UITextStylePreview";
+import { registerAssetPreview } from "./styles/UIAssetPreview";
 import { registerThemePreview } from "./styles/UIThemePreview";
 
 export { LIMITS, RENDERER_FINGERPRINT };
@@ -20,6 +21,7 @@ export const SETTINGS_PREVIEW_REGISTRATION = registerSettingsPreview();
 export const PAUSE_PREVIEW_REGISTRATION = registerPausePreview();
 export const TEXT_STYLE_PREVIEW_REGISTRATION = registerTextStylePreview();
 export const THEME_PREVIEW_REGISTRATION = registerThemePreview();
+export const ASSET_PREVIEW_REGISTRATION = registerAssetPreview();
 
 export const GAME_KEYS_FORBIDDEN = Object.freeze([
   "dream-guardian-save",
