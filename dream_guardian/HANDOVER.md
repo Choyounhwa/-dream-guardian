@@ -8,9 +8,9 @@
 
 | 순서 | 카드 | 책임 | src/config 수 | 상태 |
 |---|---|---|:---:|---|
-| 추적 | [#406 RHYTHM-INTRO-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/406) | 두 개선 범위·시간 예외·하위 추적 | 0 | OPEN |
-| 1 | [#409 RHYTHM-INTRO-001](https://github.com/Choyounhwa/-dream-guardian/issues/409) | Data: 무릎 교대·손7노트 | 2 | 승인 대기 |
-| 2 | [#408 RHYTHM-INTRO-002](https://github.com/Choyounhwa/-dream-guardian/issues/408) | Render: 발판 다음 두 박·복귀 안내 | 3 | #409 이후 |
+| 추적 | [#406 RHYTHM-INTRO-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/406) | 두 개선 범위·시간 예외·하위 추적 | 0 | `[✔]` 진행 중 |
+| 1 | [#409 RHYTHM-INTRO-001](https://github.com/Choyounhwa/-dream-guardian/issues/409) | Data: 무릎 교대·손7노트 | 2 | `[✔]` 완료 |
+| 2 | [#408 RHYTHM-INTRO-002](https://github.com/Choyounhwa/-dream-guardian/issues/408) | Render: 발판 다음 두 박·복귀 안내 | 3 | `[▶ NEXT]` 진행 |
 | 3 | [#407 RHYTHM-INTRO-003](https://github.com/Choyounhwa/-dream-guardian/issues/407) | Render: 별 박 기반 사전 예고 | 2 | 승인 대기 |
 | 4 | [#411 RHYTHM-INTRO-004](https://github.com/Choyounhwa/-dream-guardian/issues/411) | Core: Phase A 데이터·시계 연결 | 2 | 앞선3개 이후 |
 | 5 | [#410 RHYTHM-INTRO-005](https://github.com/Choyounhwa/-dream-guardian/issues/410) | QA: 실카메라·종단·회귀 인수 | 0 | #411 이후 |

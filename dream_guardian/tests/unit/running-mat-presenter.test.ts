@@ -70,7 +70,7 @@ describe('RUN-MAT-002: 러닝 매트 제안 패턴 데이터 및 순수 표시 �
   });
 
   describe('2. 경계 박수 (0, 0.99, 1.0, 5.5, 6.0) 및 순차 큐 전이', () => {
-    it('0.0박: 1번 큐(왼발 바깥)와 2번 큐(왼발 중앙)가 설정되고 ring ratio는 1.0이다', () => {
+    it('0.0박: 1번 큐(왼무릎 들고 복귀)와 2번 큐(오른무릎 들고 복귀)가 설정되고 ring ratio는 1.0이다', () => {
       const snapshot = createSnapshot({ elapsedBeats: 0.0 });
       const vm = presenter.present(snapshot);
 
@@ -79,77 +79,78 @@ describe('RUN-MAT-002: 러닝 매트 제안 패턴 데이터 및 순수 표시 �
       expect(vm.nextRingRatio).toBe(1.0);
 
       expect(vm.currentCue).not.toBeNull();
-      expect(vm.currentCue?.actionId).toBe('left_out');
-      expect(vm.currentCue?.leftFootSlot).toBe('out');
+      expect(vm.currentCue?.actionId).toBe('knee_left');
+      expect(vm.currentCue?.leftFootSlot).toBe('lift');
       expect(vm.currentCue?.rightFootSlot).toBe('home');
-      expect(vm.currentCue?.arrowDirection).toBe('left');
-      expect(vm.actionText).toContain('왼발');
+      expect(vm.currentCue?.arrowDirection).toBe('up');
+      expect(vm.actionText).toContain('왼무릎');
       expect(vm.directionText).toBe('왼쪽');
-      expect(vm.cueText).toContain('왼발 바깥');
+      expect(vm.cueText).toContain('왼무릎 들고 복귀');
 
       expect(vm.nextCue).not.toBeNull();
-      expect(vm.nextCue?.actionId).toBe('left_home');
+      expect(vm.nextCue?.actionId).toBe('knee_right');
       expect(vm.nextCue?.leftFootSlot).toBe('home');
-      expect(vm.nextCue?.rightFootSlot).toBe('home');
-      expect(vm.nextCue?.arrowDirection).toBe('center');
+      expect(vm.nextCue?.rightFootSlot).toBe('lift');
+      expect(vm.nextCue?.arrowDirection).toBe('up');
     });
 
     it('0.99박: 1번 큐가 유지되며 ring ratio가 0.01로 단조 감소한다', () => {
       const snapshot = createSnapshot({ elapsedBeats: 0.99 });
       const vm = presenter.present(snapshot);
 
-      expect(vm.currentCue?.actionId).toBe('left_out');
-      expect(vm.nextCue?.actionId).toBe('left_home');
+      expect(vm.currentCue?.actionId).toBe('knee_left');
+      expect(vm.nextCue?.actionId).toBe('knee_right');
       expect(vm.nextRingRatio).toBeCloseTo(0.01, 2);
       expect(vm.isPreparing).toBe(false);
     });
 
-    it('1.0박: 정수 박 경계에서 2번 큐(왼발 중앙)로 넘어가고 ring ratio가 1.0으로 리셋된다', () => {
+    it('1.0박: 정수 박 경계에서 2번 큐(오른무릎 들고 복귀)로 넘어가고 ring ratio가 1.0으로 리셋된다', () => {
       const snapshot = createSnapshot({ elapsedBeats: 1.0 });
       const vm = presenter.present(snapshot);
 
-      expect(vm.currentCue?.actionId).toBe('left_home');
+      expect(vm.currentCue?.actionId).toBe('knee_right');
       expect(vm.currentCue?.leftFootSlot).toBe('home');
-      expect(vm.nextCue?.actionId).toBe('right_out');
-      expect(vm.nextCue?.rightFootSlot).toBe('out');
+      expect(vm.currentCue?.rightFootSlot).toBe('lift');
+      expect(vm.nextCue?.actionId).toBe('knee_left');
+      expect(vm.nextCue?.leftFootSlot).toBe('lift');
       expect(vm.nextRingRatio).toBe(1.0);
       expect(vm.isPreparing).toBe(false);
     });
 
-    it('2.0~5.0박: 오른발 바깥 -> 오른발 중앙 -> 중앙 왼발 들기 -> 중앙 오른발 들기 순차 전이', () => {
-      // 2.0: 오른발 바깥
+    it('2.0~5.0박: 무릎 교대(knee_left <-> knee_right) 순차 전이', () => {
+      // 2.0: 왼무릎
       let vm = presenter.present(createSnapshot({ elapsedBeats: 2.0 }));
-      expect(vm.currentCue?.actionId).toBe('right_out');
-      expect(vm.currentCue?.arrowDirection).toBe('right');
-      expect(vm.nextCue?.actionId).toBe('right_home');
+      expect(vm.currentCue?.actionId).toBe('knee_left');
+      expect(vm.currentCue?.arrowDirection).toBe('up');
+      expect(vm.nextCue?.actionId).toBe('knee_right');
 
-      // 3.0: 오른발 중앙 home
+      // 3.0: 오른무릎
       vm = presenter.present(createSnapshot({ elapsedBeats: 3.0 }));
-      expect(vm.currentCue?.actionId).toBe('right_home');
-      expect(vm.currentCue?.arrowDirection).toBe('center');
-      expect(vm.nextCue?.actionId).toBe('lift_left');
+      expect(vm.currentCue?.actionId).toBe('knee_right');
+      expect(vm.currentCue?.arrowDirection).toBe('up');
+      expect(vm.nextCue?.actionId).toBe('knee_left');
 
-      // 4.0: 중앙 왼발 들기
+      // 4.0: 왼무릎
       vm = presenter.present(createSnapshot({ elapsedBeats: 4.0 }));
-      expect(vm.currentCue?.actionId).toBe('lift_left');
+      expect(vm.currentCue?.actionId).toBe('knee_left');
       expect(vm.currentCue?.leftFootSlot).toBe('lift');
       expect(vm.currentCue?.rightFootSlot).toBe('home');
       expect(vm.currentCue?.arrowDirection).toBe('up');
-      expect(vm.nextCue?.actionId).toBe('lift_right');
+      expect(vm.nextCue?.actionId).toBe('knee_right');
 
-      // 5.0: 중앙 오른발 들기
+      // 5.0: 오른무릎
       vm = presenter.present(createSnapshot({ elapsedBeats: 5.0 }));
-      expect(vm.currentCue?.actionId).toBe('lift_right');
+      expect(vm.currentCue?.actionId).toBe('knee_right');
       expect(vm.currentCue?.leftFootSlot).toBe('home');
       expect(vm.currentCue?.rightFootSlot).toBe('lift');
       expect(vm.currentCue?.arrowDirection).toBe('up');
     });
 
-    it('5.5박: 현재 6번 큐(오른발 들기)이며 nextCue는 준비 1번 큐(양발 안착)이고 isPreparing은 false이다', () => {
+    it('5.5박: 현재 6번 큐(오른무릎)이며 nextCue는 준비 1번 큐(기본 자세)이고 isPreparing은 false이다', () => {
       const snapshot = createSnapshot({ elapsedBeats: 5.5, prepareStartBeat: 6, transitionBeat: 8 });
       const vm = presenter.present(snapshot);
 
-      expect(vm.currentCue?.actionId).toBe('lift_right');
+      expect(vm.currentCue?.actionId).toBe('knee_right');
       expect(vm.currentCue?.isPrepare).toBe(false);
       expect(vm.nextCue?.actionId).toBe('both_home');
       expect(vm.nextCue?.isPrepare).toBe(true);
@@ -185,15 +186,15 @@ describe('RUN-MAT-002: 러닝 매트 제안 패턴 데이터 및 순수 표시 �
 
       expect(vm.isShortage).toBe(false);
       expect(vm.isPreparing).toBe(false);
-      expect(vm.currentCue?.actionId).toBe('right_home');
+      expect(vm.currentCue?.actionId).toBe('knee_right');
       expect(vm.currentCue?.isPrepare).toBe(false);
-      expect(vm.nextCue?.actionId).toBe('lift_left');
+      expect(vm.nextCue?.actionId).toBe('knee_left');
       expect(vm.nextCue?.isPrepare).toBe(false);
     });
   });
 
   describe('4. 지연 인정 (Shortage 미달 연장) 처리', () => {
-    it('6박 도달 시 필수 횟수 미달이면 isPreparing은 false이고 중앙 들기 연장 큐를 교대로 표시한다', () => {
+    it('6박 도달 시 필수 횟수 미달이면 isPreparing은 false이고 무릎 들기 연장 큐를 교대로 표시한다', () => {
       const snapshot = createSnapshot({
         elapsedBeats: 6.0,
         requiredExerciseCount: 6,
@@ -205,17 +206,17 @@ describe('RUN-MAT-002: 러닝 매트 제안 패턴 데이터 및 순수 표시 �
 
       expect(vm.isShortage).toBe(true);
       expect(vm.isPreparing).toBe(false);
-      // 연장 큐: run의 경우 중앙 좌/우 들기를 교대로 반복
-      expect(vm.currentCue?.actionId).toBe('lift_left');
+      // 연장 큐: run의 경우 무릎 들기를 교대로 반복
+      expect(vm.currentCue?.actionId).toBe('knee_left');
       expect(vm.currentCue?.isPrepare).toBe(false);
       expect(vm.currentCue?.cueText).not.toContain('준비');
       expect(vm.currentCue?.cueText).not.toContain('완료');
 
-      expect(vm.nextCue?.actionId).toBe('lift_right');
+      expect(vm.nextCue?.actionId).toBe('knee_right');
       expect(vm.nextCue?.isPrepare).toBe(false);
     });
 
-    it('7.0박에도 미달 상태면 우측 들기 연장 큐를 표시하며 준비라고 하지 않는다', () => {
+    it('7.0박에도 미달 상태면 우측 무릎 들기 연장 큐를 표시하며 준비라고 하지 않는다', () => {
       const snapshot = createSnapshot({
         elapsedBeats: 7.0,
         requiredExerciseCount: 6,
@@ -227,8 +228,8 @@ describe('RUN-MAT-002: 러닝 매트 제안 패턴 데이터 및 순수 표시 �
 
       expect(vm.isShortage).toBe(true);
       expect(vm.isPreparing).toBe(false);
-      expect(vm.currentCue?.actionId).toBe('lift_right');
-      expect(vm.nextCue?.actionId).toBe('lift_left');
+      expect(vm.currentCue?.actionId).toBe('knee_right');
+      expect(vm.nextCue?.actionId).toBe('knee_left');
       expect(vm.cueText).not.toContain('준비');
     });
 
@@ -251,12 +252,12 @@ describe('RUN-MAT-002: 러닝 매트 제안 패턴 데이터 및 순수 표시 �
   });
 
   describe('5. 준비 구간 (prepareStartBeat ~ transitionBeat)', () => {
-    it('준비 1박(6.0)에서는 양발 중앙 안착, 2박(7.0)에서는 정답 존 대기를 표시한다', () => {
-      // 6.0박: 양발 중앙 안착
+    it('준비 1박(6.0)에서는 기본 자세, 2박(7.0)에서는 정답 존 대기를 표시한다', () => {
+      // 6.0박: 기본 자세
       let vm = presenter.present(createSnapshot({ elapsedBeats: 6.0, prepareStartBeat: 6, transitionBeat: 8 }));
       expect(vm.isPreparing).toBe(true);
       expect(vm.currentCue?.actionId).toBe('both_home');
-      expect(vm.currentCue?.cueText).toContain('양발');
+      expect(vm.currentCue?.cueText).toContain('기본 자세');
       expect(vm.nextCue?.actionId).toBe('ready_answer');
 
       // 7.0박: 정답 존 대기
@@ -362,7 +363,7 @@ describe('RUN-MAT-002: 러닝 매트 제안 패턴 데이터 및 순수 표시 �
 
       expect(vm.paused).toBe(true);
       expect(vm.nextRingRatio).toBeCloseTo(0.7, 2);
-      expect(vm.currentCue?.actionId).toBe('right_out');
+      expect(vm.currentCue?.actionId).toBe('knee_left');
     });
 
     it('프레임 지연으로 박자가 건너뛰어져도 과거 큐 재생 없이 현재 snapshot에 즉시 맞춘다', () => {
@@ -370,7 +371,7 @@ describe('RUN-MAT-002: 러닝 매트 제안 패턴 데이터 및 순수 표시 �
       const snapshot = createSnapshot({ elapsedBeats: 4.2 });
       const vm = presenter.present(snapshot);
 
-      expect(vm.currentCue?.actionId).toBe('lift_left');
+      expect(vm.currentCue?.actionId).toBe('knee_left');
       expect(vm.currentCue?.beatIndex).toBe(4);
       expect(vm.nextRingRatio).toBeCloseTo(0.8, 2);
     });

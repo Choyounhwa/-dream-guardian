@@ -35,6 +35,26 @@ export interface RunningMatPattern {
 
 // ─── RUN 기본 큐 ───
 export const RUN_CUES: Readonly<Record<string, MatCue>> = Object.freeze({
+  KNEE_LEFT: Object.freeze({
+    id: 'knee_left',
+    actionText: '왼무릎 들고 복귀',
+    directionText: '왼쪽',
+    cueText: '왼무릎 들고 복귀',
+    arrowDirection: 'up',
+    leftFootSlot: 'lift',
+    rightFootSlot: 'home',
+    isPrepare: false,
+  }),
+  KNEE_RIGHT: Object.freeze({
+    id: 'knee_right',
+    actionText: '오른무릎 들고 복귀',
+    directionText: '오른쪽',
+    cueText: '오른무릎 들고 복귀',
+    arrowDirection: 'up',
+    leftFootSlot: 'home',
+    rightFootSlot: 'lift',
+    isPrepare: false,
+  }),
   LEFT_OUT: Object.freeze({
     id: 'left_out',
     actionText: '왼발 딛기',
@@ -97,9 +117,9 @@ export const RUN_CUES: Readonly<Record<string, MatCue>> = Object.freeze({
   }),
   BOTH_HOME: Object.freeze({
     id: 'both_home',
-    actionText: '양발 안착',
+    actionText: '기본 자세',
     directionText: '중앙',
-    cueText: '양발 중앙 안착',
+    cueText: '기본 자세',
     arrowDirection: 'center',
     leftFootSlot: 'home',
     rightFootSlot: 'home',
@@ -250,42 +270,10 @@ export const ARM_CROSS_CUES: Readonly<Record<string, MatCue>> = Object.freeze({
 });
 
 /**
- * 8/12/16 박자별 제안 패턴 생성
+ * 8/12/16 박자별 제안 패턴 생성 (입문 무릎 교대 큐)
  */
 function createRunExerciseCues(requiredCount: number): readonly MatCue[] {
-  const base: MatCue[] = [
-    RUN_CUES.LEFT_OUT,
-    RUN_CUES.LEFT_HOME,
-    RUN_CUES.RIGHT_OUT,
-    RUN_CUES.RIGHT_HOME,
-    RUN_CUES.LIFT_LEFT,
-    RUN_CUES.LIFT_RIGHT,
-  ];
-
-  if (requiredCount <= 6) {
-    return Object.freeze(base.slice(0, requiredCount));
-  }
-
-  const result: MatCue[] = [...base];
-  let toggle = false;
-
-  // 12/16 확장은 바깥발이 복귀 없이 다음 패턴으로 넘어가지 않는 완결된 쌍으로 추가
-  while (result.length < requiredCount) {
-    if (!toggle) {
-      result.push(RUN_CUES.LEFT_OUT);
-      if (result.length <= requiredCount) {
-        result.push(RUN_CUES.LEFT_HOME);
-      }
-    } else {
-      result.push(RUN_CUES.RIGHT_OUT);
-      if (result.length <= requiredCount) {
-        result.push(RUN_CUES.RIGHT_HOME);
-      }
-    }
-    toggle = !toggle;
-  }
-
-  return Object.freeze(result.slice(0, requiredCount));
+  return createAlternatingCues(RUN_CUES.KNEE_LEFT, RUN_CUES.KNEE_RIGHT, requiredCount);
 }
 
 function createAlternatingCues(cueA: MatCue, cueB: MatCue, count: number): readonly MatCue[] {
@@ -383,8 +371,8 @@ export function getRunningMatPattern(
         prepareBeats,
         exerciseCues: createRunExerciseCues(requiredCount),
         extensionCues: Object.freeze([
-          RUN_CUES.LIFT_LEFT,
-          RUN_CUES.LIFT_RIGHT,
+          RUN_CUES.KNEE_LEFT,
+          RUN_CUES.KNEE_RIGHT,
         ]),
         prepareCues: Object.freeze([
           RUN_CUES.BOTH_HOME,
