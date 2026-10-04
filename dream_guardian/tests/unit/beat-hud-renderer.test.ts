@@ -73,20 +73,94 @@ describe('BeatHUDRenderer & BEAT_HUD_CONFIG (Issue #209 / REFACTOR-RENDER-001)',
     expect(ctx.ellipse).toHaveBeenCalled();
   });
 
-  it('activeHazardPattern이 null일 때 완료 안내 메시지를 출력한다', () => {
-    const renderer = new BeatHUDRenderer();
-    const ctx = createMockCtx();
-    const state: BeatHUDState = {
-      question: mockQuestion,
-      totalSteps: 8,
-      locomotionMode: 'run',
-      activeHazardPattern: null,
-      hazardBeatProgress: 0,
-    };
+  describe('[Issue #368 / RUN-MAT-005] 러닝 HUD 허위 완료 문구 제거 및 모드별 누적 통계 정합성', () => {
+    it('activeHazardPattern이 null일 때 허위 완료/대기 텍스트 없이 모드별 운동 안내와 누적 통계를 그린다', () => {
+      const renderer = new BeatHUDRenderer();
+      const ctx = createMockCtx();
+      const state: BeatHUDState = {
+        question: mockQuestion,
+        totalSteps: 8,
+        locomotionMode: 'run',
+        activeHazardPattern: null,
+        hazardBeatProgress: 0,
+      };
 
-    renderer.render(ctx, 1080, 2160, state);
-    const textCalls = (ctx.fillText as any).mock.calls.map((c: any) => c[0]);
-    expect(textCalls.some((t: string) => t.includes('장판 루틴 완료') || t.includes('완료'))).toBe(true);
+      renderer.render(ctx, 1080, 2160, state);
+      const textCalls = (ctx.fillText as any).mock.calls.map((c: any) => c[0]);
+
+      // 허위 완료 및 대기 문구가 없어야 함
+      expect(textCalls.some((t: string) => t.includes('장판 루틴 완료'))).toBe(false);
+      expect(textCalls.some((t: string) => t.includes('다음 지시를 기다리세요'))).toBe(false);
+      expect(textCalls.some((t: string) => t.includes('계속 뛰기'))).toBe(false);
+
+      // 모드 운동명 및 누적 걸음 통계 표시
+      expect(textCalls.some((t: string) => t.includes('달리기'))).toBe(true);
+      expect(textCalls.some((t: string) => t.includes('누적 걸음: 8보'))).toBe(true);
+    });
+
+    it('4개 운동 모드별로 올바른 누적 통계 라벨과 단위(보/회)를 렌더링한다', () => {
+      const renderer = new BeatHUDRenderer();
+
+      // 1. hip_bounce
+      const ctxBounce = createMockCtx();
+      renderer.render(ctxBounce, 1080, 2160, {
+        totalSteps: 15,
+        locomotionMode: 'hip_bounce',
+        activeHazardPattern: null,
+      });
+      const callsBounce = (ctxBounce.fillText as any).mock.calls.map((c: any) => c[0]);
+      expect(callsBounce.some((t: string) => t.includes('중앙 상하'))).toBe(true);
+      expect(callsBounce.some((t: string) => t.includes('누적 바운스: 15회'))).toBe(true);
+      expect(callsBounce.some((t: string) => t.includes('걸음'))).toBe(false);
+
+      // 2. hip_sway
+      const ctxSway = createMockCtx();
+      renderer.render(ctxSway, 1080, 2160, {
+        totalSteps: 22,
+        locomotionMode: 'hip_sway',
+        activeHazardPattern: null,
+      });
+      const callsSway = (ctxSway.fillText as any).mock.calls.map((c: any) => c[0]);
+      expect(callsSway.some((t: string) => t.includes('중앙 체중 이동'))).toBe(true);
+      expect(callsSway.some((t: string) => t.includes('누적 스웨이: 22회'))).toBe(true);
+
+      // 3. arm_cross
+      const ctxArm = createMockCtx();
+      renderer.render(ctxArm, 1080, 2160, {
+        totalSteps: 30,
+        locomotionMode: 'arm_cross',
+        activeHazardPattern: null,
+      });
+      const callsArm = (ctxArm.fillText as any).mock.calls.map((c: any) => c[0]);
+      expect(callsArm.some((t: string) => t.includes('양팔 교차'))).toBe(true);
+      expect(callsArm.some((t: string) => t.includes('누적 휠 펌핑: 30회'))).toBe(true);
+    });
+
+    it('activeHazardPattern이 실제 존재할 때는 기존 보스 장판 가이드와 렌더러를 정상 호출한다', () => {
+      const renderer = new BeatHUDRenderer();
+      const ctx = createMockCtx();
+      const renderSpy = vi.spyOn(renderer.hazardRenderer, 'render');
+
+      renderer.render(ctx, 1080, 2160, {
+        totalSteps: 5,
+        locomotionMode: 'run',
+        activeHazardPattern: 'jump',
+        hazardBeatProgress: 0.5,
+      });
+
+      const textCalls = (ctx.fillText as any).mock.calls.map((c: any) => c[0]);
+      expect(textCalls.some((t: string) => t.includes('양발 피하기!'))).toBe(true);
+      expect(textCalls.some((t: string) => t.includes('점프해서 바닥 충격파를 넘으세요'))).toBe(true);
+      expect(renderSpy).toHaveBeenCalledWith(
+        ctx,
+        1080,
+        2160,
+        expect.objectContaining({
+          activePattern: 'jump',
+          beatProgress: 0.5,
+        })
+      );
+    });
   });
 
   it('showBeatDots=true 옵션 시 8박 원형 인디케이터가 렌더링된다', () => {

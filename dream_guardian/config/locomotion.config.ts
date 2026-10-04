@@ -15,6 +15,17 @@ export interface LocomotionHUDGuide {
   countLabel: string;
 }
 
+/**
+ * Issue #368 (RUN-MAT-005): 러닝 HUD 표시 전용 메타데이터 인터페이스
+ */
+export interface LocomotionDisplayConfig {
+  modeName: string;
+  guideTitle: string;
+  guideSubtitle: string;
+  cumulativeLabel: string;
+  unit: string;
+}
+
 /** 운동 모드별 인게임 모션 가이드 문구 */
 export const LOCOMOTION_HUD_GUIDES: Record<LocomotionMode, LocomotionHUDGuide> = {
   run: {
@@ -40,6 +51,42 @@ export const LOCOMOTION_HUD_GUIDES: Record<LocomotionMode, LocomotionHUDGuide> =
     title: '양손을 위아래로 교차하며 핸들을 돌리세요!',
     subtitle: '양손을 위아래로 교차하며 펌핑하거나 [Space]를 탭하세요',
     countLabel: '🚗 휠 펌핑',
+  },
+};
+
+/**
+ * Issue #368 (RUN-MAT-005): 러닝 HUD 표시 전용 모드 정보 및 누적 라벨/단위 설정
+ * 매트(RunningMat)의 슬롯 인정 수(acceptedCount/requiredCount)와 분리하여
+ * 플레이어의 원시 누적 운동 통계(totalSteps)를 각 모드에 맞는 단위로 명확히 표시합니다.
+ */
+export const LOCOMOTION_DISPLAY_CONFIG: Record<LocomotionMode, LocomotionDisplayConfig> = {
+  run: {
+    modeName: '달리기',
+    guideTitle: '달리기',
+    guideSubtitle: '제자리에서 가볍게 발을 굴러주세요',
+    cumulativeLabel: '누적 걸음',
+    unit: '보',
+  },
+  hip_bounce: {
+    modeName: '중앙 상하',
+    guideTitle: '중앙 상하',
+    guideSubtitle: '무릎을 굽혔다 펴며 골반을 바운스하세요',
+    cumulativeLabel: '누적 바운스',
+    unit: '회',
+  },
+  hip_sway: {
+    modeName: '중앙 체중 이동',
+    guideTitle: '중앙 체중 이동',
+    guideSubtitle: '발 이동 없이 중앙에서 골반 체중을 이동하세요',
+    cumulativeLabel: '누적 스웨이',
+    unit: '회',
+  },
+  arm_cross: {
+    modeName: '양팔 교차',
+    guideTitle: '양팔 교차',
+    guideSubtitle: '두 발을 고정하고 양손을 위아래로 교차하세요',
+    cumulativeLabel: '누적 휠 펌핑',
+    unit: '회',
   },
 };
 

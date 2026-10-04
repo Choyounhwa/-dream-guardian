@@ -10,12 +10,20 @@
 import type { GeneratedQuestion } from '../question/QuestionEvaluator.js';
 import type { PhaseAHazardPattern } from '../../config/phase-a-hazard.config.js';
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
-import { BEAT_HUD_CONFIG } from '../../config/locomotion.config.js';
+import {
+  BEAT_HUD_CONFIG,
+  LOCOMOTION_DISPLAY_CONFIG,
+} from '../../config/locomotion.config.js';
 import { HazardZoneRenderer } from './HazardZoneRenderer.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
 
 export interface BeatHUDRendererOptions {
+  /**
+   * 8박자 원형 인디케이터 표시 여부 (기본값: false)
+   * Issue #368 (RUN-MAT-005) 정책: RUN-MAT 매트가 시간 박수와 인정 수를 분리하여 단일 소유하므로,
+   * null-hazard 러닝 경로에서는 중복/상충하는 N개 운동 목표처럼 보이지 않도록 showBeatDots를 기본 숨김(false)으로 유지합니다.
+   */
   showBeatDots?: boolean;
 }
 
@@ -72,41 +80,54 @@ export class BeatHUDRenderer {
     // Issue #322: 문제 수식 렌더링은 QuestionRenderer(SSOT)로 일원화되었으므로
     // BeatHUDRenderer는 순수 러닝 HUD(보스 장판, 박자 도트, 운동 카운터)만 담당한다.
 
-    // 1. Phase A 보스 장판 박자 안내
+    // 1. Phase A 보스 장판 박자 안내 및 운동 모드 가이드
     const hazard = state.activeHazardPattern;
-    const hazardGuide: Record<PhaseAHazardPattern, { title: string; subtitle: string; color: string }> = {
-      left_step: { title: '왼발 피하기!', subtitle: '왼발을 들어 장판을 피하세요', color: '#28E6FF' },
-      right_step: { title: '오른발 피하기!', subtitle: '오른발을 들어 장판을 피하세요', color: '#FFCB4D' },
-      jump: { title: '양발 피하기!', subtitle: '점프해서 바닥 충격파를 넘으세요', color: '#FF865E' },
-      balance_left: { title: '왼발로 균형!', subtitle: '오른발을 들고 한발로 버티세요', color: '#C889FF' },
-      balance_right: { title: '오른발로 균형!', subtitle: '왼발을 들고 한발로 버티세요', color: '#C889FF' },
-    };
-    const guide = hazard ? hazardGuide[hazard] : {
-      title: '장판 루틴 완료!',
-      subtitle: '다음 지시를 기다리세요',
-      color: '#4DFFAA',
-    };
+    const mode = state.locomotionMode ?? 'run';
+    const displayConfig =
+      LOCOMOTION_DISPLAY_CONFIG[mode] ?? LOCOMOTION_DISPLAY_CONFIG.run;
 
-    ctx.font = UIText.getFont('subheading', scaleX, 'bold', 'sans-serif', 24);
-    ctx.fillStyle = guide.color;
-    ctx.shadowColor = guide.color;
-    ctx.shadowBlur = 24;
-    ctx.fillText(guide.title, cx, cy - 60);
-    ctx.shadowBlur = 0;
-
-    // Phase A 보스 장판 회피 힌트 (A11Y-001: 최소 24px 하한선 보장)
-    ctx.font = UIText.getFont('label', scaleX, 'bold', 'sans-serif', 24);
-    ctx.fillStyle = BEAT_HUD_CONFIG.TEXT_COLOR_SUBTITLE;
-    ctx.fillText(guide.subtitle, cx, cy - 5);
-
-    // 3. 3D 원근 그리드 바닥 보스 장판 렌더링 (Issue #228 - RENDER-HAZARD-001)
     if (hazard) {
+      const hazardGuide: Record<PhaseAHazardPattern, { title: string; subtitle: string; color: string }> = {
+        left_step: { title: '왼발 피하기!', subtitle: '왼발을 들어 장판을 피하세요', color: '#28E6FF' },
+        right_step: { title: '오른발 피하기!', subtitle: '오른발을 들어 장판을 피하세요', color: '#FFCB4D' },
+        jump: { title: '양발 피하기!', subtitle: '점프해서 바닥 충격파를 넘으세요', color: '#FF865E' },
+        balance_left: { title: '왼발로 균형!', subtitle: '오른발을 들고 한발로 버티세요', color: '#C889FF' },
+        balance_right: { title: '오른발로 균형!', subtitle: '왼발을 들고 한발로 버티세요', color: '#C889FF' },
+      };
+      const guide = hazardGuide[hazard];
+
+      ctx.font = UIText.getFont('subheading', scaleX, 'bold', 'sans-serif', 24);
+      ctx.fillStyle = guide.color;
+      ctx.shadowColor = guide.color;
+      ctx.shadowBlur = 24;
+      ctx.fillText(guide.title, cx, cy - 60);
+      ctx.shadowBlur = 0;
+
+      // Phase A 보스 장판 회피 힌트 (A11Y-001: 최소 24px 하한선 보장)
+      ctx.font = UIText.getFont('label', scaleX, 'bold', 'sans-serif', 24);
+      ctx.fillStyle = BEAT_HUD_CONFIG.TEXT_COLOR_SUBTITLE;
+      ctx.fillText(guide.subtitle, cx, cy - 5);
+
+      // 3. 3D 원근 그리드 바닥 보스 장판 렌더링 (Issue #228 - RENDER-HAZARD-001)
       this._hazardRenderer.render(ctx, vw, vh, {
         activePattern: hazard,
         beatProgress: state.hazardBeatProgress ?? 0,
         vanishingX: vx,
         vanishingY: vy,
       });
+    } else {
+      // Issue #368 (RUN-MAT-005): null-hazard 시 허위 완료/대기 안내('장판 루틴 완료!')를 제거하고
+      // 모드 중립적인 운동 가이드 안내 표시 (매트 렌더러와 상충하는 '계속 뛰기' 등 지양)
+      ctx.font = UIText.getFont('subheading', scaleX, 'bold', 'sans-serif', 24);
+      ctx.fillStyle = BEAT_HUD_CONFIG.TITLE_COLOR_CENTER;
+      ctx.shadowColor = BEAT_HUD_CONFIG.TITLE_COLOR_CENTER;
+      ctx.shadowBlur = 24;
+      ctx.fillText(displayConfig.guideTitle, cx, cy - 60);
+      ctx.shadowBlur = 0;
+
+      ctx.font = UIText.getFont('label', scaleX, 'bold', 'sans-serif', 24);
+      ctx.fillStyle = BEAT_HUD_CONFIG.TEXT_COLOR_SUBTITLE;
+      ctx.fillText(displayConfig.guideSubtitle, cx, cy - 5);
     }
 
     const dotY = cy + 260 * scaleY;
@@ -168,13 +189,11 @@ export class BeatHUDRenderer {
       }
     }
 
-    // 4. 걸음/운동 수 표시 (A11Y-001: 최소 24px 하한선 보장)
-    const mode = state.locomotionMode ?? 'run';
-    const countUnit = mode === 'run' ? '보' : '회';
+    // 4. 누적 운동 통계 표시 (Issue #368: 4개 모드별 누적 라벨 및 올바른 단위 구분)
     const totalSteps = state.totalSteps ?? 0;
     ctx.font = UIText.getFont('body', scaleX, 'bold', 'sans-serif', 24);
     ctx.fillStyle = BEAT_HUD_CONFIG.STEP_COUNT_COLOR;
-    ctx.fillText(`${countUnit === '보' ? '걸음' : '운동'}: ${totalSteps}${countUnit}`, cx, dotY + 60);
+    ctx.fillText(`${displayConfig.cumulativeLabel}: ${totalSteps}${displayConfig.unit}`, cx, dotY + 60);
 
     ctx.restore();
   }
