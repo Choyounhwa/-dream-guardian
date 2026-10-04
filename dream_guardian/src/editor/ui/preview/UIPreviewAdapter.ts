@@ -1,5 +1,6 @@
 import { LIMITS, RENDERER_FINGERPRINT } from "../data/UIBaselines";
 import { registerResultPreview } from "./screens/UIResultPreview";
+import { registerSettingsPreview } from "./screens/UISettingsPreview";
 import { registerSubmenuPreview } from "./screens/UISubmenuPreview";
 
 export { LIMITS, RENDERER_FINGERPRINT };
@@ -12,6 +13,7 @@ export const GAME_APPLY_VERIFIED = false;
 
 export const SUBMENU_PREVIEW_REGISTRATION = registerSubmenuPreview();
 export const RESULT_PREVIEW_REGISTRATION = registerResultPreview();
+export const SETTINGS_PREVIEW_REGISTRATION = registerSettingsPreview();
 
 export const GAME_KEYS_FORBIDDEN = Object.freeze([
   "dream-guardian-save",
