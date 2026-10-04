@@ -1,5 +1,15 @@
 import { MENU_CARD_IDS } from "./data/UIContracts";
 
+export type {
+  AcceptResult,
+  DragReason,
+  DragSession,
+  NudgeOptions,
+  Point,
+  ViewTransform,
+} from "./UIInteraction";
+export type { AcceptDecision, PreviewEnvelope, PreviewHost, PreviewKind } from "./UIPreviewHost";
+
 export const GAME_APPLY_VERIFIED = false;
 export const SHELL_LOADS_GAME_MAIN = false;
 export const PANEL_IDS = ["properties", "preview", "status"] as const;
