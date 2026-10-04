@@ -67,8 +67,8 @@
 | 추적 | [#412 UIX-VIEW-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/412) | 화면 연결 4개 추적. QA 대체 아님 | 0 | OPEN |
 | 1 | [#413 UIX-044](https://github.com/Choyounhwa/-dream-guardian/issues/413) | 셸 DOM·3패널 마운트 | 2 | `[✔]` 완료 |
 | 2 | [#414 UIX-045](https://github.com/Choyounhwa/-dream-guardian/issues/414) | 속성 폼 연결 | 2 | `[✔]` 완료 |
-| 3 | [#415 UIX-046](https://github.com/Choyounhwa/-dream-guardian/issues/415) | 미리보기 iframe 연결 | 2 | `[▶ NEXT]` |
-| 4 | [#416 UIX-047](https://github.com/Choyounhwa/-dream-guardian/issues/416) | 저장·백업·추출 버튼 | 2 | #415 이후 |
+| 3 | [#415 UIX-046](https://github.com/Choyounhwa/-dream-guardian/issues/415) | 미리보기 iframe 연결 | 2 | `[✔]` 완료 |
+| 4 | [#416 UIX-047](https://github.com/Choyounhwa/-dream-guardian/issues/416) | 저장·백업·추출 버튼 | 2 | `[▶ NEXT]` |
 
 - 순서 **#413 → #414 → #415 → #416**. #413 후 레이아웃 표시, #416 후 브라우저 조작 테스트. Phase 7 #364~#367은 그 다음이며 이 트랙으로 승격하지 않는다.
 - 화면 조립은 `src/editor/ui/view/` 신규 파일만. 기존 판정/IO 재구현·게임 apply·실행 버튼 금지. 이번 등록은 이슈 5개와 문서 2개만 갱신. npm test/build·구현·commit 없음.

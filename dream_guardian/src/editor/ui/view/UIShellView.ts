@@ -9,6 +9,10 @@ import {
   type PropertyFormInstance,
   mountPropertyForm,
 } from "./UIPropertyFormView";
+import {
+  type PreviewFrameInstance,
+  mountPreviewFrame,
+} from "./UIPreviewFrameView";
 
 export interface ShellInstance {
   readonly root: HTMLElement;
@@ -18,6 +22,7 @@ export interface ShellInstance {
   readonly propertiesPanel: HTMLElement;
   readonly statusPanel: HTMLElement;
   readonly propertyForm: PropertyFormInstance;
+  readonly previewFrame: PreviewFrameInstance;
   getState(): ShellState & { selectedId: (typeof MENU_CARD_IDS)[number] };
   selectElement(indexOrId: number | (typeof MENU_CARD_IDS)[number]): void;
   unmount(): void;
@@ -28,6 +33,8 @@ export interface MountShellOptions {
   keyTarget?: EventTarget;
   initialIndex?: number;
   onCommitProperty?: (result: CommitResult) => void;
+  previewDocId?: string;
+  previewOrigin?: string;
 }
 
 const TOOLBAR_ACTION_NAMES = [
@@ -117,10 +124,13 @@ export function mountShell(
   previewTitle.textContent = "UI 미리보기";
   previewPanel.appendChild(previewTitle);
 
-  const previewPlaceholder = doc.createElement("div");
-  previewPlaceholder.className = "preview-placeholder";
-  previewPlaceholder.textContent = "미리보기 영역 (UIX-046 연결 예정)";
-  previewPanel.appendChild(previewPlaceholder);
+  const previewFrame = mountPreviewFrame(previewPanel, {
+    docId: options?.previewDocId ?? "menu-main",
+    origin: options?.previewOrigin,
+    onStatus: (msg) => {
+      state = announce(state, msg);
+    },
+  });
   layoutBody.appendChild(previewPanel);
 
   // 2-3. Properties Panel
@@ -175,7 +185,7 @@ export function mountShell(
         el.className = el.className.replace(/\bselected\b/g, "").trim();
       }
     });
-    const msg = `[선택: ${currentId}] 검증 완료 · 게임에는 반영되지 않음`;
+    const msg = `[선택: ${currentId}] 검증 완료 · 게임에는 반영되지 않음 · 샌드박스 미보장 (IFRAME_IS_SECURITY_SANDBOX=false)`;
     statusText.textContent = msg;
     statusPanel.textContent = msg;
     propertyForm.setSelectedId(currentId);
@@ -223,6 +233,7 @@ export function mountShell(
   syncDOMSelection();
 
   const unmount = () => {
+    previewFrame.unmount();
     propertyForm.unmount();
     if (keyTarget && typeof keyTarget.removeEventListener === "function") {
       keyTarget.removeEventListener("keydown", onKeyDown);
@@ -242,6 +253,7 @@ export function mountShell(
     propertiesPanel,
     statusPanel,
     propertyForm,
+    previewFrame,
     getState() {
       return {
         selectedIndex: state.selectedIndex,
