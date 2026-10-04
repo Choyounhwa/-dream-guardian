@@ -11,6 +11,7 @@ import { PAUSE_LOCK_REASONS, PAUSE_PUBLISHED } from "./screens/UIPauseContract";
 import { SETTINGS_LOCK_REASONS, SETTINGS_PUBLISHED } from "./screens/UISettingsContract";
 import { HUD_PUBLISHED, deriveHudSlot } from "./screens/UIHUDContract";
 import { SUBMENU_PUBLISHED } from "./screens/UISubmenuContract";
+import { TEXT_STYLE_CONTRACT, TEXT_STYLE_PUBLISHED } from "./styles/UITextStyleContract";
 
 export { LIMITS };
 
@@ -540,4 +541,36 @@ export function acceptBaselineRecord(raw: string): { ok: true; record: unknown }
   const limited = walkLimits(parsed, 0);
   if (limited) return { ok: false, reason: limited };
   return { ok: true, record: parsed };
+}
+
+export type TextStylePreset = {
+  design: { width: number; height: number };
+  unit: "px";
+  roles: typeof TEXT_STYLE_PUBLISHED.roles;
+  exportableFields: readonly string[];
+  lockedFields: readonly string[];
+};
+
+const TEXT_STYLE_V1_PRESET = deepFreeze<TextStylePreset>({
+  design: { width: 1080, height: 2160 },
+  unit: "px",
+  roles: TEXT_STYLE_PUBLISHED.roles,
+  exportableFields: TEXT_STYLE_CONTRACT.supportedFields,
+  lockedFields: ["fontFamily", "fontPath", "fontFile", "css", "fontScale", "highContrast", "minPhysicalPx"],
+});
+
+export const TEXT_STYLE_BASELINE = {
+  id: "text-style-v1",
+  version: BASELINE_VERSION,
+  preset: TEXT_STYLE_V1_PRESET,
+  presetHash: contentHash(TEXT_STYLE_V1_PRESET),
+  approvedImageHash: APPROVED_IMAGE_HASH,
+  rendererFingerprint: TEXT_STYLE_CONTRACT.fingerprint,
+} as const;
+
+export function cloneTextStylePresetForEdit(id: string): TextStylePreset {
+  if (id !== TEXT_STYLE_BASELINE.id) {
+    throw new Error("unknown baseline");
+  }
+  return deepClone(TEXT_STYLE_BASELINE.preset);
 }
