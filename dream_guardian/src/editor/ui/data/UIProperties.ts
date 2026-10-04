@@ -1,10 +1,12 @@
 import { BOTTOM_BAR_CONTRACT } from "./screens/UIBottomBarContract";
 import { HUD_CONTRACT } from "./screens/UIHUDContract";
 import { RESULT_CONTRACT } from "./screens/UIResultContract";
+import { SETTINGS_CONTRACT } from "./screens/UISettingsContract";
 import { SUBMENU_CONTRACT } from "./screens/UISubmenuContract";
 
 export { BOTTOM_BAR_SCREEN_ID, resolveBottomBarProperty } from "./screens/UIBottomBarContract";
 export { RESULT_SCREEN_ID, resolveResultProperty } from "./screens/UIResultContract";
+export { SETTINGS_SCREEN_ID, resolveSettingsProperty } from "./screens/UISettingsContract";
 export { HUD_SCREEN_ID, resolveHudProperty } from "./screens/UIHUDContract";
 export { SUBMENU_SCREEN_ID, resolveSubmenuProperty } from "./screens/UISubmenuContract";
 
@@ -138,12 +140,28 @@ const RESULT_V1: ScreenContract = Object.freeze({
   protectedRegions: RESULT_CONTRACT.protectedRegions,
 });
 
+const SETTINGS_V1: ScreenContract = Object.freeze({
+  registered: true as const,
+  screen: SETTINGS_CONTRACT.screen,
+  version: SETTINGS_CONTRACT.version,
+  scope: SETTINGS_CONTRACT.scope,
+  requiredFields: SETTINGS_CONTRACT.requiredFields,
+  cardFields: SETTINGS_CONTRACT.cardFields,
+  workoutFields: SETTINGS_CONTRACT.workoutFields,
+  supportStatus: "locked" as const,
+  editEnabled: false as const,
+  exportEnabled: false as const,
+  fingerprint: SETTINGS_CONTRACT.fingerprint,
+  protectedRegions: SETTINGS_CONTRACT.protectedRegions,
+});
+
 const SCREEN_CONTRACTS: readonly ScreenContract[] = Object.freeze([
   MENU_V1,
   SUBMENU_V1,
   HUD_V1,
   BOTTOM_BAR_V1,
   RESULT_V1,
+  SETTINGS_V1,
 ]);
 
 function contractKey(input: { screen: string; version: string; scope: string }): string {

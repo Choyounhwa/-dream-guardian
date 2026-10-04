@@ -7,6 +7,7 @@ import {
 import { contentHash, rejectDuplicateKeys } from "./UICanonicalJSON";
 import { BOTTOM_BAR_LOCK_REASONS, BOTTOM_BAR_PUBLISHED } from "./screens/UIBottomBarContract";
 import { RESULT_LOCK_REASONS, RESULT_PUBLISHED } from "./screens/UIResultContract";
+import { SETTINGS_LOCK_REASONS, SETTINGS_PUBLISHED } from "./screens/UISettingsContract";
 import { HUD_PUBLISHED, deriveHudSlot } from "./screens/UIHUDContract";
 import { SUBMENU_PUBLISHED } from "./screens/UISubmenuContract";
 
@@ -309,6 +310,71 @@ export function cloneResultPresetForEdit(id: string): ResultPreset {
     throw new Error("unknown baseline");
   }
   return deepClone(RESULT_BASELINE.preset);
+}
+
+export type SettingsPreset = {
+  design: { width: number; height: number };
+  bounds: { x: number; y: number; w: number; h: number };
+  modal: { x: number; y: number; w: number; h: number };
+  closeBtn: { x: number; y: number; w: number; h: number };
+  buttons: {
+    camera: { x: number; y: number; w: number; h: number };
+    fullscreen: { x: number; y: number; w: number; h: number };
+    skeleton: { x: number; y: number; w: number; h: number };
+    sound: { x: number; y: number; w: number; h: number };
+    locomotion: { x: number; y: number; w: number; h: number };
+    fontScale: { x: number; y: number; w: number; h: number };
+    highContrast: { x: number; y: number; w: number; h: number };
+  };
+  settingsWrite: { locked: true; reason: string };
+};
+
+const SETTINGS_V1_PRESET = deepFreeze<SettingsPreset>({
+  design: { width: SETTINGS_PUBLISHED.design.width, height: SETTINGS_PUBLISHED.design.height },
+  bounds: {
+    x: SETTINGS_PUBLISHED.bounds.x,
+    y: SETTINGS_PUBLISHED.bounds.y,
+    w: SETTINGS_PUBLISHED.bounds.w,
+    h: SETTINGS_PUBLISHED.bounds.h,
+  },
+  modal: {
+    x: SETTINGS_PUBLISHED.modal.x,
+    y: SETTINGS_PUBLISHED.modal.y,
+    w: SETTINGS_PUBLISHED.modal.w,
+    h: SETTINGS_PUBLISHED.modal.h,
+  },
+  closeBtn: {
+    x: SETTINGS_PUBLISHED.closeBtn.x,
+    y: SETTINGS_PUBLISHED.closeBtn.y,
+    w: SETTINGS_PUBLISHED.closeBtn.w,
+    h: SETTINGS_PUBLISHED.closeBtn.h,
+  },
+  buttons: {
+    camera: { ...SETTINGS_PUBLISHED.buttons.camera },
+    fullscreen: { ...SETTINGS_PUBLISHED.buttons.fullscreen },
+    skeleton: { ...SETTINGS_PUBLISHED.buttons.skeleton },
+    sound: { ...SETTINGS_PUBLISHED.buttons.sound },
+    locomotion: { ...SETTINGS_PUBLISHED.buttons.locomotion },
+    fontScale: { ...SETTINGS_PUBLISHED.buttons.fontScale },
+    highContrast: { ...SETTINGS_PUBLISHED.buttons.highContrast },
+  },
+  settingsWrite: { locked: true, reason: SETTINGS_LOCK_REASONS.settingsWriteBlocked },
+});
+
+export const SETTINGS_BASELINE = {
+  id: "settings-v1",
+  version: BASELINE_VERSION,
+  preset: SETTINGS_V1_PRESET,
+  presetHash: contentHash(SETTINGS_V1_PRESET),
+  approvedImageHash: APPROVED_IMAGE_HASH,
+  rendererFingerprint: "settings-slots-v1",
+} as const;
+
+export function cloneSettingsPresetForEdit(id: string): SettingsPreset {
+  if (id !== SETTINGS_BASELINE.id) {
+    throw new Error("unknown baseline");
+  }
+  return deepClone(SETTINGS_BASELINE.preset);
 }
 
 export function matchBaseline(input: {
