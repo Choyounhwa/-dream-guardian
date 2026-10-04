@@ -12,6 +12,7 @@ import { SETTINGS_LOCK_REASONS, SETTINGS_PUBLISHED } from "./screens/UISettingsC
 import { HUD_PUBLISHED, deriveHudSlot } from "./screens/UIHUDContract";
 import { SUBMENU_PUBLISHED } from "./screens/UISubmenuContract";
 import { TEXT_STYLE_CONTRACT, TEXT_STYLE_PUBLISHED } from "./styles/UITextStyleContract";
+import { THEME_CONTRACT, THEME_PUBLISHED } from "./styles/UIThemeContract";
 
 export { LIMITS };
 
@@ -573,4 +574,36 @@ export function cloneTextStylePresetForEdit(id: string): TextStylePreset {
     throw new Error("unknown baseline");
   }
   return deepClone(TEXT_STYLE_BASELINE.preset);
+}
+
+export type ThemePreset = {
+  design: { width: number; height: number };
+  consumer: string;
+  default: typeof THEME_PUBLISHED.default;
+  highContrast: typeof THEME_PUBLISHED.highContrast;
+  exportableFields: readonly string[];
+};
+
+const THEME_V1_PRESET = deepFreeze<ThemePreset>({
+  design: { width: DESIGN_SIZE.width, height: DESIGN_SIZE.height },
+  consumer: THEME_CONTRACT.consumer,
+  default: THEME_PUBLISHED.default,
+  highContrast: THEME_PUBLISHED.highContrast,
+  exportableFields: Object.freeze([]),
+});
+
+export const THEME_BASELINE = {
+  id: "theme-v1",
+  version: THEME_CONTRACT.version,
+  preset: THEME_V1_PRESET,
+  presetHash: contentHash(THEME_V1_PRESET),
+  approvedImageHash: APPROVED_IMAGE_HASH,
+  rendererFingerprint: THEME_CONTRACT.fingerprint,
+};
+
+export function cloneThemePresetForEdit(id: string): ThemePreset {
+  if (id !== THEME_BASELINE.id) {
+    throw new Error("unknown baseline");
+  }
+  return deepClone(THEME_BASELINE.preset);
 }

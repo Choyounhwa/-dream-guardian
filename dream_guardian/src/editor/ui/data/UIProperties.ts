@@ -5,6 +5,7 @@ import { RESULT_CONTRACT } from "./screens/UIResultContract";
 import { SETTINGS_CONTRACT } from "./screens/UISettingsContract";
 import { SUBMENU_CONTRACT } from "./screens/UISubmenuContract";
 import { TEXT_STYLE_CONTRACT } from "./styles/UITextStyleContract";
+import { THEME_CONTRACT } from "./styles/UIThemeContract";
 
 export { BOTTOM_BAR_SCREEN_ID, resolveBottomBarProperty } from "./screens/UIBottomBarContract";
 export { RESULT_SCREEN_ID, resolveResultProperty } from "./screens/UIResultContract";
@@ -13,6 +14,7 @@ export { SETTINGS_SCREEN_ID, resolveSettingsProperty } from "./screens/UISetting
 export { HUD_SCREEN_ID, resolveHudProperty } from "./screens/UIHUDContract";
 export { SUBMENU_SCREEN_ID, resolveSubmenuProperty } from "./screens/UISubmenuContract";
 export { resolveTextStyleProperty } from "./styles/UITextStyleContract";
+export { resolveThemeProperty } from "./styles/UIThemeContract";
 
 export const MENU_SHARED_SIZE_FIELDS = ["width", "height"] as const;
 
@@ -189,6 +191,21 @@ const TEXT_STYLE_V1: ScreenContract = Object.freeze({
   protectedRegions: TEXT_STYLE_CONTRACT.protectedRegions,
 });
 
+const THEME_V1: ScreenContract = Object.freeze({
+  registered: true as const,
+  screen: THEME_CONTRACT.screen,
+  version: THEME_CONTRACT.version,
+  scope: THEME_CONTRACT.scope,
+  requiredFields: THEME_CONTRACT.requiredFields,
+  cardFields: THEME_CONTRACT.cardFields,
+  workoutFields: THEME_CONTRACT.workoutFields,
+  supportStatus: "locked" as const,
+  editEnabled: false as const,
+  exportEnabled: false as const,
+  fingerprint: THEME_CONTRACT.fingerprint,
+  protectedRegions: THEME_CONTRACT.protectedRegions,
+});
+
 const SCREEN_CONTRACTS: readonly ScreenContract[] = Object.freeze([
   MENU_V1,
   SUBMENU_V1,
@@ -198,6 +215,7 @@ const SCREEN_CONTRACTS: readonly ScreenContract[] = Object.freeze([
   SETTINGS_V1,
   PAUSE_V1,
   TEXT_STYLE_V1,
+  THEME_V1,
 ]);
 
 function contractKey(input: { screen: string; version: string; scope: string }): string {
