@@ -4,6 +4,7 @@ import { PAUSE_CONTRACT } from "./screens/UIPauseContract";
 import { RESULT_CONTRACT } from "./screens/UIResultContract";
 import { SETTINGS_CONTRACT } from "./screens/UISettingsContract";
 import { SUBMENU_CONTRACT } from "./screens/UISubmenuContract";
+import { ASSET_CONTRACT } from "./styles/UIAssetContract";
 import { TEXT_STYLE_CONTRACT } from "./styles/UITextStyleContract";
 import { THEME_CONTRACT } from "./styles/UIThemeContract";
 
@@ -15,6 +16,10 @@ export { HUD_SCREEN_ID, resolveHudProperty } from "./screens/UIHUDContract";
 export { SUBMENU_SCREEN_ID, resolveSubmenuProperty } from "./screens/UISubmenuContract";
 export { resolveTextStyleProperty } from "./styles/UITextStyleContract";
 export { resolveThemeProperty } from "./styles/UIThemeContract";
+
+export function lookupAssetContract() {
+  return ASSET_CONTRACT;
+}
 
 export const MENU_SHARED_SIZE_FIELDS = ["width", "height"] as const;
 
