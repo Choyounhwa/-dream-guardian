@@ -7,6 +7,7 @@ import {
 import { contentHash, rejectDuplicateKeys } from "./UICanonicalJSON";
 import { BOTTOM_BAR_LOCK_REASONS, BOTTOM_BAR_PUBLISHED } from "./screens/UIBottomBarContract";
 import { RESULT_LOCK_REASONS, RESULT_PUBLISHED } from "./screens/UIResultContract";
+import { PAUSE_LOCK_REASONS, PAUSE_PUBLISHED } from "./screens/UIPauseContract";
 import { SETTINGS_LOCK_REASONS, SETTINGS_PUBLISHED } from "./screens/UISettingsContract";
 import { HUD_PUBLISHED, deriveHudSlot } from "./screens/UIHUDContract";
 import { SUBMENU_PUBLISHED } from "./screens/UISubmenuContract";
@@ -375,6 +376,60 @@ export function cloneSettingsPresetForEdit(id: string): SettingsPreset {
     throw new Error("unknown baseline");
   }
   return deepClone(SETTINGS_BASELINE.preset);
+}
+
+export type PausePreset = {
+  design: { width: number; height: number };
+  bounds: { x: number; y: number; w: number; h: number };
+  modal: { x: number; y: number; w: number; h: number };
+  resumeBtn: { x: number; y: number; w: number; h: number };
+  quitBtn: { x: number; y: number; w: number; h: number };
+  pauseAction: { locked: true; reason: string };
+};
+
+const PAUSE_V1_PRESET = deepFreeze<PausePreset>({
+  design: { width: PAUSE_PUBLISHED.design.width, height: PAUSE_PUBLISHED.design.height },
+  bounds: {
+    x: PAUSE_PUBLISHED.bounds.x,
+    y: PAUSE_PUBLISHED.bounds.y,
+    w: PAUSE_PUBLISHED.bounds.w,
+    h: PAUSE_PUBLISHED.bounds.h,
+  },
+  modal: {
+    x: PAUSE_PUBLISHED.modal.x,
+    y: PAUSE_PUBLISHED.modal.y,
+    w: PAUSE_PUBLISHED.modal.w,
+    h: PAUSE_PUBLISHED.modal.h,
+  },
+  resumeBtn: {
+    x: PAUSE_PUBLISHED.resumeBtn.x,
+    y: PAUSE_PUBLISHED.resumeBtn.y,
+    w: PAUSE_PUBLISHED.resumeBtn.w,
+    h: PAUSE_PUBLISHED.resumeBtn.h,
+  },
+  quitBtn: {
+    x: PAUSE_PUBLISHED.quitBtn.x,
+    y: PAUSE_PUBLISHED.quitBtn.y,
+    w: PAUSE_PUBLISHED.quitBtn.w,
+    h: PAUSE_PUBLISHED.quitBtn.h,
+  },
+  pauseAction: { locked: true, reason: PAUSE_LOCK_REASONS.pauseBlocked },
+});
+
+export const PAUSE_BASELINE = {
+  id: "pause-v1",
+  version: BASELINE_VERSION,
+  preset: PAUSE_V1_PRESET,
+  presetHash: contentHash(PAUSE_V1_PRESET),
+  approvedImageHash: APPROVED_IMAGE_HASH,
+  rendererFingerprint: "pause-slots-v1",
+} as const;
+
+export function clonePausePresetForEdit(id: string): PausePreset {
+  if (id !== PAUSE_BASELINE.id) {
+    throw new Error("unknown baseline");
+  }
+  return deepClone(PAUSE_BASELINE.preset);
 }
 
 export function matchBaseline(input: {
