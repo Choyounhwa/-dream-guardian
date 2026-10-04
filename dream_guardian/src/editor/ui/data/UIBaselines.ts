@@ -5,6 +5,7 @@ import {
   SCHEMA_VERSION,
 } from "./UIContracts";
 import { contentHash, rejectDuplicateKeys } from "./UICanonicalJSON";
+import { BOTTOM_BAR_LOCK_REASONS, BOTTOM_BAR_PUBLISHED } from "./screens/UIBottomBarContract";
 import { HUD_PUBLISHED, deriveHudSlot } from "./screens/UIHUDContract";
 import { SUBMENU_PUBLISHED } from "./screens/UISubmenuContract";
 
@@ -203,6 +204,62 @@ export function cloneHudPresetForEdit(id: string): HudPreset {
     throw new Error("unknown baseline");
   }
   return deepClone(HUD_BASELINE.preset);
+}
+
+export type BottomBarPreset = {
+  design: { width: number; height: number };
+  bounds: { x: number; y: number; w: number; h: number };
+  height: number;
+  settingsBtn: { x: number; y: number; w: number; h: number };
+  actionBtn: { x: number; y: number; w: number; h: number };
+  manaBar: { x: number; y: number; w: number; h: number };
+  pause: { locked: true; reason: string };
+};
+
+const BOTTOM_BAR_V1_PRESET = deepFreeze<BottomBarPreset>({
+  design: { width: BOTTOM_BAR_PUBLISHED.design.width, height: BOTTOM_BAR_PUBLISHED.design.height },
+  bounds: {
+    x: BOTTOM_BAR_PUBLISHED.bounds.x,
+    y: BOTTOM_BAR_PUBLISHED.bounds.y,
+    w: BOTTOM_BAR_PUBLISHED.bounds.w,
+    h: BOTTOM_BAR_PUBLISHED.bounds.h,
+  },
+  height: BOTTOM_BAR_PUBLISHED.height,
+  settingsBtn: {
+    x: BOTTOM_BAR_PUBLISHED.settingsBtn.x,
+    y: BOTTOM_BAR_PUBLISHED.settingsBtn.y,
+    w: BOTTOM_BAR_PUBLISHED.settingsBtn.w,
+    h: BOTTOM_BAR_PUBLISHED.settingsBtn.h,
+  },
+  actionBtn: {
+    x: BOTTOM_BAR_PUBLISHED.actionBtn.x,
+    y: BOTTOM_BAR_PUBLISHED.actionBtn.y,
+    w: BOTTOM_BAR_PUBLISHED.actionBtn.w,
+    h: BOTTOM_BAR_PUBLISHED.actionBtn.h,
+  },
+  manaBar: {
+    x: BOTTOM_BAR_PUBLISHED.manaBar.x,
+    y: BOTTOM_BAR_PUBLISHED.manaBar.y,
+    w: BOTTOM_BAR_PUBLISHED.manaBar.w,
+    h: BOTTOM_BAR_PUBLISHED.manaBar.h,
+  },
+  pause: { locked: true, reason: BOTTOM_BAR_LOCK_REASONS.sharedActionSlot },
+});
+
+export const BOTTOM_BAR_BASELINE = {
+  id: "bottom-bar-v1",
+  version: BASELINE_VERSION,
+  preset: BOTTOM_BAR_V1_PRESET,
+  presetHash: contentHash(BOTTOM_BAR_V1_PRESET),
+  approvedImageHash: APPROVED_IMAGE_HASH,
+  rendererFingerprint: "bottom-bar-slots-v1",
+} as const;
+
+export function cloneBottomBarPresetForEdit(id: string): BottomBarPreset {
+  if (id !== BOTTOM_BAR_BASELINE.id) {
+    throw new Error("unknown baseline");
+  }
+  return deepClone(BOTTOM_BAR_BASELINE.preset);
 }
 
 export function matchBaseline(input: {
