@@ -1,11 +1,19 @@
 import { KINDS, LIMITS, SCHEMA_VERSION } from "./UIContracts";
 import { artifactHash, contentHash, rejectDuplicateKeys, sourceCheckpointHash } from "./UICanonicalJSON";
 import { BASELINE_REGISTRY, clonePresetForEdit } from "./UIBaselines";
+import { lookupScreenContract } from "./UIProperties";
 import { OUT_OF_SCOPE_MEANS_RESTORE, validateProject, validateTransfer } from "./UIValidator";
 
 export const GAME_APPLY_VERIFIED = false;
 
-type Meta = { scope: string; sourceId: string; exportId: string };
+type Meta = {
+  scope: string;
+  sourceId: string;
+  exportId: string;
+  screen?: string;
+  version?: string;
+  previewLinked?: boolean;
+};
 type BuildResult = { ok: true; transfer: object } | { ok: false; reason: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -66,14 +74,48 @@ function envelope(checkpoint: Record<string, unknown>, content: object, meta: Me
   return body;
 }
 
+function scopeComplete(menu: unknown): boolean {
+  if (!isRecord(menu)) return false;
+  const contract = lookupScreenContract("menu", SCHEMA_VERSION, "menu");
+  if (!("requiredFields" in contract)) return false;
+  if (!Array.isArray(menu.cards) || menu.cards.length !== 5) return false;
+  if (typeof menu.width !== "number") return false;
+  const workout = menu.workoutButton;
+  if (!isRecord(workout)) return false;
+  for (const field of contract.workoutFields) {
+    if (typeof workout[field] !== "number") return false;
+  }
+  return true;
+}
+
+function exportGate(input: Meta): string | null {
+  const screen = input.screen ?? "menu";
+  const version = input.version ?? SCHEMA_VERSION;
+  const contract = lookupScreenContract(screen, version, input.scope);
+  if (!("requiredFields" in contract) || contract.supportStatus !== "supported") {
+    return "unregistered-screen-contract";
+  }
+  if (input.previewLinked === false) {
+    return "registry-only until preview/profile link";
+  }
+  return null;
+}
+
 export function buildTransfer(input: {
   checkpoint: unknown;
   scope: string;
   sourceId: string;
   exportId: string;
+  screen?: string;
+  version?: string;
+  previewLinked?: boolean;
 }): BuildResult {
   const snapshot = copy(input.checkpoint);
-  if (!isRecord(snapshot) || input.scope !== "menu") return { ok: false, reason: "unsupported-scope" };
+  if (!isRecord(snapshot)) return { ok: false, reason: "unsupported-scope" };
+  const blocked = exportGate(input);
+  if (blocked) return { ok: false, reason: blocked };
+  if (input.scope !== "menu") return { ok: false, reason: "unsupported-scope" };
+  if (!scopeComplete(snapshot.menu)) return { ok: false, reason: "incomplete-scope" };
   const content = completeMenu(snapshot.menu);
   if (!content) return { ok: false, reason: "incomplete-scope" };
   snapshot.menu = content;
