@@ -132,7 +132,8 @@
 | [#382](https://github.com/Choyounhwa/-dream-guardian/issues/382) EDITOR-TIME-MODEL | 기존 #243 후속 내부 시간·길이·자세 탐색 계약 정합화 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#383](https://github.com/Choyounhwa/-dream-guardian/issues/383) EDITOR-TIME-VIEW | 노트·눈금·재생헤드·클릭·오디오 루프 좌표 통일 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#384](https://github.com/Choyounhwa/-dream-guardian/issues/384) EDITOR-STAR | 별 7슬롯/부위·존/오류 UX 고도화 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#385](https://github.com/Choyounhwa/-dream-guardian/issues/385) EDITOR-BINDING | 프로젝트/구간·역할별 연결 UX | `[▶ NEXT: 에디터 트랙]` 진행 |
+| [#385](https://github.com/Choyounhwa/-dream-guardian/issues/385) EDITOR-BINDING | 프로젝트/구간·역할별 연결 UX | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#386](https://github.com/Choyounhwa/-dream-guardian/issues/386) EDITOR-RELEASE-STORE | 불변 게시본·적용 예약·이전 정상본 저장 | `[▶ NEXT: 에디터 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 
