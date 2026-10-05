@@ -124,7 +124,8 @@
 | [#321](https://github.com/Choyounhwa/-dream-guardian/issues/321) EDITOR-CONTRACT | 실제 게임의 시간/입력/참조 계약 및 초기 편집 경계 확정 | `[✔] 문서·특성화 검증 완료` (미커밋, 이슈 OPEN 유지) |
 | [#375](https://github.com/Choyounhwa/-dream-guardian/issues/375) EDITOR-SCHEMA | V2 데이터 타입 및 구조/참조 검증기 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#376](https://github.com/Choyounhwa/-dream-guardian/issues/376) EDITOR-CAPABILITY | 게시 가능 동작·시간·규칙 버전과 고정 슬롯 계약 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#377](https://github.com/Choyounhwa/-dream-guardian/issues/377) EDITOR-COMPILE | 검증된 원본의 결정적 게임 적용본 생성·재검사 | `[▶ NEXT: 에디터 트랙]` 진행 |
+| [#377](https://github.com/Choyounhwa/-dream-guardian/issues/377) EDITOR-COMPILE | 검증된 원본의 결정적 게임 적용본 생성·재검사 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#378](https://github.com/Choyounhwa/-dream-guardian/issues/378) EDITOR-MIGRATE | V1 프로젝트·패턴 라이브러리 무손실 변환 | `[▶ NEXT: 에디터 트랙]` 진행 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 

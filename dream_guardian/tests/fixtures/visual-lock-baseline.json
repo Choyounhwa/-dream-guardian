@@ -1,0 +1,16 @@
+{
+  "horizonRatio": 0.56,
+  "defaultVanishingYRatio": 0.56,
+  "virtualWidth": 1080,
+  "virtualHeight": 2160,
+  "railSample": {
+    "targetX": 860,
+    "targetY": 1800,
+    "progress": 0.5,
+    "expectedX": 620.0,
+    "expectedY": 1357.2,
+    "expectedScale": 0.525
+  },
+  "hazardFrontRatio": 0.92,
+  "answerAnchorY": 440.0
+}

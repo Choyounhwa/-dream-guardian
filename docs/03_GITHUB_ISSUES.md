@@ -11,10 +11,12 @@
 
 ## 2026-10-05 등록: 공용 투영 시각 계약 고정 (VISUAL-LOCK)
 
-**카드 등록만 / 구현 미착수.** [#418 VISUAL-LOCK-001](https://github.com/Choyounhwa/-dream-guardian/issues/418). 기존 RHYTHM-INTRO·에디터·UIX NEXT는 유지한다.
+**[✔] 구현 및 검증 완료.** [#418 VISUAL-LOCK-001](https://github.com/Choyounhwa/-dream-guardian/issues/418).
 
-- 단일 책임: 별 노트·답 수식 앵커·바닥 장판/발판이 공유하는 `HORIZON_RATIO`/`GridProjection` 산출을 테스트 기준선으로 고정. source/config 수정 0(불가피 시 `GridProjection.ts` 1개, 시그니처 불변).
-- 겹침: 동일 구현 카드 없음. #331/#366/#323은 UI 에디터 시각 profile(게임 런타임 수정 금지), #322는 수식 SSOT 재일원화 금지, #407/#408/#372/#410은 예고·실카메라 계약이며 좌표 재조정 대상이 아님.
+- **단일 책임**: 별 노트·답 수식 앵커·바닥 장판/발판이 공유하는 `HORIZON_RATIO`/`GridProjection` 산출을 테스트 기준선으로 고정. source/config diff 0, 기준선 픽스처 및 단위 테스트 추가.
+- **테스트**: `tests/unit/visual-lock-projection.test.ts` (3/3 Pass).
+- **픽스처**: `tests/fixtures/visual-lock-baseline.json`.
+- **결과**: `npm test` 220 files / 2,565 passed (100% Pass), `npm run build` 성공.
 
 ## 2026-10-05 등록: 사전 예고·입문 플레이 두 개선 한정 (RHYTHM-INTRO)
 
