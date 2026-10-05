@@ -32,6 +32,8 @@ import {
   ChoreoPoseSimulator,
   type SimulatedPoseFrame,
 } from './ChoreoPoseSimulator.js';
+import { ProjectCommandManager } from './ProjectCommands.js';
+import { createEmptyEditorProject } from '../data/ProjectValidator.js';
 
 export type PhaseType = 'RUN_QUESTION' | 'ANSWER_SELECT' | 'STAR_COLLECT' | 'FEVER_PHASE_B';
 export type ActiveEditTool = 'inspect' | 'leftHand' | 'rightHand' | 'head' | 'hip' | 'foot';
@@ -70,13 +72,52 @@ export class EditorState {
   private readonly _sequenceEditor: PhaseSequenceEditor;
   private readonly _simulator: ChoreoPoseSimulator = choreoPoseSimulator;
   private readonly _listeners: Set<EditorListener> = new Set();
+  private _commandManager?: ProjectCommandManager;
 
-  constructor(initialRegistry?: DancePatternRegistry, initialSequenceEditor?: PhaseSequenceEditor) {
+  constructor(
+    initialRegistry?: DancePatternRegistry,
+    initialSequenceEditor?: PhaseSequenceEditor,
+    commandManager?: ProjectCommandManager
+  ) {
     this._registry = initialRegistry ?? new DancePatternRegistry(EXTENDED_CAT_CHOREO_PATTERNS);
     this._sequenceEditor = initialSequenceEditor ?? new PhaseSequenceEditor();
+    if (commandManager) {
+      this._commandManager = commandManager;
+    }
     this._sequenceEditor.addListener(() => {
       this.notifyDocumentChange();
       this.notifyStateChange();
+    });
+  }
+
+  get commandManager(): ProjectCommandManager {
+    if (!this._commandManager) {
+      this._commandManager = this.createDefaultCommandManager();
+    }
+    return this._commandManager;
+  }
+
+  private createDefaultCommandManager(): ProjectCommandManager {
+    const proj = createEmptyEditorProject({
+      projectId: 'proj_dance_editor',
+      title: 'Dream Guardian Dance Editor',
+      bpm: this._bpm,
+    });
+    proj.patterns = this._registry.getAll().map((p) => ({
+      id: p.id,
+      name: p.name,
+      target: {
+        leftHand: p.leftHand,
+        rightHand: p.rightHand,
+        head: p.head,
+        hip: p.hip,
+      },
+      description: p.description,
+    }));
+    return new ProjectCommandManager(proj, {
+      onDocumentChange: () => {
+        this.notifyDocumentChange();
+      },
     });
   }
 
@@ -215,6 +256,9 @@ export class EditorState {
     const current = this.getSelectedPattern();
     if (!current) {
       return { valid: false, errors: ['선택된 패턴이 없습니다.'] };
+    }
+    if ((partial as any).id !== undefined && (partial as any).id !== this._selectedPatternId) {
+      return { valid: false, errors: ['패턴 ID는 일반 수정으로 변경할 수 없습니다.'] };
     }
     const candidateBase = {
       ...current,

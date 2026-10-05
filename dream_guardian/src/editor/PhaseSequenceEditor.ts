@@ -100,11 +100,17 @@ export class PhaseSequenceEditor {
   }
 
   /**
-   * 지정된 페이즈의 트랙 노트 목록 반환 (비트 순서 정렬)
+   * 지정된 페이즈의 트랙 노트 목록 반환 (비트 순서 정렬 및 불변 심층 복제)
    */
   getNotesForPhase(phase: PhaseType): TimelineTrackNote[] {
     const list = this._phaseNotes.get(phase) ?? [];
-    return [...list].sort((a, b) => a.startBeat - b.startBeat);
+    return [...list]
+      .sort((a, b) => a.startBeat - b.startBeat)
+      .map((n) => ({
+        ...n,
+        targetZones: [...n.targetZones],
+        payload: n.payload ? JSON.parse(JSON.stringify(n.payload)) : undefined,
+      }));
   }
 
   /**
@@ -220,16 +226,23 @@ export class PhaseSequenceEditor {
     if (list.some((n) => n.id === note.id)) {
       return false;
     }
-    list.push({ ...note, targetZones: [...note.targetZones] });
+    list.push({
+      ...note,
+      targetZones: [...note.targetZones],
+      payload: note.payload ? JSON.parse(JSON.stringify(note.payload)) : undefined,
+    });
     this._phaseNotes.set(phase, list);
     this.notifyChange(phase);
     return true;
   }
 
   /**
-   * 기존 노트 속성 수정
+   * 기존 노트 속성 수정 (ID 불변)
    */
   updateNote(phase: PhaseType, noteId: string, partial: Partial<TimelineTrackNote>): boolean {
+    if (partial.id !== undefined && partial.id !== noteId) {
+      return false;
+    }
     const list = this._phaseNotes.get(phase);
     if (!list) return false;
 
@@ -239,8 +252,11 @@ export class PhaseSequenceEditor {
     list[idx] = {
       ...list[idx],
       ...partial,
+      id: list[idx].id,
       targetZones: partial.targetZones ? [...partial.targetZones] : list[idx].targetZones,
-      payload: { ...(list[idx].payload ?? {}), ...(partial.payload ?? {}) },
+      payload: partial.payload
+        ? { ...(list[idx].payload ?? {}), ...JSON.parse(JSON.stringify(partial.payload)) }
+        : list[idx].payload,
     };
     this.notifyChange(phase);
     return true;
@@ -269,6 +285,19 @@ export class PhaseSequenceEditor {
     const freshEditor = new PhaseSequenceEditor();
     const defaultNotes = freshEditor.getNotesForPhase(phase);
     this._phaseNotes.set(phase, defaultNotes);
+    this.notifyChange(phase);
+  }
+
+  /**
+   * 지정된 페이즈의 트랙 노트 전체 교체
+   */
+  replaceNotesForPhase(phase: PhaseType, notes: TimelineTrackNote[]): void {
+    const cloned = notes.map((n) => ({
+      ...n,
+      targetZones: [...n.targetZones],
+      payload: n.payload ? JSON.parse(JSON.stringify(n.payload)) : undefined,
+    }));
+    this._phaseNotes.set(phase, cloned);
     this.notifyChange(phase);
   }
 
