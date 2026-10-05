@@ -26,6 +26,14 @@ export class EditorLayout {
     this._timelineRenderer = new BeatTimelineRenderer();
   }
 
+  get timelineRenderer(): BeatTimelineRenderer {
+    return this._timelineRenderer;
+  }
+
+  getTimelineRenderer(): BeatTimelineRenderer {
+    return this._timelineRenderer;
+  }
+
   /**
    * 상단 헤더 및 툴바 HTML 렌더링
    */
@@ -306,7 +314,10 @@ export class EditorLayout {
 
         <div class="timeline-container">
           <div id="timeline-ruler" class="timeline-ruler">
-            ${rulerTicks}
+            <div class="ruler-lane-tag-spacer lane-tag" style="width: 80px; flex-shrink: 0; border-right: 1px solid var(--border-color, rgba(255,255,255,0.1));"></div>
+            <div class="ruler-track-content" style="flex: 1; display: flex; position: relative;">
+              ${rulerTicks}
+            </div>
           </div>
 
           <div id="timeline-tracks" class="timeline-tracks">

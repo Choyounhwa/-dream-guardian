@@ -34,6 +34,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
   const layout = new EditorLayout(state);
+  const timelineRenderer = layout.timelineRenderer;
   const audioSync = new AudioSyncController({ bpm: state.bpm, enableAudioNode: true });
 
   // 1. 전체 레이아웃 렌더링
@@ -96,11 +97,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const updatePlayhead = () => {
     const playhead = document.getElementById('timeline-playhead');
-    const container = document.querySelector('.timeline-tracks-wrapper') as HTMLElement;
-    if (playhead && container) {
+    if (playhead) {
       const routine = state.getCurrentPhaseRoutine();
-      const ratio = state.currentBeat / Math.max(1, routine.beats);
-      const percent = Math.max(0, Math.min(100, ratio * 100));
+      const percent = timelineRenderer.beatToPercent(state.currentBeat, routine.beats);
       playhead.style.left = `${percent}%`;
     }
   };
@@ -118,7 +117,7 @@ window.addEventListener('DOMContentLoaded', () => {
           const targetNote = currentNotes.find((n) => n.id === noteId);
           if (targetNote) {
             state.seekBeat(targetNote.startBeat);
-            audioSync.seek(targetNote.startBeat);
+            audioSync.seek(state.displayBeatToAudioBeat(targetNote.startBeat));
           }
           updateTimeline();
           updateCanvas();
@@ -126,17 +125,42 @@ window.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    // 2. 타임라인 레인 클릭 시 비트 스크러빙
+    // 2. 타임라인 레인 클릭 시 비트 스크러빙 (#383: 트랙 컨텐츠 영역 기준 pixelToBeat 변환)
     const tracksContainer = document.querySelector('.timeline-tracks-wrapper');
     if (tracksContainer) {
       tracksContainer.addEventListener('click', (e) => {
-        const rect = tracksContainer.getBoundingClientRect();
+        const laneContent = (e.target as HTMLElement).closest('.lane-content') as HTMLElement ||
+          document.querySelector('.lane-content') as HTMLElement;
+        const rect = laneContent
+          ? laneContent.getBoundingClientRect()
+          : tracksContainer.getBoundingClientRect();
+
         const clickX = (e as MouseEvent).clientX - rect.left;
+        if (clickX < 0) return; // 레인 태그 클릭 무시
+
         const routine = state.getCurrentPhaseRoutine();
-        const targetBeat = Math.max(0, Math.min(routine.beats, (clickX / rect.width) * routine.beats));
-        const snapped = Math.round(targetBeat * 2) / 2; // 0.5 beat snap
+        const rawBeat = timelineRenderer.pixelToBeat(clickX, rect.width, routine.beats);
+        const snapped = timelineRenderer.snapBeat(rawBeat, 0.5);
         state.seekBeat(snapped);
-        audioSync.seek(snapped);
+        audioSync.seek(state.displayBeatToAudioBeat(snapped));
+        updateTimeline();
+        updateCanvas();
+      });
+    }
+
+    // 3. 눈금자(Ruler) 트랙 영역 클릭 시 비트 스크러빙 (#383)
+    const rulerContent = document.querySelector('.ruler-track-content');
+    if (rulerContent) {
+      rulerContent.addEventListener('click', (e) => {
+        const rect = rulerContent.getBoundingClientRect();
+        const clickX = (e as MouseEvent).clientX - rect.left;
+        if (clickX < 0) return;
+
+        const routine = state.getCurrentPhaseRoutine();
+        const rawBeat = timelineRenderer.pixelToBeat(clickX, rect.width, routine.beats);
+        const snapped = timelineRenderer.snapBeat(rawBeat, 0.5);
+        state.seekBeat(snapped);
+        audioSync.seek(state.displayBeatToAudioBeat(snapped));
         updateTimeline();
         updateCanvas();
       });
@@ -306,7 +330,7 @@ window.addEventListener('DOMContentLoaded', () => {
     playBtn.addEventListener('click', () => {
       state.togglePlay();
       if (state.isPlaying) {
-        audioSync.start(state.currentBeat);
+        audioSync.start(state.displayBeatToAudioBeat(state.currentBeat));
       } else {
         audioSync.stop();
       }
@@ -317,7 +341,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (stopBtn) {
     stopBtn.addEventListener('click', () => {
       state.pause();
-      state.seekBeat(0);
+      state.seekBeat(1.0);
       audioSync.stop();
       audioSync.seek(0);
     });
@@ -639,18 +663,22 @@ window.addEventListener('DOMContentLoaded', () => {
   updateToolbar();
   updateCanvas();
 
-  // 9. 오디오 비트 재생 루프 (AudioSyncController와 실시간 동기화)
+  // 9. 오디오 비트 재생 루프 (AudioSyncController와 실시간 동기화, #383 루프 경계 완주 보장)
   function animationLoop() {
     if (state.isPlaying) {
       const audioBeat = audioSync.getCurrentBeat();
-      const maxBeats = state.getCurrentPhaseRoutine().beats;
+      const currentNotes = state.getCurrentPhaseNotes();
+      const routine = state.getCurrentPhaseRoutine();
+      const displayBeat = state.audioBeatToDisplayBeat ? state.audioBeatToDisplayBeat(audioBeat) : (audioBeat + 1);
 
-      if (audioBeat >= maxBeats) {
+      if (timelineRenderer.shouldLoop(displayBeat, routine.beats, currentNotes)) {
         audioSync.seek(0);
-        state.seekBeat(0);
+        state.seekBeat(1.0);
       } else {
-        state.seekBeat(audioBeat);
+        state.seekBeat(displayBeat);
       }
+      updateHeader();
+      updatePlayhead();
       updateCanvas();
     }
 

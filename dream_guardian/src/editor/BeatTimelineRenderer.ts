@@ -7,7 +7,76 @@ import type { PhaseType } from './EditorState.js';
 
 export class BeatTimelineRenderer {
   /**
-   * 픽셀 좌표를 비트 위치로 변환
+   * 1-based 표시 비트를 타임라인 백분율(0~100%)로 변환 (#383)
+   * 비트 1이 0%에 위치하며, 비트 (1 + totalBeats)가 100%에 도달
+   */
+  beatToPercent(displayBeat: number, totalBeats: number): number {
+    if (totalBeats <= 0) return 0;
+    return Math.max(0, Math.min(100, ((displayBeat - 1) / totalBeats) * 100));
+  }
+
+  /**
+   * 타임라인 백분율(0~100%)을 1-based 표시 비트로 역변환 (#383)
+   */
+  percentToBeat(percent: number, totalBeats: number): number {
+    if (totalBeats <= 0) return 1.0;
+    const clampedPercent = Math.max(0, Math.min(100, percent));
+    return 1 + (clampedPercent / 100) * totalBeats;
+  }
+
+  /**
+   * 트랙 컨텐츠 픽셀 X 좌표(레인 태그 80px 제외)를 1-based 비트 위치로 변환 (#383)
+   */
+  pixelToBeat(contentPixelX: number, contentWidth: number, totalBeats: number): number {
+    if (contentWidth <= 0 || totalBeats <= 0) return 1.0;
+    const ratio = Math.max(0, Math.min(1, contentPixelX / contentWidth));
+    return 1 + ratio * totalBeats;
+  }
+
+  /**
+   * 노트의 시작 비트 및 지속 시간에 따른 좌측 위치(leftPercent)와 폭(widthPercent) 계산 (#383)
+   */
+  getNoteLeftAndWidth(
+    startBeat: number,
+    durationBeats: number,
+    totalBeats: number
+  ): { leftPercent: number; widthPercent: number } {
+    if (totalBeats <= 0) {
+      return { leftPercent: 0, widthPercent: 0 };
+    }
+    const leftPercent = this.beatToPercent(startBeat, totalBeats);
+    const widthPercent = Math.max(0, Math.min(100, (durationBeats / totalBeats) * 100));
+    return { leftPercent, widthPercent };
+  }
+
+  /**
+   * 루프 종료 경계 비트 계산 (브랜치 길이 8박 + 마지막 노트 랜딩/지속 시간 보장) (#383)
+   */
+  getLoopBoundary(totalBeats: number, notes: TimelineTrackNote[] = []): number {
+    const branchEndBeat = 1 + Math.max(0, totalBeats);
+    if (!notes || notes.length === 0) {
+      return branchEndBeat;
+    }
+    let maxEndBeat = branchEndBeat;
+    for (const note of notes) {
+      const noteEnd = note.startBeat + note.durationBeats;
+      if (noteEnd > maxEndBeat) {
+        maxEndBeat = noteEnd;
+      }
+    }
+    return maxEndBeat;
+  }
+
+  /**
+   * 현재 비트가 루프 경계(마지막 노트 랜딩 및 브랜치 종료)에 도달했는지 확인 (#383)
+   */
+  shouldLoop(currentBeat: number, totalBeats: number, notes: TimelineTrackNote[] = []): boolean {
+    const boundary = this.getLoopBoundary(totalBeats, notes);
+    return currentBeat >= boundary;
+  }
+
+  /**
+   * 픽셀 좌표를 비트 위치로 변환 (하위 호환 0-based 비율 계산)
    */
   beatFromPixel(pixelX: number, trackWidth: number, totalBeats: number): number {
     if (trackWidth <= 0) return 0;
@@ -109,7 +178,7 @@ export class BeatTimelineRenderer {
     totalBeats: number,
     selectedNoteId?: string | null
   ): string {
-    const playheadPercent = Math.max(0, Math.min(100, (currentBeat / totalBeats) * 100));
+    const playheadPercent = this.beatToPercent(currentBeat, totalBeats);
 
     // 4개 레인별 노트 분리 (구조화된 신체 부위 기반)
     // 1. 모션 레인 (바운스 / 16박 안무 블록)
@@ -126,14 +195,18 @@ export class BeatTimelineRenderer {
 
     const renderNoteBlock = (note: TimelineTrackNote) => {
       // 1-based startBeat: Beat 1 starts at 0%
-      const leftPercent = Math.max(0, Math.min(100, ((note.startBeat - 1) / totalBeats) * 100));
-      const widthPercent = Math.max(3, Math.min(100, (note.durationBeats / totalBeats) * 100));
+      const { leftPercent, widthPercent } = this.getNoteLeftAndWidth(
+        note.startBeat,
+        note.durationBeats,
+        totalBeats
+      );
+      const displayWidth = Math.max(3, widthPercent);
       const isSelected = selectedNoteId === note.id;
 
       return `
-        <div class="note-block ${isSelected ? 'selected' : ''}" 
+        <div class="note-block ${isSelected ? 'selected' : ''}"
              data-note-id="${note.id}"
-             style="left: ${leftPercent}%; width: ${widthPercent}%; background-color: ${note.color};">
+             style="left: ${leftPercent}%; width: ${displayWidth}%; background-color: ${note.color};">
           <span class="note-title">${note.label}</span>
           <span class="note-zones">${note.targetZones.length > 0 ? `Z${note.targetZones.join(',')}` : ''}</span>
         </div>
@@ -142,6 +215,13 @@ export class BeatTimelineRenderer {
 
     return `
       <div class="timeline-tracks-wrapper">
+        <div class="timeline-track-content" style="position: absolute; left: 80px; right: 0; top: 0; bottom: 0; pointer-events: none;">
+          <div id="timeline-playhead" class="playhead-cursor" style="left: ${playheadPercent}%;">
+            <div class="playhead-pin">▼</div>
+            <div class="playhead-bar"></div>
+          </div>
+        </div>
+
         <div class="timeline-lane lane-motion" data-lane="motion">
           <span class="lane-tag">모션</span>
           <div class="lane-content">
@@ -168,11 +248,6 @@ export class BeatTimelineRenderer {
           <div class="lane-content">
             ${hipFootNotes.map(renderNoteBlock).join('')}
           </div>
-        </div>
-
-        <div id="timeline-playhead" class="playhead-cursor" style="left: ${playheadPercent}%;">
-          <div class="playhead-pin">▼</div>
-          <div class="playhead-bar"></div>
         </div>
       </div>
     `.trim();
