@@ -54,6 +54,8 @@ export interface EditorPhaseRoutineInfo {
   beats: number;
   prompt: string;
   routine: QuestionPhaseRoutine | AnswerPhaseRoutine | StarCollectRoutine | FeverPhaseRoutine;
+  branchDuration?: number;
+  noteCount?: number;
 }
 
 export interface EditorListener {
@@ -408,9 +410,9 @@ export class EditorState {
 
   setSelectedPhase(phase: PhaseType): void {
     this._selectedPhase = phase;
-    const routine = this.getCurrentPhaseRoutine();
-    if (this._currentBeat > routine.beats) {
-      this._currentBeat = routine.beats;
+    const maxBeats = this.getTimelineTotalBeats(phase);
+    if (this._currentBeat > maxBeats) {
+      this._currentBeat = maxBeats;
       this.notifyBeatUpdate(this._currentBeat);
     }
     this.notifyPhaseChange(phase);
@@ -425,6 +427,8 @@ export class EditorState {
           beats: QUESTION_PHASE_ROUTINE.beats,
           prompt: QUESTION_PHASE_ROUTINE.prompt,
           routine: QUESTION_PHASE_ROUTINE,
+          branchDuration: QUESTION_PHASE_ROUTINE.beats,
+          noteCount: QUESTION_PHASE_ROUTINE.notes.length,
         };
       case 'ANSWER_SELECT':
         return {
@@ -432,13 +436,17 @@ export class EditorState {
           beats: ANSWER_PHASE_ROUTINE.maxBeats,
           prompt: ANSWER_PHASE_ROUTINE.prompt,
           routine: ANSWER_PHASE_ROUTINE,
+          branchDuration: ANSWER_PHASE_ROUTINE.maxBeats,
+          noteCount: ANSWER_PHASE_ROUTINE.choices.length,
         };
       case 'STAR_COLLECT':
         return {
           phase: 'STAR_COLLECT',
-          beats: STAR_COLLECT_ROUTINE.beats,
+          beats: 8, // #382: 노트 수 7과 분기 전체 길이 8박 명확한 분리
           prompt: STAR_COLLECT_ROUTINE.prompt,
           routine: STAR_COLLECT_ROUTINE,
+          branchDuration: 8,
+          noteCount: STAR_COLLECT_ROUTINE.notes.length,
         };
       case 'FEVER_PHASE_B':
         return {
@@ -446,8 +454,69 @@ export class EditorState {
           beats: FEVER_PHASE_B_ROUTINE.totalBeats,
           prompt: '16박 풀루프 안무 루틴 (4가지 핵심 안무 순환)',
           routine: FEVER_PHASE_B_ROUTINE,
+          branchDuration: FEVER_PHASE_B_ROUTINE.totalBeats,
+          noteCount: FEVER_PHASE_B_ROUTINE.patterns.length,
         };
     }
+  }
+
+  /**
+   * 지정된 페이즈의 타임라인 총 비트 수 반환 (#382)
+   */
+  getTimelineTotalBeats(phase?: PhaseType): number {
+    const target = phase ?? this._selectedPhase;
+    switch (target) {
+      case 'RUN_QUESTION':
+        return 8;
+      case 'ANSWER_SELECT':
+        return 2;
+      case 'STAR_COLLECT':
+        return 8;
+      case 'FEVER_PHASE_B':
+        return 16;
+    }
+  }
+
+  /**
+   * 1-based 표시 박자 -> 0-based 상대 틱(480 ticks/beat) 변환 (#382)
+   */
+  beatToTick(beat: number, ticksPerBeat = 480): number {
+    return Math.max(0, Math.round((beat - 1) * ticksPerBeat));
+  }
+
+  /**
+   * 0-based 상대 틱 -> 1-based 표시 박자 변환 (#382)
+   */
+  tickToBeat(tick: number, ticksPerBeat = 480): number {
+    return Math.round(((tick / ticksPerBeat) + 1) * 1000) / 1000;
+  }
+
+  /**
+   * 1-based 표시 박자 -> 0-based 오디오 비트 변환 (#382)
+   */
+  displayBeatToAudioBeat(displayBeat: number): number {
+    return Math.round((displayBeat - 1) * 1000) / 1000;
+  }
+
+  /**
+   * 0-based 오디오 비트 -> 1-based 표시 박자 변환 (#382)
+   */
+  audioBeatToDisplayBeat(audioBeat: number): number {
+    return Math.round((audioBeat + 1) * 1000) / 1000;
+  }
+
+  /**
+   * 0-based 오디오 비트 -> 0-based 상대 틱 변환 (#382)
+   */
+  audioBeatToTick(audioBeat: number, ticksPerBeat = 480): number {
+    return Math.max(0, Math.round(audioBeat * ticksPerBeat));
+  }
+
+  /**
+   * 0-based 상대 틱 -> 0-based 오디오 비트 변환 (#382)
+   */
+  tickToAudioBeat(tick: number, ticksPerBeat = 480): number {
+    return Math.round((tick / ticksPerBeat) * 1000) / 1000;
   }
 
   play(): void {
@@ -475,7 +544,7 @@ export class EditorState {
   }
 
   seekBeat(beat: number): void {
-    const maxBeats = this.getCurrentPhaseRoutine().beats;
+    const maxBeats = this.getTimelineTotalBeats(this._selectedPhase);
     const clamped = Math.max(0, Math.min(maxBeats, beat));
     this._currentBeat = clamped;
     this.notifyBeatUpdate(clamped);

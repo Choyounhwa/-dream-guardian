@@ -98,22 +98,45 @@ export class ChoreoPoseSimulator {
   }
 
   /**
-   * 현재 비트에 해당하는 활성 노트 검색
+   * 현재 비트에 해당하는 활성 노트 검색 (#382: 시작 리드인 null, 8박 초과 마지막 노트 클램핑)
    */
   private findActiveNote(currentBeat: number, notes: TimelineTrackNote[]): TimelineTrackNote | null {
-    for (let i = notes.length - 1; i >= 0; i--) {
-      const note = notes[i];
+    if (notes.length === 0) return null;
+
+    const sorted = [...notes].sort((a, b) => a.startBeat - b.startBeat);
+    const firstNote = sorted[0];
+    const lastNote = sorted[sorted.length - 1];
+
+    // 첫 번째 노트 이전(예: STAR_COLLECT 1.0 리드인 구간)은 활성 노트 없음
+    if (currentBeat < firstNote.startBeat) {
+      return null;
+    }
+
+    // 마지막 노트 종료 비트 이후(8박 초과 여유 구간)는 마지막 노트로 클램핑 유지
+    if (currentBeat >= lastNote.startBeat + lastNote.durationBeats) {
+      return lastNote;
+    }
+
+    // 구간 내 [startBeat, startBeat + durationBeats) 역순 검색 (상위 레이어 우선)
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const note = sorted[i];
       if (currentBeat >= note.startBeat && currentBeat < note.startBeat + note.durationBeats) {
         return note;
       }
     }
-    // 정확한 매칭이 없으면 가장 가까운 이전 노트 또는 1박 노트 폴백
-    if (notes.length > 0) {
-      const floorBeat = Math.floor(currentBeat);
-      const matchFloor = notes.find((n) => Math.floor(n.startBeat) === floorBeat);
-      if (matchFloor) return matchFloor;
-      return notes[0];
+
+    // 정수 박 기준 일치 검출 폴백
+    const floorBeat = Math.floor(currentBeat);
+    const matchFloor = sorted.find((n) => Math.floor(n.startBeat) === floorBeat);
+    if (matchFloor) return matchFloor;
+
+    // 이전 노트 중 가장 최근 노트 폴백
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      if (currentBeat >= sorted[i].startBeat) {
+        return sorted[i];
+      }
     }
+
     return null;
   }
 

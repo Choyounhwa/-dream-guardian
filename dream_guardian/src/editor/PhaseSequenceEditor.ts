@@ -100,6 +100,24 @@ export class PhaseSequenceEditor {
   }
 
   /**
+   * 지정된 페이즈의 총 박수(길이) 반환 (#382)
+   */
+  getPhaseTotalBeats(phase: PhaseType): number {
+    switch (phase) {
+      case 'RUN_QUESTION':
+        return 8;
+      case 'ANSWER_SELECT':
+        return 2;
+      case 'STAR_COLLECT':
+        return 8;
+      case 'FEVER_PHASE_B':
+        return 16;
+      default:
+        return 8;
+    }
+  }
+
+  /**
    * 지정된 페이즈의 트랙 노트 목록 반환 (비트 순서 정렬 및 불변 심층 복제)
    */
   getNotesForPhase(phase: PhaseType): TimelineTrackNote[] {
