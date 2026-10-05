@@ -69,8 +69,9 @@
 | 2 | [#414 UIX-045](https://github.com/Choyounhwa/-dream-guardian/issues/414) | 속성 폼 연결 | 2 | `[✔]` 완료 |
 | 3 | [#415 UIX-046](https://github.com/Choyounhwa/-dream-guardian/issues/415) | 미리보기 iframe 연결 | 2 | `[✔]` 완료 |
 | 4 | [#416 UIX-047](https://github.com/Choyounhwa/-dream-guardian/issues/416) | 저장·백업·추출 버튼 | 2 | `[✔]` 완료 |
+| 버그 | [#417 BUG-UI-EDITOR-001](https://github.com/Choyounhwa/-dream-guardian/issues/417) | 브라우저 node:crypto 충돌 해소 및 셸 기본 스타일 | 3 | `[✔]` 완료 |
 
-- UIX-VIEW 트랙(#412~#416) 전 카드 TDD 5단계 구현 및 검증 완료. 브라우저 조작 테스트 준비 완료 (`http://127.0.0.1:3010/ui-editor.html`). Phase 7 #364~#367 및 RHYTHM-INTRO(#406~#411)은 승인 대기.
+- UIX-VIEW 트랙(#412~#416) 및 브라우저 런타임 버그(#417) TDD 5단계 구현 및 검증 완료. 브라우저 조작 테스트 준비 완료 (`http://127.0.0.1:3010/ui-editor.html`). Phase 7 #364~#367 및 RHYTHM-INTRO(#406~#411)은 승인 대기.
 
 - 순서 **#413 → #414 → #415 → #416**. #413 후 레이아웃 표시, #416 후 브라우저 조작 테스트. Phase 7 #364~#367은 그 다음이며 이 트랙으로 승격하지 않는다.
 - 화면 조립은 `src/editor/ui/view/` 신규 파일만. 기존 판정/IO 재구현·게임 apply·실행 버튼 금지. 이번 등록은 이슈 5개와 문서 2개만 갱신. npm test/build·구현·commit 없음.

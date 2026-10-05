@@ -17,7 +17,6 @@ export default defineConfig({
         editor: resolve(__dirname, "ui-editor.html"),
         preview: resolve(__dirname, "ui-preview.html"),
       },
-      external: ["node:crypto"],
     },
   },
 });

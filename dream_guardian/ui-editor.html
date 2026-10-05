@@ -4,6 +4,273 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dream Guardian UI Editor</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌙</text></svg>" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #090b10;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 13px;
+    }
+
+    #app {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ui-editor-shell {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .editor-toolbar {
+      height: 48px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: #141926;
+      border-bottom: 1px solid #232c42;
+    }
+
+    .toolbar-meta {
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.3px;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .toolbar-actions button {
+      background: #1e263c;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      border-radius: 5px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .toolbar-actions button:hover {
+      background: #2b3654;
+      border-color: #475569;
+      color: #ffffff;
+    }
+
+    .editor-layout-3col {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 240px 1fr 320px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .panel-elements {
+      background: #101420;
+      border-right: 1px solid #232c42;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-elements h2 {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 12px 16px;
+      border-bottom: 1px solid #1e263c;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .elements-card-list {
+      list-style: none;
+      padding: 8px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .element-card-item {
+      padding: 10px 12px;
+      margin-bottom: 4px;
+      border-radius: 6px;
+      background: #161c2c;
+      border: 1px solid transparent;
+      color: #94a3b8;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .element-card-item:hover {
+      background: #1f273d;
+      color: #f1f5f9;
+    }
+
+    .element-card-item.is-selected {
+      background: #223254;
+      border-color: #38bdf8;
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    .panel-preview {
+      background: #090b10;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .panel-preview h2 {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 12px 16px;
+      border-bottom: 1px solid #232c42;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .ui-preview-frame-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .preview-sandbox-notice {
+      font-size: 11px;
+      color: #facc15;
+      background: rgba(250, 204, 21, 0.08);
+      border: 1px solid rgba(250, 204, 21, 0.25);
+      border-radius: 4px;
+      padding: 6px 10px;
+      margin-bottom: 8px;
+    }
+
+    .preview-frame-status {
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+
+    .ui-preview-frame-container iframe {
+      flex: 1;
+      width: 100%;
+      border: 1px solid #232c42;
+      border-radius: 8px;
+      background: #05070a;
+      min-height: 200px;
+    }
+
+    .panel-properties {
+      background: #101420;
+      border-left: 1px solid #232c42;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .panel-properties h2 {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 12px 16px;
+      border-bottom: 1px solid #1e263c;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .ui-property-form {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .property-field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .property-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .property-input {
+      background: #161c2c;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #f1f5f9;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .property-input:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+    }
+
+    .property-field-row .field-error {
+      font-size: 11px;
+      color: #f87171;
+    }
+
+    .property-field-row .field-scope {
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .editor-status {
+      height: 28px;
+      min-height: 28px;
+      background: #141926;
+      border-top: 1px solid #232c42;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    .status-message {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  </style>
 </head>
 <body>
   <div id="app"></div>
