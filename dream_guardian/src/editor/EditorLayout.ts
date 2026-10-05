@@ -156,8 +156,12 @@ export class EditorLayout {
       return selected?.footZones?.includes(zone) ? 'checked' : '';
     };
 
+    const isStarCollect = this._state.selectedPhase === 'STAR_COLLECT';
+    const starSlotSection = isStarCollect ? this.renderStarSlotEditorHTML() : '';
+
     return `
       <aside class="editor-sidebar">
+        ${starSlotSection}
         <section class="sidebar-section pattern-details-section">
           <div class="section-title">
             <span>패턴 속성 편집</span>
@@ -232,6 +236,124 @@ export class EditorLayout {
         </section>
       </aside>
     `.trim();
+  }
+
+  /**
+   * 별 수집(STAR_COLLECT) 7슬롯 편집 UI HTML 렌더링 (#384)
+   */
+  renderStarSlotEditorHTML(): string {
+    const slots = this._state.getStarSlots();
+    const selectedNoteId = this._state.selectedNoteId;
+    const focusedError = this._state.getFocusedError();
+
+    const slotsHTML = slots
+      .map((slot) => {
+        const idx = slot.slotIndex;
+        const slotNumber = slot.slotNumber;
+        const buffer = this._state.getFormBuffer(idx);
+        const activePart = buffer?.part ?? slot.part;
+        const activeZone = buffer?.zoneId ?? slot.zoneId;
+        const isSelected = selectedNoteId === slot.noteId;
+        const isErrorFocused = focusedError?.entityId === slot.noteId;
+
+        const hasBufferErrors = Boolean(buffer?.errors && buffer.errors.length > 0);
+        const firstErrorMsg = buffer?.errors?.[0] ?? '';
+        const firstDiagPath = buffer?.diagnostics?.[0]?.path ?? 'target.zoneId';
+
+        let zoneOptionsHTML = '';
+        if (activePart === 'foot') {
+          for (let z = 9; z <= 11; z++) {
+            zoneOptionsHTML += `<option value="${z}" ${activeZone === z ? 'selected' : ''}>Zone ${z} (발)</option>`;
+          }
+        } else {
+          for (let z = 1; z <= 5; z++) {
+            zoneOptionsHTML += `<option value="${z}" ${activeZone === z ? 'selected' : ''}>Zone ${z} (손)</option>`;
+          }
+        }
+
+        const isZoneInvalid =
+          (activePart === 'foot' && (activeZone < 9 || activeZone > 11)) ||
+          ((activePart === 'leftHand' || activePart === 'rightHand') && (activeZone < 1 || activeZone > 5));
+        if (isZoneInvalid) {
+          zoneOptionsHTML += `<option value="${activeZone}" selected disabled>Zone ${activeZone} (허용 범위 외)</option>`;
+        }
+
+        const isPartFocused = isErrorFocused && focusedError?.path === 'target.part';
+        const isZoneFocused = isErrorFocused && focusedError?.path === 'target.zoneId';
+
+        return `
+          <div class="star-slot-item ${isSelected ? 'active-slot' : ''} ${isErrorFocused ? 'has-error-focus' : ''}"
+               data-slot-index="${idx}"
+               data-note-id="${slot.noteId}">
+            <div class="slot-header">
+              <span class="slot-badge">슬롯 ${slotNumber}</span>
+              <span class="slot-timing">Beat ${slot.beat} (${slot.tick} tick)</span>
+            </div>
+
+            <div class="form-row">
+              <label for="star-part-${idx}">부위:</label>
+              <select id="star-part-${idx}"
+                      class="editor-select star-part-select ${isPartFocused ? 'field-error-focus' : ''}"
+                      data-slot-index="${idx}">
+                <option value="leftHand" ${activePart === 'leftHand' ? 'selected' : ''}>왼손 (leftHand, Zone 1~5)</option>
+                <option value="rightHand" ${activePart === 'rightHand' ? 'selected' : ''}>오른손 (rightHand, Zone 1~5)</option>
+                <option value="foot" ${activePart === 'foot' ? 'selected' : ''}>발 (foot, Zone 9~11)</option>
+                ${activePart === 'head' ? '<option value="head" selected disabled>머리 (head, 잠김)</option>' : ''}
+                ${activePart === 'hip' ? '<option value="hip" selected disabled>골반 (hip, 잠김)</option>' : ''}
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label for="star-zone-${idx}">존:</label>
+              <select id="star-zone-${idx}"
+                      class="editor-select star-zone-select ${isZoneFocused ? 'field-error-focus' : ''}"
+                      data-slot-index="${idx}">
+                ${zoneOptionsHTML}
+              </select>
+            </div>
+
+            ${
+              hasBufferErrors
+                ? `
+              <div class="slot-error-badge"
+                   data-error-entity="${slot.noteId}"
+                   data-error-path="${firstDiagPath}"
+                   title="클릭하여 오류 위치로 이동">
+                <span class="badge-icon">⚠️</span>
+                <span class="badge-msg">${firstErrorMsg}</span>
+              </div>
+            `
+                : ''
+            }
+
+            ${
+              buffer?.isDirty
+                ? `
+              <div class="slot-buffer-actions">
+                <button type="button" class="btn btn-sm btn-primary btn-apply-slot" data-slot-index="${idx}">적용</button>
+                <button type="button" class="btn btn-sm btn-secondary btn-clear-slot" data-slot-index="${idx}">취소</button>
+              </div>
+            `
+                : ''
+            }
+          </div>
+        `;
+      })
+      .join('');
+
+    return `
+      <section class="sidebar-section star-slot-editor-section" id="star-slot-editor">
+        <div class="section-title">
+          <span>별 수집 7슬롯 편집</span>
+        </div>
+        <div class="slot-editor-meta">
+          <small>고정 7박 (2~8박) | 손 (Zone 1~5), 발 (Zone 9~11) 전용</small>
+        </div>
+        <div class="star-slots-container">
+          ${slotsHTML}
+        </div>
+      </section>
+    `;
   }
 
   /**

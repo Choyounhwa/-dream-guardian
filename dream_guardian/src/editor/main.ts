@@ -305,6 +305,104 @@ window.addEventListener('DOMContentLoaded', () => {
         chk.addEventListener('change', updateFootZones);
       }
     });
+
+    // 별 수집 7슬롯 편집 UI 이벤트 (#384)
+    const slotItems = document.querySelectorAll('.star-slot-item');
+    slotItems.forEach((item) => {
+      item.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'SELECT' || target.tagName === 'BUTTON' || target.closest('.slot-error-badge')) {
+          return;
+        }
+        const noteId = item.getAttribute('data-note-id');
+        if (noteId) {
+          state.setSelectedNoteId(noteId);
+        }
+      });
+    });
+
+    const partSelects = document.querySelectorAll('.star-part-select');
+    partSelects.forEach((sel) => {
+      sel.addEventListener('change', (e) => {
+        const slotIdxStr = (e.target as HTMLElement).getAttribute('data-slot-index');
+        if (slotIdxStr === null) return;
+        const slotIdx = parseInt(slotIdxStr, 10);
+        const part = (e.target as HTMLSelectElement).value as any;
+        const currentBuffer = state.getFormBuffer(slotIdx);
+        const currentSlot = state.getStarSlots()[slotIdx];
+        const defaultZone = part === 'foot' ? 10 : 3;
+        const currentZone = currentBuffer?.zoneId ?? currentSlot?.zoneId;
+        const zoneId =
+          part === 'foot'
+            ? (currentZone >= 9 && currentZone <= 11 ? currentZone : 10)
+            : (currentZone >= 1 && currentZone <= 5 ? currentZone : defaultZone);
+        state.setFormBuffer(slotIdx, {
+          part,
+          zoneId,
+        });
+        updateSidebar();
+      });
+    });
+
+    const zoneSelects = document.querySelectorAll('.star-zone-select');
+    zoneSelects.forEach((sel) => {
+      sel.addEventListener('change', (e) => {
+        const slotIdxStr = (e.target as HTMLElement).getAttribute('data-slot-index');
+        if (slotIdxStr === null) return;
+        const slotIdx = parseInt(slotIdxStr, 10);
+        const zoneId = parseInt((e.target as HTMLSelectElement).value, 10);
+        const currentBuffer = state.getFormBuffer(slotIdx);
+        const currentSlot = state.getStarSlots()[slotIdx];
+        state.setFormBuffer(slotIdx, {
+          part: currentBuffer?.part ?? currentSlot?.part,
+          zoneId,
+        });
+        updateSidebar();
+      });
+    });
+
+    const applyBtns = document.querySelectorAll('.btn-apply-slot');
+    applyBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const slotIdxStr = (e.target as HTMLElement).getAttribute('data-slot-index');
+        if (slotIdxStr === null) return;
+        const slotIdx = parseInt(slotIdxStr, 10);
+        const res = state.applyFormBuffer(slotIdx);
+        if (!res.valid) {
+          alert(`슬롯 적용 실패: ${res.lockReason || res.diagnostics[0]?.message}`);
+        }
+        updateSidebar();
+        updateTimeline();
+        updateCanvas();
+      });
+    });
+
+    const clearBtns = document.querySelectorAll('.btn-clear-slot');
+    clearBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const slotIdxStr = (e.target as HTMLElement).getAttribute('data-slot-index');
+        if (slotIdxStr === null) return;
+        const slotIdx = parseInt(slotIdxStr, 10);
+        state.clearFormBuffer(slotIdx);
+        updateSidebar();
+      });
+    });
+
+    const errorBadges = document.querySelectorAll('.slot-error-badge');
+    errorBadges.forEach((badge) => {
+      badge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const entityId = badge.getAttribute('data-error-entity');
+        const path = badge.getAttribute('data-error-path') || 'target.zoneId';
+        if (entityId) {
+          state.focusError(entityId, path);
+          updateSidebar();
+          updateTimeline();
+        }
+      });
+    });
   };
 
   // 5. 헤더 툴바 이벤트 바인딩
