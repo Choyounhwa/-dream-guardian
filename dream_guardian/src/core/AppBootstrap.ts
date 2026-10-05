@@ -677,7 +677,7 @@ stateMachine.registerState('STAR_COLLECT', {
     answerLocked = true;
     playedNoteAudioIds.clear();
     const branchClock = beatCoordinator.getBranchClock();
-    starNoteScheduler.start(branchClock?.startElapsed ?? engine.elapsedTime, {
+    starNoteScheduler.start(engine.elapsedTime, {
       roundId: beatRoundResolver.currentRoundIndex,
       notes: getPhaseAStarNotes(),
       ...(branchClock

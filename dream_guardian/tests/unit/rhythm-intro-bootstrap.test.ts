@@ -163,6 +163,52 @@ describe('RHYTHM-INTRO-004 (#411): Phase A 입문 손 루틴과 박 기반 별 �
 
       bootstrap.dispose();
     });
+
+    it('BUG-STAR-CLOCK-001 (#419): branchClock.startElapsed(로컬 시간) 대신 engine.elapsedTime(전역 시간)을 전달하여 별 노트가 1프레임 만에 Miss 만료되지 않아야 한다', () => {
+      const bootstrap = new AppBootstrap({
+        canvas: mockCanvas as any,
+        autoStartCamera: false,
+        preloadAssets: false,
+      });
+
+      // 가상 게임 실행 25초 경과 시뮬레이션
+      const targetElapsedTime = 25.0;
+      (bootstrap.engine as any)._elapsedTime = targetElapsedTime;
+      expect(bootstrap.engine.elapsedTime).toBe(targetElapsedTime);
+
+      // beatCoordinator의 branchClock이 0.8초(답안 선택 소요 로컬 시간)를 가리키도록 모킹
+      const mockBranchClock = {
+        bpm: 120,
+        secondsPerBeat: 0.5,
+        startElapsed: 0.8,
+        elapsed: 0.0,
+        endElapsed: 4.8,
+        durationBeats: 8 as const,
+      };
+      vi.spyOn(bootstrap.beatCoordinator, 'getBranchClock').mockReturnValue(mockBranchClock as any);
+
+      const startSpy = vi.spyOn(bootstrap.starNoteScheduler, 'start');
+
+      bootstrap.stateMachine.changeState('RUN_QUESTION');
+      bootstrap.stateMachine.changeState('ANSWER_SELECT');
+      bootstrap.stateMachine.changeState('STAR_COLLECT');
+
+      expect(startSpy).toHaveBeenCalledTimes(1);
+      const [startElapsed] = startSpy.mock.calls[0];
+
+      // 핵심 검증: 로컬 branchClock.startElapsed(0.8)가 아닌 실제 엔진 전역 시간(25.0)이어야 함
+      expect(startElapsed).toBe(targetElapsedTime);
+
+      // 첫 프레임(25.0초)에서 7개 별 노트가 만료(Miss)되지 않고 모두 활성 상태여야 함
+      expect(bootstrap.starNoteScheduler.notes).toHaveLength(7);
+      expect(bootstrap.starNoteScheduler.activeNotes).toHaveLength(7);
+
+      const frameResults = bootstrap.starNoteScheduler.update(targetElapsedTime);
+      expect(frameResults).toHaveLength(0); // 첫 프레임에 만료된 노트 0개
+      expect(bootstrap.starNoteScheduler.activeNotes).toHaveLength(7);
+
+      bootstrap.dispose();
+    });
   });
 
   describe('2. SceneDirector.updateGameScene 에서의 스케줄러 시작 및 노트 주입 검증', () => {
@@ -222,6 +268,7 @@ describe('RHYTHM-INTRO-004 (#411): Phase A 입문 손 루틴과 박 기반 별 �
         effectManager: { update: vi.fn() },
         hudLayer: { update: vi.fn() },
         getHUDData: vi.fn(() => ({})),
+        engine: { elapsedTime: 5.0 },
       };
 
       director.updateGameScene(0.016, mockContext);

@@ -902,7 +902,7 @@ export class SceneDirector<TContext = any> {
       if (!ctx.starNoteScheduler.isStarted) {
         const branchClock = clock;
         const notes = ctx.getPhaseAStarNotes ? ctx.getPhaseAStarNotes() : ctx.beatCoordinator.keynotes;
-        ctx.starNoteScheduler.start(branchClock?.startElapsed ?? sampleTime, {
+        ctx.starNoteScheduler.start(sampleTime, {
           roundId: ctx.beatRoundResolver.currentRoundIndex,
           notes,
           ...(branchClock

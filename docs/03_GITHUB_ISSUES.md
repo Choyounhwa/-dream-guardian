@@ -1,5 +1,21 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-10-05 등록: STAR_COLLECT 시간 축 불일치 결함 수정 (BUG-STAR-CLOCK)
+
+**[✔] 구현 및 검증 완료.** [#419 BUG-STAR-CLOCK-001](https://github.com/Choyounhwa/-dream-guardian/issues/419).
+
+- **단일 책임**: STAR_COLLECT 진입 시 `branchClock.startElapsed`(로컬 0.5~1.2초) 대신 실제 엔진 전역 시간(`engine.elapsedTime`)을 `starNoteScheduler.start()`에 공급하여 별 노트가 1프레임 만에 Miss로 즉시 만료/소멸되는 결함 수정.
+- **수정 대상**: `src/core/AppBootstrap.ts`, `src/core/SceneDirector.ts` (2개 파일 한정).
+- **테스트**: `tests/unit/rhythm-intro-bootstrap.test.ts` (전역 시간 동기화 및 만료 방지 검증, 7/7 Pass).
+- **결과**: `npm test` 220 files / 2,565 passed (100% Pass), `npm run build` 성공.
+
+## 2026-10-05 등록: 공용 투영 시각 계약 고정 (VISUAL-LOCK)
+
+**카드 등록만 / 구현 미착수.** [#418 VISUAL-LOCK-001](https://github.com/Choyounhwa/-dream-guardian/issues/418). 기존 RHYTHM-INTRO·에디터·UIX NEXT는 유지한다.
+
+- 단일 책임: 별 노트·답 수식 앵커·바닥 장판/발판이 공유하는 `HORIZON_RATIO`/`GridProjection` 산출을 테스트 기준선으로 고정. source/config 수정 0(불가피 시 `GridProjection.ts` 1개, 시그니처 불변).
+- 겹침: 동일 구현 카드 없음. #331/#366/#323은 UI 에디터 시각 profile(게임 런타임 수정 금지), #322는 수식 SSOT 재일원화 금지, #407/#408/#372/#410은 예고·실카메라 계약이며 좌표 재조정 대상이 아님.
+
 ## 2026-10-05 등록: 사전 예고·입문 플레이 두 개선 한정 (RHYTHM-INTRO)
 
 **카드 등록만 승인 / 구현 미착수·별도 승인 대기.** [상위 추적 #406](https://github.com/Choyounhwa/-dream-guardian/issues/406) + 실행4개·인수1개, 총6개. 기존 SSOT/에디터/UIX NEXT는 유지한다.

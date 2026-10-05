@@ -2,6 +2,24 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🐛 별 노트 시간 축 불일치 결함 수정 카드 (BUG-STAR-CLOCK, 2026-10-05)
+
+**[✔] 구현 및 검증 완료.** [#419 BUG-STAR-CLOCK-001](https://github.com/Choyounhwa/-dream-guardian/issues/419)
+
+- **결함 수정**: 정답 시 `STAR_COLLECT` 진입할 때 `branchClock.startElapsed`(로컬 0.5~1.2s) 대신 실제 게임 엔진 전역 시간(`engine.elapsedTime` / `sampleTime`)을 스케줄러 시작 시간으로 주입하여, 1프레임(16ms)에 7개 별 노트가 즉시 Miss 만료·소멸되던 결함 수정.
+- **수정 파일 (2개)**: `dream_guardian/src/core/AppBootstrap.ts`, `dream_guardian/src/core/SceneDirector.ts`
+- **TDD 검증**: `tests/unit/rhythm-intro-bootstrap.test.ts`에 전역 시간 동기화 및 1프레임 내 조기 만료 방지 테스트 케이스 추가 완료 (7/7 Pass).
+- **전체 검증**: `npm test` 220 files / 2,565 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
+## 공용 투영 시각 고정 카드 등록 (VISUAL-LOCK, 2026-10-05)
+
+**구현 완료. 화면 값 변경 0.** [#418 VISUAL-LOCK-001](https://github.com/Choyounhwa/-dream-guardian/issues/418)
+
+- 추가 파일: `tests/unit/visual-lock-projection.test.ts`만. source/config diff 0.
+- 고정값: `HORIZON_RATIO` 0.56 = 발판 `DEFAULT_VANISHING_Y_RATIO`, 1080×2160 rail(0.5) x=620 y=1357.2 scale=0.525, 장판 front = sharedY+(vh-sharedY)*0.92, 답 앵커 y=440.
+- TDD: 잘못된 기준선 Red → 현재값 Green. `npm test` 217 files / 2495 passed. `npm run build` 통과. 기존 NEXT 승격 없음.
+
 ## 사전 예고·입문 플레이 설계 카드 등록 (RHYTHM-INTRO, 2026-10-05)
 
 **사전 예고·입문 플레이(RHYTHM-INTRO) 6개 카드(#406, #409, #408, #407, #411, #410) 구현, TDD 100% Pass, 빌드 및 QA 종단 인수 전체 완료.**
@@ -104,7 +122,9 @@
 | 카드 | 목표 | 상태 |
 |---|---|---|
 | [#321](https://github.com/Choyounhwa/-dream-guardian/issues/321) EDITOR-CONTRACT | 실제 게임의 시간/입력/참조 계약 및 초기 편집 경계 확정 | `[✔] 문서·특성화 검증 완료` (미커밋, 이슈 OPEN 유지) |
-| [#375](https://github.com/Choyounhwa/-dream-guardian/issues/375) EDITOR-SCHEMA | V2 데이터 타입 및 구조/참조 검증기 | `[▶ NEXT: 에디터 트랙]` 승인 대기 |
+| [#375](https://github.com/Choyounhwa/-dream-guardian/issues/375) EDITOR-SCHEMA | V2 데이터 타입 및 구조/참조 검증기 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#376](https://github.com/Choyounhwa/-dream-guardian/issues/376) EDITOR-CAPABILITY | 게시 가능 동작·시간·규칙 버전과 고정 슬롯 계약 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#377](https://github.com/Choyounhwa/-dream-guardian/issues/377) EDITOR-COMPILE | 검증된 원본의 결정적 게임 적용본 생성·재검사 | `[▶ NEXT: 에디터 트랙]` 진행 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 
