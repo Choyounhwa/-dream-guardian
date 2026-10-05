@@ -87,6 +87,9 @@ export class EditorLayout {
         </div>
 
         <div class="header-right">
+          <button id="btn-new-project" class="btn btn-outline" title="새 프로젝트 만들기">📄 새 프로젝트</button>
+          <button id="btn-clone-project" class="btn btn-outline" title="프로젝트 복제">📑 프로젝트 복제</button>
+          <button id="btn-manage-bindings" class="btn btn-outline" title="스테이지 및 구간 바인딩 관리">🔗 구간 바인딩</button>
           <button id="btn-new-pattern" class="btn btn-accent">+ 새 패턴</button>
           <button id="btn-save-local" class="btn btn-primary" title="로컬 브라우저 저장">💾 저장</button>
           <button id="btn-export-json" class="btn btn-outline" title="전체 프로젝트 JSON 파일 다운로드">JSON 내보내기</button>
@@ -497,6 +500,188 @@ export class EditorLayout {
   }
 
   /**
+   * 하단 상태 표시줄(Status Bar) HTML 렌더링
+   */
+  renderStatusBarHTML(): string {
+    const status = this._state.getProjectPublicationStatus();
+    const coverage = this._state.getStageCoverageStatus();
+    const saveLabel = status.isClean ? '저장됨' : '미저장';
+    const saveClass = status.isClean ? 'status-clean' : 'status-dirty';
+    const pubLabel = status.isPublished ? '게시됨' : '미게시 초안';
+    const pubClass = status.isPublished ? 'status-published' : 'status-unpublished';
+    const covLabel = coverage.isComplete
+      ? '스테이지 완료 (5/5)'
+      : `${coverage.boundStages.length + coverage.builtinStages.length}/5 커버`;
+
+    return `
+      <div id="editor-status-bar" class="editor-status-bar">
+        <div class="status-left">
+          <span class="status-item project-title"><strong>${this._state.metadata.title}</strong> (${this._state.currentProjectId})</span>
+          <span class="status-badge status-revision">Draft rev.${status.currentRevision}</span>
+          <span class="status-badge ${saveClass}">${saveLabel}</span>
+          <span class="status-badge ${pubClass}">${pubLabel}</span>
+        </div>
+        <div class="status-right">
+          <span class="status-badge status-coverage">${covLabel}</span>
+        </div>
+      </div>
+    `.trim();
+  }
+
+  /**
+   * 구간 및 스테이지 연결 패널(Stage Bindings Panel) HTML 렌더링
+   */
+  renderStageBindingsPanelHTML(): string {
+    const bindings = this._state.getBindings();
+    const sequences = this._state.getSequences();
+    const coverage = this._state.getStageCoverageStatus();
+
+    const bindingsRows = bindings
+      .map((b, idx) => {
+        const seq = sequences.find((s) => s.id === b.sequenceId);
+        const role = b.role || seq?.kind || 'motionGuide';
+        const compoundKey = `${b.chapterId}::${b.subLevelId ?? 'all'}::${b.phase}::${role}`;
+        return `
+          <tr class="binding-row" data-binding-index="${idx}">
+            <td class="binding-key"><code>${compoundKey}</code></td>
+            <td>${b.chapterId}</td>
+            <td>${b.subLevelId ?? '(all)'}</td>
+            <td>${b.phase}</td>
+            <td>${b.sequenceId}</td>
+            <td>${role}</td>
+            <td>
+              <button type="button" class="btn btn-sm btn-danger btn-remove-binding" data-index="${idx}">삭제</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    const stageCoverageRows = coverage.stages
+      .map((st) => {
+        const statusBadge =
+          st.status === 'bound'
+            ? '<span class="badge badge-success">바인딩 완료</span>'
+            : st.status === 'builtin'
+            ? `<span class="badge badge-info">내장 프리셋 (${st.builtinProfile})</span>`
+            : st.status === 'partial'
+            ? '<span class="badge badge-warning">부분 미완성 (Partial)</span>'
+            : '<span class="badge badge-danger">누락 (Missing)</span>';
+
+        return `
+          <tr class="stage-row" data-chapter="${st.chapterId}">
+            <td><strong>${st.chapterId.toUpperCase()}</strong></td>
+            <td>${statusBadge}</td>
+            <td>
+              <select class="editor-select select-stage-preset" data-chapter="${st.chapterId}">
+                <option value="" ${!st.builtinProfile ? 'selected' : ''}>프리셋 없음 (직접 바인딩)</option>
+                <option value="${st.chapterId}-default-v2" ${st.builtinProfile === `${st.chapterId}-default-v2` ? 'selected' : ''}>${st.chapterId}-default-v2</option>
+                <option value="${st.chapterId}-challenge-v2" ${st.builtinProfile === `${st.chapterId}-challenge-v2` ? 'selected' : ''}>${st.chapterId}-challenge-v2</option>
+              </select>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    return `
+      <div class="stage-bindings-panel" id="stage-bindings-panel">
+        <div class="panel-header">
+          <div class="panel-header-title">
+            <h3>🔗 스테이지 구간 바인딩 & 프리셋 관리</h3>
+            <span class="panel-status ${coverage.isComplete ? 'coverage-ok' : 'coverage-warn'}">
+              ${coverage.isComplete ? '전체 스테이지 매핑 완료' : '일부 스테이지 미완성 / 누락'}
+            </span>
+          </div>
+          <button id="btn-close-bindings" type="button" class="btn btn-ghost">✕ 닫기</button>
+        </div>
+
+        <!-- 미지원 잠금(Lock) 배지 및 알림 영역 -->
+        <div class="lock-notices">
+          <div class="lock-badge-item">
+            <span class="badge-lock">🔒 미지원: Phase A 장판(Hazard) 트랙 잠금 (Locked)</span>
+            <small class="lock-desc">Phase A 장판 인터랙션은 런타임 제약으로 인해 저작이 잠겨 있습니다.</small>
+          </div>
+          <div class="lock-badge-item">
+            <span class="badge-lock">🔒 미지원: Phase B 피버 결전 장판(Hazard) 잠금 (Locked)</span>
+            <small class="lock-desc">Phase B 피버 결전 장판 트랙은 저작이 잠겨 있습니다.</small>
+          </div>
+        </div>
+
+        <!-- 스테이지 커버리지 현황 -->
+        <div class="panel-section">
+          <h4>스테이지별 커버리지 및 내장 프리셋</h4>
+          <table class="bindings-table stage-table">
+            <thead>
+              <tr><th>스테이지</th><th>상태</th><th>내장 프리셋 설정</th></tr>
+            </thead>
+            <tbody>
+              ${stageCoverageRows}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 활성 바인딩 목록 -->
+        <div class="panel-section">
+          <h4>활성 구간 바인딩 목록 (${bindings.length}개)</h4>
+          <table class="bindings-table">
+            <thead>
+              <tr><th>Compound Key</th><th>Chapter</th><th>SubLevel</th><th>Phase</th><th>Sequence ID</th><th>Role</th><th>작업</th></tr>
+            </thead>
+            <tbody>
+              ${bindingsRows}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 새 바인딩 추가 폼 -->
+        <div class="panel-section add-binding-form">
+          <h4>새 구간 바인딩 추가</h4>
+          <div class="form-grid">
+            <div class="form-row">
+              <label for="bind-chapter">Chapter:</label>
+              <select id="bind-chapter" class="editor-select">
+                <option value="ch1">Chapter 1 (ch1)</option>
+                <option value="ch2">Chapter 2 (ch2)</option>
+                <option value="ch3">Chapter 3 (ch3)</option>
+                <option value="ch4">Chapter 4 (ch4)</option>
+                <option value="ch5">Chapter 5 (ch5)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="bind-sublevel">SubLevel ID:</label>
+              <input id="bind-sublevel" type="text" class="editor-input" placeholder="star_collect, run_question 등 (선택)" />
+            </div>
+            <div class="form-row">
+              <label for="bind-phase">Phase:</label>
+              <select id="bind-phase" class="editor-select">
+                <option value="phaseA">phaseA</option>
+                <option value="phaseB">phaseB</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="bind-seq">Sequence:</label>
+              <select id="bind-seq" class="editor-select">
+                ${sequences.map((s) => `<option value="${s.id}">${s.id} (${s.phase} / ${s.kind})</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="bind-role">Role:</label>
+              <select id="bind-role" class="editor-select">
+                <option value="starNotes">starNotes</option>
+                <option value="motionGuide">motionGuide</option>
+                <option value="feverNotes">feverNotes</option>
+                <option value="hazard" disabled>hazard (🔒 잠금 / 미지원)</option>
+              </select>
+            </div>
+          </div>
+          <button id="btn-add-binding" type="button" class="btn btn-primary">+ 바인딩 추가</button>
+        </div>
+      </div>
+    `.trim();
+  }
+
+  /**
    * 전체 에디터 3단 레이아웃 통합 HTML 생성
    */
   renderFullLayoutHTML(): string {
@@ -508,6 +693,12 @@ export class EditorLayout {
           ${this.renderWorkspaceHTML()}
         </div>
         ${this.renderTimelineHTML()}
+        <div id="bindings-modal-container" class="bindings-modal-container hidden">
+          ${this.renderStageBindingsPanelHTML()}
+        </div>
+        <footer id="editor-status-bar-container">
+          ${this.renderStatusBarHTML()}
+        </footer>
       </div>
     `.trim();
   }

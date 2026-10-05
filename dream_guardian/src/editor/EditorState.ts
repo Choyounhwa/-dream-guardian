@@ -32,7 +32,12 @@ import {
   ChoreoPoseSimulator,
   type SimulatedPoseFrame,
 } from './ChoreoPoseSimulator.js';
-import { ProjectCommandManager, ReplaceProjectCommand } from './ProjectCommands.js';
+import {
+  ProjectCommandManager,
+  ReplaceProjectCommand,
+  UpdateMetadataCommand,
+  deepClone,
+} from './ProjectCommands.js';
 import type {
   EditorProject,
   EditorPattern,
@@ -40,10 +45,46 @@ import type {
   EditorBinding,
   StarNoteEvent,
   MotionCueEvent,
+  EditorProjectMetadata,
 } from '../data/EditorProject.js';
 
 export type PhaseType = 'RUN_QUESTION' | 'ANSWER_SELECT' | 'STAR_COLLECT' | 'FEVER_PHASE_B';
 export type ActiveEditTool = 'inspect' | 'leftHand' | 'rightHand' | 'head' | 'hip' | 'foot';
+
+export type StageCoverageStatusKind = 'bound' | 'builtin' | 'missing' | 'partial';
+
+export interface StageCoverageItem {
+  chapterId: string;
+  status: StageCoverageStatusKind;
+  isComplete: boolean;
+  builtinProfile: string | null;
+  boundPhases: string[];
+  bindingCount: number;
+}
+
+export interface StageCoverageReport {
+  isComplete: boolean;
+  stages: StageCoverageItem[];
+  boundStages: string[];
+  builtinStages: string[];
+  missingStages: string[];
+  partialStages: string[];
+}
+
+export interface ProjectPublicationStatus {
+  isDraft: boolean;
+  savedRevision: number;
+  currentRevision: number;
+  isPublished: boolean;
+  isClean: boolean;
+}
+
+export interface BindingValidationResult {
+  valid: boolean;
+  errors: string[];
+  diagnosticCode?: string;
+  compoundKey?: string;
+}
 
 export type StarSlotLockCode =
   | 'LOCKED_INPUT_CAPABILITY'
@@ -141,6 +182,48 @@ export class EditorState {
   private _focusedEntityId: string | null = null;
   private _focusedErrorPath: string | null = null;
   private _starSequenceId: string = 'seq_phaseA_star';
+  private _bindings: EditorBinding[] = [
+    {
+      chapterId: 'ch1',
+      subLevelId: 'star_collect',
+      phase: 'phaseA',
+      sequenceId: 'seq_phaseA_star',
+      role: 'starNotes',
+    },
+    {
+      chapterId: 'ch1',
+      subLevelId: 'run_question',
+      phase: 'phaseA',
+      sequenceId: 'seq_phaseA_motion',
+      role: 'motionGuide',
+    },
+    {
+      chapterId: 'ch1',
+      subLevelId: 'answer_select',
+      phase: 'phaseA',
+      sequenceId: 'seq_phaseA_answer',
+      role: 'motionGuide',
+    },
+    {
+      chapterId: 'ch1',
+      subLevelId: 'fever_phase_b',
+      phase: 'phaseB',
+      sequenceId: 'seq_phaseB_motion',
+      role: 'motionGuide',
+    },
+  ];
+  private _customSequences: EditorSequence[] = [];
+  private _stageBuiltinProfiles: Record<string, string> = {};
+  private _rulesetId: string = 'dg-ruleset-v2';
+  private _metadata: EditorProjectMetadata = {
+    title: 'Dream Guardian Dance Editor',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  private _revision: number = 1;
+  private _lastSavedRevision: number = 0;
+  private _isPublished: boolean = false;
+  private _publishedRevision: number | null = null;
   private readonly _registry: DancePatternRegistry;
   private readonly _sequenceEditor: PhaseSequenceEditor;
   private readonly _simulator: ChoreoPoseSimulator = choreoPoseSimulator;
@@ -183,6 +266,469 @@ export class EditorState {
 
   get currentRevision(): number {
     return this.commandManager.revision;
+  }
+
+  get metadata(): EditorProjectMetadata {
+    return deepClone(this._metadata);
+  }
+
+  setProjectTitle(title: string): void {
+    this._metadata.title = title;
+    this._metadata.updatedAt = new Date().toISOString();
+    this.commandManager.executeCommand(new UpdateMetadataCommand({ title }));
+  }
+
+  updateMetadata(meta: Partial<EditorProjectMetadata>): void {
+    this._metadata = {
+      ...this._metadata,
+      ...deepClone(meta),
+      updatedAt: new Date().toISOString(),
+    };
+    this.commandManager.executeCommand(new UpdateMetadataCommand(meta));
+  }
+
+  getBindings(): EditorBinding[] {
+    return this._bindings.map((b) => ({ ...b }));
+  }
+
+  setBindings(bindings: EditorBinding[]): void {
+    this._bindings = bindings.map((b) => ({ ...b }));
+    this.notifyDocumentChange();
+    this.notifyStateChange();
+  }
+
+  getSequences(): EditorSequence[] {
+    return this.toEditorProject().sequences;
+  }
+
+  buildExportProject(): EditorProject {
+    return this.toEditorProject();
+  }
+
+  validateBinding(
+    binding: EditorBinding,
+    options?: { excludeIndex?: number }
+  ): BindingValidationResult {
+    if (!binding || typeof binding !== 'object') {
+      return { valid: false, errors: ['Binding must be an object'], diagnosticCode: 'invalid-binding' };
+    }
+
+    if (typeof binding.chapterId !== 'string' || binding.chapterId.trim().length === 0) {
+      return { valid: false, errors: ['chapterId must be a non-empty string'], diagnosticCode: 'invalid-binding-chapter' };
+    }
+
+    if (binding.subLevelId !== null && binding.subLevelId !== undefined && typeof binding.subLevelId !== 'string') {
+      return { valid: false, errors: ['subLevelId must be a string or null'], diagnosticCode: 'invalid-binding-sublevel' };
+    }
+
+    if (binding.phase !== 'phaseA' && binding.phase !== 'phaseB') {
+      return { valid: false, errors: ['phase must be "phaseA" or "phaseB"'], diagnosticCode: 'invalid-binding-phase' };
+    }
+
+    if (typeof binding.sequenceId !== 'string' || binding.sequenceId.trim().length === 0) {
+      return { valid: false, errors: ['sequenceId must be a non-empty string'], diagnosticCode: 'invalid-binding-sequence-id' };
+    }
+
+    const allSequences = this.getSequences();
+    const targetSeq = allSequences.find((s) => s.id === binding.sequenceId);
+    if (!targetSeq) {
+      return {
+        valid: false,
+        errors: [`Binding references unknown sequence "${binding.sequenceId}"`],
+        diagnosticCode: 'broken-sequence-reference',
+      };
+    }
+
+    if (targetSeq.phase !== binding.phase) {
+      return {
+        valid: false,
+        errors: [
+          `Sequence phase mismatch: sequence "${targetSeq.id}" is "${targetSeq.phase}" but binding specifies "${binding.phase}"`,
+        ],
+        diagnosticCode: 'phase-mismatch',
+      };
+    }
+
+    if (binding.role && typeof binding.role === 'string' && binding.role.trim().length > 0) {
+      if (binding.role !== targetSeq.kind) {
+        return {
+          valid: false,
+          errors: [
+            `Role mismatch: sequence kind is "${targetSeq.kind}" but binding specifies role "${binding.role}"`,
+          ],
+          diagnosticCode: 'role-mismatch',
+        };
+      }
+    }
+
+    const role =
+      typeof binding.role === 'string' && binding.role.trim().length > 0
+        ? binding.role
+        : targetSeq.kind;
+    const subLevel = binding.subLevelId ?? 'all';
+    const compoundKey = `${binding.chapterId}::${subLevel}::${binding.phase}::${role}`;
+
+    for (let i = 0; i < this._bindings.length; i++) {
+      if (options?.excludeIndex !== undefined && options.excludeIndex === i) {
+        continue;
+      }
+      const existing = this._bindings[i];
+      const existingSeq = allSequences.find((s) => s.id === existing.sequenceId);
+      const existingRole =
+        typeof existing.role === 'string' && existing.role.trim().length > 0
+          ? existing.role
+          : existingSeq?.kind || 'motionGuide';
+      const existingSubLevel = existing.subLevelId ?? 'all';
+      const existingKey = `${existing.chapterId}::${existingSubLevel}::${existing.phase}::${existingRole}`;
+
+      if (existingKey === compoundKey) {
+        return {
+          valid: false,
+          errors: [`Duplicate binding for compound key "${compoundKey}"`],
+          diagnosticCode: 'duplicate-binding',
+          compoundKey,
+        };
+      }
+    }
+
+    return {
+      valid: true,
+      errors: [],
+      compoundKey,
+    };
+  }
+
+  addBinding(binding: EditorBinding): { success: boolean; error?: string; errors?: string[]; diagnosticCode?: string } {
+    const result = this.validateBinding(binding);
+    if (!result.valid) {
+      return {
+        success: false,
+        error: result.errors[0],
+        errors: result.errors,
+        diagnosticCode: result.diagnosticCode,
+      };
+    }
+
+    this._bindings.push({
+      chapterId: binding.chapterId,
+      subLevelId: binding.subLevelId ?? null,
+      phase: binding.phase,
+      sequenceId: binding.sequenceId,
+      role: binding.role,
+    });
+
+    const proj = this.toEditorProject();
+    this.commandManager.executeCommand(new ReplaceProjectCommand(proj));
+
+    return { success: true };
+  }
+
+  updateBinding(
+    index: number,
+    updated: EditorBinding
+  ): { success: boolean; error?: string; errors?: string[]; diagnosticCode?: string } {
+    if (index < 0 || index >= this._bindings.length) {
+      return { success: false, error: `Invalid binding index ${index}` };
+    }
+    const result = this.validateBinding(updated, { excludeIndex: index });
+    if (!result.valid) {
+      return {
+        success: false,
+        error: result.errors[0],
+        errors: result.errors,
+        diagnosticCode: result.diagnosticCode,
+      };
+    }
+
+    this._bindings[index] = {
+      chapterId: updated.chapterId,
+      subLevelId: updated.subLevelId ?? null,
+      phase: updated.phase,
+      sequenceId: updated.sequenceId,
+      role: updated.role,
+    };
+
+    const proj = this.toEditorProject();
+    this.commandManager.executeCommand(new ReplaceProjectCommand(proj));
+
+    return { success: true };
+  }
+
+  removeBinding(target: number | string | Partial<EditorBinding>): boolean {
+    let removeIndex = -1;
+    if (typeof target === 'number') {
+      removeIndex = target;
+    } else if (typeof target === 'string') {
+      const allSequences = this.getSequences();
+      removeIndex = this._bindings.findIndex((b) => {
+        const seq = allSequences.find((s) => s.id === b.sequenceId);
+        const role = b.role || seq?.kind || 'motionGuide';
+        const key = `${b.chapterId}::${b.subLevelId ?? 'all'}::${b.phase}::${role}`;
+        return key === target || b.sequenceId === target;
+      });
+    } else if (typeof target === 'object' && target !== null) {
+      removeIndex = this._bindings.findIndex((b) => {
+        return (
+          (!target.chapterId || b.chapterId === target.chapterId) &&
+          (target.subLevelId === undefined || b.subLevelId === target.subLevelId) &&
+          (!target.phase || b.phase === target.phase) &&
+          (!target.sequenceId || b.sequenceId === target.sequenceId)
+        );
+      });
+    }
+
+    if (removeIndex >= 0 && removeIndex < this._bindings.length) {
+      this._bindings.splice(removeIndex, 1);
+      const proj = this.toEditorProject();
+      this.commandManager.executeCommand(new ReplaceProjectCommand(proj));
+      return true;
+    }
+    return false;
+  }
+
+  cloneProject(newProjectId?: string): EditorProject {
+    const baseProject = this.buildExportProject();
+    const nextProjectId = newProjectId || `${baseProject.projectId}_copy_${Date.now()}`;
+
+    // Remap patterns
+    const patternIdMap = new Map<string, string>();
+    const clonedPatterns: EditorPattern[] = baseProject.patterns.map((p, idx) => {
+      const newId = `pat_${nextProjectId}_${idx + 1}_${Math.random().toString(36).slice(2, 6)}`;
+      patternIdMap.set(p.id, newId);
+      return {
+        ...deepClone(p),
+        id: newId,
+      };
+    });
+
+    // Remap sequences
+    const seqIdMap = new Map<string, string>();
+    const clonedSequences: EditorSequence[] = baseProject.sequences.map((s, idx) => {
+      const newSeqId = `seq_${nextProjectId}_${idx + 1}_${Math.random().toString(36).slice(2, 6)}`;
+      seqIdMap.set(s.id, newSeqId);
+
+      const remappedEvents = s.events.map((ev, evIdx) => {
+        const clonedEv = deepClone(ev) as any;
+        if (clonedEv.id) {
+          clonedEv.id = `ev_${nextProjectId}_${evIdx + 1}_${Math.random().toString(36).slice(2, 5)}`;
+        }
+        if (clonedEv.sourcePatternId && patternIdMap.has(clonedEv.sourcePatternId)) {
+          clonedEv.sourcePatternId = patternIdMap.get(clonedEv.sourcePatternId)!;
+        }
+        return clonedEv;
+      });
+
+      return {
+        ...deepClone(s),
+        id: newSeqId,
+        events: remappedEvents,
+      };
+    });
+
+    // Remap bindings
+    const clonedBindings: EditorBinding[] = baseProject.bindings.map((b) => {
+      const remappedSeqId = seqIdMap.get(b.sequenceId) ?? b.sequenceId;
+      return {
+        ...deepClone(b),
+        sequenceId: remappedSeqId,
+      };
+    });
+
+    const now = new Date().toISOString();
+    const clonedProject: EditorProject = {
+      ...deepClone(baseProject),
+      projectId: nextProjectId,
+      revision: 1,
+      metadata: {
+        ...deepClone(baseProject.metadata),
+        title: `${baseProject.metadata.title} (복제본)`,
+        createdAt: now,
+        updatedAt: now,
+      },
+      patterns: clonedPatterns,
+      sequences: clonedSequences,
+      bindings: clonedBindings,
+    };
+
+    return clonedProject;
+  }
+
+  newProject(options?: { title?: string; projectId?: string }): EditorProject {
+    const now = new Date().toISOString();
+    this._currentProjectId = options?.projectId || `proj_${Date.now()}`;
+    this._metadata = {
+      title: options?.title || 'New Dance Project',
+      createdAt: now,
+      updatedAt: now,
+    };
+    this._bpm = 95;
+    this._registry.clear();
+    for (const pat of EXTENDED_CAT_CHOREO_PATTERNS) {
+      this._registry.register(pat);
+    }
+    this._sequenceEditor.resetPhase('RUN_QUESTION');
+    this._sequenceEditor.resetPhase('ANSWER_SELECT');
+    this._sequenceEditor.resetPhase('STAR_COLLECT');
+    this._sequenceEditor.resetPhase('FEVER_PHASE_B');
+    this._customSequences = [];
+    this._bindings = [
+      {
+        chapterId: 'ch1',
+        subLevelId: 'star_collect',
+        phase: 'phaseA',
+        sequenceId: 'seq_phaseA_star',
+        role: 'starNotes',
+      },
+      {
+        chapterId: 'ch1',
+        subLevelId: 'run_question',
+        phase: 'phaseA',
+        sequenceId: 'seq_phaseA_motion',
+        role: 'motionGuide',
+      },
+      {
+        chapterId: 'ch1',
+        subLevelId: 'answer_select',
+        phase: 'phaseA',
+        sequenceId: 'seq_phaseA_answer',
+        role: 'motionGuide',
+      },
+      {
+        chapterId: 'ch1',
+        subLevelId: 'fever_phase_b',
+        phase: 'phaseB',
+        sequenceId: 'seq_phaseB_motion',
+        role: 'motionGuide',
+      },
+    ];
+    this._stageBuiltinProfiles = {};
+    this._lastSavedRevision = 0;
+    this._isPublished = false;
+    this._publishedRevision = null;
+    this._revision = 1;
+
+    const freshProject = this.toEditorProject();
+    freshProject.revision = 1;
+    this._commandManager = this.createDefaultCommandManager();
+    this.notifyDocumentChange();
+    this.notifyStateChange();
+    return freshProject;
+  }
+
+  getProjectPublicationStatus(): ProjectPublicationStatus {
+    const currentRevision = this.commandManager.revision;
+    const savedRevision = this._lastSavedRevision;
+    const isClean = savedRevision === currentRevision;
+    const isPublished =
+      this._isPublished &&
+      this._publishedRevision !== null &&
+      this._publishedRevision >= currentRevision;
+    const isDraft = !isClean || !isPublished;
+    return {
+      isDraft,
+      savedRevision,
+      currentRevision,
+      isPublished,
+      isClean,
+    };
+  }
+
+  markSaved(revision?: number): void {
+    const rev = revision ?? this.commandManager.revision;
+    this._lastSavedRevision = rev;
+  }
+
+  markPublished(revision?: number): void {
+    const rev = revision ?? this.commandManager.revision;
+    this._isPublished = true;
+    this._publishedRevision = rev;
+  }
+
+  markUnpublished(): void {
+    this._isPublished = false;
+    this._publishedRevision = null;
+  }
+
+  getStageBuiltinProfiles(): Record<string, string> {
+    return { ...this._stageBuiltinProfiles };
+  }
+
+  setStageBuiltinProfile(chapterId: string, profileId: string | null): void {
+    if (profileId === null || profileId.trim().length === 0) {
+      delete this._stageBuiltinProfiles[chapterId];
+    } else {
+      this._stageBuiltinProfiles[chapterId] = profileId.trim();
+    }
+    this.notifyDocumentChange();
+    this.notifyStateChange();
+  }
+
+  getStageCoverageStatus(
+    requiredStages: string[] = ['ch1', 'ch2', 'ch3', 'ch4', 'ch5']
+  ): StageCoverageReport {
+    const stages: StageCoverageItem[] = [];
+    const boundStages: string[] = [];
+    const builtinStages: string[] = [];
+    const missingStages: string[] = [];
+    const partialStages: string[] = [];
+
+    for (const ch of requiredStages) {
+      const stageBindings = this._bindings.filter((b) => b.chapterId === ch);
+      const builtinProfile = this._stageBuiltinProfiles[ch] ?? null;
+      const hasBuiltin = typeof builtinProfile === 'string' && builtinProfile.trim().length > 0;
+      const boundPhases = Array.from(new Set(stageBindings.map((b) => b.phase)));
+      const hasPhaseA = boundPhases.includes('phaseA');
+      const hasPhaseB = boundPhases.includes('phaseB');
+
+      let status: StageCoverageStatusKind;
+      let isComplete = false;
+
+      if (stageBindings.length > 0) {
+        if (hasPhaseA && hasPhaseB) {
+          status = 'bound';
+          isComplete = true;
+          boundStages.push(ch);
+        } else if (hasBuiltin) {
+          status = 'builtin';
+          isComplete = true;
+          builtinStages.push(ch);
+        } else {
+          status = 'partial';
+          isComplete = false;
+          partialStages.push(ch);
+        }
+      } else {
+        if (hasBuiltin) {
+          status = 'builtin';
+          isComplete = true;
+          builtinStages.push(ch);
+        } else {
+          status = 'missing';
+          isComplete = false;
+          missingStages.push(ch);
+        }
+      }
+
+      stages.push({
+        chapterId: ch,
+        status,
+        isComplete,
+        builtinProfile,
+        boundPhases,
+        bindingCount: stageBindings.length,
+      });
+    }
+
+    const isComplete = stages.every((s) => s.isComplete);
+
+    return {
+      isComplete,
+      stages,
+      boundStages,
+      builtinStages,
+      missingStages,
+      partialStages,
+    };
   }
 
   get commandManager(): ProjectCommandManager {
@@ -1319,45 +1865,20 @@ export class EditorState {
         kind: 'motionGuide',
         events: feverEvents,
       },
+      ...this._customSequences,
     ];
 
-    const bindings: EditorBinding[] = [
-      {
-        chapterId: 'ch1',
-        subLevelId: 'star_collect',
-        phase: 'phaseA',
-        sequenceId: 'seq_phaseA_star',
-      },
-      {
-        chapterId: 'ch1',
-        subLevelId: 'run_question',
-        phase: 'phaseA',
-        sequenceId: 'seq_phaseA_motion',
-      },
-      {
-        chapterId: 'ch1',
-        subLevelId: 'answer_select',
-        phase: 'phaseA',
-        sequenceId: 'seq_phaseA_answer',
-      },
-      {
-        chapterId: 'ch1',
-        subLevelId: 'fever_phase_b',
-        phase: 'phaseB',
-        sequenceId: 'seq_phaseB_motion',
-      },
-    ];
+    const bindings: EditorBinding[] = this._bindings.map((b) => ({ ...b }));
 
     const now = new Date().toISOString();
     return {
       kind: 'dream-guardian-authoring-project',
       schemaVersion: 2,
       projectId: this._currentProjectId,
-      revision: this._commandManager ? this._commandManager.revision : 1,
-      rulesetId: 'standard-fitness-v1',
+      revision: this._commandManager ? this._commandManager.revision : this._revision,
+      rulesetId: this._rulesetId || 'dg-ruleset-v2',
       metadata: {
-        title: 'Dream Guardian Dance Editor',
-        createdAt: now,
+        ...this._metadata,
         updatedAt: now,
       },
       previewTempo: {
@@ -1375,6 +1896,39 @@ export class EditorState {
     try {
       this._currentProjectId = project.projectId;
       this._bpm = project.previewTempo?.bpm ?? 95;
+      if (project.rulesetId) {
+        this._rulesetId = project.rulesetId;
+      }
+      if (project.metadata) {
+        this._metadata = {
+          title: project.metadata.title || 'Dream Guardian Dance Editor',
+          description: project.metadata.description,
+          author: project.metadata.author,
+          createdAt: project.metadata.createdAt || new Date().toISOString(),
+          updatedAt: project.metadata.updatedAt || new Date().toISOString(),
+        };
+      }
+      if (project.bindings && Array.isArray(project.bindings)) {
+        this._bindings = project.bindings.map((b) => ({ ...b }));
+      }
+      const handledSeqIds = new Set<string>([
+        'seq_phaseA_star',
+        this._starSequenceId,
+        'seq_phaseA_motion',
+        'seq_phaseA_answer',
+        'seq_phaseB_motion',
+      ]);
+      for (const seq of project.sequences || []) {
+        if (
+          (seq.phase === 'phaseA' && (seq.kind === 'starNotes' || seq.kind === 'motionGuide')) ||
+          (seq.phase === 'phaseB' && seq.kind === 'motionGuide')
+        ) {
+          handledSeqIds.add(seq.id);
+        }
+      }
+      this._customSequences = (project.sequences || [])
+        .filter((s) => !handledSeqIds.has(s.id))
+        .map((s) => deepClone(s));
 
       // 1. Patterns replacement
       this._registry.clear();

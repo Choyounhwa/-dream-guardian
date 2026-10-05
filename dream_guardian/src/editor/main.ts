@@ -53,6 +53,89 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   // 3. 뷰 새로고침 함수들
+  const updateStatusBar = () => {
+    const statusBarContainer = document.getElementById('editor-status-bar-container');
+    if (statusBarContainer) {
+      statusBarContainer.innerHTML = layout.renderStatusBarHTML();
+    }
+  };
+
+  const updateBindingsPanel = () => {
+    const modalContainer = document.getElementById('bindings-modal-container');
+    if (modalContainer) {
+      modalContainer.innerHTML = layout.renderStageBindingsPanelHTML();
+      bindBindingsPanelEvents();
+    }
+  };
+
+  const bindBindingsPanelEvents = () => {
+    const closeBtn = document.getElementById('btn-close-bindings');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        const modalContainer = document.getElementById('bindings-modal-container');
+        if (modalContainer) modalContainer.classList.add('hidden');
+      });
+    }
+
+    const removeBtns = document.querySelectorAll('.btn-remove-binding');
+    removeBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const idxStr = (e.target as HTMLElement).getAttribute('data-index');
+        if (idxStr !== null) {
+          const idx = parseInt(idxStr, 10);
+          state.removeBinding(idx);
+          updateBindingsPanel();
+          updateStatusBar();
+        }
+      });
+    });
+
+    const addBtn = document.getElementById('btn-add-binding');
+    if (addBtn) {
+      addBtn.addEventListener('click', () => {
+        const chapterEl = document.getElementById('bind-chapter') as HTMLSelectElement;
+        const subLevelEl = document.getElementById('bind-sublevel') as HTMLInputElement;
+        const phaseEl = document.getElementById('bind-phase') as HTMLSelectElement;
+        const seqEl = document.getElementById('bind-seq') as HTMLSelectElement;
+        const roleEl = document.getElementById('bind-role') as HTMLSelectElement;
+
+        const chapterId = chapterEl ? chapterEl.value : 'ch1';
+        const subLevelId = subLevelEl && subLevelEl.value.trim().length > 0 ? subLevelEl.value.trim() : null;
+        const phase = (phaseEl ? phaseEl.value : 'phaseA') as any;
+        const sequenceId = seqEl ? seqEl.value : '';
+        const role = roleEl ? roleEl.value : 'motionGuide';
+
+        const result = state.addBinding({
+          chapterId,
+          subLevelId,
+          phase,
+          sequenceId,
+          role,
+        });
+
+        if (!result.success) {
+          alert(`바인딩 추가 실패: ${result.error || '유효하지 않은 바인딩입니다.'}`);
+        } else {
+          updateBindingsPanel();
+          updateStatusBar();
+        }
+      });
+    }
+
+    const presetSelects = document.querySelectorAll('.select-stage-preset');
+    presetSelects.forEach((sel) => {
+      sel.addEventListener('change', (e) => {
+        const chapter = (e.target as HTMLElement).getAttribute('data-chapter');
+        const val = (e.target as HTMLSelectElement).value;
+        if (chapter) {
+          state.setStageBuiltinProfile(chapter, val || null);
+          updateBindingsPanel();
+          updateStatusBar();
+        }
+      });
+    });
+  };
+
   const updateSidebar = () => {
     const sidebarEl = document.querySelector('.editor-sidebar');
     if (sidebarEl) {
@@ -445,6 +528,52 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 프로젝트 제어 버튼들 (#385)
+  const newProjectBtn = document.getElementById('btn-new-project');
+  if (newProjectBtn) {
+    newProjectBtn.addEventListener('click', () => {
+      const status = state.getProjectPublicationStatus();
+      if (!status.isClean && !confirm('저장되지 않은 변경사항이 있습니다. 새 프로젝트를 생성하시겠습니까?')) {
+        return;
+      }
+      state.newProject();
+      updateHeader();
+      updateSidebar();
+      updateTimeline();
+      updateCanvas();
+      updateStatusBar();
+      updateBindingsPanel();
+    });
+  }
+
+  const cloneProjectBtn = document.getElementById('btn-clone-project');
+  if (cloneProjectBtn) {
+    cloneProjectBtn.addEventListener('click', () => {
+      const cloned = state.cloneProject();
+      state.applyProject(cloned);
+      updateHeader();
+      updateSidebar();
+      updateTimeline();
+      updateCanvas();
+      updateStatusBar();
+      updateBindingsPanel();
+      alert(`프로젝트가 복제되었습니다: ${cloned.projectId}`);
+    });
+  }
+
+  const manageBindingsBtn = document.getElementById('btn-manage-bindings');
+  if (manageBindingsBtn) {
+    manageBindingsBtn.addEventListener('click', () => {
+      const modalContainer = document.getElementById('bindings-modal-container');
+      if (modalContainer) {
+        modalContainer.classList.toggle('hidden');
+        if (!modalContainer.classList.contains('hidden')) {
+          updateBindingsPanel();
+        }
+      }
+    });
+  }
+
   // 신규 패턴 생성 버튼
   const newPatternBtn = document.getElementById('btn-new-pattern');
   if (newPatternBtn) {
@@ -474,6 +603,8 @@ window.addEventListener('DOMContentLoaded', () => {
     saveLocalBtn.addEventListener('click', () => {
       const saved = editorIOHandler.saveToLocalStorage(state);
       if (saved) {
+        state.markSaved();
+        updateStatusBar();
         alert('💾 프로젝트 데이터가 브라우저 로컬 스토리지에 성공적으로 저장되었습니다!');
       } else {
         alert('⚠️ 저장 실패: 브라우저 스토리지를 사용할 수 없습니다.');
@@ -723,6 +854,8 @@ window.addEventListener('DOMContentLoaded', () => {
     autoSaveTimer = setTimeout(async () => {
       try {
         await editorIOHandler.saveDraft(state);
+        state.markSaved();
+        updateStatusBar();
       } catch (err) {
         console.warn('[Editor] Store auto-save failed:', err);
       }
@@ -733,10 +866,13 @@ window.addEventListener('DOMContentLoaded', () => {
   state.addListener({
     onDocumentChange: () => {
       triggerAutoSave();
+      updateStatusBar();
+      updateBindingsPanel();
     },
     onStateChange: () => {
       updateHeader();
       updateToolbar();
+      updateStatusBar();
     },
     onPatternChange: () => {
       updateSidebar();
@@ -758,8 +894,10 @@ window.addEventListener('DOMContentLoaded', () => {
   bindSidebarEvents();
   bindWorkspaceEvents();
   bindTimelineEvents();
+  bindBindingsPanelEvents();
   updateToolbar();
   updateCanvas();
+  updateStatusBar();
 
   // 9. 오디오 비트 재생 루프 (AudioSyncController와 실시간 동기화, #383 루프 경계 완주 보장)
   function animationLoop() {
