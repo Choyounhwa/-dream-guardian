@@ -18,8 +18,20 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   const state = new EditorState();
-  // 로컬 스토리지에 저장된 이전 작업 복원
-  editorIOHandler.loadFromLocalStorage(state);
+  // 스토어 최신 Head 및 레거시 로컬 스토리지 비파괴적 복원
+  editorIOHandler
+    .restoreLatestProject(state)
+    .then((res) => {
+      if (res.success) {
+        updateHeader();
+        updateSidebar();
+        updateTimeline();
+        updateCanvas();
+      }
+    })
+    .catch((err) => {
+      console.warn('[Editor] Failed to restore project:', err);
+    });
 
   const layout = new EditorLayout(state);
   const audioSync = new AudioSyncController({ bpm: state.bpm, enableAudioNode: true });
@@ -367,12 +379,13 @@ window.addEventListener('DOMContentLoaded', () => {
         const file = (e.target as HTMLInputElement).files?.[0];
         if (file) {
           const reader = new FileReader();
-          reader.onload = (event) => {
+          reader.onload = async (event) => {
             const content = event.target?.result as string;
-            const res = editorIOHandler.importFullProjectJSON(state, content);
+            const res = await editorIOHandler.openProject(state, content, { autoSave: true });
             if (res.success) {
-              alert(`✅ 프로젝트 JSON 로드 완료! (${res.loadedCount}개 안무 패턴 및 시퀀스 복원)`);
+              alert(`✅ 프로젝트 JSON 로드 완료! (ID: ${state.currentProjectId})`);
               editorIOHandler.saveToLocalStorage(state);
+              updateHeader();
               updateSidebar();
               updateTimeline();
               updateCanvas();
@@ -585,7 +598,12 @@ window.addEventListener('DOMContentLoaded', () => {
   let autoSaveTimer: any = null;
   const triggerAutoSave = () => {
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(() => {
+    autoSaveTimer = setTimeout(async () => {
+      try {
+        await editorIOHandler.saveDraft(state);
+      } catch (err) {
+        console.warn('[Editor] Store auto-save failed:', err);
+      }
       editorIOHandler.saveToLocalStorage(state);
     }, 800);
   };

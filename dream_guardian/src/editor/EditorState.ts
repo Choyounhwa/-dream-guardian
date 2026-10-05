@@ -32,8 +32,15 @@ import {
   ChoreoPoseSimulator,
   type SimulatedPoseFrame,
 } from './ChoreoPoseSimulator.js';
-import { ProjectCommandManager } from './ProjectCommands.js';
-import { createEmptyEditorProject } from '../data/ProjectValidator.js';
+import { ProjectCommandManager, ReplaceProjectCommand } from './ProjectCommands.js';
+import type {
+  EditorProject,
+  EditorPattern,
+  EditorSequence,
+  EditorBinding,
+  StarNoteEvent,
+  MotionCueEvent,
+} from '../data/EditorProject.js';
 
 export type PhaseType = 'RUN_QUESTION' | 'ANSWER_SELECT' | 'STAR_COLLECT' | 'FEVER_PHASE_B';
 export type ActiveEditTool = 'inspect' | 'leftHand' | 'rightHand' | 'head' | 'hip' | 'foot';
@@ -68,6 +75,8 @@ export class EditorState {
   private _selectedNoteId: string | null = null;
   private _showSimulation: boolean = true;
   private _draftEdits: Partial<CatChoreoPattern> = {};
+  private _currentProjectId: string = 'proj_dance_editor';
+  private _isApplyingProject: boolean = false;
   private readonly _registry: DancePatternRegistry;
   private readonly _sequenceEditor: PhaseSequenceEditor;
   private readonly _simulator: ChoreoPoseSimulator = choreoPoseSimulator;
@@ -83,11 +92,33 @@ export class EditorState {
     this._sequenceEditor = initialSequenceEditor ?? new PhaseSequenceEditor();
     if (commandManager) {
       this._commandManager = commandManager;
+      this._commandManager.addListener((newProj) => {
+        this.applyProject(newProj, { skipCommand: true });
+        this.notifyDocumentChange();
+        this.notifyStateChange();
+      });
     }
     this._sequenceEditor.addListener(() => {
+      if (this._isApplyingProject) return;
       this.notifyDocumentChange();
       this.notifyStateChange();
     });
+  }
+
+  get currentProjectId(): string {
+    return this._currentProjectId;
+  }
+
+  set currentProjectId(id: string) {
+    this._currentProjectId = id;
+  }
+
+  get revision(): number {
+    return this.commandManager.revision;
+  }
+
+  get currentRevision(): number {
+    return this.commandManager.revision;
   }
 
   get commandManager(): ProjectCommandManager {
@@ -98,25 +129,12 @@ export class EditorState {
   }
 
   private createDefaultCommandManager(): ProjectCommandManager {
-    const proj = createEmptyEditorProject({
-      projectId: 'proj_dance_editor',
-      title: 'Dream Guardian Dance Editor',
-      bpm: this._bpm,
-    });
-    proj.patterns = this._registry.getAll().map((p) => ({
-      id: p.id,
-      name: p.name,
-      target: {
-        leftHand: p.leftHand,
-        rightHand: p.rightHand,
-        head: p.head,
-        hip: p.hip,
-      },
-      description: p.description,
-    }));
+    const proj = this.toEditorProject();
     return new ProjectCommandManager(proj, {
-      onDocumentChange: () => {
+      onDocumentChange: (newProj) => {
+        this.applyProject(newProj, { skipCommand: true });
         this.notifyDocumentChange();
+        this.notifyStateChange();
       },
     });
   }
@@ -504,6 +522,308 @@ export class EditorState {
   private notifyBeatUpdate(beat: number): void {
     for (const listener of this._listeners) {
       listener.onBeatUpdate?.(beat);
+    }
+  }
+
+  getCurrentProject(): EditorProject {
+    return this.commandManager.project;
+  }
+
+  toEditorProject(): EditorProject {
+    const starNotes = this._sequenceEditor.getNotesForPhase('STAR_COLLECT');
+    const runNotes = this._sequenceEditor.getNotesForPhase('RUN_QUESTION');
+    const ansNotes = this._sequenceEditor.getNotesForPhase('ANSWER_SELECT');
+    const feverNotes = this._sequenceEditor.getNotesForPhase('FEVER_PHASE_B');
+
+    const patterns: EditorPattern[] = this._registry.getAll().map((p) => ({
+      id: p.id,
+      name: p.name,
+      target: {
+        leftHand: p.leftHand ?? null,
+        rightHand: p.rightHand ?? null,
+        head: p.head ?? null,
+        hip: p.hip ?? null,
+      },
+      description: p.description,
+    }));
+
+    const starEvents: StarNoteEvent[] = starNotes.map((n, idx) => {
+      const landingTick = Math.max(0, Math.round((n.startBeat - 1) * 480));
+      const part = (n.payload?.part as BodyCursorPart) || (n.targetZones[0] >= 6 ? 'hip' : 'leftHand');
+      const zoneId = n.targetZones[0] ?? 4;
+      return {
+        id: n.id || `star_evt_${idx + 1}`,
+        landingTick,
+        target: {
+          type: 'cursor' as const,
+          part,
+          zoneId,
+        },
+        sourcePatternId: n.payload?.patternId,
+      };
+    });
+
+    const runEvents: MotionCueEvent[] = runNotes.map((n, idx) => {
+      const startTick = Math.max(0, Math.round((n.startBeat - 1) * 480));
+      const durationTicks = Math.max(480, Math.round((n.durationBeats || 1) * 480));
+      return {
+        id: n.id || `mot_run_${idx + 1}`,
+        startTick,
+        durationTicks,
+        target: {
+          leftHand: n.payload?.leftHand ?? (n.targetZones[0] <= 5 ? n.targetZones[0] : null),
+          rightHand: n.payload?.rightHand ?? null,
+          head: n.payload?.head ?? null,
+          hip: n.payload?.hip ?? (n.payload?.action === 'dip' ? (n.targetZones[0] ?? 8) : null),
+        },
+        sourcePatternId: n.payload?.patternId,
+      };
+    });
+
+    const ansEvents: MotionCueEvent[] = ansNotes.map((n, idx) => {
+      const startTick = Math.max(0, Math.round((n.startBeat - 1) * 480));
+      const durationTicks = Math.max(480, Math.round((n.durationBeats || 1) * 480));
+      return {
+        id: n.id || `mot_ans_${idx + 1}`,
+        startTick,
+        durationTicks,
+        target: {
+          leftHand: n.targetZones[0] === 4 ? 4 : null,
+          rightHand: n.targetZones[0] === 5 ? 5 : null,
+          head: null,
+          hip: null,
+        },
+        sourcePatternId: n.payload?.patternId,
+      };
+    });
+
+    const feverEvents: MotionCueEvent[] = feverNotes.map((n, idx) => {
+      const startTick = Math.max(0, Math.round((n.startBeat - 1) * 480));
+      const durationTicks = Math.max(480, Math.round((n.durationBeats || 1) * 480));
+      return {
+        id: n.id || `mot_fever_${idx + 1}`,
+        startTick,
+        durationTicks,
+        target: {
+          leftHand: n.payload?.leftHand ?? null,
+          rightHand: n.payload?.rightHand ?? null,
+          head: n.payload?.head ?? null,
+          hip: n.payload?.hip ?? null,
+        },
+        sourcePatternId: n.payload?.patternId,
+      };
+    });
+
+    const sequences: EditorSequence[] = [
+      {
+        id: 'seq_phaseA_star',
+        phase: 'phaseA',
+        kind: 'starNotes',
+        events: starEvents,
+      },
+      {
+        id: 'seq_phaseA_motion',
+        phase: 'phaseA',
+        kind: 'motionGuide',
+        events: runEvents,
+      },
+      {
+        id: 'seq_phaseA_answer',
+        phase: 'phaseA',
+        kind: 'motionGuide',
+        events: ansEvents,
+      },
+      {
+        id: 'seq_phaseB_motion',
+        phase: 'phaseB',
+        kind: 'motionGuide',
+        events: feverEvents,
+      },
+    ];
+
+    const bindings: EditorBinding[] = [
+      {
+        chapterId: 'ch1',
+        subLevelId: 'star_collect',
+        phase: 'phaseA',
+        sequenceId: 'seq_phaseA_star',
+      },
+      {
+        chapterId: 'ch1',
+        subLevelId: 'run_question',
+        phase: 'phaseA',
+        sequenceId: 'seq_phaseA_motion',
+      },
+      {
+        chapterId: 'ch1',
+        subLevelId: 'answer_select',
+        phase: 'phaseA',
+        sequenceId: 'seq_phaseA_answer',
+      },
+      {
+        chapterId: 'ch1',
+        subLevelId: 'fever_phase_b',
+        phase: 'phaseB',
+        sequenceId: 'seq_phaseB_motion',
+      },
+    ];
+
+    const now = new Date().toISOString();
+    return {
+      kind: 'dream-guardian-authoring-project',
+      schemaVersion: 2,
+      projectId: this._currentProjectId,
+      revision: this._commandManager ? this._commandManager.revision : 1,
+      rulesetId: 'standard-fitness-v1',
+      metadata: {
+        title: 'Dream Guardian Dance Editor',
+        createdAt: now,
+        updatedAt: now,
+      },
+      previewTempo: {
+        bpm: this._bpm,
+        beatsPerBar: 4,
+      },
+      patterns,
+      sequences,
+      bindings,
+    };
+  }
+
+  applyProject(project: EditorProject, options?: { skipCommand?: boolean }): void {
+    this._isApplyingProject = true;
+    try {
+      this._currentProjectId = project.projectId;
+      this._bpm = project.previewTempo?.bpm ?? 95;
+
+      // 1. Patterns replacement
+      this._registry.clear();
+      for (const p of project.patterns) {
+        const choreo: CatChoreoPattern = {
+          id: p.id,
+          name: p.name || p.id,
+          description: p.description || '',
+          motionType: 'center_clasp',
+          leftHand: p.target.leftHand ?? null,
+          rightHand: p.target.rightHand ?? null,
+          head: p.target.head ?? null,
+          hip: p.target.hip ?? null,
+          footZones: [],
+          partZoneMap: {},
+        };
+        this._registry.register(choreo);
+      }
+      if (project.patterns.length > 0) {
+        this._selectedPatternId = project.patterns[0].id;
+      } else {
+        this._selectedPatternId = '';
+      }
+      this._draftEdits = {};
+
+      // 2. Sequences replacement
+      const newStarNotes: TimelineTrackNote[] = [];
+      const newRunNotes: TimelineTrackNote[] = [];
+      const newAnsNotes: TimelineTrackNote[] = [];
+      const newFeverNotes: TimelineTrackNote[] = [];
+
+      for (const seq of project.sequences) {
+        if (seq.phase === 'phaseA' && seq.kind === 'starNotes') {
+          for (let idx = 0; idx < seq.events.length; idx++) {
+            const ev = seq.events[idx] as StarNoteEvent;
+            const landingTick = ev.landingTick ?? ev.tick ?? 480;
+            const startBeat = Math.round(((landingTick / 480) + 1) * 100) / 100;
+            const part = ev.target?.type === 'cursor' ? ev.target.part : undefined;
+            const rawZone = (ev.target as any)?.zoneId ?? (ev.target as any)?.zone;
+            const targetZones = rawZone !== undefined && rawZone !== null ? [rawZone] : [];
+            newStarNotes.push({
+              id: ev.id || `star_evt_${idx + 1}`,
+              lane: 'keynote',
+              startBeat,
+              durationBeats: 1,
+              label: `Star (${part ?? 'note'})`,
+              color: part === 'hip' ? '#FF865E' : '#28E6FF',
+              targetZones,
+              payload: {
+                part,
+                patternId: ev.sourcePatternId,
+              },
+            });
+          }
+        } else if (seq.phase === 'phaseA' && seq.kind === 'motionGuide') {
+          const isAnswer = seq.id.toLowerCase().includes('answer');
+          for (let idx = 0; idx < seq.events.length; idx++) {
+            const ev = seq.events[idx] as MotionCueEvent;
+            const startTick = ev.startTick ?? ev.tick ?? 0;
+            const startBeat = Math.round(((startTick / 480) + 1) * 100) / 100;
+            const durTicks = ev.durationTicks ?? ev.duration ?? 480;
+            const durationBeats = Math.round((durTicks / 480) * 100) / 100;
+            const targetZones: number[] = [];
+            if (ev.target?.leftHand) targetZones.push(ev.target.leftHand);
+            if (ev.target?.rightHand) targetZones.push(ev.target.rightHand);
+            if (ev.target?.hip) targetZones.push(ev.target.hip);
+            if (ev.target?.head) targetZones.push(ev.target.head);
+
+            const noteItem: TimelineTrackNote = {
+              id: ev.id || `${isAnswer ? 'ans' : 'mot'}_evt_${idx + 1}`,
+              lane: isAnswer ? 'answer' : 'motion',
+              startBeat,
+              durationBeats,
+              label: isAnswer ? '답안 선택' : '모션 가이드',
+              color: isAnswer ? '#FFCB4D' : '#28E6FF',
+              targetZones,
+              payload: {
+                ...ev.target,
+                patternId: ev.sourcePatternId,
+              },
+            };
+            if (isAnswer) {
+              newAnsNotes.push(noteItem);
+            } else {
+              newRunNotes.push(noteItem);
+            }
+          }
+        } else if (seq.phase === 'phaseB' && seq.kind === 'motionGuide') {
+          for (let idx = 0; idx < seq.events.length; idx++) {
+            const ev = seq.events[idx] as MotionCueEvent;
+            const startTick = ev.startTick ?? ev.tick ?? 0;
+            const startBeat = Math.round(((startTick / 480) + 1) * 100) / 100;
+            const durTicks = ev.durationTicks ?? ev.duration ?? 480;
+            const durationBeats = Math.round((durTicks / 480) * 100) / 100;
+            const targetZones: number[] = [];
+            if (ev.target?.leftHand) targetZones.push(ev.target.leftHand);
+            if (ev.target?.rightHand) targetZones.push(ev.target.rightHand);
+            if (ev.target?.hip) targetZones.push(ev.target.hip);
+            if (ev.target?.head) targetZones.push(ev.target.head);
+
+            newFeverNotes.push({
+              id: ev.id || `fever_evt_${idx + 1}`,
+              lane: 'motion',
+              startBeat,
+              durationBeats,
+              label: '피버 모션',
+              color: '#C889FF',
+              targetZones,
+              payload: {
+                ...ev.target,
+                patternId: ev.sourcePatternId,
+              },
+            });
+          }
+        }
+      }
+
+      this._sequenceEditor.replaceNotesForPhase('RUN_QUESTION', newRunNotes);
+      this._sequenceEditor.replaceNotesForPhase('ANSWER_SELECT', newAnsNotes);
+      this._sequenceEditor.replaceNotesForPhase('STAR_COLLECT', newStarNotes);
+      this._sequenceEditor.replaceNotesForPhase('FEVER_PHASE_B', newFeverNotes);
+
+      this.notifyPatternChange(this.getSelectedPattern());
+
+      if (!options?.skipCommand && this._commandManager) {
+        this._commandManager.executeCommand(new ReplaceProjectCommand(project));
+      }
+    } finally {
+      this._isApplyingProject = false;
     }
   }
 }
