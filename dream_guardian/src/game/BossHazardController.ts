@@ -37,6 +37,7 @@ import type { BossController } from './BossController.js';
 import type { BossFeverController } from './BossFeverController.js';
 import type { MinionTroopManager } from './MinionTroopManager.js';
 import type { EventBus } from '../core/EventBus.js';
+import type { SessionStageBundle } from './SessionContent.js';
 
 export type BossHazardAttackType =
   | 'dual_slam'
@@ -67,6 +68,7 @@ export interface BossHazardControllerOptions {
   eventBus?: EventBus;
   config?: Partial<BossHazardConfig>;
   patternPool?: readonly BossHazardAttackType[];
+  stageBundle?: SessionStageBundle;
   autoSchedule?: boolean;
   onAttackStart?: (attackType: BossHazardAttackType, warningDuration: number) => void;
   onHazardResolved?: (result: BossHazardResult) => void;
@@ -89,7 +91,8 @@ export class BossHazardController {
   private readonly _bossFeverController?: BossFeverController;
   private readonly _minionTroopManager?: MinionTroopManager;
   private readonly _eventBus?: EventBus;
-  private readonly _patternPool: readonly BossHazardAttackType[];
+  private _stageBundle?: SessionStageBundle;
+  private _patternPool: readonly BossHazardAttackType[];
   private readonly _autoSchedule: boolean;
 
   private readonly _onAttackStart?: (attackType: BossHazardAttackType, warningDuration: number) => void;
@@ -126,10 +129,14 @@ export class BossHazardController {
     this._bossFeverController = options?.bossFeverController;
     this._minionTroopManager = options?.minionTroopManager;
     this._eventBus = options?.eventBus;
-    this._patternPool =
-      options?.patternPool && options.patternPool.length > 0
-        ? options.patternPool
-        : DEFAULT_BOSS_HAZARD_PATTERNS;
+    this._stageBundle = options?.stageBundle;
+    if (options?.stageBundle) {
+      this._patternPool = options.patternPool ?? options.stageBundle.getPhaseBHazardPatterns();
+    } else if (options?.patternPool && options.patternPool.length > 0) {
+      this._patternPool = options.patternPool;
+    } else {
+      this._patternPool = DEFAULT_BOSS_HAZARD_PATTERNS;
+    }
     this._autoSchedule = options?.autoSchedule ?? true;
 
     this._onAttackStart = options?.onAttackStart;
@@ -220,6 +227,39 @@ export class BossHazardController {
     return this._hitCount;
   }
 
+  get patternPool(): readonly BossHazardAttackType[] {
+    return this._patternPool;
+  }
+
+  get stageBundle(): SessionStageBundle | null {
+    return this._stageBundle ?? null;
+  }
+
+  get attackId(): string | null {
+    return this._attackId;
+  }
+
+  get lastAttackId(): string | null {
+    return this._attackId;
+  }
+
+  // ─── Stage Bundle & Pattern Pool Management ───
+
+  setStageBundle(bundle: SessionStageBundle): void {
+    this._stageBundle = bundle;
+    this._patternPool = bundle.getPhaseBHazardPatterns();
+    this._patternIndex = 0;
+  }
+
+  setPatternPool(pool: readonly BossHazardAttackType[]): void {
+    const valid = pool.filter(
+      (p): p is BossHazardAttackType =>
+        p === 'dual_slam' || p === 'alternating_stomp_left' || p === 'alternating_stomp_right',
+    );
+    this._patternPool = valid.length > 0 ? Object.freeze(valid) : DEFAULT_BOSS_HAZARD_PATTERNS;
+    this._patternIndex = 0;
+  }
+
   // ─── Lifecycle Methods ───
 
   start(options?: BossHazardStartOptions | number): void {
@@ -273,13 +313,31 @@ export class BossHazardController {
   // ─── Attack Control ───
 
   triggerAttack(type?: BossHazardAttackType): void {
+    // 단일 공격 동시성 유지 (동시 공격 불가, 1회에 1개 공격만 진행)
+    if (this.isAttacking) {
+      return;
+    }
+
     if (!this._isActive) {
       this._isActive = true;
     }
+
+    const pool = this._patternPool.length > 0 ? this._patternPool : DEFAULT_BOSS_HAZARD_PATTERNS;
+    const poolLength = pool.length;
     const attackPattern = type ?? this._nextPattern();
+
     this._currentAttack = attackPattern;
+    const attackNumber = this._totalAttacks;
     this._totalAttacks++;
-    this._attackId = `boss_atk_${Date.now()}_${this._totalAttacks}`;
+
+    if (this._stageBundle) {
+      const loopIndex = Math.floor(attackNumber / poolLength);
+      const attackIndex = attackNumber % poolLength;
+      this._attackId = this._stageBundle.getPhaseBHazardExecutionId(loopIndex, attackIndex);
+    } else {
+      this._attackId = `boss_atk_${Date.now()}_${this._totalAttacks}`;
+    }
+
     this._attackState = 'warning';
     this._attackElapsed = 0;
     this._cooldownTimer = 0;
@@ -433,12 +491,16 @@ export class BossHazardController {
   // ─── Private Helpers ───
 
   private _nextPattern(): BossHazardAttackType {
-    const pattern = this._patternPool[this._patternIndex % this._patternPool.length];
+    const pool = this._patternPool.length > 0 ? this._patternPool : DEFAULT_BOSS_HAZARD_PATTERNS;
+    const pattern = pool[this._patternIndex % pool.length];
     this._patternIndex++;
     return pattern;
   }
 
   private _resolveAttack(): BossHazardResult {
+    if (this._isResolved && this._lastResult) {
+      return this._lastResult;
+    }
     this._isResolved = true;
     this._attackState = 'resolved';
 

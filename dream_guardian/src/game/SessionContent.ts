@@ -18,10 +18,17 @@ import type {
   CompiledStarNote,
 } from '../data/PublishedContentPack.js';
 import type { Keynote, KeynotePart, KeynoteInstrument } from '../types/keynote.js';
+import type { BossHazardAttackType } from './BossHazardController.js';
 import {
   PHASE_A_ACTIVE_HAZARD_PATTERNS,
   type PhaseAHazardPattern,
 } from '../../config/phase-a-hazard.config.js';
+
+export const DEFAULT_BOSS_HAZARD_PATTERNS: readonly BossHazardAttackType[] = Object.freeze([
+  'dual_slam',
+  'alternating_stomp_left',
+  'alternating_stomp_right',
+]);
 
 const PATTERN_1: readonly Keynote[] = Object.freeze([
   { beat: 1, patternId: 'FEVER_1_1', part: 'leftHand', zoneId: 1, instrument: 'hand' },
@@ -100,12 +107,15 @@ export interface SessionStageBundle {
   // Phase B Fever Keynotes generation helper
   getPhaseBFeverKeynotes(loopIndex: number): readonly Keynote[];
 
+  // Phase B Hazard Patterns resolution helper
+  getPhaseBHazardPatterns(): readonly BossHazardAttackType[];
+
   // Execution ID generation methods
   getRoundExecutionId(roundNumber: number): string;
   getRoundNoteExecutionId(roundNumber: number, slotIndex: number): string;
   getPhaseBLoopExecutionId(loopIndex: number): string;
   getPhaseBNoteExecutionId(loopIndex: number, noteIndex: number): string;
-  getPhaseBHazardExecutionId(loopIndex: number, hazardIndex: number): string;
+  getPhaseBHazardExecutionId(loopIndex: number, attackIndex: number): string;
 }
 
 export interface CreateSessionStageParams {
@@ -199,6 +209,60 @@ export function resolvePhaseAHazardPattern(
 }
 
 export const getPhaseAHazardPattern = resolvePhaseAHazardPattern;
+
+const VALID_PHASE_B_ATTACKS: readonly BossHazardAttackType[] = Object.freeze([
+  'dual_slam',
+  'alternating_stomp_left',
+  'alternating_stomp_right',
+]);
+
+const PHASE_B_VALID_ACTIONS: Record<BossHazardAttackType, readonly string[]> = Object.freeze({
+  dual_slam: ['jump'],
+  alternating_stomp_left: ['left_step', 'step_left', 'leftFoot', '9'],
+  alternating_stomp_right: ['right_step', 'step_right', 'rightFoot', '11'],
+});
+
+/**
+ * 세션 번들의 Phase B 보스 장판 패턴 목록을 해석하여 반환합니다.
+ * - 커스텀 팩(!isBuiltin)에 유효한 활성 장판 목록(dual_slam, alternating_stomp_left, alternating_stomp_right)이 정의된 경우 순서대로 반환
+ * - builtin 팩이거나 비활성/비어있는 목록인 경우 DEFAULT_BOSS_HAZARD_PATTERNS로 fallback
+ * - 공격 종류와 요구 입력의 모순을 거부
+ */
+export function resolvePhaseBHazardPatterns(
+  bundle: Pick<SessionStageBundle, 'isBuiltin' | 'phaseB'>,
+): readonly BossHazardAttackType[] {
+  if (
+    bundle.isBuiltin ||
+    !bundle.phaseB ||
+    !Array.isArray(bundle.phaseB.hazards) ||
+    bundle.phaseB.hazards.length === 0
+  ) {
+    return DEFAULT_BOSS_HAZARD_PATTERNS;
+  }
+
+  const validPatterns: BossHazardAttackType[] = [];
+  for (const hz of bundle.phaseB.hazards) {
+    const attack = hz?.attackType as BossHazardAttackType;
+    if (!VALID_PHASE_B_ATTACKS.includes(attack)) {
+      continue;
+    }
+    if (hz.requiredAction) {
+      const validActions = PHASE_B_VALID_ACTIONS[attack];
+      if (!validActions || !validActions.includes(hz.requiredAction)) {
+        continue;
+      }
+    }
+    validPatterns.push(attack);
+  }
+
+  if (validPatterns.length === 0) {
+    return DEFAULT_BOSS_HAZARD_PATTERNS;
+  }
+
+  return Object.freeze(validPatterns);
+}
+
+export const getPhaseBHazardPatterns = resolvePhaseBHazardPatterns;
 
 /**
  * 결정론적이고 완전히 고정된 SessionStageBundle 스냅샷을 생성합니다.
@@ -313,8 +377,12 @@ export function createSessionStageSnapshot(params: CreateSessionStageParams): Se
       return `${this.executionId}_loop${loopIndex}_n${noteIndex}`;
     },
 
-    getPhaseBHazardExecutionId(loopIndex: number, hazardIndex: number): string {
-      return `${this.executionId}_loop${loopIndex}_h${hazardIndex}`;
+    getPhaseBHazardExecutionId(loopIndex: number, attackIndex: number): string {
+      return `${this.executionId}_loop${loopIndex}_h${attackIndex}`;
+    },
+
+    getPhaseBHazardPatterns(): readonly BossHazardAttackType[] {
+      return resolvePhaseBHazardPatterns(this);
     },
   };
 
