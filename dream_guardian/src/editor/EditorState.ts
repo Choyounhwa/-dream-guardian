@@ -48,6 +48,7 @@ import type {
   FeverNoteEvent,
   MotionCueEvent,
   PhaseAHazardEvent,
+  PhaseBHazardEvent,
   EditorProjectMetadata,
 } from '../data/EditorProject.js';
 import {
@@ -57,13 +58,51 @@ import {
   type PhaseAHazardPattern,
 } from '../../config/phase-a-hazard.config.js';
 import {
+  DEFAULT_BOSS_HAZARD_CONFIG,
+} from '../../config/battle.config.js';
+import {
   isPublishableHandZone,
   isPublishableFootZone,
   checkCrossBodyConstraint,
+  PHASE_B_PUBLISHABLE_ATTACKS,
+  PHASE_B_ATTACK_REQUIRED_ACTIONS,
+  getRequiredActionForPhaseBAttack,
+  type PhaseBPublishableAttack,
+  type PhaseBRequiredAction,
 } from '../data/ContentCapabilities.js';
 
-export type PhaseType = 'RUN_QUESTION' | 'ANSWER_SELECT' | 'STAR_COLLECT' | 'FEVER_PHASE_B' | 'HAZARD_EVADE' | 'FEVER_NOTES';
+export type PhaseType =
+  | 'RUN_QUESTION'
+  | 'ANSWER_SELECT'
+  | 'STAR_COLLECT'
+  | 'FEVER_PHASE_B'
+  | 'HAZARD_EVADE'
+  | 'FEVER_NOTES'
+  | 'BOSS_HAZARD';
 export type ActiveEditTool = 'inspect' | 'leftHand' | 'rightHand' | 'head' | 'hip' | 'foot';
+
+export interface PhaseBHazardAttackItem {
+  id: string;
+  attackType: PhaseBPublishableAttack;
+  requiredAction: PhaseBRequiredAction;
+  label?: string;
+}
+
+export interface PhaseBHazardValidationResult {
+  valid: boolean;
+  errors: string[];
+  diagnosticCode?: string;
+}
+
+export interface PhaseBHazardLockedConfig {
+  attackInterval: number;
+  warningDuration: number;
+  activeDuration: number;
+  damage: number;
+  enrageHpRatio: number;
+  enrageSpeedMultiplier: number;
+  minionCasualtyCount: number;
+}
 
 export interface PhaseAHazardScheduleDisplay {
   bpm: number;
@@ -263,6 +302,9 @@ export class EditorState {
   private _feverSequenceId: string = 'seq_phaseB_fever';
   private _feverSlots: FeverSlotItem[] = [];
   private _feverFormBuffer: Map<number, FormBufferEntry> = new Map();
+  private _phaseBHazardSequenceId: string = 'seq_phaseB_hazard';
+  private _phaseBHazardAttacks: PhaseBHazardAttackItem[] = [];
+  private _phaseBHazardAttackCounter: number = 1;
   private _bindings: EditorBinding[] = [
     {
       chapterId: 'ch1',
@@ -306,6 +348,13 @@ export class EditorState {
       sequenceId: 'seq_phaseA_hazard',
       role: 'hazard',
     },
+    {
+      chapterId: 'ch1',
+      subLevelId: null,
+      phase: 'phaseB',
+      sequenceId: 'seq_phaseB_hazard',
+      role: 'hazard',
+    },
   ];
   private _customSequences: EditorSequence[] = [];
   private _stageBuiltinProfiles: Record<string, string> = {};
@@ -333,6 +382,7 @@ export class EditorState {
     this._registry = initialRegistry ?? new DancePatternRegistry(EXTENDED_CAT_CHOREO_PATTERNS);
     this._sequenceEditor = initialSequenceEditor ?? new PhaseSequenceEditor();
     this.initDefaultFeverSlots();
+    this.initDefaultPhaseBHazardAttacks();
     if (commandManager) {
       this._commandManager = commandManager;
       this._commandManager.addListener((newProj) => {
@@ -721,12 +771,21 @@ export class EditorState {
         sequenceId: 'seq_phaseA_hazard',
         role: 'hazard',
       },
+      {
+        chapterId: 'ch1',
+        subLevelId: null,
+        phase: 'phaseB',
+        sequenceId: 'seq_phaseB_hazard',
+        role: 'hazard',
+      },
     ];
     this._hazardSequenceId = 'seq_phaseA_hazard';
     this._hazardEventId = 'evt_phaseA_hazard_1';
     this._phaseAHazardPattern = 'left_step';
     this._feverSequenceId = 'seq_phaseB_fever';
     this.initDefaultFeverSlots();
+    this._phaseBHazardSequenceId = 'seq_phaseB_hazard';
+    this.initDefaultPhaseBHazardAttacks();
     this._stageBuiltinProfiles = {};
     this._lastSavedRevision = 0;
     this._isPublished = false;
@@ -781,7 +840,10 @@ export class EditorState {
 
   diagnoseBossClimaxBindings(chapterId: string): BossClimaxDiagnosisResult {
     const stageBindings = this._bindings.filter(
-      (b) => b.chapterId === chapterId && b.phase === 'phaseB' && (b.subLevelId === 'boss_climax' || b.subLevelId === null),
+      (b) =>
+        b.chapterId === chapterId &&
+        b.phase === 'phaseB' &&
+        (b.subLevelId === 'boss_climax' || b.subLevelId === null || b.subLevelId === 'fever_phase_b'),
     );
     const hasFeverNotes = stageBindings.some((b) => b.role === 'feverNotes');
     const hasHazard = stageBindings.some((b) => b.role === 'hazard');
@@ -2039,6 +2101,180 @@ export class EditorState {
     this.notifyStateChange();
   }
 
+  // --- Phase B Boss Hazard Methods (Issue #400 / EDITOR-HAZARD-B) ---
+
+  initDefaultPhaseBHazardAttacks(): void {
+    this._phaseBHazardAttacks = [
+      { id: 'evt_phaseB_hz_1', attackType: 'dual_slam', requiredAction: 'jump' },
+      { id: 'evt_phaseB_hz_2', attackType: 'alternating_stomp_left', requiredAction: 'left_step' },
+      { id: 'evt_phaseB_hz_3', attackType: 'alternating_stomp_right', requiredAction: 'right_step' },
+    ];
+    this._phaseBHazardAttackCounter = 4;
+  }
+
+  getPhaseBHazardAttacks(): PhaseBHazardAttackItem[] {
+    return this._phaseBHazardAttacks.map((a) => ({ ...a }));
+  }
+
+  getPhaseBHazardSequenceId(): string {
+    return this._phaseBHazardSequenceId;
+  }
+
+  setPhaseBHazardSequenceId(id: string): void {
+    this._phaseBHazardSequenceId = id;
+    this.notifyDocumentChange();
+    this.notifyStateChange();
+  }
+
+  getSupportedPhaseBAttacks(): readonly PhaseBPublishableAttack[] {
+    return PHASE_B_PUBLISHABLE_ATTACKS;
+  }
+
+  getRequiredActionForPhaseBAttack(attack: string): PhaseBRequiredAction | null {
+    if ((PHASE_B_PUBLISHABLE_ATTACKS as readonly string[]).includes(attack)) {
+      return PHASE_B_ATTACK_REQUIRED_ACTIONS[attack as PhaseBPublishableAttack];
+    }
+    return null;
+  }
+
+  addPhaseBHazardAttack(
+    attackType: PhaseBPublishableAttack,
+    index?: number
+  ): { success: boolean; error?: string } {
+    if (!(PHASE_B_PUBLISHABLE_ATTACKS as readonly string[]).includes(attackType)) {
+      return { success: false, error: `미지원 보스 공격 패턴입니다: ${attackType}` };
+    }
+    const requiredAction = getRequiredActionForPhaseBAttack(attackType);
+    const id = `evt_phaseB_hz_${this._phaseBHazardAttackCounter++}_${Math.random().toString(36).slice(2, 6)}`;
+    const newItem: PhaseBHazardAttackItem = { id, attackType, requiredAction };
+
+    if (index !== undefined && index >= 0 && index <= this._phaseBHazardAttacks.length) {
+      this._phaseBHazardAttacks.splice(index, 0, newItem);
+    } else {
+      this._phaseBHazardAttacks.push(newItem);
+    }
+
+    if (this._commandManager) {
+      this._commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
+    }
+    this.notifyDocumentChange();
+    this.notifyStateChange();
+    return { success: true };
+  }
+
+  removePhaseBHazardAttack(index: number): { success: boolean; error?: string } {
+    if (index < 0 || index >= this._phaseBHazardAttacks.length) {
+      return { success: false, error: `유효하지 않은 공격 인덱스입니다: ${index}` };
+    }
+    this._phaseBHazardAttacks.splice(index, 1);
+    if (this._commandManager) {
+      this._commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
+    }
+    this.notifyDocumentChange();
+    this.notifyStateChange();
+    return { success: true };
+  }
+
+  movePhaseBHazardAttack(fromIndex: number, toIndex: number): { success: boolean; error?: string } {
+    if (
+      fromIndex < 0 ||
+      fromIndex >= this._phaseBHazardAttacks.length ||
+      toIndex < 0 ||
+      toIndex >= this._phaseBHazardAttacks.length
+    ) {
+      return { success: false, error: '유효하지 않은 인덱스입니다.' };
+    }
+    const [moved] = this._phaseBHazardAttacks.splice(fromIndex, 1);
+    this._phaseBHazardAttacks.splice(toIndex, 0, moved);
+    if (this._commandManager) {
+      this._commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
+    }
+    this.notifyDocumentChange();
+    this.notifyStateChange();
+    return { success: true };
+  }
+
+  duplicatePhaseBHazardAttack(index: number): { success: boolean; error?: string } {
+    if (index < 0 || index >= this._phaseBHazardAttacks.length) {
+      return { success: false, error: `유효하지 않은 인덱스입니다: ${index}` };
+    }
+    const src = this._phaseBHazardAttacks[index];
+    const id = `evt_phaseB_hz_${this._phaseBHazardAttackCounter++}_${Math.random().toString(36).slice(2, 6)}`;
+    const newItem: PhaseBHazardAttackItem = {
+      id,
+      attackType: src.attackType,
+      requiredAction: src.requiredAction,
+    };
+    this._phaseBHazardAttacks.splice(index + 1, 0, newItem);
+    if (this._commandManager) {
+      this._commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
+    }
+    this.notifyDocumentChange();
+    this.notifyStateChange();
+    return { success: true };
+  }
+
+  setPhaseBHazardAttacks(
+    attacks: Array<{ attackType: PhaseBPublishableAttack; requiredAction?: PhaseBRequiredAction } | PhaseBPublishableAttack>
+  ): { success: boolean; error?: string } {
+    for (const item of attacks) {
+      const att = typeof item === 'string' ? item : item.attackType;
+      if (!(PHASE_B_PUBLISHABLE_ATTACKS as readonly string[]).includes(att)) {
+        return { success: false, error: `미지원 보스 공격 패턴입니다: ${att}` };
+      }
+    }
+    const newAttacks: PhaseBHazardAttackItem[] = [];
+    for (let i = 0; i < attacks.length; i++) {
+      const item = attacks[i];
+      const att = (typeof item === 'string' ? item : item.attackType) as PhaseBPublishableAttack;
+      const requiredAction = getRequiredActionForPhaseBAttack(att);
+      newAttacks.push({
+        id: `evt_phaseB_hz_${this._phaseBHazardAttackCounter++}_${i + 1}`,
+        attackType: att,
+        requiredAction,
+      });
+    }
+    this._phaseBHazardAttacks = newAttacks;
+    if (this._commandManager) {
+      this._commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
+    }
+    this.notifyDocumentChange();
+    this.notifyStateChange();
+    return { success: true };
+  }
+
+  validatePhaseBHazard(): PhaseBHazardValidationResult {
+    if (this._phaseBHazardAttacks.length === 0) {
+      return {
+        valid: false,
+        errors: ['Phase B 보스 공격 목록이 비어 있습니다. 최소 1개 이상의 공격 패턴이 필요합니다.'],
+        diagnosticCode: 'empty-hazard-sequence',
+      };
+    }
+    for (const item of this._phaseBHazardAttacks) {
+      if (!(PHASE_B_PUBLISHABLE_ATTACKS as readonly string[]).includes(item.attackType)) {
+        return {
+          valid: false,
+          errors: [`미지원 보스 공격 패턴이 포함되어 있습니다: ${item.attackType}`],
+          diagnosticCode: 'non-publishable-attack-type',
+        };
+      }
+    }
+    return { valid: true, errors: [] };
+  }
+
+  getPhaseBHazardLockedConfig(): PhaseBHazardLockedConfig {
+    return {
+      attackInterval: DEFAULT_BOSS_HAZARD_CONFIG.attackInterval,
+      warningDuration: DEFAULT_BOSS_HAZARD_CONFIG.warningDuration,
+      activeDuration: DEFAULT_BOSS_HAZARD_CONFIG.activeDuration,
+      damage: DEFAULT_BOSS_HAZARD_CONFIG.damage,
+      enrageHpRatio: DEFAULT_BOSS_HAZARD_CONFIG.enrageHpRatio,
+      enrageSpeedMultiplier: DEFAULT_BOSS_HAZARD_CONFIG.enrageSpeedMultiplier,
+      minionCasualtyCount: DEFAULT_BOSS_HAZARD_CONFIG.minionCasualtyCount,
+    };
+  }
+
   getFocusedError(): { entityId: string; path: string } | null {
     if (!this._focusedEntityId || !this._focusedErrorPath) {
       return null;
@@ -2209,6 +2445,16 @@ export class EditorState {
           branchDuration: 8,
           noteCount: 1,
         };
+      case 'BOSS_HAZARD':
+        return {
+          phase: 'BOSS_HAZARD',
+          beats: 16,
+          totalBeats: 16,
+          prompt: 'Phase B 보스 장판/공격 순서 및 회피 편집',
+          routine: null as any,
+          branchDuration: 16,
+          noteCount: this._phaseBHazardAttacks.length,
+        };
     }
   }
 
@@ -2230,6 +2476,8 @@ export class EditorState {
         return 8;
       case 'HAZARD_EVADE':
         return 8;
+      case 'BOSS_HAZARD':
+        return 16;
     }
   }
 
@@ -2526,6 +2774,16 @@ export class EditorState {
           },
         ],
       },
+      {
+        id: this._phaseBHazardSequenceId || 'seq_phaseB_hazard',
+        phase: 'phaseB',
+        kind: 'hazard',
+        events: this._phaseBHazardAttacks.map((item) => ({
+          id: item.id,
+          kind: 'phaseBHazard',
+          attackType: item.attackType,
+        })),
+      },
       ...this._customSequences,
     ];
 
@@ -2538,6 +2796,11 @@ export class EditorState {
       (b) =>
         b.phase === 'phaseB' &&
         (b.sequenceId === (this._feverSequenceId || 'seq_phaseB_fever') || b.role === 'feverNotes'),
+    );
+    const hasPhaseBHazardBinding = this._bindings.some(
+      (b) =>
+        b.phase === 'phaseB' &&
+        (b.sequenceId === (this._phaseBHazardSequenceId || 'seq_phaseB_hazard') || b.role === 'hazard'),
     );
     const bindings: EditorBinding[] = this._bindings.map((b) => ({ ...b }));
     if (!hasHazardBinding) {
@@ -2556,6 +2819,15 @@ export class EditorState {
         phase: 'phaseB',
         sequenceId: this._feverSequenceId || 'seq_phaseB_fever',
         role: 'feverNotes',
+      });
+    }
+    if (!hasPhaseBHazardBinding) {
+      bindings.push({
+        chapterId: 'ch1',
+        subLevelId: null,
+        phase: 'phaseB',
+        sequenceId: this._phaseBHazardSequenceId || 'seq_phaseB_hazard',
+        role: 'hazard',
       });
     }
 
@@ -2610,12 +2882,14 @@ export class EditorState {
         this._feverSequenceId,
         'seq_phaseA_hazard',
         this._hazardSequenceId,
+        'seq_phaseB_hazard',
+        this._phaseBHazardSequenceId,
       ]);
       for (const seq of project.sequences || []) {
         if (
           (seq.phase === 'phaseA' &&
             (seq.kind === 'starNotes' || seq.kind === 'motionGuide' || seq.kind === 'hazard')) ||
-          (seq.phase === 'phaseB' && (seq.kind === 'motionGuide' || seq.kind === 'feverNotes'))
+          (seq.phase === 'phaseB' && (seq.kind === 'motionGuide' || seq.kind === 'feverNotes' || seq.kind === 'hazard'))
         ) {
           handledSeqIds.add(seq.id);
         }
@@ -2789,6 +3063,23 @@ export class EditorState {
           if (loadedSlots.length > 0) {
             this._feverSlots = loadedSlots;
           }
+        } else if (seq.phase === 'phaseB' && seq.kind === 'hazard') {
+          if (seq.id) {
+            this._phaseBHazardSequenceId = seq.id;
+          }
+          const loadedAttacks: PhaseBHazardAttackItem[] = [];
+          for (let idx = 0; idx < (seq.events || []).length; idx++) {
+            const ev = seq.events[idx] as PhaseBHazardEvent;
+            const attack = (ev.attackType ?? ev.hazardType ?? '') as PhaseBPublishableAttack;
+            if ((PHASE_B_PUBLISHABLE_ATTACKS as readonly string[]).includes(attack)) {
+              loadedAttacks.push({
+                id: ev.id || `evt_phaseB_hz_${idx + 1}`,
+                attackType: attack,
+                requiredAction: getRequiredActionForPhaseBAttack(attack),
+              });
+            }
+          }
+          this._phaseBHazardAttacks = loadedAttacks;
         }
       }
 

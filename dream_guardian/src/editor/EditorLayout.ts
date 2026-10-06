@@ -52,6 +52,7 @@ export class EditorLayout {
       { value: 'FEVER_PHASE_B', label: '4. 피버 결전 (16박 풀루프)' },
       { value: 'FEVER_NOTES', label: '🔥 피버 노트 (Phase B)' },
       { value: 'HAZARD_EVADE', label: '⚠️ 오답 장판 (Phase A)' },
+      { value: 'BOSS_HAZARD', label: '👹 보스 장판/공격 (Phase B)' },
     ];
 
     const phaseOptions = phases
@@ -173,12 +174,15 @@ export class EditorLayout {
     const hazardSection = isHazardEvade ? this.renderHazardEvadeEditorHTML() : '';
     const isFeverNotes = this._state.selectedPhase === 'FEVER_NOTES';
     const feverSection = isFeverNotes ? this.renderFeverSlotEditorHTML() : '';
+    const isBossHazard = this._state.selectedPhase === 'BOSS_HAZARD';
+    const bossHazardSection = isBossHazard ? this.renderBossHazardEditorHTML() : '';
 
     return `
       <aside class="editor-sidebar">
         ${hazardSection}
         ${starSlotSection}
         ${feverSection}
+        ${bossHazardSection}
         <section class="sidebar-section pattern-details-section">
           <div class="section-title">
             <span>패턴 속성 편집</span>
@@ -1115,5 +1119,109 @@ export class EditorLayout {
         ${diagnosticsList}
       </div>
     `.trim();
+  }
+
+  /**
+   * Phase B 보스 장판 및 공격 순서(BOSS_HAZARD) 편집 UI HTML 렌더링 (#400)
+   */
+  renderBossHazardEditorHTML(): string {
+    const attacks = this._state.getPhaseBHazardAttacks();
+    const lockedConfig = this._state.getPhaseBHazardLockedConfig();
+
+    const attackNameMap: Record<string, string> = {
+      dual_slam: '양손 내려치기 (dual_slam)',
+      alternating_stomp_left: '왼발 발구르기 (alternating_stomp_left)',
+      alternating_stomp_right: '오른발 발구르기 (alternating_stomp_right)',
+    };
+
+    const actionBadgeMap: Record<string, { label: string; bg: string }> = {
+      jump: { label: '회피: JUMP (점프)', bg: '#8B5CF6' },
+      left_step: { label: '회피: LEFT STEP (좌스텝)', bg: '#06B6D4' },
+      right_step: { label: '회피: RIGHT STEP (우스텝)', bg: '#F59E0B' },
+    };
+
+    const attackCardsHTML = attacks
+      .map((att, idx) => {
+        const name = attackNameMap[att.attackType] ?? att.attackType;
+        const badge = actionBadgeMap[att.requiredAction] ?? {
+          label: `회피: ${att.requiredAction}`,
+          bg: '#64748B',
+        };
+        const isFirst = idx === 0;
+        const isLast = idx === attacks.length - 1;
+
+        return `
+          <div class="boss-hazard-attack-card" style="display:flex; flex-direction:column; gap:6px; background:rgba(30,41,59,0.7); border:1px solid #475569; border-radius:6px; padding:10px; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="attack-index-badge" style="background:#334155; color:#94A3B8; font-size:11px; font-weight:bold; padding:2px 6px; border-radius:4px;">#${idx + 1}</span>
+                <span style="font-weight:bold; font-size:13px; color:#F1F5F9;">${name}</span>
+              </div>
+              <span class="badge badge-${att.requiredAction}" style="background:${badge.bg}; color:#FFF; padding:3px 8px; border-radius:12px; font-weight:bold; font-size:11px;">${badge.label}</span>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:flex-end; gap:6px; margin-top:4px;">
+              <button class="btn btn-xs btn-secondary btn-move-up-boss-hazard" data-attack-index="${idx}" ${isFirst ? 'disabled' : ''} title="위로 이동">▲ 위로</button>
+              <button class="btn btn-xs btn-secondary btn-move-down-boss-hazard" data-attack-index="${idx}" ${isLast ? 'disabled' : ''} title="아래로 이동">▼ 아래로</button>
+              <button class="btn btn-xs btn-secondary btn-duplicate-boss-hazard" data-attack-index="${idx}" title="패턴 복제">📋 복제</button>
+              <button class="btn btn-xs btn-danger btn-delete-boss-hazard" data-attack-index="${idx}" title="삭제">🗑 삭제</button>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    const emptyWarningHTML =
+      attacks.length === 0
+        ? `
+          <div class="empty-attacks-warning" style="background:rgba(239,68,68,0.15); border:1px solid #EF4444; color:#FCA5A5; padding:8px 12px; border-radius:6px; margin-bottom:10px; font-size:12px;">
+            ⚠️ 등록된 공격 패턴이 없습니다. 게시를 위해 최소 1개 이상 추가하세요.
+          </div>
+        `
+        : `
+          <div class="attacks-count-info" style="font-size:12px; color:#94A3B8; margin-bottom:10px;">
+            총 ${attacks.length}개 공격 패턴 순서대로 반복 루프 실행
+          </div>
+        `;
+
+    return `
+      <section class="sidebar-section boss-hazard-editor-section" style="border:1px solid #F59E0B; background:rgba(245,158,11,0.06); margin-bottom:12px; border-radius:6px; padding:12px;">
+        <div class="section-title" style="display:flex; align-items:center; gap:6px; margin-bottom:10px;">
+          <span>👹 보스 장판 및 공격 순서 편집 (Phase B / BOSS_HAZARD)</span>
+        </div>
+
+        ${emptyWarningHTML}
+
+        <div class="boss-hazard-attack-list" style="margin-bottom:12px;">
+          ${attackCardsHTML}
+        </div>
+
+        <div class="boss-hazard-add-control" style="background:rgba(15,23,42,0.6); border:1px dashed #64748B; border-radius:6px; padding:10px; margin-bottom:12px;">
+          <label for="boss-hazard-attack-select" style="font-size:12px; color:#CBD5E1; display:block; margin-bottom:6px;">새 보스 공격 패턴 추가:</label>
+          <div style="display:flex; gap:6px;">
+            <select id="boss-hazard-attack-select" class="editor-select" style="flex:1;">
+              <option value="dual_slam">양손 내려치기 (회피: 점프 / JUMP)</option>
+              <option value="alternating_stomp_left">왼발 발구르기 (회피: 좌스텝 / LEFT STEP)</option>
+              <option value="alternating_stomp_right">오른발 발구르기 (회피: 우스텝 / RIGHT STEP)</option>
+            </select>
+            <button id="btn-add-boss-hazard" class="btn btn-primary" style="white-space:nowrap;">+ 공격 추가</button>
+          </div>
+        </div>
+
+        <div class="boss-hazard-locked-config" style="background:rgba(15,23,42,0.8); border:1px solid #334155; border-radius:6px; padding:10px; font-size:12px;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px; color:#E2E8F0; font-weight:bold;">
+            <span>🔒 전투 수치 잠금 (게임 밸런스 보호)</span>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 8px; color:#94A3B8;">
+            <div>공격 주기: <strong style="color:#CBD5E1;">${lockedConfig.attackInterval.toFixed(1)}초</strong></div>
+            <div>전조/활성: <strong style="color:#CBD5E1;">${lockedConfig.warningDuration.toFixed(1)}s / ${lockedConfig.activeDuration.toFixed(1)}s</strong></div>
+            <div>피격 피해: <strong style="color:#EF4444;">${lockedConfig.damage} HP</strong></div>
+            <div>군단 손실: <strong style="color:#F97316;">${lockedConfig.minionCasualtyCount}체</strong></div>
+          </div>
+          <div style="margin-top:6px; font-size:11px; color:#64748B;">
+            광폭화: HP ${(lockedConfig.enrageHpRatio * 100).toFixed(0)}% 이하 시 ${lockedConfig.enrageSpeedMultiplier}x 가속 (수정 불가)
+          </div>
+        </div>
+      </section>
+    `;
   }
 }

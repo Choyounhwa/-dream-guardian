@@ -2,6 +2,35 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 👹 Phase B 보스 공격 순서·회피 정보 편집 카드 (EDITOR-HAZARD-B, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#400 EDITOR-HAZARD-B](https://github.com/Choyounhwa/-dream-guardian/issues/400)
+
+- **작업 목적**:
+  1. 책임 레이어 Editor (`src/editor/`) 내에서 Phase B 보스 공격 순서(`dual_slam`, `alternating_stomp_left`, `alternating_stomp_right`) 목록 관리 및 회피 동작 자동 매핑/편집 기능 구현.
+  2. `EditorState.ts`:
+     - 페이즈 모델에 `BOSS_HAZARD` (`phase: 'phaseB', kind: 'hazard'`) 추가.
+     - 지원 공격 3종(`dual_slam`, `alternating_stomp_left`, `alternating_stomp_right`) 순서 목록 추가, 제거, 위/아래 이동, 복제, 전체 설정 API 구현.
+     - 각 공격 종류로부터 요구 회피 동작 자동 매핑 (`PHASE_B_ATTACK_REQUIRED_ACTIONS`: `dual_slam` -> `jump`, `alternating_stomp_left` -> `left_step`, `alternating_stomp_right` -> `right_step`). 임의 회피 동작 입력 불가 및 미지원 공격 원천 차단.
+     - 초 단위 공격 주기(5.0초), 전조(1.5초), 활성(1.0초), 데미지(15 HP), 군단 손실(1체), 광폭화(HP 30% 이하 시 1.5배 가속) 등 전투 수치 읽기 전용 잠금(Locked).
+     - 빈 공격 목록(0개)인 경우 검증 및 게시 차단 진단(`empty-hazard-sequence`) 제공.
+     - 피버 노트(`feverNotes`), 모션 가이드(`motionGuide`), Phase A 장판(`phaseAHazard`), 별 수집(`starNotes`) 데이터와 완전 격리 독립 저장.
+     - `toEditorProject()`, `applyProject()` 직렬화/역직렬화 및 `ProjectCommandManager` Undo/Redo 무결성 유지.
+  3. `EditorLayout.ts`:
+     - 상단 페이즈 셀렉터에 [👹 보스 장판/공격 (Phase B)] / `BOSS_HAZARD` 옵션 제공.
+     - 사이드바 전용 편집 패널: 공격 순서 목록 카드, [공격 추가] 드롭다운 및 버튼, [위로], [아래로], [복제], [삭제] 액션 버튼, 회피 동작 배지 UI.
+     - 빈 목록 경고 배너 및 읽기 전용 전투 수치 잠금 안내 패널 표시.
+  4. `main.ts`:
+     - Phase B 보스 공격 패턴 추가, 순서 이동(위/아래), 복제, 삭제 이벤트 리스너 바인딩 연동.
+- **수정 파일 (소스 3개 + 신규 테스트 1개)**:
+  - `dream_guardian/src/editor/EditorState.ts`: `BOSS_HAZARD` 페이즈 지원, 보스 공격 패턴 조작/검증 API, 잠금 수치, 시퀀스/바인딩 직렬화 및 역직렬화
+  - `dream_guardian/src/editor/EditorLayout.ts`: `BOSS_HAZARD` 상단 옵션, 사이드바 `renderBossHazardEditorHTML` 공격 순서 목록/액션/잠금 UI
+  - `dream_guardian/src/editor/main.ts`: 보스 공격 추가, 위/아래 이동, 복제, 삭제 이벤트 핸들러 연동
+  - `dream_guardian/tests/unit/editor-phase-b-hazard.test.ts` (신규, 26개 단위 테스트)
+- **TDD 검증**: `tests/unit/editor-phase-b-hazard.test.ts` (26/26 Pass, 100%).
+- **전체 검증**: `npm test` 243 files / 2,915 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 🌟 Phase B 피버 시퀀스 공급·반복 ID·마지막 판정 수명 연결 카드 (GAME-FEVER-CONTENT, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#399 GAME-FEVER-CONTENT](https://github.com/Choyounhwa/-dream-guardian/issues/399)
@@ -425,7 +454,9 @@
 | [#396](https://github.com/Choyounhwa/-dream-guardian/issues/396) GAME-HAZARD-A-CONTENT | Phase A 장판 소비 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#397](https://github.com/Choyounhwa/-dream-guardian/issues/397) BOOT-HAZARD-A-CONTENT | 게임 조립계층 오답 장판 팩 연결 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#398](https://github.com/Choyounhwa/-dream-guardian/issues/398) EDITOR-FEVER | 16박 가이드/8노트 피버 분리 편집 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#399](https://github.com/Choyounhwa/-dream-guardian/issues/399) GAME-FEVER-CONTENT | 피버 시퀀스 공급·반복 ID·마지막 판정 수명 연결 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
+| [#399](https://github.com/Choyounhwa/-dream-guardian/issues/399) GAME-FEVER-CONTENT | 피버 시퀀스 공급·반복 ID·마지막 판정 수명 연결 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#400](https://github.com/Choyounhwa/-dream-guardian/issues/400) EDITOR-HAZARD-B | Phase B 보스 공격 순서·회피 정보 편집 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#401](https://github.com/Choyounhwa/-dream-guardian/issues/401) GAME-HAZARD-B-CONTENT | Phase B 장판 공급 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 

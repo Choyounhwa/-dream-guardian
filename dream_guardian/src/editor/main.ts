@@ -746,6 +746,68 @@ window.addEventListener('DOMContentLoaded', () => {
         updateSidebar();
       });
     });
+
+    // Phase B 보스 장판 및 공격 순서 이벤트 바인딩 (#400)
+    const addBossHazardBtn = document.getElementById('btn-add-boss-hazard');
+    if (addBossHazardBtn) {
+      addBossHazardBtn.addEventListener('click', () => {
+        const sel = document.getElementById('boss-hazard-attack-select') as HTMLSelectElement | null;
+        const attackType = (sel?.value || 'dual_slam') as any;
+        const res = state.addPhaseBHazardAttack(attackType);
+        if (!res.success) {
+          alert(res.error || '공격 추가 실패');
+        }
+        updateSidebar();
+      });
+    }
+
+    const moveUpBossHazardBtns = document.querySelectorAll('.btn-move-up-boss-hazard');
+    moveUpBossHazardBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const idxStr = (e.currentTarget as HTMLElement).getAttribute('data-attack-index');
+        if (idxStr !== null) {
+          const idx = parseInt(idxStr, 10);
+          state.movePhaseBHazardAttack(idx, idx - 1);
+          updateSidebar();
+        }
+      });
+    });
+
+    const moveDownBossHazardBtns = document.querySelectorAll('.btn-move-down-boss-hazard');
+    moveDownBossHazardBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const idxStr = (e.currentTarget as HTMLElement).getAttribute('data-attack-index');
+        if (idxStr !== null) {
+          const idx = parseInt(idxStr, 10);
+          state.movePhaseBHazardAttack(idx, idx + 1);
+          updateSidebar();
+        }
+      });
+    });
+
+    const dupeBossHazardBtns = document.querySelectorAll('.btn-duplicate-boss-hazard');
+    dupeBossHazardBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const idxStr = (e.currentTarget as HTMLElement).getAttribute('data-attack-index');
+        if (idxStr !== null) {
+          const idx = parseInt(idxStr, 10);
+          state.duplicatePhaseBHazardAttack(idx);
+          updateSidebar();
+        }
+      });
+    });
+
+    const deleteBossHazardBtns = document.querySelectorAll('.btn-delete-boss-hazard');
+    deleteBossHazardBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const idxStr = (e.currentTarget as HTMLElement).getAttribute('data-attack-index');
+        if (idxStr !== null) {
+          const idx = parseInt(idxStr, 10);
+          state.removePhaseBHazardAttack(idx);
+          updateSidebar();
+        }
+      });
+    });
   };
 
   // 5. 헤더 툴바 이벤트 바인딩
