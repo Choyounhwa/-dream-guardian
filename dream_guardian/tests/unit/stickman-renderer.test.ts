@@ -511,8 +511,8 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       renderer = new StickmanRenderer();
     });
 
-    it('STICKMAN_SCALE_PRESETS에 1.0, 1.25, 1.5 배율이 정의되어 있다', () => {
-      expect(STICKMAN_SCALE_PRESETS).toEqual([1.0, 1.25, 1.5]);
+    it('STICKMAN_SCALE_PRESETS에 1.0, 1.25, 1.5, 2.0 배율이 정의되어 있다', () => {
+      expect(STICKMAN_SCALE_PRESETS).toEqual([1.0, 1.25, 1.5, 2.0]);
     });
 
     it('기본 스케일은 1.0이며 setter 및 setScale()로 스케일을 변경할 수 있다', () => {
@@ -521,6 +521,8 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       expect(renderer.scale).toBe(1.25);
       renderer.setScale(1.5);
       expect(renderer.scale).toBe(1.5);
+      renderer.setScale(2.0);
+      expect(renderer.scale).toBe(2.0);
     });
 
     it('스케일 배율에 따라 FK 사지 길이(팔, 다리, 몸통)가 정확히 비례하여 확대된다', () => {
@@ -568,7 +570,7 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       expect(armDist).toBeCloseTo(STICKMAN_CONFIG.limbLengths.upperArm * 1.25, 1);
     });
 
-    it('SettingsModal에서 stickmanScale 순환 토글 및 라벨이 정상 동작한다', () => {
+    it('SettingsModal에서 stickmanScale 순환 토글 및 라벨이 정상 동작한다 (1.0x -> 1.25x -> 1.5x -> 2.0x -> 1.0x)', () => {
       const modal = new SettingsModal();
       expect(modal.stickmanScale).toBe(1.0);
       expect(modal.stickmanScaleLabel).toBe('기본 (1.0x)');
@@ -580,6 +582,10 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       modal.cycleStickmanScale();
       expect(modal.stickmanScale).toBe(1.5);
       expect(modal.stickmanScaleLabel).toBe('매우 크게 (1.5x)');
+
+      modal.cycleStickmanScale();
+      expect(modal.stickmanScale).toBe(2.0);
+      expect(modal.stickmanScaleLabel).toBe('최대 (2.0x)');
 
       modal.cycleStickmanScale();
       expect(modal.stickmanScale).toBe(1.0);

@@ -45,7 +45,7 @@
 
 **[✔] 구현 및 검증 완료.** [#420 FEAT-SKEL-SCALE-001](https://github.com/Choyounhwa/-dream-guardian/issues/420)
 
-- **작업 목적**: 원거리 웹캠 플레이 및 시인성 향상을 위해 졸라맨(화이트 클레이) 아바타의 크기를 키울 수 있는 배율(Scale) 옵션(1.0x / 1.25x / 1.5x) 지원 및 렌더링 동적 스케일링.
+- **작업 목적**: 원거리 웹캠 플레이 및 시인성 향상을 위해 졸라맨(화이트 클레이) 아바타의 크기를 키울 수 있는 배율(Scale) 옵션(1.0x / 1.25x / 1.5x / 2.0x) 지원 및 렌더링 동적 스케일링.
 - **수정 파일 (3개)**: `dream_guardian/config/skeleton.config.ts`, `dream_guardian/src/skeleton/StickmanRenderer.ts`, `dream_guardian/src/ui/SettingsModal.ts`
 - **TDD 검증**: `tests/unit/stickman-renderer.test.ts`에 스케일 변경에 따른 FK 관절 거리, 캡슐/관절 두께 스케일링 및 설정 모달 토글/라벨 연동 검증 테스트 추가 (28/28 Pass).
 - **전체 검증**: `npm test` 228 files / 2,709 passed (100% Pass), `npm run build` 성공.

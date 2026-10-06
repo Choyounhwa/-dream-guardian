@@ -43,7 +43,7 @@ export interface StickmanColors {
   groundShadow?: string;// 지면 부드러운 타원형 앰비언트 접지 그림자 컬러
 }
 
-export const STICKMAN_SCALE_PRESETS = [1.0, 1.25, 1.5] as const;
+export const STICKMAN_SCALE_PRESETS = [1.0, 1.25, 1.5, 2.0] as const;
 export type StickmanScale = (typeof STICKMAN_SCALE_PRESETS)[number];
 
 export interface StickmanConfig {

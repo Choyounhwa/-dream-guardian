@@ -182,6 +182,7 @@ export class SettingsModal {
   get stickmanScaleLabel(): string {
     if (Math.abs(this._stickmanScale - 1.25) < 0.05) return '크게 (1.25x)';
     if (Math.abs(this._stickmanScale - 1.5) < 0.05) return '매우 크게 (1.5x)';
+    if (Math.abs(this._stickmanScale - 2.0) < 0.05) return '최대 (2.0x)';
     return '기본 (1.0x)';
   }
 
@@ -190,6 +191,8 @@ export class SettingsModal {
       this.stickmanScale = 1.25;
     } else if (Math.abs(this._stickmanScale - 1.25) < 0.05) {
       this.stickmanScale = 1.5;
+    } else if (Math.abs(this._stickmanScale - 1.5) < 0.05) {
+      this.stickmanScale = 2.0;
     } else {
       this.stickmanScale = 1.0;
     }
