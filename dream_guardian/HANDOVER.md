@@ -2,6 +2,29 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🎮 게시 hash 기반 테스트 플레이 실행·상태 표시 카드 (EDITOR-TEST-LAUNCH, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#393 EDITOR-TEST-LAUNCH](https://github.com/Choyounhwa/-dream-guardian/issues/393)
+
+- **작업 목적**:
+  1. 책임 레이어 Editor (`src/editor/`) 내에서 에디터 상단 및 릴리즈 패널에 [🎮 테스트 플레이] 런처 액션 및 론칭 상태 컨트롤러 구현.
+  2. 초안(EditorProject)은 직접 전송하지 않고, 검증 완료되어 저장된 `PublishedContentPack`(지정 hash 또는 activeContentHash)만 사용.
+  3. 미게시(저장소 부재), 호환성 검증 미달, 미반영 dirty form(폼 작성 중) 상태인 경우 실행 차단.
+  4. 대상 팩의 `contentHash`, `rulesetId`, `rulesetHash`, `bpm`, `sourceRevision` 메타데이터 및 격리 URL 디스크립터 제공.
+  5. 브라우저 환경에서 격리된 테스트 플레이 URL(`/?mode=test&hash=${contentHash}`) 준비/실행.
+  6. 연결 실패, 저장소 부재, 다른 origin, 브라우저 미지원 상황 발생 시 실패 상태와 명확한 진단 메시지 반환 (성공 오표시 금지).
+  7. 상단 헤더 및 릴리즈 모달에 [🎮 테스트 플레이] 버튼 추가 및 상태 바인딩.
+  8. 테스트 모드 실행 시 hash 일치 확인 UI 피드백 (요청 hash vs 실제 실행 대상 hash).
+  9. 게임 전역 설정 / 실제 세션 진척도 / 보상 저장은 Issue #391 계약에 의해 격리됨을 표시.
+- **수정 파일 (3개 소스 + 1개 테스트, Scope Guard 준수)**:
+  - `dream_guardian/src/editor/EditorPublishController.ts`
+  - `dream_guardian/src/editor/EditorLayout.ts`
+  - `dream_guardian/src/editor/main.ts`
+  - `dream_guardian/tests/unit/editor-test-launch.test.ts` (신규, 12개 단위 테스트)
+- **TDD 검증**: `tests/unit/editor-test-launch.test.ts` (12/12 Pass, 100%).
+- **전체 검증**: `npm test` 236 files / 2,818 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 🎬 컴파일된 이벤트 기반 자세·시간 미리보기 카드 (EDITOR-PREVIEW, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#392 EDITOR-PREVIEW](https://github.com/Choyounhwa/-dream-guardian/issues/392)
@@ -274,7 +297,8 @@
 | [#390](https://github.com/Choyounhwa/-dream-guardian/issues/390) CONTENT-BOOT-STAR | 별 팩 주입/CSV 경쟁 차단 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#391](https://github.com/Choyounhwa/-dream-guardian/issues/391) CONTENT-TEST-SESSION | 테스트 세션/실제 기록 격리 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#392](https://github.com/Choyounhwa/-dream-guardian/issues/392) EDITOR-PREVIEW | 컴파일 이벤트 기반 미리보기 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#393](https://github.com/Choyounhwa/-dream-guardian/issues/393) EDITOR-TEST-LAUNCH | 게시 hash 테스트 실행 UX | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
+| [#393](https://github.com/Choyounhwa/-dream-guardian/issues/393) EDITOR-TEST-LAUNCH | 게시 hash 테스트 실행 UX | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#394](https://github.com/Choyounhwa/-dream-guardian/issues/394) EDITOR-MVP-QA | 별 제작→게임→롤백 종단 인수 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 
