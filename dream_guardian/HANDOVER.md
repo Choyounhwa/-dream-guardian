@@ -2,6 +2,25 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🌟 게임 조립계층 별 팩 주입·기존 CSV 경쟁 차단 카드 (CONTENT-BOOT-STAR, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#390 CONTENT-BOOT-STAR](https://github.com/Choyounhwa/-dream-guardian/issues/390)
+
+- **작업 목적**:
+  1. 책임 레이어 Core (`src/core/`) 내에서 editor 모듈 의존성 0% 스테이지 시작 전 콘텐츠 모드(`default_csv` vs `custom_pack`) 확정 및 주입.
+  2. 선택 팩(Published Content Pack) 제공 시 `ContentProvider.resolveSessionStage`를 통해 해석된 `SessionStageBundle`의 7개 별 노트 및 BPM을 주입 (`GameSessionContext` 및 `BeatRunCoordinator`).
+  3. 비동기 CSV 로드 경쟁 차단: 늦게 완료된 `/fitness pattern.csv` 로드가 이미 커스텀 팩이 활성화된 세션의 노트를 덮어쓰지 못하도록 세션 식별자(`sessionId`), 세대 번호(`contentGeneration`) 및 콘텐츠 모드(`contentMode === 'custom_pack'`) 가드로 차단.
+  4. 불완전 팩(`notes = []` 또는 7개 미만) 우회 방지: 불완전 팩은 전체 거부하고 whole-pack fallback으로 `default_csv` 모드 전환.
+  5. 정답 분기 진입(`STAR_COLLECT`) 시 Direct vs Transition 양쪽 진입 경로에서 일치하는 `notes`, `branchClock`, `BPM`, `roundID` 주입 및 중복 시작 방지 (`!starNoteScheduler.isStarted`).
+  6. pause/restart 및 새 스테이지 전환 시 이전 세션 팩 오염 방지 및 요청 격리 (`cancelCurrentRequest()`, `resetContent()`).
+- **수정 파일 (2개 소스 + 1개 테스트, Scope Guard 준수)**:
+  - `dream_guardian/src/core/GameSessionContext.ts`
+  - `dream_guardian/src/core/AppBootstrap.ts`
+  - `dream_guardian/tests/integration/content-star-bootstrap.test.ts` (신규, 6개 통합 테스트)
+- **TDD 검증**: `tests/integration/content-star-bootstrap.test.ts` (6/6 Pass, 100%).
+- **전체 검증**: `npm test` 233 files / 2,788 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 📡 로컬 게시본 수신·호환 재검증·요청 수명 관리 카드 (CONTENT-LOAD, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#389 CONTENT-LOAD](https://github.com/Choyounhwa/-dream-guardian/issues/389)
@@ -211,7 +230,8 @@
 | [#387](https://github.com/Choyounhwa/-dream-guardian/issues/387) EDITOR-PUBLISH | 검증/게시/적용 예약 UI | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#388](https://github.com/Choyounhwa/-dream-guardian/issues/388) CONTENT-SESSION | 게임 런타임 적용본 단일 공급자(Provider) 및 세션 고정 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#389](https://github.com/Choyounhwa/-dream-guardian/issues/389) CONTENT-LOAD | 명시적 로컬 팩 수신/재검증 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#390](https://github.com/Choyounhwa/-dream-guardian/issues/390) CONTENT-BOOT-STAR | 별 팩 주입/CSV 경쟁 차단 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
+| [#390](https://github.com/Choyounhwa/-dream-guardian/issues/390) CONTENT-BOOT-STAR | 별 팩 주입/CSV 경쟁 차단 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#391](https://github.com/Choyounhwa/-dream-guardian/issues/391) CONTENT-TEST-SESSION | 테스트 세션/실제 기록 격리 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 

@@ -15,6 +15,34 @@ import type {
   GameSessionContextOptions,
   SessionPhase,
 } from './types.js';
+import { BEGINNER_PHASE_A_STAR_NOTES } from '../data/beginnerRhythmRoutine.js';
+import { ContentProvider } from '../game/ContentProvider.js';
+import type { SessionStageBundle } from '../game/SessionContent.js';
+import type { CompiledStarNote, PublishedContentPack } from '../data/PublishedContentPack.js';
+import type { Keynote, KeynoteInstrument, KeynotePart } from '../types/keynote.js';
+
+export type ContentMode = 'default_csv' | 'custom_pack';
+
+/**
+ * CompiledStarNote를 런타임 Keynote 모델로 변환
+ */
+export function compiledStarNoteToKeynote(note: CompiledStarNote): Keynote {
+  const target = note.target;
+  const part: KeynotePart =
+    target.part === 'hip' || target.part === 'leftHand' || target.part === 'rightHand'
+      ? target.part
+      : 'leftHand';
+  const instrument: KeynoteInstrument =
+    target.instrument ?? (part === 'hip' ? 'foot' : 'hand');
+
+  return {
+    patternId: note.sourcePatternId ?? note.id ?? 'published-star-note',
+    part,
+    zoneId: target.zoneId,
+    instrument,
+    beat: note.landingBeat,
+  };
+}
 
 export class GameSessionContext {
   private _metadata: SessionMetadata;
@@ -22,6 +50,13 @@ export class GameSessionContext {
   private _isActive = false;
   private readonly _systems: CoreSystems;
   private readonly _controllers: GameControllers;
+
+  // Issue #390: 콘텐츠 모드 및 별 노트 세션 바인딩
+  private _contentMode: ContentMode = 'default_csv';
+  private _activeStageBundle: SessionStageBundle | null = null;
+  private _activeStarNotes: readonly Keynote[] | null = null;
+  private readonly _contentProvider: ContentProvider = new ContentProvider();
+  private _contentGeneration = 0;
 
   constructor(options?: GameSessionContextOptions) {
     this._metadata = {
@@ -59,6 +94,26 @@ export class GameSessionContext {
   /** 현재 세션 활성 여부 */
   get isActive(): boolean {
     return this._isActive;
+  }
+
+  /** 현재 콘텐츠 모드 (default_csv vs custom_pack) */
+  get contentMode(): ContentMode {
+    return this._contentMode;
+  }
+
+  /** 현재 적용된 세션 스테이지 번들 */
+  get activeStageBundle(): SessionStageBundle | null {
+    return this._activeStageBundle;
+  }
+
+  /** 현재 세션의 7개 별 노트 (커스텀 팩 또는 기본 입문 루틴) */
+  get starNotes(): readonly Keynote[] {
+    return this._activeStarNotes ?? BEGINNER_PHASE_A_STAR_NOTES;
+  }
+
+  /** 콘텐츠 요청/설정 세대 번호 */
+  get contentGeneration(): number {
+    return this._contentGeneration;
   }
 
   /** 등록된 시스템 참조 맵 */
@@ -160,6 +215,9 @@ export class GameSessionContext {
     this._metrics.combo = 0;
     this._metrics.consecutiveWrongCount = 0;
 
+    // Issue #390: 콘텐츠 상태 초기화
+    this.resetContent();
+
     // 바인딩된 컨트롤러 리셋 호출
     this._controllers.battle?.reset?.();
     this._controllers.guardian?.reset?.();
@@ -210,5 +268,86 @@ export class GameSessionContext {
       return boss.hp / boss.maxHp <= 0.3;
     }
     return false;
+  }
+
+  /**
+   * 스테이지 콘텐츠 설정 (PublishedContentPack 주입 또는 Default CSV 모드 확정)
+   * 불완전 팩(notes=[] 등)은 거부하고 whole-pack fallback으로 default_csv 모드로 처리
+   */
+  setStageContent(options: {
+    stageId: string;
+    pack?: PublishedContentPack | null;
+    fallbackPack?: PublishedContentPack | null;
+    seed?: number;
+  }): { contentMode: ContentMode; bundle: SessionStageBundle | null; starNotes: readonly Keynote[] } {
+    this._contentGeneration++;
+
+    if (!options.pack) {
+      this._contentMode = 'default_csv';
+      this._activeStageBundle = null;
+      this._activeStarNotes = [...BEGINNER_PHASE_A_STAR_NOTES];
+      return {
+        contentMode: 'default_csv',
+        bundle: null,
+        starNotes: this._activeStarNotes,
+      };
+    }
+
+    const bundle = this._contentProvider.resolveSessionStage({
+      stageId: options.stageId,
+      pack: options.pack,
+      fallbackPack: options.fallbackPack,
+      seed: options.seed,
+    });
+
+    const rawStarNotes = bundle.phaseA?.starNotes;
+    const isComplete = !bundle.isFallback && Array.isArray(rawStarNotes) && rawStarNotes.length === 7;
+
+    if (!isComplete) {
+      this._contentMode = 'default_csv';
+      this._activeStageBundle = null;
+      this._activeStarNotes = [...BEGINNER_PHASE_A_STAR_NOTES];
+      return {
+        contentMode: 'default_csv',
+        bundle: null,
+        starNotes: this._activeStarNotes,
+      };
+    }
+
+    const keynotes = rawStarNotes.map((note) => compiledStarNoteToKeynote(note));
+    this._contentMode = 'custom_pack';
+    this._activeStageBundle = bundle;
+    this._activeStarNotes = Object.freeze(keynotes);
+
+    return {
+      contentMode: 'custom_pack',
+      bundle: this._activeStageBundle,
+      starNotes: this._activeStarNotes,
+    };
+  }
+
+  /**
+   * 기본 CSV 피트니스 패턴 기반 키노트 업데이트 (경쟁 차단 적용)
+   * 커스텀 팩이 활성화되어 있거나 세션/생성번호가 불일치하는 경우 무시
+   */
+  applyCsvKeynotes(keynotes: readonly Keynote[], generation?: number): boolean {
+    if (this._contentMode === 'custom_pack') {
+      return false;
+    }
+    if (generation !== undefined && generation !== this._contentGeneration) {
+      return false;
+    }
+    this._activeStarNotes = Object.freeze([...keynotes]);
+    return true;
+  }
+
+  /**
+   * 콘텐츠 상태 초기화 (Default CSV 모드로 복구)
+   */
+  resetContent(): void {
+    this._contentGeneration++;
+    this._contentMode = 'default_csv';
+    this._activeStageBundle = null;
+    this._activeStarNotes = [...BEGINNER_PHASE_A_STAR_NOTES];
   }
 }

@@ -29,6 +29,9 @@ import { QuestionBank } from '../question/QuestionBank.js';
 import { parseCSV } from '../question/CSVLoader.js';
 import { parseFitnessPatternCSV, createKeynoteSequence } from '../data/index.js';
 import { BEGINNER_PHASE_A_STAR_NOTES } from '../data/beginnerRhythmRoutine.js';
+import { ContentLoadService } from './ContentLoadService.js';
+import { ContentProvider } from '../game/ContentProvider.js';
+import type { PublishedContentPack } from '../data/PublishedContentPack.js';
 import type { Keynote } from '../types/keynote.js';
 import type { GeneratedQuestion } from '../question/QuestionEvaluator.js';
 import { QuestionSpeech } from '../question/QuestionSpeech.js';
@@ -163,6 +166,7 @@ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D
   };
 }
 
+let activePublishedPack: PublishedContentPack | null = null;
 
 export class AppBootstrap {
   public readonly canvas: HTMLCanvasElement;
@@ -233,11 +237,17 @@ export class AppBootstrap {
   public readonly mainSceneContext: MainSceneContext;
   public readonly getPhaseAStarNotes: () => readonly Keynote[];
   public readonly engine: GameEngine;
+  public readonly contentLoadService: ContentLoadService;
+  public readonly contentProvider: ContentProvider;
+  public setCustomContentPack: (pack: PublishedContentPack | null) => void;
+  public get activePublishedPack(): PublishedContentPack | null {
+    return activePublishedPack;
+  }
 
   // Actions
   public readonly selectChapter: (ch: number) => void;
   public readonly selectSubLevel: (sub: number | null) => void;
-  public readonly startChapter: (ch: number, sub?: number) => void;
+  public readonly startChapter: (ch: number, sub?: number, options?: { pack?: PublishedContentPack | null }) => void;
   public readonly startReadyPhase: () => void;
   public readonly startRunningPhase: () => void;
   public readonly enterQuestionPhase: () => void;
@@ -414,8 +424,14 @@ starNoteScheduler.setViewport(
   (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
 );
 
-// Issue #411 (RHYTHM-INTRO-004): Phase A 입문 7노트 단일 공급원
-const getPhaseAStarNotes = (): readonly Keynote[] => BEGINNER_PHASE_A_STAR_NOTES;
+// Issue #390 (CONTENT-BOOT-STAR): 게시본 콘텐츠 팩 주입 및 로드 수명 관리
+const contentLoadService = new ContentLoadService();
+const contentProvider = new ContentProvider();
+
+// Issue #411 & #390: Phase A 7노트 단일 공급원 (커스텀 팩 또는 기본 입문 루틴)
+let sessionContext: GameSessionContext;
+const getPhaseAStarNotes = (): readonly Keynote[] =>
+  sessionContext ? sessionContext.starNotes : BEGINNER_PHASE_A_STAR_NOTES;
 
 // Issue #213 & #193 & #194: 전역 이벤트 버스 및 Phase B 컨트롤러 인스턴스 참조 선언
 const eventBus = new EventBus();
@@ -676,14 +692,17 @@ stateMachine.registerState('STAR_COLLECT', {
     questionVisible = false;
     answerLocked = true;
     playedNoteAudioIds.clear();
-    const branchClock = beatCoordinator.getBranchClock();
-    starNoteScheduler.start(engine.elapsedTime, {
-      roundId: beatRoundResolver.currentRoundIndex,
-      notes: getPhaseAStarNotes(),
-      ...(branchClock
-        ? { branchClock, secondsPerBeat: branchClock.secondsPerBeat }
-        : { secondsPerBeat: beatCoordinator.rhythmEngine.secondsPerBeat }),
-    });
+    if (!starNoteScheduler.isStarted) {
+      const branchClock = beatCoordinator.getBranchClock();
+      const startTime = engine ? engine.elapsedTime : 0;
+      starNoteScheduler.start(startTime, {
+        roundId: beatRoundResolver.currentRoundIndex,
+        notes: getPhaseAStarNotes(),
+        ...(branchClock
+          ? { branchClock, secondsPerBeat: branchClock.secondsPerBeat }
+          : { secondsPerBeat: beatCoordinator.rhythmEngine.secondsPerBeat }),
+      });
+    }
   },
   exit: () => {
     starNoteScheduler.reset();
@@ -1037,12 +1056,30 @@ async function loadQuestions(): Promise<void> {
 }
 
 async function loadFitnessPatterns(): Promise<void> {
+  const reqSession = sessionLifecycle.sessionId;
+  const reqGen = sessionContext ? sessionContext.contentGeneration : 0;
   try {
     const resp = await fetch('/fitness pattern.csv');
     if (resp.ok) {
       const text = await resp.text();
       const records = parseFitnessPatternCSV(text);
       const keynotes = createKeynoteSequence(records, 7);
+
+      // Issue #390: 경쟁 차단 가드 (세션 변경 또는 커스텀 팩 활성화 시 덮어쓰기 금지)
+      if (sessionLifecycle.sessionId !== reqSession) {
+        console.log('[DG] 세션 변경으로 인한 CSV 피트니스 패턴 로드 무시');
+        return;
+      }
+      if (sessionContext && sessionContext.contentMode === 'custom_pack') {
+        console.log('[DG] 커스텀 팩 활성화 상태이므로 CSV 패턴으로 노트를 덮어쓰지 않습니다.');
+        return;
+      }
+
+      if (sessionContext) {
+        const applied = sessionContext.applyCsvKeynotes(keynotes, reqGen);
+        if (!applied) return;
+      }
+
       beatCoordinator.setKeynotes(keynotes);
       console.log(`[DG] ${records.length}개 피트니스 패턴 로드 완료 및 ${keynotes.length}개 2~8박 키노트 생성 완료`);
     }
@@ -1176,12 +1213,24 @@ const stageProgressController = new StageProgressController({
   },
 });
 
-function startChapter(ch: number, subLevel?: number): void {
+function startChapter(ch: number, subLevel?: number, options?: { pack?: PublishedContentPack | null }): void {
   if (ch < 1 || ch > 5) return;
   console.log(`[DG] Ch.${ch} SubLevel ${subLevel ?? 'ALL'} 시작`);
   // Issue #278 (VFX-006): 메뉴 -> 게임 원형 와이프 트랜지션 (0.6초)
   transitionManager.start('circleWipe', 0.6);
   sessionLifecycle.startSession();
+  contentLoadService.cancelCurrentRequest();
+
+  // Issue #390: 스테이지 시작 전 콘텐츠 모드 확정
+  const stageKey = `ch${ch}`;
+  const targetPack = options && 'pack' in options ? options.pack : activePublishedPack;
+  const resolvedContent = sessionContext
+    ? sessionContext.setStageContent({
+        stageId: stageKey,
+        pack: targetPack,
+      })
+    : { contentMode: 'default_csv' as const, bundle: null, starNotes: BEGINNER_PHASE_A_STAR_NOTES };
+
   engine.resumeGame();
   currentChapter = ch;
   selectedSubLevel = subLevel;
@@ -1202,9 +1251,18 @@ function startChapter(ch: number, subLevel?: number): void {
   feedbackTimer = 0;
   feedbackCustomText = null;
   feedbackCustomColor = null;
-  const trackPreset = CHAPTER_TRACK_PRESETS[ch];
-  if (trackPreset) {
-    beatCoordinator.setTrackConfig(trackPreset);
+
+  if (resolvedContent.contentMode === 'custom_pack' && resolvedContent.bundle) {
+    beatCoordinator.setKeynotes(resolvedContent.starNotes);
+    beatCoordinator.setTrackConfig({
+      bpm: resolvedContent.bundle.bpm,
+    });
+  } else {
+    const trackPreset = CHAPTER_TRACK_PRESETS[ch];
+    if (trackPreset) {
+      beatCoordinator.setTrackConfig(trackPreset);
+    }
+    beatCoordinator.setKeynotes(sessionContext ? sessionContext.starNotes : BEGINNER_PHASE_A_STAR_NOTES);
   }
   questionVisible = false;
   answerLocked = true;
@@ -1364,6 +1422,10 @@ function showResult(victory: boolean): void {
 
 function goToMenu(): void {
   sessionLifecycle.endSession();
+  contentLoadService.cancelCurrentRequest();
+  if (sessionContext) {
+    sessionContext.resetContent();
+  }
   stageProgressController.reset();
   bossFeverController.reset();
   if (bossHazardController) {
@@ -1476,12 +1538,14 @@ const stateRef: any = {
   set questionVisible(v) { questionVisible = v; },
 };
 
-const sessionContext = new GameSessionContext({
+sessionContext = new GameSessionContext({
   systems: {
     eventBus,
     sessionLifecycle,
     canvasManager,
     effectManager,
+    contentLoadService,
+    contentProvider,
   },
   controllers: {
     battle,
@@ -1598,7 +1662,7 @@ engine = new GameEngine({
 
     const restartGame = () => {
       goToMenu();
-      startChapter(selectedChapter, selectedSubLevel);
+      startChapter(selectedChapter, selectedSubLevel, { pack: activePublishedPack });
     };
 
     const answerCurrentQuestion = (idx: number) => {
@@ -1677,6 +1741,11 @@ engine = new GameEngine({
     this.mainSceneContext = mainSceneContext;
     this.getPhaseAStarNotes = getPhaseAStarNotes;
     this.engine = engine;
+    this.contentLoadService = contentLoadService;
+    this.contentProvider = contentProvider;
+    this.setCustomContentPack = (pack: PublishedContentPack | null) => {
+      activePublishedPack = pack;
+    };
 
     // Actions assignment
     this.selectChapter = selectChapter;
