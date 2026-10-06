@@ -2,6 +2,23 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🌟 별 수집 편집·복원·게시·게임 실행·롤백 종단 검증 카드 (EDITOR-MVP-QA, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#394 EDITOR-MVP-QA](https://github.com/Choyounhwa/-dream-guardian/issues/394)
+
+- **작업 목적**:
+  1. 책임 레이어 Tests (`tests/integration/`) 내에서 별 패턴 편집 -> 저장 -> 복원 -> 게시 -> 게임 런타임 주입 -> 롤백 예약까지의 전체 수명주기 종단(Roundtrip) 통합 검증.
+  2. 7개 슬롯의 순서, 신체 부위, 피트니스 존, 틱/초 시간과 게임 런타임 실행 이벤트(`SessionStageBundle`, `AppBootstrap.getPhaseAStarNotes`, `BeatCoordinator.keynotes`) 간 1:1 완벽 일치 검증.
+  3. revision 충돌(두 탭 경쟁), 손상된 데이터, 버전/해시 불일치 시 기존 작업 및 활성 정상본 100% 보존 검증.
+  4. 10문제 -> Phase B -> 승리/패배 -> 메뉴 회귀 및 테스트 모드 실행 시 localStorage progress/highScore/rewards 쓰기 0건(완전 차단) 및 일반 세션 복귀 후 정상 동작 보존 확인.
+  5. 롤백 예약 시 이전 정상본(previousHealthyHash) 복귀 및 불변 팩 보존 확인.
+  6. 브라우저 실렌더링·실카메라·모바일 환경 등 수동 확인 항목의 명확한 기록 및 분리 (UNVERIFIED_IN_VITEST_MOCK).
+- **수정 파일 (소스/config 변경 0개, 1개 테스트)**:
+  - `dream_guardian/tests/integration/editor-content-roundtrip.test.ts` (신규, 7개 종단 통합 테스트)
+- **TDD 검증**: `tests/integration/editor-content-roundtrip.test.ts` (7/7 Pass, 100%).
+- **전체 검증**: `npm test` 237 files / 2,825 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 🎮 게시 hash 기반 테스트 플레이 실행·상태 표시 카드 (EDITOR-TEST-LAUNCH, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#393 EDITOR-TEST-LAUNCH](https://github.com/Choyounhwa/-dream-guardian/issues/393)
@@ -298,7 +315,8 @@
 | [#391](https://github.com/Choyounhwa/-dream-guardian/issues/391) CONTENT-TEST-SESSION | 테스트 세션/실제 기록 격리 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#392](https://github.com/Choyounhwa/-dream-guardian/issues/392) EDITOR-PREVIEW | 컴파일 이벤트 기반 미리보기 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#393](https://github.com/Choyounhwa/-dream-guardian/issues/393) EDITOR-TEST-LAUNCH | 게시 hash 테스트 실행 UX | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#394](https://github.com/Choyounhwa/-dream-guardian/issues/394) EDITOR-MVP-QA | 별 제작→게임→롤백 종단 인수 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
+| [#394](https://github.com/Choyounhwa/-dream-guardian/issues/394) EDITOR-MVP-QA | 별 제작→게임→롤백 종단 인수 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#395](https://github.com/Choyounhwa/-dream-guardian/issues/395) EDITOR-HAZARD-A | Phase A 장판 편집 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 
