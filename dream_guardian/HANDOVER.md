@@ -2,6 +2,30 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🏆 통합 피트니스 제작·복구·게임 적용 최종 인수 (FITNESS-EDITOR-QA, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#404 FITNESS-EDITOR-QA](https://github.com/Choyounhwa/-dream-guardian/issues/404)
+
+- **작업 목적**:
+  1. 책임 레이어 Tests (소스/config 변경 0개, 종단 QA 통합 검증 및 문서화).
+  2. 안무 / 별(7슬롯) / Phase A 오답 장판(3종) / Phase B 피버 노트(8노트) / Phase B 보스 장판(3종) 통합 제작부터 백업 / 복구 / 게임 세션 적용 / 롤백까지의 전체 파이프라인 종합 인수 검증:
+     - 실제 편집 결과와 게임 이벤트/시간/입력 1:1 일치, 세션 동안 팩 불변(Session Pinning) 유지 검증.
+     - 회복력(Recovery Resilience): 손상된 파일, 구버전, 두 탭 경쟁(Revision Conflict), 저장 중 중단(Quota), 중간 게시(mid-stage publish)에도 데이터 유실이나 혼합 0건 검증.
+     - 테스트 플레이 격리: 테스트 모드 실행 시 정상 게임의 진척도, 하이스코어, 보상 쓰기 0건 차단 및 일반 세션 복귀 후 정상 저장 동작 보존.
+     - 자동/수동/미검증 경계 명확화: 실카메라 인식, 모바일 터치 등 브라우저 물리 환경 항목을 단위테스트 Pass로 과장하지 않고 점검표 문서/주석에 명시.
+- **수정 파일 (소스/config 0개 + 신규 테스트 2개 + 신규 문서 1개)**:
+  - `dream_guardian/tests/integration/fitness-editor-recovery.test.ts`: 5대 요소 복원 1:1 일치, 손상 JSON 거부, 비허용 역량 진단, 미저장 복구 버퍼 격리, V1 마이그레이션 비파괴, 변조 해시 거부, 2탭 동시 쓰기 RevisionConflictError 차단, Quota 트랜잭션 롤백, 세션 팩 Pinning, 정상본 롤백 통합 테스트 11건 (100% Pass)
+  - `dream_guardian/tests/e2e/fitness-editor-full.e2e.ts`: 5대 요소 저작 -> 컴파일 -> 게시 -> 10문제 러닝 -> 오답 장판 회피 -> 정답 별수집 -> Phase B 보스 결전 -> 피버 타격 & 보스 공격 회피 -> 승리 -> 테스트 세션 영속화 0건 차단 E2E 테스트 4건 (100% Pass)
+  - `docs/11_FITNESS_EDITOR_ACCEPTANCE_CHECKLIST.md`: 자동화 검증 항목 요약, 실카메라/실모바일/실WebGL 수동 점검표, 자동/수동/미검증 경계 분류표 및 운영 가이드 신규 작성
+- **검증 결과**:
+  - `npx vitest run tests/integration/fitness-editor-recovery.test.ts tests/e2e/fitness-editor-full.e2e.ts`: 15개 테스트 100% 통과
+  - 전체 단위/통합 테스트: 248개 파일, 2,970개 테스트 100% Pass (기존 기능 회귀 0건)
+  - `npm run build`: TypeScript 컴파일 및 Vite 번들링 0 에러 정상 완료
+- **마일스톤 상태**:
+  - **피트니스 에디터 통합 파이프라인 (Issue #374 ~ #404, A~F 전 단계) 전체 완료!**
+
+---
+
 ## 📦 정적 manifest 적용본 수신·검증 및 기본 콘텐츠 복귀 (CONTENT-DEPLOY, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#403 CONTENT-DEPLOY](https://github.com/Choyounhwa/-dream-guardian/issues/403)
@@ -444,8 +468,8 @@
 | MVP Phase0~4 | UIX-001~017 +007A, #324~341 (18개) | #324~#339 카드 테스트 통과 / #340~341 중단 |
 | 후속 Phase5 | UIX-030/031 기반 #342/#343 →018~029 #344~355 (14개) | #342~#355 구현 `[✔]` (#345 OPEN) / [UIX-032 #356](https://github.com/Choyounhwa/-dream-guardian/issues/356) `[▶ NEXT]` |
 | 후속 Phase6 | UIX-032~039 #356~363 (8개) | #356~#363 `[✔]` / 범위 종료. 다음 후보는 Phase7 #364 (미승인) |
-| 후속 Phase7 | UIX-040~043 #364~367 (4개) | 등록 완료 / 검증 실행 대기 |
-| UIX 구현 진행 | #342~#363 구현 `[✔]` (마지막 #363 9ad736e). #345만 이슈 OPEN | tsc는 기존 uix-014/uix-025 셸 export 불일치. 전체 npm test는 vfx-answer 1건 실패. 에디터 포트 3010 |
+| 후속 Phase7 | UIX-040~043 #364~367 (4개) | #364 [UIX-040] `[✔]` 완료 / 다음: [#365 UIX-041] `[▶ NEXT]` |
+| UIX 구현 진행 | #342~#364 구현 `[✔]` (UIX-040 tests/unit/uix-040.test.ts 9건 100% Pass) | 에디터 포트 3010 (`http://127.0.0.1:3010/ui-editor.html`), 빌드 검증 완료 |
 
 - 합계: 실행44(MVP18+후속26)+추적1=45. 전체 ID/링크/선행은 `docs/03_GITHUB_ISSUES.md` 상단과 #323, 정확 수정 경계는 각 이슈 및 설계 §14에 기록했다.
 - 생성 전 REST 전체 목록에서 정확 ID 대조, 생성 후 제목/본문/라벨/OPEN 및 최종45개 중복0 재조회 확인. 라벨 feature39/test4/documentation2, P1-high11/P2-medium34. Project scope 부족으로 미연결, 인증 변경/권한 요청 없음.
