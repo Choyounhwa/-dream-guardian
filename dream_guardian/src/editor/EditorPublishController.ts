@@ -29,6 +29,7 @@ import {
 import {
   PUBLISHED_PACK_KIND,
   type PublishedContentPack,
+  validatePublishedContentPack,
 } from '../data/PublishedContentPack.js';
 import {
   compileEditorProject,
@@ -88,6 +89,53 @@ export interface EditorPublishStatus {
 export interface EditorPublishOptions {
   expectedRevision?: number;
   stageActivation?: boolean;
+}
+
+/**
+ * 테스트 플레이 론치 디스크립터 (Issue #393 / #391 격리 계약)
+ */
+export interface TestLaunchDescriptor {
+  contentHash: string;
+  rulesetId: string;
+  rulesetHash: string;
+  bpm: number;
+  sourceRevision: number;
+  testPlayUrl: string;
+  isIsolatedSession: boolean;
+  isolationContract: string;
+}
+
+/**
+ * 테스트 플레이 준비 결과 모델
+ */
+export interface TestLaunchPreparationResult {
+  ok: boolean;
+  error?: string;
+  diagnostics?: string[];
+  descriptor?: TestLaunchDescriptor;
+  pack?: PublishedContentPack;
+}
+
+/**
+ * 테스트 플레이 실행 옵션
+ */
+export interface TestLaunchOptions {
+  windowOpener?: (url: string) => boolean | Window | null;
+  targetOrigin?: string;
+  expectedHash?: string;
+}
+
+/**
+ * 테스트 플레이 실행 결과 모델
+ */
+export interface TestLaunchResult {
+  ok: boolean;
+  error?: string;
+  diagnostics?: string[];
+  descriptor?: TestLaunchDescriptor;
+  targetHash?: string;
+  executedHash?: string;
+  openedWindow?: boolean;
 }
 
 export class EditorPublishController {
@@ -504,5 +552,267 @@ export class EditorPublishController {
       lastValidation: this._lastValidationResult,
       isStagedForNextStage: isStaged,
     };
+  }
+
+  /**
+   * 게시된 불변 팩 기반 테스트 플레이 준비 (Issue #393 / EDITOR-TEST-LAUNCH)
+   *
+   * 1. 폼 버퍼 미반영(dirty) 검사: 작성 중이면 즉시 차단
+   * 2. 초안 직접 전송 금지: 저장소(PublishedContentStore)에 이미 검증·저장된 PublishedContentPack만 사용
+   * 3. 대상 hash 결정: targetHash 또는 활성 게시본(activeContentHash)
+   * 4. 미게시 상태(저장소에 없음) 또는 활성 게시본 부재 시 차단
+   * 5. 게시본 호환성 및 무결성 검증 (validatePublishedContentPack, kind 불일치 차단, hash 변조 차단)
+   * 6. bpm, rulesetId, rulesetHash, sourceRevision 메타데이터 및 격리 URL 디스크립터 생성
+   */
+  async prepareTestLaunch(targetHash?: string): Promise<TestLaunchPreparationResult> {
+    // 1. 미반영 dirty form 검사
+    if (this.hasUncommittedChanges()) {
+      return {
+        ok: false,
+        error: '수정 중인 미완성 폼 입력이 있습니다 (Uncommitted form changes present). 폼 입력을 확정하거나 취소한 후 테스트 플레이를 실행해 주세요.',
+        diagnostics: ['uncommitted-form-changes'],
+      };
+    }
+
+    // 2. 대상 hash 결정 (초안은 직접 실행하지 않음)
+    let resolvedHash = targetHash ? targetHash.trim() : null;
+    if (!resolvedHash) {
+      const activeHead = await this._store.getActivationHead(this._state.currentProjectId);
+      resolvedHash = activeHead?.activeContentHash || this._lastPublishedHash || null;
+    }
+
+    if (!resolvedHash) {
+      return {
+        ok: false,
+        error: '게시된 팩이 없거나 활성 게시본(activeContentHash)이 설정되지 않았습니다. 먼저 프로젝트를 게시하세요.',
+        diagnostics: ['no-published-pack'],
+      };
+    }
+
+    // 3. 저장소에서 팩 조회
+    let pack: PublishedContentPack | null = null;
+    try {
+      pack = await this._store.getPublishedPack(resolvedHash);
+    } catch (err) {
+      return {
+        ok: false,
+        error: `저장소 조회 중 오류가 발생했습니다: ${err instanceof Error ? err.message : String(err)}`,
+        diagnostics: ['store-read-error'],
+      };
+    }
+
+    if (!pack) {
+      return {
+        ok: false,
+        error: `저장소에 지정된 게시본 [${resolvedHash}]이 존재하지 않습니다 (Unpublished pack).`,
+        diagnostics: ['pack-not-found'],
+      };
+    }
+
+    // 4. kind 검증 (kind 혼동/오염 차단)
+    if (pack.kind !== PUBLISHED_PACK_KIND) {
+      return {
+        ok: false,
+        error: `Kind 불일치: 기대된 게시본 kind "${PUBLISHED_PACK_KIND}" 대신 "${String((pack as any).kind)}"이 발견되었습니다.`,
+        diagnostics: ['kind-mismatch'],
+      };
+    }
+
+    // 5. 게시본 무결성 및 호환성 검증
+    const valResult = validatePublishedContentPack(pack);
+    if (!valResult.valid) {
+      const diagnostics = valResult.diagnostics.map((d) => `[${d.code}] ${d.message}`);
+      return {
+        ok: false,
+        error: '게시본 호환성 또는 무결성 검증 실패 (Incompatible or invalid pack)',
+        diagnostics,
+      };
+    }
+
+    // 변조 감지: contentHash 일치 확인
+    if (pack.contentHash !== resolvedHash) {
+      return {
+        ok: false,
+        error: `게시본 해시 불일치: 요청된 해시 [${resolvedHash}]와 저장된 팩 해시 [${pack.contentHash}]가 일치하지 않습니다.`,
+        diagnostics: ['content-hash-mismatch'],
+      };
+    }
+
+    // 6. BPM 추출 (첫 번째 스테이지 템포 또는 에디터 BPM)
+    const firstStage = Object.values(pack.stages || {})[0];
+    const bpm = firstStage?.tempo?.bpm ?? this._state.bpm;
+
+    // 7. 격리된 테스트 플레이 URL 생성 (Issue #391 계약 준수)
+    const testPlayUrl = `/?mode=test&hash=${encodeURIComponent(pack.contentHash)}`;
+
+    const descriptor: TestLaunchDescriptor = {
+      contentHash: pack.contentHash,
+      rulesetId: pack.rulesetId,
+      rulesetHash: pack.rulesetHash,
+      bpm,
+      sourceRevision: pack.sourceRevision,
+      testPlayUrl,
+      isIsolatedSession: true,
+      isolationContract: 'Issue #391: Session progression, rewards, and global settings are isolated.',
+    };
+
+    return {
+      ok: true,
+      descriptor,
+      pack,
+    };
+  }
+
+  /**
+   * 게시된 불변 팩 기반 테스트 플레이 실행 (Issue #393 / EDITOR-TEST-LAUNCH)
+   *
+   * 브라우저 환경에서 격리된 테스트 플레이 URL을 새 창으로 열거나 제공된 executor를 호출합니다.
+   * 실패 시 성공인 것처럼 오표시하지 않고 실패 원인과 진단을 반환합니다.
+   */
+  async launchTestPlay(
+    targetHash?: string,
+    options?: TestLaunchOptions
+  ): Promise<TestLaunchResult> {
+    const prep = await this.prepareTestLaunch(targetHash);
+    if (!prep.ok || !prep.descriptor) {
+      return {
+        ok: false,
+        error: prep.error,
+        diagnostics: prep.diagnostics,
+        targetHash,
+      };
+    }
+
+    const descriptor = prep.descriptor;
+    const resolvedHash = descriptor.contentHash;
+
+    // 기대 hash 검증
+    if (options?.expectedHash && options.expectedHash !== resolvedHash) {
+      return {
+        ok: false,
+        error: `요청된 기대 해시 [${options.expectedHash}]와 준비된 팩 해시 [${resolvedHash}]가 일치하지 않습니다.`,
+        diagnostics: ['expected-hash-mismatch'],
+        targetHash: options.expectedHash,
+        executedHash: resolvedHash,
+      };
+    }
+
+    // Origin 검증: 현재 브라우저 window.location 또는 기본 로컬 origin과 비교
+    const currentOrigin =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : 'http://localhost:3000';
+
+    if (
+      options?.targetOrigin &&
+      options.targetOrigin !== currentOrigin
+    ) {
+      return {
+        ok: false,
+        error: `출처(Origin) 불일치: 현재 origin "${currentOrigin}"과 요청 origin "${options.targetOrigin}"이 일치하지 않습니다.`,
+        diagnostics: ['origin-mismatch'],
+        descriptor,
+        targetHash: targetHash || resolvedHash,
+        executedHash: resolvedHash,
+        openedWindow: false,
+      };
+    }
+
+    // 사용자 정의 윈도우 오프너 또는 테스트용 mock 오프너가 전달된 경우
+    if (options?.windowOpener) {
+      try {
+        const opened = options.windowOpener(descriptor.testPlayUrl);
+        if (!opened) {
+          return {
+            ok: false,
+            error: '테스트 플레이 창을 생성할 수 없습니다 (Window opener returned null or false).',
+            diagnostics: ['window-open-failed'],
+            descriptor,
+            targetHash: targetHash || resolvedHash,
+            executedHash: resolvedHash,
+            openedWindow: false,
+          };
+        }
+        return {
+          ok: true,
+          descriptor,
+          targetHash: targetHash || resolvedHash,
+          executedHash: resolvedHash,
+          openedWindow: true,
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          error: `테스트 플레이 창 열기 중 예외가 발생했습니다: ${err instanceof Error ? err.message : String(err)}`,
+          diagnostics: ['window-open-exception'],
+          descriptor,
+          targetHash: targetHash || resolvedHash,
+          executedHash: resolvedHash,
+          openedWindow: false,
+        };
+      }
+    }
+
+    // 기본 브라우저 환경 검사
+    if (typeof window === 'undefined') {
+      return {
+        ok: false,
+        error: '브라우저 환경이 아니거나 창을 열 수 없습니다 (Window object not available).',
+        diagnostics: ['no-browser-window'],
+        descriptor,
+        targetHash: targetHash || resolvedHash,
+        executedHash: resolvedHash,
+        openedWindow: false,
+      };
+    }
+
+    // Origin 검증
+    if (
+      options?.targetOrigin &&
+      typeof window.location !== 'undefined' &&
+      window.location.origin !== options.targetOrigin
+    ) {
+      return {
+        ok: false,
+        error: `출처(Origin) 불일치: 현재 origin "${window.location.origin}"과 요청 origin "${options.targetOrigin}"이 일치하지 않습니다.`,
+        diagnostics: ['origin-mismatch'],
+        descriptor,
+        targetHash: targetHash || resolvedHash,
+        executedHash: resolvedHash,
+        openedWindow: false,
+      };
+    }
+
+    try {
+      const openedWin = window.open(descriptor.testPlayUrl, '_blank');
+      if (!openedWin) {
+        return {
+          ok: false,
+          error: '브라우저 팝업이 차단되었거나 창을 생성할 수 없습니다 (Popup blocked).',
+          diagnostics: ['popup-blocked'],
+          descriptor,
+          targetHash: targetHash || resolvedHash,
+          executedHash: resolvedHash,
+          openedWindow: false,
+        };
+      }
+      return {
+        ok: true,
+        descriptor,
+        targetHash: targetHash || resolvedHash,
+        executedHash: resolvedHash,
+        openedWindow: true,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        error: `브라우저 창 열기 실패: ${err instanceof Error ? err.message : String(err)}`,
+        diagnostics: ['window-open-exception'],
+        descriptor,
+        targetHash: targetHash || resolvedHash,
+        executedHash: resolvedHash,
+        openedWindow: false,
+      };
+    }
   }
 }

@@ -190,6 +190,51 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       });
     });
+
+    const modalTestPlayBtn = document.getElementById('btn-modal-test-play');
+    if (modalTestPlayBtn) {
+      modalTestPlayBtn.addEventListener('click', async () => {
+        const feedbackEl = document.getElementById('test-launch-feedback');
+        const badgeEl = document.getElementById('test-launch-status-badge');
+        if (badgeEl) badgeEl.textContent = '실행 중...';
+        const res = await publishController.launchTestPlay();
+        if (feedbackEl) {
+          feedbackEl.style.display = 'block';
+          feedbackEl.innerHTML = layout.renderTestLaunchFeedbackHTML(res);
+        }
+        if (badgeEl) {
+          badgeEl.textContent = res.ok ? '실행 완료' : '실행 실패';
+          badgeEl.style.color = res.ok ? '#10B981' : '#EF4444';
+        }
+        if (!res.ok) {
+          alert(`❌ 테스트 플레이 실행 실패:\n${res.error || '알 수 없는 에러'}`);
+        }
+      });
+    }
+
+    const testVersionBtns = document.querySelectorAll('.btn-test-version');
+    testVersionBtns.forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        const hash = (e.target as HTMLElement).getAttribute('data-hash');
+        if (hash) {
+          const feedbackEl = document.getElementById('test-launch-feedback');
+          const badgeEl = document.getElementById('test-launch-status-badge');
+          if (badgeEl) badgeEl.textContent = '실행 중...';
+          const res = await publishController.launchTestPlay(hash);
+          if (feedbackEl) {
+            feedbackEl.style.display = 'block';
+            feedbackEl.innerHTML = layout.renderTestLaunchFeedbackHTML(res);
+          }
+          if (badgeEl) {
+            badgeEl.textContent = res.ok ? '실행 완료' : '실행 실패';
+            badgeEl.style.color = res.ok ? '#10B981' : '#EF4444';
+          }
+          if (!res.ok) {
+            alert(`❌ 테스트 플레이 실행 실패:\n${res.error || '알 수 없는 에러'}`);
+          }
+        }
+      });
+    });
   };
 
   const updateBindingsPanel = () => {
@@ -693,6 +738,22 @@ window.addEventListener('DOMContentLoaded', () => {
         alert('✅ 프로젝트 검증 통과! 규칙 및 제약을 모두 만족합니다.');
       } else {
         alert(`❌ 검증 실패:\n${valRes.errors.join('\n')}`);
+      }
+    });
+  }
+
+  const testPlayBtn = document.getElementById('btn-test-play');
+  if (testPlayBtn) {
+    testPlayBtn.addEventListener('click', async () => {
+      if (publishController.hasUncommittedChanges()) {
+        alert('⚠️ 수정 중인 미완성 폼 입력이 있습니다! 폼을 확정하거나 취소한 후 테스트 플레이를 실행해 주세요.');
+        return;
+      }
+      const res = await publishController.launchTestPlay();
+      if (!res.ok) {
+        alert(`❌ 테스트 플레이 실행 실패:\n${res.error || '알 수 없는 에러'}`);
+      } else {
+        console.log('[Editor] Test play launched successfully:', res);
       }
     });
   }

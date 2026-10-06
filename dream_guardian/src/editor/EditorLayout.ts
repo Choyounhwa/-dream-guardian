@@ -5,7 +5,7 @@
 import { EditorState, type PhaseType } from './EditorState.js';
 import type { DanceMotionType } from '../data/danceRoutineData.js';
 import { BeatTimelineRenderer } from './BeatTimelineRenderer.js';
-import type { EditorPublishStatus } from './EditorPublishController.js';
+import type { EditorPublishStatus, TestLaunchResult } from './EditorPublishController.js';
 import type { PublishedPackSummary } from '../storage/PublishedContentStore.js';
 
 export interface TimelineMarker {
@@ -90,6 +90,7 @@ export class EditorLayout {
 
         <div class="header-right">
           <button id="btn-validate-project" class="btn btn-outline" title="프로젝트 무결성 및 규칙 검증">🔍 검증</button>
+          <button id="btn-test-play" class="btn btn-primary" title="게시된 활성본 격리 테스트 플레이 (Issue #391)">🎮 테스트 플레이</button>
           <button id="btn-publish-project" class="btn btn-accent" title="새 버전 불변 게시">🚀 게시</button>
           <button id="btn-manage-releases" class="btn btn-outline" title="게시본 및 다음 스테이지 적용 예약 관리">📦 릴리즈 관리</button>
           <button id="btn-new-project" class="btn btn-outline" title="새 프로젝트 만들기">📄 새 프로젝트</button>
@@ -769,6 +770,7 @@ export class EditorLayout {
                   <td>${dateStr}</td>
                   <td>${stateBadge}</td>
                   <td>
+                    <button type="button" class="btn btn-sm btn-primary btn-test-version" data-hash="${v.contentHash}" title="이 버전으로 격리 테스트 플레이 실행">🎮 테스트</button>
                     <button type="button" class="btn btn-sm btn-outline btn-stage-version" data-hash="${v.contentHash}">다음 스테이지 예약</button>
                     ${isActive ? '' : `<button type="button" class="btn btn-sm btn-outline btn-rollback-version" data-hash="${v.contentHash}">롤백 예약</button>`}
                   </td>
@@ -806,8 +808,20 @@ export class EditorLayout {
         <div class="panel-actions" style="display:flex; gap:8px; flex-wrap:wrap;">
           <button id="btn-modal-validate" type="button" class="btn btn-outline">🔍 무결성 검증</button>
           <button id="btn-modal-publish" type="button" class="btn btn-success" ${isDirty ? 'disabled' : ''} style="background:#10B981; color:#fff;">🚀 불변 게시</button>
+          <button id="btn-modal-test-play" type="button" class="btn btn-primary" style="background:#2563EB; color:#fff;" title="현재 활성 게시본으로 격리 테스트 플레이 실행">🎮 테스트 플레이</button>
           <button id="btn-modal-stage-activation" type="button" class="btn btn-primary" style="background:#6366F1; color:#fff;">✨ 다음 스테이지 적용 예약</button>
           <button id="btn-modal-rollback" type="button" class="btn btn-warning" style="background:#F59E0B; color:#fff;">↺ 이전 정상본으로 롤백 예약</button>
+        </div>
+
+        <div class="panel-section test-play-isolation-banner" style="background:rgba(37,99,235,0.08); border:1px solid rgba(59,130,246,0.3); border-radius:6px; padding:10px 14px; font-size:12px; color:#93C5FD;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong>🛡️ 테스트 플레이 격리 보장 (Issue #391 계약)</strong>
+            <span id="test-launch-status-badge" style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.1);">대기 중</span>
+          </div>
+          <div style="font-size:11px; color:#BFDBFE; margin-top:4px;">
+            테스트 플레이는 검증 완료된 게시본 hash로만 실행되며, 실제 게임 전역 설정·진척도(starsMap)·하이스코어·보상 저장이 완전히 차단됩니다.
+          </div>
+          <div id="test-launch-feedback" class="test-launch-feedback" style="display:none; margin-top:8px;"></div>
         </div>
 
         ${validationHTML}
@@ -854,6 +868,49 @@ export class EditorLayout {
         <footer id="editor-status-bar-container">
           ${this.renderStatusBarHTML()}
         </footer>
+      </div>
+    `.trim();
+  }
+
+  /**
+   * 테스트 플레이 실행 결과 피드백 HTML 렌더링 (Issue #393 / EDITOR-TEST-LAUNCH)
+   */
+  renderTestLaunchFeedbackHTML(result: TestLaunchResult): string {
+    if (result.ok && result.descriptor) {
+      const isMatched = result.targetHash === result.executedHash;
+      const shortTarget = result.targetHash ? result.targetHash.slice(0, 12) : '-';
+      const shortExecuted = result.executedHash ? result.executedHash.slice(0, 12) : '-';
+      return `
+        <div class="feedback-box feedback-success" style="background:rgba(16,185,129,0.15); border:1px solid #10B981; border-radius:4px; padding:8px 12px; font-size:12px; color:#D1FAE5;">
+          <div style="font-weight:700; margin-bottom:4px; color:#6EE7B7;">
+            🎮 테스트 플레이가 격리 세션으로 실행되었습니다.
+          </div>
+          <div style="display:grid; grid-template-columns:auto 1fr; gap:2px 10px; font-family:monospace; font-size:11px;">
+            <span>요청 Hash:</span><span>${shortTarget}...</span>
+            <span>실행 Hash:</span><span>${shortExecuted}...</span>
+            <span>해시 일치:</span><span style="color:#10B981; font-weight:bold;">${isMatched ? '✅ 일치 (Matched)' : '❌ 불일치'}</span>
+            <span>BPM:</span><span>${result.descriptor.bpm}</span>
+          </div>
+          <div style="margin-top:6px; font-size:11px; color:#A7F3D0; border-top:1px dashed rgba(16,185,129,0.3); padding-top:4px;">
+            🛡️ <strong>격리 계약:</strong> 진행도·보상·하이스코어 저장 차단 (Issue #391)
+          </div>
+        </div>
+      `.trim();
+    }
+
+    const errorMsg = result.error || '알 수 없는 오류로 테스트 플레이 실행에 실패했습니다.';
+    const diagnosticsList =
+      result.diagnostics && result.diagnostics.length > 0
+        ? `<div style="margin-top:4px; font-size:11px; color:#FCA5A5;">진단: ${result.diagnostics.join(', ')}</div>`
+        : '';
+
+    return `
+      <div class="feedback-box feedback-error" style="background:rgba(239,68,68,0.15); border:1px solid #EF4444; border-radius:4px; padding:8px 12px; font-size:12px; color:#FEE2E2;">
+        <div style="font-weight:700; margin-bottom:2px; color:#FCA5A5;">
+          ❌ 테스트 플레이 실행 차단 / 실패
+        </div>
+        <div style="font-size:12px;">${errorMsg}</div>
+        ${diagnosticsList}
       </div>
     `.trim();
   }
