@@ -31,7 +31,11 @@ import { parseFitnessPatternCSV, createKeynoteSequence } from '../data/index.js'
 import { BEGINNER_PHASE_A_STAR_NOTES } from '../data/beginnerRhythmRoutine.js';
 import { ContentLoadService } from './ContentLoadService.js';
 import { ContentProvider } from '../game/ContentProvider.js';
-import type { PublishedContentPack } from '../data/PublishedContentPack.js';
+import {
+  type PublishedContentPack,
+  validatePublishedContentPack,
+  computePublishedPackHash,
+} from '../data/PublishedContentPack.js';
 import type { Keynote } from '../types/keynote.js';
 import type { GeneratedQuestion } from '../question/QuestionEvaluator.js';
 import { QuestionSpeech } from '../question/QuestionSpeech.js';
@@ -166,6 +170,37 @@ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D
   };
 }
 
+// Issue #391: 영속성 저장 키 정의
+export const STORAGE_KEY_STAGE_PROGRESS = 'dg_stage_progress';
+export const STORAGE_KEY_HIGH_SCORES = 'dg_high_scores';
+export const STORAGE_KEY_REWARDS = 'dg_rewards';
+export type ExtendedResultData = ResultData & { isTestSession?: boolean };
+
+/**
+ * 팩 유효성 및 contentHash 무결성 검증 (Issue #391)
+ */
+export function isVerifiedPublishedPack(
+  pack: unknown,
+  expectedHash?: string,
+): pack is PublishedContentPack {
+  if (!pack || typeof pack !== 'object') {
+    return false;
+  }
+  const validation = validatePublishedContentPack(pack);
+  if (!validation.valid) {
+    return false;
+  }
+  const typedPack = pack as PublishedContentPack;
+  const computedHash = computePublishedPackHash(typedPack);
+  if (typedPack.contentHash !== computedHash) {
+    return false;
+  }
+  if (expectedHash && typedPack.contentHash !== expectedHash) {
+    return false;
+  }
+  return true;
+}
+
 let activePublishedPack: PublishedContentPack | null = null;
 
 export class AppBootstrap {
@@ -243,11 +278,30 @@ export class AppBootstrap {
   public get activePublishedPack(): PublishedContentPack | null {
     return activePublishedPack;
   }
+  public get isTestSession(): boolean {
+    return this.sessionLifecycle.isTestSession;
+  }
+  public get starsMap(): Record<number, number> {
+    return this.mainSceneContext?.state?.starsMap ?? {};
+  }
+  public get resultData(): ExtendedResultData | null {
+    return (this.mainSceneContext?.state?.resultData ?? null) as ExtendedResultData | null;
+  }
 
   // Actions
   public readonly selectChapter: (ch: number) => void;
   public readonly selectSubLevel: (sub: number | null) => void;
-  public readonly startChapter: (ch: number, sub?: number, options?: { pack?: PublishedContentPack | null }) => void;
+  public readonly startChapter: (
+    ch: number,
+    sub?: number,
+    options?: { pack?: PublishedContentPack | null; isTestSession?: boolean; contentHash?: string },
+  ) => void;
+  public readonly startTestPlaySession: (
+    ch: number,
+    options: { pack: PublishedContentPack; contentHash?: string; subLevel?: number },
+  ) => boolean;
+  public readonly abortSession: () => void;
+  public readonly abortTestSession: () => void;
   public readonly startReadyPhase: () => void;
   public readonly startRunningPhase: () => void;
   public readonly enterQuestionPhase: () => void;
@@ -390,8 +444,10 @@ const beatRoundResolver = new BeatRoundResolver({
   },
   onBossDefeated: () => {
     if (sessionLifecycle.claimResultTransition()) {
-      const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
-      starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
+      if (!sessionLifecycle.isTestSession && !sessionContext?.isTestSession) {
+        const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
+        starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
+      }
       sessionLifecycle.schedule(() => showResult(true), 600);
     }
   },
@@ -604,11 +660,61 @@ let feedbackCustomText: string | null = null;
 let feedbackCustomColor: string | null = null;
 let questionVisible = false;
 let answerLocked = false; // 답 연속 입력 방지
-let resultData: ResultData | null = null;
+let resultData: ExtendedResultData | null = null;
 let unlockedChapter = 5;
 let starsMap: Record<number, number> = {};
 let castingFlash = 0;
 let consecutiveWrongCount = 0;
+
+// Issue #391: 진행도/하이스코어/보상 영속화 헬퍼 (테스트 세션 격리)
+function persistSessionProgress(chapter: number, stars: number): void {
+  if (sessionLifecycle.isTestSession || sessionContext?.isTestSession) {
+    return;
+  }
+  starsMap[chapter] = Math.max(starsMap[chapter] ?? 0, stars);
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(STORAGE_KEY_STAGE_PROGRESS, JSON.stringify(starsMap));
+    } catch {
+      // localStorage 불가 환경 무시
+    }
+  }
+}
+
+function persistSessionRewards(chapter: number, stars: number): void {
+  if (sessionLifecycle.isTestSession || sessionContext?.isTestSession) {
+    return;
+  }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const existingRewards = JSON.parse(localStorage.getItem(STORAGE_KEY_REWARDS) || '[]');
+      existingRewards.push({ chapter, stars, unlockedAt: Date.now() });
+      localStorage.setItem(STORAGE_KEY_REWARDS, JSON.stringify(existingRewards));
+    } catch {
+      // 무시
+    }
+  }
+}
+
+function persistSessionHighScore(result: any): void {
+  if (sessionLifecycle.isTestSession || sessionContext?.isTestSession) {
+    return;
+  }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const record = {
+        chapter: result.chapter,
+        correctCount: result.correctCount,
+        maxCombo: result.maxCombo,
+        score: result.correctCount * 100,
+        recordedAt: Date.now(),
+      };
+      localStorage.setItem(STORAGE_KEY_HIGH_SCORES, JSON.stringify(record));
+    } catch {
+      // 무시
+    }
+  }
+}
 
 // StateMachine 단방향 전환 통지 및 상태 동기화
 stateMachine.onTransition((from, to) => {
@@ -1213,21 +1319,36 @@ const stageProgressController = new StageProgressController({
   },
 });
 
-function startChapter(ch: number, subLevel?: number, options?: { pack?: PublishedContentPack | null }): void {
+function startChapter(
+  ch: number,
+  subLevel?: number,
+  options?: { pack?: PublishedContentPack | null; isTestSession?: boolean; contentHash?: string },
+): void {
   if (ch < 1 || ch > 5) return;
-  console.log(`[DG] Ch.${ch} SubLevel ${subLevel ?? 'ALL'} 시작`);
+  const isTest = Boolean(options?.isTestSession);
+
+  // Issue #391: URL 쿼리나 외부 입력으로 전달된 임의 미검증 데이터의 직접 실행 금지
+  if (isTest) {
+    if (!options?.pack || !isVerifiedPublishedPack(options.pack, options.contentHash)) {
+      console.warn('[DG] 미검증 팩으로 테스트 세션 진입 차단');
+      return;
+    }
+  }
+
+  console.log(`[DG] Ch.${ch} SubLevel ${subLevel ?? 'ALL'} 시작${isTest ? ' (테스트 세션)' : ''}`);
   // Issue #278 (VFX-006): 메뉴 -> 게임 원형 와이프 트랜지션 (0.6초)
   transitionManager.start('circleWipe', 0.6);
-  sessionLifecycle.startSession();
+  sessionLifecycle.startSession(isTest);
   contentLoadService.cancelCurrentRequest();
 
-  // Issue #390: 스테이지 시작 전 콘텐츠 모드 확정
+  // Issue #390 & #391: 스테이지 시작 전 콘텐츠 모드 및 테스트 세션 확정
   const stageKey = `ch${ch}`;
   const targetPack = options && 'pack' in options ? options.pack : activePublishedPack;
   const resolvedContent = sessionContext
     ? sessionContext.setStageContent({
         stageId: stageKey,
         pack: targetPack,
+        isTestSession: isTest,
       })
     : { contentMode: 'default_csv' as const, bundle: null, starNotes: BEGINNER_PHASE_A_STAR_NOTES };
 
@@ -1289,8 +1410,8 @@ function startChapter(ch: number, subLevel?: number, options?: { pack?: Publishe
     dialogueOverlayRenderer.show(startDialogue);
   }
 
-  // Issue #137: 첫 플레이 시 튜토리얼 자동 표시
-  if (typeof localStorage !== 'undefined' && !localStorage.getItem('dream_guardian_tutorial_done')) {
+  // Issue #137: 첫 플레이 시 튜토리얼 자동 표시 (테스트 세션에서는 팝업 및 저장 억제)
+  if (!isTest && typeof localStorage !== 'undefined' && !localStorage.getItem('dream_guardian_tutorial_done')) {
     tutorial.show();
   }
 
@@ -1334,8 +1455,10 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
         dialogueOverlayRenderer.show(purifyDialogue);
       }
       if (sessionLifecycle.claimResultTransition()) {
-        const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
-        starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
+        if (!sessionLifecycle.isTestSession && !sessionContext?.isTestSession) {
+          const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
+          starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
+        }
         sessionLifecycle.schedule(() => {
           showResult(true);
         }, 600);
@@ -1400,6 +1523,7 @@ function showResult(victory: boolean): void {
   }
   beatCoordinator.pause();
   engine.pauseGame();
+  const isTest = sessionLifecycle.isTestSession || Boolean(sessionContext?.isTestSession);
   resultData = {
     victory,
     chapter: currentChapter,
@@ -1414,17 +1538,46 @@ function showResult(victory: boolean): void {
     dwellTime: totalDwellTime,
     locomotionMode: locomotionModal.selectedMode,
     rhythmStats: { ...beatRoundResolver.rhythmStats },
+    isTestSession: isTest,
   };
+
+  // Issue #391: 일반 승리 시 진행도/하이스코어/보상 영속화 (테스트 세션 제외)
+  if (victory && !isTest) {
+    const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
+    persistSessionProgress(currentChapter, stars);
+    persistSessionRewards(currentChapter, stars);
+    persistSessionHighScore(resultData);
+  }
+
   // Issue #278 (VFX-006): 게임 -> 결과 전환: fadeToBlack (0.4초)
+  const targetState = victory ? 'RESULT' : 'GAMEOVER';
+  if (!stateMachine.canTransition(targetState)) {
+    if (stateMachine.currentState === 'READY_POSITION') {
+      stateMachine.changeState('RUN_QUESTION');
+    }
+    if (!stateMachine.canTransition(targetState)) {
+      if (
+        stateMachine.currentState === 'RUN_QUESTION' ||
+        stateMachine.currentState === 'ANSWER_SELECT' ||
+        stateMachine.currentState === 'STAR_COLLECT' ||
+        stateMachine.currentState === 'HAZARD_EVADE'
+      ) {
+        stateMachine.changeState('ROUND_RESOLVE');
+      }
+    }
+  }
   transitionManager.start('fadeToBlack', 0.4);
-  stateMachine.changeState(victory ? 'RESULT' : 'GAMEOVER');
+  stateMachine.changeState(targetState);
 }
 
 function goToMenu(): void {
+  sessionLifecycle.cancelAllReservations();
   sessionLifecycle.endSession();
   contentLoadService.cancelCurrentRequest();
   if (sessionContext) {
     sessionContext.resetContent();
+    sessionContext.resetSession();
+    sessionContext.setTestSession(false);
   }
   stageProgressController.reset();
   bossFeverController.reset();
@@ -1438,11 +1591,21 @@ function goToMenu(): void {
   stageBgm.stop();
   bgmManager.stop();
   pauseModal.close(true);
+  starCollectionInput.reset();
+  starNoteScheduler.reset();
+  beatCoordinator.pause();
+  feedbackTimer = 0;
+  feedbackCustomText = null;
+  feedbackCustomColor = null;
   engine.resumeGame();
   console.log('[DG] 메뉴 복귀');
   // Issue #278 (VFX-006): 결과 -> 메뉴 전환: fadeIn (0.3초)
   transitionManager.start('fadeIn', 0.3);
   stateMachine.changeState('MENU_MAIN');
+}
+
+function abortSession(): void {
+  goToMenu();
 }
 
 // ─── 피드백 렌더링 ───
@@ -1751,6 +1914,26 @@ engine = new GameEngine({
     this.selectChapter = selectChapter;
     this.selectSubLevel = selectSubLevel;
     this.startChapter = startChapter;
+    this.startTestPlaySession = (
+      ch: number,
+      options: { pack: PublishedContentPack; contentHash?: string; subLevel?: number },
+    ): boolean => {
+      if (!options || !options.pack) {
+        return false;
+      }
+      if (!isVerifiedPublishedPack(options.pack, options.contentHash)) {
+        console.warn('[DG] 미검증 팩으로 테스트 세션 진입 차단');
+        return false;
+      }
+      startChapter(ch, options.subLevel, {
+        pack: options.pack,
+        isTestSession: true,
+        contentHash: options.contentHash,
+      });
+      return true;
+    };
+    this.abortSession = abortSession;
+    this.abortTestSession = abortSession;
     this.startReadyPhase = startReadyPhase;
     this.startRunningPhase = startRunningPhase;
     this.enterQuestionPhase = enterQuestionPhase;

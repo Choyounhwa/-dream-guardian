@@ -2,6 +2,26 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🛡️ 테스트 플레이 격리와 진행·보상 저장 차단 카드 (CONTENT-TEST-SESSION, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#391 CONTENT-TEST-SESSION](https://github.com/Choyounhwa/-dream-guardian/issues/391)
+
+- **작업 목적**:
+  1. 책임 레이어 Core (`src/core/`) 내에서 editor 모듈 의존성 0% 유지 및 검증된 hash/profile 명시 테스트 세션(`isTestSession: true` / `startTestPlaySession`) 격리 구축.
+  2. 일반 실제 플레이의 진척도(`starsMap`, `dg_stage_progress`), 하이스코어/기록(`dg_high_scores`), 보상(`dg_rewards`, unlocks) 쓰기 완전 차단.
+  3. 승리/패배/메뉴/중단(abort) 등 모든 종료 경로에서 실제 저장소 쓰기(`localStorage.setItem`) 0건 보장.
+  4. 세션 종료 시 콘텐츠/시계/예약/입력 완전 클린업하여 다음 정상 게임 세션에 잔류 0(잔류 오염 차단).
+  5. URL 쿼리나 외부 입력으로 전달된 임의 미검증/변조 팩(`contentHash` 불일치 등)의 직접 실행 금지 및 규격 검증된 적용본(`PublishedContentPack`)에 대해서만 진입 허용.
+  6. 테스트 모드가 아닐 때(일반 플레이)는 기존 게임 동작 및 저장 흐름 100% 온전하게 보존.
+- **수정 파일 (3개 소스 + 1개 테스트, Scope Guard 준수)**:
+  - `dream_guardian/src/core/SessionLifecycle.ts`
+  - `dream_guardian/src/core/GameSessionContext.ts`
+  - `dream_guardian/src/core/AppBootstrap.ts`
+  - `dream_guardian/tests/integration/content-test-session.test.ts` (신규, 8개 통합 테스트)
+- **TDD 검증**: `tests/integration/content-test-session.test.ts` (8/8 Pass, 100%).
+- **전체 검증**: `npm test` 234 files / 2,796 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 🌟 게임 조립계층 별 팩 주입·기존 CSV 경쟁 차단 카드 (CONTENT-BOOT-STAR, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#390 CONTENT-BOOT-STAR](https://github.com/Choyounhwa/-dream-guardian/issues/390)
@@ -231,7 +251,8 @@
 | [#388](https://github.com/Choyounhwa/-dream-guardian/issues/388) CONTENT-SESSION | 게임 런타임 적용본 단일 공급자(Provider) 및 세션 고정 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#389](https://github.com/Choyounhwa/-dream-guardian/issues/389) CONTENT-LOAD | 명시적 로컬 팩 수신/재검증 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#390](https://github.com/Choyounhwa/-dream-guardian/issues/390) CONTENT-BOOT-STAR | 별 팩 주입/CSV 경쟁 차단 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#391](https://github.com/Choyounhwa/-dream-guardian/issues/391) CONTENT-TEST-SESSION | 테스트 세션/실제 기록 격리 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
+| [#391](https://github.com/Choyounhwa/-dream-guardian/issues/391) CONTENT-TEST-SESSION | 테스트 세션/실제 기록 격리 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#392](https://github.com/Choyounhwa/-dream-guardian/issues/392) EDITOR-PREVIEW | 컴파일 이벤트 기반 미리보기 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 

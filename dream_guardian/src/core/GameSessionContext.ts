@@ -57,8 +57,11 @@ export class GameSessionContext {
   private _activeStarNotes: readonly Keynote[] | null = null;
   private readonly _contentProvider: ContentProvider = new ContentProvider();
   private _contentGeneration = 0;
+  // Issue #391: 테스트 플레이 세션 격리 플래그
+  private _isTestSession = false;
 
   constructor(options?: GameSessionContextOptions) {
+    this._isTestSession = Boolean((options as any)?.isTestSession);
     this._metadata = {
       chapterId: options?.metadata?.chapterId ?? 1,
       subLevel: options?.metadata?.subLevel,
@@ -114,6 +117,31 @@ export class GameSessionContext {
   /** 콘텐츠 요청/설정 세대 번호 */
   get contentGeneration(): number {
     return this._contentGeneration;
+  }
+
+  /** 현재 세션이 테스트 플레이 세션인지 여부 (Issue #391) */
+  get isTestSession(): boolean {
+    return this._isTestSession;
+  }
+
+  /** 테스트 플레이 세션 모드 설정 */
+  setTestSession(isTest: boolean): void {
+    this._isTestSession = isTest;
+  }
+
+  /** 진행도 저장 허용 여부 (테스트 세션에서는 차단) */
+  get canSaveProgress(): boolean {
+    return !this._isTestSession;
+  }
+
+  /** 보상 및 해금 저장 허용 여부 (테스트 세션에서는 차단) */
+  get canSaveRewards(): boolean {
+    return !this._isTestSession;
+  }
+
+  /** 하이스코어 및 기록 저장 허용 여부 (테스트 세션에서는 차단) */
+  get canSaveHighScore(): boolean {
+    return !this._isTestSession;
   }
 
   /** 등록된 시스템 참조 맵 */
@@ -214,6 +242,7 @@ export class GameSessionContext {
     this._metrics.totalDwellTime = 0;
     this._metrics.combo = 0;
     this._metrics.consecutiveWrongCount = 0;
+    this._isTestSession = false;
 
     // Issue #390: 콘텐츠 상태 초기화
     this.resetContent();
@@ -228,22 +257,32 @@ export class GameSessionContext {
   }
 
   /** 챕터 시작 시 세션 상태 갱신 및 컨트롤러 초기화 */
-  startChapter(chapterId: number, subLevel?: number): void {
+  startChapter(chapterId: number, subLevel?: number, options?: { isTestSession?: boolean }): void {
     this.resetSession();
 
     this._metadata.chapterId = chapterId;
     this._metadata.subLevel = subLevel;
     this._metadata.phase = 'READY';
     this._isActive = true;
+    this._isTestSession = Boolean(options?.isTestSession);
 
     // 세션 수명 사이클 갱신
-    this._systems.sessionLifecycle?.startSession?.();
+    this._systems.sessionLifecycle?.startSession?.(this._isTestSession);
 
     // 보스 컨트롤러 초기화 (챕터 번호 전달)
     this._controllers.boss?.reset?.(chapterId);
 
     // 이벤트 발행
-    this._systems.eventBus?.emit?.('session:start', { chapterId, subLevel });
+    const eventPayload: { chapterId: number; subLevel?: number; isTestSession?: boolean } = { chapterId, subLevel };
+    if (this._isTestSession) {
+      eventPayload.isTestSession = true;
+    }
+    this._systems.eventBus?.emit?.('session:start', eventPayload);
+  }
+
+  /** 테스트 플레이 세션 시작 (Issue #391) */
+  startTestSession(chapterId: number, subLevel?: number): void {
+    this.startChapter(chapterId, subLevel, { isTestSession: true });
   }
 
   /** 보스 격파 여부 판정 */
@@ -279,8 +318,12 @@ export class GameSessionContext {
     pack?: PublishedContentPack | null;
     fallbackPack?: PublishedContentPack | null;
     seed?: number;
+    isTestSession?: boolean;
   }): { contentMode: ContentMode; bundle: SessionStageBundle | null; starNotes: readonly Keynote[] } {
     this._contentGeneration++;
+    if (options.isTestSession !== undefined) {
+      this._isTestSession = options.isTestSession;
+    }
 
     if (!options.pack) {
       this._contentMode = 'default_csv';
@@ -349,5 +392,6 @@ export class GameSessionContext {
     this._contentMode = 'default_csv';
     this._activeStageBundle = null;
     this._activeStarNotes = [...BEGINNER_PHASE_A_STAR_NOTES];
+    this._isTestSession = false;
   }
 }

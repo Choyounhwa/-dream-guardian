@@ -13,6 +13,7 @@ export class SessionLifecycle {
   private _sessionId = 0;
   private readonly _pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
   private _hasResultShown = false;
+  private _isTestSession = false;
 
   /** 현재 세션 고유 식별자 (재시작/메뉴복귀 시마다 증가) */
   get sessionId(): number {
@@ -29,15 +30,39 @@ export class SessionLifecycle {
     return this._pendingTimeouts.size;
   }
 
+  /** 현재 세션이 테스트 플레이 세션인지 여부 (Issue #391) */
+  get isTestSession(): boolean {
+    return this._isTestSession;
+  }
+
+  /** 테스트 세션 플래그 명시 설정 */
+  setTestSession(isTest: boolean): void {
+    this._isTestSession = isTest;
+  }
+
   /**
    * 새 세션 시작 (startChapter 등)
    * 이전 세션의 모든 예약을 취소하고 세션 ID를 갱신
    */
-  startSession(): number {
+  startSession(optionsOrIsTest?: boolean | { isTestSession?: boolean }): number {
     this.cancelAllReservations();
     this._sessionId++;
     this._hasResultShown = false;
+    if (typeof optionsOrIsTest === 'boolean') {
+      this._isTestSession = optionsOrIsTest;
+    } else if (optionsOrIsTest && typeof optionsOrIsTest === 'object') {
+      this._isTestSession = Boolean(optionsOrIsTest.isTestSession);
+    } else {
+      this._isTestSession = false;
+    }
     return this._sessionId;
+  }
+
+  /**
+   * 테스트 세션 시작 편의 메서드 (Issue #391)
+   */
+  startTestSession(): number {
+    return this.startSession(true);
   }
 
   /**
@@ -48,6 +73,15 @@ export class SessionLifecycle {
     this.cancelAllReservations();
     this._sessionId++;
     this._hasResultShown = false;
+    this._isTestSession = false;
+  }
+
+  /**
+   * 세션 중단 (abort) - Issue #391
+   * 모든 대기 예약 취소, 토큰 갱신 및 테스트 모드 리셋
+   */
+  abortSession(): void {
+    this.endSession();
   }
 
   /**
