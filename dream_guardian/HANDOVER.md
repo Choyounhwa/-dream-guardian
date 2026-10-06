@@ -379,7 +379,8 @@
 | [#394](https://github.com/Choyounhwa/-dream-guardian/issues/394) EDITOR-MVP-QA | 별 제작→게임→롤백 종단 인수 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#395](https://github.com/Choyounhwa/-dream-guardian/issues/395) EDITOR-HAZARD-A | Phase A 장판 편집 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#396](https://github.com/Choyounhwa/-dream-guardian/issues/396) GAME-HAZARD-A-CONTENT | Phase A 장판 소비 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#397](https://github.com/Choyounhwa/-dream-guardian/issues/397) BOOT-HAZARD-A-CONTENT | 게임 조립계층 오답 장판 팩 연결 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
+| [#397](https://github.com/Choyounhwa/-dream-guardian/issues/397) BOOT-HAZARD-A-CONTENT | 게임 조립계층 오답 장판 팩 연결 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#398](https://github.com/Choyounhwa/-dream-guardian/issues/398) EDITOR-FEVER | 16박 가이드/8노트 피버 분리 편집 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 
