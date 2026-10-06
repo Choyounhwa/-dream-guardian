@@ -17,10 +17,39 @@ import type {
   CompiledPhaseBHazard,
   CompiledStarNote,
 } from '../data/PublishedContentPack.js';
+import type { Keynote, KeynotePart, KeynoteInstrument } from '../types/keynote.js';
 import {
   PHASE_A_ACTIVE_HAZARD_PATTERNS,
   type PhaseAHazardPattern,
 } from '../../config/phase-a-hazard.config.js';
+
+const PATTERN_1: readonly Keynote[] = Object.freeze([
+  { beat: 1, patternId: 'FEVER_1_1', part: 'leftHand', zoneId: 1, instrument: 'hand' },
+  { beat: 2, patternId: 'FEVER_1_2', part: 'rightHand', zoneId: 3, instrument: 'hand' },
+  { beat: 3, patternId: 'FEVER_1_3', part: 'leftHand', zoneId: 4, instrument: 'hand' },
+  { beat: 4, patternId: 'FEVER_1_4', part: 'rightHand', zoneId: 5, instrument: 'hand' },
+  { beat: 5, patternId: 'FEVER_1_5', part: 'hip', zoneId: 9, instrument: 'foot' },
+  { beat: 6, patternId: 'FEVER_1_6', part: 'hip', zoneId: 11, instrument: 'foot' },
+  { beat: 7, patternId: 'FEVER_1_7', part: 'rightHand', zoneId: 2, instrument: 'hand' },
+  { beat: 8, patternId: 'FEVER_1_8', part: 'hip', zoneId: 10, instrument: 'foot' },
+]);
+
+const PATTERN_2: readonly Keynote[] = Object.freeze([
+  { beat: 1, patternId: 'FEVER_2_1', part: 'rightHand', zoneId: 3, instrument: 'hand' },
+  { beat: 2, patternId: 'FEVER_2_2', part: 'leftHand', zoneId: 1, instrument: 'hand' },
+  { beat: 3, patternId: 'FEVER_2_3', part: 'rightHand', zoneId: 5, instrument: 'hand' },
+  { beat: 4, patternId: 'FEVER_2_4', part: 'leftHand', zoneId: 4, instrument: 'hand' },
+  { beat: 5, patternId: 'FEVER_2_5', part: 'hip', zoneId: 11, instrument: 'foot' },
+  { beat: 6, patternId: 'FEVER_2_6', part: 'hip', zoneId: 9, instrument: 'foot' },
+  { beat: 7, patternId: 'FEVER_2_7', part: 'leftHand', zoneId: 2, instrument: 'hand' },
+  { beat: 8, patternId: 'FEVER_2_8', part: 'hip', zoneId: 10, instrument: 'foot' },
+]);
+
+/** 기본 피버 시퀀스 프리셋 */
+export const DEFAULT_SESSION_FEVER_PATTERNS: readonly (readonly Keynote[])[] = Object.freeze([
+  PATTERN_1,
+  PATTERN_2,
+]);
 
 export type SessionPhaseRole = 'STAR_COLLECT' | 'BOSS_HAZARD' | 'MOTION_GUIDE';
 
@@ -67,6 +96,9 @@ export interface SessionStageBundle {
 
   // Phase A Hazard Pattern resolution helper
   getPhaseAHazardPattern(roundIndex?: number): PhaseAHazardPattern;
+
+  // Phase B Fever Keynotes generation helper
+  getPhaseBFeverKeynotes(loopIndex: number): readonly Keynote[];
 
   // Execution ID generation methods
   getRoundExecutionId(roundNumber: number): string;
@@ -217,6 +249,54 @@ export function createSessionStageSnapshot(params: CreateSessionStageParams): Se
       return resolvePhaseAHazardPattern(this, roundIndex);
     },
 
+    getPhaseBFeverKeynotes(loopIndex: number): readonly Keynote[] {
+      const feverNotes = this.phaseB.feverNotes;
+      const shouldUseCustom =
+        !this.isBuiltin && Array.isArray(feverNotes) && feverNotes.length > 0;
+
+      if (shouldUseCustom) {
+        return feverNotes.map((note, noteIndex) => {
+          const noteId = this.getPhaseBNoteExecutionId(loopIndex, noteIndex);
+          const beat =
+            note.landingTick > 0 ? note.landingTick / 480 : noteIndex + 1;
+          const target = note.target;
+          const isFoot = target.type === 'foot' || target.instrument === 'foot';
+          const part: KeynotePart = isFoot
+            ? 'hip'
+            : target.part === 'rightHand'
+              ? 'rightHand'
+              : target.part === 'hip'
+                ? 'hip'
+                : 'leftHand';
+          const instrument: KeynoteInstrument = isFoot
+            ? 'foot'
+            : (target.instrument ?? 'hand');
+
+          return Object.freeze({
+            patternId: noteId,
+            id: noteId,
+            beat,
+            part,
+            zoneId: target.zoneId,
+            instrument,
+          });
+        });
+      }
+
+      // Fallback: 기본 패턴(DEFAULT_SESSION_FEVER_PATTERNS) 사용
+      const patternIdx =
+        Math.abs(loopIndex) % DEFAULT_SESSION_FEVER_PATTERNS.length;
+      const basePattern = DEFAULT_SESSION_FEVER_PATTERNS[patternIdx];
+      return basePattern.map((note, noteIndex) => {
+        const noteId = this.getPhaseBNoteExecutionId(loopIndex, noteIndex);
+        return Object.freeze({
+          ...note,
+          patternId: noteId,
+          id: noteId,
+        });
+      });
+    },
+
     getRoundExecutionId(roundNumber: number): string {
       return `${this.executionId}_r${roundNumber}`;
     },
@@ -240,3 +320,5 @@ export function createSessionStageSnapshot(params: CreateSessionStageParams): Se
 
   return deepFreeze(bundle);
 }
+
+export const createSessionStageBundle = createSessionStageSnapshot;

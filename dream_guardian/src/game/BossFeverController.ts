@@ -33,6 +33,7 @@ import type { Keynote } from '../types/keynote.js';
 import type { PhaseAResourceSnapshot } from '../types/result.js';
 import type { NormalizedLandmark } from '../types/index.js';
 import type { PalmPositions, CursorUpdateOptions } from '../input/CursorTracker.js';
+import type { SessionStageBundle } from './SessionContent.js';
 
 export interface BossFeverStats {
   readonly feverCombo: number;
@@ -52,6 +53,7 @@ export interface BossFeverControllerOptions {
   scheduler?: StarNoteScheduler;
   config?: FeverConfig;
   secondsPerBeat?: number;
+  stageBundle?: SessionStageBundle;
   sequenceGenerator?: (sequenceIndex: number) => readonly Keynote[];
   onVictory?: (stats: BossFeverStats) => void;
   onGameOver?: (stats: BossFeverStats) => void;
@@ -96,6 +98,7 @@ export class BossFeverController {
   private _bossController?: BossController;
   private _stateMachine?: StateMachine;
   private _scheduler?: StarNoteScheduler;
+  private _stageBundle?: SessionStageBundle;
 
   private _isActive = false;
   private _isEnded = false;
@@ -116,6 +119,7 @@ export class BossFeverController {
     this._bossController = options?.bossController;
     this._stateMachine = options?.stateMachine;
     this._scheduler = options?.scheduler;
+    this._stageBundle = options?.stageBundle;
     this._config = options?.config ?? DEFAULT_BATTLE_CONFIG.fever;
     this._secondsPerBeat = options?.secondsPerBeat ?? 0.5;
     this._sequenceGenerator =
@@ -164,6 +168,14 @@ export class BossFeverController {
 
   setScheduler(scheduler: StarNoteScheduler): void {
     this._scheduler = scheduler;
+  }
+
+  get stageBundle(): SessionStageBundle | undefined {
+    return this._stageBundle;
+  }
+
+  setStageBundle(bundle: SessionStageBundle): void {
+    this._stageBundle = bundle;
   }
 
   setBattleState(state: BattleState): void {
@@ -372,17 +384,25 @@ export class BossFeverController {
     }
 
     // 무제한 시퀀스 연속 순환
-    if (this._scheduler && !this._isEnded && this._isActive) {
-      const sequenceDuration = (this._currentSequenceNotes.length || 8) * this._secondsPerBeat;
-      const isSchedulerDone = this._scheduler.activeNotes.length === 0;
-      const isDurationPassed = currentTime >= this._currentSequenceStartTime + sequenceDuration;
-
-      if (isSchedulerDone || isDurationPassed) {
-        const nextStartTime = Math.max(
-          this._currentSequenceStartTime + sequenceDuration,
-          currentTime,
-        );
-        this._spawnSequence(nextStartTime);
+    if (!this._isEnded && this._isActive) {
+      if (this._scheduler) {
+        if (this._scheduler.isComplete) {
+          const sequenceDuration = (this._currentSequenceNotes.length || 8) * this._secondsPerBeat;
+          const targetStartTime = this._currentSequenceStartTime + sequenceDuration;
+          const nextStartTime =
+            currentTime > targetStartTime + this._secondsPerBeat ? currentTime : targetStartTime;
+          this._spawnSequence(nextStartTime);
+        }
+      } else {
+        const sequenceDuration = (this._currentSequenceNotes.length || 8) * this._secondsPerBeat;
+        const lastLanding = this._currentSequenceStartTime + sequenceDuration;
+        const completeAt = lastLanding + 0.40;
+        if (currentTime >= completeAt) {
+          const targetStartTime = lastLanding;
+          const nextStartTime =
+            currentTime > targetStartTime + this._secondsPerBeat ? currentTime : targetStartTime;
+          this._spawnSequence(nextStartTime);
+        }
       }
     }
 
@@ -450,12 +470,16 @@ export class BossFeverController {
   private _spawnSequence(startTime: number): void {
     this._sequenceCount++;
     this._currentSequenceStartTime = startTime;
-    const notes = this._sequenceGenerator(this._sequenceCount);
+    const loopIndex = this._sequenceCount - 1;
+    const notes = this._stageBundle
+      ? this._stageBundle.getPhaseBFeverKeynotes(loopIndex)
+      : this._sequenceGenerator(this._sequenceCount);
     this._currentSequenceNotes = notes;
     if (this._scheduler) {
       this._scheduler.start(startTime, {
         roundId: 100 + this._sequenceCount,
         notes,
+        secondsPerBeat: this._secondsPerBeat,
       });
     }
   }

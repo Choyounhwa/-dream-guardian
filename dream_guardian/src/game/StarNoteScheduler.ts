@@ -66,6 +66,7 @@ export interface StarNoteSchedulerOptions {
   zones?: readonly FitnessZone[];
   onRating?: (result: StarCollectionResult) => void;
   onComplete?: () => void;
+  onAllNotesCompleted?: () => void;
 }
 
 const EPSILON = 1e-6;
@@ -83,7 +84,9 @@ export class StarNoteScheduler {
   private _roundId = 1;
   private _isStarted = false;
   private _isPaused = false;
+  private _completedNotified = false;
   private _listeners: ((result: StarCollectionResult) => void)[] = [];
+  private _allNotesCompletedListeners: (() => void)[] = [];
 
   constructor(options?: StarNoteSchedulerOptions) {
     this._options = options ?? {};
@@ -152,6 +155,13 @@ export class StarNoteScheduler {
   }
 
   /**
+   * 모든 노트가 hit 또는 miss로 판정 완료되었는지 여부
+   */
+  get isAllResolved(): boolean {
+    return this._isStarted && this._notes.length > 0 && this._notes.every((n) => n.resolved);
+  }
+
+  /**
    * 7개 노트가 모두 hit/miss로 확정되고 currentTime >= startTime + 3.90s 경과 시 true
    */
   get isComplete(): boolean {
@@ -166,6 +176,13 @@ export class StarNoteScheduler {
     this._listeners.push(listener);
     return () => {
       this._listeners = this._listeners.filter((l) => l !== listener);
+    };
+  }
+
+  onAllNotesCompleted(listener: () => void): () => void {
+    this._allNotesCompletedListeners.push(listener);
+    return () => {
+      this._allNotesCompletedListeners = this._allNotesCompletedListeners.filter((l) => l !== listener);
     };
   }
 
@@ -193,6 +210,7 @@ export class StarNoteScheduler {
     this._currentTime = startTime;
     this._isStarted = true;
     this._isPaused = false;
+    this._completedNotified = false;
     this._roundId = options?.roundId ?? 1;
     const injected = options?.branchClock?.secondsPerBeat ?? options?.secondsPerBeat;
     if (injected !== undefined && injected > 0) {
@@ -212,9 +230,10 @@ export class StarNoteScheduler {
       const instrument: KeynoteInstrument =
         note.instrument ?? (note.part === 'hip' ? 'foot' : 'hand');
       const cursorType = (note.part === 'hip' ? 'hip' : (note.part as CursorType)) ?? 'leftHand';
+      const noteId = (note as any).id ?? `${this._roundId}_note_${index}_b${beat}`;
 
       return {
-        id: `${this._roundId}_note_${index}_b${beat}`,
+        id: noteId,
         roundId: this._roundId,
         index,
         beat,
@@ -238,6 +257,7 @@ export class StarNoteScheduler {
     this._currentTime = 0;
     this._isStarted = false;
     this._isPaused = false;
+    this._completedNotified = false;
     this._cursorTracker.reset();
   }
 
@@ -415,6 +435,23 @@ export class StarNoteScheduler {
   }
 
   /**
+   * 노트 ID 기반 직접 타격 처리 (테스트 및 단일 결과 주입용)
+   */
+  recordDirectHit(
+    noteId: string,
+    rating: StarRating = 'Perfect',
+    timestamp?: number,
+  ): StarCollectionResult | null {
+    const targetNote = this._notes.find((n) => n.id === noteId);
+    if (!targetNote || targetNote.resolved) return null;
+    const currentTime = timestamp ?? targetNote.landingTime;
+    this._currentTime = Math.max(this._currentTime, currentTime);
+    const result = this._resolveNote(targetNote, rating, currentTime, 'motion');
+    this._checkCompletion();
+    return result;
+  }
+
+  /**
    * landingTime + 0.40s 만료 미입력 노트 Miss 확정
    */
   private _checkExpirations(currentTime: number): StarCollectionResult[] {
@@ -482,7 +519,18 @@ export class StarNoteScheduler {
 
   private _checkCompletion(): void {
     if (this.isComplete) {
-      this._options.onComplete?.();
+      if (!this._completedNotified) {
+        this._completedNotified = true;
+        this._options.onComplete?.();
+        this._options.onAllNotesCompleted?.();
+        for (const listener of this._allNotesCompletedListeners) {
+          try {
+            listener();
+          } catch (err) {
+            console.error('[StarNoteScheduler] Completed listener error:', err);
+          }
+        }
+      }
     }
   }
 }
