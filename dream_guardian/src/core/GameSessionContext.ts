@@ -55,6 +55,8 @@ export class GameSessionContext {
   private _contentMode: ContentMode = 'default_csv';
   private _activeStageBundle: SessionStageBundle | null = null;
   private _activeStarNotes: readonly Keynote[] | null = null;
+  private _stagedBundle: SessionStageBundle | null = null;
+  private _hasStagedContent = false;
   private readonly _contentProvider: ContentProvider = new ContentProvider();
   private _contentGeneration = 0;
   // Issue #391: 테스트 플레이 세션 격리 플래그
@@ -107,6 +109,16 @@ export class GameSessionContext {
   /** 현재 적용된 세션 스테이지 번들 */
   get activeStageBundle(): SessionStageBundle | null {
     return this._activeStageBundle;
+  }
+
+  /** 현재 적용된 세션 스테이지 번들 별칭 (Issue #402) */
+  get stageBundle(): SessionStageBundle | null {
+    return this._activeStageBundle;
+  }
+
+  /** 중간 게시 또는 로딩 지연으로 다음 스테이지에 적용 대기 중인 번들 (Issue #402) */
+  get stagedBundle(): SessionStageBundle | null {
+    return this._stagedBundle;
   }
 
   /** 현재 세션의 7개 별 노트 (커스텀 팩 또는 기본 입문 루틴) */
@@ -312,6 +324,7 @@ export class GameSessionContext {
   /**
    * 스테이지 콘텐츠 설정 (PublishedContentPack 주입 또는 Default CSV 모드 확정)
    * 불완전 팩(notes=[] 등)은 거부하고 whole-pack fallback으로 default_csv 모드로 처리
+   * Issue #402: 세션 진행 중(isActive)일 때 mid-stage pinning 적용 (현재 실행 팩 보존, 다음 팩 staged)
    */
   setStageContent(options: {
     stageId: string;
@@ -319,11 +332,42 @@ export class GameSessionContext {
     fallbackPack?: PublishedContentPack | null;
     seed?: number;
     isTestSession?: boolean;
-  }): { contentMode: ContentMode; bundle: SessionStageBundle | null; starNotes: readonly Keynote[] } {
+    force?: boolean;
+  }): { contentMode: ContentMode; bundle: SessionStageBundle | null; starNotes: readonly Keynote[]; staged?: boolean } {
     this._contentGeneration++;
     if (options.isTestSession !== undefined) {
       this._isTestSession = options.isTestSession;
     }
+
+    // Issue #402: 세션 진행 중(active) 호출 시 mid-stage pinning 적용
+    // 현재 진행 중인 스테이지 번들은 변경하지 않고 다음 스테이지(stagedBundle)로 유예
+    if (this._isActive && !options.force) {
+      let stagedResolved: SessionStageBundle | null = null;
+      if (options.pack) {
+        const bundle = this._contentProvider.resolveSessionStage({
+          stageId: options.stageId,
+          pack: options.pack,
+          fallbackPack: options.fallbackPack,
+          seed: options.seed,
+        });
+        const rawStarNotes = bundle.phaseA?.starNotes;
+        const isComplete = !bundle.isFallback && Array.isArray(rawStarNotes) && rawStarNotes.length === 7;
+        if (isComplete) {
+          stagedResolved = bundle;
+        }
+      }
+      this._stagedBundle = stagedResolved;
+      this._hasStagedContent = true;
+      return {
+        contentMode: this._contentMode,
+        bundle: this._activeStageBundle,
+        starNotes: this.starNotes,
+        staged: true,
+      };
+    }
+
+    this._stagedBundle = null;
+    this._hasStagedContent = false;
 
     if (!options.pack) {
       this._contentMode = 'default_csv';
@@ -370,6 +414,28 @@ export class GameSessionContext {
   }
 
   /**
+   * 지연 등록된 콘텐츠 팩 적용 (Issue #402)
+   */
+  applyStagedContent(): boolean {
+    if (!this._hasStagedContent) return false;
+    if (this._stagedBundle) {
+      this._activeStageBundle = this._stagedBundle;
+      this._contentMode = 'custom_pack';
+      const rawStarNotes = this._stagedBundle.phaseA?.starNotes;
+      if (Array.isArray(rawStarNotes) && rawStarNotes.length === 7) {
+        this._activeStarNotes = Object.freeze(rawStarNotes.map((note) => compiledStarNoteToKeynote(note)));
+      }
+    } else {
+      this._activeStageBundle = null;
+      this._contentMode = 'default_csv';
+      this._activeStarNotes = [...BEGINNER_PHASE_A_STAR_NOTES];
+    }
+    this._stagedBundle = null;
+    this._hasStagedContent = false;
+    return true;
+  }
+
+  /**
    * 기본 CSV 피트니스 패턴 기반 키노트 업데이트 (경쟁 차단 적용)
    * 커스텀 팩이 활성화되어 있거나 세션/생성번호가 불일치하는 경우 무시
    */
@@ -387,11 +453,15 @@ export class GameSessionContext {
   /**
    * 콘텐츠 상태 초기화 (Default CSV 모드로 복구)
    */
-  resetContent(): void {
+  resetContent(keepStaged = false): void {
     this._contentGeneration++;
     this._contentMode = 'default_csv';
     this._activeStageBundle = null;
     this._activeStarNotes = [...BEGINNER_PHASE_A_STAR_NOTES];
+    if (!keepStaged) {
+      this._stagedBundle = null;
+      this._hasStagedContent = false;
+    }
     this._isTestSession = false;
   }
 }

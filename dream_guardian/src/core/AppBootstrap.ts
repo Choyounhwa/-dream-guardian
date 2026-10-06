@@ -267,6 +267,8 @@ export class AppBootstrap {
   public readonly starNoteScheduler: StarNoteScheduler;
   public readonly starCollectionInput: StarCollectionInput;
   public readonly stageProgressController: StageProgressController;
+  public readonly bossFeverController: BossFeverController;
+  public readonly bossHazardController: BossHazardController;
   public readonly readyPositionRenderer: ReadyPositionRenderer;
   public readonly readyPositionController: ReadyPositionController;
   public readonly sessionContext: GameSessionContext;
@@ -879,14 +881,23 @@ stateMachine.registerState('BOSS_CLIMAX', {
     feedbackTimer = 0;
     armReachAnswerSelector.closeWindow();
     phaseAHazardController.stop();
+
+    // Issue #402: Phase A와 동일한 stageBundle(동일 hash/ruleset)을 피버 및 보스 공격 컨트롤러에 일치 주입
+    const bundle = sessionContext?.activeStageBundle ?? (sessionContext as any)?.stageBundle ?? null;
+    if (bundle) {
+      bossFeverController?.setStageBundle(bundle);
+      bossHazardController?.setStageBundle(bundle);
+    }
+
+    const snapshot = beatRoundResolver?.getResourceSnapshot?.();
+    if (!beatRoundResolver.resourceManager.troopManager.isActive) {
+      beatRoundResolver.resourceManager.troopManager.startPhaseB(snapshot);
+    }
     if (bossFeverController && !bossFeverController.isActive) {
-      bossFeverController.start(engine.elapsedTime);
+      bossFeverController.start(engine.elapsedTime, snapshot);
     }
     if (bossHazardController && !bossHazardController.isActive) {
       bossHazardController.start();
-    }
-    if (!beatRoundResolver.resourceManager.troopManager.isActive) {
-      beatRoundResolver.resourceManager.troopManager.startPhaseB();
     }
     console.log('[DG] BOSS_CLIMAX 진입 (Phase B 결전 실행)');
   },
@@ -941,7 +952,13 @@ stateMachine.registerState('GAMEOVER', {
 });
 
 function enterQuestionPhase(): void {
-  if (stateMachine.currentState === 'ANSWER_SELECT') return;
+  if (
+    stateMachine.currentState === 'ANSWER_SELECT' ||
+    stateMachine.currentState === 'BOSS_CLIMAX' ||
+    stageProgressController.hasEnteredBossClimax
+  ) {
+    return;
+  }
   stateMachine.changeState('ANSWER_SELECT');
   questionVisible = true;
   answerLocked = false;
@@ -1245,6 +1262,10 @@ function startReadyPhase(): void {
 }
 
 function startRunningPhase(): void {
+  if (stateMachine.currentState === 'BOSS_CLIMAX' || stageProgressController.hasEnteredBossClimax) {
+    console.warn('[DG] Phase B 진행 중 신규 문제 출제 차단');
+    return;
+  }
   stateMachine.changeState('RUN_QUESTION');
   questionVisible = true;
   answerLocked = true;
@@ -1331,9 +1352,20 @@ const stageProgressController = new StageProgressController({
   },
   onEnterBossClimax: (snapshot) => {
     console.log('[DG] Phase B (BOSS_CLIMAX) 진입 완료! 단일 자원 인계:', snapshot);
-    beatRoundResolver.resourceManager.troopManager.startPhaseB(snapshot);
-    bossFeverController.start(engine.elapsedTime, snapshot);
-    bossHazardController.start();
+    const bundle = sessionContext?.activeStageBundle ?? (sessionContext as any)?.stageBundle ?? null;
+    if (bundle) {
+      bossFeverController?.setStageBundle(bundle);
+      bossHazardController?.setStageBundle(bundle);
+    }
+    if (!beatRoundResolver.resourceManager.troopManager.isActive) {
+      beatRoundResolver.resourceManager.troopManager.startPhaseB(snapshot);
+    }
+    if (bossFeverController && !bossFeverController.isActive) {
+      bossFeverController.start(engine.elapsedTime, snapshot);
+    }
+    if (bossHazardController && !bossHazardController.isActive) {
+      bossHazardController.start();
+    }
   },
   onGameOver: () => {
     if (sessionLifecycle.claimResultTransition()) {
@@ -1374,8 +1406,13 @@ function startChapter(
         stageId: stageKey,
         pack: targetPack,
         isTestSession: isTest,
+        force: true,
       })
     : { contentMode: 'default_csv' as const, bundle: null, starNotes: BEGINNER_PHASE_A_STAR_NOTES };
+
+  if (sessionContext) {
+    sessionContext.setActive(true);
+  }
 
   engine.resumeGame();
   currentChapter = ch;
@@ -1388,6 +1425,10 @@ function startChapter(
   bossFeverController.reset();
   if (bossHazardController) {
     bossHazardController.reset();
+  }
+  if (resolvedContent.bundle) {
+    bossFeverController?.setStageBundle(resolvedContent.bundle);
+    bossHazardController?.setStageBundle(resolvedContent.bundle);
   }
   climaxBarrageTimer = 0;
   starCollectionInput.reset();
@@ -1545,6 +1586,12 @@ function showResult(victory: boolean): void {
   phaseAHazardController.stop();
   if (bossHazardController) {
     bossHazardController.stop();
+  }
+  if (bossFeverController) {
+    bossFeverController.stop();
+  }
+  if (sessionContext) {
+    sessionContext.setActive(false);
   }
   beatCoordinator.pause();
   engine.pauseGame();
@@ -1741,6 +1788,8 @@ sessionContext = new GameSessionContext({
     boss,
     guardian,
     beatRoundResolver,
+    bossFever: bossFeverController,
+    bossHazard: bossHazardController,
   },
 });
 
@@ -1853,7 +1902,10 @@ engine = new GameEngine({
 
     const restartGame = () => {
       goToMenu();
-      startChapter(selectedChapter, selectedSubLevel, { pack: activePublishedPack });
+      const nextPack = (sessionContext as any)?.stagedBundle?.sourcePackHash
+        ? activePublishedPack
+        : activePublishedPack;
+      startChapter(selectedChapter, selectedSubLevel, { pack: nextPack });
     };
 
     const answerCurrentQuestion = (idx: number) => {
@@ -1925,6 +1977,8 @@ engine = new GameEngine({
     this.starNoteScheduler = starNoteScheduler;
     this.starCollectionInput = starCollectionInput;
     this.stageProgressController = stageProgressController;
+    this.bossFeverController = bossFeverController;
+    this.bossHazardController = bossHazardController;
     this.readyPositionRenderer = readyPositionRenderer;
     this.readyPositionController = readyPositionController;
     this.sessionContext = sessionContext;

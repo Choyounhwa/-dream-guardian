@@ -941,6 +941,17 @@ export class SceneDirector<TContext = any> {
       ctx.stateMachine.currentState === 'BOSS_CLIMAX' ||
       (ctx.bossFeverController && ctx.bossFeverController.isActive)
     ) {
+      // Issue #402: Phase B 루프 업데이트에서 동일한 stageBundle 참조 보존 및 갱신 역전 방지
+      const sContext = this._sessionContext ?? ctx.sessionContext;
+      const activeBundle = sContext?.activeStageBundle ?? (sContext as any)?.stageBundle ?? null;
+      if (activeBundle) {
+        if (ctx.bossFeverController && (ctx.bossFeverController as any).stageBundle !== activeBundle) {
+          ctx.bossFeverController.setStageBundle(activeBundle);
+        }
+        if (ctx.bossHazardController && (ctx.bossHazardController as any).stageBundle !== activeBundle) {
+          ctx.bossHazardController.setStageBundle(activeBundle);
+        }
+      }
       ctx.bossFeverController.update(ctx.engine?.elapsedTime ?? 0, sourceLandmarks);
       ctx.starCollectionInput.setTarget(ctx.starNoteScheduler.currentTarget);
       if (ctx.bossHazardController && !ctx.pauseModal.isOpen) {
