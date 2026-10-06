@@ -2,6 +2,31 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 📡 로컬 게시본 수신·호환 재검증·요청 수명 관리 카드 (CONTENT-LOAD, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#389 CONTENT-LOAD](https://github.com/Choyounhwa/-dream-guardian/issues/389)
+
+- **작업 목적**:
+  1. 책임 레이어 Core (`src/core/`) 내에서 editor 모듈 의존성 0% 순수 로컬 게시본 수신 및 수명 관리 서비스(`ContentLoadService`) 구현.
+  2. 명시 요청된 동일 origin 로컬 게시본(PublishedContentPack / IndexedDB or 로컬 provider) 로드 수명 관리:
+     - Request generation(생성 번호) 및 AbortController 기반 요청 취소 / 응답 역전(Race Condition / Out-of-order) 방지. 최신 요청보다 오래된 비동기 응답은 폐기.
+  3. 호환성 및 무결성 재검증:
+     - 런타임 지원 `runtimeContractVersion`(`2.0.0`) 및 `rulesetId`(`dg-ruleset-v2`), `rulesetHash`(`EXPECTED_RULESET_HASH`) 대조 검증.
+     - `contentHash` 재계산 대조를 통한 조작된 팩(Tampered pack) 및 불완전 팩 거부.
+     - 편집 원본 초안(`dream-guardian-authoring-project`), UIX 파일(`dream-guardian-ui-project`, `dream-guardian-ui-transfer`), 레거시 V1 키/포맷 수신 시도 차단.
+  4. 로드 결과 반환:
+     - 성공 시: `{ status: 'success', pack: PublishedContentPack, generation: number }` (불변 deepFreeze 반환).
+     - 실패 또는 손상/버전 불일치 시: `{ status: 'fallback', reason: string, diagnostic: string, fallbackPack?: PublishedContentPack, generation: number }` (안전 폴백).
+     - 취소 시: `{ status: 'cancelled', generation: number, reason: string }`.
+  5. 동일 Origin 검증 및 보안:
+     - 상대 경로 또는 명시적 allowedOrigin과 일치하는 로컬 게시본만 허용. Cross-origin 절대 URL, 타 포트, 비정상 프로토콜 차단. 원격 네트워크 업로드/외부 포트 공유 없음.
+- **수정 파일 (1개 소스 + 1개 테스트)**:
+  - `dream_guardian/src/core/ContentLoadService.ts` (신규)
+  - `dream_guardian/tests/unit/content-load-service.test.ts` (신규, 23개 단위 테스트)
+- **TDD 검증**: `tests/unit/content-load-service.test.ts` (23/23 Pass, 100%).
+- **전체 검증**: `npm test` 232 files / 2,782 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 🎮 전체 스테이지 콘텐츠 스냅샷·binding 해석·세션 고정 카드 (CONTENT-SESSION, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#388 CONTENT-SESSION](https://github.com/Choyounhwa/-dream-guardian/issues/388)
@@ -185,7 +210,8 @@
 | [#386](https://github.com/Choyounhwa/-dream-guardian/issues/386) EDITOR-RELEASE-STORE | 불변 게시본·적용 예약·이전 정상본 저장 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#387](https://github.com/Choyounhwa/-dream-guardian/issues/387) EDITOR-PUBLISH | 검증/게시/적용 예약 UI | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#388](https://github.com/Choyounhwa/-dream-guardian/issues/388) CONTENT-SESSION | 게임 런타임 적용본 단일 공급자(Provider) 및 세션 고정 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#389](https://github.com/Choyounhwa/-dream-guardian/issues/389) CONTENT-LOAD | 명시적 로컬 팩 수신/재검증 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
+| [#389](https://github.com/Choyounhwa/-dream-guardian/issues/389) CONTENT-LOAD | 명시적 로컬 팩 수신/재검증 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#390](https://github.com/Choyounhwa/-dream-guardian/issues/390) CONTENT-BOOT-STAR | 별 팩 주입/CSV 경쟁 차단 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 
