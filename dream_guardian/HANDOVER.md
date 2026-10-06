@@ -2,6 +2,27 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🔥 Phase B 피버 노트 편집과 16박 가이드 분리 카드 (EDITOR-FEVER, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#398 EDITOR-FEVER](https://github.com/Choyounhwa/-dream-guardian/issues/398)
+
+- **작업 목적**:
+  1. 책임 레이어 Editor (`src/editor/`) 내에서 기존 `FEVER_PHASE_B` 16박 motion guide(`phase: 'phaseB', kind: 'motionGuide'`)를 온전히 보존하면서, 별도의 실행 가능한 `feverNotes`(`phase: 'phaseB', kind: 'feverNotes'`) 편집 역할을 분리 지원.
+  2. 기본 8노트 / 2종 교대(왼손 Zone 4, 오른손 Zone 5 기본값) 및 480틱 간격(tick 480, 960, 1440, 1920, 2400, 2880, 3360, 3840) feverNote 이벤트 편집 API 구현.
+  3. 가이드 이름 치환이 아닌 온전한 `feverNote` 실행 데이터 객체(`{ id, kind: 'feverNote', landingTick, target }`) 생성 및 ContentCompiler 컴파일 지원.
+  4. 초기 길이(8노트 고정)/부위(손 1~5, 발 9~11; 머리/골반 커서 잠금)/존/시간 제한 capability(`ContentCapabilities.ts`) 및 Cross-Body 제약 재사용 검증.
+  5. `BOSS_CLIMAX` 역할 바인딩에서 feverNotes와 hazard의 공존 지원 및 `diagnoseBossClimaxBindings()`를 통한 누락 역할 진단 지원.
+  6. 별 수집(`STAR_COLLECT`), Phase A 장판(`HAZARD_EVADE`), 원본 구버전 프로젝트 데이터 100% 무손실 보존.
+  7. `EditorLayout` 상단 페이즈 셀렉터에 [🔥 피버 노트 (Phase B)] 탭 추가 및 사이드바 전용 8슬롯 편집 UI 패널 제공.
+- **수정 파일 (소스 3개 + 신규 테스트 1개)**:
+  - `dream_guardian/src/editor/EditorState.ts`: `FEVER_NOTES` 페이즈 지원, 8슬롯 피버 노트 관리/검증/버퍼 API, `seq_phaseB_fever` 시퀀스 및 바인딩 직렬화/역직렬화, `diagnoseBossClimaxBindings` 진단 함수 추가
+  - `dream_guardian/src/editor/EditorLayout.ts`: 상단 페이즈 셀렉터 옵션 추가, `renderFeverSlotEditorHTML` 전용 8슬롯 편집 UI 패널 렌더링
+  - `dream_guardian/src/editor/main.ts`: 피버 노트 8슬롯 부위/존 선택, 버퍼 적용/취소 이벤트 리스너 연동
+  - `dream_guardian/tests/unit/editor-fever-content.test.ts` (신규, 21개 단위 테스트)
+- **TDD 검증**: `tests/unit/editor-fever-content.test.ts` (21/21 Pass, 100%).
+- **전체 검증**: `npm test` 241 files / 2,881 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 💥 게임 조립계층 오답 장판 팩 연결 카드 (BOOT-HAZARD-A-CONTENT, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#397 BOOT-HAZARD-A-CONTENT](https://github.com/Choyounhwa/-dream-guardian/issues/397)
@@ -380,7 +401,8 @@
 | [#395](https://github.com/Choyounhwa/-dream-guardian/issues/395) EDITOR-HAZARD-A | Phase A 장판 편집 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#396](https://github.com/Choyounhwa/-dream-guardian/issues/396) GAME-HAZARD-A-CONTENT | Phase A 장판 소비 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#397](https://github.com/Choyounhwa/-dream-guardian/issues/397) BOOT-HAZARD-A-CONTENT | 게임 조립계층 오답 장판 팩 연결 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#398](https://github.com/Choyounhwa/-dream-guardian/issues/398) EDITOR-FEVER | 16박 가이드/8노트 피버 분리 편집 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
+| [#398](https://github.com/Choyounhwa/-dream-guardian/issues/398) EDITOR-FEVER | 16박 가이드/8노트 피버 분리 편집 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#399](https://github.com/Choyounhwa/-dream-guardian/issues/399) GAME-FEVER-CONTENT | 피버 시퀀스 공급·반복 ID·마지막 판정 수명 연결 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 

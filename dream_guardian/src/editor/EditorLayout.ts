@@ -50,6 +50,7 @@ export class EditorLayout {
       { value: 'ANSWER_SELECT', label: '2. 답선택 페이즈 (2박 즉시선택)' },
       { value: 'STAR_COLLECT', label: '3. 별모으기 페이즈 (7박 키노트)' },
       { value: 'FEVER_PHASE_B', label: '4. 피버 결전 (16박 풀루프)' },
+      { value: 'FEVER_NOTES', label: '🔥 피버 노트 (Phase B)' },
       { value: 'HAZARD_EVADE', label: '⚠️ 오답 장판 (Phase A)' },
     ];
 
@@ -170,11 +171,14 @@ export class EditorLayout {
     const starSlotSection = isStarCollect ? this.renderStarSlotEditorHTML() : '';
     const isHazardEvade = this._state.selectedPhase === 'HAZARD_EVADE';
     const hazardSection = isHazardEvade ? this.renderHazardEvadeEditorHTML() : '';
+    const isFeverNotes = this._state.selectedPhase === 'FEVER_NOTES';
+    const feverSection = isFeverNotes ? this.renderFeverSlotEditorHTML() : '';
 
     return `
       <aside class="editor-sidebar">
         ${hazardSection}
         ${starSlotSection}
+        ${feverSection}
         <section class="sidebar-section pattern-details-section">
           <div class="section-title">
             <span>패턴 속성 편집</span>
@@ -446,6 +450,117 @@ export class EditorLayout {
           <small>고정 7박 (2~8박) | 손 (Zone 1~5), 발 (Zone 9~11) 전용</small>
         </div>
         <div class="star-slots-container">
+          ${slotsHTML}
+        </div>
+      </section>
+    `;
+  }
+
+  /**
+   * 피버 노트(FEVER_NOTES) 8슬롯 편집 UI HTML 렌더링 (#398)
+   */
+  renderFeverSlotEditorHTML(): string {
+    const slots = this._state.getFeverSlots();
+    const selectedNoteId = this._state.selectedNoteId;
+    const focusedError = this._state.getFocusedError();
+
+    const slotsHTML = slots
+      .map((slot) => {
+        const idx = slot.slotIndex;
+        const slotNumber = slot.slotNumber;
+        const buffer = this._state.getFeverFormBuffer(idx);
+        const activePart = buffer?.part ?? slot.part;
+        const activeZone = buffer?.zoneId ?? slot.zoneId;
+        const isSelected = selectedNoteId === slot.noteId;
+        const isErrorFocused = focusedError?.entityId === slot.noteId;
+
+        const hasBufferErrors = Boolean(buffer?.errors && buffer.errors.length > 0);
+        const firstErrorMsg = buffer?.errors?.[0] ?? '';
+        const firstDiagPath = buffer?.diagnostics?.[0]?.path ?? 'target.zoneId';
+
+        let zoneOptionsHTML = '';
+        if (activePart === 'foot') {
+          for (let z = 9; z <= 11; z++) {
+            zoneOptionsHTML += `<option value="${z}" ${activeZone === z ? 'selected' : ''}>Zone ${z} (발)</option>`;
+          }
+        } else {
+          for (let z = 1; z <= 5; z++) {
+            zoneOptionsHTML += `<option value="${z}" ${activeZone === z ? 'selected' : ''}>Zone ${z} (손)</option>`;
+          }
+        }
+
+        const isZoneInvalid =
+          (activePart === 'foot' && (activeZone < 9 || activeZone > 11)) ||
+          ((activePart === 'leftHand' || activePart === 'rightHand') &&
+            (activeZone < 1 || activeZone > 5));
+
+        const isPartFocused = isErrorFocused && firstDiagPath.includes('part');
+        const isZoneFocused = isErrorFocused && (firstDiagPath.includes('zoneId') || firstDiagPath.includes('Zone'));
+
+        return `
+          <div class="star-slot-item fever-slot-item ${isSelected ? 'selected' : ''} ${hasBufferErrors ? 'slot-has-error' : ''}"
+               data-slot-index="${idx}"
+               data-note-id="${slot.noteId}"
+               style="border-left: 4px solid ${slot.color || '#28E6FF'}; margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px;">
+            <div class="slot-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span class="slot-badge" style="font-weight:bold; font-size:12px;">슬롯 ${slotNumber} (${slot.beat}박 / ${slot.tick}틱)</span>
+              <span class="slot-status" style="font-size:11px; color:#A78BFA;">고정 타이밍</span>
+            </div>
+
+            <div class="slot-controls" style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px;">
+              <div class="form-group-compact">
+                <label for="fever-part-${idx}">부위:</label>
+                <select id="fever-part-${idx}"
+                        class="editor-select fever-part-select ${isPartFocused ? 'field-error-focus' : ''}"
+                        data-slot-index="${idx}">
+                  <option value="leftHand" ${activePart === 'leftHand' ? 'selected' : ''}>왼손 (Zone 1~5)</option>
+                  <option value="rightHand" ${activePart === 'rightHand' ? 'selected' : ''}>오른손 (Zone 1~5)</option>
+                  <option value="foot" ${activePart === 'foot' ? 'selected' : ''}>발 (Zone 9~11)</option>
+                </select>
+              </div>
+
+              <div class="form-group-compact">
+                <label for="fever-zone-${idx}">존:</label>
+                <select id="fever-zone-${idx}"
+                        class="editor-select fever-zone-select ${isZoneFocused ? 'field-error-focus' : ''} ${isZoneInvalid ? 'invalid-select' : ''}"
+                        data-slot-index="${idx}">
+                  ${zoneOptionsHTML}
+                </select>
+              </div>
+            </div>
+
+            <div class="slot-actions" style="display:flex; justify-content:flex-end; gap:6px; align-items:center;">
+              ${
+                buffer?.isDirty
+                  ? `
+                <button class="btn btn-xs btn-primary btn-apply-fever-buffer" data-slot-index="${idx}">적용</button>
+                <button class="btn btn-xs btn-secondary btn-cancel-fever-buffer" data-slot-index="${idx}">취소</button>
+              `
+                  : ''
+              }
+            </div>
+
+            ${
+              hasBufferErrors
+                ? `
+              <div class="slot-error-msg" style="color:#EF4444; font-size:11px; margin-top:4px;">
+                ⚠️ ${firstErrorMsg}
+              </div>
+            `
+                : ''
+            }
+          </div>
+        `;
+      })
+      .join('');
+
+    return `
+      <section class="sidebar-section fever-notes-editor-section" style="border:1px solid #A78BFA; background:rgba(167,139,250,0.06); margin-bottom:12px; border-radius:6px; padding:12px;">
+        <div class="section-title">
+          <span>🔥 피버 노트 편집 (Phase B / FEVER_NOTES)</span>
+          <small>고정 8박 (1~8박, 480틱 간격) | 손 (Zone 1~5), 발 (Zone 9~11)</small>
+        </div>
+        <div class="fever-slots-container">
           ${slotsHTML}
         </div>
       </section>

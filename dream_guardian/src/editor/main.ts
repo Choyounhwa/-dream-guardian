@@ -676,6 +676,76 @@ window.addEventListener('DOMContentLoaded', () => {
         updateSidebar();
       });
     });
+
+    // Phase B 피버 노트 8슬롯 부위/존/버퍼 이벤트 바인딩 (#398)
+    const feverPartSelects = document.querySelectorAll('.fever-part-select');
+    feverPartSelects.forEach((sel) => {
+      sel.addEventListener('change', (e) => {
+        const slotIdxStr = (e.target as HTMLElement).getAttribute('data-slot-index');
+        if (slotIdxStr === null) return;
+        const slotIdx = parseInt(slotIdxStr, 10);
+        const part = (e.target as HTMLSelectElement).value as any;
+        const currentBuffer = state.getFeverFormBuffer(slotIdx);
+        const currentSlot = state.getFeverSlots()[slotIdx];
+        const defaultZone = part === 'foot' ? 10 : (slotIdx % 2 === 0 ? 4 : 5);
+        const currentZone = currentBuffer?.zoneId ?? currentSlot?.zoneId;
+        const zoneId =
+          part === 'foot'
+            ? (currentZone >= 9 && currentZone <= 11 ? currentZone : 10)
+            : (currentZone >= 1 && currentZone <= 5 ? currentZone : defaultZone);
+        state.setFeverFormBuffer(slotIdx, {
+          part,
+          zoneId,
+        });
+        updateSidebar();
+      });
+    });
+
+    const feverZoneSelects = document.querySelectorAll('.fever-zone-select');
+    feverZoneSelects.forEach((sel) => {
+      sel.addEventListener('change', (e) => {
+        const slotIdxStr = (e.target as HTMLElement).getAttribute('data-slot-index');
+        if (slotIdxStr === null) return;
+        const slotIdx = parseInt(slotIdxStr, 10);
+        const zoneId = parseInt((e.target as HTMLSelectElement).value, 10);
+        const currentBuffer = state.getFeverFormBuffer(slotIdx);
+        const currentSlot = state.getFeverSlots()[slotIdx];
+        state.setFeverFormBuffer(slotIdx, {
+          part: currentBuffer?.part ?? currentSlot?.part,
+          zoneId,
+        });
+        updateSidebar();
+      });
+    });
+
+    const feverApplyBtns = document.querySelectorAll('.btn-apply-fever-buffer');
+    feverApplyBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const slotIdxStr = (e.target as HTMLElement).getAttribute('data-slot-index');
+        if (slotIdxStr === null) return;
+        const slotIdx = parseInt(slotIdxStr, 10);
+        const res = state.applyFeverFormBuffer(slotIdx);
+        if (!res.valid) {
+          alert(`피버 슬롯 적용 실패: ${res.lockReason || res.diagnostics[0]?.message}`);
+        }
+        updateSidebar();
+        updateTimeline();
+        updateCanvas();
+      });
+    });
+
+    const feverCancelBtns = document.querySelectorAll('.btn-cancel-fever-buffer');
+    feverCancelBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const slotIdxStr = (e.target as HTMLElement).getAttribute('data-slot-index');
+        if (slotIdxStr === null) return;
+        const slotIdx = parseInt(slotIdxStr, 10);
+        state.clearFeverFormBuffer(slotIdx);
+        updateSidebar();
+      });
+    });
   };
 
   // 5. 헤더 툴바 이벤트 바인딩

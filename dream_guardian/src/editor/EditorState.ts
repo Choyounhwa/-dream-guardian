@@ -45,6 +45,7 @@ import type {
   EditorSequence,
   EditorBinding,
   StarNoteEvent,
+  FeverNoteEvent,
   MotionCueEvent,
   PhaseAHazardEvent,
   EditorProjectMetadata,
@@ -55,8 +56,13 @@ import {
   PHASE_A_ACTIVE_HAZARD_PATTERNS,
   type PhaseAHazardPattern,
 } from '../../config/phase-a-hazard.config.js';
+import {
+  isPublishableHandZone,
+  isPublishableFootZone,
+  checkCrossBodyConstraint,
+} from '../data/ContentCapabilities.js';
 
-export type PhaseType = 'RUN_QUESTION' | 'ANSWER_SELECT' | 'STAR_COLLECT' | 'FEVER_PHASE_B' | 'HAZARD_EVADE';
+export type PhaseType = 'RUN_QUESTION' | 'ANSWER_SELECT' | 'STAR_COLLECT' | 'FEVER_PHASE_B' | 'HAZARD_EVADE' | 'FEVER_NOTES';
 export type ActiveEditTool = 'inspect' | 'leftHand' | 'rightHand' | 'head' | 'hip' | 'foot';
 
 export interface PhaseAHazardScheduleDisplay {
@@ -154,8 +160,53 @@ export interface FormBufferEntry {
   patternId?: string;
   rawInput?: Record<string, any>;
   errors?: string[];
-  diagnostics?: StarSlotValidationDiagnostic[];
+  diagnostics?: StarSlotValidationDiagnostic[] | FeverSlotValidationDiagnostic[];
   isDirty?: boolean;
+}
+
+export type FeverSlotLockCode =
+  | 'LOCKED_INPUT_CAPABILITY'
+  | 'FIXED_SLOT_LANDING'
+  | 'COUNT_LOCKED'
+  | 'CROSS_BODY_VIOLATION'
+  | 'INVALID_ZONE';
+
+export interface FeverSlotValidationDiagnostic {
+  code: FeverSlotLockCode | string;
+  message: string;
+  path?: string;
+  entityId?: string;
+  severity: 'error' | 'warning';
+}
+
+export interface FeverSlotValidationResult {
+  valid: boolean;
+  lockCode?: FeverSlotLockCode;
+  lockReason?: string;
+  diagnostics: FeverSlotValidationDiagnostic[];
+}
+
+export interface FeverSlotItem {
+  slotIndex: number;
+  slotNumber: number;
+  beat: number;
+  tick: number;
+  noteId: string;
+  part: BodyCursorPart | 'foot';
+  zoneId: number;
+  foot?: 'leftFoot' | 'rightFoot' | 'centerFoot';
+  patternId?: string;
+  label?: string;
+  color?: string;
+  isStandard?: boolean;
+}
+
+export interface BossClimaxDiagnosisResult {
+  chapterId: string;
+  isComplete: boolean;
+  hasFeverNotes: boolean;
+  hasHazard: boolean;
+  missingRoles: string[];
 }
 
 export interface PatternApplicationDiff {
@@ -173,6 +224,7 @@ export type CreatePatternInput = Omit<CatChoreoPattern, 'partZoneMap'> & {
 export interface EditorPhaseRoutineInfo {
   phase: PhaseType;
   beats: number;
+  totalBeats?: number;
   prompt: string;
   routine: QuestionPhaseRoutine | AnswerPhaseRoutine | StarCollectRoutine | FeverPhaseRoutine;
   branchDuration?: number;
@@ -208,6 +260,9 @@ export class EditorState {
   private _hazardSequenceId: string = 'seq_phaseA_hazard';
   private _hazardEventId: string = 'evt_phaseA_hazard_1';
   private _phaseAHazardPattern: PhaseAHazardPattern = 'left_step';
+  private _feverSequenceId: string = 'seq_phaseB_fever';
+  private _feverSlots: FeverSlotItem[] = [];
+  private _feverFormBuffer: Map<number, FormBufferEntry> = new Map();
   private _bindings: EditorBinding[] = [
     {
       chapterId: 'ch1',
@@ -236,6 +291,13 @@ export class EditorState {
       phase: 'phaseB',
       sequenceId: 'seq_phaseB_motion',
       role: 'motionGuide',
+    },
+    {
+      chapterId: 'ch1',
+      subLevelId: 'fever_phase_b',
+      phase: 'phaseB',
+      sequenceId: 'seq_phaseB_fever',
+      role: 'feverNotes',
     },
     {
       chapterId: 'ch1',
@@ -270,6 +332,7 @@ export class EditorState {
   ) {
     this._registry = initialRegistry ?? new DancePatternRegistry(EXTENDED_CAT_CHOREO_PATTERNS);
     this._sequenceEditor = initialSequenceEditor ?? new PhaseSequenceEditor();
+    this.initDefaultFeverSlots();
     if (commandManager) {
       this._commandManager = commandManager;
       this._commandManager.addListener((newProj) => {
@@ -332,6 +395,17 @@ export class EditorState {
 
   getSequences(): EditorSequence[] {
     return this.toEditorProject().sequences;
+  }
+
+  addCustomSequence(seq: EditorSequence): void {
+    const existingIdx = this._customSequences.findIndex((s) => s.id === seq.id);
+    if (existingIdx >= 0) {
+      this._customSequences[existingIdx] = deepClone(seq);
+    } else {
+      this._customSequences.push(deepClone(seq));
+    }
+    this.notifyDocumentChange();
+    this.notifyStateChange();
   }
 
   buildExportProject(): EditorProject {
@@ -635,6 +709,13 @@ export class EditorState {
       },
       {
         chapterId: 'ch1',
+        subLevelId: 'fever_phase_b',
+        phase: 'phaseB',
+        sequenceId: 'seq_phaseB_fever',
+        role: 'feverNotes',
+      },
+      {
+        chapterId: 'ch1',
         subLevelId: null,
         phase: 'phaseA',
         sequenceId: 'seq_phaseA_hazard',
@@ -644,6 +725,8 @@ export class EditorState {
     this._hazardSequenceId = 'seq_phaseA_hazard';
     this._hazardEventId = 'evt_phaseA_hazard_1';
     this._phaseAHazardPattern = 'left_step';
+    this._feverSequenceId = 'seq_phaseB_fever';
+    this.initDefaultFeverSlots();
     this._stageBuiltinProfiles = {};
     this._lastSavedRevision = 0;
     this._isPublished = false;
@@ -694,6 +777,25 @@ export class EditorState {
 
   getStageBuiltinProfiles(): Record<string, string> {
     return { ...this._stageBuiltinProfiles };
+  }
+
+  diagnoseBossClimaxBindings(chapterId: string): BossClimaxDiagnosisResult {
+    const stageBindings = this._bindings.filter(
+      (b) => b.chapterId === chapterId && b.phase === 'phaseB' && (b.subLevelId === 'boss_climax' || b.subLevelId === null),
+    );
+    const hasFeverNotes = stageBindings.some((b) => b.role === 'feverNotes');
+    const hasHazard = stageBindings.some((b) => b.role === 'hazard');
+    const missingRoles: string[] = [];
+    if (!hasFeverNotes) missingRoles.push('feverNotes');
+    if (!hasHazard) missingRoles.push('hazard');
+
+    return {
+      chapterId,
+      isComplete: hasFeverNotes && hasHazard,
+      hasFeverNotes,
+      hasHazard,
+      missingRoles,
+    };
   }
 
   setStageBuiltinProfile(chapterId: string, profileId: string | null): void {
@@ -1487,6 +1589,300 @@ export class EditorState {
     });
   }
 
+  // ==========================================
+  // Issue #398: FEVER_NOTES 8-Slot Editor API
+  // ==========================================
+
+  initDefaultFeverSlots(): void {
+    const slots: FeverSlotItem[] = [];
+    for (let idx = 0; idx < 8; idx++) {
+      const slotNumber = idx + 1;
+      const beat = idx + 1;
+      const tick = (idx + 1) * 480;
+      const isEven = idx % 2 === 0;
+      slots.push({
+        slotIndex: idx,
+        slotNumber,
+        beat,
+        tick,
+        noteId: `NOTE_F_${slotNumber}`,
+        part: isEven ? 'leftHand' : 'rightHand',
+        zoneId: isEven ? 4 : 5,
+        label: isEven ? '피버 좌도달' : '피버 우도달',
+        color: isEven ? '#28E6FF' : '#FFCB4D',
+        isStandard: true,
+      });
+    }
+    this._feverSlots = slots;
+  }
+
+  getFeverSlots(): FeverSlotItem[] {
+    if (this._feverSlots.length === 0) {
+      this.initDefaultFeverSlots();
+    }
+    return this._feverSlots.map((s) => ({ ...s }));
+  }
+
+  canModifyFeverNoteCount(): boolean {
+    return false;
+  }
+
+  validateFeverSlot(
+    slotIndex: number,
+    patch: {
+      part?: BodyCursorPart | 'foot';
+      zoneId?: number;
+      patternId?: string;
+      beat?: number;
+      tick?: number;
+      landingTick?: number;
+    }
+  ): FeverSlotValidationResult {
+    const normalizedIndex =
+      slotIndex >= 0 && slotIndex < 8
+        ? slotIndex
+        : Math.max(0, Math.min(7, slotIndex));
+    const expectedBeat = normalizedIndex + 1;
+    const expectedTick = (normalizedIndex + 1) * 480;
+
+    // 1. Timing Lock (고정 480틱 간격)
+    if (
+      (patch.landingTick !== undefined && patch.landingTick !== expectedTick) ||
+      (patch.beat !== undefined && Math.abs(patch.beat - expectedBeat) > 0.001) ||
+      (patch.tick !== undefined && patch.tick !== expectedTick)
+    ) {
+      return {
+        valid: false,
+        lockCode: 'FIXED_SLOT_LANDING',
+        lockReason: `피버 노트 착지 타이밍은 슬롯 ${normalizedIndex + 1}의 ${expectedBeat}박(${expectedTick} tick)으로 고정되어 있습니다. (FIXED_SLOT_LANDING)`,
+        diagnostics: [
+          {
+            code: 'FIXED_SLOT_LANDING',
+            path: 'landingTick',
+            entityId: `NOTE_F_${normalizedIndex + 1}`,
+            message: `Fever note timing is fixed to beat ${expectedBeat} (${expectedTick} ticks).`,
+            severity: 'error',
+          },
+        ],
+      };
+    }
+
+    // 2. Head & Hip Lock
+    if (patch.part === 'head' || patch.part === 'hip') {
+      return {
+        valid: false,
+        lockCode: 'LOCKED_INPUT_CAPABILITY',
+        lockReason: '피버 노트는 머리(head) 및 골반(hip) 커서가 잠겨 있습니다. 손(leftHand/rightHand 1~5) 또는 발(foot 9~11)만 지원됩니다. (LOCKED_INPUT_CAPABILITY)',
+        diagnostics: [
+          {
+            code: 'LOCKED_INPUT_CAPABILITY',
+            path: 'target.part',
+            entityId: `NOTE_F_${normalizedIndex + 1}`,
+            message: `Fever target part "${patch.part}" is locked in initial V2 profile.`,
+            severity: 'error',
+          },
+        ],
+      };
+    }
+
+    const currentSlots = this.getFeverSlots();
+    const currentSlot = currentSlots[normalizedIndex];
+    const targetPart = patch.part ?? currentSlot?.part ?? 'leftHand';
+    const targetZone = patch.zoneId ?? currentSlot?.zoneId ?? 4;
+
+    // 3. Hand Zone Capability
+    if (targetPart === 'leftHand' || targetPart === 'rightHand') {
+      if (targetZone < 1 || targetZone > 5) {
+        return {
+          valid: false,
+          lockCode: 'LOCKED_INPUT_CAPABILITY',
+          lockReason: '손(hand) 타겟 존은 초기 V2 프로필에서 1~5 존만 허용됩니다. (LOCKED_INPUT_CAPABILITY)',
+          diagnostics: [
+            {
+              code: 'LOCKED_INPUT_CAPABILITY',
+              path: 'target.zoneId',
+              entityId: `NOTE_F_${normalizedIndex + 1}`,
+              message: 'Hand target zone must be between 1 and 5 in initial V2 profile.',
+              severity: 'error',
+            },
+          ],
+        };
+      }
+
+      // 4. Cross-Body constraint
+      const crossCheck = checkCrossBodyConstraint(targetPart, targetZone, null);
+      if (!crossCheck.valid) {
+        return {
+          valid: false,
+          lockCode: 'CROSS_BODY_VIOLATION',
+          lockReason: crossCheck.reason || '신체 물리 제약 위반 (Cross-Body)',
+          diagnostics: [
+            {
+              code: 'CROSS_BODY_VIOLATION',
+              path: 'target.zoneId',
+              entityId: `NOTE_F_${normalizedIndex + 1}`,
+              message: crossCheck.reason || 'Cross-body constraint violation',
+              severity: 'error',
+            },
+          ],
+        };
+      }
+
+      if (!isPublishableHandZone(targetPart, targetZone)) {
+        return {
+          valid: false,
+          lockCode: 'LOCKED_INPUT_CAPABILITY',
+          lockReason: `손(${targetPart}) 타겟 존은 초기 V2 프로필에서 지원되는 손 존만 허용됩니다. (LOCKED_INPUT_CAPABILITY)`,
+          diagnostics: [
+            {
+              code: 'LOCKED_INPUT_CAPABILITY',
+              path: 'target.zoneId',
+              entityId: `NOTE_F_${normalizedIndex + 1}`,
+              message: `Hand target zone ${targetZone} is not publishable for ${targetPart} in initial V2 profile.`,
+              severity: 'error',
+            },
+          ],
+        };
+      }
+    } else if (targetPart === 'foot') {
+      if (!isPublishableFootZone(targetZone) || targetZone < 9 || targetZone > 11) {
+        return {
+          valid: false,
+          lockCode: 'LOCKED_INPUT_CAPABILITY',
+          lockReason: '발(foot) 타겟 존은 초기 V2 프로필에서 9~11 존만 허용됩니다. (LOCKED_INPUT_CAPABILITY)',
+          diagnostics: [
+            {
+              code: 'LOCKED_INPUT_CAPABILITY',
+              path: 'target.zoneId',
+              entityId: `NOTE_F_${normalizedIndex + 1}`,
+              message: 'Foot target zone must be between 9 and 11 in initial V2 profile.',
+              severity: 'error',
+            },
+          ],
+        };
+      }
+    }
+
+    return {
+      valid: true,
+      diagnostics: [],
+    };
+  }
+
+  updateFeverSlot(
+    slotIndex: number,
+    patch: { part?: BodyCursorPart | 'foot'; zoneId?: number; patternId?: string }
+  ): FeverSlotValidationResult {
+    const valRes = this.validateFeverSlot(slotIndex, patch);
+    if (!valRes.valid) {
+      this.setFeverFormBuffer(slotIndex, {
+        ...patch,
+        errors: valRes.diagnostics.map((d) => d.message),
+        diagnostics: valRes.diagnostics,
+      });
+      return valRes;
+    }
+
+    const normalizedIndex =
+      slotIndex >= 0 && slotIndex < 8
+        ? slotIndex
+        : Math.max(0, Math.min(7, slotIndex));
+    const slots = this.getFeverSlots();
+    const slot = slots[normalizedIndex];
+    if (!slot) {
+      return { valid: false, diagnostics: [] };
+    }
+
+    const newPart = patch.part ?? slot.part;
+    const newZone = patch.zoneId ?? slot.zoneId;
+    const isFoot = newPart === 'foot';
+    let foot: 'leftFoot' | 'rightFoot' | 'centerFoot' | undefined;
+    if (isFoot) {
+      foot = newZone === 9 ? 'leftFoot' : (newZone === 11 ? 'rightFoot' : 'centerFoot');
+    }
+
+    this._feverSlots[normalizedIndex] = {
+      ...slot,
+      part: newPart,
+      zoneId: newZone,
+      foot,
+      patternId: patch.patternId ?? slot.patternId,
+      color: isFoot ? '#10B981' : (newPart === 'rightHand' ? '#FFCB4D' : '#28E6FF'),
+    };
+
+    this.clearFeverFormBuffer(normalizedIndex);
+    this.notifyDocumentChange();
+    this.notifyStateChange();
+
+    return {
+      valid: true,
+      diagnostics: [],
+    };
+  }
+
+  getFeverFormBuffer(slotIndex?: number): FormBufferEntry | undefined {
+    if (slotIndex !== undefined) {
+      const normalizedIndex =
+        slotIndex >= 0 && slotIndex < 8
+          ? slotIndex
+          : Math.max(0, Math.min(7, slotIndex));
+      return this._feverFormBuffer.get(normalizedIndex);
+    }
+    return undefined;
+  }
+
+  setFeverFormBuffer(slotIndex: number, entry: Partial<FormBufferEntry>): void {
+    const normalizedIndex =
+      slotIndex >= 0 && slotIndex < 8
+        ? slotIndex
+        : Math.max(0, Math.min(7, slotIndex));
+    const valRes = this.validateFeverSlot(normalizedIndex, entry as any);
+    const existing = this._feverFormBuffer.get(normalizedIndex) ?? { slotIndex: normalizedIndex };
+    const merged: FormBufferEntry = {
+      ...existing,
+      ...entry,
+      slotIndex: normalizedIndex,
+      errors: valRes.valid ? [] : valRes.diagnostics.map((d) => d.message),
+      diagnostics: valRes.diagnostics,
+      isDirty: true,
+    };
+    this._feverFormBuffer.set(normalizedIndex, merged);
+    this.notifyStateChange();
+  }
+
+  clearFeverFormBuffer(slotIndex?: number): void {
+    if (slotIndex !== undefined) {
+      const normalizedIndex =
+        slotIndex >= 0 && slotIndex < 8
+          ? slotIndex
+          : Math.max(0, Math.min(7, slotIndex));
+      this._feverFormBuffer.delete(normalizedIndex);
+    } else {
+      this._feverFormBuffer.clear();
+    }
+    this.notifyStateChange();
+  }
+
+  applyFeverFormBuffer(slotIndex: number): FeverSlotValidationResult {
+    const normalizedIndex =
+      slotIndex >= 0 && slotIndex < 8
+        ? slotIndex
+        : Math.max(0, Math.min(7, slotIndex));
+    const entry = this._feverFormBuffer.get(normalizedIndex);
+    if (!entry) {
+      return { valid: true, diagnostics: [] };
+    }
+    const valRes = this.validateFeverSlot(normalizedIndex, entry as any);
+    if (!valRes.valid) {
+      return valRes;
+    }
+    return this.updateFeverSlot(normalizedIndex, {
+      part: entry.part,
+      zoneId: entry.zoneId,
+      patternId: entry.patternId,
+    });
+  }
+
   getPatternApplicationDiff(patternId?: string, phase?: PhaseType): PatternApplicationDiff {
     const targetPhase = phase ?? this._selectedPhase;
     const targetPatId = patternId ?? this._selectedPatternId;
@@ -1788,10 +2184,21 @@ export class EditorState {
         return {
           phase: 'FEVER_PHASE_B',
           beats: FEVER_PHASE_B_ROUTINE.totalBeats,
+          totalBeats: FEVER_PHASE_B_ROUTINE.totalBeats,
           prompt: '16박 풀루프 안무 루틴 (4가지 핵심 안무 순환)',
           routine: FEVER_PHASE_B_ROUTINE,
           branchDuration: FEVER_PHASE_B_ROUTINE.totalBeats,
           noteCount: FEVER_PHASE_B_ROUTINE.patterns.length,
+        };
+      case 'FEVER_NOTES':
+        return {
+          phase: 'FEVER_NOTES',
+          beats: 8,
+          totalBeats: 8,
+          prompt: 'Phase B 피버 결전 8노트 실행 편집 (8박)',
+          routine: null as any,
+          branchDuration: 8,
+          noteCount: 8,
         };
       case 'HAZARD_EVADE':
         return {
@@ -1819,6 +2226,8 @@ export class EditorState {
         return 8;
       case 'FEVER_PHASE_B':
         return 16;
+      case 'FEVER_NOTES':
+        return 8;
       case 'HAZARD_EVADE':
         return 8;
     }
@@ -2036,7 +2445,7 @@ export class EditorState {
       const startTick = Math.max(0, Math.round((n.startBeat - 1) * 480));
       const durationTicks = Math.max(480, Math.round((n.durationBeats || 1) * 480));
       return {
-        id: n.id || `mot_fever_${idx + 1}`,
+        id: (n.id && !n.id.startsWith('NOTE_F_')) ? n.id : `mot_fever_${idx + 1}`,
         startTick,
         durationTicks,
         target: {
@@ -2046,6 +2455,31 @@ export class EditorState {
           hip: n.payload?.hip ?? null,
         },
         sourcePatternId: n.payload?.patternId,
+      };
+    });
+
+    const feverSlots = this.getFeverSlots();
+    const feverNoteEvents: FeverNoteEvent[] = feverSlots.map((s, idx) => {
+      const isFoot = s.part === 'foot';
+      const zoneId = s.zoneId;
+      const footKind = zoneId === 9 ? 'leftFoot' : (zoneId === 11 ? 'rightFoot' : 'centerFoot');
+      const footZone = (zoneId >= 9 && zoneId <= 11 ? zoneId : 10) as 9 | 10 | 11;
+      return {
+        id: s.noteId || `evt_fever_${idx + 1}`,
+        kind: 'feverNote',
+        landingTick: s.tick,
+        target: isFoot
+          ? {
+              type: 'foot' as const,
+              foot: footKind,
+              zoneId: footZone,
+            }
+          : {
+              type: 'cursor' as const,
+              part: s.part as BodyCursorPart,
+              zoneId,
+            },
+        sourcePatternId: s.patternId,
       };
     });
 
@@ -2075,6 +2509,12 @@ export class EditorState {
         events: feverEvents,
       },
       {
+        id: this._feverSequenceId || 'seq_phaseB_fever',
+        phase: 'phaseB',
+        kind: 'feverNotes',
+        events: feverNoteEvents,
+      },
+      {
         id: this._hazardSequenceId || 'seq_phaseA_hazard',
         phase: 'phaseA',
         kind: 'hazard',
@@ -2094,6 +2534,11 @@ export class EditorState {
         b.phase === 'phaseA' &&
         (b.sequenceId === (this._hazardSequenceId || 'seq_phaseA_hazard') || b.role === 'hazard'),
     );
+    const hasFeverNotesBinding = this._bindings.some(
+      (b) =>
+        b.phase === 'phaseB' &&
+        (b.sequenceId === (this._feverSequenceId || 'seq_phaseB_fever') || b.role === 'feverNotes'),
+    );
     const bindings: EditorBinding[] = this._bindings.map((b) => ({ ...b }));
     if (!hasHazardBinding) {
       bindings.push({
@@ -2102,6 +2547,15 @@ export class EditorState {
         phase: 'phaseA',
         sequenceId: this._hazardSequenceId || 'seq_phaseA_hazard',
         role: 'hazard',
+      });
+    }
+    if (!hasFeverNotesBinding) {
+      bindings.push({
+        chapterId: 'ch1',
+        subLevelId: 'fever_phase_b',
+        phase: 'phaseB',
+        sequenceId: this._feverSequenceId || 'seq_phaseB_fever',
+        role: 'feverNotes',
       });
     }
 
@@ -2152,6 +2606,8 @@ export class EditorState {
         'seq_phaseA_motion',
         'seq_phaseA_answer',
         'seq_phaseB_motion',
+        'seq_phaseB_fever',
+        this._feverSequenceId,
         'seq_phaseA_hazard',
         this._hazardSequenceId,
       ]);
@@ -2159,7 +2615,7 @@ export class EditorState {
         if (
           (seq.phase === 'phaseA' &&
             (seq.kind === 'starNotes' || seq.kind === 'motionGuide' || seq.kind === 'hazard')) ||
-          (seq.phase === 'phaseB' && seq.kind === 'motionGuide')
+          (seq.phase === 'phaseB' && (seq.kind === 'motionGuide' || seq.kind === 'feverNotes'))
         ) {
           handledSeqIds.add(seq.id);
         }
@@ -2301,6 +2757,37 @@ export class EditorState {
             ) {
               this._phaseAHazardPattern = ev.hazardType as PhaseAHazardPattern;
             }
+          }
+        } else if (seq.phase === 'phaseB' && seq.kind === 'feverNotes') {
+          if (seq.id) {
+            this._feverSequenceId = seq.id;
+          }
+          const loadedSlots: FeverSlotItem[] = [];
+          for (let idx = 0; idx < seq.events.length; idx++) {
+            const ev = seq.events[idx] as FeverNoteEvent;
+            const landingTick = ev.landingTick ?? ev.tick ?? ((idx + 1) * 480);
+            const beat = Math.round(((landingTick / 480)) * 100) / 100;
+            const rawPart = (ev.target as any).part;
+            const rawFoot = (ev.target as any).foot;
+            const isFoot = ev.target.type === 'foot' || rawFoot !== undefined;
+            const zoneId = ev.target.zoneId;
+            loadedSlots.push({
+              slotIndex: idx,
+              slotNumber: idx + 1,
+              beat,
+              tick: landingTick,
+              noteId: ev.id || `NOTE_F_${idx + 1}`,
+              part: isFoot ? 'foot' : (rawPart || 'leftHand'),
+              zoneId,
+              foot: isFoot ? (rawFoot || (zoneId === 9 ? 'leftFoot' : zoneId === 11 ? 'rightFoot' : 'centerFoot')) : undefined,
+              patternId: ev.sourcePatternId,
+              label: isFoot ? '피버 발 스텝' : (rawPart === 'rightHand' ? '피버 우도달' : '피버 좌도달'),
+              color: isFoot ? '#10B981' : (rawPart === 'rightHand' ? '#FFCB4D' : '#28E6FF'),
+              isStandard: landingTick === (idx + 1) * 480,
+            });
+          }
+          if (loadedSlots.length > 0) {
+            this._feverSlots = loadedSlots;
           }
         }
       }
