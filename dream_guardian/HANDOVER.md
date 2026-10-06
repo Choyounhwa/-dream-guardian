@@ -2,6 +2,29 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🌟 Phase B 피버 시퀀스 공급·반복 ID·마지막 판정 수명 연결 카드 (GAME-FEVER-CONTENT, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#399 GAME-FEVER-CONTENT](https://github.com/Choyounhwa/-dream-guardian/issues/399)
+
+- **작업 목적**:
+  1. 책임 레이어 Game (`src/game/`) 내에서 에디터 모듈 import 없이 세션 스냅샷(`SessionStageBundle`)의 Phase B 피버 노트 콘텐츠(`getPhaseBFeverKeynotes(loopIndex)`)를 `BossFeverController`에 안전하게 공급.
+  2. `SessionContent.ts`: `SessionStageBundle`에 Phase B 피버 노트 Keynote 생성/해석 헬퍼 제공 (`getPhaseBFeverKeynotes(loopIndex: number): readonly Keynote[]`).
+  3. 각 loopIndex마다 `getPhaseBNoteExecutionId(loopIndex, noteIndex)`를 사용하여 고유한 keynote ID 생성 (시퀀스 반복 루프 간 ID 충돌 및 중복 보상 완전 차단).
+  4. landingTick을 beat(`landingTick / 480`)로 변환하여 Keynote 계약 충족, 커스텀 feverNotes가 없거나 builtin인 경우 기본 패턴(`DEFAULT_SESSION_FEVER_PATTERNS`)으로 안전하게 fallback.
+  5. `BossFeverController.ts`: `stageBundle` 주입 지원 (`setStageBundle(bundle: SessionStageBundle)` 또는 옵션 주입).
+  6. 루프 반복(loopIndex 증가) 시 새 executionId를 가진 시퀀스가 다음 루프로 전이.
+  7. 마지막 8번째 노트 착지 후 판정 유효창(Late 포함, landingTime + 0.40s) 완료 시점까지 정확히 대기 후 다음 시퀀스로 전이 (마지막 노트 누락 0건 보장).
+  8. `StarNoteScheduler.ts`: `isAllResolved` 및 `onAllNotesCompleted` 완료 콜백/이벤트 연결, `recordDirectHit` 지원, lastLate 수명주기 보존.
+  9. 콤보 계산, 데미지 배율, 광폭화, 보스 처치/승리/패배 상태 전이 등 기존 전투 밸런스 및 자원 정책 100% 보존.
+- **수정 파일 (소스 3개 + 신규 테스트 1개)**:
+  - `dream_guardian/src/game/SessionContent.ts`: `DEFAULT_SESSION_FEVER_PATTERNS`, `getPhaseBFeverKeynotes(loopIndex)` 번들 헬퍼 메서드, `createSessionStageBundle` 별칭 추가
+  - `dream_guardian/src/game/BossFeverController.ts`: `stageBundle` 주입, 루프별 `getPhaseBFeverKeynotes(loopIndex)` 호출, 마지막 노트 Late 완료 수명 대기 후 전이 로직 구현
+  - `dream_guardian/src/game/StarNoteScheduler.ts`: `isAllResolved`, `onAllNotesCompleted`, `recordDirectHit`, 완료 통지 플래그 연동
+  - `dream_guardian/tests/unit/fever-content.test.ts` (신규, 8개 단위 테스트)
+- **TDD 검증**: `tests/unit/fever-content.test.ts` (8/8 Pass, 100%).
+- **전체 검증**: `npm test` 242 files / 2,889 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 🔥 Phase B 피버 노트 편집과 16박 가이드 분리 카드 (EDITOR-FEVER, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#398 EDITOR-FEVER](https://github.com/Choyounhwa/-dream-guardian/issues/398)
