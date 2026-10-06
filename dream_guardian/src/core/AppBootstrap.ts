@@ -47,12 +47,14 @@ import {
   BeatRunCoordinator,
   BeatRoundResolver,
   PhaseAHazardController,
+  type PhaseAHazardPattern,
   StarNoteScheduler,
   StageProgressController,
   BossFeverController,
   BossHazardController,
   ReadyPositionController,
 } from '../game/index.js';
+import { PHASE_A_ACTIVE_HAZARD_PATTERNS } from '../game/PhaseAHazardController.js';
 import { HUDLayer } from '../ui/HUDLayer.js';
 import { MenuRenderer } from '../ui/MenuRenderer.js';
 import { ResultRenderer, calcStars } from '../ui/ResultRenderer.js';
@@ -271,6 +273,7 @@ export class AppBootstrap {
   public readonly sceneDirector: SceneDirector;
   public readonly mainSceneContext: MainSceneContext;
   public readonly getPhaseAStarNotes: () => readonly Keynote[];
+  public readonly getPhaseAHazardPattern: (roundIndex?: number) => PhaseAHazardPattern;
   public readonly engine: GameEngine;
   public readonly contentLoadService: ContentLoadService;
   public readonly contentProvider: ContentProvider;
@@ -488,6 +491,17 @@ const contentProvider = new ContentProvider();
 let sessionContext: GameSessionContext;
 const getPhaseAStarNotes = (): readonly Keynote[] =>
   sessionContext ? sessionContext.starNotes : BEGINNER_PHASE_A_STAR_NOTES;
+
+// Issue #397 (BOOT-HAZARD-A-CONTENT): Phase A 장판 패턴 단일 공급원 (커스텀 팩 또는 기본 풀)
+const getPhaseAHazardPattern = (roundIndex?: number): PhaseAHazardPattern => {
+  const bundle = sessionContext?.activeStageBundle ?? (sessionContext as any)?.stageBundle ?? null;
+  if (bundle) {
+    return bundle.getPhaseAHazardPattern(roundIndex);
+  }
+  const pool = PHASE_A_ACTIVE_HAZARD_PATTERNS;
+  const idx = roundIndex !== undefined ? Math.abs(roundIndex - 1) % pool.length : 0;
+  return pool[idx] ?? 'jump';
+};
 
 // Issue #213 & #193 & #194: 전역 이벤트 버스 및 Phase B 컨트롤러 인스턴스 참조 선언
 const eventBus = new EventBus();
@@ -824,8 +838,19 @@ stateMachine.registerState('HAZARD_EVADE', {
     answerLocked = true;
     if (!phaseAHazardController.isActive) {
       const branchClock = beatCoordinator.getBranchClock();
+      const roundIndex = beatRoundResolver.currentRoundIndex;
+      const bundle = sessionContext?.activeStageBundle ?? (sessionContext as any)?.stageBundle ?? null;
+      const pattern = bundle
+        ? bundle.getPhaseAHazardPattern(roundIndex)
+        : getPhaseAHazardPattern(roundIndex);
+      const attackId = bundle
+        ? `${bundle.getRoundExecutionId(roundIndex)}_hazard`
+        : (roundIndex ? `hazard_r${roundIndex}` : undefined);
       phaseAHazardController.start({
-        roundIndex: beatRoundResolver.currentRoundIndex,
+        roundIndex,
+        pattern,
+        bundle: bundle ?? undefined,
+        attackId,
         ...(branchClock
           ? { branchClock, secondsPerBeat: branchClock.secondsPerBeat }
           : { secondsPerBeat: beatCoordinator.rhythmEngine.secondsPerBeat }),
@@ -1391,7 +1416,7 @@ function startChapter(
   totalSteps = 0;
   totalJumps = 0;
   totalDwellTime = 0;
-  phaseAHazardController.stop();
+  phaseAHazardController.reset();
   pauseModal.close();
   xGestureDetector.reset();
   speech.resetFeedbackState();
@@ -1584,6 +1609,7 @@ function goToMenu(): void {
   if (bossHazardController) {
     bossHazardController.reset();
   }
+  phaseAHazardController.reset();
   climaxBarrageTimer = 0;
   consecutiveWrongCount = 0;
   dialogueOverlayRenderer.clear();
@@ -1747,6 +1773,8 @@ const mainSceneContext: MainSceneContext = {
   starNoteScheduler,
   starCollectionInput,
   getPhaseAStarNotes,
+  getPhaseAHazardPattern,
+  sessionContext,
   bossFeverController,
   bossHazardController,
   phaseAHazardController,
@@ -1903,6 +1931,7 @@ engine = new GameEngine({
     this.sceneDirector = sceneDirector;
     this.mainSceneContext = mainSceneContext;
     this.getPhaseAStarNotes = getPhaseAStarNotes;
+    this.getPhaseAHazardPattern = getPhaseAHazardPattern;
     this.engine = engine;
     this.contentLoadService = contentLoadService;
     this.contentProvider = contentProvider;

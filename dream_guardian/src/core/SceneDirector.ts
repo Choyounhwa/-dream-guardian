@@ -16,6 +16,7 @@ import { RunningMatPresenter, presentRunningMat } from '../render/RunningMatPres
 import { LOCOMOTION_MODES, type BottomBarSlot } from '../ui/index.js';
 import { toNormalizedLandmarks } from '../utils/index.js';
 import type { Keynote } from '../types/keynote.js';
+import type { PhaseAHazardPattern } from '../game/PhaseAHazardController.js';
 
 // Polyfill static present on RunningMatPresenter for #373 if needed
 if (typeof (RunningMatPresenter as any).present !== 'function') {
@@ -131,6 +132,8 @@ export interface MainSceneContext {
   starNoteScheduler: any;
   starCollectionInput: any;
   getPhaseAStarNotes?: () => readonly Keynote[];
+  getPhaseAHazardPattern?: (roundIndex?: number) => PhaseAHazardPattern;
+  sessionContext?: GameSessionContext;
   bossFeverController: any;
   bossHazardController: any;
   phaseAHazardController: any;
@@ -784,6 +787,7 @@ export class SceneDirector<TContext = any> {
       ctx.beatCoordinator.pause();
       ctx.starCollectionInput.setPaused(true);
       ctx.starNoteScheduler.setPaused(true);
+      ctx.phaseAHazardController?.pause?.();
       ctx.dreamGrid.update(dt, 0.8);
       ctx.effectManager.update(dt);
       ctx.sfx.stopDwellCharge();
@@ -795,6 +799,7 @@ export class SceneDirector<TContext = any> {
     if (ctx.beatCoordinator.isPaused) {
       ctx.beatCoordinator.resume();
     }
+    ctx.phaseAHazardController?.resume?.();
     ctx.starCollectionInput.setPaused(false);
     ctx.starNoteScheduler.setPaused(false);
 
@@ -879,15 +884,33 @@ export class SceneDirector<TContext = any> {
       !ctx.phaseAHazardController.isActive
     ) {
       const branchClock = clock;
+      const roundIndex = ctx.beatRoundResolver.currentRoundIndex;
+      const sContext = this._sessionContext ?? ctx.sessionContext;
+      const bundle = sContext?.activeStageBundle ?? (sContext as any)?.stageBundle ?? null;
+      const pattern = bundle
+        ? bundle.getPhaseAHazardPattern(roundIndex)
+        : (ctx.getPhaseAHazardPattern ? ctx.getPhaseAHazardPattern(roundIndex) : undefined);
+      const attackId = bundle
+        ? `${bundle.getRoundExecutionId(roundIndex)}_hazard`
+        : (roundIndex ? `hazard_r${roundIndex}` : undefined);
+
       ctx.phaseAHazardController.start({
-        roundIndex: ctx.beatRoundResolver.currentRoundIndex,
+        roundIndex,
+        pattern,
+        bundle: bundle ?? undefined,
+        attackId,
         ...(branchClock
           ? { branchClock, secondsPerBeat: branchClock.secondsPerBeat }
           : { secondsPerBeat: ctx.beatCoordinator.rhythmEngine?.secondsPerBeat }),
       });
     }
-    if (ctx.stateMachine.currentState === 'HAZARD_EVADE' && ctx.phaseAHazardController.isActive && !branchStarted) {
-      ctx.phaseAHazardController.update(branchRemainder);
+    if (ctx.stateMachine.currentState === 'HAZARD_EVADE' && ctx.phaseAHazardController?.isActive && !branchStarted) {
+      if (ctx.pauseModal.isOpen) {
+        ctx.phaseAHazardController?.pause?.();
+      } else {
+        ctx.phaseAHazardController?.resume?.();
+        ctx.phaseAHazardController.update(branchRemainder);
+      }
       if (!ctx.battle.isAlive) {
         ctx.actions.showResult(false);
         return;

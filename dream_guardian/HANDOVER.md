@@ -2,6 +2,26 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 💥 게임 조립계층 오답 장판 팩 연결 카드 (BOOT-HAZARD-A-CONTENT, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#397 BOOT-HAZARD-A-CONTENT](https://github.com/Choyounhwa/-dream-guardian/issues/397)
+
+- **작업 목적**:
+  1. 책임 레이어 Core (`src/core/`) 내에서 에디터 모듈 import 없이 두 `HAZARD_EVADE` 진입 경로(`AppBootstrap.ts` StateMachine enter vs `SceneDirector.ts` transition update)에 동일한 SessionContent 장판 패턴(`sessionContext.stageBundle.getPhaseAHazardPattern(roundIndex)`)과 branchClock, attackId 주입.
+  2. 정답 시: 별 수집(`STAR_COLLECT`)만 시작되고 오답 장판(`HAZARD_EVADE`)은 시작되지 않음.
+  3. 오답 또는 timeout 시: 오답 장판(`HAZARD_EVADE`)만 시작되고 별 수집은 시작되지 않음 (상호 배타적 분기 보장).
+  4. 동일 스냅샷/해시로 별과 장판이 실행되며, 중복 start 및 중복 정산 0건 보장.
+  5. 오답 시 직접 HP 즉시 차감 정책이 아닌 장판 회피 결과(피격 시 damagePerMiss)만 정산하는 안전한 정책 유지.
+  6. 늦은 프레임, pause, resume, 메뉴 복귀, restart 시 오염이나 비정상 상태 전이 없이 안전하게 cleanup (`phaseAHazardController.reset()`, pause/resume 생명주기).
+  7. 기본 팩(CSV/builtin) 모드 회귀 정상 보존.
+- **수정 파일 (소스 2개 + 신규 테스트 1개)**:
+  - `dream_guardian/src/core/AppBootstrap.ts`: `getPhaseAHazardPattern` 단일 공급원 등록, `HAZARD_EVADE` 진입 시 bundle/attackId/pattern 주입, `goToMenu`/`startChapter`에서 `phaseAHazardController.reset()` 정리 연동
+  - `dream_guardian/src/core/SceneDirector.ts`: `MainSceneContext` 확장(`getPhaseAHazardPattern`, `sessionContext`), transition update 시 bundle/pattern/attackId 일치 주입, pause/resume 생명주기 안전 연동
+  - `dream_guardian/tests/integration/content-hazard-a-bootstrap.test.ts` (신규, 8개 통합 테스트)
+- **TDD 검증**: `tests/integration/content-hazard-a-bootstrap.test.ts` (8/8 Pass, 100%).
+- **전체 검증**: `npm test` 240 files / 2,860 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## ⚡ Phase A 장판 팩 소비 계약과 단일 결과 보존 카드 (GAME-HAZARD-A-CONTENT, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#396 GAME-HAZARD-A-CONTENT](https://github.com/Choyounhwa/-dream-guardian/issues/396)
