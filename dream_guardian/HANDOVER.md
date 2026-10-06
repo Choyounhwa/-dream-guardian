@@ -2,6 +2,16 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🦴 졸라맨 아바타 크기 배율 조절 카드 (FEAT-SKEL-SCALE, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#420 FEAT-SKEL-SCALE-001](https://github.com/Choyounhwa/-dream-guardian/issues/420)
+
+- **작업 목적**: 원거리 웹캠 플레이 및 시인성 향상을 위해 졸라맨(화이트 클레이) 아바타의 크기를 키울 수 있는 배율(Scale) 옵션(1.0x / 1.25x / 1.5x) 지원 및 렌더링 동적 스케일링.
+- **수정 파일 (3개)**: `dream_guardian/config/skeleton.config.ts`, `dream_guardian/src/skeleton/StickmanRenderer.ts`, `dream_guardian/src/ui/SettingsModal.ts`
+- **TDD 검증**: `tests/unit/stickman-renderer.test.ts`에 스케일 변경에 따른 FK 관절 거리, 캡슐/관절 두께 스케일링 및 설정 모달 토글/라벨 연동 검증 테스트 추가 (28/28 Pass).
+- **전체 검증**: `npm test` 228 files / 2,709 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 🐛 별 노트 시간 축 불일치 결함 수정 카드 (BUG-STAR-CLOCK, 2026-10-05)
 
 **[✔] 구현 및 검증 완료.** [#419 BUG-STAR-CLOCK-001](https://github.com/Choyounhwa/-dream-guardian/issues/419)
@@ -133,7 +143,8 @@
 | [#383](https://github.com/Choyounhwa/-dream-guardian/issues/383) EDITOR-TIME-VIEW | 노트·눈금·재생헤드·클릭·오디오 루프 좌표 통일 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#384](https://github.com/Choyounhwa/-dream-guardian/issues/384) EDITOR-STAR | 별 7슬롯/부위·존/오류 UX 고도화 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#385](https://github.com/Choyounhwa/-dream-guardian/issues/385) EDITOR-BINDING | 프로젝트/구간·역할별 연결 UX | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#386](https://github.com/Choyounhwa/-dream-guardian/issues/386) EDITOR-RELEASE-STORE | 불변 게시본·적용 예약·이전 정상본 저장 | `[▶ NEXT: 에디터 트랙]` 대기 |
+| [#386](https://github.com/Choyounhwa/-dream-guardian/issues/386) EDITOR-RELEASE-STORE | 불변 게시본·적용 예약·이전 정상본 저장 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#387](https://github.com/Choyounhwa/-dream-guardian/issues/387) EDITOR-PUBLISH | 검증/게시/적용 예약 UI | `[▶ NEXT: 에디터 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 

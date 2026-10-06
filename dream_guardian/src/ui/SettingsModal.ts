@@ -13,6 +13,7 @@
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
 import { UI_LAYOUT, UI_ACCESSIBILITY } from '../../config/ui.config.js';
+import { STICKMAN_CONFIG } from '../../config/skeleton.config.js';
 
 export type SettingsButtonAction =
   | 'close'
@@ -22,7 +23,8 @@ export type SettingsButtonAction =
   | 'sound'
   | 'locomotion'
   | 'fontScale'
-  | 'highContrast';
+  | 'highContrast'
+  | 'stickmanScale';
 
 export type SettingsAction = SettingsButtonAction | 'backdrop-close';
 
@@ -47,6 +49,8 @@ export class SettingsModal {
   private _locomotionModeLabel = '제자리 달리기';
   private _fontScale = UI_ACCESSIBILITY.fontScale ?? 1.0;
   private _highContrast = UI_ACCESSIBILITY.highContrast ?? false;
+  private _stickmanScale = STICKMAN_CONFIG.scale ?? 1.0;
+  public onStickmanScaleChange?: (scale: number) => void;
 
   // 모달 다이얼로그 가상 기준 (UI_LAYOUT.settings.modal 연동)
   private readonly MODAL_VIRTUAL = UI_LAYOUT.settings.modal;
@@ -164,11 +168,40 @@ export class SettingsModal {
     return this._highContrast;
   }
 
+  get stickmanScale(): number {
+    return this._stickmanScale;
+  }
+
+  set stickmanScale(val: number) {
+    this._stickmanScale = val;
+    STICKMAN_CONFIG.scale = val;
+    this.onStickmanScaleChange?.(val);
+    this.saveAccessibility();
+  }
+
+  get stickmanScaleLabel(): string {
+    if (Math.abs(this._stickmanScale - 1.25) < 0.05) return '크게 (1.25x)';
+    if (Math.abs(this._stickmanScale - 1.5) < 0.05) return '매우 크게 (1.5x)';
+    return '기본 (1.0x)';
+  }
+
+  cycleStickmanScale(): number {
+    if (Math.abs(this._stickmanScale - 1.0) < 0.05) {
+      this.stickmanScale = 1.25;
+    } else if (Math.abs(this._stickmanScale - 1.25) < 0.05) {
+      this.stickmanScale = 1.5;
+    } else {
+      this.stickmanScale = 1.0;
+    }
+    return this._stickmanScale;
+  }
+
   saveAccessibility(): void {
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('dg_a11y_fontScale', String(this._fontScale));
         localStorage.setItem('dg_a11y_highContrast', String(this._highContrast));
+        localStorage.setItem('dg_stickman_scale', String(this._stickmanScale));
       }
     } catch {
       // localStorage 불가 환경 무시
@@ -195,6 +228,15 @@ export class SettingsModal {
             this._highContrast = parsedContrast;
             UI_ACCESSIBILITY.highContrast = parsedContrast;
             UIText.setHighContrast(parsedContrast);
+          }
+        }
+
+        const savedStickmanScale = localStorage.getItem('dg_stickman_scale');
+        if (savedStickmanScale !== null) {
+          const parsedStickman = parseFloat(savedStickmanScale);
+          if (parsedStickman > 0) {
+            this._stickmanScale = parsedStickman;
+            STICKMAN_CONFIG.scale = parsedStickman;
           }
         }
       }
@@ -267,7 +309,7 @@ export class SettingsModal {
       };
     }
 
-    const btnSlot = UI_LAYOUT.settings.buttons?.[action];
+    const btnSlot = (UI_LAYOUT.settings.buttons as Record<string, ModalButtonSlot | undefined>)?.[action];
     if (btnSlot) {
       return {
         x: btnSlot.x * scaleX,
@@ -289,6 +331,7 @@ export class SettingsModal {
       'locomotion',
       'fontScale',
       'highContrast',
+      'stickmanScale',
     ];
     const idx = actionOrder.indexOf(action);
     const offsetY = idx >= 0 ? 140 + idx * 130 : 140;
@@ -312,7 +355,7 @@ export class SettingsModal {
     const mx = this.MODAL_VIRTUAL.x * scaleX;
     const my = this.MODAL_VIRTUAL.y * scaleY;
     const mw = this.MODAL_VIRTUAL.w * scaleX;
-    const mh = this.MODAL_VIRTUAL.h * scaleY;
+    const mh = Math.max(this.MODAL_VIRTUAL.h, 1200) * scaleY;
 
     // 1. 모달 다이얼로그 바깥 클릭 시 backdrop-close
     if (x < mx || x > mx + mw || y < my || y > my + mh) {
@@ -329,6 +372,7 @@ export class SettingsModal {
       'locomotion',
       'fontScale',
       'highContrast',
+      'stickmanScale',
     ];
 
     for (const act of actions) {
@@ -336,6 +380,8 @@ export class SettingsModal {
       if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
         if (act === 'fontScale') {
           this.cycleFontScale();
+        } else if (act === 'stickmanScale') {
+          this.cycleStickmanScale();
         } else if (act === 'highContrast') {
           this.toggleHighContrast();
         }
@@ -369,7 +415,7 @@ export class SettingsModal {
     const mx = this.MODAL_VIRTUAL.x * scaleX;
     const my = this.MODAL_VIRTUAL.y * scaleY;
     const mw = this.MODAL_VIRTUAL.w * scaleX;
-    const mh = this.MODAL_VIRTUAL.h * scaleY;
+    const mh = Math.max(this.MODAL_VIRTUAL.h, 1200) * scaleY;
     const radius = 28 * scaleX;
 
     const cx = mx + mw / 2;
@@ -550,7 +596,16 @@ export class SettingsModal {
       this.getButtonLayout('highContrast', w, h),
       '👁 고대비 모드',
       this._highContrast ? 'ON' : 'OFF',
-      this._highContrast
+      this._highContrast,
+    );
+
+    // 졸라맨 크기 버튼 (Issue #420)
+    renderOptionBtn(
+      this.getButtonLayout('stickmanScale', w, h),
+      '🧍 졸라맨 크기',
+      this.stickmanScaleLabel,
+      this._stickmanScale > 1.0,
+      'iconSkeleton',
     );
 
     ctx.restore(); // 카드 transform 복원

@@ -11,7 +11,11 @@
 
 import type { NormalizedLandmark } from '../types/index.js';
 import { POSE_LANDMARKS } from '../types/index.js';
-import type { StickmanConfig } from '../../config/skeleton.config.js';
+import type {
+  StickmanConfig,
+  StickmanLimbLengths,
+  StickmanCapsuleWidth,
+} from '../../config/skeleton.config.js';
 import { STICKMAN_CONFIG } from '../../config/skeleton.config.js';
 
 export interface StickmanPoint2D {
@@ -70,6 +74,7 @@ function diffAngle(target: number, current: number): number {
 
 export class StickmanRenderer {
   private _config: StickmanConfig;
+  private _customScale?: number;
   private _angles: StickmanAngles;
   private _hasValidPose = false;
   private _breathScale = 1.0;
@@ -81,6 +86,19 @@ export class StickmanRenderer {
   constructor(config: StickmanConfig = STICKMAN_CONFIG) {
     this._config = config;
     this._angles = this._getDefaultAngles();
+  }
+
+  get scale(): number {
+    return this._customScale ?? this._config.scale ?? 1.0;
+  }
+
+  set scale(val: number) {
+    this._customScale = Math.max(0.1, val);
+    this._config.scale = this._customScale;
+  }
+
+  setScale(val: number): void {
+    this.scale = val;
   }
 
   private _getDefaultAngles(): StickmanAngles {
@@ -254,9 +272,21 @@ export class StickmanRenderer {
   /**
    * 고정 비례 순운동학(Fixed-Length FK)을 적용하여 2D 관절 픽셀 좌표 계산
    */
-  calculateFKPositions(vw: number, vh: number): StickmanJointPositions {
+  calculateFKPositions(vw: number, vh: number, customScale?: number): StickmanJointPositions {
     const cfg = this._config;
-    const lengths = cfg.limbLengths;
+    const currentScale = customScale ?? this.scale;
+    const rawLengths = cfg.limbLengths;
+    const lengths: StickmanLimbLengths = {
+      torso: rawLengths.torso * currentScale,
+      shoulderWidth: rawLengths.shoulderWidth * currentScale,
+      hipWidth: rawLengths.hipWidth * currentScale,
+      upperArm: rawLengths.upperArm * currentScale,
+      forearm: rawLengths.forearm * currentScale,
+      upperLeg: rawLengths.upperLeg * currentScale,
+      lowerLeg: rawLengths.lowerLeg * currentScale,
+      headRadius: rawLengths.headRadius * currentScale,
+      neckLength: rawLengths.neckLength * currentScale,
+    };
     const angles = this._angles;
 
     // 1. 화면 중앙 2/3 높이 앵커 (골반 중심)
@@ -385,48 +415,56 @@ export class StickmanRenderer {
 
     const cfg = this._config;
     const colors = cfg.colors;
-    const capsule = cfg.capsuleWidth;
+    const currentScale = options?.scale ?? this.scale;
+    const rawCapsule = cfg.capsuleWidth;
+    const capsule: StickmanCapsuleWidth = {
+      torso: rawCapsule.torso * currentScale,
+      limb: rawCapsule.limb * currentScale,
+      limbNeon: rawCapsule.limbNeon * currentScale,
+      jointBall: rawCapsule.jointBall * currentScale,
+      visorHeight: rawCapsule.visorHeight * currentScale,
+    };
     const alpha = options?.alpha ?? 1.0;
     const showGroundShadow = options?.showGroundShadow ?? true;
     const showGroundRing = options?.showGroundRing ?? true;
     const showCore = options?.showCore ?? true;
     const showVisor = options?.showVisor ?? false;
 
-    const fk = this.calculateFKPositions(vw, vh);
+    const fk = this.calculateFKPositions(vw, vh, currentScale);
 
     ctx.save();
     ctx.globalAlpha = alpha;
 
     // 1. 발밑 부드러운 타원형 앰비언트 접지 그림자 (Soft Drop Shadow)
     if (showGroundShadow) {
-      this._renderGroundShadow(ctx, fk.pelvis.x, fk.leftAnkle, fk.rightAnkle);
+      this._renderGroundShadow(ctx, fk.pelvis.x, fk.leftAnkle, fk.rightAnkle, currentScale);
     }
 
     // 2. 발밑 드림 접지 링 (마법진) 렌더링
     if (showGroundRing) {
-      this._renderGroundRing(ctx, fk.pelvis.x, fk.leftAnkle, fk.rightAnkle);
+      this._renderGroundRing(ctx, fk.pelvis.x, fk.leftAnkle, fk.rightAnkle, currentScale);
     }
 
     // 3. 다리 (대퇴 & 하퇴 라운드 점토 캡슐)
-    this._renderCapsuleLimb(ctx, fk.leftHip, fk.leftKnee, capsule.limb, colors.leftLimb);
-    this._renderCapsuleLimb(ctx, fk.leftKnee, fk.leftAnkle, capsule.limb, colors.leftLimb);
-    this._renderCapsuleLimb(ctx, fk.rightHip, fk.rightKnee, capsule.limb, colors.rightLimb);
-    this._renderCapsuleLimb(ctx, fk.rightKnee, fk.rightAnkle, capsule.limb, colors.rightLimb);
+    this._renderCapsuleLimb(ctx, fk.leftHip, fk.leftKnee, capsule.limb, colors.leftLimb, currentScale);
+    this._renderCapsuleLimb(ctx, fk.leftKnee, fk.leftAnkle, capsule.limb, colors.leftLimb, currentScale);
+    this._renderCapsuleLimb(ctx, fk.rightHip, fk.rightKnee, capsule.limb, colors.rightLimb, currentScale);
+    this._renderCapsuleLimb(ctx, fk.rightKnee, fk.rightAnkle, capsule.limb, colors.rightLimb, currentScale);
 
     // 4. 몸통 (골반 -> 목 점토 캡슐)
-    this._renderTorso(ctx, fk.pelvis, fk.neck, fk.chest, showCore);
+    this._renderTorso(ctx, fk.pelvis, fk.neck, fk.chest, showCore, capsule.torso, currentScale);
 
     // 5. 팔 (상완 & 전완 라운드 점토 캡슐)
-    this._renderCapsuleLimb(ctx, fk.leftShoulder, fk.leftElbow, capsule.limb, colors.leftLimb);
-    this._renderCapsuleLimb(ctx, fk.leftElbow, fk.leftWrist, capsule.limb, colors.leftLimb);
-    this._renderCapsuleLimb(ctx, fk.rightShoulder, fk.rightElbow, capsule.limb, colors.rightLimb);
-    this._renderCapsuleLimb(ctx, fk.rightElbow, fk.rightWrist, capsule.limb, colors.rightLimb);
+    this._renderCapsuleLimb(ctx, fk.leftShoulder, fk.leftElbow, capsule.limb, colors.leftLimb, currentScale);
+    this._renderCapsuleLimb(ctx, fk.leftElbow, fk.leftWrist, capsule.limb, colors.leftLimb, currentScale);
+    this._renderCapsuleLimb(ctx, fk.rightShoulder, fk.rightElbow, capsule.limb, colors.rightLimb, currentScale);
+    this._renderCapsuleLimb(ctx, fk.rightElbow, fk.rightWrist, capsule.limb, colors.rightLimb, currentScale);
 
     // 6. 관절 볼 (4색 신체 커서 색상 체계: 어깨 보라, 골반 주황, 왼손 시안, 오른손 노랑)
-    this._renderJointBalls(ctx, fk);
+    this._renderJointBalls(ctx, fk, capsule.jointBall);
 
     // 7. 순백색 미니멀 구체 점토 머리
-    this._renderHead(ctx, fk.head, showVisor);
+    this._renderHead(ctx, fk.head, showVisor, currentScale);
 
     ctx.restore();
   }
@@ -438,6 +476,7 @@ export class StickmanRenderer {
     to: StickmanPoint2D,
     width: number,
     _accentColor: string,
+    scale = 1.0,
   ): void {
     const cfg = this._config;
 
@@ -445,7 +484,7 @@ export class StickmanRenderer {
     ctx.lineCap = 'round';
 
     // 1. 외곽 앰비언트 음영 테두리 (#CBD5E1)
-    ctx.lineWidth = width + 2;
+    ctx.lineWidth = width + 2 * scale;
     ctx.strokeStyle = cfg.colors.bodyBorder;
     ctx.beginPath();
     ctx.moveTo(from.x, from.y);
@@ -458,7 +497,7 @@ export class StickmanRenderer {
     ctx.stroke();
 
     // 3. 점토 입체감 부드러운 내부 림라이트/하이라이트 (#FFFFFF 앰비언트)
-    ctx.lineWidth = Math.max(4, cfg.capsuleWidth.limbNeon);
+    ctx.lineWidth = Math.max(4 * scale, cfg.capsuleWidth.limbNeon * scale);
     ctx.strokeStyle = cfg.colors.bodyHighlight ?? 'rgba(255, 255, 255, 0.85)';
     ctx.stroke();
 
@@ -472,15 +511,16 @@ export class StickmanRenderer {
     neck: StickmanPoint2D,
     chest: StickmanPoint2D,
     showCore: boolean,
+    width: number,
+    scale = 1.0,
   ): void {
     const cfg = this._config;
-    const width = cfg.capsuleWidth.torso;
 
     ctx.save();
     ctx.lineCap = 'round';
 
     // 1. 몸통 외곽 앰비언트 음영 테두리 (#CBD5E1)
-    ctx.lineWidth = width + 3;
+    ctx.lineWidth = width + 3 * scale;
     ctx.strokeStyle = cfg.colors.bodyBorder;
     ctx.beginPath();
     ctx.moveTo(pelvis.x, pelvis.y);
@@ -493,13 +533,13 @@ export class StickmanRenderer {
     ctx.stroke();
 
     // 3. 점토 중앙 입체감 하이라이트
-    ctx.lineWidth = Math.max(6, width * 0.35);
+    ctx.lineWidth = Math.max(6 * scale, width * 0.35);
     ctx.strokeStyle = cfg.colors.bodyHighlight ?? 'rgba(255, 255, 255, 0.8)';
     ctx.stroke();
 
     // 4. 가슴 점토 엠블럼 (호흡 펄스 연동 미니멀 파스텔 원형 엠블럼)
     if (showCore) {
-      const coreScale = this._breathScale;
+      const coreScale = this._breathScale * scale;
       const coreR = 8 * coreScale;
 
       ctx.save();
@@ -525,12 +565,11 @@ export class StickmanRenderer {
   }
 
   /** 관절 볼 렌더링 (4색 신체 커서 색상 체계 계승) */
-  private _renderJointBalls(ctx: CanvasRenderingContext2D, fk: StickmanJointPositions): void {
-    const cfg = this._config;
-    const r = cfg.capsuleWidth.jointBall;
-    const c = cfg.colors;
+  private _renderJointBalls(ctx: CanvasRenderingContext2D, fk: StickmanJointPositions, radius: number): void {
+    const c = this._config.colors;
+    const r = radius;
 
-    const drawBall = (pt: StickmanPoint2D, color: string, radius = r, hasNeonGlow = false) => {
+    const drawBall = (pt: StickmanPoint2D, color: string, rad = r, hasNeonGlow = false) => {
       ctx.save();
       if (hasNeonGlow) {
         ctx.shadowColor = color;
@@ -541,13 +580,13 @@ export class StickmanRenderer {
       }
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+      ctx.arc(pt.x, pt.y, rad, 0, Math.PI * 2);
       ctx.fill();
 
       // 점토 볼 상단 부드러운 하이라이트
       ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
       ctx.beginPath();
-      ctx.arc(pt.x - radius * 0.25, pt.y - radius * 0.25, radius * 0.4, 0, Math.PI * 2);
+      ctx.arc(pt.x - rad * 0.25, pt.y - rad * 0.25, rad * 0.4, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.restore();
@@ -580,16 +619,17 @@ export class StickmanRenderer {
     ctx: CanvasRenderingContext2D,
     head: StickmanPoint2D,
     showVisor: boolean,
+    scale = 1.0,
   ): void {
     const cfg = this._config;
-    const r = cfg.limbLengths.headRadius;
+    const r = cfg.limbLengths.headRadius * scale;
 
     ctx.save();
 
     // 1. 머리 외곽 앰비언트 음영 테두리 (#CBD5E1)
     ctx.fillStyle = cfg.colors.body;
     ctx.strokeStyle = cfg.colors.bodyBorder;
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2.5 * scale;
     ctx.beginPath();
     ctx.arc(head.x, head.y, r, 0, Math.PI * 2);
     ctx.fill();
@@ -605,18 +645,18 @@ export class StickmanRenderer {
 
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(head.x, head.y, r - 1, 0, Math.PI * 2);
+    ctx.arc(head.x, head.y, r - 1 * scale, 0, Math.PI * 2);
     ctx.fill();
 
     // 3. 바이저 슬릿 (showVisor가 true일 때만 하위호환용으로 렌더링)
     if (showVisor) {
       const visorW = r * 1.4;
-      const visorH = cfg.capsuleWidth.visorHeight;
+      const visorH = cfg.capsuleWidth.visorHeight * scale;
       const visorX = head.x - visorW / 2;
       const visorY = head.y - visorH / 2;
 
       ctx.shadowColor = cfg.colors.visor;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 12 * scale;
       ctx.fillStyle = cfg.colors.visor;
       ctx.beginPath();
       if (typeof ctx.roundRect === 'function') {
@@ -636,10 +676,11 @@ export class StickmanRenderer {
     centerX: number,
     leftAnkle: StickmanPoint2D,
     rightAnkle: StickmanPoint2D,
+    scale = 1.0,
   ): void {
-    const groundY = Math.max(leftAnkle.y, rightAnkle.y) + 12;
-    const radiusX = 110;
-    const radiusY = 24;
+    const groundY = Math.max(leftAnkle.y, rightAnkle.y) + 12 * scale;
+    const radiusX = 110 * scale;
+    const radiusY = 24 * scale;
 
     ctx.save();
     const shadowColor = this._config.colors.groundShadow || 'rgba(0, 0, 0, 0.28)';
@@ -669,25 +710,26 @@ export class StickmanRenderer {
     centerX: number,
     leftAnkle: StickmanPoint2D,
     rightAnkle: StickmanPoint2D,
+    scale = 1.0,
   ): void {
-    const groundY = Math.max(leftAnkle.y, rightAnkle.y) + 12;
-    const radiusX = 110;
-    const radiusY = 32;
+    const groundY = Math.max(leftAnkle.y, rightAnkle.y) + 12 * scale;
+    const radiusX = 110 * scale;
+    const radiusY = 32 * scale;
 
     ctx.save();
     ctx.shadowColor = this._config.colors.groundRing;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 10 * scale;
     ctx.strokeStyle = this._config.colors.groundRing;
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2.5 * scale;
 
     // 회전 펄스 효과
-    const pulse = Math.sin(this._animTimer * 2.5) * 4;
+    const pulse = (Math.sin(this._animTimer * 2.5) * 4) * scale;
     ctx.beginPath();
     ctx.ellipse(centerX, groundY, radiusX + pulse, radiusY + pulse * 0.3, 0, 0, Math.PI * 2);
     ctx.stroke();
 
     // 내부 보조 링
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1.2 * scale;
     ctx.globalAlpha = 0.5;
     ctx.beginPath();
     ctx.ellipse(centerX, groundY, (radiusX + pulse) * 0.7, (radiusY + pulse * 0.3) * 0.7, 0, 0, Math.PI * 2);

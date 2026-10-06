@@ -43,6 +43,9 @@ export interface StickmanColors {
   groundShadow?: string;// 지면 부드러운 타원형 앰비언트 접지 그림자 컬러
 }
 
+export const STICKMAN_SCALE_PRESETS = [1.0, 1.25, 1.5] as const;
+export type StickmanScale = (typeof STICKMAN_SCALE_PRESETS)[number];
+
 export interface StickmanConfig {
   anchorXRatio: number; // 화면 가로 앵커 비율 (0.5 = 중앙)
   anchorYRatio: number; // 화면 세로 앵커 비율 (0.68 = 화면 중앙 2/3 높이)

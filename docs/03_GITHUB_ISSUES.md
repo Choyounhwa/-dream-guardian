@@ -5579,7 +5579,42 @@ BEAT-SPEC-001
 
 ---
 
-### Issue #405: [RENDER-GRID-006] 음악 비트 동기화 드림 그리드 중심 기준 양옆 4번째 세로선 Cyan 글로우 효과 구현
+### Issue #420: [FEAT-SKEL-SCALE-001] 메카 졸라맨(화이트 클레이) 아바타 크기 배율(Scale) 조절 옵션 및 실시간 렌더링 스케일링 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/420
+- **Labels**: `feature`, `phase-2`, `P2-medium`, `test`
+- **작업 ID**: `[FEAT-SKEL-SCALE-001]`
+- **상태**: 🟢 **완료 (TDD 100% Pass, Build 검증 완료)**
+- **제목**: 메카 졸라맨(화이트 클레이) 아바타 크기 배율(Scale) 조절 옵션 및 실시간 렌더링 스케일링 구현
+- **목적**:
+  - 현재 StickmanConfig에 scale: number 필드가 정의되어 있으나 StickmanRenderer 내부 순운동학(FK) 계산 및 캡슐/관절 렌더링에서 스케일 계수가 반영되지 않고 기본 고정 크기로만 출력되는 문제를 해결한다.
+  - 원거리 웹캠 플레이 환경 및 시인성 선호에 따라 플레이어가 졸라맨 아바타 크기를 자유롭게 키울 수 있도록(기본 1.0x, 크게 1.25x, 매우 크게 1.5x) 설정 배율 옵션을 지원하고, 설정 창(SettingsModal) 및 설정 파일(skeleton.config.ts)에서 즉시 변경·반영되도록 구현한다.
+- **수정 대상 (Scope Guard: Max 3 files)**:
+  - `dream_guardian/config/skeleton.config.ts`
+  - `dream_guardian/src/skeleton/StickmanRenderer.ts`
+  - `dream_guardian/src/ui/SettingsModal.ts`
+- **유지 사항**:
+  - 고정 비례 순운동학(Fixed-Length FK) 엔진 및 각도 스무딩(Angle Damping) 알고리즘
+  - 화이트 클레이 캡슐 질감, 마력 코어 호흡 펄스, 지면 마법진 및 접지 그림자 시각 효과
+  - 스켈레톤 본 ON/OFF 토글 및 기존 설정 모달 항목들(카메라, 전체화면, 사운드, 운동방식, 글씨크기, 고대비)
+- **변경 금지**:
+  - 피트니스 존 1~11 판정 좌표 및 4색 신체 커서 트래킹 로직
+  - 전투 시스템(HP, 마나, 보스 패턴) 및 수학 문제 은행 로직
+- **완료 조건**:
+  - [x] `skeleton.config.ts`에 스케일 프리셋(1.0, 1.25, 1.5) 및 기본 배율 설정 정의
+  - [x] `StickmanRenderer`에 scale 배율 적용: FK 사지 길이(torso, upperArm, forearm, upperLeg, lowerLeg, neck, head, shoulder, hip) 및 캡슐 두께(torso, limb, jointBall, visor, shadow, ring) 비례 스케일링 지원
+  - [x] `SettingsModal`에 '졸라맨 크기' 순환 토글 버튼 추가 및 클릭 시 배율 전환(기본 1.0x / 크게 1.25x / 매우 크게 1.5x)
+  - [x] `tests/unit/stickman-renderer.test.ts`에 스케일 변경에 따른 FK 관절 거리 및 렌더링 스케일링 단위 테스트 작성 및 통과
+  - [x] `npm test` 전체 단위 테스트 100% Pass 및 `npm run build` 컴파일 성공
+- **테스트**:
+  - `npx vitest run tests/unit/stickman-renderer.test.ts`
+  - `npm test`
+  - `npm run build`
+- **관련 파일**:
+  - `dream_guardian/config/skeleton.config.ts`
+  - `dream_guardian/src/skeleton/StickmanRenderer.ts`
+  - `dream_guardian/src/ui/SettingsModal.ts`
+  - `dream_guardian/tests/unit/stickman-renderer.test.ts`
+
 - **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/405
 - **Labels**: `phase-7`, `feature`, `P2-medium`
 - **작업 ID**: `[RENDER-GRID-006]`
