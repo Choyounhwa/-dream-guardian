@@ -10,7 +10,10 @@ import {
 } from './PoseConstraintValidator.js';
 import type { BodyCursorPart } from './PoseConstraintValidator.js';
 import type { ActiveEditTool } from './EditorState.js';
-import type { SimulatedPoseFrame } from './ChoreoPoseSimulator.js';
+import type {
+  SimulatedPoseFrame,
+  CompiledPreviewState,
+} from './ChoreoPoseSimulator.js';
 
 export const PART_COLORS = {
   leftHand: '#28E6FF',
@@ -149,6 +152,9 @@ export class EditorCanvasRenderer {
     if (simulatedFrame && showSkeleton) {
       this.renderSkeletonMannequin(ctx, simulatedFrame, w, h);
       this.renderSimulationInfoOverlay(ctx, simulatedFrame, w, h);
+      if (simulatedFrame.compiledPreview) {
+        this.renderCompiledPreviewOverlay(ctx, simulatedFrame.compiledPreview, w, h);
+      }
     } else if (pattern) {
       this.renderBodyGuideLines(ctx, pattern, w, h);
     }
@@ -554,6 +560,77 @@ export class EditorCanvasRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, canvasW / 2, boxY + boxH / 2);
+
+    ctx.restore();
+  }
+
+  /**
+   * 컴파일된 이벤트 기반 런타임 호환 미리보기 상태 및 가이드 전용 안내 렌더링 (#392)
+   */
+  private renderCompiledPreviewOverlay(
+    ctx: CanvasRenderingContext2D,
+    compiled: CompiledPreviewState,
+    canvasW: number,
+    _canvasH: number
+  ): void {
+    ctx.save();
+
+    const boxW = Math.min(canvasW - 40, 680);
+    const boxH = 46;
+    const boxX = (canvasW - boxW) / 2;
+    const boxY = 40;
+
+    ctx.fillStyle = 'rgba(10, 15, 28, 0.9)';
+    ctx.strokeStyle = compiled.compilerSuccess ? '#28E6FF' : '#FF4D4D';
+    ctx.lineWidth = 1.5;
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      ctx.strokeRect(boxX, boxY, boxW, boxH);
+    }
+
+    if (compiled.compilerSuccess) {
+      // 1줄: 컴파일 정보 및 시간
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+
+      const timeText = `⏱ 시간: ${compiled.currentTimeSeconds.toFixed(2)}s / ${compiled.totalDurationSeconds.toFixed(2)}s  (BPM ${compiled.bpm} | 착지마감: ${compiled.completeAtSeconds.toFixed(2)}s)`;
+      ctx.fillText(timeText, boxX + 12, boxY + 8);
+
+      // 2줄: 이벤트 타깃 및 가이드 전용 명시 (절대 실제 웹캠 인식 성공 보장 오도 금지)
+      ctx.font = '11px sans-serif';
+      let eventText = '대기 중 (다음 이벤트 탐색)';
+      if (compiled.activeEvent) {
+        const ev = compiled.activeEvent;
+        const landingMark = ev.isLanding ? '🎯 [착지/판정 허용 구간]' : '⏳ [접근 중]';
+        eventText = `${ev.label ?? '이벤트'}: 존 ${ev.targetZone} (${ev.targetBodyPart}) ${landingMark}`;
+      }
+      ctx.fillStyle = compiled.activeEvent?.isLanding ? '#FFCB4D' : '#94A3B8';
+      ctx.fillText(eventText, boxX + 12, boxY + 26);
+
+      // 우측 배지: 가이드 전용 명시
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#38BDF8';
+      ctx.fillText('🛡️ [가이드 전용 - 실제 웹캠 성공 보장 안 함]', boxX + boxW - 12, boxY + 26);
+    } else {
+      // 미지원 구간 / 컴파일 실패 사유 표시
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillStyle = '#FF6B6B';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      const diag = compiled.diagnosticMessage || '컴파일 검증 미통과 구간';
+      ctx.fillText(`⚠️ 미지원 구간: ${diag}`, boxX + 12, boxY + 8);
+
+      ctx.font = '11px sans-serif';
+      ctx.fillStyle = '#F87171';
+      ctx.fillText('🛡️ 가이드 전용 (실제 웹캠 인식 성공을 보장하지 않음)', boxX + 12, boxY + 26);
+    }
 
     ctx.restore();
   }

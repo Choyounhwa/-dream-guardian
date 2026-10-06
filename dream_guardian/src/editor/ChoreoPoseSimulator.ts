@@ -9,6 +9,7 @@
  */
 
 import { DEFAULT_FITNESS_ZONES } from '../../config/zone.config.js';
+import { DEFAULT_STAR_TIMING_WINDOWS } from '../../config/beat-motion.config.js';
 import type {
   CatChoreoPattern,
   DanceMotionType,
@@ -16,15 +17,74 @@ import type {
 } from '../data/danceRoutineData.js';
 import type { PhaseType } from './EditorState.js';
 import type { TimelineTrackNote } from './PhaseSequenceEditor.js';
+import type { BodyCursorPart } from './PoseConstraintValidator.js';
+import type { EditorProject } from '../data/EditorProject.js';
+import { compileEditorProject } from '../data/ContentCompiler.js';
+import {
+  calculateStarNoteTimings,
+  type StarNoteTimingPlan,
+} from '../data/ContentTiming.js';
+import { tickToBeat } from '../data/ContentCapabilities.js';
 
 export interface JointPoint {
   x: number;
   y: number;
 }
 
+export interface CompiledTimelineEvent {
+  id: string;
+  type: 'star_note' | 'hazard' | 'motion_cue' | 'fever_note';
+  slotIndex?: number;
+  landingBeat: number;
+  landingTick: number;
+  targetTimeSeconds: number;
+  toleranceWindowSeconds: number;
+  windowStartSeconds: number;
+  windowEndSeconds: number;
+  targetZone: number;
+  targetZones: number[];
+  targetBodyPart: BodyCursorPart | 'foot';
+  sourcePatternId?: string;
+  label?: string;
+  isLanding: boolean;
+  partZoneMap?: Record<string, number>;
+}
+
+export interface CompiledPreviewState {
+  previewMode: 'compiled_runtime' | 'guide_simulation';
+  isCompiled: boolean;
+  compilerSuccess: boolean;
+  isGuideOnly: true; // explicit: "실제 웹캠 인식 성공을 보장하지 않음 (가이드 전용)"
+  diagnosticMessage?: string;
+  bpm: number;
+  secondsPerBeat: number;
+  currentTimeSeconds: number;
+  currentBeat: number;
+  totalDurationSeconds: number;
+  lastLandingTimeSeconds: number;
+  completeAtSeconds: number;
+  toleranceWindowSeconds: number;
+  events: CompiledTimelineEvent[];
+  activeEvent: CompiledTimelineEvent | null;
+  stageKey?: string;
+  phase: PhaseType;
+}
+
+export interface CompiledSimulationParams {
+  phase: PhaseType;
+  currentBeat: number;
+  currentTimeSeconds?: number;
+  bpm: number;
+  selectedPattern: CatChoreoPattern | null | undefined;
+  notes: TimelineTrackNote[];
+  registry: DancePatternRegistry;
+  compiledState?: CompiledPreviewState;
+}
+
 export interface SimulatedPoseFrame {
   phase: PhaseType;
   currentBeat: number;
+  currentTimeSeconds?: number;
   activePattern: CatChoreoPattern;
   activeNote: TimelineTrackNote | null;
   motionType: DanceMotionType;
@@ -39,6 +99,8 @@ export interface SimulatedPoseFrame {
     rightFoot: JointPoint;
   };
   isDip: boolean;
+  previewMode?: 'compiled_runtime' | 'guide_simulation';
+  compiledPreview?: CompiledPreviewState;
 }
 
 export interface SimulationParams {
@@ -94,6 +156,280 @@ export class ChoreoPoseSimulator {
       targetZones,
       jointPositions,
       isDip,
+    };
+  }
+
+  /**
+   * 컴파일 결과 및 지정된 BPM/시간을 기반으로 가이드 및 런타임 호환 미리보기 상태 산출 (#392)
+   */
+  buildCompiledPreviewState(options: {
+    project: EditorProject;
+    phase: PhaseType;
+    bpm: number;
+    currentBeat: number;
+    currentTimeSeconds?: number;
+    stageKey?: string;
+  }): CompiledPreviewState {
+    const { project, phase, bpm, currentBeat } = options;
+    const spb = 60 / bpm;
+    const currentTimeSeconds =
+      options.currentTimeSeconds !== undefined
+        ? options.currentTimeSeconds
+        : Math.max(0, (currentBeat - 1) * spb);
+
+    let timings: StarNoteTimingPlan;
+    try {
+      timings = calculateStarNoteTimings(bpm);
+    } catch {
+      timings = {
+        bpm,
+        secondsPerBeat: spb,
+        totalDurationSeconds: 8 * spb,
+        completeAtSeconds: 7 * spb + (DEFAULT_STAR_TIMING_WINDOWS?.late ?? 0.40),
+        timingWindows: DEFAULT_STAR_TIMING_WINDOWS,
+        notes: [],
+        valid: false,
+        error: `Unsupported BPM: ${bpm}`,
+      };
+    }
+
+    // 컴파일러 실행 (순수 읽기 전용 시뮬레이션)
+    const compileResult = compileEditorProject(project);
+
+    if (!compileResult.success) {
+      const diagnosticMsg =
+        compileResult.diagnostics && compileResult.diagnostics.length > 0
+          ? compileResult.diagnostics.map((d) => d.message).join('; ')
+          : '프로젝트 컴파일 유효성 검증 미통과';
+
+      return {
+        previewMode: 'compiled_runtime',
+        isCompiled: false,
+        compilerSuccess: false,
+        isGuideOnly: true,
+        diagnosticMessage: diagnosticMsg,
+        bpm,
+        secondsPerBeat: spb,
+        currentTimeSeconds,
+        currentBeat,
+        totalDurationSeconds: timings.totalDurationSeconds,
+        lastLandingTimeSeconds: 7 * spb,
+        completeAtSeconds: timings.completeAtSeconds,
+        toleranceWindowSeconds: DEFAULT_STAR_TIMING_WINDOWS.late,
+        events: [],
+        activeEvent: null,
+        stageKey: options.stageKey,
+        phase,
+      };
+    }
+
+    const pack = compileResult.pack;
+    const stages = pack?.stages ?? {};
+    const targetStageKey =
+      options.stageKey ??
+      (project.bindings && project.bindings[0]?.chapterId) ??
+      Object.keys(stages)[0] ??
+      'ch1';
+    const stageBundle = stages[targetStageKey];
+
+    const events: CompiledTimelineEvent[] = [];
+
+    if (phase === 'STAR_COLLECT') {
+      const starNotes = stageBundle?.phaseA?.starNotes ?? [];
+      for (let idx = 0; idx < starNotes.length; idx++) {
+        const note = starNotes[idx];
+        const slotIdx = note.slotIndex !== undefined ? note.slotIndex : idx;
+        const landingBeat = note.landingBeat;
+        const landingTick = note.landingTick;
+        const targetTimeSeconds = (slotIdx + 1) * spb;
+        const toleranceWindowSeconds = DEFAULT_STAR_TIMING_WINDOWS.late;
+        const windowStartSeconds = Math.max(0, targetTimeSeconds - toleranceWindowSeconds);
+        const windowEndSeconds = targetTimeSeconds + toleranceWindowSeconds;
+        const targetZone = note.target.zoneId;
+        const targetBodyPart: BodyCursorPart | 'foot' =
+          note.target.part === 'leftHand' ||
+          note.target.part === 'rightHand' ||
+          note.target.part === 'head' ||
+          note.target.part === 'hip'
+            ? note.target.part
+            : note.target.instrument === 'foot'
+            ? 'foot'
+            : targetZone >= 6
+            ? 'hip'
+            : 'leftHand';
+
+        const isLanding =
+          currentTimeSeconds >= windowStartSeconds && currentTimeSeconds <= windowEndSeconds;
+
+        events.push({
+          id: note.id,
+          type: 'star_note',
+          slotIndex: slotIdx,
+          landingBeat,
+          landingTick,
+          targetTimeSeconds,
+          toleranceWindowSeconds,
+          windowStartSeconds,
+          windowEndSeconds,
+          targetZone,
+          targetZones: [targetZone],
+          targetBodyPart,
+          sourcePatternId: note.sourcePatternId,
+          isLanding,
+          partZoneMap: note.resolvedPartZoneMap,
+          label: `별노트 #${slotIdx + 1}`,
+        });
+      }
+    } else if (phase === 'FEVER_PHASE_B') {
+      const feverNotes = stageBundle?.phaseB?.feverNotes ?? [];
+      for (let idx = 0; idx < feverNotes.length; idx++) {
+        const note = feverNotes[idx];
+        const landingBeat = tickToBeat(note.landingTick);
+        const targetTimeSeconds = landingBeat * spb;
+        const toleranceWindowSeconds = DEFAULT_STAR_TIMING_WINDOWS.late;
+        const windowStartSeconds = Math.max(0, targetTimeSeconds - toleranceWindowSeconds);
+        const windowEndSeconds = targetTimeSeconds + toleranceWindowSeconds;
+        const targetZone = note.target.zoneId;
+        const targetBodyPart: BodyCursorPart | 'foot' =
+          note.target.part ?? (targetZone >= 6 ? 'hip' : 'leftHand');
+        const isLanding =
+          currentTimeSeconds >= windowStartSeconds && currentTimeSeconds <= windowEndSeconds;
+
+        events.push({
+          id: note.id,
+          type: 'fever_note',
+          slotIndex: idx,
+          landingBeat,
+          landingTick: note.landingTick,
+          targetTimeSeconds,
+          toleranceWindowSeconds,
+          windowStartSeconds,
+          windowEndSeconds,
+          targetZone,
+          targetZones: [targetZone],
+          targetBodyPart,
+          sourcePatternId: note.sourcePatternId,
+          isLanding,
+          partZoneMap: note.resolvedPartZoneMap,
+          label: `피버노트 #${idx + 1}`,
+        });
+      }
+    }
+
+    // 활성 이벤트 판별:
+    // 1) 현재 착지 판정창 내에 있는 이벤트 우선
+    // 2) 없으면 현재 시간과 가장 가까운 이벤트
+    let activeEvent = events.find((e) => e.isLanding) ?? null;
+    if (!activeEvent && events.length > 0) {
+      const closest = events.reduce((best, curr) => {
+        const distCurr = Math.abs(curr.targetTimeSeconds - currentTimeSeconds);
+        const distBest = Math.abs(best.targetTimeSeconds - currentTimeSeconds);
+        return distCurr < distBest ? curr : best;
+      }, events[0]);
+      if (Math.abs(closest.targetTimeSeconds - currentTimeSeconds) <= spb * 1.5) {
+        activeEvent = closest;
+      }
+    }
+
+    return {
+      previewMode: 'compiled_runtime',
+      isCompiled: true,
+      compilerSuccess: true,
+      isGuideOnly: true,
+      bpm,
+      secondsPerBeat: spb,
+      currentTimeSeconds,
+      currentBeat,
+      totalDurationSeconds: timings.totalDurationSeconds,
+      lastLandingTimeSeconds: 7 * spb,
+      completeAtSeconds: timings.completeAtSeconds,
+      toleranceWindowSeconds: DEFAULT_STAR_TIMING_WINDOWS.late,
+      events,
+      activeEvent,
+      stageKey: targetStageKey,
+      phase,
+    };
+  }
+
+  /**
+   * 컴파일된 이벤트 기반 런타임 호환 자세 및 타임라인 프레임 계산 (#392)
+   */
+  computeCompiledFrame(params: CompiledSimulationParams): SimulatedPoseFrame {
+    const { phase, currentBeat, selectedPattern, notes, registry, compiledState } = params;
+
+    const baseFrame = this.computeLiveFrame({
+      phase,
+      currentBeat,
+      selectedPattern,
+      notes,
+      registry,
+    });
+
+    if (!compiledState) {
+      return {
+        ...baseFrame,
+        previewMode: 'compiled_runtime',
+      };
+    }
+
+    const activeEvt = compiledState.activeEvent;
+    if (!activeEvt) {
+      return {
+        ...baseFrame,
+        previewMode: 'compiled_runtime',
+        compiledPreview: compiledState,
+      };
+    }
+
+    // 타깃 존 설정
+    const targetZones =
+      activeEvt.targetZones && activeEvt.targetZones.length > 0
+        ? activeEvt.targetZones
+        : [activeEvt.targetZone];
+
+    // 관절 위치 산출: 착지 윈도우 내 또는 근접 시 타깃 도달
+    const jointPositions = { ...baseFrame.jointPositions };
+    const targetCenter = this.getZoneCenter(activeEvt.targetZone);
+
+    if (targetCenter) {
+      if (activeEvt.targetBodyPart === 'leftHand') {
+        jointPositions.leftHand = targetCenter;
+      } else if (activeEvt.targetBodyPart === 'rightHand') {
+        jointPositions.rightHand = targetCenter;
+      } else if (activeEvt.targetBodyPart === 'head') {
+        jointPositions.head = targetCenter;
+      } else if (activeEvt.targetBodyPart === 'hip') {
+        jointPositions.hip = targetCenter;
+      } else if (activeEvt.targetBodyPart === 'foot') {
+        if (activeEvt.targetZone === 9) jointPositions.leftFoot = targetCenter;
+        else if (activeEvt.targetZone === 11) jointPositions.rightFoot = targetCenter;
+        else {
+          jointPositions.leftFoot = { x: targetCenter.x - 0.06, y: targetCenter.y };
+          jointPositions.rightFoot = { x: targetCenter.x + 0.06, y: targetCenter.y };
+        }
+      }
+    }
+
+    // 부가 관절 맵핑(partZoneMap)이 있는 경우 적용
+    if (activeEvt.partZoneMap) {
+      for (const [part, zoneId] of Object.entries(activeEvt.partZoneMap)) {
+        const center = this.getZoneCenter(zoneId);
+        if (!center) continue;
+        if (part === 'leftHand') jointPositions.leftHand = center;
+        else if (part === 'rightHand') jointPositions.rightHand = center;
+        else if (part === 'head') jointPositions.head = center;
+        else if (part === 'hip') jointPositions.hip = center;
+        else if (part === 'foot' || part === 'leftFoot') jointPositions.leftFoot = center;
+        else if (part === 'rightFoot') jointPositions.rightFoot = center;
+      }
+    }
+
+    return {
+      ...baseFrame,
+      targetZones,
+      jointPositions,
+      previewMode: 'compiled_runtime',
+      compiledPreview: compiledState,
     };
   }
 

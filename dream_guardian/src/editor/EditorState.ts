@@ -31,6 +31,7 @@ import {
   choreoPoseSimulator,
   ChoreoPoseSimulator,
   type SimulatedPoseFrame,
+  type CompiledPreviewState,
 } from './ChoreoPoseSimulator.js';
 import {
   ProjectCommandManager,
@@ -175,6 +176,7 @@ export class EditorState {
   private _activeTool: ActiveEditTool = 'inspect';
   private _selectedNoteId: string | null = null;
   private _showSimulation: boolean = true;
+  private _previewMode: 'compiled_runtime' | 'guide_simulation' = 'compiled_runtime';
   private _draftEdits: Partial<CatChoreoPattern> = {};
   private _currentProjectId: string = 'proj_dance_editor';
   private _isApplyingProject: boolean = false;
@@ -776,13 +778,85 @@ export class EditorState {
     this.notifyStateChange();
   }
 
+  get previewMode(): 'compiled_runtime' | 'guide_simulation' {
+    return this._previewMode;
+  }
+
+  setPreviewMode(mode: 'compiled_runtime' | 'guide_simulation'): void {
+    this._previewMode = mode;
+    this.notifyStateChange();
+  }
+
+  togglePreviewMode(): void {
+    this.setPreviewMode(
+      this._previewMode === 'compiled_runtime' ? 'guide_simulation' : 'compiled_runtime'
+    );
+  }
+
+  getCurrentTimeSeconds(): number {
+    const audioBeat = this.displayBeatToAudioBeat(this._currentBeat);
+    return Math.max(0, audioBeat * (60 / this._bpm));
+  }
+
+  seekSeconds(seconds: number): void {
+    const audioBeat = seconds / (60 / this._bpm);
+    const displayBeat = this.audioBeatToDisplayBeat(audioBeat);
+    this.seekBeat(displayBeat);
+  }
+
+  getCompiledPreviewState(phase?: PhaseType): CompiledPreviewState {
+    const proj = this.getCurrentProject();
+    const projectWithBpm: EditorProject = {
+      ...proj,
+      previewTempo: {
+        bpm: this._bpm,
+        beatsPerBar: proj.previewTempo?.beatsPerBar ?? 4,
+      },
+    };
+
+    const targetPhase =
+      phase ??
+      (this._selectedPhase === 'RUN_QUESTION' &&
+      this.getNotesForPhase('STAR_COLLECT').length > 0 &&
+      this.getCurrentPhaseNotes().length === 0
+        ? 'STAR_COLLECT'
+        : this._selectedPhase);
+
+    return this._simulator.buildCompiledPreviewState({
+      project: projectWithBpm,
+      phase: targetPhase,
+      bpm: this._bpm,
+      currentBeat: this._currentBeat,
+      currentTimeSeconds: this.getCurrentTimeSeconds(),
+    });
+  }
+
   computeCurrentPoseFrame(): SimulatedPoseFrame {
-    return this._simulator.computeLiveFrame({
+    if (this._previewMode === 'guide_simulation') {
+      const frame = this._simulator.computeLiveFrame({
+        phase: this._selectedPhase,
+        currentBeat: this._currentBeat,
+        selectedPattern: this.getSelectedPattern(),
+        notes: this.getCurrentPhaseNotes(),
+        registry: this._registry,
+      });
+      return {
+        ...frame,
+        currentTimeSeconds: this.getCurrentTimeSeconds(),
+        previewMode: 'guide_simulation',
+      };
+    }
+
+    const compiledState = this.getCompiledPreviewState();
+    return this._simulator.computeCompiledFrame({
       phase: this._selectedPhase,
       currentBeat: this._currentBeat,
+      currentTimeSeconds: this.getCurrentTimeSeconds(),
+      bpm: this._bpm,
       selectedPattern: this.getSelectedPattern(),
       notes: this.getCurrentPhaseNotes(),
       registry: this._registry,
+      compiledState,
     });
   }
 

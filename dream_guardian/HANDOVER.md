@@ -2,6 +2,27 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🎬 컴파일된 이벤트 기반 자세·시간 미리보기 카드 (EDITOR-PREVIEW, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#392 EDITOR-PREVIEW](https://github.com/Choyounhwa/-dream-guardian/issues/392)
+
+- **작업 목적**:
+  1. 책임 레이어 Editor (`src/editor/`) 내에서 게임 런타임과 동일한 컴파일 데이터/시간 변환(`compileEditorProject` / `ticksToSeconds` / `bpm` 기반 이벤트 스케줄)을 미리보기에 사용.
+  2. 가이드 시뮬레이션(애니메이션 모션)과 런타임 호환(runtime-compatible) 이벤트 미리보기 상태를 명확히 구분 (`previewMode: 'compiled_runtime' | 'guide_simulation'`).
+  3. 전투/판정 엔진(HP/데미지/콤보/마나 계산)을 에디터에 절대 복제하지 않고 순수 가이드/시뮬레이션 상태로 격리.
+  4. 편집 중인 프로젝트의 7개 별 노트 및 구간 이벤트에 대해 컴파일된 `targetTimeSeconds`, `targetZone`, `targetBodyPart`, `toleranceWindowSeconds`를 기반으로 가이드 포즈 및 타임라인 헤드 산출.
+  5. 마지막 착지/판정 여유(tolerance)/구간 종료가 선택된 프로필(BPM 등)과 정확히 일치 (`calculateStarNoteTimings`).
+  6. 미지원 구간(BPM 미지원, 크로스바디 위반 등)은 그 이유(진단 메시지)를 표시하며, "실제 웹캠 인식 성공을 보장한다"고 과장/오도하지 않음 (`isGuideOnly: true` 명시).
+  7. preview 재생은 원본 프로젝트 문서, 게시본, 게임 세션 데이터를 일체 변경하지 않음 (순수 읽기 전용 시뮬레이션 불변성).
+- **수정 파일 (3개 소스 + 1개 테스트, Scope Guard 준수)**:
+  - `dream_guardian/src/editor/ChoreoPoseSimulator.ts`
+  - `dream_guardian/src/editor/EditorCanvasRenderer.ts`
+  - `dream_guardian/src/editor/EditorState.ts`
+  - `dream_guardian/tests/unit/editor-compiled-preview.test.ts` (신규, 10개 단위 테스트)
+- **TDD 검증**: `tests/unit/editor-compiled-preview.test.ts` (10/10 Pass, 100%).
+- **전체 검증**: `npm test` 235 files / 2,806 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 🛡️ 테스트 플레이 격리와 진행·보상 저장 차단 카드 (CONTENT-TEST-SESSION, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#391 CONTENT-TEST-SESSION](https://github.com/Choyounhwa/-dream-guardian/issues/391)
@@ -252,7 +273,8 @@
 | [#389](https://github.com/Choyounhwa/-dream-guardian/issues/389) CONTENT-LOAD | 명시적 로컬 팩 수신/재검증 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#390](https://github.com/Choyounhwa/-dream-guardian/issues/390) CONTENT-BOOT-STAR | 별 팩 주입/CSV 경쟁 차단 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#391](https://github.com/Choyounhwa/-dream-guardian/issues/391) CONTENT-TEST-SESSION | 테스트 세션/실제 기록 격리 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#392](https://github.com/Choyounhwa/-dream-guardian/issues/392) EDITOR-PREVIEW | 컴파일 이벤트 기반 미리보기 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
+| [#392](https://github.com/Choyounhwa/-dream-guardian/issues/392) EDITOR-PREVIEW | 컴파일 이벤트 기반 미리보기 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#393](https://github.com/Choyounhwa/-dream-guardian/issues/393) EDITOR-TEST-LAUNCH | 게시 hash 테스트 실행 UX | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 
