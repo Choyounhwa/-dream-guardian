@@ -2,6 +2,27 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🎮 전체 스테이지 콘텐츠 스냅샷·binding 해석·세션 고정 카드 (CONTENT-SESSION, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#388 CONTENT-SESSION](https://github.com/Choyounhwa/-dream-guardian/issues/388)
+
+- **작업 목적**:
+  1. 책임 레이어 Game (`src/game/`) 내에서 editor 모듈 의존성 0% 순수 단일 적용본 공급자(`ContentProvider`) 구현.
+  2. 검증된 적용본(`PublishedContentPack`)과 명시적 builtin profile을 완전한 stage bundle(`SessionStageBundle`)로 해석.
+  3. 10문제와 Phase B 동안 contentHash/rulesetId/rulesetHash/활성 BPM 고정.
+  4. round별(`getRoundExecutionId`, 1~10문제) 및 loop별(`getPhaseBLoopExecutionId`), 노트/장판별 고유 실행 ID 분리 생성으로 충돌 차단.
+  5. 잘못되거나 불완전한 선택 팩(누락된 단계, 변조된 hash, 불완전 페이즈 등)은 전체 거부하고 이전정상본 또는 내장 모드로 whole-pack fallback 처리 (CSV/타 팩 누더기식 자동 조합 차단).
+  6. Phase B 별(`STAR_COLLECT`) / 장판(`BOSS_HAZARD`) 역할별 binding 충돌 없이 공존 해석 및 중복/모순 엄격 거부.
+  7. 깊은 불변(`deepFreeze` 및 방어적 Deep Clone) 스냅샷으로 게임 세션 진행 중 외부에서 팩이 게시되거나 롤백되어도 이미 시작된 세션 데이터에 영향 없음 보장.
+  8. 동일 seed/profile/hash에 대한 100% 결정론적(Deterministic) 실행 보장.
+- **수정 파일 (2개 소스 + 1개 테스트)**:
+  - `dream_guardian/src/game/SessionContent.ts` (신규)
+  - `dream_guardian/src/game/ContentProvider.ts` (신규)
+  - `dream_guardian/tests/unit/session-content.test.ts` (신규, 18개 테스트)
+- **TDD 검증**: `tests/unit/session-content.test.ts` (18/18 Pass, 100%).
+- **전체 검증**: `npm test` 231 files / 2,759 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 📦 프로젝트 검증·불변 게시·적용 예약 UI 카드 (EDITOR-PUBLISH, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#387 EDITOR-PUBLISH-001](https://github.com/Choyounhwa/-dream-guardian/issues/387)
@@ -163,7 +184,8 @@
 | [#385](https://github.com/Choyounhwa/-dream-guardian/issues/385) EDITOR-BINDING | 프로젝트/구간·역할별 연결 UX | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#386](https://github.com/Choyounhwa/-dream-guardian/issues/386) EDITOR-RELEASE-STORE | 불변 게시본·적용 예약·이전 정상본 저장 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#387](https://github.com/Choyounhwa/-dream-guardian/issues/387) EDITOR-PUBLISH | 검증/게시/적용 예약 UI | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#388](https://github.com/Choyounhwa/-dream-guardian/issues/388) EDITOR-RESOLVER | 게임 런타임 적용본 단일 공급자(Provider) | `[▶ NEXT: 에디터 트랙]` 대기 |
+| [#388](https://github.com/Choyounhwa/-dream-guardian/issues/388) CONTENT-SESSION | 게임 런타임 적용본 단일 공급자(Provider) 및 세션 고정 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#389](https://github.com/Choyounhwa/-dream-guardian/issues/389) CONTENT-LOAD | 명시적 로컬 팩 수신/재검증 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 
