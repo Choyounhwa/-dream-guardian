@@ -2,6 +2,27 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## ⚠️ Phase A 장판 편집 탭·경고/입력/판정 읽기 전용 표시 카드 (EDITOR-HAZARD-A, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#395 EDITOR-HAZARD-A](https://github.com/Choyounhwa/-dream-guardian/issues/395)
+
+- **작업 목적**:
+  1. 책임 레이어 Editor (`src/editor/`) 내에서 `HAZARD_EVADE` (Phase A 오답 장판 회피) 탭 UI 및 상태 모델 연결.
+  2. 활성 회피 3종(`left_step`, `right_step`, `jump`) 선택 및 바인딩/시퀀스 편집 구현.
+  3. 비활성 패턴(`balance_left`, `balance_right`) 및 피해량(damage: 25)의 읽기 전용 잠금(Locked) 유지.
+  4. 현재 BPM 기준 스케줄(경고 warningDuration, 정규 입력창 inputWindowEnd, 판정 judgmentTime, 전체 종료 totalDuration)을 `scaleHazardSchedule` 공식 기반 읽기 전용 계산 및 표시.
+  5. 공격 종류에서 회피 동작 1:1 파생 및 상호 모순되는 필드 생성 차단.
+  6. Phase A 장판 편집 중에도 기존 `STAR_COLLECT` 별 데이터(`starNote` 시퀀스 및 7슬롯)의 100% 불변 보존.
+  7. 저장, 복원, 컴파일, 불변 게시 전 과정에서 Phase A hazard 이벤트 온전한 공존 검증.
+- **수정 파일 (소스/config 3개 + 신규 테스트 1개)**:
+  - `dream_guardian/src/editor/EditorState.ts`: Phase A hazard 패턴/시퀀스/바인딩 관리, 스케줄 계산 및 7슬롯 보존 로직 추가
+  - `dream_guardian/src/editor/EditorLayout.ts`: HAZARD_EVADE 상단 탭, 회피 3종 선택 라디오, 잠금 표시 및 읽기 전용 스케줄 섹션 렌더링 추가
+  - `dream_guardian/src/editor/main.ts`: 페이즈 변경 시 사이드바 갱신, 장판 회피 라디오 이벤트 바인딩, BPM 변경 연동 추가
+  - `dream_guardian/tests/unit/editor-phase-a-hazard.test.ts` (신규, 15개 단위 테스트)
+- **TDD 검증**: `tests/unit/editor-phase-a-hazard.test.ts` (15/15 Pass, 100%).
+- **전체 검증**: `npm test` 238 files / 2,840 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 🌟 별 수집 편집·복원·게시·게임 실행·롤백 종단 검증 카드 (EDITOR-MVP-QA, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#394 EDITOR-MVP-QA](https://github.com/Choyounhwa/-dream-guardian/issues/394)
@@ -316,7 +337,8 @@
 | [#392](https://github.com/Choyounhwa/-dream-guardian/issues/392) EDITOR-PREVIEW | 컴파일 이벤트 기반 미리보기 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#393](https://github.com/Choyounhwa/-dream-guardian/issues/393) EDITOR-TEST-LAUNCH | 게시 hash 테스트 실행 UX | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#394](https://github.com/Choyounhwa/-dream-guardian/issues/394) EDITOR-MVP-QA | 별 제작→게임→롤백 종단 인수 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#395](https://github.com/Choyounhwa/-dream-guardian/issues/395) EDITOR-HAZARD-A | Phase A 장판 편집 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
+| [#395](https://github.com/Choyounhwa/-dream-guardian/issues/395) EDITOR-HAZARD-A | Phase A 장판 편집 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#396](https://github.com/Choyounhwa/-dream-guardian/issues/396) GAME-HAZARD-A-CONTENT | Phase A 장판 소비 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 

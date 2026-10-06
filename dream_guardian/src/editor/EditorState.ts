@@ -46,11 +46,32 @@ import type {
   EditorBinding,
   StarNoteEvent,
   MotionCueEvent,
+  PhaseAHazardEvent,
   EditorProjectMetadata,
 } from '../data/EditorProject.js';
+import {
+  scaleHazardSchedule,
+  DEFAULT_PHASE_A_HAZARD_CONFIG,
+  PHASE_A_ACTIVE_HAZARD_PATTERNS,
+  type PhaseAHazardPattern,
+} from '../../config/phase-a-hazard.config.js';
 
-export type PhaseType = 'RUN_QUESTION' | 'ANSWER_SELECT' | 'STAR_COLLECT' | 'FEVER_PHASE_B';
+export type PhaseType = 'RUN_QUESTION' | 'ANSWER_SELECT' | 'STAR_COLLECT' | 'FEVER_PHASE_B' | 'HAZARD_EVADE';
 export type ActiveEditTool = 'inspect' | 'leftHand' | 'rightHand' | 'head' | 'hip' | 'foot';
+
+export interface PhaseAHazardScheduleDisplay {
+  bpm: number;
+  secondsPerBeat: number;
+  damage: number;
+  warningDuration: number;
+  inputWindowEnd: number;
+  judgmentTime: number;
+  totalDuration: number;
+  warningDurationBeats: number;
+  inputWindowEndBeats: number;
+  judgmentTimeBeats: number;
+  totalDurationBeats: number;
+}
 
 export type StageCoverageStatusKind = 'bound' | 'builtin' | 'missing' | 'partial';
 
@@ -184,6 +205,9 @@ export class EditorState {
   private _focusedEntityId: string | null = null;
   private _focusedErrorPath: string | null = null;
   private _starSequenceId: string = 'seq_phaseA_star';
+  private _hazardSequenceId: string = 'seq_phaseA_hazard';
+  private _hazardEventId: string = 'evt_phaseA_hazard_1';
+  private _phaseAHazardPattern: PhaseAHazardPattern = 'left_step';
   private _bindings: EditorBinding[] = [
     {
       chapterId: 'ch1',
@@ -212,6 +236,13 @@ export class EditorState {
       phase: 'phaseB',
       sequenceId: 'seq_phaseB_motion',
       role: 'motionGuide',
+    },
+    {
+      chapterId: 'ch1',
+      subLevelId: null,
+      phase: 'phaseA',
+      sequenceId: 'seq_phaseA_hazard',
+      role: 'hazard',
     },
   ];
   private _customSequences: EditorSequence[] = [];
@@ -602,7 +633,17 @@ export class EditorState {
         sequenceId: 'seq_phaseB_motion',
         role: 'motionGuide',
       },
+      {
+        chapterId: 'ch1',
+        subLevelId: null,
+        phase: 'phaseA',
+        sequenceId: 'seq_phaseA_hazard',
+        role: 'hazard',
+      },
     ];
+    this._hazardSequenceId = 'seq_phaseA_hazard';
+    this._hazardEventId = 'evt_phaseA_hazard_1';
+    this._phaseAHazardPattern = 'left_step';
     this._stageBuiltinProfiles = {};
     this._lastSavedRevision = 0;
     this._isPublished = false;
@@ -1519,6 +1560,89 @@ export class EditorState {
     this.notifyStateChange();
   }
 
+  // --- Phase A Hazard Methods (Issue #395 / EDITOR-HAZARD-A) ---
+
+  getPhaseAHazardPattern(): PhaseAHazardPattern {
+    return this._phaseAHazardPattern;
+  }
+
+  setPhaseAHazardPattern(pattern: string): { success: boolean; error?: string } {
+    if (!PHASE_A_ACTIVE_HAZARD_PATTERNS.includes(pattern as PhaseAHazardPattern)) {
+      if (pattern === 'balance_left' || pattern === 'balance_right') {
+        return { success: false, error: '비활성 패턴(balance)은 잠겨 있어 선택할 수 없습니다.' };
+      }
+      return { success: false, error: `유효하지 않은 장판 회피 패턴입니다: ${pattern}` };
+    }
+    this._phaseAHazardPattern = pattern as PhaseAHazardPattern;
+    const proj = this.toEditorProject();
+    if (this._commandManager) {
+      this._commandManager.executeCommand(new ReplaceProjectCommand(proj));
+    }
+    this.notifyDocumentChange();
+    this.notifyStateChange();
+    return { success: true };
+  }
+
+  getActivePhaseAHazardPatterns(): readonly PhaseAHazardPattern[] {
+    return PHASE_A_ACTIVE_HAZARD_PATTERNS;
+  }
+
+  getLockedPhaseAHazardPatterns(): readonly string[] {
+    return ['balance_left', 'balance_right'];
+  }
+
+  getPhaseAHazardDamage(): number {
+    return DEFAULT_PHASE_A_HAZARD_CONFIG.damagePerMiss;
+  }
+
+  getPhaseAHazardSchedule(): PhaseAHazardScheduleDisplay {
+    const spb = 60 / this._bpm;
+    const scaled = scaleHazardSchedule(DEFAULT_PHASE_A_HAZARD_CONFIG, spb);
+    return {
+      bpm: this._bpm,
+      secondsPerBeat: spb,
+      damage: DEFAULT_PHASE_A_HAZARD_CONFIG.damagePerMiss,
+      warningDuration: scaled.warningDuration ?? 2.6,
+      inputWindowEnd: scaled.inputWindowEnd ?? 3.4,
+      judgmentTime: scaled.judgmentTime ?? 3.5,
+      totalDuration: scaled.totalDuration ?? 4.0,
+      warningDurationBeats: 5.2,
+      inputWindowEndBeats: 6.8,
+      judgmentTimeBeats: 7.0,
+      totalDurationBeats: 8.0,
+    };
+  }
+
+  getPhaseAHazardBinding(): EditorBinding | undefined {
+    return this._bindings.find(
+      (b) => b.phase === 'phaseA' && (b.sequenceId === this._hazardSequenceId || b.role === 'hazard'),
+    );
+  }
+
+  setPhaseAHazardBinding(chapterId: string, subLevelId?: string | null): void {
+    const existingIdx = this._bindings.findIndex(
+      (b) => b.phase === 'phaseA' && (b.sequenceId === this._hazardSequenceId || b.role === 'hazard'),
+    );
+    const newBinding: EditorBinding = {
+      chapterId,
+      subLevelId: subLevelId ?? null,
+      phase: 'phaseA',
+      sequenceId: this._hazardSequenceId,
+      role: 'hazard',
+    };
+    if (existingIdx >= 0) {
+      this._bindings[existingIdx] = newBinding;
+    } else {
+      this._bindings.push(newBinding);
+    }
+    const proj = this.toEditorProject();
+    if (this._commandManager) {
+      this._commandManager.executeCommand(new ReplaceProjectCommand(proj));
+    }
+    this.notifyDocumentChange();
+    this.notifyStateChange();
+  }
+
   getFocusedError(): { entityId: string; path: string } | null {
     if (!this._focusedEntityId || !this._focusedErrorPath) {
       return null;
@@ -1669,6 +1793,15 @@ export class EditorState {
           branchDuration: FEVER_PHASE_B_ROUTINE.totalBeats,
           noteCount: FEVER_PHASE_B_ROUTINE.patterns.length,
         };
+      case 'HAZARD_EVADE':
+        return {
+          phase: 'HAZARD_EVADE',
+          beats: 8,
+          prompt: 'Phase A 오답 장판 회피 (8박)',
+          routine: null as any,
+          branchDuration: 8,
+          noteCount: 1,
+        };
     }
   }
 
@@ -1686,6 +1819,8 @@ export class EditorState {
         return 8;
       case 'FEVER_PHASE_B':
         return 16;
+      case 'HAZARD_EVADE':
+        return 8;
     }
   }
 
@@ -1939,10 +2074,36 @@ export class EditorState {
         kind: 'motionGuide',
         events: feverEvents,
       },
+      {
+        id: this._hazardSequenceId || 'seq_phaseA_hazard',
+        phase: 'phaseA',
+        kind: 'hazard',
+        events: [
+          {
+            id: this._hazardEventId || 'evt_phaseA_hazard_1',
+            kind: 'hazard',
+            hazardType: this._phaseAHazardPattern,
+          },
+        ],
+      },
       ...this._customSequences,
     ];
 
+    const hasHazardBinding = this._bindings.some(
+      (b) =>
+        b.phase === 'phaseA' &&
+        (b.sequenceId === (this._hazardSequenceId || 'seq_phaseA_hazard') || b.role === 'hazard'),
+    );
     const bindings: EditorBinding[] = this._bindings.map((b) => ({ ...b }));
+    if (!hasHazardBinding) {
+      bindings.push({
+        chapterId: 'ch1',
+        subLevelId: null,
+        phase: 'phaseA',
+        sequenceId: this._hazardSequenceId || 'seq_phaseA_hazard',
+        role: 'hazard',
+      });
+    }
 
     const now = new Date().toISOString();
     return {
@@ -1991,10 +2152,13 @@ export class EditorState {
         'seq_phaseA_motion',
         'seq_phaseA_answer',
         'seq_phaseB_motion',
+        'seq_phaseA_hazard',
+        this._hazardSequenceId,
       ]);
       for (const seq of project.sequences || []) {
         if (
-          (seq.phase === 'phaseA' && (seq.kind === 'starNotes' || seq.kind === 'motionGuide')) ||
+          (seq.phase === 'phaseA' &&
+            (seq.kind === 'starNotes' || seq.kind === 'motionGuide' || seq.kind === 'hazard')) ||
           (seq.phase === 'phaseB' && seq.kind === 'motionGuide')
         ) {
           handledSeqIds.add(seq.id);
@@ -2121,6 +2285,22 @@ export class EditorState {
                 patternId: ev.sourcePatternId,
               },
             });
+          }
+        } else if (seq.phase === 'phaseA' && seq.kind === 'hazard') {
+          if (seq.id) {
+            this._hazardSequenceId = seq.id;
+          }
+          if (seq.events && seq.events.length > 0) {
+            const ev = seq.events[0] as PhaseAHazardEvent;
+            if (ev.id) {
+              this._hazardEventId = ev.id;
+            }
+            if (
+              ev.hazardType &&
+              (PHASE_A_ACTIVE_HAZARD_PATTERNS as readonly string[]).includes(ev.hazardType)
+            ) {
+              this._phaseAHazardPattern = ev.hazardType as PhaseAHazardPattern;
+            }
           }
         }
       }

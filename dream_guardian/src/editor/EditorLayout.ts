@@ -50,6 +50,7 @@ export class EditorLayout {
       { value: 'ANSWER_SELECT', label: '2. 답선택 페이즈 (2박 즉시선택)' },
       { value: 'STAR_COLLECT', label: '3. 별모으기 페이즈 (7박 키노트)' },
       { value: 'FEVER_PHASE_B', label: '4. 피버 결전 (16박 풀루프)' },
+      { value: 'HAZARD_EVADE', label: '⚠️ 오답 장판 (Phase A)' },
     ];
 
     const phaseOptions = phases
@@ -167,9 +168,12 @@ export class EditorLayout {
 
     const isStarCollect = this._state.selectedPhase === 'STAR_COLLECT';
     const starSlotSection = isStarCollect ? this.renderStarSlotEditorHTML() : '';
+    const isHazardEvade = this._state.selectedPhase === 'HAZARD_EVADE';
+    const hazardSection = isHazardEvade ? this.renderHazardEvadeEditorHTML() : '';
 
     return `
       <aside class="editor-sidebar">
+        ${hazardSection}
         ${starSlotSection}
         <section class="sidebar-section pattern-details-section">
           <div class="section-title">
@@ -244,6 +248,89 @@ export class EditorLayout {
           </div>
         </section>
       </aside>
+    `.trim();
+  }
+
+  /**
+   * Phase A 오답 장판(HAZARD_EVADE) 회피 편집 UI HTML 렌더링 (#395)
+   */
+  renderHazardEvadeEditorHTML(): string {
+    const currentPattern = this._state.getPhaseAHazardPattern();
+    const activePatterns = this._state.getActivePhaseAHazardPatterns();
+    const lockedPatterns = this._state.getLockedPhaseAHazardPatterns();
+    const schedule = this._state.getPhaseAHazardSchedule();
+    const damage = this._state.getPhaseAHazardDamage();
+
+    const patternLabels: Record<string, string> = {
+      left_step: '좌측 회피 스텝 (left_step)',
+      right_step: '우측 회피 스텝 (right_step)',
+      jump: '회피 점프 (jump)',
+      balance_left: '좌측 밸런스 (balance_left)',
+      balance_right: '우측 밸런스 (balance_right)',
+    };
+
+    return `
+      <section class="sidebar-section hazard-evade-editor-section" style="border:1px solid #FF865E; background:rgba(255,134,94,0.06); margin-bottom:12px; border-radius:6px; padding:12px;">
+        <div class="section-title" style="color:#FF865E; display:flex; align-items:center; gap:6px; font-weight:bold; margin-bottom:8px;">
+          <span>⚠️ 오답 장판 회피 편집 (Phase A / HAZARD_EVADE)</span>
+        </div>
+
+        <div class="form-group" style="margin-top:8px;">
+          <label style="font-weight:bold; color:#FFCB4D; display:block; margin-bottom:4px;">회피 동작 선택 (활성 3종):</label>
+          <div class="radio-group" style="display:flex; flex-direction:column; gap:6px;">
+            ${activePatterns
+              .map(
+                (pat) => `
+              <label class="radio-label" style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+                <input type="radio" name="phase-a-hazard-pattern" value="${pat}" ${currentPattern === pat ? 'checked' : ''} class="hazard-pattern-radio" />
+                <span>${patternLabels[pat] || pat}</span>
+              </label>
+            `,
+              )
+              .join('')}
+            ${lockedPatterns
+              .map(
+                (pat) => `
+              <label class="radio-label" style="display:flex; align-items:center; gap:6px; font-size:13px; color:#6B7280; cursor:not-allowed;">
+                <input type="radio" name="phase-a-hazard-pattern" value="${pat}" disabled class="hazard-pattern-radio" />
+                <span>${patternLabels[pat] || pat} <small>(비활성 잠금)</small></span>
+              </label>
+            `,
+              )
+              .join('')}
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:10px;">
+          <label style="font-weight:bold; display:block; margin-bottom:4px;">피해량 (오답 피격 데미지):</label>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input type="text" value="${damage} HP (고정 / 🔒 잠금)" disabled class="editor-input disabled" style="width:100%; color:#FF865E; font-weight:bold;" />
+          </div>
+        </div>
+
+        <div class="section-subtitle" style="margin-top:12px; font-weight:bold; color:#28E6FF;">현재 BPM(${schedule.bpm}) 기준 스케줄 (읽기 전용)</div>
+        <div class="schedule-table-container" style="background:rgba(0,0,0,0.25); border-radius:4px; padding:8px; font-size:12px; line-height:1.6; margin-top:6px;">
+          <div class="form-row warning-duration-display" style="display:flex; justify-content:space-between;">
+            <span style="color:#9CA3AF;">경고 지속 시간:</span>
+            <strong>${schedule.warningDuration.toFixed(2)}초 (${schedule.warningDurationBeats.toFixed(1)}박)</strong>
+          </div>
+          <div class="form-row input-window-display" style="display:flex; justify-content:space-between;">
+            <span style="color:#9CA3AF;">입력 유효 마감:</span>
+            <strong>${schedule.inputWindowEnd.toFixed(2)}초 (${schedule.inputWindowEndBeats.toFixed(1)}박)</strong>
+          </div>
+          <div class="form-row judgment-time-display" style="display:flex; justify-content:space-between;">
+            <span style="color:#9CA3AF;">판정 시점:</span>
+            <strong>${schedule.judgmentTime.toFixed(2)}초 (${schedule.judgmentTimeBeats.toFixed(1)}박)</strong>
+          </div>
+          <div class="form-row total-duration-display" style="display:flex; justify-content:space-between;">
+            <span style="color:#9CA3AF;">총 지속 시간:</span>
+            <strong>${schedule.totalDuration.toFixed(2)}초 (${schedule.totalDurationBeats.toFixed(1)}박)</strong>
+          </div>
+          <div style="margin-top:6px; font-size:11px; color:#6B7280; border-top:1px dashed #374151; padding-top:4px;">
+            * 시간·판정 공식은 phase-a-hazard.config 단일 원천에 의해 BPM 비례 자동 계산됩니다.
+          </div>
+        </div>
+      </section>
     `.trim();
   }
 
@@ -687,7 +774,7 @@ export class EditorLayout {
                 <option value="starNotes">starNotes</option>
                 <option value="motionGuide">motionGuide</option>
                 <option value="feverNotes">feverNotes</option>
-                <option value="hazard" disabled>hazard (🔒 잠금 / 미지원)</option>
+                <option value="hazard">hazard</option>
               </select>
             </div>
           </div>

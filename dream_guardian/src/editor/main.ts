@@ -663,6 +663,19 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       });
     });
+
+    // Phase A 오답 장판 회피 패턴 라디오 버튼 바인딩 (#395)
+    const hazardRadios = document.querySelectorAll<HTMLInputElement>('.hazard-pattern-radio');
+    hazardRadios.forEach((radio) => {
+      radio.addEventListener('change', (e) => {
+        const val = (e.target as HTMLInputElement).value;
+        const res = state.setPhaseAHazardPattern(val);
+        if (!res.success) {
+          alert(res.error || '장판 패턴 변경 실패');
+        }
+        updateSidebar();
+      });
+    });
   };
 
   // 5. 헤더 툴바 이벤트 바인딩
@@ -670,6 +683,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (phaseSelect) {
     phaseSelect.addEventListener('change', (e) => {
       state.setSelectedPhase((e.target as HTMLSelectElement).value as PhaseType);
+      updateSidebar();
       updateTimeline();
     });
   }
@@ -680,6 +694,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const val = parseInt((e.target as HTMLInputElement).value, 10);
       state.setBpm(val);
       audioSync.setBpm(val);
+      updateSidebar();
     });
   }
 
