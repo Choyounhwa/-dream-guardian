@@ -7,6 +7,7 @@ import { EditorLayout } from './EditorLayout.js';
 import { EditorCanvasRenderer } from './EditorCanvasRenderer.js';
 import { AudioSyncController } from './AudioSyncController.js';
 import { editorIOHandler } from './EditorIOHandler.js';
+import { EditorPublishController } from './EditorPublishController.js';
 import type { BodyCursorPart } from './PoseConstraintValidator.js';
 import type { DanceMotionType } from '../data/danceRoutineData.js';
 
@@ -34,6 +35,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
   const layout = new EditorLayout(state);
+  const publishController = new EditorPublishController(state);
   const timelineRenderer = layout.timelineRenderer;
   const audioSync = new AudioSyncController({ bpm: state.bpm, enableAudioNode: true });
 
@@ -56,8 +58,138 @@ window.addEventListener('DOMContentLoaded', () => {
   const updateStatusBar = () => {
     const statusBarContainer = document.getElementById('editor-status-bar-container');
     if (statusBarContainer) {
-      statusBarContainer.innerHTML = layout.renderStatusBarHTML();
+      publishController
+        .getStatus()
+        .then((pubStatus) => {
+          statusBarContainer.innerHTML = layout.renderStatusBarHTML(pubStatus);
+        })
+        .catch(() => {
+          statusBarContainer.innerHTML = layout.renderStatusBarHTML();
+        });
     }
+  };
+
+  const updatePublishModal = async () => {
+    const modalContainer = document.getElementById('publish-modal-container');
+    if (modalContainer) {
+      const status = await publishController.getStatus();
+      const versions = await publishController.listPublishedVersions();
+      modalContainer.innerHTML = layout.renderPublishModalHTML(status, versions);
+      modalContainer.style.display = modalContainer.classList.contains('hidden') ? 'none' : 'block';
+      bindPublishModalEvents();
+    }
+  };
+
+  const bindPublishModalEvents = () => {
+    const closeBtn = document.getElementById('btn-close-publish-modal');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        const modalContainer = document.getElementById('publish-modal-container');
+        if (modalContainer) {
+          modalContainer.classList.add('hidden');
+          modalContainer.style.display = 'none';
+        }
+      });
+    }
+
+    const validateBtn = document.getElementById('btn-modal-validate');
+    if (validateBtn) {
+      validateBtn.addEventListener('click', async () => {
+        const valRes = await publishController.validateProject();
+        await updatePublishModal();
+        updateStatusBar();
+        if (valRes.valid) {
+          alert('✅ 프로젝트 검증 통과! 게시 가능한 상태입니다.');
+        } else {
+          alert(`❌ 검증 실패:\n${valRes.errors.join('\n')}`);
+        }
+      });
+    }
+
+    const publishBtn = document.getElementById('btn-modal-publish');
+    if (publishBtn) {
+      publishBtn.addEventListener('click', async () => {
+        if (publishController.hasUncommittedChanges()) {
+          alert('⚠️ 수정 중인 미완성 폼 입력이 있습니다! 폼을 확정하거나 취소한 후 게시해 주세요.');
+          return;
+        }
+        try {
+          const res = await publishController.publish({ stageActivation: false });
+          await updatePublishModal();
+          updateStatusBar();
+          alert(`🚀 새 버전이 성공적으로 불변 저장소에 게시되었습니다!\n\nContent Hash: ${res.contentHash.slice(0, 16)}...\n\n⚠️ 다음 스테이지 적용을 원하시면 [✨ 다음 스테이지 적용 예약] 버튼을 클릭하세요.`);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          alert(`게시 실패:\n${msg}`);
+          await updatePublishModal();
+          updateStatusBar();
+        }
+      });
+    }
+
+    const stageBtn = document.getElementById('btn-modal-stage-activation');
+    if (stageBtn) {
+      stageBtn.addEventListener('click', async () => {
+        try {
+          const res = await publishController.stageActivation();
+          await updatePublishModal();
+          updateStatusBar();
+          alert(`✨ 다음 스테이지 적용 예약 완료!\n\n예약 Hash: ${res.stagedHash.slice(0, 16)}...\n\n${publishController.getActivationNoticeText()}`);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          alert(`적용 예약 실패:\n${msg}`);
+        }
+      });
+    }
+
+    const rollbackBtn = document.getElementById('btn-modal-rollback');
+    if (rollbackBtn) {
+      rollbackBtn.addEventListener('click', async () => {
+        try {
+          const res = await publishController.scheduleRollback();
+          await updatePublishModal();
+          updateStatusBar();
+          alert(`↺ 이전 정상본으로 롤백 예약 완료!\n\n롤백 예약 Hash: ${res.scheduledHash?.slice(0, 16)}...\n\n${publishController.getActivationNoticeText()}`);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          alert(`롤백 예약 실패:\n${msg}`);
+        }
+      });
+    }
+
+    const stageVersionBtns = document.querySelectorAll('.btn-stage-version');
+    stageVersionBtns.forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        const hash = (e.target as HTMLElement).getAttribute('data-hash');
+        if (hash) {
+          try {
+            await publishController.stageActivation(hash);
+            await updatePublishModal();
+            updateStatusBar();
+            alert(`✨ 선택한 버전(${hash.slice(0, 10)}...)이 다음 스테이지 적용 예약되었습니다.\n\n${publishController.getActivationNoticeText()}`);
+          } catch (err) {
+            alert(`적용 예약 실패: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+      });
+    });
+
+    const rollbackVersionBtns = document.querySelectorAll('.btn-rollback-version');
+    rollbackVersionBtns.forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        const hash = (e.target as HTMLElement).getAttribute('data-hash');
+        if (hash) {
+          try {
+            await publishController.scheduleRollback(hash);
+            await updatePublishModal();
+            updateStatusBar();
+            alert(`↺ 선택한 버전(${hash.slice(0, 10)}...)으로 롤백 예약되었습니다.\n\n${publishController.getActivationNoticeText()}`);
+          } catch (err) {
+            alert(`롤백 예약 실패: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+      });
+    });
   };
 
   const updateBindingsPanel = () => {
@@ -543,6 +675,66 @@ window.addEventListener('DOMContentLoaded', () => {
       updateCanvas();
       updateStatusBar();
       updateBindingsPanel();
+    });
+  }
+
+  const validateProjectBtn = document.getElementById('btn-validate-project');
+  if (validateProjectBtn) {
+    validateProjectBtn.addEventListener('click', async () => {
+      const modalContainer = document.getElementById('publish-modal-container');
+      if (modalContainer) {
+        modalContainer.classList.remove('hidden');
+        modalContainer.style.display = 'block';
+      }
+      const valRes = await publishController.validateProject();
+      await updatePublishModal();
+      updateStatusBar();
+      if (valRes.valid) {
+        alert('✅ 프로젝트 검증 통과! 규칙 및 제약을 모두 만족합니다.');
+      } else {
+        alert(`❌ 검증 실패:\n${valRes.errors.join('\n')}`);
+      }
+    });
+  }
+
+  const publishProjectBtn = document.getElementById('btn-publish-project');
+  if (publishProjectBtn) {
+    publishProjectBtn.addEventListener('click', async () => {
+      if (publishController.hasUncommittedChanges()) {
+        alert('⚠️ 수정 중인 미완성 폼 입력이 있습니다! 폼을 확정하거나 취소한 후 게시해 주세요.');
+        return;
+      }
+      const modalContainer = document.getElementById('publish-modal-container');
+      if (modalContainer) {
+        modalContainer.classList.remove('hidden');
+        modalContainer.style.display = 'block';
+      }
+      try {
+        const res = await publishController.publish({ stageActivation: false });
+        await updatePublishModal();
+        updateStatusBar();
+        alert(`🚀 새 버전이 성공적으로 불변 저장소에 게시되었습니다!\n\nContent Hash: ${res.contentHash.slice(0, 16)}...\n\n⚠️ 다음 스테이지 적용을 원하시면 [✨ 다음 스테이지 적용 예약] 버튼을 클릭하세요.`);
+      } catch (err) {
+        alert(`게시 실패:\n${err instanceof Error ? err.message : String(err)}`);
+        await updatePublishModal();
+        updateStatusBar();
+      }
+    });
+  }
+
+  const manageReleasesBtn = document.getElementById('btn-manage-releases');
+  if (manageReleasesBtn) {
+    manageReleasesBtn.addEventListener('click', () => {
+      const modalContainer = document.getElementById('publish-modal-container');
+      if (modalContainer) {
+        modalContainer.classList.toggle('hidden');
+        if (!modalContainer.classList.contains('hidden')) {
+          modalContainer.style.display = 'block';
+          updatePublishModal();
+        } else {
+          modalContainer.style.display = 'none';
+        }
+      }
     });
   }
 

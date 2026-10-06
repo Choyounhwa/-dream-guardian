@@ -5,6 +5,8 @@
 import { EditorState, type PhaseType } from './EditorState.js';
 import type { DanceMotionType } from '../data/danceRoutineData.js';
 import { BeatTimelineRenderer } from './BeatTimelineRenderer.js';
+import type { EditorPublishStatus } from './EditorPublishController.js';
+import type { PublishedPackSummary } from '../storage/PublishedContentStore.js';
 
 export interface TimelineMarker {
   beat: number;
@@ -87,6 +89,9 @@ export class EditorLayout {
         </div>
 
         <div class="header-right">
+          <button id="btn-validate-project" class="btn btn-outline" title="프로젝트 무결성 및 규칙 검증">🔍 검증</button>
+          <button id="btn-publish-project" class="btn btn-accent" title="새 버전 불변 게시">🚀 게시</button>
+          <button id="btn-manage-releases" class="btn btn-outline" title="게시본 및 다음 스테이지 적용 예약 관리">📦 릴리즈 관리</button>
           <button id="btn-new-project" class="btn btn-outline" title="새 프로젝트 만들기">📄 새 프로젝트</button>
           <button id="btn-clone-project" class="btn btn-outline" title="프로젝트 복제">📑 프로젝트 복제</button>
           <button id="btn-manage-bindings" class="btn btn-outline" title="스테이지 및 구간 바인딩 관리">🔗 구간 바인딩</button>
@@ -502,7 +507,7 @@ export class EditorLayout {
   /**
    * 하단 상태 표시줄(Status Bar) HTML 렌더링
    */
-  renderStatusBarHTML(): string {
+  renderStatusBarHTML(publishStatus?: EditorPublishStatus | null): string {
     const status = this._state.getProjectPublicationStatus();
     const coverage = this._state.getStageCoverageStatus();
     const saveLabel = status.isClean ? '저장됨' : '미저장';
@@ -513,6 +518,14 @@ export class EditorLayout {
       ? '스테이지 완료 (5/5)'
       : `${coverage.boundStages.length + coverage.builtinStages.length}/5 커버`;
 
+    const activeBadge = publishStatus?.activeContentHash
+      ? `<span class="status-badge status-active-hash" title="현재 활성 게시본: ${publishStatus.activeContentHash}">Active: ${publishStatus.activeContentHash.slice(0, 8)}...</span>`
+      : '';
+
+    const stagedBadge = publishStatus?.stagedActivationHash
+      ? `<span class="status-badge status-staged-hash" title="다음 스테이지 시작 시 적용 예약됨 (현재 세션 즉시 반영 아님)">Staged: ${publishStatus.stagedActivationHash.slice(0, 8)}... (Next Stage)</span>`
+      : '';
+
     return `
       <div id="editor-status-bar" class="editor-status-bar">
         <div class="status-left">
@@ -520,6 +533,8 @@ export class EditorLayout {
           <span class="status-badge status-revision">Draft rev.${status.currentRevision}</span>
           <span class="status-badge ${saveClass}">${saveLabel}</span>
           <span class="status-badge ${pubClass}">${pubLabel}</span>
+          ${activeBadge}
+          ${stagedBadge}
         </div>
         <div class="status-right">
           <span class="status-badge status-coverage">${covLabel}</span>
@@ -682,6 +697,143 @@ export class EditorLayout {
   }
 
   /**
+   * 프로젝트 검증·게시 및 릴리즈 관리 모달(Publish & Release Modal) HTML 렌더링
+   */
+  renderPublishModalHTML(
+    status?: EditorPublishStatus | null,
+    versions: PublishedPackSummary[] = []
+  ): string {
+    const isDirty = status?.isFormDirty ?? false;
+    const activeHash = status?.activeContentHash ?? '없음 (기본 프리셋)';
+    const stagedHash = status?.stagedActivationHash ?? '예약 없음';
+    const prevHealthy = status?.previousHealthyHash ?? '없음';
+    const lastHash = status?.lastPublishedHash ?? '없음';
+    const validation = status?.lastValidation;
+
+    // 검증 결과 UI 블록
+    let validationHTML = '';
+    if (validation) {
+      const statusBadge = validation.valid
+        ? '<span class="badge badge-success" style="background:#10B981; color:#fff; padding:3px 8px; border-radius:4px;">✅ 검증 통과 (게시 준비 완료)</span>'
+        : '<span class="badge badge-danger" style="background:#EF4444; color:#fff; padding:3px 8px; border-radius:4px;">❌ 검증 실패</span>';
+
+      const errorList =
+        validation.errors.length > 0
+          ? `<ul class="publish-error-list" style="color:#EF4444; margin:8px 0; padding-left:20px;">${validation.errors.map((e) => `<li>${e}</li>`).join('')}</ul>`
+          : '';
+
+      const warnList =
+        validation.warnings.length > 0
+          ? `<ul class="publish-warn-list" style="color:#F59E0B; margin:8px 0; padding-left:20px;">${validation.warnings.map((w) => `<li>${w}</li>`).join('')}</ul>`
+          : '';
+
+      const diffHTML = validation.diffSummary
+        ? `
+          <div class="diff-summary-box" style="background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:4px; margin-top:8px;">
+            <div><strong>변경 요약:</strong> ${validation.diffSummary.summaryText}</div>
+            <div style="margin-top:4px;"><small>산출 Content Hash: <code>${validation.contentHash || '-'}</code></small></div>
+          </div>
+        `
+        : '';
+
+      validationHTML = `
+        <div class="panel-section validation-section" style="margin:16px 0; padding:12px; background:rgba(0,0,0,0.2); border-radius:6px; border:1px solid var(--border-color, #272f4a);">
+          <div style="font-weight:600; margin-bottom:6px;">검증 상태: ${statusBadge}</div>
+          ${errorList}
+          ${warnList}
+          ${diffHTML}
+        </div>
+      `;
+    }
+
+    const versionRows =
+      versions.length === 0
+        ? '<tr><td colspan="5" style="text-align:center; color:#888; padding:12px;">게시된 버전이 없습니다.</td></tr>'
+        : versions
+            .map((v) => {
+              const isActive = v.contentHash === status?.activeContentHash;
+              const isStaged = v.contentHash === status?.stagedActivationHash;
+              const stateBadge = isActive
+                ? '<span class="badge badge-success" style="background:#10B981; color:#fff; padding:2px 6px; border-radius:4px;">활성 (Active)</span>'
+                : isStaged
+                ? '<span class="badge badge-warning" style="background:#F59E0B; color:#fff; padding:2px 6px; border-radius:4px;">다음 스테이지 예약 (Staged)</span>'
+                : '<span class="badge badge-secondary" style="background:#4B5563; color:#fff; padding:2px 6px; border-radius:4px;">보관됨</span>';
+
+              const shortHash = v.contentHash.slice(0, 12);
+              const dateStr = new Date(v.publishedAt).toLocaleString();
+
+              return `
+                <tr class="version-row" data-hash="${v.contentHash}">
+                  <td><code>${shortHash}...</code></td>
+                  <td>rev.${v.sourceRevision}</td>
+                  <td>${dateStr}</td>
+                  <td>${stateBadge}</td>
+                  <td>
+                    <button type="button" class="btn btn-sm btn-outline btn-stage-version" data-hash="${v.contentHash}">다음 스테이지 예약</button>
+                    ${isActive ? '' : `<button type="button" class="btn btn-sm btn-outline btn-rollback-version" data-hash="${v.contentHash}">롤백 예약</button>`}
+                  </td>
+                </tr>
+              `;
+            })
+            .join('');
+
+    return `
+      <div class="publish-modal-panel" id="publish-modal-panel" style="display:flex; flex-direction:column; gap:14px;">
+        <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 style="margin:0; font-size:16px;">📦 프로젝트 검증·불변 게시 및 릴리즈 관리</h3>
+          <button type="button" class="btn btn-sm btn-ghost" id="btn-close-publish-modal">✕ 닫기</button>
+        </div>
+
+        <div class="panel-notice notice-info" style="background:rgba(40,230,255,0.1); border-left:4px solid #28E6FF; padding:10px 14px; border-radius:4px; font-size:12px;">
+          ℹ️ <strong>적용 안내:</strong> 새 버전 게시 및 적용 예약은 <strong>다음 스테이지 시작 시</strong> 안전하게 활성화됩니다. 현재 실행 중인 실시간 게임 세션에는 즉시 반영되지 않습니다.
+        </div>
+
+        ${
+          isDirty
+            ? `<div class="panel-notice notice-warning" style="background:rgba(239,68,68,0.15); border-left:4px solid #EF4444; padding:10px 14px; border-radius:4px; font-size:12px; color:#FCA5A5;">
+                ⚠️ <strong>수정 중인 미완성 폼 입력이 있습니다!</strong> 폼을 확정하거나 취소한 후 게시를 진행해 주세요.
+               </div>`
+            : ''
+        }
+
+        <div class="panel-section release-info-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:rgba(255,255,255,0.03); padding:12px; border-radius:6px; font-size:12px;">
+          <div><strong>현재 활성 해시:</strong> <code style="color:#28E6FF;">${activeHash}</code></div>
+          <div><strong>다음 스테이지 예약:</strong> <code style="color:#FFCB4D;">${stagedHash}</code></div>
+          <div><strong>이전 정상본 해시:</strong> <code style="color:#A78BFA;">${prevHealthy}</code></div>
+          <div><strong>최근 게시본 해시:</strong> <code>${lastHash}</code></div>
+        </div>
+
+        <div class="panel-actions" style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="btn-modal-validate" type="button" class="btn btn-outline">🔍 무결성 검증</button>
+          <button id="btn-modal-publish" type="button" class="btn btn-success" ${isDirty ? 'disabled' : ''} style="background:#10B981; color:#fff;">🚀 불변 게시</button>
+          <button id="btn-modal-stage-activation" type="button" class="btn btn-primary" style="background:#6366F1; color:#fff;">✨ 다음 스테이지 적용 예약</button>
+          <button id="btn-modal-rollback" type="button" class="btn btn-warning" style="background:#F59E0B; color:#fff;">↺ 이전 정상본으로 롤백 예약</button>
+        </div>
+
+        ${validationHTML}
+
+        <div class="panel-section version-history-section">
+          <h4 style="margin:8px 0;">게시된 버전 이력 (${versions.length}개)</h4>
+          <table class="editor-table version-table" style="width:100%; border-collapse:collapse; text-align:left; font-size:12px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border-color, #272f4a); color:var(--text-muted, #8e9bb5);">
+                <th style="padding:6px;">Content Hash</th>
+                <th style="padding:6px;">Revision</th>
+                <th style="padding:6px;">게시 일시</th>
+                <th style="padding:6px;">상태</th>
+                <th style="padding:6px;">동작</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${versionRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `.trim();
+  }
+
+  /**
    * 전체 에디터 3단 레이아웃 통합 HTML 생성
    */
   renderFullLayoutHTML(): string {
@@ -695,6 +847,9 @@ export class EditorLayout {
         ${this.renderTimelineHTML()}
         <div id="bindings-modal-container" class="bindings-modal-container hidden">
           ${this.renderStageBindingsPanelHTML()}
+        </div>
+        <div id="publish-modal-container" class="publish-modal-container hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); z-index:1000; background:var(--bg-panel, #151827); border:1px solid var(--border-color, #272f4a); border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,0.8); max-width:820px; width:92%; max-height:85vh; overflow-y:auto; padding:20px;">
+          ${this.renderPublishModalHTML()}
         </div>
         <footer id="editor-status-bar-container">
           ${this.renderStatusBarHTML()}

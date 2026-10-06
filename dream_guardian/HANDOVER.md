@@ -2,6 +2,24 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 📦 프로젝트 검증·불변 게시·적용 예약 UI 카드 (EDITOR-PUBLISH, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#387 EDITOR-PUBLISH-001](https://github.com/Choyounhwa/-dream-guardian/issues/387)
+
+- **작업 목적**:
+  1. 프로젝트 유효성 검증(validateProject) 및 컴파일(compileProject) 연계.
+  2. 미완성/수정 중인 폼(dirty/uncommitted form input)이 있을 경우 게시 차단 (명시 확정 또는 취소 필요).
+  3. 검증 결과 에러/경고 목록, sourceRevision, contentHash, diff 요약 상태 모델 제공.
+  4. 게시(publish): `PublishedContentStore.publish` 호출을 통한 불변 영구 저장.
+  5. 적용 예약(stageActivation / scheduleRollback): "다음 스테이지 시작 시 적용" 예약 상태로 등록하며, "현재 실행 중인 세션에 즉시 반영된다"고 잘못 표시하지 않음.
+  6. 검증 또는 게시 실패 시 기존 activeContentHash 및 현재 작업 프로젝트 상태 100% 보존.
+  7. 이전 정상본(previousHealthyHash) 목록 조회 및 롤백 예약(rollback) 연동 (삭제 없는 안전한 롤백).
+  8. Project / Library / CompiledContentPack 간 kind 검증 (kind 혼동 거부).
+- **수정 파일 (3개)**: `dream_guardian/src/editor/EditorPublishController.ts` (신규), `dream_guardian/src/editor/EditorLayout.ts`, `dream_guardian/src/editor/main.ts`
+- **TDD 검증**: `tests/unit/editor-publish.test.ts` (13/13 Pass, 100%).
+- **전체 검증**: `npm test` 230 files / 2,741 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## 🦴 졸라맨 아바타 크기 배율 조절 카드 (FEAT-SKEL-SCALE, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#420 FEAT-SKEL-SCALE-001](https://github.com/Choyounhwa/-dream-guardian/issues/420)
@@ -144,7 +162,8 @@
 | [#384](https://github.com/Choyounhwa/-dream-guardian/issues/384) EDITOR-STAR | 별 7슬롯/부위·존/오류 UX 고도화 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#385](https://github.com/Choyounhwa/-dream-guardian/issues/385) EDITOR-BINDING | 프로젝트/구간·역할별 연결 UX | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#386](https://github.com/Choyounhwa/-dream-guardian/issues/386) EDITOR-RELEASE-STORE | 불변 게시본·적용 예약·이전 정상본 저장 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#387](https://github.com/Choyounhwa/-dream-guardian/issues/387) EDITOR-PUBLISH | 검증/게시/적용 예약 UI | `[▶ NEXT: 에디터 트랙]` 대기 |
+| [#387](https://github.com/Choyounhwa/-dream-guardian/issues/387) EDITOR-PUBLISH | 검증/게시/적용 예약 UI | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#388](https://github.com/Choyounhwa/-dream-guardian/issues/388) EDITOR-RESOLVER | 게임 런타임 적용본 단일 공급자(Provider) | `[▶ NEXT: 에디터 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 
