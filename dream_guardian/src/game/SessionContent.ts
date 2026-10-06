@@ -17,6 +17,10 @@ import type {
   CompiledPhaseBHazard,
   CompiledStarNote,
 } from '../data/PublishedContentPack.js';
+import {
+  PHASE_A_ACTIVE_HAZARD_PATTERNS,
+  type PhaseAHazardPattern,
+} from '../../config/phase-a-hazard.config.js';
 
 export type SessionPhaseRole = 'STAR_COLLECT' | 'BOSS_HAZARD' | 'MOTION_GUIDE';
 
@@ -60,6 +64,9 @@ export interface SessionStageBundle {
   readonly phaseA: SessionPhaseAContent;
   readonly phaseB: SessionPhaseBContent;
   readonly bindings: readonly SessionRoleBinding[];
+
+  // Phase A Hazard Pattern resolution helper
+  getPhaseAHazardPattern(roundIndex?: number): PhaseAHazardPattern;
 
   // Execution ID generation methods
   getRoundExecutionId(roundNumber: number): string;
@@ -133,6 +140,35 @@ function cloneValue<T>(value: T): T {
 }
 
 /**
+ * 세션 번들의 Phase A 장판 패턴을 해석하여 반환합니다.
+ * - 커스텀 팩(!isBuiltin)에 유효한 활성 장판(left_step, right_step, jump)이 정의된 경우 해당 패턴 반환
+ * - builtin 팩이거나 비활성/유효하지 않은 패턴인 경우 seed 결정적 패턴 또는 기본 활성 패턴 반환
+ * - 비활성 패턴(balance_left, balance_right 등)은 원천 차단되고 활성 3종만 반환됨
+ */
+export function resolvePhaseAHazardPattern(
+  bundle: Pick<SessionStageBundle, 'isBuiltin' | 'seed' | 'phaseA'>,
+  roundIndex?: number,
+): PhaseAHazardPattern {
+  if (!bundle.isBuiltin && bundle.phaseA?.hazard) {
+    const rawPattern = bundle.phaseA.hazard.requiredAction ?? bundle.phaseA.hazard.hazardType;
+    if (rawPattern && (PHASE_A_ACTIVE_HAZARD_PATTERNS as readonly string[]).includes(rawPattern)) {
+      return rawPattern as PhaseAHazardPattern;
+    }
+  }
+
+  const pool = PHASE_A_ACTIVE_HAZARD_PATTERNS;
+  const seed = Number.isFinite(bundle.seed) ? Math.floor(Math.abs(bundle.seed)) : 0;
+  const offset =
+    roundIndex !== undefined && Number.isFinite(roundIndex)
+      ? Math.floor(Math.abs(roundIndex - 1))
+      : 0;
+  const idx = (seed + offset) % pool.length;
+  return pool[idx];
+}
+
+export const getPhaseAHazardPattern = resolvePhaseAHazardPattern;
+
+/**
  * 결정론적이고 완전히 고정된 SessionStageBundle 스냅샷을 생성합니다.
  */
 export function createSessionStageSnapshot(params: CreateSessionStageParams): SessionStageBundle {
@@ -176,6 +212,10 @@ export function createSessionStageSnapshot(params: CreateSessionStageParams): Se
     phaseA: phaseACloned,
     phaseB: phaseBCloned,
     bindings: bindingsCloned,
+
+    getPhaseAHazardPattern(roundIndex?: number): PhaseAHazardPattern {
+      return resolvePhaseAHazardPattern(this, roundIndex);
+    },
 
     getRoundExecutionId(roundNumber: number): string {
       return `${this.executionId}_r${roundNumber}`;

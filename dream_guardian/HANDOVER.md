@@ -2,6 +2,26 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## ⚡ Phase A 장판 팩 소비 계약과 단일 결과 보존 카드 (GAME-HAZARD-A-CONTENT, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#396 GAME-HAZARD-A-CONTENT](https://github.com/Choyounhwa/-dream-guardian/issues/396)
+
+- **작업 목적**:
+  1. 책임 레이어 Game (`src/game/`) 내에서 에디터 모듈 import 없이 세션 스냅샷(`SessionStageBundle`)의 Phase A 장판 콘텐츠를 `PhaseAHazardController`의 실행 옵션(`PhaseAHazardStartOptions`)에 안전하게 주입·소비하는 계약 구축.
+  2. `SessionContent.ts`: `SessionStageBundle`에 Phase A 장판 패턴 조회/해석 헬퍼(`getPhaseAHazardPattern(roundIndex?: number): PhaseAHazardPattern`) 제공.
+  3. 커스텀 팩에 명시된 활성 장판(`left_step`, `right_step`, `jump`)을 우선 제공하고, 없거나 builtin인 경우 seed 결정적 패턴 제공. 비활성 패턴(`balance_left`, `balance_right`)이나 알 수 없는 패턴은 원천 차단.
+  4. `PhaseAHazardController.ts`: `startHazard(options?: PhaseAHazardStartOptions)`를 통해 명시적 패턴(`options.pattern`) 또는 세션 번들의 장판 소비 지원 (명시적 패턴 우선권 보장).
+  5. `attackId` 단일 결과 보장: 동일 attackId에 대해 중복 판정 및 중복 피해 차단 (`damage <= 25` 1회 제한).
+  6. 오답 후 재시도/변형 시퀀스(`wrong-then-correct`) 독립 결과 보존 및 `pause()`, `resume()`, `reset()` 수명주기/상태 격리 온전하게 유지.
+  7. 현재 BPM 기반 7박 판정(3.5s @ 120BPM) 및 8박 종료(4.0s @ 120BPM) `scaleHazardSchedule` 스케일링 회귀 0건 보존.
+- **수정 파일 (소스 2개 + 신규 테스트 1개)**:
+  - `dream_guardian/src/game/SessionContent.ts`: `getPhaseAHazardPattern` 헬퍼 및 번들 메서드, 활성 3종 필터링 및 seed 결정적 계산 구현
+  - `dream_guardian/src/game/PhaseAHazardController.ts`: `startHazard`, `bundle`/`bpm` 옵션 지원, `attackId` 단일 판정 잠금 및 결과 캐싱, `reset`, `isPaused` 등 구현
+  - `dream_guardian/tests/unit/phase-a-hazard-content.test.ts` (신규, 12개 단위 테스트)
+- **TDD 검증**: `tests/unit/phase-a-hazard-content.test.ts` (12/12 Pass, 100%).
+- **전체 검증**: `npm test` 239 files / 2,852 passed (100% Pass), `npm run build` 성공.
+- **상태**: `[✔]` 완료
+
 ## ⚠️ Phase A 장판 편집 탭·경고/입력/판정 읽기 전용 표시 카드 (EDITOR-HAZARD-A, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#395 EDITOR-HAZARD-A](https://github.com/Choyounhwa/-dream-guardian/issues/395)
@@ -338,7 +358,8 @@
 | [#393](https://github.com/Choyounhwa/-dream-guardian/issues/393) EDITOR-TEST-LAUNCH | 게시 hash 테스트 실행 UX | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#394](https://github.com/Choyounhwa/-dream-guardian/issues/394) EDITOR-MVP-QA | 별 제작→게임→롤백 종단 인수 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
 | [#395](https://github.com/Choyounhwa/-dream-guardian/issues/395) EDITOR-HAZARD-A | Phase A 장판 편집 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
-| [#396](https://github.com/Choyounhwa/-dream-guardian/issues/396) GAME-HAZARD-A-CONTENT | Phase A 장판 소비 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
+| [#396](https://github.com/Choyounhwa/-dream-guardian/issues/396) GAME-HAZARD-A-CONTENT | Phase A 장판 소비 | `[✔] 구현·검증 완료 (TDD 100% Pass)` |
+| [#397](https://github.com/Choyounhwa/-dream-guardian/issues/397) BOOT-HAZARD-A-CONTENT | 게임 조립계층 오답 장판 팩 연결 | `[▶ NEXT: 에디터·런타임 트랙]` 대기 |
 
 ### 2026-10-04 피트니스 후속 카드 등록 (#374~#404)
 

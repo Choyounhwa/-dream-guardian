@@ -12,6 +12,7 @@ import {
 import { InputBuffer } from '../input/InputBuffer.js';
 import type { MotionIntentBus } from '../motion/MotionIntentBus.js';
 import type { UnsubscribeFn } from '../types/motion-intent.js';
+import type { SessionStageBundle } from './SessionContent.js';
 
 
 export { DEFAULT_PHASE_A_HAZARD_PATTERN } from '../../config/phase-a-hazard.config.js';
@@ -31,6 +32,8 @@ export interface PhaseAHazardBeatResult {
 export interface PhaseAHazardStartOptions {
   roundIndex?: number;
   pattern?: PhaseAHazardPattern;
+  bundle?: SessionStageBundle;
+  bpm?: number;
   attackId?: string;
   secondsPerBeat?: number;
   branchClock?: { secondsPerBeat: number; durationBeats?: 8 };
@@ -62,6 +65,7 @@ export class PhaseAHazardController {
   private _beatIndex = 0;
   private _isPaused = false;
   private _schedule: PhaseAHazardConfig = DEFAULT_PHASE_A_HAZARD_CONFIG;
+  private readonly _resolvedResults = new Map<string, PhaseAHazardBeatResult>();
 
   constructor(
     options?: PhaseAHazardControllerOptions,
@@ -158,6 +162,18 @@ export class PhaseAHazardController {
     return this._schedule;
   }
 
+  get isPaused(): boolean {
+    return this._isPaused;
+  }
+
+  isAttackResolved(attackId: string): boolean {
+    return this._resolvedResults.has(attackId);
+  }
+
+  getResolvedAttackResult(attackId: string): PhaseAHazardBeatResult | undefined {
+    return this._resolvedResults.get(attackId);
+  }
+
   pause(): void {
     this._isPaused = true;
   }
@@ -166,14 +182,32 @@ export class PhaseAHazardController {
     this._isPaused = false;
   }
 
+  reset(): void {
+    this.stop();
+    this._resolvedResults.clear();
+    this._isPaused = false;
+    this._schedule = DEFAULT_PHASE_A_HAZARD_CONFIG;
+  }
+
+  startHazard(options?: PhaseAHazardStartOptions): void {
+    this.start(options);
+  }
+
   start(options?: PhaseAHazardStartOptions | PhaseAHazardPattern): void {
     this._active = true;
     this._elapsed = 0;
     this._isPaused = false;
+    const opts: PhaseAHazardStartOptions =
+      typeof options === 'string'
+        ? { pattern: options }
+        : (options ?? {});
+
     const spb =
-      typeof options === 'object' && options
-        ? options.branchClock?.secondsPerBeat ?? options.secondsPerBeat
-        : undefined;
+      opts.branchClock?.secondsPerBeat ??
+      opts.secondsPerBeat ??
+      (opts.bpm ? 60 / opts.bpm : undefined) ??
+      opts.bundle?.secondsPerBeat;
+
     this._schedule =
       spb !== undefined && spb > 0
         ? scaleHazardSchedule(this._config, spb)
@@ -188,23 +222,26 @@ export class PhaseAHazardController {
     this._performedAction = null;
     this._inputBuffer.clear();
 
-    if (typeof options === 'string') {
-      this._activePattern = options;
-      this._attackId = `hazard_${Date.now()}`;
-    } else if (options && typeof options === 'object') {
-      if (options.pattern) {
-        this._activePattern = options.pattern;
-      } else if (options.roundIndex !== undefined) {
-        const pool = this._config.pattern.length > 0 ? this._config.pattern : PHASE_A_ACTIVE_HAZARD_PATTERNS;
-        const idx = Math.abs(options.roundIndex - 1) % pool.length;
-        this._activePattern = pool[idx];
-      } else {
-        this._activePattern = this._config.pattern[0] ?? 'jump';
-      }
-      this._attackId = options.attackId ?? (options.roundIndex ? `hazard_r${options.roundIndex}` : `hazard_${Date.now()}`);
+    if (opts.pattern && (PHASE_A_ACTIVE_HAZARD_PATTERNS as readonly string[]).includes(opts.pattern)) {
+      this._activePattern = opts.pattern;
+    } else if (opts.bundle) {
+      this._activePattern = opts.bundle.getPhaseAHazardPattern(opts.roundIndex);
+    } else if (opts.roundIndex !== undefined) {
+      const pool = this._config.pattern.length > 0 ? this._config.pattern : PHASE_A_ACTIVE_HAZARD_PATTERNS;
+      const idx = Math.abs(opts.roundIndex - 1) % pool.length;
+      this._activePattern = pool[idx];
     } else {
       this._activePattern = this._config.pattern[0] ?? 'jump';
-      this._attackId = `hazard_${Date.now()}`;
+    }
+
+    this._attackId =
+      opts.attackId ??
+      (opts.roundIndex ? `hazard_r${opts.roundIndex}` : `hazard_${Date.now()}`);
+
+    if (this._attackId && this._resolvedResults.has(this._attackId)) {
+      const prev = this._resolvedResults.get(this._attackId)!;
+      this._isResolved = true;
+      this._evaded = prev.evaded;
     }
   }
 
@@ -317,18 +354,25 @@ export class PhaseAHazardController {
 
   private _resolveAttack(): void {
     if (this._isResolved || !this._activePattern) return;
+    const attackId = this._attackId ?? 'hazard_attack';
+    if (this._resolvedResults.has(attackId)) {
+      this._isResolved = true;
+      return;
+    }
     this._isResolved = true;
     this._beatIndex = 1;
 
     const damage = this._evaded ? 0 : this._config.damagePerMiss;
     const result: PhaseAHazardBeatResult = {
       beatIndex: 0,
-      attackId: this._attackId ?? 'hazard_attack',
+      attackId,
       pattern: this._activePattern,
       evaded: this._evaded,
       damage,
       viaGrace: this._viaGrace ? true : undefined,
     };
+
+    this._resolvedResults.set(attackId, result);
 
     this._onBeatResolved?.(result);
     this._onHazardResolved?.(result);
