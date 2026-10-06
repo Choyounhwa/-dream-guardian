@@ -64,12 +64,42 @@ export type ContentLoadResult =
   | ContentLoadFallbackResult
   | ContentLoadCancelledResult;
 
+export const STATIC_MANIFEST_KIND = 'dream-guardian-static-manifest' as const;
+export const STATIC_MANIFEST_VERSION = 1 as const;
+export const DEFAULT_STATIC_MANIFEST_URL = 'content/manifest.json' as const;
+
+export interface StaticContentManifest {
+  kind?: string;
+  manifestVersion: number;
+  contentHash: string;
+  rulesetId: string;
+  rulesetHash: string;
+  runtimeContractVersion: string;
+  packPath?: string;
+  packUrl?: string;
+  pack?: PublishedContentPack;
+  stages?: string[];
+  metadata?: {
+    title?: string;
+    description?: string;
+    deployedAt?: string;
+    version?: string;
+    author?: string;
+  };
+}
+
 export interface ContentLoadOptions {
   store?: IPublishedContentStore;
   fallbackPack?: PublishedContentPack;
+  previousHealthyPack?: PublishedContentPack;
   signal?: AbortSignal;
   allowedOrigin?: string;
   fetchFn?: typeof fetch;
+  isTestMode?: boolean;
+}
+
+export interface StaticManifestLoadOptions extends ContentLoadOptions {
+  manifestUrl?: string;
 }
 
 export interface ContentLoadServiceConfig {
@@ -99,6 +129,7 @@ export class ContentLoadService {
   private _currentGeneration = 0;
   private _activeAbortController: AbortController | null = null;
   private _currentPack: PublishedContentPack | null = null;
+  private _previousHealthyPack: PublishedContentPack | null = null;
   private _lastResult: ContentLoadResult | null = null;
   private readonly _defaultStore?: IPublishedContentStore;
   private readonly _allowedOrigin?: string;
@@ -115,6 +146,13 @@ export class ContentLoadService {
    */
   get currentPack(): PublishedContentPack | null {
     return this._currentPack;
+  }
+
+  /**
+   * 이전에 검증 통과된 최근 정상 팩 (오프라인/에러 시 whole-pack fallback 대상)
+   */
+  get previousHealthyPack(): PublishedContentPack | null {
+    return this._previousHealthyPack;
   }
 
   /**
@@ -147,6 +185,7 @@ export class ContentLoadService {
   reset(): void {
     this.cancelCurrentRequest('Service reset');
     this._currentPack = null;
+    this._previousHealthyPack = null;
     this._lastResult = null;
   }
 
@@ -379,6 +418,440 @@ export class ContentLoadService {
         generation,
       });
     }
+  }
+
+  /**
+   * 명시적 테스트 모드(?mode=test 또는 options.isTestMode) 여부 판정
+   */
+  private isTestModeActive(options?: ContentLoadOptions): boolean {
+    if (options?.isTestMode !== undefined) {
+      return Boolean(options.isTestMode);
+    }
+    if (typeof window !== 'undefined' && typeof window.location?.search === 'string') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('mode') === 'test';
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 로컬 테스트 오버라이드 (명시적 ?mode=test 환경에서만 허용)
+   */
+  async loadLocalTestOverride(
+    identifier: string,
+    options?: ContentLoadOptions,
+  ): Promise<ContentLoadResult> {
+    const generation = this.beginRequest();
+    const abortController = this._activeAbortController!;
+    const fallbackPack =
+      options?.previousHealthyPack ??
+      this._previousHealthyPack ??
+      options?.fallbackPack ??
+      this._defaultFallbackPack;
+
+    // 명시적 test mode 검증: 일반 운영 환경에서는 로컬 팩 오버라이드 차단
+    if (!this.isTestModeActive(options)) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'test-override-forbidden',
+        diagnostic: 'Local store override is only allowed in explicit test mode (?mode=test)',
+        fallbackPack,
+        generation,
+      });
+    }
+
+    const store = options?.store ?? this._defaultStore;
+    if (!store) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'store-unavailable',
+        diagnostic: 'IPublishedContentStore is not configured for local test override',
+        fallbackPack,
+        generation,
+      });
+    }
+
+    if (this.isAborted(abortController, options?.signal)) {
+      return this.createCancelledResult('cancelled', 'Request was cancelled', generation);
+    }
+
+    try {
+      let pack: PublishedContentPack | null = null;
+      if (typeof store.getPublishedPack === 'function') {
+        pack = await store.getPublishedPack(identifier);
+      }
+      if (!pack && typeof store.getActivePack === 'function') {
+        pack = await store.getActivePack(identifier);
+      }
+
+      if (this.isStaleOrAborted(generation, abortController, options?.signal)) {
+        return this.createCancelledResult('superseded', `Request generation ${generation} superseded`, generation);
+      }
+
+      if (!pack) {
+        return this.finalizeResult({
+          status: 'fallback',
+          reason: 'pack-not-found',
+          diagnostic: `No published pack found in store for: ${identifier}`,
+          fallbackPack,
+          generation,
+        });
+      }
+
+      const verifyResult = this.verifyPackContent(pack, options);
+      return this.finalizeResult(verifyResult);
+    } catch (err) {
+      if (this.isStaleOrAborted(generation, abortController, options?.signal)) {
+        return this.createCancelledResult('superseded', `Request generation ${generation} superseded`, generation);
+      }
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'store-error',
+        diagnostic: err instanceof Error ? err.message : String(err),
+        fallbackPack,
+        generation,
+      });
+    }
+  }
+
+  /**
+   * 정적 배포 manifest(content/manifest.json 등) 수신 및 전체 검증
+   *
+   * Issue #403 / CONTENT-DEPLOY:
+   * - manifest schema, manifestVersion, contentHash, rulesetId, rulesetHash, runtimeContractVersion 검증
+   * - packPath 및 pack 데이터의 무결성 검증
+   * - 404, 손상된 JSON, 부분 배포, stale cache(캐시 불일치) 감지 시 whole-pack fallback
+   * - 정상 통과 시 deepFreeze 불변 스냅샷 생성 및 _previousHealthyPack 갱신
+   */
+  async loadStaticManifest(
+    manifestUrl: string = DEFAULT_STATIC_MANIFEST_URL,
+    options?: StaticManifestLoadOptions,
+  ): Promise<ContentLoadResult> {
+    const generation = this.beginRequest();
+    const abortController = this._activeAbortController!;
+    const fallbackPack =
+      options?.previousHealthyPack ??
+      this._previousHealthyPack ??
+      options?.fallbackPack ??
+      this._defaultFallbackPack;
+
+    const allowedOrigin = options?.allowedOrigin ?? this._allowedOrigin;
+
+    // Origin 검증
+    const originCheck = this.validateUrlOrigin(manifestUrl, allowedOrigin);
+    if (!originCheck.valid) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'cross-origin-forbidden',
+        diagnostic: originCheck.error ?? 'Forbidden cross-origin manifest URL',
+        fallbackPack,
+        generation,
+      });
+    }
+
+    if (this.isAborted(abortController, options?.signal)) {
+      return this.createCancelledResult('cancelled', 'Request was cancelled', generation);
+    }
+
+    const fetchImpl = options?.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : undefined);
+    if (!fetchImpl) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'fetch-unavailable',
+        diagnostic: 'Fetch function is not available',
+        fallbackPack,
+        generation,
+      });
+    }
+
+    let manifestRaw: unknown;
+    try {
+      const res = await fetchImpl(manifestUrl, { signal: abortController.signal });
+      if (this.isStaleOrAborted(generation, abortController, options?.signal)) {
+        return this.createCancelledResult('superseded', `Request generation ${generation} superseded`, generation);
+      }
+      if (!res.ok) {
+        return this.finalizeResult({
+          status: 'fallback',
+          reason: res.status === 404 ? 'manifest-not-found' : 'fetch-failed',
+          diagnostic: `Manifest request failed with status: ${res.status} (${res.statusText || 'Error'})`,
+          fallbackPack,
+          generation,
+        });
+      }
+      manifestRaw = await res.json();
+    } catch (err) {
+      if (this.isStaleOrAborted(generation, abortController, options?.signal)) {
+        return this.createCancelledResult('superseded', `Request generation ${generation} superseded`, generation);
+      }
+      if (err instanceof SyntaxError) {
+        return this.finalizeResult({
+          status: 'fallback',
+          reason: 'corrupted-json',
+          diagnostic: `Failed to parse manifest JSON: ${err.message}`,
+          fallbackPack,
+          generation,
+        });
+      }
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'fetch-failed',
+        diagnostic: err instanceof Error ? err.message : String(err),
+        fallbackPack,
+        generation,
+      });
+    }
+
+    if (this.isStaleOrAborted(generation, abortController, options?.signal)) {
+      return this.createCancelledResult('superseded', `Request generation ${generation} superseded`, generation);
+    }
+
+    // 1. Manifest 기본 스키마 검증
+    if (!manifestRaw || typeof manifestRaw !== 'object') {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'invalid-manifest-schema',
+        diagnostic: 'Manifest payload must be an object',
+        fallbackPack,
+        generation,
+      });
+    }
+
+    const manifest = manifestRaw as Partial<StaticContentManifest>;
+
+    if (manifest.manifestVersion !== STATIC_MANIFEST_VERSION) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'unsupported-manifest-version',
+        diagnostic: `Unsupported manifest version: ${manifest.manifestVersion}, expected: ${STATIC_MANIFEST_VERSION}`,
+        fallbackPack,
+        generation,
+      });
+    }
+
+    if (typeof manifest.contentHash !== 'string' || manifest.contentHash.length !== 64) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'invalid-manifest-hash',
+        diagnostic: 'Manifest contentHash must be a 64-character hex string',
+        fallbackPack,
+        generation,
+      });
+    }
+
+    if (
+      typeof manifest.rulesetId !== 'string' ||
+      !(SUPPORTED_RULESET_IDS as readonly string[]).includes(manifest.rulesetId)
+    ) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'unsupported-ruleset-id',
+        diagnostic: `Unsupported manifest rulesetId: ${String(manifest.rulesetId)}`,
+        fallbackPack,
+        generation,
+      });
+    }
+
+    if (manifest.rulesetHash !== EXPECTED_RULESET_HASH) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'unsupported-ruleset-hash',
+        diagnostic: `Manifest rulesetHash mismatch. Expected: ${EXPECTED_RULESET_HASH}, got: ${manifest.rulesetHash}`,
+        fallbackPack,
+        generation,
+      });
+    }
+
+    if (
+      typeof manifest.runtimeContractVersion !== 'string' ||
+      !(SUPPORTED_RUNTIME_VERSIONS as readonly string[]).includes(manifest.runtimeContractVersion)
+    ) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'unsupported-runtime-version',
+        diagnostic: `Unsupported manifest runtimeContractVersion: ${String(manifest.runtimeContractVersion)}`,
+        fallbackPack,
+        generation,
+      });
+    }
+
+    // 2. 팩 획득 (inline pack 또는 packPath/packUrl fetch)
+    let packRaw: unknown;
+    if (manifest.pack && typeof manifest.pack === 'object') {
+      packRaw = manifest.pack;
+    } else {
+      const rawPackPath = manifest.packPath ?? manifest.packUrl;
+      if (!rawPackPath || typeof rawPackPath !== 'string') {
+        return this.finalizeResult({
+          status: 'fallback',
+          reason: 'partial-deployment',
+          diagnostic: 'Manifest does not provide pack or valid packPath/packUrl',
+          fallbackPack,
+          generation,
+        });
+      }
+
+      // Pack URL 상대 경로 해석
+      let packFullUrl = rawPackPath;
+      if (manifestUrl.startsWith('http://') || manifestUrl.startsWith('https://')) {
+        try {
+          const baseObj = new URL(manifestUrl);
+          if (rawPackPath.startsWith('/')) {
+            packFullUrl = new URL(rawPackPath, baseObj.origin).toString();
+          } else if (rawPackPath.startsWith('./') || rawPackPath.startsWith('../')) {
+            packFullUrl = new URL(rawPackPath, manifestUrl).toString();
+          } else {
+            // e.g. 'content/pack.json' vs manifest at '/content/manifest.json'
+            const manifestDir = baseObj.pathname.substring(0, baseObj.pathname.lastIndexOf('/') + 1);
+            const firstSegment = rawPackPath.split('/')[0];
+            if (manifestDir.includes(`/${firstSegment}/`)) {
+              packFullUrl = new URL(rawPackPath, baseObj.origin).toString();
+            } else {
+              packFullUrl = new URL(rawPackPath, manifestUrl).toString();
+            }
+          }
+        } catch {
+          packFullUrl = rawPackPath;
+        }
+      } else if (
+        rawPackPath.startsWith('/') ||
+        rawPackPath.startsWith('./') ||
+        rawPackPath.startsWith('../') ||
+        !rawPackPath.includes('://')
+      ) {
+        const lastSlash = manifestUrl.lastIndexOf('/');
+        if (lastSlash >= 0) {
+          const baseDir = manifestUrl.substring(0, lastSlash + 1);
+          packFullUrl = rawPackPath.startsWith('/') ? rawPackPath : `${baseDir}${rawPackPath}`;
+        }
+      }
+
+      const packOriginCheck = this.validateUrlOrigin(packFullUrl, allowedOrigin);
+      if (!packOriginCheck.valid) {
+        return this.finalizeResult({
+          status: 'fallback',
+          reason: 'cross-origin-forbidden',
+          diagnostic: packOriginCheck.error ?? 'Forbidden cross-origin pack URL',
+          fallbackPack,
+          generation,
+        });
+      }
+
+      try {
+        const packRes = await fetchImpl(packFullUrl, { signal: abortController.signal });
+        if (this.isStaleOrAborted(generation, abortController, options?.signal)) {
+          return this.createCancelledResult('superseded', `Request generation ${generation} superseded`, generation);
+        }
+        if (!packRes.ok) {
+          return this.finalizeResult({
+            status: 'fallback',
+            reason: 'partial-deployment',
+            diagnostic: `Pack asset request failed: ${packRes.status} (${packRes.statusText || 'Error'})`,
+            fallbackPack,
+            generation,
+          });
+        }
+        packRaw = await packRes.json();
+      } catch (err) {
+        if (this.isStaleOrAborted(generation, abortController, options?.signal)) {
+          return this.createCancelledResult('superseded', `Request generation ${generation} superseded`, generation);
+        }
+        if (err instanceof SyntaxError) {
+          return this.finalizeResult({
+            status: 'fallback',
+            reason: 'corrupted-json',
+            diagnostic: `Failed to parse pack JSON: ${err.message}`,
+            fallbackPack,
+            generation,
+          });
+        }
+        return this.finalizeResult({
+          status: 'fallback',
+          reason: 'partial-deployment',
+          diagnostic: `Pack fetch error: ${err instanceof Error ? err.message : String(err)}`,
+          fallbackPack,
+          generation,
+        });
+      }
+    }
+
+    // 3. 팩 콘텐츠 무결성 및 호환성 검증
+    const verifyResult = this.verifyPackContent(packRaw, { ...options, fallbackPack });
+    if (verifyResult.status !== 'success') {
+      return this.finalizeResult(verifyResult);
+    }
+
+    const verifiedPack = verifyResult.pack;
+
+    // 4. Stale cache 및 Manifest <-> Pack 일관성 검증
+    if (verifiedPack.contentHash !== manifest.contentHash) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'stale-cache',
+        diagnostic: `Manifest contentHash (${manifest.contentHash}) does not match pack contentHash (${verifiedPack.contentHash})`,
+        fallbackPack,
+        generation,
+      });
+    }
+
+    if (verifiedPack.rulesetHash !== manifest.rulesetHash) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'stale-cache',
+        diagnostic: `Manifest rulesetHash (${manifest.rulesetHash}) does not match pack rulesetHash (${verifiedPack.rulesetHash})`,
+        fallbackPack,
+        generation,
+      });
+    }
+
+    if (verifiedPack.runtimeContractVersion !== manifest.runtimeContractVersion) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'stale-cache',
+        diagnostic: `Manifest runtimeContractVersion (${manifest.runtimeContractVersion}) does not match pack runtimeContractVersion (${verifiedPack.runtimeContractVersion})`,
+        fallbackPack,
+        generation,
+      });
+    }
+
+    if (verifiedPack.rulesetId !== manifest.rulesetId) {
+      return this.finalizeResult({
+        status: 'fallback',
+        reason: 'stale-cache',
+        diagnostic: `Manifest rulesetId (${manifest.rulesetId}) does not match pack rulesetId (${verifiedPack.rulesetId})`,
+        fallbackPack,
+        generation,
+      });
+    }
+
+    // 5. Manifest 바인딩 커버리지 검증
+    if (Array.isArray(manifest.stages)) {
+      for (const requiredStageId of manifest.stages) {
+        if (!verifiedPack.stages || !verifiedPack.stages[requiredStageId]) {
+          return this.finalizeResult({
+            status: 'fallback',
+            reason: 'incomplete-pack',
+            diagnostic: `Pack is missing declared stage binding from manifest: "${requiredStageId}"`,
+            fallbackPack,
+            generation,
+          });
+        }
+      }
+    }
+
+    // 6. 정상 통과: immutable snapshot 생성 및 previousHealthyPack 등록
+    const frozenPack = deepFreeze(structuredClone(verifiedPack));
+    this._previousHealthyPack = frozenPack;
+
+    return this.finalizeResult({
+      status: 'success',
+      pack: frozenPack,
+      generation,
+    });
   }
 
   // --- 내부 검증 및 수명 관리 헬퍼 ---

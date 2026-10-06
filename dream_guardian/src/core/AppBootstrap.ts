@@ -29,7 +29,11 @@ import { QuestionBank } from '../question/QuestionBank.js';
 import { parseCSV } from '../question/CSVLoader.js';
 import { parseFitnessPatternCSV, createKeynoteSequence } from '../data/index.js';
 import { BEGINNER_PHASE_A_STAR_NOTES } from '../data/beginnerRhythmRoutine.js';
-import { ContentLoadService } from './ContentLoadService.js';
+import {
+  ContentLoadService,
+  type StaticManifestLoadOptions,
+  type ContentLoadOptions,
+} from './ContentLoadService.js';
 import { ContentProvider } from '../game/ContentProvider.js';
 import {
   type PublishedContentPack,
@@ -150,6 +154,9 @@ export interface AppBootstrapOptions {
   canvas?: HTMLCanvasElement;
   autoStartCamera?: boolean;
   preloadAssets?: boolean;
+  loadStaticManifest?: boolean;
+  staticManifestUrl?: string;
+  staticManifestOptions?: StaticManifestLoadOptions;
 }
 
 // ─── roundRect 폴리필 ───
@@ -318,6 +325,14 @@ export class AppBootstrap {
   public readonly ensureCameraStarted: () => Promise<void>;
   public readonly loadQuestions: () => Promise<void>;
   public readonly loadFitnessPatterns: () => Promise<void>;
+  public readonly loadStaticManifest: (
+    manifestUrl?: string,
+    options?: StaticManifestLoadOptions,
+  ) => Promise<boolean>;
+  public readonly loadLocalTestOverride: (
+    identifier: string,
+    options?: ContentLoadOptions,
+  ) => Promise<boolean>;
 
   private _isInitialized = false;
   private _isRunning = false;
@@ -2029,6 +2044,44 @@ engine = new GameEngine({
     this.loadQuestions = loadQuestions;
     this.loadFitnessPatterns = loadFitnessPatterns;
 
+    const loadStaticManifest = async (
+      manifestUrl?: string,
+      options?: StaticManifestLoadOptions,
+    ): Promise<boolean> => {
+      const mergedOptions = options ?? this._options.staticManifestOptions;
+      const targetUrl = manifestUrl ?? this._options.staticManifestUrl;
+      const result = await contentLoadService.loadStaticManifest(targetUrl, mergedOptions);
+      if (result.status === 'success') {
+        activePublishedPack = result.pack;
+        return true;
+      }
+      if (result.status === 'fallback') {
+        activePublishedPack = result.fallbackPack ?? null;
+        return false;
+      }
+      activePublishedPack = null;
+      return false;
+    };
+
+    const loadLocalTestOverride = async (
+      identifier: string,
+      options?: ContentLoadOptions,
+    ): Promise<boolean> => {
+      const isTest = options?.isTestMode ?? sessionLifecycle.isTestSession ?? false;
+      const result = await contentLoadService.loadLocalTestOverride(identifier, {
+        ...options,
+        isTestMode: isTest,
+      });
+      if (result.status === 'success') {
+        activePublishedPack = result.pack;
+        return true;
+      }
+      return false;
+    };
+
+    this.loadStaticManifest = loadStaticManifest;
+    this.loadLocalTestOverride = loadLocalTestOverride;
+
     // Browser event listeners
     this._onResize = () => {
       canvasManager.resize();
@@ -2442,6 +2495,15 @@ engine = new GameEngine({
         this.loadFitnessPatterns(),
         imageLoader.preload().catch((err) => console.warn('[DG] Image preload warning:', err)),
       ]);
+    }
+
+    if (this._options.loadStaticManifest) {
+      await this.loadStaticManifest(
+        this._options.staticManifestUrl,
+        this._options.staticManifestOptions,
+      ).catch((err) => {
+        console.warn('[DG] Static manifest loading failed, falling back to builtin:', err);
+      });
     }
 
     if (typeof window !== 'undefined') {

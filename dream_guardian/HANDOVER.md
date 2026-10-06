@@ -2,6 +2,38 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 📦 정적 manifest 적용본 수신·검증 및 기본 콘텐츠 복귀 (CONTENT-DEPLOY, 2026-10-06)
+
+**[✔] 구현 및 검증 완료.** [#403 CONTENT-DEPLOY](https://github.com/Choyounhwa/-dream-guardian/issues/403)
+
+- **작업 목적**:
+  1. 책임 레이어 Core (`src/core/`) 내에서 에디터 모듈 import 없이 정적 배포 manifest(`content/manifest.json` 등 정적 경로)를 읽고 검증하는 수신 경로 및 기본 콘텐츠 안전 복귀 구현.
+  2. `ContentLoadService.ts`:
+     - `STATIC_MANIFEST_KIND`, `STATIC_MANIFEST_VERSION`, `DEFAULT_STATIC_MANIFEST_URL`, `StaticContentManifest`, `StaticManifestLoadOptions` 인터페이스 및 상수 정의.
+     - `loadStaticManifest(manifestUrl?, options?)` 메서드 구현: Manifest 스키마, `manifestVersion`, `contentHash`, `rulesetId`, `rulesetHash`, `runtimeContractVersion` 및 팩 데이터의 무결성 일괄 검증.
+     - 404(Not Found), 네트워크 오류, 손상된 JSON, hash 변조/불일치, 부분 배포(Partial Deployment), stale cache(캐시 불일치) 감지 시 전체 `builtin` 모드 또는 직전 정상본(`previousHealthyPack`)으로 whole-pack fallback 반환.
+     - 검증 통과 시 `deepFreeze`를 통한 불변 스냅샷 생성 및 `_previousHealthyPack` 등록.
+     - 로컬 테스트 오버라이드(`loadLocalTestOverride`): 명시적 테스트 모드(`?mode=test` 또는 `options.isTestMode: true`)에서만 허용하고 일반 운영 모드에서는 `test-override-forbidden` fallback 차단.
+  3. `AppBootstrap.ts`:
+     - 부트스트랩 옵션(`loadStaticManifest`, `staticManifestUrl`, `staticManifestOptions`) 및 초기화 시 정적 manifest 로드 연동.
+     - `loadStaticManifest()`, `loadLocalTestOverride()` 메서드 노출.
+     - 정적 manifest 로드 실패 시 안전하게 `activePublishedPack = null` (`default_csv` / builtin 모드)로 전체 복귀.
+  4. 운영 절차 가이드 문서화 (`docs/10_CONTENT_DEPLOYMENT_OPERATIONS.md`):
+     - 정적 배포 절차, 해시 검증, 오프라인 이전 정상본 보존 정책, 장애 방어 매트릭스, 롤백 절차 상세 기록.
+- **수정 파일 (소스 2개 + 신규 테스트 1개 + 신규 문서 1개)**:
+  - `dream_guardian/src/core/ContentLoadService.ts`: 정적 manifest 스키마 검증, packPath 2단계 fetch, Stale cache 방어, 불변 스냅샷 및 로컬 테스트 격리
+  - `dream_guardian/src/core/AppBootstrap.ts`: 부트스트랩 정적 manifest 연동 및 builtin 복귀, loadStaticManifest / loadLocalTestOverride 메서드 노출
+  - `dream_guardian/tests/integration/content-manifest-load.test.ts`: 정적 manifest 로드, 404/네트워크 fallback, 부분 배포/stale cache 거부, 로컬 오버라이드 격리 통합 테스트 16건 신규 작성 (100% Pass)
+  - `docs/10_CONTENT_DEPLOYMENT_OPERATIONS.md`: 정적 Manifest 배포 및 운영 절차 가이드 신규 작성
+- **검증 결과**:
+  - `npx vitest run tests/integration/content-manifest-load.test.ts`: 16개 테스트 100% 통과
+  - 전체 단위/통합 테스트: 246개 파일, 2,955개 테스트 100% Pass
+  - `npm run build`: TypeScript 컴파일 및 Vite 번들링 0 에러 정상 완료
+- **다음 작업 대상**:
+  - **[#404 FITNESS-EDITOR-QA]**: 전체 제작/복구/게임 적용 인수 (F단계 최종 카드)
+
+---
+
 ## 👹 Phase B 보스 공격 순서·회피 정보 편집 카드 (EDITOR-HAZARD-B, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#400 EDITOR-HAZARD-B](https://github.com/Choyounhwa/-dream-guardian/issues/400)
