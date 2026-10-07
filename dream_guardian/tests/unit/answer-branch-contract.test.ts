@@ -43,42 +43,28 @@ function enterAnswer(bpm = 120): BeatRunCoordinator {
 }
 
 describe('answer window contract (#309, public BeatRunCoordinator)', () => {
-  it('locks primary 2 + extension 2 = max 4; answerSelectBeats stays the primary alias', () => {
-    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerPrimaryBeats).toBe(2);
-    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerExtensionBeats).toBe(2);
+  it('locks primary 4 + extension 0 = max 4; answerSelectBeats stays the primary alias', () => {
+    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerPrimaryBeats).toBe(4);
+    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerExtensionBeats).toBe(0);
     expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerMaxBeats).toBe(4);
-    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats).toBe(2);
+    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats).toBe(4);
     const coordinator = enterAnswer();
     expect(coordinator.getAnswerSnapshot()).toMatchObject({
       phase: 'primary',
-      primaryBeats: 2,
-      extensionBeats: 2,
+      primaryBeats: 4,
+      extensionBeats: 0,
       maxBeats: 4,
       inputOpen: true,
     });
   });
 
-  it('just before 2 is primary; exact 2 opens extension and still accepts; exact 4 closes and rejects', () => {
+  it('just before 4 is primary and accepts; exact 4 closes and rejects', () => {
     const spb = spbOf(120);
-
-    const beforeTwo = enterAnswer();
-    beforeTwo.update(spb * 2 - 0.01);
-    expect(beforeTwo.getAnswerSnapshot().phase).toBe('primary');
-    expect(beforeTwo.isAnswerOpen).toBe(true);
-
-    const atTwo = enterAnswer();
-    atTwo.update(spb * 2);
-    expect(atTwo.phase).toBe('ANSWER_SELECT');
-    expect(atTwo.getAnswerSnapshot().phase).toBe('extension');
-    expect(atTwo.isTimedOut).toBe(false);
-    atTwo.confirmAnswerByFallback(0);
-    expect(atTwo.selectedChoiceIndex).toBe(0);
-    expect(atTwo.getBranchClock()?.durationBeats).toBe(BRANCH_BEATS);
 
     const beforeFour = enterAnswer();
     beforeFour.update(spb * 4 - 0.01);
     expect(beforeFour.phase).toBe('ANSWER_SELECT');
-    expect(beforeFour.getAnswerSnapshot().phase).toBe('extension');
+    expect(beforeFour.getAnswerSnapshot().phase).toBe('primary');
     expect(beforeFour.isAnswerOpen).toBe(true);
 
     const atFour = enterAnswer();
@@ -91,24 +77,21 @@ describe('answer window contract (#309, public BeatRunCoordinator)', () => {
     expect(atFour.selectedChoiceIndex).toBeNull();
   });
 
-  it('left/right fallback in primary and extension opens an 8-beat star or hazard branch', () => {
+  it('left/right fallback in primary opens an 8-beat star or hazard branch', () => {
     const spb = spbOf(120);
-    for (const when of ['primary', 'extension'] as const) {
-      for (const index of [0, 1] as const) {
-        const coordinator = enterAnswer();
-        if (when === 'extension') coordinator.update(spb * 2 + 1e-6);
-        expect(coordinator.getAnswerSnapshot().phase).toBe(when);
-        const correct = coordinator.currentQuestion?.correctIndex === index;
-        coordinator.confirmAnswerByFallback(index);
-        expect(coordinator.selectedChoiceIndex).toBe(index);
-        expect(coordinator.phase).toBe(correct ? 'STAR_COLLECT' : 'HAZARD_EVADE');
-        expect(coordinator.getBranchClock()).toMatchObject({
-          durationBeats: BRANCH_BEATS,
-          secondsPerBeat: spb,
-        });
-        coordinator.confirmAnswerByFallback(index === 0 ? 1 : 0);
-        expect(coordinator.selectedChoiceIndex).toBe(index);
-      }
+    for (const index of [0, 1] as const) {
+      const coordinator = enterAnswer();
+      expect(coordinator.getAnswerSnapshot().phase).toBe('primary');
+      const correct = coordinator.currentQuestion?.correctIndex === index;
+      coordinator.confirmAnswerByFallback(index);
+      expect(coordinator.selectedChoiceIndex).toBe(index);
+      expect(coordinator.phase).toBe(correct ? 'STAR_COLLECT' : 'HAZARD_EVADE');
+      expect(coordinator.getBranchClock()).toMatchObject({
+        durationBeats: BRANCH_BEATS,
+        secondsPerBeat: spb,
+      });
+      coordinator.confirmAnswerByFallback(index === 0 ? 1 : 0);
+      expect(coordinator.selectedChoiceIndex).toBe(index);
     }
   });
 

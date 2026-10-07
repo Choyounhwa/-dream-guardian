@@ -290,7 +290,7 @@ describe('[BUG-ANSWER-CONSUME-001 / #308] 선확정 답안 단일 소비', () =>
     expect(onAnswerSelected).toHaveBeenCalledWith(1);
     expect(onTimeout).not.toHaveBeenCalled();
     expect(coordinator.isTimedOut).toBe(false);
-    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats).toBe(2);
+    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats).toBe(4);
 
     const lateTimeout = vi.fn();
     const lateSelector = new ArmReachAnswerSelector({ isMirrored: false });
@@ -404,17 +404,17 @@ describe('[FEAT-ANSWER-GRACE-001 / #309] 기본 2박 · 미응답 추가 2박 ·
     return pose;
   }
 
-  it('정책 필드는 primary 2, extension 2, max 4이고 answerSelectBeats는 primary 별칭 2를 유지한다', () => {
-    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerPrimaryBeats).toBe(2);
-    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerExtensionBeats).toBe(2);
+  it('정책 필드는 primary 4, extension 0, max 4이고 answerSelectBeats는 primary 별칭 4를 유지한다', () => {
+    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerPrimaryBeats).toBe(4);
+    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerExtensionBeats).toBe(0);
     expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerMaxBeats).toBe(4);
-    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats).toBe(2);
+    expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats).toBe(4);
     expect(DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerSelectBeats).toBe(
       DEFAULT_ARM_DIRECTION_ANSWER_CONFIG.answerPrimaryBeats,
     );
   });
 
-  it('미응답 2박은 같은 창의 연장만 하고 timeout·새 문제·selector 재오픈을 하지 않는다', () => {
+  it('미응답 3박 시점에도 primary 유지되고 timeout·새 문제·selector 재오픈을 하지 않는다', () => {
     const onTimeout = vi.fn();
     const selector = new ArmReachAnswerSelector({ isMirrored: false });
     const openWindow = vi.spyOn(selector, 'openWindow');
@@ -428,13 +428,9 @@ describe('[FEAT-ANSWER-GRACE-001 / #309] 기본 2박 · 미응답 추가 2박 ·
     const questions = coordinator.questionGeneratedCount;
     const opensAtEntry = openWindow.mock.calls.length;
 
-    coordinator.update(seconds(2, 120) - 0.01);
+    coordinator.update(seconds(3, 120));
     expect(coordinator.getAnswerSnapshot().phase).toBe('primary');
-
-    coordinator.update(0.01);
-    const snap = coordinator.getAnswerSnapshot();
-    expect(snap.phase).toBe('extension');
-    expect(snap.windowId).toBe(coordinator.questionGeneratedCount);
+    expect(coordinator.getAnswerSnapshot().windowId).toBe(coordinator.questionGeneratedCount);
     expect(coordinator.phase).toBe('ANSWER_SELECT');
     expect(coordinator.isAnswerOpen).toBe(true);
     expect(coordinator.isTimedOut).toBe(false);
@@ -602,9 +598,9 @@ describe('[FEAT-ANSWER-GRACE-001 / #309] 기본 2박 · 미응답 추가 2박 ·
     });
     enterAnswer(coordinator);
     coordinator.update(seconds(2, 120) + 0.2);
-    const extended = coordinator.getAnswerSnapshot();
-    expect(extended.phase).toBe('extension');
-    expect(extended.elapsedBeats).toBeCloseTo(2 + 0.2 / seconds(1, 120), 5);
+    const inWindow = coordinator.getAnswerSnapshot();
+    expect(inWindow.phase).toBe('primary');
+    expect(inWindow.elapsedBeats).toBeCloseTo(2 + 0.2 / seconds(1, 120), 5);
 
     coordinator.update(seconds(2, 120) - 0.2 + seconds(1, 120));
     expect(coordinator.phase).toBe('HAZARD_EVADE');
@@ -630,13 +626,13 @@ describe('[FEAT-ANSWER-GRACE-001 / #309] 기본 2박 · 미응답 추가 2박 ·
     leaked.inputOpen = false;
     expect(coordinator.getAnswerSnapshot().phase).toBe('primary');
     expect(coordinator.getAnswerSnapshot().inputOpen).toBe(true);
-    expect(coordinator.getAnswerSnapshot().primaryBeats).toBe(2);
-    expect(coordinator.getAnswerSnapshot().extensionBeats).toBe(2);
+    expect(coordinator.getAnswerSnapshot().primaryBeats).toBe(4);
+    expect(coordinator.getAnswerSnapshot().extensionBeats).toBe(0);
     expect(coordinator.getAnswerSnapshot().maxBeats).toBe(4);
     expect(coordinator.getAnswerSnapshot().remainingBeats).toBeCloseTo(4, 5);
   });
 
-  it.each([110, 120, 140])('BPM %i에서 2박·4박 경계는 beats * 60/bpm ± epsilon이다', (bpm) => {
+  it.each([110, 120, 140])('BPM %i에서 4박 경계는 beats * 60/bpm ± epsilon이다', (bpm) => {
     const onTimeout = vi.fn();
     const coordinator = new BeatRunCoordinator({
       battle: new BattleState(),
@@ -645,14 +641,10 @@ describe('[FEAT-ANSWER-GRACE-001 / #309] 기본 2박 · 미응답 추가 2박 ·
     });
     enterAnswer(coordinator, bpm);
 
-    coordinator.update(seconds(2, bpm) - EPS);
+    coordinator.update(seconds(4, bpm) - EPS);
     expect(coordinator.getAnswerSnapshot().phase).toBe('primary');
-    coordinator.update(EPS);
-    expect(coordinator.getAnswerSnapshot().phase).toBe('extension');
     expect(onTimeout).not.toHaveBeenCalled();
 
-    coordinator.update(seconds(2, bpm) - EPS);
-    expect(coordinator.phase).toBe('ANSWER_SELECT');
     coordinator.update(EPS);
     expect(coordinator.phase).toBe('HAZARD_EVADE');
     expect(onTimeout).toHaveBeenCalledTimes(1);

@@ -357,7 +357,7 @@ export interface DifficultyBeatProfile {
 export const DEFAULT_DIFFICULTY_BEAT_PROFILE: DifficultyBeatProfile = {
   exerciseBeats: 8,
   approachStartBeat: 6,
-  answerSelectBeats: 2,
+  answerSelectBeats: 4,
   branchRoutineBeats: 8,
 };
 

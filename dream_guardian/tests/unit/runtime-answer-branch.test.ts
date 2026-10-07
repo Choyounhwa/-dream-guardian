@@ -129,7 +129,7 @@ describe('runtime answer branch assembly (#312)', () => {
     const opensAtEntry = openWindow.mock.calls.length;
 
     app.beatCoordinator.update(2 * spb + 0.01, null);
-    expect(app.beatCoordinator.getAnswerSnapshot().phase).toBe('extension');
+    expect(app.beatCoordinator.getAnswerSnapshot().phase).toBe('primary');
     expect(openWindow.mock.calls.length).toBe(opensAtEntry);
     app.dispose();
   });

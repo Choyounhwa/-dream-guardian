@@ -46,7 +46,7 @@ export interface ArmDirectionAnswerConfig {
   /** 사전 뻗기 1초 유지 확정 시간 (초, 기본 1.0) */
   heldReachConfirmSec: number;
   /**
-   * primary 창 별칭 (기본 2박). #309 이후 총 창 길이가 아니다.
+   * primary 창 별칭 (기본 4박). #309 이후 총 창 길이가 아니다.
    * 총 창은 answerPrimaryBeats + answerExtensionBeats = answerMaxBeats.
    */
   answerSelectBeats: number;
@@ -63,9 +63,9 @@ export const DEFAULT_ARM_DIRECTION_ANSWER_CONFIG: ArmDirectionAnswerConfig = {
   horizontalDominanceRatio: 1.6,
   outwardTravelRatio: 0.18,
   heldReachConfirmSec: 1.0,
-  answerSelectBeats: 2,
-  answerPrimaryBeats: 2,
-  answerExtensionBeats: 2,
+  answerSelectBeats: 4,
+  answerPrimaryBeats: 4,
+  answerExtensionBeats: 0,
   answerMaxBeats: 4,
 };
 

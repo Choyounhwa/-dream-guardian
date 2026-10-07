@@ -204,22 +204,22 @@ describe('[QA-ANSWER-BRANCH-001 / Issue #314] AppBootstrap Runtime Answer-Branch
     expect(snap.phase).toBe('primary');
     expect(snap.inputOpen).toBe(true);
 
-    // 1.95박 시점: 2박 직전 primary 유지
+    // 1.95박 시점: primary 유지
     app.beatCoordinator.update(1.95 * spb, null);
     snap = app.beatCoordinator.getAnswerSnapshot();
     expect(snap.phase).toBe('primary');
     expect(snap.inputOpen).toBe(true);
 
-    // 2) 2.05박 시점: 2박 초과로 extension 전환
+    // 2) 2.05박 시점: 4박 정책으로 primary 계속 유지
     app.beatCoordinator.update(0.1 * spb, null);
     snap = app.beatCoordinator.getAnswerSnapshot();
-    expect(snap.phase).toBe('extension');
+    expect(snap.phase).toBe('primary');
     expect(snap.inputOpen).toBe(true);
 
-    // 3) 3.95박 시점: 4박 직전 extension 유지
+    // 3) 3.95박 시점: 4박 직전 primary 유지
     app.beatCoordinator.update(1.9 * spb, null);
     snap = app.beatCoordinator.getAnswerSnapshot();
-    expect(snap.phase).toBe('extension');
+    expect(snap.phase).toBe('primary');
     expect(snap.inputOpen).toBe(true);
 
     // 4) 4.05박 시점: 4박 초과로 closed 및 HAZARD_EVADE(timeout) 전환

@@ -337,7 +337,7 @@ export class BeatRunCoordinator {
     const phase: AnswerWindowPhase =
       this._phase !== 'ANSWER_SELECT' || this._selectedChoiceIndex !== null || elapsedBeats >= maxBeats - 1e-9
         ? 'closed'
-        : elapsedBeats >= policy.answerPrimaryBeats - 1e-9
+        : policy.answerExtensionBeats > 0 && elapsedBeats >= policy.answerPrimaryBeats - 1e-9
           ? 'extension'
           : 'primary';
     const remainingBeats = phase === 'closed' ? 0 : Math.max(0, maxBeats - elapsedBeats);

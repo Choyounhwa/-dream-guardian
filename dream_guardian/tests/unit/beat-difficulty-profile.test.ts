@@ -52,11 +52,11 @@ const mockQuestion: GeneratedQuestion = {
 
 describe('Beat Difficulty Profile & 6-Beat Answer Approach - [BEAT-DIFFICULTY-001 / #279]', () => {
   describe('1. config/beat-motion.config.ts 난이도 프로필 모델 검증', () => {
-    it('DEFAULT_DIFFICULTY_BEAT_PROFILE은 8-6-2-8 표준 박자 규격을 갖는다', () => {
+    it('DEFAULT_DIFFICULTY_BEAT_PROFILE은 8-6-4-8 표준 박자 규격을 갖는다', () => {
       expect(DEFAULT_DIFFICULTY_BEAT_PROFILE).toEqual({
         exerciseBeats: 8,
         approachStartBeat: 6,
-        answerSelectBeats: 2,
+        answerSelectBeats: 4,
         branchRoutineBeats: 8,
       });
     });
