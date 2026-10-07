@@ -112,6 +112,76 @@ export function mountShell(
     },
   });
 
+  // 1-2. Undo / Redo / 변경 비교 Toolbar Actions Binding
+  const historyStack: any[] = [];
+  const futureStack: any[] = [];
+
+  const undoBtn = toolbar.querySelector?.('[data-action="Undo"]');
+  const redoBtn = toolbar.querySelector?.('[data-action="Redo"]');
+  const diffBtn = toolbar.querySelector?.('[data-action="변경 비교"]');
+
+  const onUndoClick = () => {
+    if (historyStack.length === 0) {
+      const msg = "실행 취소할 이전 변경이 없습니다 · 게임에는 반영되지 않음";
+      state = announce(state, msg);
+      statusText.textContent = msg;
+      statusPanel.textContent = msg;
+      return;
+    }
+    const currentDoc = options?.controller?.document?.();
+    if (currentDoc) {
+      futureStack.push(structuredClone(currentDoc));
+    }
+    const prevDoc = historyStack.pop();
+    if (prevDoc && options?.controller && typeof options.controller.edit === "function") {
+      options.controller.edit(prevDoc);
+    }
+    const msg = "실행 취소(Undo) 완료 · 게임에는 반영되지 않음";
+    state = announce(state, msg);
+    statusText.textContent = msg;
+    statusPanel.textContent = msg;
+  };
+
+  const onRedoClick = () => {
+    if (futureStack.length === 0) {
+      const msg = "다시 실행할 다음 변경이 없습니다 · 게임에는 반영되지 않음";
+      state = announce(state, msg);
+      statusText.textContent = msg;
+      statusPanel.textContent = msg;
+      return;
+    }
+    const currentDoc = options?.controller?.document?.();
+    if (currentDoc) {
+      historyStack.push(structuredClone(currentDoc));
+    }
+    const nextDoc = futureStack.pop();
+    if (nextDoc && options?.controller && typeof options.controller.edit === "function") {
+      options.controller.edit(nextDoc);
+    }
+    const msg = "다시 실행(Redo) 완료 · 게임에는 반영되지 않음";
+    state = announce(state, msg);
+    statusText.textContent = msg;
+    statusPanel.textContent = msg;
+  };
+
+  const onDiffClick = () => {
+    const isDirty = options?.controller?.status?.()?.dirty ?? false;
+    const msg = `변경 비교: ${isDirty ? "미저장 편집본 존재 (수정됨)" : "베이스라인과 일치"} · 게임에는 반영되지 않음`;
+    state = announce(state, msg);
+    statusText.textContent = msg;
+    statusPanel.textContent = msg;
+  };
+
+  if (undoBtn && typeof undoBtn.addEventListener === "function") {
+    undoBtn.addEventListener("click", onUndoClick);
+  }
+  if (redoBtn && typeof redoBtn.addEventListener === "function") {
+    redoBtn.addEventListener("click", onRedoClick);
+  }
+  if (diffBtn && typeof diffBtn.addEventListener === "function") {
+    diffBtn.addEventListener("click", onDiffClick);
+  }
+
   // 2. 3-Panel Layout Body
   const layoutBody = doc.createElement("div");
   layoutBody.className = "editor-layout-3col";
@@ -180,6 +250,28 @@ export function mountShell(
           state,
           `속성 변경: ${result.command.target}.${result.command.field} = ${result.command.value}`
         );
+        const currentDoc = options?.controller?.document?.();
+        if (currentDoc) {
+          historyStack.push(structuredClone(currentDoc));
+          futureStack.length = 0;
+          const updatedDoc = structuredClone(currentDoc);
+          if (updatedDoc.menu) {
+            const cmd = result.command;
+            if (cmd.target === "workout-button") {
+              if (updatedDoc.menu.workoutButton) updatedDoc.menu.workoutButton[cmd.field] = cmd.value;
+            } else if (cmd.field === "width" || cmd.field === "height") {
+              updatedDoc.menu[cmd.field] = cmd.value;
+            } else if (Array.isArray(updatedDoc.menu.cards)) {
+              const card = updatedDoc.menu.cards.find((c: any) => c.id === cmd.target);
+              if (card && (cmd.field === "x" || cmd.field === "y")) {
+                card[cmd.field] = cmd.value;
+              }
+            }
+          }
+          if (options?.controller && typeof options.controller.edit === "function") {
+            options.controller.edit(updatedDoc);
+          }
+        }
       }
       options?.onCommitProperty?.(result);
     },
