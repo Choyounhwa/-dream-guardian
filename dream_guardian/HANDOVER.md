@@ -2,6 +2,29 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 👟 하단 발 스텝 피트니스 존 3등분 전폭 확장 및 판정 동기화 (FEAT-ZONE-EXPAND-001, 2026-10-07)
+
+**[✔] 구현 및 검증 완료.** [#427 FEAT-ZONE-EXPAND-001](https://github.com/Choyounhwa/-dream-guardian/issues/427)
+
+- **작업 목적**:
+  1. 별모으기(Star Collection)의 하단 발/스텝 노트와 러닝 매트 발판 사이의 시각적·공간적 판정 이질감을 해소하기 위해, 화면 하단 3개 발 스텝 피트니스 존(Zone 9, 10, 11)의 좌우 간격 및 여백을 제거하고 화면 가로를 1/3씩 균등 3분할(좌: `0~1/3`, 중간: `1/3~2/3`, 우: `2/3~1.0`) 및 세로 하단 끝(`y: 0.76~1.00`)까지 가득 차도록 확장.
+  2. 가상 페달 및 터치 fallback 판정 좌표(`AppBootstrap.ts`)를 1/3 분할 경계와 동기화.
+- **수정 대상 파일 (소스/config 2개 + 테스트 1개 = 총 3개 한정)**:
+  - `dream_guardian/config/zone.config.ts`: Zone 9, 10, 11 좌표 정의 (1/3 너비 및 하단 바닥 밀착)
+  - `dream_guardian/src/core/AppBootstrap.ts`: 가상 페달 및 터치 fallback 판정 좌표를 1/3 분할 경계와 동기화
+  - `dream_guardian/tests/unit/input-system.test.ts`: 1/3 영역 검증 및 겹침 0% TDD 테스트
+- **완료 조건**:
+  - [x] Zone 9가 `x: 0, width: 1/3`로 설정됨
+  - [x] Zone 10이 `x: 1/3, width: 1/3`로 설정됨
+  - [x] Zone 11이 `x: 2/3, width: 1/3`로 설정됨
+  - [x] Zone 9, 10, 11이 화면 하단 끝까지 채움 (`y: 0.76, height: 0.24`)
+  - [x] 인접 존 간 겹침(Overlap) 0% 유지
+  - [x] 가상 페달 터치 판정 영역이 신규 1/3 존 경계와 1:1 일치
+  - [x] TDD 단위 테스트 100% 통과 (35/35 통과)
+  - [x] `npm run build` 성공
+
+---
+
 ## ⭐ 별가루 노트 비트맵 이미지 렌더링 전환 및 어프로치 박스 제어 (RENDER-NOTE-IMAGE, 2026-10-07)
 
 **[✔] 구현 및 검증 완료.** [#424 RENDER-NOTE-IMAGE-001](https://github.com/Choyounhwa/-dream-guardian/issues/424)

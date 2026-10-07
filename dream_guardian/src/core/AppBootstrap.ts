@@ -116,6 +116,7 @@ import { getAnswerButtonLayouts, DEFAULT_FITNESS_ZONES } from '../../config/zone
 import { DEFAULT_PHASE_A_HAZARD_CONFIG } from '../../config/phase-a-hazard.config.js';
 import { HORIZON_RATIO } from '../../config/grid.config.js';
 import { CHAPTER_TRACK_PRESETS, DEFAULT_BEAT_MOTION_CONFIG } from '../../config/beat-motion.config.js';
+import { RUNNING_MAT_CONFIG } from '../../config/running-mat.config.js';
 import type { RoundAnswerStatus, RoundResolveResult } from '../types/result.js';
 
 // Fallback canvas for Node/test environment
@@ -1135,9 +1136,9 @@ footKeynoteInput.onEvent((event) => {
 
       effectManager.playJudgmentText(jx, jy - 35, rating);
       if (rating === 'PERFECT') {
-        sfx.play('star_perfect');
+        sfx.play('crystal_pickup');
       } else {
-        sfx.play('drum_kick');
+        sfx.play('step_beat');
       }
     }
 
@@ -2296,14 +2297,14 @@ engine = new GameEngine({
       }
     }
 
-    // 가상 페달 (Zone 9, 10, 11) 터치/클릭 fallback (Issue #237: 반환 이벤트 버려짐 방지 및 공통 라우터 경유)
+    // 가상 페달 (Zone 9, 10, 11) 터치/클릭 fallback (Issue #237 & #427: 1/3 균등 전폭 확장 및 바닥 밀착)
     const normX = x / vw;
     const normY = y / vh;
-    if (normY >= 0.78 && normY <= 0.94) {
+    if (normY >= 0.76 && normY <= 1.0) {
       let pedalZone: 9 | 10 | 11 | null = null;
-      if (normX >= 0.04 && normX <= 0.30) pedalZone = 9;
-      else if (normX >= 0.37 && normX <= 0.63) pedalZone = 10;
-      else if (normX >= 0.70 && normX <= 0.96) pedalZone = 11;
+      if (normX < 1 / 3) pedalZone = 9;
+      else if (normX < 2 / 3) pedalZone = 10;
+      else pedalZone = 11;
       if (pedalZone) {
         const ev = footKeynoteInput.fromVirtualPedal(pedalZone, engine.elapsedTime);
         if (ev) {

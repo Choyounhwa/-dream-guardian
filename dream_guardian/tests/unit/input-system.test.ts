@@ -265,18 +265,42 @@ describe('KeyboardInput', () => {
 // 피트니스 존 레이아웃 무결성 (Issue #121 / Issue #149 FEAT-ZONE-002)
 // ═══════════════════════════════════
 
-describe('피트니스 존 레이아웃 무결성 (Issue #121 / Issue #149 FEAT-ZONE-002)', () => {
+describe('피트니스 존 레이아웃 무결성 (Issue #121 / Issue #149 FEAT-ZONE-002 / Issue #427 FEAT-ZONE-EXPAND-001)', () => {
   it('11개 피트니스 존이 정상 정의되어 있고 상호 겹침(Overlap) 면적이 0%이다', () => {
     const zones = DEFAULT_FITNESS_ZONES;
     expect(zones).toHaveLength(11);
 
+    const zone9 = zones.find((z) => z.id === 9);
+    const zone10 = zones.find((z) => z.id === 10);
     const zone11 = zones.find((z) => z.id === 11);
+    expect(zone9).toBeDefined();
+    expect(zone10).toBeDefined();
     expect(zone11).toBeDefined();
     expect(zone11?.label).toBe('우저');
-    expect(zone11?.x).toBe(0.70);
-    expect(zone11?.y).toBe(0.78);
-    expect(zone11?.width).toBe(0.26);
-    expect(zone11?.height).toBe(0.16);
+
+    // Issue #427: 하단 발 스텝 존 9, 10, 11은 화면 가로를 1/3씩 균등 3등분하고 바닥까지 채운다
+    expect(zone9!.x).toBe(0.0);
+    expect(zone9!.width).toBeCloseTo(1 / 3, 4);
+    expect(zone9!.y).toBe(0.76);
+    expect(zone9!.height).toBe(0.24);
+
+    expect(zone10!.x).toBeCloseTo(1 / 3, 4);
+    expect(zone10!.width).toBeCloseTo(1 / 3, 4);
+    expect(zone10!.y).toBe(0.76);
+    expect(zone10!.height).toBe(0.24);
+
+    expect(zone11!.x).toBeCloseTo(2 / 3, 4);
+    expect(zone11!.width).toBeCloseTo(1 / 3, 4);
+    expect(zone11!.y).toBe(0.76);
+    expect(zone11!.height).toBe(0.24);
+
+    // 하단 전체 전폭(0~1) 및 하단 끝(1.0) 무여백 무겹침 확인
+    expect(zone9!.x + zone9!.width).toBeCloseTo(zone10!.x, 4);
+    expect(zone10!.x + zone10!.width).toBeCloseTo(zone11!.x, 4);
+    expect(zone11!.x + zone11!.width).toBeCloseTo(1.0, 4);
+    expect(zone9!.y + zone9!.height).toBeCloseTo(1.0, 4);
+    expect(zone10!.y + zone10!.height).toBeCloseTo(1.0, 4);
+    expect(zone11!.y + zone11!.height).toBeCloseTo(1.0, 4);
 
     for (let i = 0; i < zones.length; i++) {
       for (let j = i + 1; j < zones.length; j++) {
@@ -325,13 +349,13 @@ describe('피트니스 존 레이아웃 무결성 (Issue #121 / Issue #149 FEAT-
     expect(gap1_2).toBeGreaterThanOrEqual(0.02);
     expect(gap2_3).toBeGreaterThanOrEqual(0.02);
 
-    // 하단 4행 열 간격 검사 (9: 좌저, 10: 하단, 11: 우저)
+    // 하단 4행(9, 10, 11)은 Issue #427에 따라 여백 없이 1/3 균등 분할로 밀착(gap = 0, 겹침 0%)
     const row4 = zones.filter((z) => [9, 10, 11].includes(z.id));
     expect(row4).toHaveLength(3);
     const gap9_10 = row4[1].x - (row4[0].x + row4[0].width);
     const gap10_11 = row4[2].x - (row4[1].x + row4[1].width);
-    expect(gap9_10).toBeGreaterThanOrEqual(0.02);
-    expect(gap10_11).toBeGreaterThanOrEqual(0.02);
+    expect(Math.abs(gap9_10)).toBeLessThan(0.001);
+    expect(Math.abs(gap10_11)).toBeLessThan(0.001);
 
     // 행 간 수직 간격 검사
     const zone1 = zones.find((z) => z.id === 1)!;

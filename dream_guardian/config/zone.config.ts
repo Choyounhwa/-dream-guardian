@@ -60,9 +60,9 @@ export const DEFAULT_FITNESS_ZONES: readonly FitnessZone[] = [
   { id: 6,  label: '좌하', x: 0.04, y: 0.58, width: 0.26, height: 0.16 },
   { id: 7,  label: '중하', x: 0.37, y: 0.58, width: 0.26, height: 0.16 },
   { id: 8,  label: '우하', x: 0.70, y: 0.58, width: 0.26, height: 0.16 },
-  { id: 9,  label: '좌저', x: 0.04, y: 0.78, width: 0.26, height: 0.16 },
-  { id: 10, label: '하단', x: 0.37, y: 0.78, width: 0.26, height: 0.16 },
-  { id: 11, label: '우저', x: 0.70, y: 0.78, width: 0.26, height: 0.16 },
+  { id: 9,  label: '좌저', x: 0, y: 0.76, width: 1 / 3, height: 0.24 },
+  { id: 10, label: '하단', x: 1 / 3, y: 0.76, width: 1 / 3, height: 0.24 },
+  { id: 11, label: '우저', x: 2 / 3, y: 0.76, width: 1 / 3, height: 0.24 },
 ];
 
 /** 호환성 유지를 위한 FITNESS_ZONES 별칭 */
