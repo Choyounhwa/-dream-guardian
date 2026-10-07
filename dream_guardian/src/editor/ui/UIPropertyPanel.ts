@@ -4,8 +4,14 @@ import {
   MENU_CARD_FIELDS,
   MENU_SHARED_SIZE_FIELDS,
   WORKOUT_BUTTON_FIELDS,
+  findVisualElement,
 } from "./data/UIProperties";
-import type { MenuPreset } from "./data/UIBaselines";
+import { BASELINE_REGISTRY, type MenuPreset } from "./data/UIBaselines";
+import type {
+  UIVisualDocument,
+  UIVisualElementType,
+  UIVisualPageId,
+} from "./data/UIVisualDocument";
 
 export const GAME_APPLY_VERIFIED = false;
 export const STORAGE_TOUCHED = false;
@@ -34,11 +40,28 @@ export type PanelCommand = {
 
 export type PropertyPanel = {
   selectedId: string;
+  document?: UIVisualDocument;
+  activePageId?: UIVisualPageId;
   baseline: MenuPreset;
   current: MenuPreset;
   buffer: Record<FieldName, string>;
   preview: PropertyValues;
+  originalValues: PropertyValues;
   error: { errorLabelId: string; message: string } | null;
+  isLocked?: boolean;
+  lockReason?: string;
+  elementType?: UIVisualElementType;
+  text?: string;
+  fontSize?: number;
+  assetId?: string;
+};
+
+export type CreatePropertyPanelInput = {
+  selectedId: string;
+  baseline?: MenuPreset;
+  current?: MenuPreset;
+  document?: UIVisualDocument;
+  activePageId?: UIVisualPageId;
 };
 
 export type CommitResult = {
@@ -62,13 +85,16 @@ function valuesFor(preset: MenuPreset, selectedId: string): PropertyValues {
       height: preset.workoutButton.height,
     };
   }
-  const card = preset.cards.find((item) => item.id === selectedId) ?? preset.cards[0];
-  return {
-    x: card.x,
-    y: card.y,
-    width: preset.width,
-    height: preset.height,
-  };
+  const card = preset.cards.find((item) => item.id === selectedId);
+  if (card) {
+    return {
+      x: card.x,
+      y: card.y,
+      width: preset.width,
+      height: preset.height,
+    };
+  }
+  return { x: 0, y: 0, width: 0, height: 0 };
 }
 
 function allowed(selectedId: string, field: string): boolean {
@@ -85,16 +111,99 @@ function parseFinite(raw: string): number | null {
   return value;
 }
 
-export function createPropertyPanel(input: {
-  selectedId: string;
-  baseline: MenuPreset;
-  current: MenuPreset;
-}): PropertyPanel {
-  const current = clonePreset(input.current);
-  const preview = valuesFor(current, input.selectedId);
+export function createPropertyPanel(input: CreatePropertyPanelInput): PropertyPanel {
+  const baseline = input.baseline ? clonePreset(input.baseline) : clonePreset(BASELINE_REGISTRY.preset);
+  const current = input.current ? clonePreset(input.current) : clonePreset(BASELINE_REGISTRY.preset);
+
+  // 1. UIVisualDocument 기준 속성 로드
+  if (input.document) {
+    const found = findVisualElement(input.document, input.selectedId, input.activePageId);
+    if (found) {
+      const { element, pageId } = found;
+      const preview: PropertyValues = {
+        x: element.bounds.x,
+        y: element.bounds.y,
+        width: element.bounds.width,
+        height: element.bounds.height,
+      };
+      return {
+        selectedId: input.selectedId,
+        document: input.document,
+        activePageId: pageId,
+        baseline,
+        current,
+        buffer: {
+          x: String(preview.x),
+          y: String(preview.y),
+          width: String(preview.width),
+          height: String(preview.height),
+        },
+        preview,
+        originalValues: { ...preview },
+        error: null,
+        isLocked: element.isLocked ?? false,
+        lockReason: element.lockReason,
+        elementType: element.type,
+        text: element.text,
+        fontSize: element.fontSize,
+        assetId: element.assetId,
+      };
+    }
+
+    // 문서 내에 존재하지 않는 unknown-id: cards[0] fallback 없이 오류/빈 선택 처리
+    const emptyPreview: PropertyValues = { x: 0, y: 0, width: 0, height: 0 };
+    return {
+      selectedId: input.selectedId,
+      document: input.document,
+      activePageId: input.activePageId,
+      baseline,
+      current,
+      buffer: { x: "", y: "", width: "", height: "" },
+      preview: emptyPreview,
+      originalValues: { ...emptyPreview },
+      error: { errorLabelId: "err-selectedId", message: "unknown-id" },
+      isLocked: false,
+    };
+  }
+
+  // 2. 레거시 MenuPreset 기준 속성 로드
+  let preview: PropertyValues | null = null;
+  if (input.selectedId === "workout-button") {
+    preview = {
+      x: current.workoutButton.x,
+      y: current.workoutButton.y,
+      width: current.workoutButton.width,
+      height: current.workoutButton.height,
+    };
+  } else if (CARD_IDS.has(input.selectedId)) {
+    const card = current.cards.find((c) => c.id === input.selectedId);
+    if (card) {
+      preview = {
+        x: card.x,
+        y: card.y,
+        width: current.width,
+        height: current.height,
+      };
+    }
+  }
+
+  if (!preview) {
+    // unknown ID fallback 제거 및 오류 상태 반환
+    const emptyPreview: PropertyValues = { x: 0, y: 0, width: 0, height: 0 };
+    return {
+      selectedId: input.selectedId,
+      baseline,
+      current,
+      buffer: { x: "", y: "", width: "", height: "" },
+      preview: emptyPreview,
+      originalValues: { ...emptyPreview },
+      error: { errorLabelId: "err-selectedId", message: "unknown-id" },
+    };
+  }
+
   return {
     selectedId: input.selectedId,
-    baseline: clonePreset(input.baseline),
+    baseline,
     current,
     buffer: {
       x: String(preview.x),
@@ -103,12 +212,13 @@ export function createPropertyPanel(input: {
       height: String(preview.height),
     },
     preview,
+    originalValues: { ...preview },
     error: null,
   };
 }
 
 export function setBuffer(panel: PropertyPanel, field: string, raw: string): PropertyPanel {
-  if (DANGEROUS.has(field) || !allowed(panel.selectedId, field)) {
+  if (DANGEROUS.has(field)) {
     return {
       ...panel,
       error: {
@@ -117,10 +227,36 @@ export function setBuffer(panel: PropertyPanel, field: string, raw: string): Pro
       },
     };
   }
+
+  if (panel.isLocked) {
+    return {
+      ...panel,
+      error: {
+        errorLabelId: `err-${field}`,
+        message: panel.lockReason || "locked-element",
+      },
+    };
+  }
+
+  if (panel.error && panel.error.message === "unknown-id") {
+    return panel;
+  }
+
+  if (!panel.document && !allowed(panel.selectedId, field)) {
+    return {
+      ...panel,
+      error: {
+        errorLabelId: `err-${field}`,
+        message: "unknown-field",
+      },
+    };
+  }
+
   const key = field as FieldName;
   const parsed = parseFinite(raw);
   const preview = { ...panel.preview };
   if (parsed !== null) preview[key] = parsed;
+
   return {
     ...panel,
     buffer: { ...panel.buffer, [key]: raw },
@@ -130,6 +266,52 @@ export function setBuffer(panel: PropertyPanel, field: string, raw: string): Pro
         ? { errorLabelId: `err-${field}`, message: "invalid number" }
         : null,
   };
+}
+
+export function cancelBuffer(panel: PropertyPanel, field?: string): PropertyPanel {
+  if (field) {
+    const key = field as FieldName;
+    const origVal = panel.originalValues[key];
+    return {
+      ...panel,
+      buffer: {
+        ...panel.buffer,
+        [key]: origVal !== undefined ? String(origVal) : "",
+      },
+      preview: {
+        ...panel.preview,
+        [key]: origVal ?? 0,
+      },
+      error: null,
+    };
+  }
+
+  const newBuffer = { ...panel.buffer };
+  const newPreview = { ...panel.preview };
+  for (const k of Object.keys(panel.originalValues) as FieldName[]) {
+    newBuffer[k] = String(panel.originalValues[k] ?? "");
+    newPreview[k] = panel.originalValues[k] ?? 0;
+  }
+  return {
+    ...panel,
+    buffer: newBuffer,
+    preview: newPreview,
+    error: null,
+  };
+}
+
+export function selectElement(
+  panel: PropertyPanel,
+  newSelectedId: string,
+  pageId?: UIVisualPageId
+): PropertyPanel {
+  return createPropertyPanel({
+    selectedId: newSelectedId,
+    document: panel.document,
+    activePageId: pageId ?? panel.activePageId,
+    baseline: panel.baseline,
+    current: panel.current,
+  });
 }
 
 function affectedIds(selectedId: string, field: string): string[] {
@@ -144,16 +326,36 @@ export function commit(
   if (input.reason === "input") {
     return { panel, command: null, affectedIds: [] };
   }
+  if (panel.error !== null) {
+    return { panel, command: null, affectedIds: [] };
+  }
+  if (panel.isLocked) {
+    return { panel, command: null, affectedIds: [] };
+  }
+
   const pending = (Object.keys(panel.buffer) as FieldName[]).find((field) => {
     const parsed = parseFinite(panel.buffer[field]);
-    return parsed !== null && parsed !== valuesFor(panel.current, panel.selectedId)[field];
+    return parsed !== null && parsed !== panel.originalValues[field];
   });
   if (!pending) return { panel, command: null, affectedIds: [] };
+
   const value = parseFinite(panel.buffer[pending]);
   if (value === null) return { panel, command: null, affectedIds: [] };
-  const ids = affectedIds(panel.selectedId, pending);
+
+  const ids = panel.document ? [panel.selectedId] : affectedIds(panel.selectedId, pending);
+
+  const nextOriginalValues = {
+    ...panel.originalValues,
+    [pending]: value,
+  };
+
+  const nextPanel: PropertyPanel = {
+    ...panel,
+    originalValues: nextOriginalValues,
+  };
+
   return {
-    panel,
+    panel: nextPanel,
     command: {
       field: pending,
       value,
@@ -168,6 +370,16 @@ export function compare(
   panel: PropertyPanel,
   field: string,
 ): { changed: boolean; baseline: number; current: number } {
+  if (panel.document) {
+    const key = field as FieldName;
+    const baselineVal = panel.originalValues[key] ?? 0;
+    const currentVal = panel.preview[key] ?? 0;
+    return {
+      changed: baselineVal !== currentVal,
+      baseline: baselineVal,
+      current: currentVal,
+    };
+  }
   const baseline = valuesFor(panel.baseline, panel.selectedId);
   const current = valuesFor(panel.current, panel.selectedId);
   const key = field as FieldName;
@@ -182,6 +394,19 @@ export function fieldMeta(
   panel: PropertyPanel,
   field: string,
 ): { editable: boolean; lockReason: string; code?: string } {
+  if (panel.isLocked) {
+    return {
+      editable: false,
+      lockReason: panel.lockReason || "locked-element",
+      code: "locked-element",
+    };
+  }
+  if (panel.document) {
+    if (panel.error && panel.error.message === "unknown-id") {
+      return { editable: false, lockReason: "unknown-id", code: "unknown-id" };
+    }
+    return { editable: true, lockReason: "" };
+  }
   if (DANGEROUS.has(field) || !allowed(panel.selectedId, field)) {
     return {
       editable: false,

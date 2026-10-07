@@ -7,6 +7,13 @@ import { SUBMENU_CONTRACT } from "./screens/UISubmenuContract";
 import { ASSET_CONTRACT } from "./styles/UIAssetContract";
 import { TEXT_STYLE_CONTRACT } from "./styles/UITextStyleContract";
 import { THEME_CONTRACT } from "./styles/UIThemeContract";
+import type {
+  UIVisualDocument,
+  UIVisualElement,
+  UIVisualElementType,
+  UIVisualPageId,
+} from "./UIVisualDocument";
+import { UI_VISUAL_PAGE_IDS } from "./UIVisualDocument";
 
 export { BOTTOM_BAR_SCREEN_ID, resolveBottomBarProperty } from "./screens/UIBottomBarContract";
 export { RESULT_SCREEN_ID, resolveResultProperty } from "./screens/UIResultContract";
@@ -266,3 +273,228 @@ export function consumeScreenContract(screen: string, version: string, scope: st
     supportStatus: found.supportStatus,
   };
 }
+
+// ============================================================================
+// Issue #436 (UI-VIS-006): 선택 요소 속성 조회 모델
+// ============================================================================
+
+export type FoundVisualElement = {
+  element: UIVisualElement;
+  pageId: UIVisualPageId;
+};
+
+export function findVisualElement(
+  doc: UIVisualDocument,
+  elementId: string,
+  preferredPageId?: UIVisualPageId
+): FoundVisualElement | null {
+  if (!doc || !doc.pages) return null;
+
+  if (preferredPageId && doc.pages[preferredPageId]) {
+    const el = doc.pages[preferredPageId].elements.find((e) => e.id === elementId);
+    if (el) return { element: el, pageId: preferredPageId };
+  }
+
+  for (const pageKey of UI_VISUAL_PAGE_IDS) {
+    const page = doc.pages[pageKey];
+    if (!page) continue;
+    const el = page.elements.find((e) => e.id === elementId);
+    if (el) return { element: el, pageId: pageKey };
+  }
+
+  return null;
+}
+
+export function findVisualElements(
+  doc: UIVisualDocument,
+  elementIds: string[],
+  preferredPageId?: UIVisualPageId
+): FoundVisualElement[] {
+  const result: FoundVisualElement[] = [];
+  for (const id of elementIds) {
+    const found = findVisualElement(doc, id, preferredPageId);
+    if (found) result.push(found);
+  }
+  return result;
+}
+
+export type VisualPropertyKey =
+  | "x"
+  | "y"
+  | "width"
+  | "height"
+  | "name"
+  | "text"
+  | "fontSize"
+  | "assetId";
+
+export function isPropertySupportedForType(
+  type: UIVisualElementType,
+  prop: VisualPropertyKey
+): boolean {
+  switch (prop) {
+    case "x":
+    case "y":
+    case "width":
+    case "height":
+    case "name":
+      return true;
+    case "text":
+    case "fontSize":
+      return type === "text" || type === "button";
+    case "assetId":
+      return type === "image" || type === "button";
+    default:
+      return false;
+  }
+}
+
+export function getUnsupportedPropertyReason(
+  type: UIVisualElementType,
+  prop: string
+): string | undefined {
+  if (isPropertySupportedForType(type, prop as VisualPropertyKey)) {
+    return undefined;
+  }
+  if (prop === "assetId") {
+    return `${type}-element-does-not-support-asset`;
+  }
+  return `${type}-element-does-not-support-${prop}`;
+}
+
+export type PropertyInspectionValue<T = unknown> = {
+  value: T | "mixed" | null;
+  isMixed: boolean;
+  supported: boolean;
+  unsupportedReason?: string;
+  isLocked: boolean;
+  lockReason?: string;
+  editable: boolean;
+};
+
+export type ElementInspectionResult = {
+  isValidSelection: boolean;
+  count: number;
+  selectedIds: string[];
+  pageId?: UIVisualPageId;
+  error?: { code: string; message: string };
+  x: PropertyInspectionValue<number>;
+  y: PropertyInspectionValue<number>;
+  width: PropertyInspectionValue<number>;
+  height: PropertyInspectionValue<number>;
+  name: PropertyInspectionValue<string>;
+  text: PropertyInspectionValue<string>;
+  fontSize: PropertyInspectionValue<number>;
+  assetId: PropertyInspectionValue<string>;
+};
+
+export function inspectElementsProperties(input: {
+  doc: UIVisualDocument;
+  selectedIds: string[];
+  activePageId?: UIVisualPageId;
+}): ElementInspectionResult {
+  const { doc, selectedIds, activePageId } = input;
+
+  const createEmptyValue = <T>(reason?: string): PropertyInspectionValue<T> => ({
+    value: null,
+    isMixed: false,
+    supported: false,
+    unsupportedReason: reason,
+    isLocked: false,
+    editable: false,
+  });
+
+  if (!selectedIds || selectedIds.length === 0) {
+    return {
+      isValidSelection: false,
+      count: 0,
+      selectedIds: [],
+      error: { code: "empty-selection", message: "No elements selected" },
+      x: createEmptyValue(),
+      y: createEmptyValue(),
+      width: createEmptyValue(),
+      height: createEmptyValue(),
+      name: createEmptyValue(),
+      text: createEmptyValue(),
+      fontSize: createEmptyValue(),
+      assetId: createEmptyValue(),
+    };
+  }
+
+  const foundList: FoundVisualElement[] = [];
+  for (const id of selectedIds) {
+    const found = findVisualElement(doc, id, activePageId);
+    if (!found) {
+      return {
+        isValidSelection: false,
+        count: 0,
+        selectedIds,
+        error: { code: "unknown-id", message: `Element "${id}" not found` },
+        x: createEmptyValue("unknown-id"),
+        y: createEmptyValue("unknown-id"),
+        width: createEmptyValue("unknown-id"),
+        height: createEmptyValue("unknown-id"),
+        name: createEmptyValue("unknown-id"),
+        text: createEmptyValue("unknown-id"),
+        fontSize: createEmptyValue("unknown-id"),
+        assetId: createEmptyValue("unknown-id"),
+      };
+    }
+    foundList.push(found);
+  }
+
+  const anyLocked = foundList.some((f) => f.element.isLocked);
+  const lockReason = foundList.find((f) => f.element.isLocked)?.element.lockReason;
+  const primaryPageId = foundList[0]?.pageId;
+
+  function inspectField<T>(
+    prop: VisualPropertyKey,
+    extractor: (el: UIVisualElement) => T | undefined
+  ): PropertyInspectionValue<T> {
+    const allSupported = foundList.every((f) => isPropertySupportedForType(f.element.type, prop));
+    if (!allSupported) {
+      const unsupportedReason =
+        foundList
+          .map((f) => getUnsupportedPropertyReason(f.element.type, prop))
+          .find(Boolean) ?? `${prop}-not-supported`;
+      return {
+        value: null,
+        isMixed: false,
+        supported: false,
+        unsupportedReason,
+        isLocked: anyLocked,
+        lockReason,
+        editable: false,
+      };
+    }
+
+    const values = foundList.map((f) => extractor(f.element));
+    const firstVal = values[0];
+    const isMixed = values.some((v) => v !== firstVal);
+
+    return {
+      value: isMixed ? "mixed" : (firstVal ?? null),
+      isMixed,
+      supported: true,
+      isLocked: anyLocked,
+      lockReason,
+      editable: !anyLocked,
+    };
+  }
+
+  return {
+    isValidSelection: true,
+    count: foundList.length,
+    selectedIds,
+    pageId: primaryPageId,
+    x: inspectField<number>("x", (el) => el.bounds.x),
+    y: inspectField<number>("y", (el) => el.bounds.y),
+    width: inspectField<number>("width", (el) => el.bounds.width),
+    height: inspectField<number>("height", (el) => el.bounds.height),
+    name: inspectField<string>("name", (el) => el.name),
+    text: inspectField<string>("text", (el) => el.text),
+    fontSize: inspectField<number>("fontSize", (el) => el.fontSize),
+    assetId: inspectField<string>("assetId", (el) => el.assetId),
+  };
+}
+
