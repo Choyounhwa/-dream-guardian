@@ -69,6 +69,32 @@ export function designToCss(designX: number, designY: number, view: ViewTransfor
   };
 }
 
+import type { CoordinateTransform } from "./UIArrangement";
+export type { CoordinateTransform };
+export {
+  canvasToViewport,
+  viewportToCanvas,
+  viewportToScreen,
+  screenToViewport,
+  canvasToScreen,
+  screenToCanvas,
+  canvasRectToScreen,
+  screenRectToCanvas,
+  computeGroupDragSnap,
+} from "./UIArrangement";
+
+export function viewTransformToCoordinateTransform(
+  view: ViewTransform,
+  pan?: Point
+): CoordinateTransform {
+  return {
+    zoom: zoomScale(view),
+    panX: pan?.x ?? 0,
+    panY: pan?.y ?? 0,
+    dpr: view.dpr,
+  };
+}
+
 function copyPoint(point: Point): Point {
   return { x: point.x, y: point.y };
 }
