@@ -1093,11 +1093,12 @@ export class SceneDirector<TContext = any> {
       beatProgress: beatProg,
     });
 
-    // RUN-MAT-004 (#373): RUN_QUESTION 전용 러닝 매트 렌더링 (DreamGrid 직후 바닥 배경 레이어)
-    if (ctx.stateMachine?.currentState === 'RUN_QUESTION' && ctx.runningMatRenderer) {
-      const snapshot = ctx.beatCoordinator?.getRunTimingSnapshot?.() ?? null;
+    // RUN-MAT-004 (#373) & Issue #422: 전 페이즈 상시 발 판정선 렌더링 (DreamGrid 직후 바닥 배경 레이어)
+    if (ctx.runningMatRenderer) {
+      const isRunQuestion = ctx.stateMachine?.currentState === 'RUN_QUESTION';
+      const snapshot = isRunQuestion ? (ctx.beatCoordinator?.getRunTimingSnapshot?.() ?? null) : null;
       const mode = ctx.locomotionModal?.selectedMode ?? 'run';
-      const view = (RunningMatPresenter as any).present(snapshot, mode);
+      const view = isRunQuestion ? (RunningMatPresenter as any).present(snapshot, mode) : null;
       ctx.runningMatRenderer.render(context2d, view, vw, vh, { x: bossX, y: bossY });
     }
 

@@ -113,9 +113,15 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
       expect(RUNNING_MAT_CONFIG.baseYTop).toBeCloseTo(0.74, 2);
       expect(RUNNING_MAT_CONFIG.baseYBottom).toBeCloseTo(0.94, 2);
       expect(RUNNING_MAT_CONFIG.strikeLineYRatio).toBeCloseTo(0.86, 2);
-      expect(RUNNING_MAT_CONFIG.strikeCoreLineWidth).toBeGreaterThanOrEqual(2);
-      expect(RUNNING_MAT_CONFIG.strikeInnerGlowWidth).toBeGreaterThanOrEqual(6);
-      expect(RUNNING_MAT_CONFIG.strikeOuterGlowWidth).toBeGreaterThanOrEqual(16);
+      expect(RUNNING_MAT_CONFIG.strikeCoreLineWidth).toBeGreaterThanOrEqual(3);
+      expect(RUNNING_MAT_CONFIG.strikeInnerGlowWidth).toBeGreaterThanOrEqual(10);
+      expect(RUNNING_MAT_CONFIG.strikeOuterGlowWidth).toBeGreaterThanOrEqual(32);
+      expect(RUNNING_MAT_CONFIG.strikeOverhangRatio).toBeGreaterThanOrEqual(0.10);
+    });
+
+    it('판정선 색상은 오렌지-골드/옐로우 고휘도 블렌드 팔레트여야 한다 (Issue #422)', () => {
+      expect(RUNNING_MAT_CONFIG.strikeInnerColor).toMatch(/#(FF[A-Z0-9]{4}|FFA[0-9A-F]{3}|FFB[0-9A-F]{3}|FFC[0-9A-F]{3})/i);
+      expect(RUNNING_MAT_CONFIG.strikeOuterColor).toMatch(/rgba\(255,\s*(1[0-4][0-9]|150|[0-9]{2})/);
     });
 
     it('기본 폭 비율 0.76 및 좁은 화면 최대 폭 비율 0.90을 제공해야 한다', () => {
@@ -132,11 +138,11 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
   });
 
   describe('2. 가드 조건 및 캔버스 상태 격리', () => {
-    it('view가 null이면 아무것도 그리지 않고 반환한다 (no-op)', () => {
+    it('view가 null이어도 상시 앰비언트 모드로 가로 판정선과 타깃 앵커를 렌더링한다 (Issue #422)', () => {
       renderer.render(ctx, null, width, height);
-      expect(ctx.save).not.toHaveBeenCalled();
-      expect(ctx.beginPath).not.toHaveBeenCalled();
-      expect(ctx.restore).not.toHaveBeenCalled();
+      expect(ctx.save).toHaveBeenCalledTimes(1);
+      expect(ctx.beginPath).toHaveBeenCalled();
+      expect(ctx.restore).toHaveBeenCalledTimes(1);
     });
 
     it('view.visible이 false이면 렌더링을 즉시 생략한다', () => {
@@ -181,6 +187,17 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
       const expectedY = height * 0.86;
       const hasStrikeLine = lineToCalls.some((call) => Math.abs(call[1] - expectedY) < 5);
       expect(hasStrikeLine).toBe(true);
+    });
+
+    it('수평 판정선이 화면 좌우 경계를 넘어서는 전폭(-10% ~ 110%)으로 길게 렌더링된다 (Issue #422)', () => {
+      renderer.render(ctx, null, width, height);
+
+      const lineToCalls = vi.mocked(ctx.lineTo).mock.calls;
+      const moveToCalls = vi.mocked(ctx.moveTo).mock.calls;
+      const hasBeyondRight = lineToCalls.some((call) => call[0] >= width * 1.05);
+      const hasBeyondLeft = moveToCalls.some((call) => call[0] <= 0);
+      expect(hasBeyondRight).toBe(true);
+      expect(hasBeyondLeft).toBe(true);
     });
 
     it('좌(Zone 9), 중앙(Zone 10), 우(Zone 11) 3개 레인에 타깃 앵커 마커를 렌더링한다', () => {

@@ -12,6 +12,7 @@
 import {
   RUNNING_MAT_CONFIG,
   DEFAULT_STRIKE_LINE_Y_RATIO,
+  DEFAULT_STRIKE_OVERHANG_RATIO,
   type RunningMatConfig,
 } from '../../config/running-mat.config.js';
 import type { RunningMatViewModel } from './RunningMatPresenter.js';
@@ -47,8 +48,8 @@ export class RunningMatRenderer {
     height: number,
     vanishingPoint?: { x: number; y: number }
   ): void {
-    // 1. 가드 체크: null view 또는 비가시 상태 시 즉시 생략
-    if (!view || !view.visible) {
+    // 1. 가드 체크: 명시적으로 비가시 상태 설정 시 생략 (null view는 앰비언트 모드로 허용)
+    if (view && view.visible === false) {
       return;
     }
 
@@ -73,7 +74,7 @@ export class RunningMatRenderer {
 
   private _renderInternal(
     ctx: CanvasRenderingContext2D,
-    view: RunningMatViewModel,
+    view: RunningMatViewModel | null,
     width: number,
     height: number,
     vanishingPoint?: { x: number; y: number }
@@ -97,15 +98,21 @@ export class RunningMatRenderer {
     const yBottom = height * this.config.baseYBottom;
     const halfWBottom = (width * matWidthRatio) * 0.5;
 
-    // 1. 초고휘도 네온 글로우 발 판정선(Foot Strike Line) 및 3대 레인 타깃 앵커 렌더링 (Issue #421)
+    // 1. 초고휘도 네온 글로우 발 판정선(Foot Strike Line) 및 3대 레인 타깃 앵커 렌더링 (Issue #421, #422)
     const yStrike = height * (this.config.strikeLineYRatio ?? DEFAULT_STRIKE_LINE_Y_RATIO);
     this._renderFootStrikeLine(
       ctx,
       view,
       vx,
       yStrike,
+      width,
       halfWBottom
     );
+
+    // 2. view가 null이면 앰비언트 모드로 판정선만 렌더링하고 러닝 동작 큐(발자국/화살표)는 생략
+    if (!view) {
+      return;
+    }
 
     // 2. 발자국 슬롯 좌표 계산
     const slots = this._computeSlotCoordinates(
@@ -140,20 +147,22 @@ export class RunningMatRenderer {
 
   /**
    * 초고휘도 네온 글로우 발 판정선(Foot Strike Line) 및 3대 레인 타깃 앵커 렌더링
-   * Issue #421: 기존 3칸 사다리꼴 매트 셀을 삭제하고 전경 Y=0.86 위치에 수평 판정선 및 타깃 앵커 표출
+   * Issue #421, #422: 기존 3칸 매트를 제거하고 화면 전폭을 넘어(-10%~110%) 뻗어나가는 오렌지-골드 판정선 표출
    */
   private _renderFootStrikeLine(
     ctx: CanvasRenderingContext2D,
-    view: RunningMatViewModel,
+    view: RunningMatViewModel | null,
     vx: number,
     yStrike: number,
+    width: number,
     halfWBottom: number
   ): void {
-    const xStart = vx - halfWBottom * 1.05;
-    const xEnd = vx + halfWBottom * 1.05;
+    const overhang = width * (this.config.strikeOverhangRatio ?? DEFAULT_STRIKE_OVERHANG_RATIO);
+    const xStart = -overhang;
+    const xEnd = width + overhang;
 
-    // 1. 3중 네온 글로우 수평 판정선
-    // (1) Outer Ambient Glow
+    // 1. 3중 네온 글로우 수평 판정선 (오렌지-골드 블렌드 네온)
+    // (1) Outer Ambient Glow (따뜻한 오렌지 앰버 글로우)
     ctx.beginPath();
     ctx.moveTo(xStart, yStrike);
     ctx.lineTo(xEnd, yStrike);
@@ -161,7 +170,15 @@ export class RunningMatRenderer {
     ctx.lineWidth = this.config.strikeOuterGlowWidth;
     ctx.stroke();
 
-    // (2) Inner Neon Glow
+    // (2) Mid Gold Glow (부드러운 중간 골드 레이어)
+    ctx.beginPath();
+    ctx.moveTo(xStart, yStrike);
+    ctx.lineTo(xEnd, yStrike);
+    ctx.strokeStyle = 'rgba(255, 183, 3, 0.65)';
+    ctx.lineWidth = this.config.strikeInnerGlowWidth * 1.8;
+    ctx.stroke();
+
+    // (3) Inner Neon Glow (골드/옐로우 네온 코어 띠)
     ctx.beginPath();
     ctx.moveTo(xStart, yStrike);
     ctx.lineTo(xEnd, yStrike);
@@ -169,7 +186,7 @@ export class RunningMatRenderer {
     ctx.lineWidth = this.config.strikeInnerGlowWidth;
     ctx.stroke();
 
-    // (3) Core Strike Line
+    // (4) Core Strike Line (고휘도 웜 화이트 코어 라인)
     ctx.beginPath();
     ctx.moveTo(xStart, yStrike);
     ctx.lineTo(xEnd, yStrike);
@@ -178,15 +195,15 @@ export class RunningMatRenderer {
     ctx.stroke();
 
     // 2. 3대 발 레인 타깃 앵커 (Zone 9: Left Foot, Zone 10: Center, Zone 11: Right Foot)
-    const isLeftActive = view.currentCue?.leftFootSlot === 'out' || view.actionText.includes('왼');
-    const isRightActive = view.currentCue?.rightFootSlot === 'out' || view.actionText.includes('오른');
-    const isCenterActive = !isLeftActive && !isRightActive;
+    const isLeftActive = view ? (view.currentCue?.leftFootSlot === 'out' || view.actionText.includes('왼')) : false;
+    const isRightActive = view ? (view.currentCue?.rightFootSlot === 'out' || view.actionText.includes('오른')) : false;
+    const isCenterActive = view ? (!isLeftActive && !isRightActive) : false;
 
-    const isLeftNext = view.nextCue?.leftFootSlot === 'out' || (view.nextCue?.actionText?.includes('왼') ?? false);
-    const isRightNext = view.nextCue?.rightFootSlot === 'out' || (view.nextCue?.actionText?.includes('오른') ?? false);
-    const isCenterNext = view.nextCue ? (!isLeftNext && !isRightNext) : false;
+    const isLeftNext = view?.nextCue ? (view.nextCue.leftFootSlot === 'out' || (view.nextCue.actionText?.includes('왼') ?? false)) : false;
+    const isRightNext = view?.nextCue ? (view.nextCue.rightFootSlot === 'out' || (view.nextCue.actionText?.includes('오른') ?? false)) : false;
+    const isCenterNext = view?.nextCue ? (!isLeftNext && !isRightNext) : false;
 
-    const baseRadius = this.config.targetAnchorRadius ?? 14;
+    const baseRadius = this.config.targetAnchorRadius ?? 15;
 
     const anchors = [
       {
@@ -230,7 +247,7 @@ export class RunningMatRenderer {
         : anchor.isNext
           ? this.config.cellBorderNextColor
           : this.config.strikeInnerColor;
-      ctx.lineWidth = anchor.isActive ? 3.5 : anchor.isNext ? 2.5 : 1.5;
+      ctx.lineWidth = anchor.isActive ? 3.5 : anchor.isNext ? 2.5 : 1.8;
       ctx.stroke();
 
       // 타깃 중심 코어 점
@@ -238,7 +255,7 @@ export class RunningMatRenderer {
       if (typeof ctx.arc === 'function') {
         ctx.arc(anchor.x, anchor.y, anchor.isActive ? 5 : 3, 0, Math.PI * 2);
       }
-      ctx.fillStyle = anchor.isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.7)';
+      ctx.fillStyle = anchor.isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.85)';
       ctx.fill();
 
       // 접근성 / 레인 식별 라벨
@@ -249,7 +266,7 @@ export class RunningMatRenderer {
         ? this.config.textAccentColor
         : anchor.isNext
           ? this.config.textSecondaryColor
-          : 'rgba(255, 255, 255, 0.4)';
+          : 'rgba(255, 255, 255, 0.5)';
       ctx.fillText(anchor.label, anchor.x, anchor.y + r + 3);
     }
   }

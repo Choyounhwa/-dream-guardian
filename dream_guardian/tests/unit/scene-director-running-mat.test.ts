@@ -154,6 +154,8 @@ describe('RUN-MAT-004 (#373): RUN_QUESTION 전용 러닝 매트 스냅샷·표�
       },
       renderFeedback: vi.fn(),
       bossFeverController: null,
+      phaseAHazardController: { isEvaded: false, performedAction: null, activePattern: null } as any,
+      hazardZoneRenderer: { render: vi.fn() } as any,
       starNoteScheduler: { currentTarget: null, activeNotes: [], isPaused: false },
       starNoteRenderer: { render: vi.fn() },
       bossClimaxRenderer: { render: vi.fn() },
@@ -234,27 +236,23 @@ describe('RUN-MAT-004 (#373): RUN_QUESTION 전용 러닝 매트 스냅샷·표�
     });
   });
 
-  describe('2. 비RUN_QUESTION 상태에서 비노출 검증 (Strict Policy)', () => {
-    const nonRunStates = [
+  describe('2. 게임 씬(COUNT_IN, ANSWER_SELECT, STAR_COLLECT, BOSS_CLIMAX 등) 상시 판정선 노출 검증 (Issue #422)', () => {
+    const inGameStates = [
       'COUNT_IN',
       'ANSWER_SELECT',
-      'MENU_MAIN',
-      'MENU_SUB',
+      'STAR_COLLECT',
+      'HAZARD_EVADE',
       'BOSS_CLIMAX',
-      'RESULT',
       'READY_POSITION',
-      'STORY_INTRO',
-      'ROUND_REST',
-      'GAME_OVER',
     ];
 
-    nonRunStates.forEach((stateName) => {
-      it(`${stateName} 상태일 때는 runningMatRenderer.render가 호출되지 않는다`, () => {
+    inGameStates.forEach((stateName) => {
+      it(`${stateName} 인게임 상태에서도 상시 판정선 렌더링이 호출된다`, () => {
         mockContext.stateMachine.currentState = stateName;
 
         director.renderGameScene(mockContext);
 
-        expect(mockRunningMatRenderer.render).not.toHaveBeenCalled();
+        expect(mockRunningMatRenderer.render).toHaveBeenCalledTimes(1);
       });
     });
   });
