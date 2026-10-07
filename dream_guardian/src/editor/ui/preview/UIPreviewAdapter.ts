@@ -6,6 +6,11 @@ import { registerSubmenuPreview } from "./screens/UISubmenuPreview";
 import { registerTextStylePreview } from "./styles/UITextStylePreview";
 import { registerAssetPreview } from "./styles/UIAssetPreview";
 import { registerThemePreview } from "./styles/UIThemePreview";
+import {
+  PageAdapterRegistry,
+  defaultPageAdapterRegistry,
+  dispatchPageRender,
+} from "./UIPageAdapters";
 
 export { LIMITS, RENDERER_FINGERPRINT };
 export { composeFrame, hitTest, composeFromRaw, CHROME_READONLY } from "./UIComposition";
@@ -44,6 +49,8 @@ export type PreviewPorts = {
   bootGame?: () => void;
   boot?: () => void;
   cache: Map<string, unknown> | Record<string, unknown>;
+  registry?: PageAdapterRegistry;
+  canvas?: HTMLCanvasElement;
 };
 
 export type PreviewContext = {
@@ -52,13 +59,34 @@ export type PreviewContext = {
   snapshot?: unknown;
 };
 
+export type DrawOptions = {
+  canvas?: HTMLCanvasElement;
+  pageId?: string;
+  revision?: number;
+  generation?: number;
+  selectedElementIds?: readonly string[];
+  registry?: PageAdapterRegistry;
+};
+
+export type DrawResult = {
+  drew: boolean;
+  contextId: string;
+  ok?: boolean;
+  pageId?: string;
+  reason?: string;
+  renderedElementCount?: number;
+  renderedBounds?: unknown[];
+};
+
 export type PreviewSession = {
   locked: boolean;
   supportLocked: string | null;
   context: PreviewContext;
   update: (snapshot: unknown) => { ok: boolean; reason?: string };
-  draw: () => { drew: boolean; contextId: string; reason?: string };
+  draw: (options?: DrawOptions) => DrawResult;
   recreate: () => PreviewContext;
+  registry: PageAdapterRegistry;
+  canvas?: HTMLCanvasElement;
 };
 
 export function rejectUnsafeSnapshot(raw: string): { ok: boolean; reason?: string; value?: unknown } {
@@ -99,11 +127,14 @@ export function createPreviewSession(deps: PreviewPorts): PreviewSession {
   const supportLocked = locked ? "fingerprint-mismatch" : null;
   let generation = 0;
   let context = freshContext(generation);
+  const registry = deps.registry ?? defaultPageAdapterRegistry;
 
   const session: PreviewSession = {
     locked,
     supportLocked,
     context,
+    registry,
+    canvas: deps.canvas,
     update(snapshot: unknown) {
       if (session.locked) {
         const dropped = session.context;
@@ -130,14 +161,60 @@ export function createPreviewSession(deps: PreviewPorts): PreviewSession {
       session.context = next;
       return { ok: true };
     },
-    draw() {
+    draw(options?: DrawOptions): DrawResult {
       if (session.locked) {
         const dropped = session.context;
         session.context = freshContext(++generation);
         void dropped;
-        return { drew: false, contextId: PREVIEW_CONTEXT_ID, reason: session.supportLocked ?? "locked" };
+        const res: DrawResult = {
+          drew: false,
+          contextId: PREVIEW_CONTEXT_ID,
+          reason: session.supportLocked ?? "locked",
+        };
+        if (options) {
+          res.ok = false;
+        }
+        return res;
       }
-      return { drew: true, contextId: session.context.contextId };
+
+      const targetPageId = options?.pageId ?? (session.context.snapshot as any)?.pageId;
+      const targetCanvas = options?.canvas ?? session.canvas;
+
+      if (options && targetPageId && targetCanvas) {
+        const result = dispatchPageRender({
+          canvas: targetCanvas,
+          pageId: targetPageId,
+          snapshot: session.context.snapshot,
+          selectedElementIds: options.selectedElementIds,
+          currentRevision: options.revision ?? generation,
+          snapshotRevision: options.revision ?? generation,
+          currentGeneration: options.generation ?? generation,
+          snapshotGeneration: options.generation ?? generation,
+          registry: options.registry ?? session.registry,
+        });
+
+        return {
+          ...result,
+          contextId: session.context.contextId,
+        };
+      }
+
+      if (options && targetPageId && !targetCanvas) {
+        const reg = options.registry ?? session.registry;
+        if (!reg.has(targetPageId)) {
+          return {
+            drew: false,
+            contextId: session.context.contextId,
+            ok: false,
+            pageId: targetPageId,
+            reason: "unsupported-page",
+          };
+        }
+      }
+
+      return options
+        ? { drew: true, contextId: session.context.contextId, ok: true }
+        : { drew: true, contextId: session.context.contextId };
     },
     recreate() {
       const next = freshContext(++generation);
