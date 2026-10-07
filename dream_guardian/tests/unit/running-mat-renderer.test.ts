@@ -12,6 +12,7 @@ import {
   DEFAULT_MAT_BASE_Y_BOTTOM,
   DEFAULT_MAT_WIDTH_RATIO,
   MAX_NARROW_WIDTH_RATIO,
+  DEFAULT_STRIKE_LINE_Y_RATIO,
 } from '../../config/running-mat.config.js';
 import type { RunningMatViewModel } from '../../src/render/RunningMatPresenter.js';
 
@@ -105,11 +106,16 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
   });
 
   describe('1. 기본 설정(config) 정합성 검증', () => {
-    it('기본 화면 정규화 Y 범위가 0.74 ~ 0.94 바닥 높이로 정의되어야 한다', () => {
+    it('기본 화면 정규화 Y 범위 및 네온 판정선 Y 비율(0.86)이 정의되어 있어야 한다', () => {
       expect(DEFAULT_MAT_BASE_Y_TOP).toBeCloseTo(0.74, 2);
       expect(DEFAULT_MAT_BASE_Y_BOTTOM).toBeCloseTo(0.94, 2);
+      expect(DEFAULT_STRIKE_LINE_Y_RATIO).toBeCloseTo(0.86, 2);
       expect(RUNNING_MAT_CONFIG.baseYTop).toBeCloseTo(0.74, 2);
       expect(RUNNING_MAT_CONFIG.baseYBottom).toBeCloseTo(0.94, 2);
+      expect(RUNNING_MAT_CONFIG.strikeLineYRatio).toBeCloseTo(0.86, 2);
+      expect(RUNNING_MAT_CONFIG.strikeCoreLineWidth).toBeGreaterThanOrEqual(2);
+      expect(RUNNING_MAT_CONFIG.strikeInnerGlowWidth).toBeGreaterThanOrEqual(6);
+      expect(RUNNING_MAT_CONFIG.strikeOuterGlowWidth).toBeGreaterThanOrEqual(16);
     });
 
     it('기본 폭 비율 0.76 및 좁은 화면 최대 폭 비율 0.90을 제공해야 한다', () => {
@@ -162,16 +168,29 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
     });
   });
 
-  describe('3. 원근 투영 및 매트 셀 렌더링', () => {
-    it('좌, 중앙, 우 3개의 원근 사다리꼴 셀을 렌더링한다', () => {
+  describe('3. 네온 글로우 발 판정선(Foot Strike Line) 및 3대 레인 타깃 앵커 렌더링', () => {
+    it('구 3칸 사다리꼴 매트 셀 fill 대신, 네온 글로우 수평 판정선을 렌더링한다', () => {
       const view = createBaseViewModel();
       renderer.render(ctx, view, width, height);
 
-      // 3개 이상의 셀 패스 생성 확인 (좌/중앙/우)
+      // 수평 판정선 및 타깃 앵커 렌더링 확인
       expect(ctx.beginPath).toHaveBeenCalled();
-      expect(ctx.closePath).toHaveBeenCalled();
-      expect(ctx.fill).toHaveBeenCalled();
       expect(ctx.stroke).toHaveBeenCalled();
+      // Y 좌표 0.86 부근(height * 0.86)으로 moveTo / lineTo 호출 확인
+      const lineToCalls = vi.mocked(ctx.lineTo).mock.calls;
+      const expectedY = height * 0.86;
+      const hasStrikeLine = lineToCalls.some((call) => Math.abs(call[1] - expectedY) < 5);
+      expect(hasStrikeLine).toBe(true);
+    });
+
+    it('좌(Zone 9), 중앙(Zone 10), 우(Zone 11) 3개 레인에 타깃 앵커 마커를 렌더링한다', () => {
+      const view = createBaseViewModel();
+      renderer.render(ctx, view, width, height);
+
+      // 3개 이상의 타깃 앵커(arc 또는 ellipse 또는 다이아몬드 lineTo) 호출 확인
+      const arcOrEllipseCount =
+        vi.mocked(ctx.arc).mock.calls.length + vi.mocked(ctx.ellipse).mock.calls.length;
+      expect(arcOrEllipseCount).toBeGreaterThanOrEqual(3);
     });
 
     it('소실점(vanishingPoint)이 제공되면 해당 좌표를 투영 기준으로 사용한다', () => {

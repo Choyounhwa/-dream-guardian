@@ -13,6 +13,10 @@ export const DEFAULT_MAT_WIDTH_RATIO = 0.76;
 export const MAX_NARROW_WIDTH_RATIO = 0.90;
 export const DEFAULT_VANISHING_Y_RATIO = 0.56;
 export const DEFAULT_RETURN_PHASE_RATIO = 0.5;
+export const DEFAULT_STRIKE_LINE_Y_RATIO = 0.86;
+export const DEFAULT_STRIKE_CORE_LINE_WIDTH = 3.0;
+export const DEFAULT_STRIKE_INNER_GLOW_WIDTH = 8.0;
+export const DEFAULT_STRIKE_OUTER_GLOW_WIDTH = 24.0;
 
 export interface RunningMatConfig {
   readonly baseYTop: number;
@@ -68,6 +72,17 @@ export interface RunningMatConfig {
   readonly preview2Label: string;
   readonly kneeLiftText: string;
   readonly kneeReturnText: string;
+
+  // 네온 글로우 발 판정선 (Strike Line) 설정 (Issue #421)
+  readonly strikeLineYRatio: number;
+  readonly strikeCoreLineWidth: number;
+  readonly strikeInnerGlowWidth: number;
+  readonly strikeOuterGlowWidth: number;
+  readonly strikeCoreColor: string;
+  readonly strikeInnerColor: string;
+  readonly strikeOuterColor: string;
+  readonly strikeActivePulseGlow: string;
+  readonly targetAnchorRadius: number;
 }
 
 export const RUNNING_MAT_CONFIG: RunningMatConfig = Object.freeze({
@@ -118,4 +133,14 @@ export const RUNNING_MAT_CONFIG: RunningMatConfig = Object.freeze({
   preview2Label: '그다음',
   kneeLiftText: '무릎 들기',
   kneeReturnText: '기본 자세 복귀',
+
+  strikeLineYRatio: DEFAULT_STRIKE_LINE_Y_RATIO,
+  strikeCoreLineWidth: DEFAULT_STRIKE_CORE_LINE_WIDTH,
+  strikeInnerGlowWidth: DEFAULT_STRIKE_INNER_GLOW_WIDTH,
+  strikeOuterGlowWidth: DEFAULT_STRIKE_OUTER_GLOW_WIDTH,
+  strikeCoreColor: '#FFFFFF',
+  strikeInnerColor: '#00E5FF',
+  strikeOuterColor: 'rgba(0, 229, 255, 0.28)',
+  strikeActivePulseGlow: 'rgba(255, 203, 77, 0.85)',
+  targetAnchorRadius: 14,
 });

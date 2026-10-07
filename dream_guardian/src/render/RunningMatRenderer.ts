@@ -11,6 +11,7 @@
 
 import {
   RUNNING_MAT_CONFIG,
+  DEFAULT_STRIKE_LINE_Y_RATIO,
   type RunningMatConfig,
 } from '../../config/running-mat.config.js';
 import type { RunningMatViewModel } from './RunningMatPresenter.js';
@@ -96,31 +97,14 @@ export class RunningMatRenderer {
     const yBottom = height * this.config.baseYBottom;
     const halfWBottom = (width * matWidthRatio) * 0.5;
 
-    // 원근 수축 비율 (소실점 투영)
-    const floorH = Math.max(1, yBottom - vy);
-    const topSpread = Math.max(0.2, Math.min(1.0, (yTop - vy) / floorH));
-
-    // 정규화 레인 좌표 (-1.0 ~ +1.0)
-    // Left: [-1.0, -0.34], Center: [-0.34, +0.34], Right: [+0.34, +1.0]
-    const uBounds = {
-      leftMin: -1.0,
-      leftMax: -0.34,
-      centerMin: -0.34,
-      centerMax: 0.34,
-      rightMin: 0.34,
-      rightMax: 1.0,
-    };
-
-    // 1. 좌/중앙/우 3개 반투명 원근 사다리꼴 셀 렌더링
-    this._renderPerspectiveCells(
+    // 1. 초고휘도 네온 글로우 발 판정선(Foot Strike Line) 및 3대 레인 타깃 앵커 렌더링 (Issue #421)
+    const yStrike = height * (this.config.strikeLineYRatio ?? DEFAULT_STRIKE_LINE_Y_RATIO);
+    this._renderFootStrikeLine(
       ctx,
       view,
       vx,
-      yTop,
-      yBottom,
-      halfWBottom,
-      topSpread,
-      uBounds
+      yStrike,
+      halfWBottom
     );
 
     // 2. 발자국 슬롯 좌표 계산
@@ -155,101 +139,118 @@ export class RunningMatRenderer {
   }
 
   /**
-   * 좌/중앙/우 3개 원근 사다리꼴 셀 렌더링
+   * 초고휘도 네온 글로우 발 판정선(Foot Strike Line) 및 3대 레인 타깃 앵커 렌더링
+   * Issue #421: 기존 3칸 사다리꼴 매트 셀을 삭제하고 전경 Y=0.86 위치에 수평 판정선 및 타깃 앵커 표출
    */
-  private _renderPerspectiveCells(
+  private _renderFootStrikeLine(
     ctx: CanvasRenderingContext2D,
     view: RunningMatViewModel,
     vx: number,
-    yTop: number,
-    yBottom: number,
-    halfWBottom: number,
-    topSpread: number,
-    uBounds: {
-      leftMin: number;
-      leftMax: number;
-      centerMin: number;
-      centerMax: number;
-      rightMin: number;
-      rightMax: number;
-    }
+    yStrike: number,
+    halfWBottom: number
   ): void {
-    const isLeftActive = view.currentCue?.leftFootSlot === 'out';
-    const isRightActive = view.currentCue?.rightFootSlot === 'out';
-    const isLeftNext = view.nextCue?.leftFootSlot === 'out';
-    const isRightNext = view.nextCue?.rightFootSlot === 'out';
+    const xStart = vx - halfWBottom * 1.05;
+    const xEnd = vx + halfWBottom * 1.05;
 
-    const cells = [
+    // 1. 3중 네온 글로우 수평 판정선
+    // (1) Outer Ambient Glow
+    ctx.beginPath();
+    ctx.moveTo(xStart, yStrike);
+    ctx.lineTo(xEnd, yStrike);
+    ctx.strokeStyle = this.config.strikeOuterColor;
+    ctx.lineWidth = this.config.strikeOuterGlowWidth;
+    ctx.stroke();
+
+    // (2) Inner Neon Glow
+    ctx.beginPath();
+    ctx.moveTo(xStart, yStrike);
+    ctx.lineTo(xEnd, yStrike);
+    ctx.strokeStyle = this.config.strikeInnerColor;
+    ctx.lineWidth = this.config.strikeInnerGlowWidth;
+    ctx.stroke();
+
+    // (3) Core Strike Line
+    ctx.beginPath();
+    ctx.moveTo(xStart, yStrike);
+    ctx.lineTo(xEnd, yStrike);
+    ctx.strokeStyle = this.config.strikeCoreColor;
+    ctx.lineWidth = this.config.strikeCoreLineWidth;
+    ctx.stroke();
+
+    // 2. 3대 발 레인 타깃 앵커 (Zone 9: Left Foot, Zone 10: Center, Zone 11: Right Foot)
+    const isLeftActive = view.currentCue?.leftFootSlot === 'out' || view.actionText.includes('왼');
+    const isRightActive = view.currentCue?.rightFootSlot === 'out' || view.actionText.includes('오른');
+    const isCenterActive = !isLeftActive && !isRightActive;
+
+    const isLeftNext = view.nextCue?.leftFootSlot === 'out' || (view.nextCue?.actionText?.includes('왼') ?? false);
+    const isRightNext = view.nextCue?.rightFootSlot === 'out' || (view.nextCue?.actionText?.includes('오른') ?? false);
+    const isCenterNext = view.nextCue ? (!isLeftNext && !isRightNext) : false;
+
+    const baseRadius = this.config.targetAnchorRadius ?? 14;
+
+    const anchors = [
       {
-        name: 'left',
-        uMin: uBounds.leftMin,
-        uMax: uBounds.leftMax,
+        id: 'left',
+        x: vx - halfWBottom * 0.45,
+        y: yStrike,
+        label: 'LEFT (Z9)',
         isActive: isLeftActive,
         isNext: isLeftNext,
-        label: 'LEFT',
       },
       {
-        name: 'center',
-        uMin: uBounds.centerMin,
-        uMax: uBounds.centerMax,
-        isActive: !isLeftActive && !isRightActive,
-        isNext: !isLeftNext && !isRightNext,
-        label: 'HOME',
+        id: 'center',
+        x: vx,
+        y: yStrike,
+        label: 'HOME (Z10)',
+        isActive: isCenterActive,
+        isNext: isCenterNext,
       },
       {
-        name: 'right',
-        uMin: uBounds.rightMin,
-        uMax: uBounds.rightMax,
+        id: 'right',
+        x: vx + halfWBottom * 0.45,
+        y: yStrike,
+        label: 'RIGHT (Z11)',
         isActive: isRightActive,
         isNext: isRightNext,
-        label: 'RIGHT',
       },
     ];
 
-    for (const cell of cells) {
-      const xTop0 = vx + cell.uMin * halfWBottom * topSpread;
-      const xTop1 = vx + cell.uMax * halfWBottom * topSpread;
-      const xBottom1 = vx + cell.uMax * halfWBottom;
-      const xBottom0 = vx + cell.uMin * halfWBottom;
+    for (const anchor of anchors) {
+      const r = anchor.isActive ? baseRadius * 1.3 : anchor.isNext ? baseRadius * 1.15 : baseRadius;
 
+      // 타깃 외곽 링
       ctx.beginPath();
-      ctx.moveTo(xTop0, yTop);
-      ctx.lineTo(xTop1, yTop);
-      ctx.lineTo(xBottom1, yBottom);
-      ctx.lineTo(xBottom0, yBottom);
-      ctx.closePath();
-
-      // 반투명 배경 채우기
-      if (cell.isActive) {
-        ctx.fillStyle = this.config.cellActiveBgColor;
-      } else if (cell.isNext) {
-        ctx.fillStyle = this.config.cellNextBgColor;
-      } else {
-        ctx.fillStyle = this.config.cellBgColor;
+      if (typeof ctx.arc === 'function') {
+        ctx.arc(anchor.x, anchor.y, r, 0, Math.PI * 2);
+      } else if (typeof ctx.ellipse === 'function') {
+        ctx.ellipse(anchor.x, anchor.y, r, r, 0, 0, Math.PI * 2);
       }
-      ctx.fill();
-
-      // 테두리 스트로크
-      if (cell.isActive) {
-        ctx.strokeStyle = this.config.cellBorderActiveColor;
-        ctx.lineWidth = this.config.cellLineWidth * 1.5;
-      } else if (cell.isNext) {
-        ctx.strokeStyle = this.config.cellBorderNextColor;
-        ctx.lineWidth = this.config.cellLineWidth * 1.2;
-      } else {
-        ctx.strokeStyle = this.config.cellBorderColor;
-        ctx.lineWidth = this.config.cellLineWidth;
-      }
+      ctx.strokeStyle = anchor.isActive
+        ? this.config.strikeActivePulseGlow
+        : anchor.isNext
+          ? this.config.cellBorderNextColor
+          : this.config.strikeInnerColor;
+      ctx.lineWidth = anchor.isActive ? 3.5 : anchor.isNext ? 2.5 : 1.5;
       ctx.stroke();
 
-      // 셀 바닥 접근성 라벨
-      const labelX = (xBottom0 + xBottom1) * 0.5;
-      const labelY = yBottom - 6;
-      ctx.font = 'bold 10px sans-serif';
+      // 타깃 중심 코어 점
+      ctx.beginPath();
+      if (typeof ctx.arc === 'function') {
+        ctx.arc(anchor.x, anchor.y, anchor.isActive ? 5 : 3, 0, Math.PI * 2);
+      }
+      ctx.fillStyle = anchor.isActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.7)';
+      ctx.fill();
+
+      // 접근성 / 레인 식별 라벨
+      ctx.font = 'bold 9px sans-serif';
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.fillText(cell.label, labelX, labelY);
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = anchor.isActive
+        ? this.config.textAccentColor
+        : anchor.isNext
+          ? this.config.textSecondaryColor
+          : 'rgba(255, 255, 255, 0.4)';
+      ctx.fillText(anchor.label, anchor.x, anchor.y + r + 3);
     }
   }
 
