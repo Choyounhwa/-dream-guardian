@@ -266,40 +266,89 @@ export class RunningMatRenderer {
     ctx.lineWidth = this.config.strikeCoreLineWidth;
     ctx.stroke();
 
-    // 3. Beat Pulse: BGM 비트 타이밍마다 중심에서 상방으로 퍼지는 빛 파동
-    if (beatProgress !== undefined && beatProgress >= 0 && beatProgress <= 0.45) {
-      const pulseP = beatProgress / 0.45;
-      const waveY = yStrike - 32 * Math.pow(pulseP, 0.7);
-      const waveAlpha = (1.0 - pulseP) * 0.75;
+    // 3. Beat Pulse: BGM 비트 타이밍마다 중심에서 상방으로 2배 강렬하게 퍼지는 빛 파동 (Issue #426 강화)
+    if (beatProgress !== undefined && beatProgress >= 0 && beatProgress <= 0.55) {
+      const pulseP = beatProgress / 0.55;
+      const waveAlpha = (1.0 - pulseP);
+      const waveY1 = yStrike - 72 * Math.pow(pulseP, 0.65);
+      const waveY2 = yStrike - 38 * Math.pow(pulseP, 0.65);
+
+      // (1) 뒤따르는 앰버 충격파 파동 (Aura Wave)
       ctx.beginPath();
-      ctx.moveTo(xStart, waveY);
-      ctx.lineTo(xEnd, waveY);
-      ctx.strokeStyle = this.config.strikeActivePulseGlow;
-      ctx.lineWidth = Math.max(1, 3.5 * (1.0 - pulseP));
-      ctx.globalAlpha = waveAlpha;
+      ctx.moveTo(xStart, waveY2);
+      ctx.lineTo(xEnd, waveY2);
+      ctx.strokeStyle = '#FF6600';
+      ctx.lineWidth = Math.max(3, 14.0 * (1.0 - pulseP));
+      ctx.globalAlpha = waveAlpha * 0.65;
       ctx.stroke();
+
+      // (2) 선두 고휘도 네온 골드 펄스 파동 (Primary Wave)
+      ctx.beginPath();
+      ctx.moveTo(xStart, waveY1);
+      ctx.lineTo(xEnd, waveY1);
+      ctx.strokeStyle = '#FFE066';
+      ctx.lineWidth = Math.max(2, 7.5 * (1.0 - pulseP));
+      ctx.globalAlpha = waveAlpha * 0.95;
+      ctx.stroke();
+
+      // (3) 3대 타깃 앵커 상방 수직 광선 기둥 (Upward Light Pillars)
+      const anchorXs = [vx - halfWBottom * 0.45, vx, vx + halfWBottom * 0.45];
+      const pillarH = 65 * (1.0 - pulseP);
+      for (const ax of anchorXs) {
+        ctx.beginPath();
+        ctx.moveTo(ax, yStrike);
+        ctx.lineTo(ax, yStrike - pillarH);
+        ctx.strokeStyle = '#FFD166';
+        ctx.lineWidth = Math.max(2, 6.0 * (1.0 - pulseP));
+        ctx.globalAlpha = waveAlpha * 0.8;
+        ctx.stroke();
+      }
       ctx.globalAlpha = 1.0;
     }
 
-    // 4. Motion Hit Flash: 스텝/무릎 감지 시 순간적인 고휘도 화이트-골드 섬광 발생
+    // 4. Motion Hit Flash: 스텝/무릎 감지 시 순간적인 2배 고휘도 화이트-골드 폭발 섬광 (Issue #426 강화)
     if (this._hitFlashTimer > 0) {
       const flashAlpha = this.hitFlashIntensity;
+
+      // (1) Outer Fiery Shockwave (대형 오렌지 앰버 충격파 오라 - 65px 두께)
+      ctx.beginPath();
+      ctx.moveTo(xStart, yStrike);
+      ctx.lineTo(xEnd, yStrike);
+      ctx.strokeStyle = '#FF5500';
+      ctx.lineWidth = this.config.strikeCoreLineWidth * 18.0;
+      ctx.globalAlpha = flashAlpha * 0.55;
+      ctx.stroke();
+
+      // (2) Super Golden Flare (선명한 골드 플레어 광선 - 35px 두께)
+      ctx.beginPath();
+      ctx.moveTo(xStart, yStrike);
+      ctx.lineTo(xEnd, yStrike);
+      ctx.strokeStyle = '#FFD166';
+      ctx.lineWidth = this.config.strikeCoreLineWidth * 10.0;
+      ctx.globalAlpha = flashAlpha * 0.85;
+      ctx.stroke();
+
+      // (3) Ultra Core Laser Flash (초고휘도 퓨어 화이트 코어 레이저 - 20px 두께)
       ctx.beginPath();
       ctx.moveTo(xStart, yStrike);
       ctx.lineTo(xEnd, yStrike);
       ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = this.config.strikeCoreLineWidth * 2.8;
-      ctx.globalAlpha = flashAlpha;
+      ctx.lineWidth = this.config.strikeCoreLineWidth * 5.6;
+      ctx.globalAlpha = flashAlpha * 1.0;
       ctx.stroke();
 
-      // 확장 섬광 광선
-      ctx.beginPath();
-      ctx.moveTo(xStart, yStrike);
-      ctx.lineTo(xEnd, yStrike);
-      ctx.strokeStyle = this.config.strikeCoreGradientStart ?? '#FFB800';
-      ctx.lineWidth = this.config.strikeCoreLineWidth * 4.5;
-      ctx.globalAlpha = flashAlpha * 0.5;
-      ctx.stroke();
+      // (4) 3대 타깃 앵커 동시 버스트 링 폭발
+      const anchorXs = [vx - halfWBottom * 0.45, vx, vx + halfWBottom * 0.45];
+      for (const ax of anchorXs) {
+        ctx.beginPath();
+        if (typeof ctx.arc === 'function') {
+          ctx.arc(ax, yStrike, (this.config.targetAnchorRadius ?? 15) * 2.4 * (1.0 - flashAlpha * 0.3), 0, Math.PI * 2);
+        }
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 4;
+        ctx.globalAlpha = flashAlpha * 0.9;
+        ctx.stroke();
+      }
       ctx.globalAlpha = 1.0;
     }
 

@@ -1116,6 +1116,7 @@ footKeynoteInput.onEvent((event) => {
       !pauseModal.isOpen
     ) {
       beatCoordinator.recordStep();
+      runningMatRenderer.triggerMotionHit();
       const spb = beatCoordinator.rhythmEngine?.secondsPerBeat || 0.5;
       const beatProg = beatCoordinator.rhythmEngine?.beatProgress ?? 0;
       const distToBeat = Math.min(beatProg, 1.0 - beatProg) * spb;
@@ -2272,6 +2273,7 @@ engine = new GameEngine({
     if (gamePhase === 'running' && !pauseModal.isOpen) {
       totalSteps++;
       beatCoordinator.recordStep();
+      runningMatRenderer.triggerMotionHit();
       effectManager.playBurst({
         x: vw * 0.5,
         y: vh * 0.65,
@@ -2407,6 +2409,7 @@ engine = new GameEngine({
     if (screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
       totalSteps++;
       beatCoordinator.recordStep();
+      runningMatRenderer.triggerMotionHit();
       effectManager.playBurst({
         x: canvasManager.virtualWidth * 0.5,
         y: canvasManager.virtualHeight * 0.65,

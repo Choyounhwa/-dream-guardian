@@ -184,5 +184,5 @@ export const RUNNING_MAT_CONFIG: RunningMatConfig = Object.freeze({
   strikeCoreGradientStart: DEFAULT_STRIKE_CORE_GRADIENT_START,
   strikeCoreGradientEnd: DEFAULT_STRIKE_CORE_GRADIENT_END,
   strikeBreathSpeed: 2.5,
-  strikeHitFlashDuration: 0.28,
+  strikeHitFlashDuration: 0.38,
 });
