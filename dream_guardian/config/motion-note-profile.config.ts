@@ -233,16 +233,24 @@ export const HAZARD_FLOOR_PROFILE: NoteVisualProfile = Object.freeze({
 });
 
 /**
+ * MRN-12: 통합 비행 표준 프로필 (minScale: 0.3, maxScale: 1.2, easingExponent: 1.4)
+ * 전 노트 비행감(소실점 출발 배율, 착지 판정 시점 배율, 원근 가속 지수)의 통일 기준 규격
+ * @see docs/12_UNIFIED_MOTION_RHYTHM_ARCHITECTURE.md (§9 MRN-12)
+ * @see Issue #486
+ */
+export const UNIFIED_FLIGHT_STANDARD: Readonly<NoteFlightProfile> = Object.freeze({
+  minScale: 0.3,
+  maxScale: 1.2,
+  easingExponent: 1.4,
+});
+
+/**
  * 기본 프로필 4: boss_slam (jump/evade × bothFeet 보스 장판/강타 현행 재현)
  * BossClimaxRenderer (p^1.4, 0.3 -> 1.2, 링 없음)
  */
 export const BOSS_SLAM_PROFILE: NoteVisualProfile = Object.freeze({
   profileId: 'boss_slam',
-  flight: Object.freeze({
-    minScale: 0.3,
-    maxScale: 1.2,
-    easingExponent: 1.4,
-  }),
+  flight: UNIFIED_FLIGHT_STANDARD,
   ring: null,
   body: Object.freeze({
     painter: 'hazardSkull',
@@ -328,3 +336,60 @@ export function resolveProfile(
   // 4. 안전 기본 폴백 (star_hand)
   return profiles[DEFAULT_FALLBACK_PROFILE_ID] ?? STAR_HAND_PROFILE;
 }
+
+/**
+ * 주어진 기본 비주얼 프로필에 MRN-12 통합 비행 표준을 적용한 프로필 생성
+ * (기존 렌더러 테스트 및 안전성을 해치지 않으면서 선택적 비행감 통일 지원)
+ *
+ * @param baseProfile 원본 비주얼 프로필
+ * @param flightOverride 선택적 비행 파라미터 오버라이드
+ */
+export function createUnifiedFlightProfile(
+  baseProfile: NoteVisualProfile,
+  flightOverride?: Partial<NoteFlightProfile>,
+): NoteVisualProfile {
+  return Object.freeze({
+    ...baseProfile,
+    flight: Object.freeze({
+      ...UNIFIED_FLIGHT_STANDARD,
+      ...flightOverride,
+    }),
+  });
+}
+
+/**
+ * 프로필이 MRN-12 통합 비행 표준을 완벽히 준수하는지 판별
+ */
+export function isUnifiedFlightProfile(profile: NoteVisualProfile): boolean {
+  if (!profile || !profile.flight) return false;
+  return (
+    profile.flight.minScale === UNIFIED_FLIGHT_STANDARD.minScale &&
+    profile.flight.maxScale === UNIFIED_FLIGHT_STANDARD.maxScale &&
+    profile.flight.easingExponent === UNIFIED_FLIGHT_STANDARD.easingExponent
+  );
+}
+
+/**
+ * MRN-12: 모든 기본 프로필에 UNIFIED_FLIGHT_STANDARD를 적용한 통합 프로필 세트
+ */
+export const UNIFIED_NOTE_PROFILES: Readonly<Record<string, NoteVisualProfile>> = Object.freeze({
+  star_hand: createUnifiedFlightProfile(STAR_HAND_PROFILE),
+  stomp_foot: createUnifiedFlightProfile(STOMP_FOOT_PROFILE),
+  hazard_floor: createUnifiedFlightProfile(HAZARD_FLOOR_PROFILE),
+  boss_slam: BOSS_SLAM_PROFILE,
+});
+
+/**
+ * 주어진 모션 노트에 대해 MRN-12 통합 비행 표준 프로필 세트를 기준으로 프로필을 해석한다.
+ */
+export function resolveUnifiedProfile(
+  note: MotionNote,
+  profiles: Record<string, NoteVisualProfile> = UNIFIED_NOTE_PROFILES,
+  profileMap: Record<
+    MotionInteractionType,
+    Readonly<Partial<Record<'hand' | 'floor', string>>>
+  > = DEFAULT_PROFILE_MAP,
+): NoteVisualProfile {
+  return resolveProfile(note, profiles, profileMap);
+}
+

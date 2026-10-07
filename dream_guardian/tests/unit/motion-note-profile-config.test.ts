@@ -9,6 +9,11 @@ import {
   HAZARD_FLOOR_PROFILE,
   BOSS_SLAM_PROFILE,
   resolveProfile,
+  UNIFIED_FLIGHT_STANDARD,
+  UNIFIED_NOTE_PROFILES,
+  createUnifiedFlightProfile,
+  isUnifiedFlightProfile,
+  resolveUnifiedProfile,
 } from '../../config/motion-note-profile.config.js';
 import { DEFAULT_STAR_NOTE_VISUAL_CONFIG } from '../../config/beat-motion.config.js';
 import {
@@ -277,6 +282,84 @@ describe('MRN-02: Note Visual Profile Config and Default Mapping (#476)', () => 
 
       const resolved = resolveProfile(emptyReqNote);
       expect(resolved.profileId).toBe('star_hand');
+    });
+  });
+});
+
+describe('MRN-12: Unified Flight Standard and Profile Consistency (#486)', () => {
+  describe('1. UNIFIED_FLIGHT_STANDARD constants and constraints', () => {
+    it('defines UNIFIED_FLIGHT_STANDARD with minScale: 0.3, maxScale: 1.2, easingExponent: 1.4', () => {
+      expect(UNIFIED_FLIGHT_STANDARD).toBeDefined();
+      expect(UNIFIED_FLIGHT_STANDARD.minScale).toBe(0.3);
+      expect(UNIFIED_FLIGHT_STANDARD.maxScale).toBe(1.2);
+      expect(UNIFIED_FLIGHT_STANDARD.easingExponent).toBe(1.4);
+    });
+
+    it('UNIFIED_FLIGHT_STANDARD is an immutable frozen object', () => {
+      expect(Object.isFrozen(UNIFIED_FLIGHT_STANDARD)).toBe(true);
+    });
+
+    it('boss_slam default profile matches UNIFIED_FLIGHT_STANDARD', () => {
+      expect(BOSS_SLAM_PROFILE.flight.minScale).toBe(UNIFIED_FLIGHT_STANDARD.minScale);
+      expect(BOSS_SLAM_PROFILE.flight.maxScale).toBe(UNIFIED_FLIGHT_STANDARD.maxScale);
+      expect(BOSS_SLAM_PROFILE.flight.easingExponent).toBe(UNIFIED_FLIGHT_STANDARD.easingExponent);
+    });
+  });
+
+  describe('2. Unified Profile Set and Profile Consistency', () => {
+    it('provides UNIFIED_NOTE_PROFILES where all profiles adhere to UNIFIED_FLIGHT_STANDARD', () => {
+      expect(UNIFIED_NOTE_PROFILES).toBeDefined();
+      expect(UNIFIED_NOTE_PROFILES.star_hand).toBeDefined();
+      expect(UNIFIED_NOTE_PROFILES.stomp_foot).toBeDefined();
+      expect(UNIFIED_NOTE_PROFILES.hazard_floor).toBeDefined();
+      expect(UNIFIED_NOTE_PROFILES.boss_slam).toBeDefined();
+
+      for (const [key, profile] of Object.entries(UNIFIED_NOTE_PROFILES)) {
+        expect(profile.flight.minScale, `${key} minScale`).toBe(0.3);
+        expect(profile.flight.maxScale, `${key} maxScale`).toBe(1.2);
+        expect(profile.flight.easingExponent, `${key} easingExponent`).toBe(1.4);
+      }
+    });
+
+    it('createUnifiedFlightProfile applies UNIFIED_FLIGHT_STANDARD while preserving other properties', () => {
+      const unifiedStar = createUnifiedFlightProfile(STAR_HAND_PROFILE);
+      expect(unifiedStar.profileId).toBe('star_hand');
+      expect(unifiedStar.flight.minScale).toBe(0.3);
+      expect(unifiedStar.flight.maxScale).toBe(1.2);
+      expect(unifiedStar.flight.easingExponent).toBe(1.4);
+      expect(unifiedStar.ring).toEqual(STAR_HAND_PROFILE.ring);
+      expect(unifiedStar.body).toEqual(STAR_HAND_PROFILE.body);
+      expect(unifiedStar.feedback).toEqual(STAR_HAND_PROFILE.feedback);
+    });
+
+    it('createUnifiedFlightProfile allows optional flight overrides', () => {
+      const customProfile = createUnifiedFlightProfile(STAR_HAND_PROFILE, { maxScale: 1.5 });
+      expect(customProfile.flight.minScale).toBe(0.3);
+      expect(customProfile.flight.maxScale).toBe(1.5);
+      expect(customProfile.flight.easingExponent).toBe(1.4);
+    });
+
+    it('isUnifiedFlightProfile correctly identifies profiles adhering to the standard', () => {
+      expect(isUnifiedFlightProfile(BOSS_SLAM_PROFILE)).toBe(true);
+      expect(isUnifiedFlightProfile(UNIFIED_NOTE_PROFILES.star_hand)).toBe(true);
+      expect(isUnifiedFlightProfile(UNIFIED_NOTE_PROFILES.stomp_foot)).toBe(true);
+      expect(isUnifiedFlightProfile(UNIFIED_NOTE_PROFILES.hazard_floor)).toBe(true);
+      expect(isUnifiedFlightProfile(STAR_HAND_PROFILE)).toBe(false); // retains 2.0 for existing renderer backward compatibility
+    });
+
+    it('resolveUnifiedProfile resolves profiles with UNIFIED_FLIGHT_STANDARD', () => {
+      const note: MotionNote = {
+        id: 'test-unified-note',
+        patternId: 'P_TEST',
+        beat: 4,
+        requirements: [{ part: 'leftHand', zoneId: 4 }],
+        interaction: 'tap',
+      };
+      const resolved = resolveUnifiedProfile(note);
+      expect(resolved.profileId).toBe('star_hand');
+      expect(resolved.flight.minScale).toBe(0.3);
+      expect(resolved.flight.maxScale).toBe(1.2);
+      expect(resolved.flight.easingExponent).toBe(1.4);
     });
   });
 });
