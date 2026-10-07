@@ -2,6 +2,52 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🎯 통합 모션 리듬 노트 파이프라인 카드 등록 (MRN, DOC-12 v2, 2026-10-08)
+
+**승인 범위는 #424/#429 종료, BUG 카드 작성, 설계 트랙 등록뿐이다. 구현은 미착수이며 카드마다 별도 승인을 받는다.**
+- 설계: `docs/12_UNIFIED_MOTION_RHYTHM_ARCHITECTURE.md` v2 (정의/판정/외형 3축 분리, 공용 NoteProjection/NoteAnchorResolver, 무변화 이행)
+- 종료: #424, #429 (#429는 StarNoteRenderer 범위 한정 완료)
+- **정정**: 아래 #429 섹션의 "발/골반 스텝 동일 효과" 완료 표기는 StarNoteRenderer 내부 검증에 한정된다. 실제 인게임 발 노트(`RunningMatRenderer._renderFlyingStompNotes`)에는 원형 링이 **미적용** 상태다. 정정 작업은 [#473 BUG-NOTE-CIRCLE-001](https://github.com/Choyounhwa/-dream-guardian/issues/473), 기능 해소는 MRN-08 #482에서 진행한다.
+- 트랙: [#474 MRN-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/474), MRN-01~12 = #475~#486. 첫 후보는 #473 → MRN-01(#475)이다. 기존 SSOT/다른 트랙 NEXT는 변경하지 않는다.
+
+## 실게임 시각 UI 편집기 후속 카드 등록 (UI-VIS, 2026-10-08)
+
+**사용자 요청: “카드작성해줘”. 승인된 범위는 카드 작성·실제 GitHub 등록·문서 동기화뿐이다. 구현 승인 없음.**
+관리 전용 [UI-VIS-TRACK #430](https://github.com/Choyounhwa/-dream-guardian/issues/430) + 구현41개 + 인수1개 = **43개 OPEN**. 모든 하위 카드는 미착수·별도 승인 대기이며 관리 추적을 다기능 구현 카드로 실행하면 안 된다.
+
+| 단계 | 카드 | 범위 | 상태 |
+|---|---|---|---|
+| A | #431~#434 / UI-VIS-001~004 | 표시/문서 계약·비파괴 변환·Undo 모델 | #431 완료 [✔], #432 `[▶ NEXT 제안: UI-VIS 트랙 / 승인 대기]`, 나머지 선행 대기 |
+| B | #435~#438 / UI-VIS-005~008 | 정렬·속성 모델·안전 bridge·실제 Canvas | 승인/선행 대기 |
+| C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | 승인/선행 대기 |
+| D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | 승인/선행 대기 |
+| E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | 승인/선행 대기 |
+| F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | 승인/선행 대기 |
+| G | #468 → #469 / UI-VIS-038~039 | 적용본/백업 모델→추출·게시 UI | 승인/선행 대기 |
+| H | #470 → #471 / UI-VIS-040~041 | UI 전용 수신→게임 주입/입력 일치/롤백 | 승인/선행 대기 |
+| I | [#472 UI-VIS-042](https://github.com/Choyounhwa/-dream-guardian/issues/472) | 실제 브라우저 10페이지 픽셀·복구·게임 적용 인수 | 승인/전체 선행 대기 |
+
+정확한 이슈별 URL/선행/파일수는 `docs/03_GITHUB_ISSUES.md`의 2026-10-08 표와 #430에 동기화했다. 실행 순서는 숫자만이 아니라 선행 DAG로 판단하며 **UI-VIS-035=#464가 UI-VIS-034=#465보다 먼저**다.
+
+### 관찰·중복 결정·보존 경계
+
+- 정적 소스 확인: preview entry는 factory export만 있고 `draw()`는 metadata 반환. `UIPropertyPanel`은 unknown ID에 첫 카드 값 fallback. registry에는 실제와 다른 홈 이름/답안4개/pause restart가 있다. 브라우저 controller는 InMemoryDatabasePort이며 autosave scheduler가 연결되지 않았다. 테스트 실패·브라우저 화면 실측으로 주장하지 않는다.
+- SettingsModal의 생성자/접근성 setter 부작용 때문에 #441 순수 view 분리가 선행한다. preview는 `src/main.ts`/`AppBootstrap`/`SceneDirector`를 부팅하지 않으며 실제 renderer를 결정적 fixture DTO로 호출한다. 런타임도 동일 view/geometry를 사용한다.
+- 기존 UIX #323~#367, VIEW #412~#417, #423, 10페이지 네비게이션 #428은 CLOSED 이력/재사용 기반으로 보존한다. 실제 연결 누락/신규 요구만 후속 범위로 계획했으며 기존 이슈 재개/종료/완료 기록 덮어쓰기 없음. 기존 QA를 새 픽셀 동등성·게임 적용 증거로 사용하지 않는다.
+- 추출 전용 UIX의 게임 적용 금지는 이번 별도 runtime 경계/#470/#471에서만 확장한다. 피트니스 `ContentLoadService`의 UIX kind 거부 및 기존 게임 데이터/저장 정책은 유지한다.
+- 현행 **12단계 로드맵 SSOT 전체 완료 상태 및 다른 트랙 NEXT 표시는 수정하지 않았다.** 이 단락은 사용자 요청으로 추가한 독립 후속 트랙이며 전역 우선순위 재지정이 아니다. 기존 문서의 다른 트랙 상태 불일치도 이번 범위에서 임의 정정하지 않는다.
+
+### 다음 세션 인계
+
+- **관리 등록 완료 대상**: UI-VIS-TRACK 및 UI-VIS-001~042의 GitHub 생성/제목·본문·OPEN·선행 대조. **구현 완료 ID 없음. 통과한 기능 테스트 없음(미실행).**
+- 첫 승인 대상: [#431 UI-VIS-001 실게임 UI 표시 계약과 보호 레이아웃 검증](https://github.com/Choyounhwa/-dream-guardian/issues/431).
+- 허용 범위: 신규 제안 `dream_guardian/src/data/UIPresentation.ts`, `dream_guardian/src/data/UIPresentationValidator.ts` **Data 2파일** 및 선작성 테스트 `dream_guardian/tests/unit/ui-vis-001.test.ts`. 신규 파일은 아직 생성하지 않았다.
+- TDD 계획: 승인 후 Baseline → 10페이지/ID/속성/geometry/보호 존/동적 게임 값 거부 validator Red → 최소 계약 구현 Green → 전체 test/build. 첫 카드에서 DOM·렌더러·core·config를 수정하지 않는다.
+- 구현 때마다 별도 승인·동일 레이어 src/config 최대3개·Red/Green 단계 분리·실제 완료 Rule12 comment·Rule13 서버 확인/URL 안내를 지킨다. **이번에는 카드만 작성했으므로 test/build/server·구현 완료 코멘트·commit/push를 수행하지 않았다.**
+- 이번 로컬 수정은 이 HANDOVER와 이슈 인덱스 2개뿐. 시작 시 존재한 `.gitignore`, `docs/12_UNIFIED_MOTION_RHYTHM_ARCHITECTURE.md`, `src/editor/ui/UIEditorShell.ts`의 `attachExportController`, 미추적 HazardContentPack/테스트/기획서/스크린샷은 보존했다. WBS/PROJECT_BOARD는 미수정.
+
+---
+
 ## 🔵 어프로치 링 원형 전환 및 발 스텝 동일 효과 확장 (RENDER-NOTE-CIRCLE-001, 2026-10-07)
 
 **[✔] 구현 및 검증 완료.** [#429 RENDER-NOTE-CIRCLE-001](https://github.com/Choyounhwa/-dream-guardian/issues/429)
