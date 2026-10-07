@@ -1,4 +1,11 @@
 import { LIMITS } from "./data/UIContracts";
+import { canonicalize } from "./data/UICanonicalJSON";
+import type {
+  UIVisualDocument,
+  UIVisualPageId,
+  UIVisualElement,
+  UIRect,
+} from "./data/UIVisualDocument";
 
 export const HISTORY_LIMIT = 100;
 
@@ -140,3 +147,229 @@ export function sameContent(left: MenuLike, right: MenuLike): boolean {
     return other?.id === card.id && other.x === card.x && other.y === card.y;
   });
 }
+
+// ==========================================
+// Visual Document Commands (Issue #434 / UI-VIS-004)
+// ==========================================
+
+export type VisualMoveElementItem = {
+  elementId: string;
+  before: UIRect;
+  after: UIRect;
+  beforeHitBounds?: UIRect;
+  afterHitBounds?: UIRect;
+};
+
+export type VisualMoveElementsCommand = {
+  id: string;
+  docId?: string;
+  type: "move-elements";
+  pageId: UIVisualPageId;
+  moves: VisualMoveElementItem[];
+};
+
+export type VisualResizeElementCommand = {
+  id: string;
+  docId?: string;
+  type: "resize-element";
+  pageId: UIVisualPageId;
+  elementId: string;
+  before: UIRect;
+  after: UIRect;
+};
+
+export type VisualSetPropCommand = {
+  id: string;
+  docId?: string;
+  type: "set-element-prop";
+  pageId: UIVisualPageId;
+  elementId: string;
+  prop: keyof UIVisualElement;
+  before: unknown;
+  after: unknown;
+};
+
+export type VisualSetGroupCommand = {
+  id: string;
+  docId?: string;
+  type: "set-element-group";
+  pageId: UIVisualPageId;
+  elementId: string;
+  beforeGroupId?: string;
+  afterGroupId?: string;
+};
+
+export type VisualAlignElementsCommand = {
+  id: string;
+  docId?: string;
+  type: "align-elements";
+  pageId: UIVisualPageId;
+  alignment: "left" | "right" | "top" | "bottom" | "center-h" | "center-v";
+  moves: VisualMoveElementItem[];
+};
+
+export type VisualCommand =
+  | VisualMoveElementsCommand
+  | VisualResizeElementCommand
+  | VisualSetPropCommand
+  | VisualSetGroupCommand
+  | VisualAlignElementsCommand;
+
+export function cloneVisualDocument(doc: UIVisualDocument): UIVisualDocument {
+  return JSON.parse(JSON.stringify(doc)) as UIVisualDocument;
+}
+
+export function isVisualDocEqual(a: UIVisualDocument, b: UIVisualDocument): boolean {
+  const canA = canonicalize(a);
+  const canB = canonicalize(b);
+  if (canA.ok && canB.ok) {
+    return canA.json === canB.json;
+  }
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+export function invertVisualCommand(command: VisualCommand): VisualCommand {
+  switch (command.type) {
+    case "move-elements":
+      return {
+        ...command,
+        moves: command.moves.map((m) => ({
+          elementId: m.elementId,
+          before: { ...m.after },
+          after: { ...m.before },
+          beforeHitBounds: m.afterHitBounds ? { ...m.afterHitBounds } : undefined,
+          afterHitBounds: m.beforeHitBounds ? { ...m.beforeHitBounds } : undefined,
+        })),
+      };
+    case "resize-element":
+      return {
+        ...command,
+        before: { ...command.after },
+        after: { ...command.before },
+      };
+    case "set-element-prop":
+      return {
+        ...command,
+        before: command.after,
+        after: command.before,
+      };
+    case "set-element-group":
+      return {
+        ...command,
+        beforeGroupId: command.afterGroupId,
+        afterGroupId: command.beforeGroupId,
+      };
+    case "align-elements":
+      return {
+        ...command,
+        moves: command.moves.map((m) => ({
+          elementId: m.elementId,
+          before: { ...m.after },
+          after: { ...m.before },
+          beforeHitBounds: m.afterHitBounds ? { ...m.afterHitBounds } : undefined,
+          afterHitBounds: m.beforeHitBounds ? { ...m.beforeHitBounds } : undefined,
+        })),
+      };
+  }
+}
+
+export function applyVisualCommand(
+  doc: UIVisualDocument,
+  command: VisualCommand
+): UIVisualDocument {
+  const page = doc.pages[command.pageId];
+  if (!page) {
+    throw new Error(`Page "${command.pageId}" not found`);
+  }
+
+  const nextDoc = cloneVisualDocument(doc);
+  const targetPage = nextDoc.pages[command.pageId];
+
+  switch (command.type) {
+    case "move-elements":
+    case "align-elements": {
+      for (const move of command.moves) {
+        const element = targetPage.elements.find((e) => e.id === move.elementId);
+        if (!element) {
+          throw new Error(`Element "${move.elementId}" not found in page "${command.pageId}"`);
+        }
+        element.bounds = { ...move.after };
+        if (move.afterHitBounds !== undefined) {
+          element.hitBounds = { ...move.afterHitBounds };
+        } else if (element.hitBounds) {
+          const dx = move.after.x - move.before.x;
+          const dy = move.after.y - move.before.y;
+          element.hitBounds = {
+            ...element.hitBounds,
+            x: element.hitBounds.x + dx,
+            y: element.hitBounds.y + dy,
+          };
+        }
+      }
+      break;
+    }
+    case "resize-element": {
+      const element = targetPage.elements.find((e) => e.id === command.elementId);
+      if (!element) {
+        throw new Error(`Element "${command.elementId}" not found in page "${command.pageId}"`);
+      }
+      element.bounds = { ...command.after };
+      break;
+    }
+    case "set-element-prop": {
+      const element = targetPage.elements.find((e) => e.id === command.elementId);
+      if (!element) {
+        throw new Error(`Element "${command.elementId}" not found in page "${command.pageId}"`);
+      }
+      const record = element as unknown as Record<string, unknown>;
+      if (command.after === undefined) {
+        delete record[command.prop];
+      } else {
+        record[command.prop] = command.after;
+      }
+      break;
+    }
+    case "set-element-group": {
+      const element = targetPage.elements.find((e) => e.id === command.elementId);
+      if (!element) {
+        throw new Error(`Element "${command.elementId}" not found in page "${command.pageId}"`);
+      }
+      if (command.afterGroupId === undefined) {
+        delete element.groupId;
+      } else {
+        element.groupId = command.afterGroupId;
+      }
+      break;
+    }
+  }
+
+  return nextDoc;
+}
+
+export function parseVisualCommand(value: unknown): CommandResult<VisualCommand> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return { ok: false, code: "invalid-command", reason: "command" };
+  }
+  const record = value as Record<string, unknown>;
+  if (typeof record.id !== "string" || !record.id) {
+    return { ok: false, code: "missing-id", reason: "id" };
+  }
+  if (typeof record.type !== "string" || !record.type) {
+    return { ok: false, code: "missing-type", reason: "type" };
+  }
+  if (typeof record.pageId !== "string" || !record.pageId) {
+    return { ok: false, code: "missing-pageId", reason: "pageId" };
+  }
+  const validTypes = new Set([
+    "move-elements",
+    "resize-element",
+    "set-element-prop",
+    "set-element-group",
+    "align-elements",
+  ]);
+  if (!validTypes.has(record.type)) {
+    return { ok: false, code: "unknown-type", reason: record.type };
+  }
+  return { ok: true, value: value as VisualCommand };
+}
+
