@@ -17,6 +17,10 @@ import { HORIZON_RATIO } from '../../config/grid.config.js';
 import { depthRatioFromY } from './GridProjection.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
+import { MotionNoteRenderer } from './MotionNoteRenderer.js';
+import { createDefaultPainterRegistry } from './note-painters/NotePainters.js';
+import { DEFAULT_NOTE_PROFILES } from '../../config/motion-note-profile.config.js';
+import { bossHazardToRenderItem } from '../game/adapters/bossHazardAdapter.js';
 
 export interface BossClimaxHazardState {
   readonly activePattern: string | null;
@@ -49,6 +53,23 @@ export interface MinionPosition {
 }
 
 export class BossClimaxRenderer {
+  public readonly motionNoteRenderer: MotionNoteRenderer;
+
+  constructor(motionNoteRenderer?: MotionNoteRenderer) {
+    this.motionNoteRenderer =
+      motionNoteRenderer ?? this._createMotionNoteRenderer();
+  }
+
+  /**
+   * BossClimaxRenderer용 기본 MotionNoteRenderer 인스턴스 생성
+   */
+  private _createMotionNoteRenderer(): MotionNoteRenderer {
+    return new MotionNoteRenderer({
+      profiles: DEFAULT_NOTE_PROFILES,
+      registry: createDefaultPainterRegistry(),
+    });
+  }
+
   /**
    * 박자/공격 진행도(progress)에 따른 바닥 장판 전방 도달 Y 좌표 계산 (원근 가속 적용)
    */
@@ -258,7 +279,42 @@ export class BossClimaxRenderer {
       this._renderResolvedFeedback(ctx, vx, frontY, hazard.isEvaded === true, scaleX);
     }
 
+    // MRN-11: 상공 비행 장판/충격파 투사체 MotionNoteRenderer 위임
+    if (!hazard.isResolved) {
+      this.renderFlyingHazard(ctx, vw, vh, vx, vy, hazard);
+    }
+
     ctx.restore();
+  }
+
+  /**
+   * 상공 비행 장판/충격파 투사체 렌더링 위임 (MotionNoteRenderer: boss_slam 프로필)
+   */
+  public renderFlyingHazard(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    vx: number,
+    vy: number,
+    hazard: BossClimaxHazardState,
+  ): void {
+    if (!hazard.activePattern) return;
+
+    const renderItem = bossHazardToRenderItem(
+      hazard.activePattern,
+      hazard.progress,
+      {
+        isResolved: hazard.isResolved,
+        isEvaded: hazard.isEvaded,
+      },
+    );
+
+    this.motionNoteRenderer.render(
+      ctx,
+      [renderItem],
+      { width: vw, height: vh },
+      { x: vx, y: vy },
+    );
   }
 
   /**
