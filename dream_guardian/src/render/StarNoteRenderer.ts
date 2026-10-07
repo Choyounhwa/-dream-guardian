@@ -21,7 +21,11 @@ import {
   DEFAULT_STAR_PREVIEW_CONFIG,
   type StarBeatPreviewOptions,
 } from '../../config/star-preview.config.js';
-import { projectAlongRail } from './GridProjection.js';
+import {
+  computeApproachScale as computeSharedApproachScale,
+  computeFlightProgress,
+  projectFlight,
+} from './NoteProjection.js';
 
 export type { StarBeatPreviewOptions };
 
@@ -153,11 +157,10 @@ export class StarNoteRenderer {
   /**
    * 노트 비행 진행도에 따른 목표 피트니스 존 어프로치 링 수축 배율 계산 (Issue #284 / VFX-JUDGMENT-001)
    * - 진행도 0.0일 때 2.5배 -> 1.0 안착 시 1.0배
-   * - formula: approachScale = 1.0 + 1.5 * (1.0 - progress)
+   * - NoteProjection.computeApproachScale 위임
    */
   computeApproachScale(progress: number): number {
-    const clamped = Math.min(1.0, Math.max(0.0, progress));
-    return 1.0 + 1.5 * (1.0 - clamped);
+    return computeSharedApproachScale(progress);
   }
 
   /**
@@ -211,17 +214,19 @@ export class StarNoteRenderer {
           ? preview.leadBeats
           : DEFAULT_STAR_PREVIEW_CONFIG.leadBeats;
 
-      const displayStart = Math.max(
-        preview.startTime,
-        landingTime - leadBeats * preview.secondsPerBeat,
-      );
-      const duration = landingTime - displayStart;
+      const displayStart =
+        preview.startTime !== undefined && Number.isFinite(preview.startTime)
+          ? Math.max(preview.startTime, landingTime - leadBeats * preview.secondsPerBeat)
+          : landingTime - leadBeats * preview.secondsPerBeat;
 
-      if (duration <= 0) {
-        progress = 1.0;
-      } else {
-        progress = (elapsedTime - displayStart) / duration;
-      }
+      progress = computeFlightProgress(
+        elapsedTime,
+        landingTime,
+        leadBeats,
+        preview.secondsPerBeat,
+        preview.startTime,
+        false,
+      );
 
       // 출현 이전(displayStart 미만) 또는 판정 만료 이후(lateWindow 초과) 숨김
       if (elapsedTime < displayStart || elapsedTime > landingTime + this._options.lateWindow) {
@@ -256,14 +261,17 @@ export class StarNoteRenderer {
     const targetX = zone ? (zone.x + zone.width * 0.5) * vw : vx;
     const targetY = zone ? (zone.y + zone.height * 0.5) * vh : vy;
 
-    const proj = projectAlongRail(
+    const proj = projectFlight(
       vx,
       vy,
       targetX,
       targetY,
       progress,
-      this._options.minScale,
-      this._options.maxScale,
+      {
+        minScale: this._options.minScale,
+        maxScale: this._options.maxScale,
+        easingExponent: 2.0,
+      },
     );
 
     return {
