@@ -32,6 +32,7 @@ function createMockContext(): CanvasRenderingContext2D {
     ellipse: vi.fn(),
     fill: vi.fn(),
     stroke: vi.fn(),
+    drawImage: vi.fn(),
     fillText: vi.fn(),
     strokeText: vi.fn(),
     measureText: vi.fn().mockReturnValue({ width: 20 }),
@@ -914,6 +915,131 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
         renderer.render(ctx, vw, vh, renderState);
         expect(ctx.save).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('Issue #424 [RENDER-NOTE-IMAGE-001] 비트맵 이미지 렌더링 및 어프로치 박스 제어', () => {
+    let rendererWithImage: StarNoteRenderer;
+    let mockImg: any;
+
+    beforeEach(() => {
+      mockImg = { width: 512, height: 512, complete: true, naturalWidth: 512, naturalHeight: 512 };
+      rendererWithImage = new StarNoteRenderer({
+        visualConfig: {
+          renderMode: 'image',
+          showApproachRing: true,
+          iconImages: {
+            leftHand: '/img/stardust/stardust_icon_cyan.png',
+            rightHand: '/img/stardust/stardust_icon_gold.png',
+          },
+        },
+      });
+      rendererWithImage.setImage('leftHand', mockImg);
+      rendererWithImage.setImage('rightHand', mockImg);
+    });
+
+    it('DEFAULT_STAR_NOTE_VISUAL_CONFIG에 renderMode와 showApproachRing 기본값이 정의되어 있다', () => {
+      expect((DEFAULT_STAR_NOTE_VISUAL_CONFIG as any).renderMode).toBe('image');
+      expect((DEFAULT_STAR_NOTE_VISUAL_CONFIG as any).showApproachRing).toBe(true);
+      expect((DEFAULT_STAR_NOTE_VISUAL_CONFIG as any).iconImages).toBeDefined();
+    });
+
+    it('renderMode가 image이고 이미지가 등록되어 있으면 ctx.drawImage를 호출하고 fillText는 호출하지 않는다', () => {
+      const renderState: StarNoteRenderState = {
+        target: { zoneId: 1, landingTime: 1.0, part: 'leftHand', instrument: 'hand' } as any,
+        elapsedTime: 0.8,
+        vanishingX: vx,
+        vanishingY: vy,
+      };
+
+      rendererWithImage.render(ctx, vw, vh, renderState);
+
+      expect(ctx.drawImage).toHaveBeenCalled();
+      // 별 아이콘을 텍스트로 그리는 fillText는 호출되지 않아야 함
+      expect(ctx.fillText).not.toHaveBeenCalled();
+    });
+
+    it('renderMode가 image이지만 이미지가 없으면 텍스트 fallback(ctx.fillText)으로 정상 동작한다', () => {
+      const fallbackRenderer = new StarNoteRenderer({
+        visualConfig: {
+          renderMode: 'image',
+        },
+      });
+
+      const renderState: StarNoteRenderState = {
+        target: { zoneId: 1, landingTime: 1.0, part: 'head', instrument: 'hand' } as any,
+        elapsedTime: 0.8,
+        vanishingX: vx,
+        vanishingY: vy,
+      };
+
+      fallbackRenderer.render(ctx, vw, vh, renderState);
+
+      expect(ctx.fillText).toHaveBeenCalled();
+      expect(ctx.drawImage).not.toHaveBeenCalled();
+    });
+
+    it('renderMode가 text이면 이미지가 등록되어 있어도 ctx.fillText를 호출한다', () => {
+      const textRenderer = new StarNoteRenderer({
+        visualConfig: {
+          renderMode: 'text',
+        },
+      });
+      textRenderer.setImage('leftHand', mockImg);
+
+      const renderState: StarNoteRenderState = {
+        target: { zoneId: 1, landingTime: 1.0, part: 'leftHand', instrument: 'hand' } as any,
+        elapsedTime: 0.8,
+        vanishingX: vx,
+        vanishingY: vy,
+      };
+
+      textRenderer.render(ctx, vw, vh, renderState);
+
+      expect(ctx.fillText).toHaveBeenCalled();
+      expect(ctx.drawImage).not.toHaveBeenCalled();
+    });
+
+    it('showApproachRing이 false이면 어프로치 사각박스(Approach Ring) 렌더링이 생략된다', () => {
+      const noRingRenderer = new StarNoteRenderer({
+        visualConfig: {
+          showApproachRing: false,
+        },
+      });
+
+      const approachSpy = vi.spyOn(noRingRenderer as any, '_renderApproachRing');
+
+      const renderState: StarNoteRenderState = {
+        target: { zoneId: 1, landingTime: 1.0, part: 'leftHand', instrument: 'hand' } as any,
+        elapsedTime: 0.7, // 진행 중
+        vanishingX: vx,
+        vanishingY: vy,
+      };
+
+      noRingRenderer.render(ctx, vw, vh, renderState);
+
+      expect(approachSpy).not.toHaveBeenCalled();
+    });
+
+    it('showApproachRing이 true이면 어프로치 사각박스(Approach Ring) 렌더링이 호출된다', () => {
+      const ringRenderer = new StarNoteRenderer({
+        visualConfig: {
+          showApproachRing: true,
+        },
+      });
+
+      const approachSpy = vi.spyOn(ringRenderer as any, '_renderApproachRing');
+
+      const renderState: StarNoteRenderState = {
+        target: { zoneId: 1, landingTime: 1.0, part: 'leftHand', instrument: 'hand' } as any,
+        elapsedTime: 0.7,
+        vanishingX: vx,
+        vanishingY: vy,
+      };
+
+      ringRenderer.render(ctx, vw, vh, renderState);
+
+      expect(approachSpy).toHaveBeenCalled();
     });
   });
 });

@@ -42,6 +42,8 @@ export interface StarNoteRenderOptions {
   timingWindows?: Partial<StarTimingWindows>;
   /** 시각 스타일 및 아이콘 설정 (Issue #316 / RENDER-NOTE-CONFIG-001) */
   visualConfig?: Partial<StarNoteVisualConfig>;
+  /** 사전 주입 이미지 맵 (Issue #424 / RENDER-NOTE-IMAGE-001) */
+  imageMap?: Record<string, any>;
 }
 
 export interface StarNotePositionResult {
@@ -64,8 +66,9 @@ export interface StarNoteRenderState {
 }
 
 export class StarNoteRenderer {
-  private readonly _options: Required<Omit<StarNoteRenderOptions, 'timingWindows' | 'visualConfig'>>;
+  private readonly _options: Required<Omit<StarNoteRenderOptions, 'timingWindows' | 'visualConfig' | 'imageMap'>>;
   private readonly _visualConfig: StarNoteVisualConfig;
+  private readonly _imageCache: Map<string, any> = new Map();
 
   constructor(options?: StarNoteRenderOptions) {
     const timing = options?.timingWindows;
@@ -89,10 +92,57 @@ export class StarNoteRenderer {
         ...DEFAULT_STAR_NOTE_VISUAL_CONFIG.partColors,
         ...options?.visualConfig?.partColors,
       },
+      iconImages: {
+        ...DEFAULT_STAR_NOTE_VISUAL_CONFIG.iconImages,
+        ...options?.visualConfig?.iconImages,
+      },
     };
+
+    if (options?.imageMap) {
+      for (const [k, v] of Object.entries(options.imageMap)) {
+        this._imageCache.set(k, v);
+      }
+    }
+
+    this._initImageLoading();
   }
 
-  get options(): Readonly<Required<Omit<StarNoteRenderOptions, 'timingWindows' | 'visualConfig'>>> {
+  /**
+   * 브라우저 환경에서 iconImages 경로의 이미지를 비동기 로드
+   */
+  private _initImageLoading(): void {
+    if (typeof Image === 'undefined') return;
+    const images = this._visualConfig.iconImages;
+    if (!images) return;
+
+    for (const [key, src] of Object.entries(images)) {
+      if (src && !this._imageCache.has(key)) {
+        try {
+          const img = new Image();
+          img.src = src;
+          this._imageCache.set(key, img);
+        } catch {
+          // ignore error in non-standard environment
+        }
+      }
+    }
+  }
+
+  /**
+   * 특정 키의 렌더링용 이미지 수동 등록 (테스트 및 커스텀 에셋 주입용)
+   */
+  setImage(key: string, img: any): void {
+    this._imageCache.set(key, img);
+  }
+
+  /**
+   * 등록된 이미지 조회
+   */
+  getImage(key: string): any {
+    return this._imageCache.get(key);
+  }
+
+  get options(): Readonly<Required<Omit<StarNoteRenderOptions, 'timingWindows' | 'visualConfig' | 'imageMap'>>> {
     return this._options;
   }
 
@@ -294,7 +344,7 @@ export class StarNoteRenderer {
     ctx.save();
 
     // 1. 목표 존 어프로치 링 (Issue #284 / VFX-JUDGMENT-001): 비행 진행도에 따라 목표 존 테두리로 수축
-    if (zone) {
+    if (zone && this._visualConfig.showApproachRing !== false) {
       this._renderApproachRing(ctx, vw, vh, zone, color, pos.progress);
     }
 
@@ -322,19 +372,46 @@ export class StarNoteRenderer {
     ctx.shadowBlur = this._visualConfig.glowBlurFactor * pos.scale;
     ctx.stroke();
 
-    // 5. 악기 / 별가루 심볼 렌더링 (하드코딩 제거 및 config 동적 매핑)
-    const fontSize = Math.max(1, Math.round(this._visualConfig.symbolFontSizeFactor * pos.scale));
-    ctx.fillStyle = this._visualConfig.symbolColor;
-    ctx.font = `bold ${fontSize}px ${this._visualConfig.symbolFontFamily}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    // 5. 악기 / 별가루 심볼 렌더링 (Issue #424: 비트맵 이미지 드로잉 및 텍스트 Fallback)
     const instrument = (target as any).instrument ?? ((targetPart as string) === 'hip' || (targetPart as string) === 'foot' ? 'foot' : 'hand');
-    const defaultSymbol = this._visualConfig.instrumentSymbols[instrument] || this._visualConfig.instrumentSymbols.hand || '★';
-    const icon = (target as any).icon ?? (this._visualConfig.resolveSymbol ? this._visualConfig.resolveSymbol(target) : defaultSymbol);
-    ctx.fillText(icon, pos.x, pos.y);
+    const renderMode = this._visualConfig.renderMode ?? 'image';
+
+    let renderedAsImage = false;
+    if (renderMode === 'image') {
+      const img = this._resolveTargetImage(targetPart, instrument);
+      if (img && (img.complete !== false || img.naturalWidth)) {
+        const iconSize = radius * 1.5;
+        ctx.drawImage(img, pos.x - iconSize * 0.5, pos.y - iconSize * 0.5, iconSize, iconSize);
+        renderedAsImage = true;
+      }
+    }
+
+    if (!renderedAsImage) {
+      const fontSize = Math.max(1, Math.round(this._visualConfig.symbolFontSizeFactor * pos.scale));
+      ctx.fillStyle = this._visualConfig.symbolColor;
+      ctx.font = `bold ${fontSize}px ${this._visualConfig.symbolFontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const defaultSymbol = this._visualConfig.instrumentSymbols[instrument] || this._visualConfig.instrumentSymbols.hand || '★';
+      const icon = (target as any).icon ?? (this._visualConfig.resolveSymbol ? this._visualConfig.resolveSymbol(target) : defaultSymbol);
+      ctx.fillText(icon, pos.x, pos.y);
+    }
 
     ctx.restore();
     ctx.restore();
+  }
+
+  /**
+   * 부위 및 악기에 따른 비트맵 이미지 조회
+   */
+  private _resolveTargetImage(targetPart: string, instrument: string): any {
+    return (
+      this._imageCache.get(targetPart) ??
+      this._imageCache.get(instrument) ??
+      this._imageCache.get('gold') ??
+      this._imageCache.get('default') ??
+      null
+    );
   }
 
   /**

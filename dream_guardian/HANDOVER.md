@@ -2,6 +2,23 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## ⭐ 별가루 노트 비트맵 이미지 렌더링 전환 및 어프로치 박스 제어 (RENDER-NOTE-IMAGE, 2026-10-07)
+
+**[✔] 구현 및 검증 완료.** [#424 RENDER-NOTE-IMAGE-001](https://github.com/Choyounhwa/-dream-guardian/issues/424)
+
+- **작업 목적**:
+  1. `StarNoteRenderer`의 유니코드 텍스트(`fillText`) 기반 심볼 렌더링을 고해상도 비트맵 이미지(`drawImage`) 렌더링으로 전환하고, 미로딩/미지원 환경에서는 기존 텍스트로 안전한 Fallback 유지.
+  2. 별이 날아오는 목표 칸에 표출되는 사각박스(어프로치 링)의 표시 여부(`showApproachRing`) 및 투명도 옵션을 `config/beat-motion.config.ts`에서 자유롭게 조절할 수 있도록 옵션화.
+- **수정 파일 (소스/config 2개 + 테스트 1개 = 총 3개 한정)**:
+  - `dream_guardian/config/beat-motion.config.ts`: `StarNoteVisualConfig`에 `renderMode`, `showApproachRing`, `approachRingAlpha`, `iconImages` 설정 추가
+  - `dream_guardian/src/render/StarNoteRenderer.ts`: `setImage()`, 비트맵 이미지 렌더링, 텍스트 fallback 및 `showApproachRing` 분기 구현
+  - `dream_guardian/tests/unit/star-note-renderer.test.ts`: 이미지 렌더 모드, fallback 동작, 사각박스 ON/OFF 조건 단위 테스트 6건 추가 (총 49건 100% Pass)
+- **검증 결과**:
+  - `npx vitest run tests/unit/star-note-renderer.test.ts`: 49개 테스트 100% 통과
+  - `npx vite build`: 프로덕션 번들 정상 빌드 완료
+
+---
+
 ## 🏆 통합 피트니스 제작·복구·게임 적용 최종 인수 (FITNESS-EDITOR-QA, 2026-10-06)
 
 **[✔] 구현 및 검증 완료.** [#404 FITNESS-EDITOR-QA](https://github.com/Choyounhwa/-dream-guardian/issues/404)
@@ -452,24 +469,25 @@
 | 3 | [#415 UIX-046](https://github.com/Choyounhwa/-dream-guardian/issues/415) | 미리보기 iframe 연결 | 2 | `[✔]` 완료 |
 | 4 | [#416 UIX-047](https://github.com/Choyounhwa/-dream-guardian/issues/416) | 저장·백업·추출 버튼 | 2 | `[✔]` 완료 |
 | 버그 | [#417 BUG-UI-EDITOR-001](https://github.com/Choyounhwa/-dream-guardian/issues/417) | 브라우저 node:crypto 충돌 해소 및 셸 기본 스타일 | 3 | `[✔]` 완료 |
+| 버그 | [#423 BUG-UI-EDITOR-002](https://github.com/Choyounhwa/-dream-guardian/issues/423) | 브라우저 파일 입출력(열기/저장/백업/추출) 어댑터 부재 및 상호작용 결함 수정 | 3 | `[✔]` 완료 |
 
-- UIX-VIEW 트랙(#412~#416) 및 브라우저 런타임 버그(#417) TDD 5단계 구현 및 검증 완료. 브라우저 조작 테스트 준비 완료 (`http://127.0.0.1:3010/ui-editor.html`). Phase 7 #364~#367 및 RHYTHM-INTRO(#406~#411)은 승인 대기.
+- UIX-VIEW 트랙(#412~#416), 브라우저 런타임 버그(#417, #423), Phase 7 UIX-040~043(#364~#367), 및 [UIX-017 #341] MVP 종단 인수·게임 비변경 검증 TDD 5단계 완주 (`[✔]` 완료). 브라우저 조작 테스트 준비 완료 (`http://127.0.0.1:3010/ui-editor.html`). MVP Phase 0~4 (18개 카드) 및 Phase 7 전체 완료.
 
-- 순서 **#413 → #414 → #415 → #416**. #413 후 레이아웃 표시, #416 후 브라우저 조작 테스트. Phase 7 #364~#367은 그 다음이며 이 트랙으로 승격하지 않는다.
-- 화면 조립은 `src/editor/ui/view/` 신규 파일만. 기존 판정/IO 재구현·게임 apply·실행 버튼 금지. 이번 등록은 이슈 5개와 문서 2개만 갱신. npm test/build·구현·commit 없음.
+- 순서 **#413 → #414 → #415 → #416**. #413 후 레이아웃 표시, #416 후 브라우저 조작 테스트. Phase 7 #364~#367 및 MVP 종단 인수 #341 완주.
+- 화면 조립은 `src/editor/ui/view/` 신규 파일만. 기존 판정/IO 재구현·게임 apply·실행 버튼 금지. 소스/config 수정 0개 보존.
 
 ## UI 추출 전용 에디터 별도 등록 트랙 (UIX, 2026-10-04)
 
-**2026-10-04 사용자 지시로 #336~#341 진행. #336 구현 완료(미커밋). #319 완료 및 EDITOR-SCHEMA NEXT는 유지한다.** UIE/게임 적용은 포함하지 않는다.
+**2026-10-04 사용자 지시로 #336~#341 진행. #341 [UIX-017] MVP 종단 인수 완주. #319 완료 및 EDITOR-SCHEMA NEXT는 유지한다.** UIE/게임 적용은 포함하지 않는다.
 
 | 항목 | 등록 결과 | 상태 |
 |---|---|---|
-| 전체 추적 | [UIX-TRACK-001 #323](https://github.com/Choyounhwa/-dream-guardian/issues/323) | OPEN / 하위44개 체크리스트 미체크 |
-| MVP Phase0~4 | UIX-001~017 +007A, #324~341 (18개) | #324~#339 카드 테스트 통과 / #340~341 중단 |
-| 후속 Phase5 | UIX-030/031 기반 #342/#343 →018~029 #344~355 (14개) | #342~#355 구현 `[✔]` (#345 OPEN) / [UIX-032 #356](https://github.com/Choyounhwa/-dream-guardian/issues/356) `[▶ NEXT]` |
-| 후속 Phase6 | UIX-032~039 #356~363 (8개) | #356~#363 `[✔]` / 범위 종료. 다음 후보는 Phase7 #364 (미승인) |
-| 후속 Phase7 | UIX-040~043 #364~367 (4개) | #364 [UIX-040] `[✔]` 완료 / 다음: [#365 UIX-041] `[▶ NEXT]` |
-| UIX 구현 진행 | #342~#364 구현 `[✔]` (UIX-040 tests/unit/uix-040.test.ts 9건 100% Pass) | 에디터 포트 3010 (`http://127.0.0.1:3010/ui-editor.html`), 빌드 검증 완료 |
+| 전체 추적 | [UIX-TRACK-001 #323](https://github.com/Choyounhwa/-dream-guardian/issues/323) | `[✔] CLOSED` / MVP 18개 및 Phase 7 4개, #340 [UIX-016] 전수 완료 |
+| MVP Phase0~4 | UIX-001~017 +007A, #324~341 (18개) | #324~#341 전체 카드 100% 통과 `[✔]` 완료 (MVP 전수 완주 및 #340 포함 완료) |
+| 후속 Phase5 | UIX-030/031 기반 #342/#343 →018~029 #344~355 (14개) | #342~#355 구현 `[✔]` (#345 OPEN) / [UIX-032 #356](https://github.com/Choyounhwa/-dream-guardian/issues/356) `[✔]` 완료 |
+| 후속 Phase6 | UIX-032~039 #356~363 (8개) | #356~#363 `[✔]` 완료 / Phase 6 종료 |
+| 후속 Phase7 | UIX-040~043 #364~367 (4개) | #364 [UIX-040] `[✔]`, #365 [UIX-041] `[✔]`, #366 [UIX-042] `[✔]`, #367 [UIX-043] `[✔]` 완료 / Phase 7 전체 완주 `[✔]` |
+| UIX 구현 진행 | #342~#367 및 #341 구현 `[✔]` (UIX-017 tests/unit/uix-017.test.ts 17건 100% Pass, tests/e2e/uix-017.manual.md 작성 완료) | 에디터 포트 3010 (`http://127.0.0.1:3010/ui-editor.html`), 빌드 검증 완료 |
 
 - 합계: 실행44(MVP18+후속26)+추적1=45. 전체 ID/링크/선행은 `docs/03_GITHUB_ISSUES.md` 상단과 #323, 정확 수정 경계는 각 이슈 및 설계 §14에 기록했다.
 - 생성 전 REST 전체 목록에서 정확 ID 대조, 생성 후 제목/본문/라벨/OPEN 및 최종45개 중복0 재조회 확인. 라벨 feature39/test4/documentation2, P1-high11/P2-medium34. Project scope 부족으로 미연결, 인증 변경/권한 요청 없음.

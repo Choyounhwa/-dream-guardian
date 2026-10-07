@@ -122,6 +122,8 @@ export const DEFAULT_STAR_COLLECTION_CONFIG: StarCollectionConfig = {
 
 // ─── Star Note Visual & Instrument Config (Issue #316 / RENDER-NOTE-CONFIG-001) ───
 
+export type StarNoteRenderMode = 'image' | 'text';
+
 export interface StarNoteVisualConfig {
   /** 기준 반지름 (px, 기본값 28) */
   baseRadius: number;
@@ -143,6 +145,14 @@ export interface StarNoteVisualConfig {
   symbolColor: string;
   /** 동적 심볼 해석 함수 (선택적) */
   resolveSymbol?: (target: any) => string;
+  /** 렌더링 모드: 비트맵 이미지 또는 유니코드 텍스트 (기본값: 'image', Issue #424) */
+  renderMode?: StarNoteRenderMode;
+  /** 신체 부위/악기별 별 아이콘 이미지 경로 (Issue #424) */
+  iconImages?: Record<string, string>;
+  /** 목표 칸 수축 사각박스(Approach Ring) 표출 여부 (기본값: true, Issue #424) */
+  showApproachRing?: boolean;
+  /** 어프로치 링 최대 투명도 (기본값: 0.8, Issue #424) */
+  approachRingAlpha?: number;
 }
 
 export const DEFAULT_STAR_NOTE_VISUAL_CONFIG: StarNoteVisualConfig = Object.freeze({
@@ -150,6 +160,20 @@ export const DEFAULT_STAR_NOTE_VISUAL_CONFIG: StarNoteVisualConfig = Object.free
   bodyFillColor: 'rgba(12, 18, 30, 0.9)',
   strokeWidthFactor: 4,
   glowBlurFactor: 18,
+  renderMode: 'image',
+  showApproachRing: true,
+  approachRingAlpha: 0.8,
+  iconImages: {
+    gold: '/img/stardust/stardust_icon_gold.png',
+    cyan: '/img/stardust/stardust_icon_cyan.png',
+    violet: '/img/stardust/stardust_icon_violet.png',
+    hand: '/img/stardust/stardust_icon_gold.png',
+    foot: '/img/stardust/stardust_icon_cyan.png',
+    leftHand: '/img/stardust/stardust_icon_cyan.png',
+    rightHand: '/img/stardust/stardust_icon_gold.png',
+    head: '/img/stardust/stardust_icon_violet.png',
+    hip: '/img/stardust/stardust_icon_gold.png',
+  },
   instrumentSymbols: {
     hand: '★',
     foot: '♪',

@@ -1,5 +1,17 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-10-07 등록: 별가루 노트 비트맵 이미지 렌더링 전환 및 어프로치 박스 제어 (RENDER-NOTE-IMAGE)
+
+**[✔] 구현 및 검증 완료.** [#424 RENDER-NOTE-IMAGE-001](https://github.com/Choyounhwa/-dream-guardian/issues/424).
+
+- **단일 책임**: `StarNoteRenderer`의 유니코드 텍스트(`fillText`) 기반 심볼 렌더링을 비트맵 이미지(`drawImage`) 렌더링 및 텍스트 Fallback으로 전환하고, 목표 칸 수축 사각박스(어프로치 링) 표시 여부(`showApproachRing`) 및 투명도 옵션을 `config/beat-motion.config.ts`로 분리/제어.
+- **수정 대상 (Scope Guard: 3개 파일 한정)**:
+  - `dream_guardian/config/beat-motion.config.ts`
+  - `dream_guardian/src/render/StarNoteRenderer.ts`
+  - `dream_guardian/tests/unit/star-note-renderer.test.ts`
+- **테스트**: `tests/unit/star-note-renderer.test.ts` (49/49 Pass, 100% Pass).
+- **결과**: `npm test` 49/49 단위 테스트 통과 및 vite build 정상 완료.
+
 ## 2026-10-05 등록: STAR_COLLECT 시간 축 불일치 결함 수정 (BUG-STAR-CLOCK)
 
 **[✔] 구현 및 검증 완료.** [#419 BUG-STAR-CLOCK-001](https://github.com/Choyounhwa/-dream-guardian/issues/419).
