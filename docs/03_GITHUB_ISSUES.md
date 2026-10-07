@@ -1,5 +1,90 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-10-08 등록: 통합 모션 리듬 노트 파이프라인 (MRN, DOC-12 v2)
+
+**승인 범위는 카드 등록, #424/#429 종료, BUG 카드 작성뿐이다. 구현은 미착수이며 카드마다 별도 승인을 받는다.** 설계 문서는 `docs/12_UNIFIED_MOTION_RHYTHM_ARCHITECTURE.md`(v2)다. 별모으기, 발 스텝, 장판 회피, 보스 장판/피버를 하나의 노트 모델(정의/판정/외형 3축)로 통합한다.
+
+- **종료**: #424 [RENDER-NOTE-IMAGE-001], #429 [RENDER-NOTE-CIRCLE-001] (StarNoteRenderer 범위 한정 완료)
+- **버그**: [✔] [#473 BUG-NOTE-CIRCLE-001](https://github.com/Choyounhwa/-dream-guardian/issues/473) #429 발 스텝 원형 링 미적용 및 완료 기록 불일치 (기록 정정 + `as any` 테스트 정리 완료, 기능 해소는 MRN-08 #482)
+- **관리 카드**: [#474 MRN-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/474)
+
+| 작업 ID | 이슈 | 내용 | 선행 | 화면 |
+|---|---|---|---|---|
+| MRN-01 | [#475](https://github.com/Choyounhwa/-dream-guardian/issues/475) | MotionNote 타입 계약 | - | 없음 |
+| MRN-02 | [#476](https://github.com/Choyounhwa/-dream-guardian/issues/476) | 비주얼 프로필 config 및 기본 매핑 | 01 | 없음 |
+| MRN-03 | [#477](https://github.com/Choyounhwa/-dream-guardian/issues/477) | NoteProjection 추출 | 02 | 없음 |
+| MRN-04 | [#478](https://github.com/Choyounhwa/-dream-guardian/issues/478) | NoteAnchorResolver | 01 | 없음 |
+| MRN-05 | [#479](https://github.com/Choyounhwa/-dream-guardian/issues/479) | MotionNoteRenderer + Painter | 02,03,04 | 없음 |
+| MRN-06 | [#480](https://github.com/Choyounhwa/-dream-guardian/issues/480) | 별 노트 어댑터 | 01 | 없음 |
+| MRN-07 | [#481](https://github.com/Choyounhwa/-dream-guardian/issues/481) | 별모으기/피버 렌더 전환 | 05,06 | 동일 |
+| MRN-08 | [#482](https://github.com/Choyounhwa/-dream-guardian/issues/482) | 발 스텝 위임 (원형 링 적용) | 05,07,#473 | 변경 |
+| MRN-09 | [#483](https://github.com/Choyounhwa/-dream-guardian/issues/483) | Timeline + TapJudge | 06 | 없음 |
+| MRN-10 | [#484](https://github.com/Choyounhwa/-dream-guardian/issues/484) | EvadeJudge + 장판 | 08,09 | 동일 |
+| MRN-11 | [#485](https://github.com/Choyounhwa/-dream-guardian/issues/485) | JumpJudge + 보스 장판 | 10 | 동일 |
+| MRN-12 | [#486](https://github.com/Choyounhwa/-dream-guardian/issues/486) | 비행감 통일 (config만) | 11 | 변경 |
+
+- 확장(hold/rub/guard) 카드는 MRN-11 완료 후 등록한다. 기존 SSOT 및 다른 트랙 NEXT는 변경하지 않는다.
+
+## 2026-10-08 등록: 실게임 렌더링 10페이지 시각 UI 편집기 (UI-VIS)
+
+**사용자 요청은 카드 작성·GitHub 등록·인수인계 동기화만 승인했다. 구현 미착수, 전 카드 별도 승인 대기.** 관리 전용 [UI-VIS-TRACK #430](https://github.com/Choyounhwa/-dream-guardian/issues/430) + 실행41개 + 인수1개 = **총43개**. 관리 카드는 source0·실행 불가다. 전체 OPEN/CLOSED 이슈에서 `UI-VIS-*` 충돌 없음을 확인하고 등록 후 42개 하위 카드의 제목/본문/OPEN/선행을 재조회했다.
+
+각 본문에 표준 작업 ID/제목/목적/수정 대상/구현 내용/유지 사항/변경 금지/완료 조건/테스트/관련 파일과 책임 레이어·정확 경로(신규 표시)·선행·승인 대기를 명시했다. src/config는 카드당 동일 책임 최대3개이며 모델/DOM, 런타임 렌더 경계/에디터 페이지, 게시/게임 수신·적용을 분리했다. 경로의 상세 허용 목록은 각 이슈 본문이 기준이다.
+
+| 단계 | 작업 ID | 이슈 / 단일 책임 | src/config 수 | 필수 선행 |
+|---|---|---|:---:|---|
+| A | UI-VIS-001 | [#431 실게임 표시 계약·보호 레이아웃](https://github.com/Choyounhwa/-dream-guardian/issues/431) | 2 | 없음 |
+| A | UI-VIS-002 | [#432 10페이지 문서·실게임 요소 목록](https://github.com/Choyounhwa/-dream-guardian/issues/432) | 3 | #431 |
+| A | UI-VIS-003 | [#433 기존 프로젝트 비파괴 변환](https://github.com/Choyounhwa/-dream-guardian/issues/433) | 1 | #432 |
+| A | UI-VIS-004 | [#434 문서 명령·Undo 상태](https://github.com/Choyounhwa/-dream-guardian/issues/434) | 2 | #432 |
+| B | UI-VIS-005 | [#435 정렬·그룹 이동·스냅 모델](https://github.com/Choyounhwa/-dream-guardian/issues/435) | 2 | #434 |
+| B | UI-VIS-006 | [#436 선택 속성·입력 버퍼 모델](https://github.com/Choyounhwa/-dream-guardian/issues/436) | 2 | #434 |
+| B | UI-VIS-007 | [#437 출처·revision 검증 브리지](https://github.com/Choyounhwa/-dream-guardian/issues/437) | 3 | #432, #434 |
+| B | UI-VIS-008 | [#438 실제 Canvas·페이지 디스패치](https://github.com/Choyounhwa/-dream-guardian/issues/438) | 3 | #437 |
+| C | UI-VIS-009 | [#439 메인·서브메뉴 표시/입력 경계](https://github.com/Choyounhwa/-dream-guardian/issues/439) | 1 | #431 |
+| C | UI-VIS-010 | [#440 공통 HUD·하단바 표시 경계](https://github.com/Choyounhwa/-dream-guardian/issues/440) | 2 | #431 |
+| C | UI-VIS-011 | [#441 설정 모달 순수 그리기 분리](https://github.com/Choyounhwa/-dream-guardian/issues/441) | 2 | #431 |
+| C | UI-VIS-012 | [#442 일시정지 표시·입력 bounds](https://github.com/Choyounhwa/-dream-guardian/issues/442) | 1 | #431 |
+| C | UI-VIS-013 | [#443 결과 표시·통계 분리](https://github.com/Choyounhwa/-dream-guardian/issues/443) | 1 | #431 |
+| C | UI-VIS-014 | [#444 플레이 준비 안전 표시 경계](https://github.com/Choyounhwa/-dream-guardian/issues/444) | 1 | #431 |
+| C | UI-VIS-015 | [#445 러닝·답안 공용 문제 표시 경계](https://github.com/Choyounhwa/-dream-guardian/issues/445) | 2 | #431 |
+| C | UI-VIS-016 | [#446 러닝 HUD·매트 표시 경계](https://github.com/Choyounhwa/-dream-guardian/issues/446) | 2 | #431 |
+| C | UI-VIS-017 | [#447 위험 장판 보호 표시 경계](https://github.com/Choyounhwa/-dream-guardian/issues/447) | 1 | #431 |
+| C | UI-VIS-018 | [#448 오답 피드백 표시 전달](https://github.com/Choyounhwa/-dream-guardian/issues/448) | 2 | #447 |
+| C | UI-VIS-019 | [#449 보스 결전 표시 경계](https://github.com/Choyounhwa/-dream-guardian/issues/449) | 2 | #431 |
+| D | UI-VIS-020 | [#450 메인 홈 실제 렌더 페이지](https://github.com/Choyounhwa/-dream-guardian/issues/450) | 2 | #438, #440, #439 |
+| D | UI-VIS-021 | [#451 서브메뉴 실제 렌더 페이지](https://github.com/Choyounhwa/-dream-guardian/issues/451) | 2 | #438, #440, #439 |
+| D | UI-VIS-022 | [#452 옵션 실제 렌더 페이지](https://github.com/Choyounhwa/-dream-guardian/issues/452) | 2 | #438, #440, #441 |
+| D | UI-VIS-023 | [#453 일시정지 실제 렌더 페이지](https://github.com/Choyounhwa/-dream-guardian/issues/453) | 2 | #438, #440, #442 |
+| D | UI-VIS-024 | [#454 플레이 시작 실제 렌더 페이지](https://github.com/Choyounhwa/-dream-guardian/issues/454) | 2 | #438, #440, #444 |
+| D | UI-VIS-025 | [#455 러닝·문제 실제 렌더 페이지](https://github.com/Choyounhwa/-dream-guardian/issues/455) | 2 | #438, #440, #446, #445 |
+| D | UI-VIS-026 | [#456 답안 선택 실제 렌더 페이지](https://github.com/Choyounhwa/-dream-guardian/issues/456) | 2 | #438, #440, #445, #448 |
+| D | UI-VIS-027 | [#457 오답·위험 실제 렌더 페이지](https://github.com/Choyounhwa/-dream-guardian/issues/457) | 2 | #438, #440, #448 |
+| D | UI-VIS-028 | [#458 보스 실제 렌더 페이지](https://github.com/Choyounhwa/-dream-guardian/issues/458) | 2 | #438, #440, #449 |
+| D | UI-VIS-029 | [#459 결과 실제 렌더 페이지](https://github.com/Choyounhwa/-dream-guardian/issues/459) | 2 | #438, #440, #443 |
+| E | UI-VIS-030 | [#460 선택·숫자 검사기 양방향 DOM](https://github.com/Choyounhwa/-dream-guardian/issues/460) | 3 | #436, #438 |
+| E | UI-VIS-031 | [#461 다중 선택·그리드·스냅 조작](https://github.com/Choyounhwa/-dream-guardian/issues/461) | 3 | #435, #437, #438, #460 |
+| E | UI-VIS-032 | [#462 6정렬·기준·묶음 도구](https://github.com/Choyounhwa/-dream-guardian/issues/462) | 2 | #435, #460, #461 |
+| F | UI-VIS-033 | [#463 이미지 카탈로그·가져오기 검증](https://github.com/Choyounhwa/-dream-guardian/issues/463) | 2 | #432 |
+| F | UI-VIS-035 | [#464 비동기 IndexedDB 원자 저장](https://github.com/Choyounhwa/-dream-guardian/issues/464) | 2 | #432, #463 |
+| F | UI-VIS-034 | [#465 이미지 선택·교체 UI·캐시](https://github.com/Choyounhwa/-dream-guardian/issues/465) | 3 | #460, #463, #464 |
+| F | UI-VIS-036 | [#466 자동저장·복구 상태 모델](https://github.com/Choyounhwa/-dream-guardian/issues/466) | 1 | #433, #434, #464 |
+| F | UI-VIS-037 | [#467 브라우저 영속 저장·열기 연결](https://github.com/Choyounhwa/-dream-guardian/issues/467) | 3 | #460, #465, #466 |
+| G | UI-VIS-038 | [#468 적용본 생성·검사·전체 백업](https://github.com/Choyounhwa/-dream-guardian/issues/468) | 2 | #431, #432, #463, #464, #466 |
+| G | UI-VIS-039 | [#469 추출·불변 게시본 선택 UI](https://github.com/Choyounhwa/-dream-guardian/issues/469) | 3 | #467, #468 |
+| H | UI-VIS-040 | [#470 UI 전용 적용본 로더](https://github.com/Choyounhwa/-dream-guardian/issues/470) | 1 | #431, #468 |
+| H | UI-VIS-041 | [#471 런타임 주입·입력 일치·롤백](https://github.com/Choyounhwa/-dream-guardian/issues/471) | 2 | #439~#449, #470 |
+| I | UI-VIS-042 | [#472 실제 브라우저 시각·복구 인수](https://github.com/Choyounhwa/-dream-guardian/issues/472) | 0 | #450~#459, #461, #462, #465, #467, #469, #471 |
+
+- **실행 순서는 선행 DAG 기준**이다. UI-VIS-035(#464) 저장 모델을 UI-VIS-034(#465) 이미지 UI보다 먼저 진행한다. 신규 트랙 첫 제안은 #431이며 기존 SSOT/다른 트랙 NEXT를 대체하지 않는다.
+- **조사 관찰**: `preview/main.ts`는 factory만 export, `UIPreviewAdapter.draw`는 메타데이터 반환, `UIPropertyPanel`은 메뉴/운동버튼 및 unknown ID 첫 카드 fallback, 브라우저 `main.ts`는 InMemoryDatabasePort를 사용한다. registry의 홈/답안4개/pause restart는 실제 5챕터/2답안/resume·quit와 불일치한다. 이는 정적 소스 관찰이며 실패 테스트나 픽셀 실측을 주장하지 않는다.
+- **중복 처리**: #323~#367(UIX), #412~#417(VIEW/브라우저), #423, #428은 기반/역사적 완료로 보존한다. #428 후속은 #432/#450~#460, 실제 렌더 후속은 #437~#459, 조작 후속은 #434~#436/#460~#462, 영속성 후속은 #433/#464/#466/#467, 자산은 #463/#465, 전달/게시 확장은 #468/#469, 새 인수는 #472다. 기존 이슈 상태 변경·중복 재개·무관 카드 종료 없음.
+- **정책 확장 한정**: 과거 UIX의 추출 전용/게임 적용 금지는 새 런타임 렌더 경계 및 #470/#471에서만 명시적으로 확장한다. `ContentLoadService`의 UIX kind 거부는 유지하고 별도 UI 표시 로더를 사용한다. preview에서 `main.ts`/`AppBootstrap`/`SceneDirector` 및 게임 수명주기 실행 금지.
+- **핵심 수락 기준**: 실제 렌더러·1080×2160, 선택 숫자 양방향·이미지/문구/이름/크기, 은은한 grid와 선택적 snap, 6정렬×selection/artboard/key-object, 묶음 전체 중앙과 개별 중앙 분리, 그룹 offset·Undo 보존, 숫자 직접 입력 강제 snap 금지. 버튼 그림/입력 동일 검증 layout, 보호 존 잠금, 문제/HP는 fixture 전용, migration 실패 원본 보존, commit 후만 저장 성공, exact origin+event.source·임의 URL/script 금지, 실제 브라우저 screenshot/E2E 최종 인수.
+- **이번 실행 범위**: 이 인덱스와 HANDOVER만 갱신. 소스/config/tests 변경0, test/build/브라우저/서버 실행0, 구현 완료 코멘트0, commit/push0. 기존 사용자 변경을 보존하며 WBS/PROJECT_BOARD/과거 설계는 수정하지 않는다.
+
+---
+
 ## 2026-10-07 등록: 어프로치 링 원형 전환 및 발 스텝 동일 효과 확장 (RENDER-NOTE-CIRCLE)
 
 **[✔] 구현 및 검증 완료.** [#429 RENDER-NOTE-CIRCLE-001](https://github.com/Choyounhwa/-dream-guardian/issues/429).
@@ -5689,7 +5774,6 @@ BEAT-SPEC-001
   - `dream_guardian/src/render/DreamGrid.ts`
   - `dream_guardian/src/core/SceneDirector.ts`
   - `dream_guardian/tests/unit/dream-grid.test.ts`
-
 
 
 

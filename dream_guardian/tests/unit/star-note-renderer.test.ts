@@ -5,11 +5,14 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
   StarNoteRenderer,
   type StarNoteRenderState,
 } from '../../src/render/StarNoteRenderer.js';
 import type { ActiveStarTarget } from '../../src/input/StarCollectionInput.js';
+import type { StarTarget } from '../../src/types/star.js';
 import { DEFAULT_FITNESS_ZONES } from '../../config/zone.config.js';
 import {
   DEFAULT_STAR_NOTE_VISUAL_CONFIG,
@@ -1041,9 +1044,9 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
     });
   });
 
-  describe('Issue #429 [RENDER-NOTE-CIRCLE-001] 원형 어프로치 링 및 발 스텝 동일 효과 확장', () => {
+  describe('Issue #429 [RENDER-NOTE-CIRCLE-001] & #473 [BUG-NOTE-CIRCLE-001] StarNoteRenderer 내부 원형 어프로치 링 및 골반(hip) 스텝 검증', () => {
     it('DEFAULT_STAR_NOTE_VISUAL_CONFIG의 approachShape 기본값은 circle이다', () => {
-      expect((DEFAULT_STAR_NOTE_VISUAL_CONFIG as any).approachShape).toBe('circle');
+      expect(DEFAULT_STAR_NOTE_VISUAL_CONFIG.approachShape).toBe('circle');
     });
 
     it('approachShape가 circle일 때 _renderApproachRing은 ctx.arc(원형)을 호출하여 링을 그린다', () => {
@@ -1054,8 +1057,16 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
         },
       });
 
+      const target: StarTarget = {
+        patternId: 'S001',
+        zoneId: 1,
+        landingTime: 1.0,
+        part: 'leftHand',
+        beatIndex: 1,
+      };
+
       const renderState: StarNoteRenderState = {
-        target: { zoneId: 1, landingTime: 1.0, part: 'leftHand', instrument: 'hand' } as any,
+        target,
         elapsedTime: 0.7,
         vanishingX: vx,
         vanishingY: vy,
@@ -1069,7 +1080,7 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
       expect(ctx.strokeRect).not.toHaveBeenCalled();
     });
 
-    it('발 스텝(foot/hip 타겟)에서도 동일하게 원형 어프로치 링이 호출되고 정상 렌더링된다', () => {
+    it('골반/스텝(hip 타겟, Zone 10) StarNoteRenderer 내부 렌더링 시 타입 우회(as any) 없이 원형 어프로치 링이 호출된다 (#473 정정)', () => {
       const circleRenderer = new StarNoteRenderer({
         visualConfig: {
           approachShape: 'circle',
@@ -1079,9 +1090,18 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
 
       const approachSpy = vi.spyOn(circleRenderer as any, '_renderApproachRing');
 
-      // 발/골반 스텝 타겟 (Zone 10)
+      // 골반/스텝 타겟 (Zone 10, 정식 타입 hip)
+      // 실제 인게임 러닝 매트 발 노트(♪, L/C/R)는 RunningMatRenderer로 분리되어 있으며 MRN-08에서 통합됨
+      const target: StarTarget = {
+        patternId: 'S001',
+        zoneId: 10,
+        landingTime: 2.0,
+        part: 'hip',
+        beatIndex: 1,
+      };
+
       const renderState: StarNoteRenderState = {
-        target: { zoneId: 10, landingTime: 2.0, part: 'foot', instrument: 'foot' } as any,
+        target,
         elapsedTime: 1.7,
         vanishingX: vx,
         vanishingY: vy,
@@ -1093,7 +1113,7 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
       expect(ctx.arc).toHaveBeenCalled();
     });
 
-    it('착지 직전(Perfect 윈도우) 펄스 연출(_renderZonePulse)도 circle 모드에서는 ctx.arc로 렌더링된다', () => {
+    it('착지 직전(Perfect 윈도우) 펄스 연출(_renderZonePulse)도 circle 모드에서는 ctx.arc로 렌더링된다 (hip, Zone 10, #473)', () => {
       const circleRenderer = new StarNoteRenderer({
         visualConfig: {
           approachShape: 'circle',
@@ -1102,8 +1122,16 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
 
       const pulseSpy = vi.spyOn(circleRenderer as any, '_renderZonePulse');
 
+      const target: StarTarget = {
+        patternId: 'S001',
+        zoneId: 10,
+        landingTime: 2.0,
+        part: 'hip',
+        beatIndex: 1,
+      };
+
       const renderState: StarNoteRenderState = {
-        target: { zoneId: 10, landingTime: 2.0, part: 'foot', instrument: 'foot' } as any,
+        target,
         elapsedTime: 1.95, // landingTime - 0.05s (<= perfectWindow 0.12s)
         vanishingX: vx,
         vanishingY: vy,
@@ -1124,8 +1152,16 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
         },
       });
 
+      const target: StarTarget = {
+        patternId: 'S001',
+        zoneId: 1,
+        landingTime: 1.0,
+        part: 'leftHand',
+        beatIndex: 1,
+      };
+
       const renderState: StarNoteRenderState = {
-        target: { zoneId: 1, landingTime: 1.0, part: 'leftHand', instrument: 'hand' } as any,
+        target,
         elapsedTime: 0.7,
         vanishingX: vx,
         vanishingY: vy,
@@ -1134,6 +1170,12 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
       rectRenderer.render(ctx, vw, vh, renderState);
 
       expect(ctx.roundRect).toHaveBeenCalled();
+    });
+
+    it('#473 [BUG-NOTE-CIRCLE-001]: star-note-renderer.test.ts 내에 part: \'foot\' 타입 우회가 존재하지 않아야 한다', () => {
+      const testFilePath = path.resolve(__dirname, 'star-note-renderer.test.ts');
+      const content = fs.readFileSync(testFilePath, 'utf-8');
+      expect(content).not.toMatch(/part:\s*['"]foot['"]/);
     });
   });
 });

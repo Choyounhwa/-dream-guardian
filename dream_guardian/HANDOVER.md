@@ -7,7 +7,7 @@
 **승인 범위는 #424/#429 종료, BUG 카드 작성, 설계 트랙 등록뿐이다. 구현은 미착수이며 카드마다 별도 승인을 받는다.**
 - 설계: `docs/12_UNIFIED_MOTION_RHYTHM_ARCHITECTURE.md` v2 (정의/판정/외형 3축 분리, 공용 NoteProjection/NoteAnchorResolver, 무변화 이행)
 - 종료: #424, #429 (#429는 StarNoteRenderer 범위 한정 완료)
-- **정정**: 아래 #429 섹션의 "발/골반 스텝 동일 효과" 완료 표기는 StarNoteRenderer 내부 검증에 한정된다. 실제 인게임 발 노트(`RunningMatRenderer._renderFlyingStompNotes`)에는 원형 링이 **미적용** 상태다. 정정 작업은 [#473 BUG-NOTE-CIRCLE-001](https://github.com/Choyounhwa/-dream-guardian/issues/473), 기능 해소는 MRN-08 #482에서 진행한다.
+- **정정**: [#473 BUG-NOTE-CIRCLE-001] [✔] 완료. 아래 #429 섹션의 완료 기록을 StarNoteRenderer 내부 검증 한정으로 정정하고 `part: 'foot' as any` 타입 우회를 정식 규격(hip)으로 교정 완료. 실제 인게임 발 노트(`RunningMatRenderer._renderFlyingStompNotes`) 원형 링 기능 해소는 [MRN-08 #482]에서 진행.
 - 트랙: [#474 MRN-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/474), MRN-01~12 = #475~#486. 첫 후보는 #473 → MRN-01(#475)이다. 기존 SSOT/다른 트랙 NEXT는 변경하지 않는다.
 
 ## 실게임 시각 UI 편집기 후속 카드 등록 (UI-VIS, 2026-10-08)
@@ -48,23 +48,25 @@
 
 ---
 
-## 🔵 어프로치 링 원형 전환 및 발 스텝 동일 효과 확장 (RENDER-NOTE-CIRCLE-001, 2026-10-07)
+## 🔵 어프로치 링 원형 전환 및 StarNoteRenderer 내부 검증 (RENDER-NOTE-CIRCLE-001, 2026-10-07)
 
-**[✔] 구현 및 검증 완료.** [#429 RENDER-NOTE-CIRCLE-001](https://github.com/Choyounhwa/-dream-guardian/issues/429)
+**[✔] StarNoteRenderer 한정 구현 완료 (실제 인게임 발 스텝 미적용 정정: #473, 해소: MRN-08 #482)** [#429 RENDER-NOTE-CIRCLE-001](https://github.com/Choyounhwa/-dream-guardian/issues/429) / [#473 BUG-NOTE-CIRCLE-001](https://github.com/Choyounhwa/-dream-guardian/issues/473)
 
-- **작업 목적**:
+- **작업 목적 & 정정 내역 (#473)**:
   1. `StarNoteRenderer`의 어프로치 사각박스를 부드러운 원형 어프로치 링(Circle Ring)으로 전환하여 직관적인 리듬 판정 타이밍 가이드 제공.
-  2. 손(hand) 노트뿐만 아니라 발/골반(foot, hip, Zone 6~11) 스텝 타겟에도 동일한 원형 어프로치 링 및 원형 펄스 효과를 일관되게 적용.
-  3. `config/beat-motion.config.ts`에 `approachShape: 'circle' | 'rect'` 설정을 분리하여 하위 호환성 유지.
+  2. `config/beat-motion.config.ts`에 `approachShape: 'circle' | 'rect'` 설정을 분리하여 하위 호환성 유지.
+  3. **기록 정정 (#473)**: 기존 완료 기록의 "발/골반 스텝 동일 효과 확장"은 `StarNoteRenderer` 내부 렌더링에 한정되며, 실제 인게임 러닝 매트 발 노트(`RunningMatRenderer._renderFlyingStompNotes`)에는 원형 링이 **미적용** 상태임. 발 노트 원형 링 적용 및 렌더러 통합은 [MRN-08 #482](https://github.com/Choyounhwa/-dream-guardian/issues/482)로 이관하여 해소함.
+  4. **테스트 정정 (#473)**: `star-note-renderer.test.ts` 내 `part: 'foot' as any` 타입 우회를 전면 제거하고 정식 `BodyPart` 규격인 `part: 'hip'`으로 정식 교정 완료.
 - **수정 대상 파일 (소스/config 2개 + 테스트 1개 = 총 3개 한정)**:
   - `dream_guardian/config/beat-motion.config.ts`: `StarNoteVisualConfig`에 `approachShape`(`'circle'` | `'rect'`, 기본값 `'circle'`) 설정 추가
-  - `dream_guardian/src/render/StarNoteRenderer.ts`: `_renderApproachRing` 및 `_renderZonePulse`를 원형(`ctx.arc`) 링으로 전환 및 발/골반 스텝 동일 지원
-  - `dream_guardian/tests/unit/star-note-renderer.test.ts`: 원형 링 드로잉, 펄스 원형 연출, 발/골반 스텝 동일 효과 단위 테스트 작성 (총 54건 100% Pass)
+  - `dream_guardian/src/render/StarNoteRenderer.ts`: `_renderApproachRing` 및 `_renderZonePulse`를 원형(`ctx.arc`) 링으로 전환
+  - `dream_guardian/tests/unit/star-note-renderer.test.ts`: 원형 링 드로잉, 펄스 원형 연출, 골반(hip) 스텝 내부 검증 단위 테스트 및 `#473` 타입 무결성 검증 (총 55건 100% Pass)
 - **완료 조건**:
   - [x] `StarNoteVisualConfig`에 `approachShape?: 'circle' | 'rect'` (기본값: `'circle'`) 추가
   - [x] `_renderApproachRing` 및 `_renderZonePulse`가 원형(`ctx.arc`)으로 렌더링되도록 구현
-  - [x] 발/골반(foot, hip, Zone 6~11) 노트에서도 동일한 원형 어프로치 링 정상 표출 단위 테스트 통과
-  - [x] `tests/unit/star-note-renderer.test.ts` 단위 테스트 통과 (54/54 Pass)
+  - [x] 골반(hip, Zone 10) 노트 StarNoteRenderer 내부 원형 어프로치 링 정상 표출 단위 테스트 통과 (타입 우회 `as any` 0건)
+  - [x] #473 정정 반영 및 인게임 발 노트는 MRN-08(#482)로 연계 완료
+  - [x] `tests/unit/star-note-renderer.test.ts` 단위 테스트 통과 (55/55 Pass)
   - [x] `npx vite build` 0 에러 정상 완료
 
 ---
