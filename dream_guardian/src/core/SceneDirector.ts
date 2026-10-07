@@ -559,6 +559,7 @@ export class SceneDirector<TContext = any> {
       if (stepped && ctx.state.screenMode === 'game' && ctx.state.gamePhase === 'running' && !ctx.pauseModal.isOpen) {
         ctx.state.totalSteps++;
         ctx.beatCoordinator.recordStep();
+        ctx.runningMatRenderer?.triggerMotionHit?.();
         ctx.effectManager.playBurst({
           x: vw * 0.5,
           y: vh * 0.65,
@@ -1093,13 +1094,17 @@ export class SceneDirector<TContext = any> {
       beatProgress: beatProg,
     });
 
-    // RUN-MAT-004 (#373) & Issue #422: 전 페이즈 상시 발 판정선 렌더링 (DreamGrid 직후 바닥 배경 레이어)
+    // RUN-MAT-004 (#373) & Issue #422, #426: 전 페이즈 상시 발 판정선 렌더링 (DreamGrid 직후 바닥 배경 레이어)
     if (ctx.runningMatRenderer) {
       const isRunQuestion = ctx.stateMachine?.currentState === 'RUN_QUESTION';
       const snapshot = isRunQuestion ? (ctx.beatCoordinator?.getRunTimingSnapshot?.() ?? null) : null;
       const mode = ctx.locomotionModal?.selectedMode ?? 'run';
       const view = isRunQuestion ? (RunningMatPresenter as any).present(snapshot, mode) : null;
-      ctx.runningMatRenderer.render(context2d, view, vw, vh, { x: bossX, y: bossY });
+      ctx.runningMatRenderer.render(context2d, view, vw, vh, {
+        vanishingPoint: { x: bossX, y: bossY },
+        elapsedTime: ctx.engine?.elapsedTime ?? 0,
+        beatProgress: beatProg,
+      });
     }
 
     // Issue #192, #232 & #235: 그리드 레일 궤적 기반 별가루 악기 노트(StarNoteRenderer) 렌더링

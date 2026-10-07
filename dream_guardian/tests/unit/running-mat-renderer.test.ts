@@ -124,6 +124,14 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
       expect(RUNNING_MAT_CONFIG.strikeOuterColor).toMatch(/rgba\(255,\s*(1[0-4][0-9]|150|[0-9]{2})/);
     });
 
+    it('듀얼 네온 블러(shadowBlur 20~25px, shadowColor #FF6600) 및 골드-주황 그라데이션 설정이 정의되어 있어야 한다 (Issue #426)', () => {
+      expect(RUNNING_MAT_CONFIG.strikeAuraShadowBlur).toBeGreaterThanOrEqual(20);
+      expect(RUNNING_MAT_CONFIG.strikeAuraShadowBlur).toBeLessThanOrEqual(25);
+      expect(RUNNING_MAT_CONFIG.strikeAuraShadowColor).toBe('#FF6600');
+      expect(RUNNING_MAT_CONFIG.strikeCoreGradientStart).toBe('#FFB800');
+      expect(RUNNING_MAT_CONFIG.strikeCoreGradientEnd).toBe('#FF8800');
+    });
+
     it('발 리듬 비트 노트(Stomp Beat Note) 시각 설정이 정의되어 있어야 한다 (Issue #425)', () => {
       expect(RUNNING_MAT_CONFIG.stompNoteRadius).toBeGreaterThanOrEqual(18);
       expect(RUNNING_MAT_CONFIG.stompNoteMinScale).toBeLessThan(0.5);
@@ -648,6 +656,35 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
       // 착지 직전 비트 노트의 Y 좌표가 판정선 근처(±60px)에 도달했는지 확인
       const hasNearLandingY = arcCalls.some((c) => Math.abs(c[1] - expectedY) < 60);
       expect(hasNearLandingY).toBe(true);
+    });
+  });
+
+  describe('11. Issue #426: 판정선 듀얼 네온 블러, 호흡 진동, 비트 펄스 및 모션 타격 섬광 검증', () => {
+    it('렌더링 시 shadowBlur(20~25px) 및 shadowColor(#FF6600) 듀얼 네온 블러를 적용한다', () => {
+      renderer.render(ctx, null, width, height);
+
+      expect(ctx.shadowBlur).toBeGreaterThanOrEqual(20);
+      expect(ctx.shadowBlur).toBeLessThanOrEqual(25);
+      expect(ctx.shadowColor).toBe('#FF6600');
+    });
+
+    it('Core Line에 #FFB800 ~ #FF8800 네온 골드·주황 그라데이션을 적용한다', () => {
+      renderer.render(ctx, null, width, height);
+
+      expect(ctx.createLinearGradient).toHaveBeenCalled();
+    });
+
+    it('triggerMotionHit 호출 시 고휘도 화이트-골드 섬광(Flash) 상태가 활성화된다', () => {
+      renderer.triggerMotionHit();
+      expect(renderer.hitFlashIntensity).toBeGreaterThan(0.8);
+
+      renderer.render(ctx, null, width, height);
+      expect(ctx.save).toHaveBeenCalled();
+    });
+
+    it('비트 진행도(beatProgress) 전달 시 상방 빛 파동(Beat Pulse Wave)이 렌더링된다', () => {
+      renderer.render(ctx, null, width, height, { beatProgress: 0.2, elapsedTime: 1.5 });
+      expect(ctx.save).toHaveBeenCalled();
     });
   });
 });

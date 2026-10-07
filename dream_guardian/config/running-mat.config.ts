@@ -21,6 +21,10 @@ export const DEFAULT_STRIKE_OVERHANG_RATIO = 0.12;
 export const DEFAULT_STOMP_NOTE_RADIUS = 24;
 export const DEFAULT_STOMP_NOTE_MIN_SCALE = 0.3;
 export const DEFAULT_STOMP_NOTE_MAX_SCALE = 1.25;
+export const DEFAULT_STRIKE_AURA_SHADOW_BLUR = 22;
+export const DEFAULT_STRIKE_AURA_SHADOW_COLOR = '#FF6600';
+export const DEFAULT_STRIKE_CORE_GRADIENT_START = '#FFB800';
+export const DEFAULT_STRIKE_CORE_GRADIENT_END = '#FF8800';
 
 export interface RunningMatConfig {
   readonly baseYTop: number;
@@ -97,6 +101,14 @@ export interface RunningMatConfig {
   readonly stompNoteCenterColor: string;
   readonly stompNoteRightColor: string;
   readonly stompNoteSymbol: string;
+
+  // 듀얼 네온 블러 및 동적 반응 설정 (Issue #426)
+  readonly strikeAuraShadowBlur: number;
+  readonly strikeAuraShadowColor: string;
+  readonly strikeCoreGradientStart: string;
+  readonly strikeCoreGradientEnd: string;
+  readonly strikeBreathSpeed: number;
+  readonly strikeHitFlashDuration: number;
 }
 
 export const RUNNING_MAT_CONFIG: RunningMatConfig = Object.freeze({
@@ -166,4 +178,11 @@ export const RUNNING_MAT_CONFIG: RunningMatConfig = Object.freeze({
   stompNoteCenterColor: '#FFD166',
   stompNoteRightColor: '#FF8800',
   stompNoteSymbol: '♪',
+
+  strikeAuraShadowBlur: DEFAULT_STRIKE_AURA_SHADOW_BLUR,
+  strikeAuraShadowColor: DEFAULT_STRIKE_AURA_SHADOW_COLOR,
+  strikeCoreGradientStart: DEFAULT_STRIKE_CORE_GRADIENT_START,
+  strikeCoreGradientEnd: DEFAULT_STRIKE_CORE_GRADIENT_END,
+  strikeBreathSpeed: 2.5,
+  strikeHitFlashDuration: 0.28,
 });

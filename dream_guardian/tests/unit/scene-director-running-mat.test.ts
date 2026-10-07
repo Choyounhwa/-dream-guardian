@@ -205,7 +205,7 @@ describe('RUN-MAT-004 (#373): RUN_QUESTION 전용 러닝 매트 스냅샷·표�
       expect(ctxArg).toBe(mockCtx2d);
       expect(vwArg).toBe(800);
       expect(vhArg).toBe(600);
-      expect(vpArg).toEqual({ x: 400, y: 600 * HORIZON_RATIO });
+      expect(vpArg.vanishingPoint ?? vpArg).toEqual({ x: 400, y: 600 * HORIZON_RATIO });
 
       expect(viewArg).toBeDefined();
       expect(viewArg.visible).toBe(true);

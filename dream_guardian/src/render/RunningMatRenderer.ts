@@ -31,11 +31,35 @@ interface FootprintSlotCoords {
   readonly footHeight: number;
 }
 
+export interface RunningMatRenderOptions {
+  vanishingPoint?: { x: number; y: number };
+  elapsedTime?: number;
+  beatProgress?: number;
+  deltaTime?: number;
+}
+
 export class RunningMatRenderer {
   private readonly config: RunningMatConfig;
+  private _hitFlashTimer = 0;
+  private _lastElapsedTime = 0;
 
   constructor(config: RunningMatConfig = RUNNING_MAT_CONFIG) {
     this.config = config;
+  }
+
+  /**
+   * 모션 히트 섬광 발생 트리거 (스텝/무릎 인식 시 고휘도 화이트-골드 Flash)
+   */
+  triggerMotionHit(): void {
+    this._hitFlashTimer = this.config.strikeHitFlashDuration ?? 0.28;
+  }
+
+  /**
+   * 현재 타격 섬광 강도 (1.0 -> 0.0)
+   */
+  get hitFlashIntensity(): number {
+    const duration = this.config.strikeHitFlashDuration || 0.28;
+    return Math.max(0, Math.min(1.0, this._hitFlashTimer / duration));
   }
 
   /**
@@ -46,7 +70,7 @@ export class RunningMatRenderer {
     view: RunningMatViewModel | null,
     width: number,
     height: number,
-    vanishingPoint?: { x: number; y: number }
+    optionsOrVP?: { x: number; y: number } | RunningMatRenderOptions
   ): void {
     // 1. 가드 체크: 명시적으로 비가시 상태 설정 시 생략 (null view는 앰비언트 모드로 허용)
     if (view && view.visible === false) {
@@ -66,7 +90,7 @@ export class RunningMatRenderer {
     // 3. 상태 격리: save / restore
     ctx.save();
     try {
-      this._renderInternal(ctx, view, width, height, vanishingPoint);
+      this._renderInternal(ctx, view, width, height, optionsOrVP);
     } finally {
       ctx.restore();
     }
@@ -77,11 +101,28 @@ export class RunningMatRenderer {
     view: RunningMatViewModel | null,
     width: number,
     height: number,
-    vanishingPoint?: { x: number; y: number }
+    optionsOrVP?: { x: number; y: number } | RunningMatRenderOptions
   ): void {
+    const isVp = optionsOrVP && 'x' in optionsOrVP && 'y' in optionsOrVP;
+    const vp = isVp ? optionsOrVP : (optionsOrVP as RunningMatRenderOptions)?.vanishingPoint;
+    const elapsedTime = (!isVp && (optionsOrVP as RunningMatRenderOptions)?.elapsedTime !== undefined)
+      ? (optionsOrVP as RunningMatRenderOptions)!.elapsedTime!
+      : this._lastElapsedTime;
+    const beatProgress = (!isVp && (optionsOrVP as RunningMatRenderOptions)?.beatProgress !== undefined)
+      ? (optionsOrVP as RunningMatRenderOptions)!.beatProgress!
+      : (view ? (1.0 - Math.max(0, Math.min(1.0, view.nextRingRatio))) : undefined);
+    const dt = (!isVp && (optionsOrVP as RunningMatRenderOptions)?.deltaTime !== undefined)
+      ? (optionsOrVP as RunningMatRenderOptions)!.deltaTime!
+      : Math.max(0, elapsedTime - this._lastElapsedTime);
+
+    this._lastElapsedTime = elapsedTime;
+    if (dt > 0 && this._hitFlashTimer > 0) {
+      this._hitFlashTimer = Math.max(0, this._hitFlashTimer - dt);
+    }
+
     // 소실점 좌표 산출
-    const vx = vanishingPoint?.x ?? width * 0.5;
-    const vy = vanishingPoint?.y ?? height * this.config.vanishingYRatio;
+    const vx = vp?.x ?? width * 0.5;
+    const vy = vp?.y ?? height * this.config.vanishingYRatio;
 
     // 반응형 폭 비율 산출 (좁은 화면 / 세로 모드 보정)
     const aspect = width / height;
@@ -98,7 +139,7 @@ export class RunningMatRenderer {
     const yBottom = height * this.config.baseYBottom;
     const halfWBottom = (width * matWidthRatio) * 0.5;
 
-    // 1. 초고휘도 네온 글로우 발 판정선(Foot Strike Line) 및 3대 레인 타깃 앵커 렌더링 (Issue #421, #422)
+    // 1. 초고휘도 네온 글로우 발 판정선(Foot Strike Line) 및 3대 레인 타깃 앵커 렌더링 (Issue #421, #422, #426)
     const yStrike = height * (this.config.strikeLineYRatio ?? DEFAULT_STRIKE_LINE_Y_RATIO);
     this._renderFootStrikeLine(
       ctx,
@@ -106,7 +147,9 @@ export class RunningMatRenderer {
       vx,
       yStrike,
       width,
-      halfWBottom
+      halfWBottom,
+      elapsedTime,
+      beatProgress
     );
 
     // 2. view가 null이면 앰비언트 모드로 판정선만 렌더링하고 러닝 동작 큐(발자국/화살표)는 생략
@@ -150,7 +193,7 @@ export class RunningMatRenderer {
 
   /**
    * 초고휘도 네온 글로우 발 판정선(Foot Strike Line) 및 3대 레인 타깃 앵커 렌더링
-   * Issue #421, #422: 기존 3칸 매트를 제거하고 화면 전폭을 넘어(-10%~110%) 뻗어나가는 오렌지-골드 판정선 표출
+   * Issue #421, #422, #426: 듀얼 네온 블러(shadowBlur 22px, shadowColor #FF6600), 호흡 진동, 비트 상방 파동 및 타격 섬광 구현
    */
   private _renderFootStrikeLine(
     ctx: CanvasRenderingContext2D,
@@ -158,20 +201,32 @@ export class RunningMatRenderer {
     vx: number,
     yStrike: number,
     width: number,
-    halfWBottom: number
+    halfWBottom: number,
+    elapsedTime?: number,
+    beatProgress?: number
   ): void {
     const overhang = width * (this.config.strikeOverhangRatio ?? DEFAULT_STRIKE_OVERHANG_RATIO);
     const xStart = -overhang;
     const xEnd = width + overhang;
 
-    // 1. 3중 네온 글로우 수평 판정선 (오렌지-골드 블렌드 네온)
+    // 0. Idle / Breath 부드러운 호흡 알파 진동 (60fps 기반)
+    const breathSpeed = this.config.strikeBreathSpeed ?? 2.5;
+    const breathAlpha = 0.88 + 0.12 * Math.sin((elapsedTime ?? 0) * breathSpeed);
+
+    // 1. 듀얼 네온 블러(shadowBlur 20~25px, shadowColor #FF6600) 적용 (Issue #426)
+    ctx.shadowBlur = this.config.strikeAuraShadowBlur ?? 22;
+    ctx.shadowColor = this.config.strikeAuraShadowColor ?? '#FF6600';
+
+    // 2. 3중 네온 글로우 수평 판정선 (오렌지-골드 블렌드 네온)
     // (1) Outer Ambient Glow (따뜻한 오렌지 앰버 글로우)
     ctx.beginPath();
     ctx.moveTo(xStart, yStrike);
     ctx.lineTo(xEnd, yStrike);
     ctx.strokeStyle = this.config.strikeOuterColor;
     ctx.lineWidth = this.config.strikeOuterGlowWidth;
+    ctx.globalAlpha = breathAlpha * 0.9;
     ctx.stroke();
+    ctx.globalAlpha = 1.0;
 
     // (2) Mid Gold Glow (부드러운 중간 골드 레이어)
     ctx.beginPath();
@@ -179,7 +234,9 @@ export class RunningMatRenderer {
     ctx.lineTo(xEnd, yStrike);
     ctx.strokeStyle = 'rgba(255, 183, 3, 0.65)';
     ctx.lineWidth = this.config.strikeInnerGlowWidth * 1.8;
+    ctx.globalAlpha = breathAlpha;
     ctx.stroke();
+    ctx.globalAlpha = 1.0;
 
     // (3) Inner Neon Glow (골드/옐로우 네온 코어 띠)
     ctx.beginPath();
@@ -189,15 +246,64 @@ export class RunningMatRenderer {
     ctx.lineWidth = this.config.strikeInnerGlowWidth;
     ctx.stroke();
 
-    // (4) Core Strike Line (고휘도 웜 화이트 코어 라인)
+    // (4) Core Line: 3px 두께의 선명한 네온 골드·주황 그라데이션 (#FFB800 ~ #FF8800)
     ctx.beginPath();
     ctx.moveTo(xStart, yStrike);
     ctx.lineTo(xEnd, yStrike);
-    ctx.strokeStyle = this.config.strikeCoreColor;
+    const coreGrad = typeof ctx.createLinearGradient === 'function'
+      ? ctx.createLinearGradient(xStart, yStrike, xEnd, yStrike)
+      : null;
+    if (coreGrad) {
+      coreGrad.addColorStop(0, this.config.strikeCoreGradientEnd ?? '#FF8800');
+      coreGrad.addColorStop(0.25, this.config.strikeCoreGradientStart ?? '#FFB800');
+      coreGrad.addColorStop(0.5, '#FFFFFF');
+      coreGrad.addColorStop(0.75, this.config.strikeCoreGradientStart ?? '#FFB800');
+      coreGrad.addColorStop(1, this.config.strikeCoreGradientEnd ?? '#FF8800');
+      ctx.strokeStyle = coreGrad;
+    } else {
+      ctx.strokeStyle = this.config.strikeCoreColor;
+    }
     ctx.lineWidth = this.config.strikeCoreLineWidth;
     ctx.stroke();
 
-    // 2. 3대 발 레인 타깃 앵커 (Zone 9: Left Foot, Zone 10: Center, Zone 11: Right Foot)
+    // 3. Beat Pulse: BGM 비트 타이밍마다 중심에서 상방으로 퍼지는 빛 파동
+    if (beatProgress !== undefined && beatProgress >= 0 && beatProgress <= 0.45) {
+      const pulseP = beatProgress / 0.45;
+      const waveY = yStrike - 32 * Math.pow(pulseP, 0.7);
+      const waveAlpha = (1.0 - pulseP) * 0.75;
+      ctx.beginPath();
+      ctx.moveTo(xStart, waveY);
+      ctx.lineTo(xEnd, waveY);
+      ctx.strokeStyle = this.config.strikeActivePulseGlow;
+      ctx.lineWidth = Math.max(1, 3.5 * (1.0 - pulseP));
+      ctx.globalAlpha = waveAlpha;
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+    }
+
+    // 4. Motion Hit Flash: 스텝/무릎 감지 시 순간적인 고휘도 화이트-골드 섬광 발생
+    if (this._hitFlashTimer > 0) {
+      const flashAlpha = this.hitFlashIntensity;
+      ctx.beginPath();
+      ctx.moveTo(xStart, yStrike);
+      ctx.lineTo(xEnd, yStrike);
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = this.config.strikeCoreLineWidth * 2.8;
+      ctx.globalAlpha = flashAlpha;
+      ctx.stroke();
+
+      // 확장 섬광 광선
+      ctx.beginPath();
+      ctx.moveTo(xStart, yStrike);
+      ctx.lineTo(xEnd, yStrike);
+      ctx.strokeStyle = this.config.strikeCoreGradientStart ?? '#FFB800';
+      ctx.lineWidth = this.config.strikeCoreLineWidth * 4.5;
+      ctx.globalAlpha = flashAlpha * 0.5;
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+    }
+
+    // 5. 3대 발 레인 타깃 앵커 (Zone 9: Left Foot, Zone 10: Center, Zone 11: Right Foot)
     const isLeftActive = view ? (view.currentCue?.leftFootSlot === 'out' || view.actionText.includes('왼')) : false;
     const isRightActive = view ? (view.currentCue?.rightFootSlot === 'out' || view.actionText.includes('오른')) : false;
     const isCenterActive = view ? (!isLeftActive && !isRightActive) : false;
