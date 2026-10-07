@@ -26,6 +26,19 @@ import {
   computeFlightProgress,
   projectFlight,
 } from './NoteProjection.js';
+import { MotionNoteRenderer } from './MotionNoteRenderer.js';
+import { starTargetToRenderItem } from '../game/adapters/starNoteAdapter.js';
+import {
+  createDefaultPainterRegistry,
+  type BodyPainter,
+} from './note-painters/NotePainters.js';
+import {
+  DEFAULT_NOTE_PROFILES,
+  type NoteVisualProfile,
+  type NoteBodyProfile,
+} from '../../config/motion-note-profile.config.js';
+import type { MotionNoteRenderItem } from '../types/motion-note.js';
+import type { NoteAnchor } from './NoteAnchorResolver.js';
 
 export type { StarBeatPreviewOptions };
 
@@ -48,6 +61,8 @@ export interface StarNoteRenderOptions {
   visualConfig?: Partial<StarNoteVisualConfig>;
   /** 사전 주입 이미지 맵 (Issue #424 / RENDER-NOTE-IMAGE-001) */
   imageMap?: Record<string, any>;
+  /** 차세대 통합 모션 노트 렌더러 주입 (Issue #481 / MRN-07) */
+  motionNoteRenderer?: MotionNoteRenderer;
 }
 
 export interface StarNotePositionResult {
@@ -70,7 +85,8 @@ export interface StarNoteRenderState {
 }
 
 export class StarNoteRenderer {
-  private readonly _options: Required<Omit<StarNoteRenderOptions, 'timingWindows' | 'visualConfig' | 'imageMap'>>;
+  public readonly motionNoteRenderer: MotionNoteRenderer;
+  private readonly _options: Required<Omit<StarNoteRenderOptions, 'timingWindows' | 'visualConfig' | 'imageMap' | 'motionNoteRenderer'>>;
   private readonly _visualConfig: StarNoteVisualConfig;
   private readonly _imageCache: Map<string, any> = new Map();
 
@@ -109,6 +125,76 @@ export class StarNoteRenderer {
     }
 
     this._initImageLoading();
+
+    // Issue #481 (MRN-07): MotionNoteRenderer 위임 인스턴스 초기화
+    this.motionNoteRenderer =
+      options?.motionNoteRenderer ?? this._createMotionNoteRenderer();
+  }
+
+  /**
+   * StarNoteRenderer용 기본 MotionNoteRenderer 인스턴스 생성
+   */
+  private _createMotionNoteRenderer(): MotionNoteRenderer {
+    const registry = createDefaultPainterRegistry();
+    const starBodyPainter = new StarNoteBodyPainter(this);
+    registry.registerBody('image', starBodyPainter);
+    registry.registerBody('symbol', starBodyPainter);
+    registry.registerBody('orb', starBodyPainter);
+
+    const profiles: Record<string, NoteVisualProfile> = {
+      ...DEFAULT_NOTE_PROFILES,
+      star_hand: {
+        ...DEFAULT_NOTE_PROFILES.star_hand,
+        ring: null, // StarNoteRenderer가 _renderApproachRing으로 링을 직접 관할
+      },
+      star_foot: {
+        ...(DEFAULT_NOTE_PROFILES.star_foot ?? DEFAULT_NOTE_PROFILES.star_hand),
+        profileId: 'star_foot',
+        ring: null,
+      },
+    };
+
+    return new MotionNoteRenderer({
+      registry,
+      profiles,
+    });
+  }
+
+  /**
+   * 상태로부터 유효한(미해결 및 미수집) 활성 타겟 목록을 추출 (Issue #481 / MRN-07)
+   */
+  getActiveTargets(state: StarNoteRenderState): (ActiveStarTarget | StarTarget)[] {
+    const rawTargets = state.targets ?? (state.target ? [state.target] : []);
+    const filtered = rawTargets.filter(
+      (t): t is ActiveStarTarget | StarTarget =>
+        Boolean(t && t.landingTime !== undefined && !(t as any).resolved && !(t as any).isCollected)
+    );
+    return filtered.length > 1
+      ? [...filtered].sort((a, b) => (a.landingTime ?? 0) - (b.landingTime ?? 0))
+      : filtered;
+  }
+
+  /**
+   * 타겟 목록 렌더링 편의 메서드 (Issue #481 / MRN-07 기존 호환)
+   */
+  renderTargets(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    targetsOrState: readonly (ActiveStarTarget | StarTarget)[] | StarNoteRenderState,
+    stateOptions?: Partial<StarNoteRenderState>,
+  ): void {
+    if (Array.isArray(targetsOrState)) {
+      this.render(ctx, vw, vh, {
+        targets: targetsOrState,
+        elapsedTime: stateOptions?.elapsedTime ?? 0,
+        vanishingX: stateOptions?.vanishingX ?? vw * 0.5,
+        vanishingY: stateOptions?.vanishingY ?? vh * 0.5,
+        ...stateOptions,
+      });
+    } else {
+      this.render(ctx, vw, vh, targetsOrState as StarNoteRenderState);
+    }
   }
 
   /**
@@ -146,7 +232,7 @@ export class StarNoteRenderer {
     return this._imageCache.get(key);
   }
 
-  get options(): Readonly<Required<Omit<StarNoteRenderOptions, 'timingWindows' | 'visualConfig' | 'imageMap'>>> {
+  get options(): Readonly<Required<Omit<StarNoteRenderOptions, 'timingWindows' | 'visualConfig' | 'imageMap' | 'motionNoteRenderer'>>> {
     return this._options;
   }
 
@@ -292,17 +378,8 @@ export class StarNoteRenderer {
     vh: number,
     state: StarNoteRenderState,
   ): void {
-    const rawTargets = state.targets ?? (state.target ? [state.target] : []);
-    const targets = rawTargets.filter(
-      (t): t is ActiveStarTarget | StarTarget =>
-        Boolean(t && t.landingTime !== undefined && !(t as any).resolved && !(t as any).isCollected)
-    );
-    if (targets.length === 0) return;
-
-    // 렌더 순서: 여러 타겟이 렌더링될 때 가까운 착지(landingTime이 더 빠른 노트)를 우선하여 시인성 확보
-    const sortedTargets = targets.length > 1
-      ? [...targets].sort((a, b) => (a.landingTime ?? 0) - (b.landingTime ?? 0))
-      : targets;
+    const sortedTargets = this.getActiveTargets(state);
+    if (sortedTargets.length === 0) return;
 
     const zones = state.zones ?? DEFAULT_FITNESS_ZONES;
 
@@ -365,54 +442,68 @@ export class StarNoteRenderer {
     // 3. 비행 궤적 잔상 트레일 (소실점 방향 꼬리)
     this._renderTrail(ctx, vanishingX, vanishingY, pos.x, pos.y, color, pos.scale);
 
-    // 4. 별가루 악기 노트 본체 (4색 테두리 + 글로우)
-    const radius = this._options.baseRadius * pos.scale;
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = this._visualConfig.bodyFillColor;
-    ctx.fill();
-
-    ctx.strokeStyle = color;
-    ctx.lineWidth = this._visualConfig.strokeWidthFactor * pos.scale;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = this._visualConfig.glowBlurFactor * pos.scale;
-    ctx.stroke();
-
-    // 5. 악기 / 별가루 심볼 렌더링 (Issue #424: 비트맵 이미지 드로잉 및 텍스트 Fallback)
-    const instrument = (target as any).instrument ?? ((targetPart as string) === 'hip' || (targetPart as string) === 'foot' ? 'foot' : 'hand');
-    const renderMode = this._visualConfig.renderMode ?? 'image';
-
-    let renderedAsImage = false;
-    if (renderMode === 'image') {
-      const img = this._resolveTargetImage(targetPart, instrument);
-      if (img && (img.complete !== false || img.naturalWidth)) {
-        const iconSize = radius * 1.5;
-        ctx.drawImage(img, pos.x - iconSize * 0.5, pos.y - iconSize * 0.5, iconSize, iconSize);
-        renderedAsImage = true;
-      }
-    }
-
-    if (!renderedAsImage) {
-      const fontSize = Math.max(1, Math.round(this._visualConfig.symbolFontSizeFactor * pos.scale));
-      ctx.fillStyle = this._visualConfig.symbolColor;
-      ctx.font = `bold ${fontSize}px ${this._visualConfig.symbolFontFamily}`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const defaultSymbol = this._visualConfig.instrumentSymbols[instrument] || this._visualConfig.instrumentSymbols.hand || '★';
-      const icon = (target as any).icon ?? (this._visualConfig.resolveSymbol ? this._visualConfig.resolveSymbol(target) : defaultSymbol);
-      ctx.fillText(icon, pos.x, pos.y);
-    }
+    // 4. 비행 노트(바디 및 심볼/아이콘) 렌더링을 MotionNoteRenderer로 위임 (Issue #481 / MRN-07)
+    this._renderFlightNote(
+      ctx,
+      vw,
+      vh,
+      target,
+      elapsedTime,
+      vanishingX,
+      vanishingY,
+      zones,
+      beatPreview,
+    );
 
     ctx.restore();
-    ctx.restore();
+  }
+
+  /**
+   * 비행 노트 본체 렌더링을 MotionNoteRenderer로 위임 (Issue #481 / MRN-07)
+   */
+  private _renderFlightNote(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    target: ActiveStarTarget | StarTarget,
+    elapsedTime: number,
+    vanishingX: number,
+    vanishingY: number,
+    zones: readonly FitnessZone[],
+    beatPreview?: StarBeatPreviewOptions,
+  ): void {
+    const spb = beatPreview?.secondsPerBeat ?? this._options.travelDuration;
+    const leadBeats =
+      beatPreview?.leadBeats ??
+      (beatPreview ? DEFAULT_STAR_PREVIEW_CONFIG.leadBeats : 1);
+    const targetPart = target.part || 'leftHand';
+    const profileId =
+      (target as any).profileId ??
+      (targetPart === 'hip' || (targetPart as string) === 'foot'
+        ? 'star_foot'
+        : 'star_hand');
+
+    const renderItem = starTargetToRenderItem(target as StarTarget, {
+      now: elapsedTime,
+      spb,
+      leadBeats,
+      sequenceStart: beatPreview?.startTime,
+      profileId,
+    });
+
+    this.motionNoteRenderer.render(
+      ctx,
+      [renderItem],
+      { width: vw, height: vh },
+      { x: vanishingX, y: vanishingY },
+      zones,
+    );
   }
 
   /**
    * 부위 및 악기에 따른 비트맵 이미지 조회
    */
-  private _resolveTargetImage(targetPart: string, instrument: string): any {
+  resolveTargetImage(targetPart: string, instrument: string): any {
     return (
       this._imageCache.get(targetPart) ??
       this._imageCache.get(instrument) ??
@@ -551,3 +642,91 @@ export class StarNoteRenderer {
     ctx.restore();
   }
 }
+
+/**
+ * StarNoteRenderer 비주얼 설정을 연동하여 MotionNoteRenderer에 제공하는 바디 페인터 (Issue #481 / MRN-07)
+ */
+class StarNoteBodyPainter implements BodyPainter {
+  constructor(private readonly _renderer: StarNoteRenderer) {}
+
+  draw(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number,
+    _style: NoteBodyProfile,
+    item: MotionNoteRenderItem,
+    _anchor?: NoteAnchor,
+  ): void {
+    const vc = this._renderer.getVisualConfig();
+    const req = item.requirements?.[0];
+    const targetPart = (req?.part ?? 'leftHand') as string;
+    const color =
+      vc.partColors[targetPart] || vc.partColors.leftHand || '#28E6FF';
+
+    const safeRadius = Math.max(1, radius);
+    const scale = safeRadius / (vc.baseRadius || 28);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, safeRadius, 0, Math.PI * 2);
+    ctx.fillStyle = vc.bodyFillColor;
+    ctx.fill();
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = vc.strokeWidthFactor * scale;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = vc.glowBlurFactor * scale;
+    ctx.stroke();
+
+    const instrument =
+      (item as any).instrument ??
+      (targetPart === 'hip' || targetPart === 'foot' ? 'foot' : 'hand');
+    const renderMode = vc.renderMode ?? 'image';
+
+    let renderedAsImage = false;
+    if (renderMode === 'image') {
+      const img = this._renderer.resolveTargetImage(targetPart, instrument);
+      if (img && (img.complete !== false || img.naturalWidth)) {
+        const iconSize = safeRadius * 1.5;
+        ctx.drawImage(
+          img,
+          x - iconSize * 0.5,
+          y - iconSize * 0.5,
+          iconSize,
+          iconSize,
+        );
+        renderedAsImage = true;
+      }
+    }
+
+    if (!renderedAsImage) {
+      const fontSize = Math.max(
+        1,
+        Math.round(vc.symbolFontSizeFactor * scale),
+      );
+      ctx.fillStyle = vc.symbolColor;
+      ctx.font = `bold ${fontSize}px ${vc.symbolFontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const defaultSymbol =
+        vc.instrumentSymbols[instrument] ||
+        vc.instrumentSymbols.hand ||
+        '★';
+      const targetShim = {
+        zoneId: req?.zoneId ?? 1,
+        part: targetPart,
+        instrument,
+      };
+      const icon =
+        (item as any).icon ??
+        (vc.resolveSymbol
+          ? vc.resolveSymbol(targetShim as any)
+          : defaultSymbol);
+      ctx.fillText(icon, x, y);
+    }
+
+    ctx.restore();
+  }
+}
+
