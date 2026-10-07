@@ -57,8 +57,7 @@ export const SCREEN_DEFINITIONS: readonly ScreenDefinition[] = Object.freeze([
     elements: Object.freeze([
       { id: "pause-dialog", label: "일시정지 창 본체", defaultRect: { x: 180, y: 360, width: 720, height: 760 } },
       { id: "pause-resume-btn", label: "계속하기 버튼", defaultRect: { x: 260, y: 560, width: 560, height: 90 } },
-      { id: "pause-restart-btn", label: "다시 시작 버튼", defaultRect: { x: 260, y: 690, width: 560, height: 90 } },
-      { id: "pause-exit-btn", label: "메인으로 나가기 버튼", defaultRect: { x: 260, y: 820, width: 560, height: 90 } },
+      { id: "pause-exit-btn", label: "메인으로 나가기 버튼", defaultRect: { x: 260, y: 700, width: 560, height: 90 } },
     ]),
   },
   {
@@ -83,11 +82,9 @@ export const SCREEN_DEFINITIONS: readonly ScreenDefinition[] = Object.freeze([
     id: "answer_select",
     label: "7. 답변 선택 페이즈",
     elements: Object.freeze([
-      { id: "answer-choice-1", label: "1번 답안 버튼", defaultRect: { x: 80, y: 500, width: 440, height: 240 } },
-      { id: "answer-choice-2", label: "2번 답안 버튼", defaultRect: { x: 560, y: 500, width: 440, height: 240 } },
-      { id: "answer-choice-3", label: "3번 답안 버튼", defaultRect: { x: 80, y: 780, width: 440, height: 240 } },
-      { id: "answer-choice-4", label: "4번 답안 버튼", defaultRect: { x: 560, y: 780, width: 440, height: 240 } },
-      { id: "answer-zone-anchors", label: "피트니스 존 타깃 앵커", defaultRect: { x: 80, y: 480, width: 920, height: 560 } },
+      { id: "answer-choice-1", label: "1번 답안 버튼", defaultRect: { x: 43, y: 890, width: 281, height: 250 } },
+      { id: "answer-choice-2", label: "2번 답안 버튼", defaultRect: { x: 756, y: 890, width: 281, height: 250 } },
+      { id: "answer-zone-anchors", label: "피트니스 존 타깃 앵커", defaultRect: { x: 43, y: 518, width: 994, height: 622 } },
     ]),
   },
   {
@@ -129,5 +126,8 @@ export function getScreenRegistry(): readonly ScreenDefinition[] {
 
 export function getScreenElements(screenId: string): readonly UIElementMeta[] {
   const found = SCREEN_DEFINITIONS.find((s) => s.id === screenId);
-  return found ? found.elements : SCREEN_DEFINITIONS[0].elements;
+  if (!found) {
+    throw new Error(`UNKNOWN_SCREEN: 알 수 없는 화면 ID입니다: ${screenId}`);
+  }
+  return found.elements;
 }
