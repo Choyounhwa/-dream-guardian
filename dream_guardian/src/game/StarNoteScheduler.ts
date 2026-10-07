@@ -9,9 +9,14 @@
  * - instrument === 'foot'인 노트는 손/머리/골반 커서 판정을 바이패스하고 발 입력으로만 판정
  * - 7개 노트가 모두 hit/miss로 확정되고 currentTime >= startTime + 3.90s 경과 시 isComplete = true 반환
  *
+ * Issue #483 [MRN-09]:
+ * - 내부적으로 차세대 MotionNoteTimeline에 스케줄링 및 판정 위임
+ * - 공개 API, 이벤트, 인터페이스 100% 하위 호환성 유지
+ *
  * @see Issue #235 [BUG-STAR-SCHEDULE-001]
  * @see Issue #182 [INPUT-STAR-001]
  * @see Issue #210 [BEAT-KEYNOTE-ENGINE-001]
+ * @see Issue #483 [MRN-09]
  */
 
 import {
@@ -41,6 +46,8 @@ import { STAR_COLLECT_ROUTINE, type StarCollectNote } from '../data/danceRoutine
 import type { Keynote, KeynoteInstrument, FootKeynoteEvent } from '../types/keynote.js';
 import type { BodyPart } from '../types/posture.js';
 import type { NormalizedLandmark } from '../types/index.js';
+import type { MotionNote, MotionPart } from '../types/motion-note.js';
+import { MotionNoteTimeline } from './MotionNoteTimeline.js';
 
 export interface ScheduledStarNote extends ActiveStarTarget {
   id: string;
@@ -88,6 +95,8 @@ export class StarNoteScheduler {
   private _listeners: ((result: StarCollectionResult) => void)[] = [];
   private _allNotesCompletedListeners: (() => void)[] = [];
 
+  private _timeline: MotionNoteTimeline;
+
   constructor(options?: StarNoteSchedulerOptions) {
     this._options = options ?? {};
     this._secondsPerBeat = options?.secondsPerBeat ?? 0.5;
@@ -98,9 +107,25 @@ export class StarNoteScheduler {
     this._cursorTracker = options?.cursorTracker ?? new CursorTracker();
     this._zones = options?.zones ?? DEFAULT_FITNESS_ZONES;
 
+    this._timeline = new MotionNoteTimeline({
+      timingWindows: this._timingWindows,
+      spb: this._secondsPerBeat,
+      leadBeats: 2,
+    });
+
     if (options?.onRating) {
       this._listeners.push(options.onRating);
     }
+    if (options?.onComplete) {
+      this._allNotesCompletedListeners.push(options.onComplete);
+    }
+    if (options?.onAllNotesCompleted) {
+      this._allNotesCompletedListeners.push(options.onAllNotesCompleted);
+    }
+  }
+
+  get timeline(): MotionNoteTimeline {
+    return this._timeline;
   }
 
   get notes(): readonly ScheduledStarNote[] {
@@ -135,8 +160,16 @@ export class StarNoteScheduler {
     return this._notes.filter((n) => n.resolved).length;
   }
 
+  get totalCount(): number {
+    return this._notes.length;
+  }
+
   get cursorTracker(): CursorTracker {
     return this._cursorTracker;
+  }
+
+  get timingWindows(): StarTimingWindows {
+    return this._timingWindows;
   }
 
   /**
@@ -188,6 +221,7 @@ export class StarNoteScheduler {
 
   setPaused(paused: boolean): void {
     this._isPaused = paused;
+    this._timeline.setPaused(paused);
   }
 
   setViewport(virtualWidth: number, virtualHeight: number, projectFn?: ViewportProjectFn): void {
@@ -249,6 +283,28 @@ export class StarNoteScheduler {
         result: null,
       };
     });
+
+    const motionNotes: MotionNote[] = this._notes.map((note) => {
+      const part: MotionPart =
+        note.instrument === 'foot'
+          ? (note.part === 'hip' ? 'centerFoot' : (note.part as MotionPart))
+          : (note.part as MotionPart);
+      return {
+        id: note.id,
+        patternId: note.patternId,
+        beat: note.index + 2,
+        requirements: [{ part, zoneId: note.zoneId }],
+        interaction: 'tap' as const,
+        source: 'star',
+        leadBeats: 2,
+      };
+    });
+
+    this._timeline.loadNotes(motionNotes, {
+      sequenceStart: startTime,
+      spb: this._secondsPerBeat,
+      leadBeats: 2,
+    });
   }
 
   reset(): void {
@@ -259,6 +315,7 @@ export class StarNoteScheduler {
     this._isPaused = false;
     this._completedNotified = false;
     this._cursorTracker.reset();
+    this._timeline.reset();
   }
 
   /**
@@ -273,6 +330,7 @@ export class StarNoteScheduler {
   ): StarCollectionResult[] {
     if (!this._isStarted || this._isPaused) return [];
     this._currentTime = Math.max(this._currentTime, currentTime);
+    this._timeline.update(currentTime);
 
     const results: StarCollectionResult[] = [];
 
@@ -292,7 +350,6 @@ export class StarNoteScheduler {
     for (const note of this._notes) {
       if (note.resolved) continue;
 
-      // 발 전용 노트는 손/머리/골반 커서 판정을 바이패스
       if (note.instrument === 'foot') {
         continue;
       }
@@ -301,12 +358,10 @@ export class StarNoteScheduler {
       const timeDiff = currentTime - landingTime;
       const absDiff = Math.abs(timeDiff);
 
-      // 아직 판정 윈도우 미도달
       if (currentTime < landingTime - this._timingWindows.late) {
         continue;
       }
 
-      // 판정 윈도우 초과 (만료 체크에서 처리됨)
       if (absDiff > this._timingWindows.late + EPSILON) {
         continue;
       }
@@ -347,10 +402,10 @@ export class StarNoteScheduler {
     const currentTime =
       timestamp ?? (typeof eventOrZoneId === 'object' ? eventOrZoneId.timestamp : this._currentTime);
     this._currentTime = Math.max(this._currentTime, currentTime);
+    this._timeline.update(currentTime);
 
     this._checkExpirations(currentTime);
 
-    // 유효한 타이밍 윈도우 내의 발(foot) 노트 후보 탐색
     const candidates = this._notes.filter(
       (n) =>
         !n.resolved &&
@@ -360,13 +415,11 @@ export class StarNoteScheduler {
 
     if (candidates.length === 0) return null;
 
-    // 가장 착지 시각에 가까운 노트 선택
     candidates.sort(
       (a, b) => Math.abs(currentTime - a.landingTime) - Math.abs(currentTime - b.landingTime),
     );
     const targetNote = candidates[0];
 
-    // 존 호환성 검증 (지정 존 일치 또는 센터 존 10)
     if (targetNote.zoneId !== zoneId && zoneId !== 10) {
       return null;
     }
@@ -383,6 +436,7 @@ export class StarNoteScheduler {
   fromKeyboard(currentTime: number, _key?: string): StarCollectionResult | null {
     if (!this._isStarted || this._isPaused) return null;
     this._currentTime = Math.max(this._currentTime, currentTime);
+    this._timeline.update(currentTime);
 
     this._checkExpirations(currentTime);
 
@@ -411,6 +465,7 @@ export class StarNoteScheduler {
   fromTouch(zoneId: number, currentTime: number): StarCollectionResult | null {
     if (!this._isStarted || this._isPaused) return null;
     this._currentTime = Math.max(this._currentTime, currentTime);
+    this._timeline.update(currentTime);
 
     this._checkExpirations(currentTime);
 
@@ -446,6 +501,7 @@ export class StarNoteScheduler {
     if (!targetNote || targetNote.resolved) return null;
     const currentTime = timestamp ?? targetNote.landingTime;
     this._currentTime = Math.max(this._currentTime, currentTime);
+    this._timeline.update(currentTime);
     const result = this._resolveNote(targetNote, rating, currentTime, 'motion');
     this._checkCompletion();
     return result;
@@ -475,6 +531,21 @@ export class StarNoteScheduler {
         };
         note.resolved = true;
         note.result = res;
+
+        // timeline 동기화
+        const rt = this._timeline.runtimes.find((r) => r.note.id === note.id);
+        if (rt && rt.state !== 'resolved') {
+          rt.state = 'resolved';
+          rt.result = {
+            noteId: note.id,
+            interaction: 'tap',
+            rating: 'Miss',
+            success: false,
+            timingError: currentTime - note.landingTime,
+            matchedParts: [],
+          };
+        }
+
         expiredResults.push(res);
         this._notifyRating(res);
       }
@@ -503,6 +574,21 @@ export class StarNoteScheduler {
     };
     note.resolved = true;
     note.result = res;
+
+    // timeline 동기화
+    const rt = this._timeline.runtimes.find((r) => r.note.id === note.id);
+    if (rt && rt.state !== 'resolved') {
+      rt.state = 'resolved';
+      rt.result = {
+        noteId: note.id,
+        interaction: 'tap',
+        rating,
+        success: collected,
+        timingError: currentTime - note.landingTime,
+        matchedParts: [note.part as MotionPart],
+      };
+    }
+
     this._notifyRating(res);
     return res;
   }
