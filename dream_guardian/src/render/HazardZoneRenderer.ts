@@ -12,6 +12,13 @@
 
 import type { PhaseAHazardPattern } from '../../config/phase-a-hazard.config.js';
 import { depthRatioFromY, laneToScreenX } from './GridProjection.js';
+import { MotionNoteRenderer } from './MotionNoteRenderer.js';
+import { createDefaultPainterRegistry } from './note-painters/NotePainters.js';
+import {
+  DEFAULT_NOTE_PROFILES,
+  HAZARD_FLOOR_PROFILE,
+} from '../../config/motion-note-profile.config.js';
+import { hazardPatternToRenderItem } from '../game/adapters/hazardAdapter.js';
 
 export interface HazardRenderState {
   activePattern: PhaseAHazardPattern | null;
@@ -23,6 +30,52 @@ export interface HazardRenderState {
 }
 
 export class HazardZoneRenderer {
+  public readonly motionNoteRenderer: MotionNoteRenderer;
+
+  constructor(motionNoteRenderer?: MotionNoteRenderer) {
+    this.motionNoteRenderer =
+      motionNoteRenderer ?? this._createMotionNoteRenderer();
+  }
+
+  /**
+   * HazardZoneRenderer용 기본 MotionNoteRenderer 인스턴스 생성
+   */
+  private _createMotionNoteRenderer(): MotionNoteRenderer {
+    const registry = createDefaultPainterRegistry();
+    registry.registerBody('hazardSkull', {
+      draw(ctx, x, y, radius, style) {
+        const safeRadius = Math.max(1, radius);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, safeRadius, 0, Math.PI * 2);
+        ctx.fillStyle = style.fillColor;
+        ctx.fill();
+
+        ctx.strokeStyle = style.borderColor === 'byPart' ? '#FF1E3C' : style.borderColor;
+        ctx.lineWidth = Math.max(1.5, 4 * (safeRadius / (style.baseRadius || 36)));
+        ctx.shadowColor = ctx.strokeStyle;
+        ctx.shadowBlur = 14;
+        ctx.stroke();
+
+        ctx.fillStyle = '#FFFFFF';
+        // A11Y-001: 접근성 최소 폰트 하한선 24px 보장
+        const fontSize = Math.max(24, Math.round(safeRadius * 0.85));
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(style.symbol ?? '⚠', x, y);
+        ctx.restore();
+      },
+    });
+
+    return new MotionNoteRenderer({
+      registry,
+      profiles: {
+        ...DEFAULT_NOTE_PROFILES,
+        hazard_floor: HAZARD_FLOOR_PROFILE,
+      },
+    });
+  }
   /**
    * 박자 진행도(beatProgress)에 따른 장판 전방 도달 Y 좌표 계산
    * @param beatProgress 0.0(소실점) ~ 1.0(전경 발밑)
@@ -86,9 +139,50 @@ export class HazardZoneRenderer {
     // Issue #286: 전경 발판 수축 타이밍 서클 및 임팩트 직전 가이드 렌더링
     if (!state.isResolved) {
       this._renderTimingCircle(ctx, vw, vh, vx, vy, floorH, state.activePattern, p);
+      // Issue #484 (MRN-10): 상공 비행 투사체 렌더링 MotionNoteRenderer 위임
+      this.renderFlyingProjectile(ctx, vw, vh, state);
     }
 
     ctx.restore();
+  }
+
+  /**
+   * 상공 비행 투사체 렌더링 위임 (MotionNoteRenderer: hazard_floor 프로필)
+   * Issue #484 [MRN-10]
+   */
+  public renderFlyingProjectile(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    state: HazardRenderState,
+  ): void {
+    if (!state.activePattern) return;
+
+    const originalStrokeStyle = ctx.strokeStyle;
+    const originalFillStyle = ctx.fillStyle;
+
+    const renderItem = hazardPatternToRenderItem(
+      state.activePattern,
+      state.beatProgress,
+      {
+        isResolved: state.isResolved,
+        isEvaded: state.isEvaded,
+      },
+    );
+
+    this.motionNoteRenderer.render(
+      ctx,
+      [renderItem],
+      { width: vw, height: vh },
+      { x: state.vanishingX, y: state.vanishingY },
+    );
+
+    if (originalStrokeStyle) {
+      ctx.strokeStyle = originalStrokeStyle;
+    }
+    if (originalFillStyle) {
+      ctx.fillStyle = originalFillStyle;
+    }
   }
 
   /**
