@@ -18,7 +18,7 @@
 - 설계: `docs/12_UNIFIED_MOTION_RHYTHM_ARCHITECTURE.md` v2 (정의/판정/외형 3축 분리, 공용 NoteProjection/NoteAnchorResolver, 무변화 이행)
 - 종료: #424, #429 (#429는 StarNoteRenderer 범위 한정 완료)
 - **정정**: [#473 BUG-NOTE-CIRCLE-001] [✔] 완료. 아래 #429 섹션의 완료 기록을 StarNoteRenderer 내부 검증 한정으로 정정하고 `part: 'foot' as any` 타입 우회를 정식 규격(hip)으로 교정 완료. 실제 인게임 발 노트(`RunningMatRenderer._renderFlyingStompNotes`) 원형 링 기능 해소는 [MRN-08 #482]에서 진행.
-- 트랙: [#474 MRN-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/474), MRN-01~12 = #475~#486. [#475 MRN-01], [#476 MRN-02], [#477 MRN-03] [✔] 완료에 따라 다음 순서는 [▶ NEXT: MRN-04 #478]이다. 기존 SSOT/다른 트랙 NEXT는 변경하지 않는다.
+- 트랙: [#474 MRN-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/474), MRN-01~12 = #475~#486. [#475 MRN-01], [#476 MRN-02], [#477 MRN-03], [#478 MRN-04] [✔] 완료에 따라 다음 순서는 [▶ NEXT: MRN-05 #479]이다. 기존 SSOT/다른 트랙 NEXT는 변경하지 않는다.
 
 ### 🎯 통합 모션 리듬 파이프라인 진행 현황 (MRN-TRACK #474)
 | 단계 | 카드 | 내용 | 상태 |
@@ -26,8 +26,8 @@
 | MRN-01 | [#475](https://github.com/Choyounhwa/-dream-guardian/issues/475) | MotionNote 타입 계약 정의 | [✔] 완료 |
 | MRN-02 | [#476](https://github.com/Choyounhwa/-dream-guardian/issues/476) | 노트 비주얼 프로필 config 및 기본 매핑 | [✔] 완료 |
 | MRN-03 | [#477](https://github.com/Choyounhwa/-dream-guardian/issues/477) | 공용 NoteProjection 추출 및 StarNoteRenderer 위임 | [✔] 완료 |
-| MRN-04 | [#478](https://github.com/Choyounhwa/-dream-guardian/issues/478) | NoteAnchorResolver (존 중심 / 판정선 착지 좌표 통일) | [▶ NEXT] |
-| MRN-05 | [#479](https://github.com/Choyounhwa/-dream-guardian/issues/479) | MotionNoteRenderer + Painter | 대기 |
+| MRN-04 | [#478](https://github.com/Choyounhwa/-dream-guardian/issues/478) | NoteAnchorResolver (존 중심 / 판정선 착지 좌표 통일) | [✔] 완료 |
+| MRN-05 | [#479](https://github.com/Choyounhwa/-dream-guardian/issues/479) | MotionNoteRenderer + Painter | [▶ NEXT] |
 | MRN-06 | [#480](https://github.com/Choyounhwa/-dream-guardian/issues/480) | 별 노트 어댑터 | 대기 |
 | MRN-07 | [#481](https://github.com/Choyounhwa/-dream-guardian/issues/481) | 별모으기/피버 렌더 전환 | 대기 |
 | MRN-08 | [#482](https://github.com/Choyounhwa/-dream-guardian/issues/482) | 발 스텝 위임 (원형 링 적용) | 대기 |
