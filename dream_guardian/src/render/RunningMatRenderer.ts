@@ -16,6 +16,17 @@ import {
   type RunningMatConfig,
 } from '../../config/running-mat.config.js';
 import type { RunningMatViewModel } from './RunningMatPresenter.js';
+import { MotionNoteRenderer } from './MotionNoteRenderer.js';
+import type { FloorPart, MotionNoteRenderItem } from '../types/motion-note.js';
+import {
+  DEFAULT_NOTE_PROFILES,
+  STOMP_FOOT_PROFILE,
+  type NoteVisualProfile,
+} from '../../config/motion-note-profile.config.js';
+import {
+  DEFAULT_LANE_OFFSET,
+  type FloorLayoutOptions,
+} from './NoteAnchorResolver.js';
 
 interface Point2D {
   x: number;
@@ -42,9 +53,40 @@ export class RunningMatRenderer {
   private readonly config: RunningMatConfig;
   private _hitFlashTimer = 0;
   private _lastElapsedTime = 0;
+  public readonly motionNoteRenderer: MotionNoteRenderer;
 
-  constructor(config: RunningMatConfig = RUNNING_MAT_CONFIG) {
+  constructor(
+    config: RunningMatConfig = RUNNING_MAT_CONFIG,
+    motionNoteRenderer?: MotionNoteRenderer
+  ) {
     this.config = config;
+    this.motionNoteRenderer =
+      motionNoteRenderer ?? this._createMotionNoteRenderer();
+  }
+
+  /**
+   * RunningMatRenderer용 기본 MotionNoteRenderer 인스턴스 생성
+   */
+  private _createMotionNoteRenderer(): MotionNoteRenderer {
+    const stompProfile: NoteVisualProfile = {
+      ...STOMP_FOOT_PROFILE,
+      flight: {
+        ...STOMP_FOOT_PROFILE.flight,
+        minScale: this.config.stompNoteMinScale ?? STOMP_FOOT_PROFILE.flight.minScale,
+        maxScale: this.config.stompNoteMaxScale ?? STOMP_FOOT_PROFILE.flight.maxScale,
+      },
+      body: {
+        ...STOMP_FOOT_PROFILE.body,
+        baseRadius: this.config.stompNoteRadius ?? STOMP_FOOT_PROFILE.body.baseRadius,
+        symbol: this.config.stompNoteSymbol ?? STOMP_FOOT_PROFILE.body.symbol,
+      },
+    };
+    return new MotionNoteRenderer({
+      profiles: {
+        ...DEFAULT_NOTE_PROFILES,
+        stomp_foot: stompProfile,
+      },
+    });
   }
 
   /**
@@ -157,8 +199,8 @@ export class RunningMatRenderer {
       return;
     }
 
-    // 3. 소실점에서 판정선 3대 레인으로 날아오는 발 리듬 비트 노트 렌더링 (Issue #425)
-    this._renderFlyingStompNotes(ctx, view, vx, vy, yStrike, halfWBottom);
+    // 3. 소실점에서 판정선 3대 레인으로 날아오는 발 리듬 비트 노트 렌더링 (Issue #425, #482 / MRN-08)
+    this._renderFlyingStompNotes(ctx, view, vx, vy, width, height);
 
     // 4. 발자국 슬롯 좌표 계산
     const slots = this._computeSlotCoordinates(
@@ -430,15 +472,16 @@ export class RunningMatRenderer {
   }
 
   /**
-   * 8박 문제 구간 동안 소실점에서 발 판정선 3대 레인으로 비행하는 발 리듬 비트 노트 렌더링 (Issue #425)
+   * 8박 문제 구간 동안 소실점에서 발 판정선 3대 레인으로 비행하는 발 리듬 비트 노트 렌더링 (Issue #425, MRN-08 #482)
+   * MotionNoteRenderer에 위임하여 stomp_foot 프로필 규격에 맞추어 원형 링(Circle Ring) 및 오브 바디 렌더링 (#473 결함 해소)
    */
   private _renderFlyingStompNotes(
     ctx: CanvasRenderingContext2D,
     view: RunningMatViewModel,
     vx: number,
     vy: number,
-    yStrike: number,
-    halfWBottom: number
+    width: number,
+    height: number
   ): void {
     // 비행할 큐 목록 수집 (upcomingCues 우선, 없으면 nextCue fallback)
     const upcomingList =
@@ -466,90 +509,71 @@ export class RunningMatRenderer {
 
     if (upcomingList.length === 0) return;
 
-    const baseRadius = this.config.stompNoteRadius ?? 24;
-    const minScale = this.config.stompNoteMinScale ?? 0.3;
-    const maxScale = this.config.stompNoteMaxScale ?? 1.25;
-
-    for (const item of upcomingList) {
+    const renderItems: MotionNoteRenderItem[] = upcomingList.map((item, idx) => {
       const cue = item.cue;
-      // 레인 결정: 좌(Zone 9), 중앙(Zone 10), 우(Zone 11)
-      let targetX = vx;
-      let noteColor = this.config.stompNoteCenterColor ?? '#FFD166';
-      let laneLetter = 'C';
+      let part: FloorPart = 'centerFoot';
+      let zoneId = 10;
 
       if (
         cue.leftFootSlot === 'out' ||
         cue.directionText.includes('왼') ||
         cue.actionText.includes('왼')
       ) {
-        targetX = vx - halfWBottom * 0.45;
-        noteColor = this.config.stompNoteLeftColor ?? '#00E5FF';
-        laneLetter = 'L';
+        part = 'leftFoot';
+        zoneId = 9;
       } else if (
         cue.rightFootSlot === 'out' ||
         cue.directionText.includes('오른') ||
         cue.actionText.includes('오른')
       ) {
-        targetX = vx + halfWBottom * 0.45;
-        noteColor = this.config.stompNoteRightColor ?? '#FF8800';
-        laneLetter = 'R';
+        part = 'rightFoot';
+        zoneId = 11;
       }
 
-      // 3D 비행 투영 좌표 계산 (원근 가속 p^1.4)
-      const p = Math.max(0, Math.min(1.0, item.progress));
-      const curX = vx + (targetX - vx) * p;
-      const curY = vy + (yStrike - vy) * Math.pow(p, 1.4);
-      const scale = minScale + (maxScale - minScale) * p;
-      const r = baseRadius * scale;
+      return {
+        id: cue.id || `stomp_${item.targetBeat}_${idx}`,
+        requirements: [{ part, zoneId }],
+        interaction: 'tap',
+        profileId: 'stomp_foot',
+        progress: Math.max(0, Math.min(1.0, item.progress)),
+        timeToLanding: item.remainingBeats * 0.5,
+      };
+    });
 
-      // (1) 라이트 트레일 (소실점에서 노트까지 궤적 빔)
-      ctx.beginPath();
-      ctx.moveTo(
-        vx + (targetX - vx) * Math.max(0, p - 0.25),
-        vy + (yStrike - vy) * Math.pow(Math.max(0, p - 0.25), 1.4)
-      );
-      ctx.lineTo(curX, curY);
-      ctx.strokeStyle = noteColor;
-      ctx.lineWidth = Math.max(1, 4 * scale);
-      ctx.globalAlpha = 0.45 * p;
-      ctx.stroke();
-      ctx.globalAlpha = 1.0;
+    const floorLayout: FloorLayoutOptions = {
+      strikeLineYRatio: this.config.strikeLineYRatio,
+      widthRatio: this.config.widthRatio,
+      maxNarrowWidthRatio: this.config.maxNarrowWidthRatio,
+      laneOffset: DEFAULT_LANE_OFFSET,
+      stompNoteRadius: this.config.stompNoteRadius,
+    };
 
-      // (2) 외부 네온 발광 글로우
-      ctx.beginPath();
-      if (typeof ctx.arc === 'function') {
-        ctx.arc(curX, curY, r * 1.35, 0, Math.PI * 2);
-      }
-      ctx.fillStyle = noteColor;
-      ctx.globalAlpha = 0.25;
-      ctx.fill();
-      ctx.globalAlpha = 1.0;
+    // RunningMatRenderer의 단일 save/restore 계약을 보존하기 위해 save/restore를 자체 흡수하는 위임 프록시 컨텍스트 사용
+    const delegateCtx = new Proxy(ctx, {
+      get(target, prop, receiver) {
+        if (prop === 'save' || prop === 'restore') {
+          return () => {};
+        }
+        const val = Reflect.get(target, prop, receiver);
+        if (typeof val === 'function') {
+          return val.bind(target);
+        }
+        return val;
+      },
+    });
 
-      // (3) 노트 본체 (어두운 베이스 원)
-      ctx.beginPath();
-      if (typeof ctx.arc === 'function') {
-        ctx.arc(curX, curY, r, 0, Math.PI * 2);
-      }
-      ctx.fillStyle = 'rgba(12, 20, 36, 0.92)';
-      ctx.fill();
+    this.motionNoteRenderer.render(
+      delegateCtx,
+      renderItems,
+      { width, height },
+      { x: vx, y: vy },
+      undefined,
+      floorLayout
+    );
 
-      // (4) 네온 테두리 링
-      ctx.strokeStyle = noteColor;
-      ctx.lineWidth = Math.max(2, 3.5 * scale);
-      ctx.stroke();
-
-      // (5) 중앙 심볼 (음표 ♪ 및 L/R 레인 표시)
-      ctx.font = `bold ${Math.max(10, Math.round(15 * scale))}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(this.config.stompNoteSymbol || '♪', curX, curY);
-
-      // (6) 미니 레인 라벨
-      ctx.font = `bold ${Math.max(8, Math.round(9 * scale))}px sans-serif`;
-      ctx.fillStyle = noteColor;
-      ctx.fillText(laneLetter, curX, curY + r * 0.7);
-    }
+    // 캔버스 상태 안전 복원
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0;
   }
 
   /**
