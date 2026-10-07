@@ -18,6 +18,9 @@ export const DEFAULT_STRIKE_CORE_LINE_WIDTH = 3.5;
 export const DEFAULT_STRIKE_INNER_GLOW_WIDTH = 12.0;
 export const DEFAULT_STRIKE_OUTER_GLOW_WIDTH = 38.0;
 export const DEFAULT_STRIKE_OVERHANG_RATIO = 0.12;
+export const DEFAULT_STOMP_NOTE_RADIUS = 24;
+export const DEFAULT_STOMP_NOTE_MIN_SCALE = 0.3;
+export const DEFAULT_STOMP_NOTE_MAX_SCALE = 1.25;
 
 export interface RunningMatConfig {
   readonly baseYTop: number;
@@ -85,6 +88,15 @@ export interface RunningMatConfig {
   readonly strikeOuterColor: string;
   readonly strikeActivePulseGlow: string;
   readonly targetAnchorRadius: number;
+
+  // 발 리듬 비트 노트(Stomp Beat Note) 설정 (Issue #425)
+  readonly stompNoteRadius: number;
+  readonly stompNoteMinScale: number;
+  readonly stompNoteMaxScale: number;
+  readonly stompNoteLeftColor: string;
+  readonly stompNoteCenterColor: string;
+  readonly stompNoteRightColor: string;
+  readonly stompNoteSymbol: string;
 }
 
 export const RUNNING_MAT_CONFIG: RunningMatConfig = Object.freeze({
@@ -146,4 +158,12 @@ export const RUNNING_MAT_CONFIG: RunningMatConfig = Object.freeze({
   strikeOuterColor: 'rgba(255, 128, 0, 0.42)',
   strikeActivePulseGlow: '#FFD166',
   targetAnchorRadius: 15,
+
+  stompNoteRadius: DEFAULT_STOMP_NOTE_RADIUS,
+  stompNoteMinScale: DEFAULT_STOMP_NOTE_MIN_SCALE,
+  stompNoteMaxScale: DEFAULT_STOMP_NOTE_MAX_SCALE,
+  stompNoteLeftColor: '#00E5FF',
+  stompNoteCenterColor: '#FFD166',
+  stompNoteRightColor: '#FF8800',
+  stompNoteSymbol: '♪',
 });

@@ -1109,6 +1109,38 @@ const phaseAHazardController = new PhaseAHazardController({
 footKeynoteInput.onEvent((event) => {
   console.log(`[DG] 발 키노트 수신: ${event.source} ${event.foot} (Zone ${event.zoneId})`);
   if (screenMode === 'game') {
+    // Issue #425: RUN_QUESTION 페이즈 발 키노트 입력 시 스텝 기록 및 리듬 판정 피드백 연동
+    if (
+      (stateMachine.currentState === 'RUN_QUESTION' || beatCoordinator.phase === 'RUN_QUESTION') &&
+      !pauseModal.isOpen
+    ) {
+      beatCoordinator.recordStep();
+      const spb = beatCoordinator.rhythmEngine?.secondsPerBeat || 0.5;
+      const beatProg = beatCoordinator.rhythmEngine?.beatProgress ?? 0;
+      const distToBeat = Math.min(beatProg, 1.0 - beatProg) * spb;
+      let rating = 'GOOD';
+      if (distToBeat <= 0.12) {
+        rating = 'PERFECT';
+      } else if (distToBeat <= 0.25) {
+        rating = 'GOOD';
+      } else {
+        rating = 'LATE';
+      }
+
+      const targetZone = DEFAULT_FITNESS_ZONES.find((z) => z.id === event.zoneId);
+      const jx = targetZone
+        ? (targetZone.x + targetZone.width * 0.5) * canvasManager.virtualWidth
+        : canvasManager.virtualWidth * 0.5;
+      const jy = canvasManager.virtualHeight * (RUNNING_MAT_CONFIG.strikeLineYRatio ?? 0.86);
+
+      effectManager.playJudgmentText(jx, jy - 35, rating);
+      if (rating === 'PERFECT') {
+        sfx.play('star_perfect');
+      } else {
+        sfx.play('drum_kick');
+      }
+    }
+
     // Issue #235 & #213: STAR_COLLECT 및 BOSS_CLIMAX 페이즈 발 키노트 단일 결과 라우팅 연동
     if (
       stateMachine.currentState === 'STAR_COLLECT' ||

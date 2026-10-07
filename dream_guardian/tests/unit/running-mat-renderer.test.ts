@@ -124,6 +124,15 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
       expect(RUNNING_MAT_CONFIG.strikeOuterColor).toMatch(/rgba\(255,\s*(1[0-4][0-9]|150|[0-9]{2})/);
     });
 
+    it('발 리듬 비트 노트(Stomp Beat Note) 시각 설정이 정의되어 있어야 한다 (Issue #425)', () => {
+      expect(RUNNING_MAT_CONFIG.stompNoteRadius).toBeGreaterThanOrEqual(18);
+      expect(RUNNING_MAT_CONFIG.stompNoteMinScale).toBeLessThan(0.5);
+      expect(RUNNING_MAT_CONFIG.stompNoteMaxScale).toBeGreaterThanOrEqual(1.1);
+      expect(RUNNING_MAT_CONFIG.stompNoteLeftColor).toBeDefined();
+      expect(RUNNING_MAT_CONFIG.stompNoteCenterColor).toBeDefined();
+      expect(RUNNING_MAT_CONFIG.stompNoteRightColor).toBeDefined();
+    });
+
     it('기본 폭 비율 0.76 및 좁은 화면 최대 폭 비율 0.90을 제공해야 한다', () => {
       expect(DEFAULT_MAT_WIDTH_RATIO).toBeCloseTo(0.76, 2);
       expect(MAX_NARROW_WIDTH_RATIO).toBeCloseTo(0.90, 2);
@@ -588,6 +597,57 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
       const fillTextCalls = vi.mocked(ctx.fillText).mock.calls;
       const texts = fillTextCalls.map((c) => String(c[0]));
       expect(texts.some((t) => t.includes('채점') || t.includes('점수'))).toBe(false);
+    });
+  });
+
+  describe('10. Issue #425: RUN_QUESTION 8박 발 리듬 비트 노트 렌더링 검증', () => {
+    it('RUN_QUESTION 동작 큐가 있을 때 소실점에서 판정선으로 비행하는 발 리듬 비트 노트를 렌더링한다', () => {
+      const view = createBaseViewModel({
+        nextCue: {
+          beatIndex: 1,
+          actionId: 'knee_left',
+          actionText: '왼무릎 들기',
+          directionText: '왼쪽',
+          cueText: '왼무릎 들고 복귀',
+          arrowDirection: 'up',
+          leftFootSlot: 'lift',
+          rightFootSlot: 'home',
+          isPrepare: false,
+        },
+        nextRingRatio: 0.5,
+      });
+
+      renderer.render(ctx, view, width, height);
+
+      // 발 비트 노트 드로잉(원형 및 음표/기호 텍스트) 호출 확인
+      const fillTextCalls = vi.mocked(ctx.fillText).mock.calls;
+      const hasStompNoteVisual = fillTextCalls.some((c) => String(c[0]).includes('♪') || String(c[0]).includes('★') || String(c[0]).includes('L'));
+      expect(hasStompNoteVisual).toBe(true);
+    });
+
+    it('노트 비행 진행도(progress)에 따라 소실점에서 판정선 Y(0.86) 방향으로 좌표가 접근한다', () => {
+      const viewNearLanding = createBaseViewModel({
+        nextCue: {
+          beatIndex: 1,
+          actionId: 'knee_right',
+          actionText: '오른무릎 들기',
+          directionText: '오른쪽',
+          cueText: '오른무릎 들고 복귀',
+          arrowDirection: 'up',
+          leftFootSlot: 'home',
+          rightFootSlot: 'lift',
+          isPrepare: false,
+        },
+        nextRingRatio: 0.1, // 착지 직전
+      });
+
+      renderer.render(ctx, viewNearLanding, width, height);
+
+      const arcCalls = vi.mocked(ctx.arc).mock.calls;
+      const expectedY = height * 0.86;
+      // 착지 직전 비트 노트의 Y 좌표가 판정선 근처(±60px)에 도달했는지 확인
+      const hasNearLandingY = arcCalls.some((c) => Math.abs(c[1] - expectedY) < 60);
+      expect(hasNearLandingY).toBe(true);
     });
   });
 });
