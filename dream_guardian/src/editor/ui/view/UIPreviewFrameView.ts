@@ -1,5 +1,6 @@
 import {
   IFRAME_IS_SECURITY_SANDBOX,
+  PREVIEW_SOURCE,
   type AcceptDecision,
   type PreviewEnvelope,
   type PreviewHost,
@@ -7,6 +8,7 @@ import {
   issueRequest,
   replaceDocument,
 } from "../UIPreviewHost";
+import { ParentBridge } from "../preview/UIVisualBridge";
 import { previewAssetPath } from "../UIEditorShell";
 
 export { IFRAME_IS_SECURITY_SANDBOX };
@@ -56,6 +58,8 @@ export function resolvePreviewSrc(
 
 export interface MountPreviewFrameOptions {
   docId?: string;
+  pageId?: string;
+  sessionId?: string;
   origin?: string;
   allowedOrigins?: readonly string[];
   basePath?: string;
@@ -69,6 +73,7 @@ export interface PreviewFrameInstance {
   readonly iframe: HTMLIFrameElement;
   readonly notice: HTMLElement;
   readonly status: HTMLElement;
+  readonly bridge?: ParentBridge | null;
   getHost(): PreviewHost;
   updateDocument(docId: string): void;
   handlePreviewMessage(message: PreviewEnvelope): AcceptDecision;
@@ -163,26 +168,74 @@ export function mountPreviewFrame(
     return decision;
   }
 
+  // Global window postMessage & ParentBridge integration
+  const win = (globalThis as any).window;
+  let bridge: ParentBridge | null = null;
+
+  if (win && typeof win.addEventListener === "function") {
+    try {
+      bridge = new ParentBridge({
+        window: win,
+        iframe,
+        targetOrigin: origin,
+        docId: host.docId,
+        pageId: options?.pageId ?? "menu_main",
+        sessionId: options?.sessionId ?? `sess-${Date.now()}`,
+        initialGeneration: host.generation ?? 1,
+        initialRevision: host.latestRevision ?? 0,
+        onMessage: (env) => {
+          handlePreviewMessage({
+            origin,
+            source: PREVIEW_SOURCE,
+            kind: env.kind,
+            requestId: env.requestId,
+            payload: env.payload,
+            generation: env.generation,
+            revision: env.revision,
+            docId: env.docId,
+            pageId: env.pageId,
+            sessionId: env.sessionId,
+            protocolVersion: env.protocolVersion,
+          });
+        },
+        onError: (err) => {
+          setStatus(`미리보기 거부: ${err.reason}`);
+        },
+      });
+    } catch {
+      // ignore bridge creation error in non-standard test stubs
+    }
+  }
+
   function updateDocument(newDocId: string): void {
     host = replaceDocument(host, newDocId);
+    bridge?.updateDocument(newDocId);
+    if (host.generation !== undefined) {
+      bridge?.advanceGeneration(host.generation);
+    }
     setStatus(`미리보기 문서 갱신: doc=${host.docId} req=${host.requestId}`);
   }
 
-  // Global window postMessage listener
-  const win = (globalThis as any).window;
   const onWindowMessage = (event: any) => {
     if (!event || typeof event !== "object") return;
     const envelope: PreviewEnvelope = {
       origin: event.origin,
-      source: event.data?.source,
+      source: event.data?.source ?? (event.source === iframe.contentWindow ? PREVIEW_SOURCE : undefined),
       kind: event.data?.kind,
       requestId: event.data?.requestId,
       payload: event.data?.payload,
+      generation: event.data?.generation,
+      revision: event.data?.revision,
+      docId: event.data?.docId,
+      pageId: event.data?.pageId,
+      sessionId: event.data?.sessionId,
+      protocolVersion: event.data?.protocolVersion,
     };
     handlePreviewMessage(envelope);
   };
 
-  if (win && typeof win.addEventListener === "function") {
+  // Only bind raw fallback listener if bridge is not available
+  if (!bridge && win && typeof win.addEventListener === "function") {
     win.addEventListener("message", onWindowMessage);
   }
 
@@ -190,6 +243,9 @@ export function mountPreviewFrame(
   function unmount(): void {
     if (unmounted) return;
     unmounted = true;
+    if (bridge && !bridge.isDisposed()) {
+      bridge.dispose();
+    }
     if (win && typeof win.removeEventListener === "function") {
       win.removeEventListener("message", onWindowMessage);
     }
@@ -205,6 +261,7 @@ export function mountPreviewFrame(
     iframe,
     notice,
     status: statusEl,
+    bridge,
     getHost: () => host,
     updateDocument,
     handlePreviewMessage,
