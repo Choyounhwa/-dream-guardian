@@ -355,18 +355,16 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
       });
 
       expect(ctx.stroke).toHaveBeenCalled();
-      expect(ctx.roundRect).toHaveBeenCalled();
+      expect(ctx.arc).toHaveBeenCalled();
 
-      // roundRect 호출 파라미터 검증 (zone4 기본 폭 (zw + 8)의 1.75배)
+      // arc 호출 파라미터 검증 (zone4 원형 어프로치 링: 반경의 1.75배)
       const zone4 = DEFAULT_FITNESS_ZONES.find((z) => z.id === 4)!;
       const expectedScale = 1.75;
-      const calls = vi.mocked(ctx.roundRect).mock.calls;
-      expect(calls.length).toBeGreaterThanOrEqual(1);
-      const [, , rw, rh] = calls[0];
-      const baseW = zone4.width * vw + 8;
-      const baseH = zone4.height * vh + 8;
-      expect(rw).toBeCloseTo(baseW * expectedScale, 0);
-      expect(rh).toBeCloseTo(baseH * expectedScale, 0);
+      const arcCalls = vi.mocked(ctx.arc).mock.calls;
+      expect(arcCalls.length).toBeGreaterThanOrEqual(1);
+      const [, , r] = arcCalls[0];
+      const baseR = Math.max(zone4.width * vw, zone4.height * vh) * 0.5 + 4;
+      expect(r).toBeCloseTo(baseR * expectedScale, 0);
     });
 
     it('노트의 타겟 파트(rightHand)에 따른 고유 네온 색상(#FFCB4D)으로 어프로치 링을 렌더링한다', () => {
@@ -429,11 +427,11 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
       });
 
       const zone5 = DEFAULT_FITNESS_ZONES.find((z) => z.id === 5)!;
-      const baseW = zone5.width * vw + 8;
-      const calls = vi.mocked(ctx.roundRect).mock.calls;
-      expect(calls.length).toBeGreaterThanOrEqual(1);
-      const [, , rw] = calls[0];
-      expect(rw).toBeCloseTo(baseW * 2.5, 0);
+      const baseR = Math.max(zone5.width * vw, zone5.height * vh) * 0.5 + 4;
+      const arcCalls = vi.mocked(ctx.arc).mock.calls;
+      expect(arcCalls.length).toBeGreaterThanOrEqual(1);
+      const [, , r] = arcCalls[0];
+      expect(r).toBeCloseTo(baseR * 2.5, 0);
     });
   });
 
@@ -1040,6 +1038,102 @@ describe('StarNoteRenderer (Issue #192 - RENDER-KEYNOTE-001)', () => {
       ringRenderer.render(ctx, vw, vh, renderState);
 
       expect(approachSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('Issue #429 [RENDER-NOTE-CIRCLE-001] 원형 어프로치 링 및 발 스텝 동일 효과 확장', () => {
+    it('DEFAULT_STAR_NOTE_VISUAL_CONFIG의 approachShape 기본값은 circle이다', () => {
+      expect((DEFAULT_STAR_NOTE_VISUAL_CONFIG as any).approachShape).toBe('circle');
+    });
+
+    it('approachShape가 circle일 때 _renderApproachRing은 ctx.arc(원형)을 호출하여 링을 그린다', () => {
+      const circleRenderer = new StarNoteRenderer({
+        visualConfig: {
+          approachShape: 'circle',
+          showApproachRing: true,
+        },
+      });
+
+      const renderState: StarNoteRenderState = {
+        target: { zoneId: 1, landingTime: 1.0, part: 'leftHand', instrument: 'hand' } as any,
+        elapsedTime: 0.7,
+        vanishingX: vx,
+        vanishingY: vy,
+      };
+
+      circleRenderer.render(ctx, vw, vh, renderState);
+
+      // arc가 원형 링(어프로치 링 + 노트 본체)을 위해 호출되어야 함
+      expect(ctx.arc).toHaveBeenCalled();
+      expect(ctx.roundRect).not.toHaveBeenCalled();
+      expect(ctx.strokeRect).not.toHaveBeenCalled();
+    });
+
+    it('발 스텝(foot/hip 타겟)에서도 동일하게 원형 어프로치 링이 호출되고 정상 렌더링된다', () => {
+      const circleRenderer = new StarNoteRenderer({
+        visualConfig: {
+          approachShape: 'circle',
+          showApproachRing: true,
+        },
+      });
+
+      const approachSpy = vi.spyOn(circleRenderer as any, '_renderApproachRing');
+
+      // 발/골반 스텝 타겟 (Zone 10)
+      const renderState: StarNoteRenderState = {
+        target: { zoneId: 10, landingTime: 2.0, part: 'foot', instrument: 'foot' } as any,
+        elapsedTime: 1.7,
+        vanishingX: vx,
+        vanishingY: vy,
+      };
+
+      circleRenderer.render(ctx, vw, vh, renderState);
+
+      expect(approachSpy).toHaveBeenCalled();
+      expect(ctx.arc).toHaveBeenCalled();
+    });
+
+    it('착지 직전(Perfect 윈도우) 펄스 연출(_renderZonePulse)도 circle 모드에서는 ctx.arc로 렌더링된다', () => {
+      const circleRenderer = new StarNoteRenderer({
+        visualConfig: {
+          approachShape: 'circle',
+        },
+      });
+
+      const pulseSpy = vi.spyOn(circleRenderer as any, '_renderZonePulse');
+
+      const renderState: StarNoteRenderState = {
+        target: { zoneId: 10, landingTime: 2.0, part: 'foot', instrument: 'foot' } as any,
+        elapsedTime: 1.95, // landingTime - 0.05s (<= perfectWindow 0.12s)
+        vanishingX: vx,
+        vanishingY: vy,
+      };
+
+      circleRenderer.render(ctx, vw, vh, renderState);
+
+      expect(pulseSpy).toHaveBeenCalled();
+      expect(ctx.roundRect).not.toHaveBeenCalled();
+      expect(ctx.strokeRect).not.toHaveBeenCalled();
+    });
+
+    it('approachShape가 rect로 명시되면 기존처럼 roundRect 또는 strokeRect로 사각박스를 그린다', () => {
+      const rectRenderer = new StarNoteRenderer({
+        visualConfig: {
+          approachShape: 'rect',
+          showApproachRing: true,
+        },
+      });
+
+      const renderState: StarNoteRenderState = {
+        target: { zoneId: 1, landingTime: 1.0, part: 'leftHand', instrument: 'hand' } as any,
+        elapsedTime: 0.7,
+        vanishingX: vx,
+        vanishingY: vy,
+      };
+
+      rectRenderer.render(ctx, vw, vh, renderState);
+
+      expect(ctx.roundRect).toHaveBeenCalled();
     });
   });
 });

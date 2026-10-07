@@ -123,6 +123,7 @@ export const DEFAULT_STAR_COLLECTION_CONFIG: StarCollectionConfig = {
 // ─── Star Note Visual & Instrument Config (Issue #316 / RENDER-NOTE-CONFIG-001) ───
 
 export type StarNoteRenderMode = 'image' | 'text';
+export type StarNoteApproachShape = 'circle' | 'rect';
 
 export interface StarNoteVisualConfig {
   /** 기준 반지름 (px, 기본값 28) */
@@ -149,8 +150,10 @@ export interface StarNoteVisualConfig {
   renderMode?: StarNoteRenderMode;
   /** 신체 부위/악기별 별 아이콘 이미지 경로 (Issue #424) */
   iconImages?: Record<string, string>;
-  /** 목표 칸 수축 사각박스(Approach Ring) 표출 여부 (기본값: true, Issue #424) */
+  /** 목표 칸 수축 가이드 링 표출 여부 (기본값: true, Issue #424) */
   showApproachRing?: boolean;
+  /** 가이드 링 형상: 'circle' (동그라미 링) 또는 'rect' (사각박스) (기본값: 'circle', Issue #429) */
+  approachShape?: StarNoteApproachShape;
   /** 어프로치 링 최대 투명도 (기본값: 0.8, Issue #424) */
   approachRingAlpha?: number;
 }
@@ -162,6 +165,7 @@ export const DEFAULT_STAR_NOTE_VISUAL_CONFIG: StarNoteVisualConfig = Object.free
   glowBlurFactor: 18,
   renderMode: 'image',
   showApproachRing: true,
+  approachShape: 'circle',
   approachRingAlpha: 0.8,
   iconImages: {
     gold: '/img/stardust/stardust_icon_gold.png',

@@ -1,5 +1,17 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-10-07 등록: 어프로치 링 원형 전환 및 발 스텝 동일 효과 확장 (RENDER-NOTE-CIRCLE)
+
+**[✔] 구현 및 검증 완료.** [#429 RENDER-NOTE-CIRCLE-001](https://github.com/Choyounhwa/-dream-guardian/issues/429).
+
+- **단일 책임**: `StarNoteRenderer`의 어프로치 사각박스 및 안착 직전 펄스 연출을 원형(`ctx.arc`) 링으로 전환하고, 손(hand) 노트뿐만 아니라 발/골반(foot, hip, Zone 6~11) 스텝 타겟에도 동일한 원형 어프로치 링 효과를 일관되게 적용. `config/beat-motion.config.ts`의 `approachShape`(`'circle'` | `'rect'`) 옵션 추가.
+- **수정 대상 (Scope Guard: 3개 파일 한정)**:
+  - `dream_guardian/config/beat-motion.config.ts`
+  - `dream_guardian/src/render/StarNoteRenderer.ts`
+  - `dream_guardian/tests/unit/star-note-renderer.test.ts`
+- **테스트**: `tests/unit/star-note-renderer.test.ts` (54/54 Pass, 100% Pass).
+- **결과**: `npm test` 54/54 단위 테스트 통과 및 vite build 정상 완료.
+
 ## 2026-10-07 등록: 별가루 노트 비트맵 이미지 렌더링 전환 및 어프로치 박스 제어 (RENDER-NOTE-IMAGE)
 
 **[✔] 구현 및 검증 완료.** [#424 RENDER-NOTE-IMAGE-001](https://github.com/Choyounhwa/-dream-guardian/issues/424).

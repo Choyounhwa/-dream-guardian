@@ -2,6 +2,27 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🔵 어프로치 링 원형 전환 및 발 스텝 동일 효과 확장 (RENDER-NOTE-CIRCLE-001, 2026-10-07)
+
+**[✔] 구현 및 검증 완료.** [#429 RENDER-NOTE-CIRCLE-001](https://github.com/Choyounhwa/-dream-guardian/issues/429)
+
+- **작업 목적**:
+  1. `StarNoteRenderer`의 어프로치 사각박스를 부드러운 원형 어프로치 링(Circle Ring)으로 전환하여 직관적인 리듬 판정 타이밍 가이드 제공.
+  2. 손(hand) 노트뿐만 아니라 발/골반(foot, hip, Zone 6~11) 스텝 타겟에도 동일한 원형 어프로치 링 및 원형 펄스 효과를 일관되게 적용.
+  3. `config/beat-motion.config.ts`에 `approachShape: 'circle' | 'rect'` 설정을 분리하여 하위 호환성 유지.
+- **수정 대상 파일 (소스/config 2개 + 테스트 1개 = 총 3개 한정)**:
+  - `dream_guardian/config/beat-motion.config.ts`: `StarNoteVisualConfig`에 `approachShape`(`'circle'` | `'rect'`, 기본값 `'circle'`) 설정 추가
+  - `dream_guardian/src/render/StarNoteRenderer.ts`: `_renderApproachRing` 및 `_renderZonePulse`를 원형(`ctx.arc`) 링으로 전환 및 발/골반 스텝 동일 지원
+  - `dream_guardian/tests/unit/star-note-renderer.test.ts`: 원형 링 드로잉, 펄스 원형 연출, 발/골반 스텝 동일 효과 단위 테스트 작성 (총 54건 100% Pass)
+- **완료 조건**:
+  - [x] `StarNoteVisualConfig`에 `approachShape?: 'circle' | 'rect'` (기본값: `'circle'`) 추가
+  - [x] `_renderApproachRing` 및 `_renderZonePulse`가 원형(`ctx.arc`)으로 렌더링되도록 구현
+  - [x] 발/골반(foot, hip, Zone 6~11) 노트에서도 동일한 원형 어프로치 링 정상 표출 단위 테스트 통과
+  - [x] `tests/unit/star-note-renderer.test.ts` 단위 테스트 통과 (54/54 Pass)
+  - [x] `npx vite build` 0 에러 정상 완료
+
+---
+
 ## 👟 하단 발 스텝 피트니스 존 3등분 전폭 확장 및 판정 동기화 (FEAT-ZONE-EXPAND-001, 2026-10-07)
 
 **[✔] 구현 및 검증 완료.** [#427 FEAT-ZONE-EXPAND-001](https://github.com/Choyounhwa/-dream-guardian/issues/427)

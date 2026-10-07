@@ -441,7 +441,8 @@ export class StarNoteRenderer {
     const ry = cy - rh * 0.5;
 
     const clampedProgress = Math.min(1.0, Math.max(0.0, progress));
-    const alpha = Math.min(1.0, Math.max(0.2, 0.25 + 0.75 * clampedProgress));
+    const maxAlpha = this._visualConfig.approachRingAlpha ?? 0.8;
+    const alpha = Math.min(maxAlpha, Math.max(0.15, (0.2 + 0.8 * clampedProgress) * maxAlpha));
 
     ctx.save();
     ctx.strokeStyle = color;
@@ -450,12 +451,20 @@ export class StarNoteRenderer {
     ctx.shadowColor = color;
     ctx.shadowBlur = 8 + 8 * clampedProgress;
 
-    if (typeof ctx.roundRect === 'function') {
+    const shape = this._visualConfig.approachShape ?? 'circle';
+    if (shape === 'circle') {
+      const ringRadius = (Math.max(zw, zh) * 0.5 + 4) * scale;
       ctx.beginPath();
-      ctx.roundRect(rx, ry, rw, rh, 12 * Math.min(scale, 1.5));
+      ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
       ctx.stroke();
     } else {
-      ctx.strokeRect(rx, ry, rw, rh);
+      if (typeof ctx.roundRect === 'function') {
+        ctx.beginPath();
+        ctx.roundRect(rx, ry, rw, rh, 12 * Math.min(scale, 1.5));
+        ctx.stroke();
+      } else {
+        ctx.strokeRect(rx, ry, rw, rh);
+      }
     }
 
     ctx.restore();
@@ -476,6 +485,8 @@ export class StarNoteRenderer {
     const zy = zone.y * vh;
     const zw = zone.width * vw;
     const zh = zone.height * vh;
+    const cx = zx + zw * 0.5;
+    const cy = zy + zh * 0.5;
 
     ctx.save();
     ctx.strokeStyle = color;
@@ -483,12 +494,20 @@ export class StarNoteRenderer {
     ctx.shadowColor = color;
     ctx.shadowBlur = 16 * intensity;
 
-    if (typeof ctx.roundRect === 'function') {
+    const shape = this._visualConfig.approachShape ?? 'circle';
+    if (shape === 'circle') {
+      const pulseRadius = Math.max(zw, zh) * 0.5 + 6 * intensity;
       ctx.beginPath();
-      ctx.roundRect(zx - 4, zy - 4, zw + 8, zh + 8, 12);
+      ctx.arc(cx, cy, pulseRadius, 0, Math.PI * 2);
       ctx.stroke();
     } else {
-      ctx.strokeRect(zx - 4, zy - 4, zw + 8, zh + 8);
+      if (typeof ctx.roundRect === 'function') {
+        ctx.beginPath();
+        ctx.roundRect(zx - 4, zy - 4, zw + 8, zh + 8, 12);
+        ctx.stroke();
+      } else {
+        ctx.strokeRect(zx - 4, zy - 4, zw + 8, zh + 8);
+      }
     }
 
     ctx.restore();
