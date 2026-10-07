@@ -1,5 +1,10 @@
 import { MENU_CARD_IDS } from "../data/UIContracts";
 import {
+  getScreenRegistry,
+  getScreenElements,
+  type UIElementMeta,
+} from "../data/UIScreenRegistry";
+import {
   type ShellState,
   announce,
   selectElementByKey,
@@ -96,6 +101,15 @@ export function mountShell(
   }
   toolbar.appendChild(actionsGroup);
   shellRoot.appendChild(toolbar);
+
+  // Status Bar elements created early for logging and binding
+  const statusPanel = doc.createElement("footer");
+  statusPanel.className = "editor-status";
+  statusPanel.setAttribute("data-panel", "status");
+
+  const statusText = doc.createElement("span");
+  statusText.className = "status-message";
+  statusPanel.appendChild(statusText);
 
   // 1-1. File Actions Binding
   const fileActions = bindFileActions(toolbar, {
@@ -195,22 +209,77 @@ export function mountShell(
   elementsTitle.textContent = "화면 / 요소 목록";
   elementsPanel.appendChild(elementsTitle);
 
+  // 2-1-A. Screen Selector (10 Screens / Phases)
+  const screenRegistry = getScreenRegistry();
+  let currentScreenId = "menu_main";
+  let currentElements: readonly UIElementMeta[] = getScreenElements(currentScreenId);
+
+  const screenSelector = doc.createElement("select");
+  screenSelector.className = "screen-selector";
+  screenSelector.setAttribute("data-view", "screen-selector");
+  screenSelector.setAttribute("aria-label", "편집할 화면 및 페이즈 선택");
+  if (screenSelector.style) {
+    screenSelector.style.width = "100%";
+    screenSelector.style.marginBottom = "8px";
+    screenSelector.style.padding = "6px 8px";
+    screenSelector.style.background = "#1a2235";
+    screenSelector.style.color = "#38bdf8";
+    screenSelector.style.border = "1px solid #334155";
+    screenSelector.style.borderRadius = "6px";
+    screenSelector.style.fontSize = "12px";
+    screenSelector.style.fontWeight = "bold";
+  }
+
+  for (const s of screenRegistry) {
+    const opt = doc.createElement("option");
+    opt.value = s.id;
+    opt.textContent = s.label;
+    if (s.id === currentScreenId) {
+      opt.setAttribute("selected", "selected");
+    }
+    screenSelector.appendChild(opt);
+  }
+  elementsPanel.appendChild(screenSelector);
+
   const elementsList = doc.createElement("ul");
   elementsList.className = "elements-card-list";
-  const itemElements: HTMLElement[] = [];
+  let itemElements: HTMLElement[] = [];
 
-  MENU_CARD_IDS.forEach((id, index) => {
-    const item = doc.createElement("li");
-    item.className = "element-card-item";
-    item.setAttribute("data-element-id", id);
-    item.tabIndex = 0;
-    item.textContent = id;
-    item.addEventListener("click", () => {
-      selectElement(index);
+  function renderElementItems(): void {
+    while (elementsList.children && elementsList.children.length > 0) {
+      elementsList.removeChild(elementsList.children[0]);
+    }
+    itemElements = [];
+    currentElements.forEach((meta, index) => {
+      const item = doc.createElement("li");
+      item.className = "element-card-item";
+      item.setAttribute("data-element-id", meta.id);
+      item.tabIndex = 0;
+      item.textContent = `${meta.label} (${meta.id})`;
+      item.addEventListener("click", () => {
+        selectElement(index);
+      });
+      elementsList.appendChild(item);
+      itemElements.push(item);
     });
-    elementsList.appendChild(item);
-    itemElements.push(item);
+    selectElement(0);
+  }
+
+  screenSelector.addEventListener("change", (e: any) => {
+    const newScreen = e?.target?.value ?? screenSelector.value;
+    if (newScreen && newScreen !== currentScreenId) {
+      currentScreenId = newScreen;
+      currentElements = getScreenElements(currentScreenId);
+      renderElementItems();
+      const screenLabel = screenRegistry.find((s) => s.id === currentScreenId)?.label ?? currentScreenId;
+      const firstElem = currentElements[0]?.id ?? "";
+      const msg = `[화면 전환: ${screenLabel}] 선택: ${firstElem} · 게임에는 반영되지 않음`;
+      state = announce(state, msg);
+      statusText.textContent = msg;
+      statusPanel.textContent = msg;
+    }
   });
+
   elementsPanel.appendChild(elementsList);
   layoutBody.appendChild(elementsPanel);
 
@@ -281,29 +350,22 @@ export function mountShell(
   shellRoot.appendChild(layoutBody);
 
   // 3. Status Bar
-  const statusPanel = doc.createElement("footer");
-  statusPanel.className = "editor-status";
-  statusPanel.setAttribute("data-panel", "status");
-
-  const statusText = doc.createElement("span");
-  statusText.className = "status-message";
-  statusPanel.appendChild(statusText);
   shellRoot.appendChild(statusPanel);
-
   container.appendChild(shellRoot);
 
   function syncDOMSelection(): void {
-    const currentId = MENU_CARD_IDS[state.selectedIndex];
+    const currentMeta = currentElements[state.selectedIndex] ?? currentElements[0];
+    const currentId = currentMeta ? currentMeta.id : MENU_CARD_IDS[state.selectedIndex];
     itemElements.forEach((el, idx) => {
       const isSelected = idx === state.selectedIndex;
       el.setAttribute("data-selected", isSelected ? "true" : "false");
       el.setAttribute("aria-selected", isSelected ? "true" : "false");
       if (isSelected) {
         if (!el.className.includes("selected")) {
-          el.className = `${el.className} selected`.trim();
+          el.className = `${el.className} selected is-selected`.trim();
         }
       } else {
-        el.className = el.className.replace(/\bselected\b/g, "").trim();
+        el.className = el.className.replace(/\b(selected|is-selected)\b/g, "").trim();
       }
     });
     const msg = `[선택: ${currentId}] 검증 완료 · 게임에는 반영되지 않음 · 샌드박스 미보장 (IFRAME_IS_SECURITY_SANDBOX=false)`;
@@ -312,20 +374,26 @@ export function mountShell(
     propertyForm.setSelectedId(currentId);
   }
 
-  function selectElement(indexOrId: number | (typeof MENU_CARD_IDS)[number]): void {
+  function selectElement(indexOrId: number | string): void {
     let nextIndex: number;
     if (typeof indexOrId === "number") {
-      nextIndex = (indexOrId % MENU_CARD_IDS.length + MENU_CARD_IDS.length) % MENU_CARD_IDS.length;
+      const len = currentElements.length || 1;
+      nextIndex = (indexOrId % len + len) % len;
     } else {
-      nextIndex = MENU_CARD_IDS.indexOf(indexOrId as any);
+      nextIndex = currentElements.findIndex((m) => m.id === indexOrId);
       if (nextIndex === -1) nextIndex = 0;
     }
+    const currentMeta = currentElements[nextIndex] ?? currentElements[0];
+    const currentId = currentMeta ? currentMeta.id : MENU_CARD_IDS[nextIndex];
     state = {
       selectedIndex: nextIndex,
-      status: [...state.status, `선택: ${MENU_CARD_IDS[nextIndex]}`],
+      status: [...state.status, `선택: ${currentId}`],
     };
     syncDOMSelection();
   }
+
+  // Initial element items rendering and selection
+  renderElementItems();
 
   const keyTarget: any =
     options?.keyTarget ??
