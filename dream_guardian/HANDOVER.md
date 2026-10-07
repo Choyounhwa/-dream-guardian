@@ -18,7 +18,7 @@
 - 설계: `docs/12_UNIFIED_MOTION_RHYTHM_ARCHITECTURE.md` v2 (정의/판정/외형 3축 분리, 공용 NoteProjection/NoteAnchorResolver, 무변화 이행)
 - 종료: #424, #429 (#429는 StarNoteRenderer 범위 한정 완료)
 - **정정**: [#473 BUG-NOTE-CIRCLE-001] [✔] 완료. 아래 #429 섹션의 완료 기록을 StarNoteRenderer 내부 검증 한정으로 정정하고 `part: 'foot' as any` 타입 우회를 정식 규격(hip)으로 교정 완료. 실제 인게임 발 노트(`RunningMatRenderer._renderFlyingStompNotes`) 원형 링 기능 해소는 [MRN-08 #482]에서 진행.
-- 트랙: [#474 MRN-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/474), MRN-01~12 = #475~#486. #473 [✔] 완료에 따라 다음 순서는 [▶ NEXT: MRN-01 #475]이다. 기존 SSOT/다른 트랙 NEXT는 변경하지 않는다.
+- 트랙: [#474 MRN-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/474), MRN-01~12 = #475~#486. [#475 MRN-01] [✔] 완료에 따라 다음 순서는 [▶ NEXT: MRN-02 #476]이다. 기존 SSOT/다른 트랙 NEXT는 변경하지 않는다.
 
 ## 실게임 시각 UI 편집기 후속 카드 등록 (UI-VIS, 2026-10-08)
 
