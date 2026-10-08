@@ -21,6 +21,64 @@ import { MotionNoteRenderer } from './MotionNoteRenderer.js';
 import { createDefaultPainterRegistry } from './note-painters/NotePainters.js';
 import { DEFAULT_NOTE_PROFILES } from '../../config/motion-note-profile.config.js';
 import { bossHazardToRenderItem } from '../game/adapters/bossHazardAdapter.js';
+import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
+
+export const BOSS_CLIMAX_SLOT_IDS = [
+  'boss_hud',
+  'titleBanner',
+  'feverTextStyle',
+  'guardian_visual',
+  'minion_formation',
+] as const;
+export type BossClimaxSlotId = (typeof BOSS_CLIMAX_SLOT_IDS)[number];
+
+export const PROTECTED_BOSS_CLIMAX_SLOT_IDS = [
+  'boss_hp',
+  'boss_max_hp',
+  'minion_count',
+  'fever_combo',
+  'hazard_geometry',
+  'vanishing_point',
+  'damage_calculation',
+  'attack_power',
+  'shield_state',
+] as const;
+export type ProtectedBossClimaxSlotId = (typeof PROTECTED_BOSS_CLIMAX_SLOT_IDS)[number];
+
+export interface BossClimaxBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  width: number;
+  height: number;
+  isProtected?: boolean;
+}
+
+export interface BossClimaxSlotOverride {
+  text?: string;
+  color?: string;
+  textColor?: string;
+  fillColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  glowColor?: string;
+  fontSize?: number;
+  visible?: boolean;
+  opacity?: number;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+}
+
+export interface BossClimaxPresentationContext {
+  presentationDocument?: UIPresentationDocument;
+  pageId?: UIPresentationPageId | string;
+  bossHud?: BossClimaxSlotOverride;
+  titleBanner?: BossClimaxSlotOverride;
+  feverTextStyle?: BossClimaxSlotOverride;
+}
 
 export interface BossClimaxHazardState {
   readonly activePattern: string | null;
@@ -46,6 +104,88 @@ export interface BossClimaxRenderState {
   readonly isShieldActive?: boolean;
 }
 
+export interface BossClimaxFixtureDTO {
+  bossHp: number;
+  bossMaxHp: number;
+  isEnraged: boolean;
+  minionCount: number;
+  feverCombo: number;
+  hazard: BossClimaxHazardState | null;
+  barrageActive: boolean;
+  barrageProgress: number;
+  elapsedTime: number;
+  stardust?: number;
+  guardianStage?: number;
+  vanishingX?: number;
+  vanishingY?: number;
+  isShieldActive?: boolean;
+}
+
+export const DEFAULT_BOSS_CLIMAX_FIXTURE: BossClimaxFixtureDTO = Object.freeze({
+  bossHp: 10,
+  bossMaxHp: 10,
+  isEnraged: false,
+  minionCount: 5,
+  feverCombo: 0,
+  hazard: null,
+  barrageActive: false,
+  barrageProgress: 0,
+  elapsedTime: 0,
+  stardust: 0,
+});
+
+export const ENRAGED_BOSS_CLIMAX_FIXTURE: BossClimaxFixtureDTO = Object.freeze({
+  bossHp: 4,
+  bossMaxHp: 10,
+  isEnraged: true,
+  minionCount: 3,
+  feverCombo: 2,
+  hazard: null,
+  barrageActive: false,
+  barrageProgress: 0,
+  elapsedTime: 1.5,
+  stardust: 0,
+});
+
+export const FEVER_BOSS_CLIMAX_FIXTURE: BossClimaxFixtureDTO = Object.freeze({
+  bossHp: 6,
+  bossMaxHp: 10,
+  isEnraged: false,
+  minionCount: 13,
+  feverCombo: 10,
+  hazard: null,
+  barrageActive: true,
+  barrageProgress: 0.5,
+  elapsedTime: 3.0,
+  stardust: 20,
+});
+
+export const HAZARD_STOMP_BOSS_CLIMAX_FIXTURE: BossClimaxFixtureDTO = Object.freeze({
+  bossHp: 8,
+  bossMaxHp: 10,
+  isEnraged: false,
+  minionCount: 4,
+  feverCombo: 1,
+  hazard: { activePattern: 'stomp_wave', progress: 0.6 },
+  barrageActive: false,
+  barrageProgress: 0,
+  elapsedTime: 2.0,
+  stardust: 0,
+});
+
+export const HAZARD_MINION_RUSH_BOSS_CLIMAX_FIXTURE: BossClimaxFixtureDTO = Object.freeze({
+  bossHp: 7,
+  bossMaxHp: 10,
+  isEnraged: false,
+  minionCount: 4,
+  feverCombo: 0,
+  hazard: { activePattern: 'enemy_minion_rush', progress: 0.7 },
+  barrageActive: false,
+  barrageProgress: 0,
+  elapsedTime: 2.5,
+  stardust: 0,
+});
+
 export interface MinionPosition {
   readonly x: number;
   readonly y: number;
@@ -54,10 +194,297 @@ export interface MinionPosition {
 
 export class BossClimaxRenderer {
   public readonly motionNoteRenderer: MotionNoteRenderer;
+  private _presentationContext?: BossClimaxPresentationContext;
+  private _localSprites: Map<string, CanvasImageSource> = new Map();
 
-  constructor(motionNoteRenderer?: MotionNoteRenderer) {
+  constructor(
+    motionNoteRenderer?: MotionNoteRenderer,
+    presentationContext?: BossClimaxPresentationContext,
+  ) {
     this.motionNoteRenderer =
       motionNoteRenderer ?? this._createMotionNoteRenderer();
+    if (presentationContext) {
+      this._presentationContext = presentationContext;
+    }
+  }
+
+  /** 선택적 표시 컨텍스트 설정 */
+  setPresentationContext(context?: BossClimaxPresentationContext): void {
+    this._presentationContext = context;
+  }
+
+  getPresentationContext(): BossClimaxPresentationContext | undefined {
+    return this._presentationContext;
+  }
+
+  clearPresentationContext(): void {
+    this._presentationContext = undefined;
+  }
+
+  /**
+   * UIPresentationDocument로부터 BossClimaxPresentationContext 생성
+   */
+  static fromPresentationDocument(
+    doc: UIPresentationDocument,
+    pageId: UIPresentationPageId | string = 'boss_battle',
+  ): BossClimaxPresentationContext {
+    const page = doc.pages[pageId as UIPresentationPageId];
+    let bossHud: BossClimaxSlotOverride | undefined;
+
+    if (page?.elements) {
+      for (const el of page.elements) {
+        if (el.id === 'boss_hud') {
+          bossHud = {
+            x: el.bounds.x,
+            y: el.bounds.y,
+            w: el.bounds.width,
+            h: el.bounds.height,
+            text: el.text,
+          };
+        }
+      }
+    }
+
+    if (!bossHud) {
+      bossHud = {
+        x: 50,
+        y: 20,
+        w: 980,
+        h: 60,
+      };
+    }
+
+    return {
+      presentationDocument: doc,
+      pageId,
+      bossHud,
+    };
+  }
+
+  /**
+   * 보스 본체 바운딩 박스 조회 (소실점 부근)
+   */
+  getBossBounds(
+    vw: number,
+    vh: number,
+    vanishingPoint?: { x: number; y: number },
+  ): BossClimaxBounds {
+    const vx = vanishingPoint?.x ?? vw * 0.5;
+    const vy = vanishingPoint?.y ?? vh * HORIZON_RATIO;
+    const scale = vw / 1080;
+    const size = 180 * scale;
+    return {
+      x: vx - size / 2,
+      y: vy - size / 2,
+      w: size,
+      h: size,
+      width: size,
+      height: size,
+      isProtected: false,
+    };
+  }
+
+  /**
+   * 전경 중앙 수호신 바운딩 박스 조회
+   */
+  getGuardianBounds(vw: number, vh: number): BossClimaxBounds {
+    const pos = this.getGuardianPosition(vw, vh);
+    const scale = vw / 1080;
+    const size = 80 * scale;
+    return {
+      x: pos.x - size / 2,
+      y: pos.y - size / 2,
+      w: size,
+      h: size,
+      width: size,
+      height: size,
+      isProtected: false,
+    };
+  }
+
+  /**
+   * 결전 상단 HUD 영역 바운딩 박스 조회
+   */
+  getHudBounds(vw: number, _vh?: number): BossClimaxBounds {
+    const scaleX = vw / 1080;
+    const override = this._presentationContext?.bossHud;
+    const x = override?.x ?? 50 * scaleX;
+    const y = override?.y ?? 20 * scaleX;
+    const w = override?.w ?? 980 * scaleX;
+    const h = override?.h ?? 60 * scaleX;
+    return {
+      x,
+      y,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: false,
+    };
+  }
+
+  /**
+   * 아군 미니언 군단 V자 편대 바운딩 박스 조회
+   */
+  getMinionTroopBounds(vw: number, vh: number, minionCount: number): BossClimaxBounds {
+    const gPos = this.getGuardianPosition(vw, vh);
+    if (minionCount <= 0) {
+      const gBounds = this.getGuardianBounds(vw, vh);
+      return {
+        ...gBounds,
+        isProtected: false,
+      };
+    }
+    const positions = this.computeMinionPositions(minionCount, gPos.x, gPos.y, vw, vh);
+    const radius = 24;
+    let minX = gPos.x - radius;
+    let maxX = gPos.x + radius;
+    let minY = gPos.y - radius;
+    let maxY = gPos.y + radius;
+
+    for (const p of positions) {
+      if (p.x - radius < minX) minX = p.x - radius;
+      if (p.x + radius > maxX) maxX = p.x + radius;
+      if (p.y - radius < minY) minY = p.y - radius;
+      if (p.y + radius > maxY) maxY = p.y + radius;
+    }
+
+    const w = maxX - minX;
+    const h = maxY - minY;
+    return {
+      x: minX,
+      y: minY,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: false,
+    };
+  }
+
+  /**
+   * 보스 결전 바닥 장판 공격 바운딩 박스 조회 (물리 판정 기하 보호 구역)
+   */
+  getClimaxHazardBounds(
+    vw: number,
+    vh: number,
+    hazard?: BossClimaxHazardState | null,
+    vanishingPoint?: { x: number; y: number },
+  ): BossClimaxBounds {
+    const vx = vanishingPoint?.x ?? vw * 0.5;
+    const vy = vanishingPoint?.y ?? vh * HORIZON_RATIO;
+    const progress = hazard?.progress ?? 0.5;
+    const frontY = this.computeHazardFrontY(progress, vy, vh);
+    const w = vw * 0.9;
+    const h = Math.max(20, frontY - vy);
+    return {
+      x: vx - w / 2,
+      y: vy,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: true,
+    };
+  }
+
+  /**
+   * 아군 군단 마법 탄막 궤적 바운딩 박스 조회
+   */
+  getBarrageBounds(
+    vw: number,
+    vh: number,
+    vanishingPoint?: { x: number; y: number },
+  ): BossClimaxBounds {
+    const vx = vanishingPoint?.x ?? vw * 0.5;
+    const vy = vanishingPoint?.y ?? vh * HORIZON_RATIO;
+    const gPos = this.getGuardianPosition(vw, vh);
+    const w = vw * 0.6;
+    const h = Math.max(20, gPos.y - vy);
+    return {
+      x: vx - w / 2,
+      y: vy,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: false,
+    };
+  }
+
+  /** 슬롯 보호 여부 검사 */
+  isSlotLocked(slotId: string): boolean {
+    return (PROTECTED_BOSS_CLIMAX_SLOT_IDS as readonly string[]).includes(slotId as ProtectedBossClimaxSlotId);
+  }
+
+  /** 슬롯 잠금 사유 반환 */
+  getSlotLockReason(slotId: string): string | null {
+    if (this.isSlotLocked(slotId)) {
+      return `보스 결전 전투 수치 및 장판 기하(${slotId})는 게임플레이 무결성을 위해 보호됩니다.`;
+    }
+    return null;
+  }
+
+  /** 외부 컨텍스트 유효성 검사 (보호 수치 오버라이드 시도 감지) */
+  validatePresentationContext(context?: BossClimaxPresentationContext): {
+    valid: boolean;
+    issues: string[];
+  } {
+    const issues: string[] = [];
+    if (!context) return { valid: true, issues };
+
+    for (const key of Object.keys(context)) {
+      if ((PROTECTED_BOSS_CLIMAX_SLOT_IDS as readonly string[]).includes(key as ProtectedBossClimaxSlotId)) {
+        issues.push(`보호된 결전 전투 필드(${key})는 수정할 수 없습니다.`);
+      }
+    }
+
+    return {
+      valid: issues.length === 0,
+      issues,
+    };
+  }
+
+  /**
+   * 로컬 스프라이트 등록 (검증된 ID만 별도 context에 캐시, 전역 imageLoader 불변)
+   */
+  registerLocalSprite(key: string, image: CanvasImageSource): boolean {
+    if (!key || typeof key !== 'string') return false;
+    if (!/^[a-zA-Z0-9_-]+$/.test(key)) return false;
+    this._localSprites.set(key, image);
+    return true;
+  }
+
+  clearLocalSprites(): void {
+    this._localSprites.clear();
+  }
+
+  /**
+   * 결정론적 Fixture DTO 렌더 진입점
+   */
+  renderFixture(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    fixture: BossClimaxFixtureDTO,
+  ): void {
+    const state: BossClimaxRenderState = {
+      bossHp: fixture.bossHp,
+      bossMaxHp: fixture.bossMaxHp,
+      isEnraged: fixture.isEnraged,
+      minionCount: fixture.minionCount,
+      feverCombo: fixture.feverCombo,
+      hazard: fixture.hazard,
+      barrageActive: fixture.barrageActive,
+      barrageProgress: fixture.barrageProgress,
+      elapsedTime: fixture.elapsedTime,
+      stardust: fixture.stardust ?? 0,
+      guardianStage: fixture.guardianStage ?? 1,
+      vanishingX: fixture.vanishingX,
+      vanishingY: fixture.vanishingY,
+      isShieldActive: fixture.isShieldActive ?? false,
+    };
+    this.render(ctx, vw, vh, state);
   }
 
   /**
@@ -556,7 +983,7 @@ export class BossClimaxRenderer {
     let spriteKey = `stage${safeStage}_idle`;
 
     if (barrageActive) {
-      if (safeStage === 4 && imageLoader.get('guardian', 'stage4_ultimate')) {
+      if (safeStage === 4 && (this._localSprites.get('stage4_ultimate') || imageLoader.get('guardian', 'stage4_ultimate'))) {
         spriteKey = 'stage4_ultimate';
       } else {
         spriteKey = `stage${safeStage}_cast`;
@@ -565,11 +992,11 @@ export class BossClimaxRenderer {
       spriteKey = `stage${safeStage}_shield`;
     }
 
-    const img = imageLoader.get('guardian', spriteKey);
+    const img = this._localSprites.get(spriteKey) ?? imageLoader.get('guardian', spriteKey);
 
     if (img) {
-      const imgW = img.naturalWidth || img.width || 1;
-      const imgH = img.naturalHeight || img.height || 1;
+      const imgW = (img as HTMLImageElement).naturalWidth || (img as HTMLCanvasElement).width || 1;
+      const imgH = (img as HTMLImageElement).naturalHeight || (img as HTMLCanvasElement).height || 1;
       const aspect = imgW / imgH;
 
       const baseSize = (70 + safeStage * 25) * scaleX;
@@ -746,9 +1173,10 @@ export class BossClimaxRenderer {
     const barY = 96;
 
     // HP 게이지 배경
-    ctx.fillStyle = 'rgba(10, 15, 30, 0.75)';
-    ctx.strokeStyle = state.isEnraged ? '#FF2244' : '#28E6FF';
-    ctx.lineWidth = 2.5;
+    const hudOverride = this._presentationContext?.bossHud;
+    ctx.fillStyle = hudOverride?.fillColor ?? 'rgba(10, 15, 30, 0.75)';
+    ctx.strokeStyle = state.isEnraged ? '#FF2244' : (hudOverride?.borderColor ?? '#28E6FF');
+    ctx.lineWidth = hudOverride?.borderWidth ?? 2.5;
     ctx.beginPath();
     this._drawRectPath(ctx, barX, barY, barW, barH, 6);
     ctx.fill();
@@ -764,8 +1192,8 @@ export class BossClimaxRenderer {
       ctx.fill();
     }
 
-    // HP 수치 텍스트
-    ctx.fillStyle = '#FFFFFF';
+    // HP 수치 텍스트 (순수 상태값만 렌더, 외부 오버라이드 불가)
+    ctx.fillStyle = hudOverride?.textColor ?? '#FFFFFF';
     ctx.font = UIText.getFont('caption', scaleX, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -788,17 +1216,19 @@ export class BossClimaxRenderer {
       ctx.translate(140, 100);
       ctx.scale(comboPulse, comboPulse);
 
-      ctx.fillStyle = '#FFCB4D';
-      ctx.strokeStyle = '#FF865E';
-      ctx.lineWidth = 2;
+      const feverOverride = this._presentationContext?.feverTextStyle;
+      ctx.fillStyle = feverOverride?.color ?? feverOverride?.textColor ?? '#FFCB4D';
+      ctx.strokeStyle = feverOverride?.borderColor ?? '#FF865E';
+      ctx.lineWidth = feverOverride?.borderWidth ?? 2;
       ctx.font = UIText.getFont('body', scaleX, 'bold');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.shadowColor = '#FF865E';
+      ctx.shadowColor = feverOverride?.glowColor ?? '#FF865E';
       ctx.shadowBlur = 12;
 
-      ctx.strokeText(`🔥 FEVER x${state.feverCombo}`, 0, 0);
-      ctx.fillText(`🔥 FEVER x${state.feverCombo}`, 0, 0);
+      const feverText = feverOverride?.text ?? `🔥 FEVER x${state.feverCombo}`;
+      ctx.strokeText(feverText, 0, 0);
+      ctx.fillText(feverText, 0, 0);
       ctx.restore();
     }
 

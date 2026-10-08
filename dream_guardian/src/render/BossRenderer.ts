@@ -10,6 +10,97 @@
  */
 
 import { imageLoader } from '../utils/UIImageLoader.js';
+import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
+
+export const BOSS_SLOT_IDS = [
+  'boss_visual',
+  'boss_title',
+  'boss_aura_style',
+] as const;
+export type BossSlotId = (typeof BOSS_SLOT_IDS)[number];
+
+export const PROTECTED_BOSS_SLOT_IDS = [
+  'boss_hp',
+  'boss_max_hp',
+  'damage_calculation',
+  'attack_power',
+  'boss_phase_logic',
+] as const;
+export type ProtectedBossSlotId = (typeof PROTECTED_BOSS_SLOT_IDS)[number];
+
+export interface BossBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  width: number;
+  height: number;
+  isProtected?: boolean;
+}
+
+export interface BossSlotOverride {
+  text?: string;
+  color?: string;
+  textColor?: string;
+  fillColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  glowColor?: string;
+  fontSize?: number;
+  visible?: boolean;
+  opacity?: number;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+}
+
+export interface BossPresentationContext {
+  presentationDocument?: UIPresentationDocument;
+  pageId?: UIPresentationPageId | string;
+  bossVisual?: BossSlotOverride;
+  bossTitle?: BossSlotOverride;
+  bossAuraStyle?: BossSlotOverride;
+}
+
+export interface BossFixtureDTO {
+  chapter: number;
+  phase?: 'idle' | 'warning' | 'attacking' | 'defeated';
+  isEnraged?: boolean;
+  x?: number;
+  y?: number;
+  radius?: number;
+}
+
+export const DEFAULT_BOSS_FIXTURE: BossFixtureDTO = Object.freeze({
+  chapter: 1,
+  phase: 'idle',
+  isEnraged: false,
+});
+
+export const ENRAGED_BOSS_FIXTURE: BossFixtureDTO = Object.freeze({
+  chapter: 2,
+  phase: 'idle',
+  isEnraged: true,
+});
+
+export const ATTACKING_BOSS_FIXTURE: BossFixtureDTO = Object.freeze({
+  chapter: 3,
+  phase: 'attacking',
+  isEnraged: false,
+});
+
+export const WARNING_BOSS_FIXTURE: BossFixtureDTO = Object.freeze({
+  chapter: 4,
+  phase: 'warning',
+  isEnraged: false,
+});
+
+export const DEFEATED_BOSS_FIXTURE: BossFixtureDTO = Object.freeze({
+  chapter: 5,
+  phase: 'defeated',
+  isEnraged: false,
+});
 
 export interface BossRenderOptions {
   x: number;
@@ -26,6 +117,129 @@ export class BossRenderer {
   private _attackAnimTimer = 0;
   private _defeatedTimer = 0;
   private _isEnraged = false;
+  private _presentationContext?: BossPresentationContext;
+  private _localSprites: Map<string, CanvasImageSource> = new Map();
+
+  constructor(presentationContext?: BossPresentationContext) {
+    if (presentationContext) {
+      this._presentationContext = presentationContext;
+    }
+  }
+
+  /** 선택적 표시 컨텍스트 설정 */
+  setPresentationContext(context?: BossPresentationContext): void {
+    this._presentationContext = context;
+  }
+
+  getPresentationContext(): BossPresentationContext | undefined {
+    return this._presentationContext;
+  }
+
+  clearPresentationContext(): void {
+    this._presentationContext = undefined;
+  }
+
+  /**
+   * 보스 중심점 및 반지름 기준 바운딩 박스 조회
+   */
+  getBossBounds(x: number, y: number, radius = 90): BossBounds {
+    const w = radius * 2;
+    const h = radius * 2;
+    return {
+      x: x - radius,
+      y: y - radius,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: false,
+    };
+  }
+
+  /** 슬롯 보호 여부 검사 */
+  isSlotLocked(slotId: string): boolean {
+    return (PROTECTED_BOSS_SLOT_IDS as readonly string[]).includes(slotId as ProtectedBossSlotId);
+  }
+
+  /** 슬롯 잠금 사유 반환 */
+  getSlotLockReason(slotId: string): string | null {
+    if (this.isSlotLocked(slotId)) {
+      return `보스 전투 수치 및 판정 로직(${slotId})은 게임플레이 무결성을 위해 보호됩니다.`;
+    }
+    return null;
+  }
+
+  /** 외부 컨텍스트 유효성 검사 (보호 수치 오버라이드 시도 탐지) */
+  validatePresentationContext(context?: BossPresentationContext): {
+    valid: boolean;
+    issues: string[];
+  } {
+    const issues: string[] = [];
+    if (!context) return { valid: true, issues };
+
+    for (const key of Object.keys(context)) {
+      if ((PROTECTED_BOSS_SLOT_IDS as readonly string[]).includes(key as ProtectedBossSlotId)) {
+        issues.push(`보호된 보스 전투 필드(${key})는 수정할 수 없습니다.`);
+      }
+    }
+
+    return {
+      valid: issues.length === 0,
+      issues,
+    };
+  }
+
+  /**
+   * 로컬 스프라이트 등록 (검증된 ID만 별도 context에 캐시, 전역 imageLoader 불변)
+   */
+  registerLocalSprite(key: string, image: CanvasImageSource): boolean {
+    if (!key || typeof key !== 'string') return false;
+    if (!/^[a-zA-Z0-9_-]+$/.test(key)) return false;
+    this._localSprites.set(key, image);
+    return true;
+  }
+
+  clearLocalSprites(): void {
+    this._localSprites.clear();
+  }
+
+  /**
+   * 결정론적 Fixture DTO 렌더 진입점
+   */
+  renderFixture(ctx: CanvasRenderingContext2D, fixture: BossFixtureDTO): void {
+    const x = fixture.x ?? 540;
+    const y = fixture.y ?? 400;
+    const radius = fixture.radius ?? 90;
+    const phase = fixture.phase ?? 'idle';
+    const isEnraged = fixture.isEnraged ?? false;
+    this.render(ctx, fixture.chapter, x, y, radius, phase, isEnraged);
+  }
+
+  /**
+   * UIPresentationDocument로부터 BossPresentationContext 생성
+   */
+  static fromPresentationDocument(
+    doc: UIPresentationDocument,
+    pageId: UIPresentationPageId | string = 'boss_battle',
+  ): BossPresentationContext {
+    const page = doc.pages[pageId as UIPresentationPageId];
+    let bossTitle: BossSlotOverride | undefined;
+    if (page?.elements) {
+      for (const el of page.elements) {
+        if (el.id === 'boss_title') {
+          bossTitle = {
+            text: el.text,
+            fontSize: el.fontSize,
+          };
+        }
+      }
+    }
+    return {
+      presentationDocument: doc,
+      pageId,
+      bossTitle,
+    };
+  }
 
   /** 광폭화 상태 설정 */
   setEnraged(enraged: boolean): void {
@@ -120,7 +334,7 @@ export class BossRenderer {
     }
 
     const spriteKey = `ch${chapter}_${spriteType}`;
-    const img = imageLoader.get('boss', spriteKey);
+    const img = this._localSprites.get(spriteKey) ?? imageLoader.get('boss', spriteKey);
 
     if (img) {
       this._renderSprite(ctx, img, radius);
@@ -155,16 +369,29 @@ export class BossRenderer {
       ctx.fill();
     }
 
+    if (this._presentationContext?.bossTitle?.text) {
+      const title = this._presentationContext.bossTitle;
+      ctx.save();
+      ctx.fillStyle = title.color ?? title.textColor ?? '#28E6FF';
+      ctx.font = `bold ${title.fontSize ?? 26}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.shadowColor = title.glowColor ?? 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 8;
+      ctx.fillText(title.text!, 0, -radius - 12);
+      ctx.restore();
+    }
+
     ctx.restore();
   }
 
   /**
    * 비트맵 보스 스프라이트 중심 기준 종횡비 유지 렌더링
    */
-  private _renderSprite(ctx: CanvasRenderingContext2D, img: HTMLImageElement, radius: number): void {
+  private _renderSprite(ctx: CanvasRenderingContext2D, img: CanvasImageSource, radius: number): void {
     const maxDim = radius * 2;
-    const imgW = img.naturalWidth || img.width || 1;
-    const imgH = img.naturalHeight || img.height || 1;
+    const imgW = (img as HTMLImageElement).naturalWidth || (img as HTMLCanvasElement).width || 1;
+    const imgH = (img as HTMLImageElement).naturalHeight || (img as HTMLCanvasElement).height || 1;
 
     let drawW = maxDim;
     let drawH = maxDim;
@@ -181,15 +408,19 @@ export class BossRenderer {
   // ─── 경고 오라 ───
   private _renderWarningAura(ctx: CanvasRenderingContext2D, radius: number): void {
     const pulse = Math.sin(this._animTime * 10) * 0.2 + 0.5;
+    const aura = this._presentationContext?.bossAuraStyle;
+    const strokeColor = aura?.borderColor ?? aura?.color ?? `rgba(255, 50, 50, ${pulse})`;
+    const fillColor = aura?.fillColor ?? `rgba(255, 30, 30, ${pulse * 0.25})`;
+
     ctx.save();
-    ctx.strokeStyle = `rgba(255, 50, 50, ${pulse})`;
-    ctx.lineWidth = 4;
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = aura?.borderWidth ?? 4;
     ctx.setLineDash([8, 6]);
     ctx.beginPath();
     ctx.arc(0, 0, radius * 1.35, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.fillStyle = `rgba(255, 30, 30, ${pulse * 0.25})`;
+    ctx.fillStyle = fillColor;
     ctx.fill();
     ctx.restore();
   }
