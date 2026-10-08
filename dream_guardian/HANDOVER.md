@@ -4,9 +4,9 @@
 
 ## ⏸️ 답안 선택 후 2박 쉼표(Rest Delay) 도입 트랙 (ANSWER-REST, 2026-10-08)
 
-- **작업 카드**: [▶ NEXT] [#498 ANSWER-REST-001](https://github.com/Choyounhwa/-dream-guardian/issues/498) 답안 선택 후 2박 쉼표(Rest Delay) 도입 및 분기 전이 완충
+- **작업 카드**: [✔ 완료] [#498 ANSWER-REST-001](https://github.com/Choyounhwa/-dream-guardian/issues/498) 답안 선택 후 2박 쉼표(Rest Delay) 도입 및 분기 전이 완충
 - **목적**: 답안 선택(팔 뻗기 또는 클릭 폴백) 직후 즉시 STAR_COLLECT / HAZARD_EVADE로 급격하게 전이되는 문제를 해결하기 위해, 정답/오답/타임아웃 확정 후 2박(BPM 120 기준 1.0초) 동안 답안 피드백 및 선택 상태를 유지하는 쉼표(Rest Delay) 구간을 거친 뒤 다음 단계로 부드럽게 전이되도록 한다.
-- **수정 대상**: `src/game/BeatRunCoordinator.ts`, `tests/unit/beat-run-coordinator.test.ts`
+- **수정 대상**: `src/game/BeatRunCoordinator.ts`, `src/core/AppBootstrap.ts`, `tests/unit/beat-run-coordinator.test.ts`, `tests/unit/app-bootstrap.test.ts`
 
 ## 👣 3레인·발자국·리듬노트 단일화 및 궤적 고정 트랙 (LANE-SYNC, 2026-10-08)
 
@@ -125,7 +125,7 @@
 |---|---|---|---|
 | A | #431~#434 / UI-VIS-001~004 | 표시/문서 계약·비파괴 변환·Undo 모델 | #431 [✔], #432 [✔], #433 [✔], #434 [✔] (단계 A 완료) |
 | B | #435~#438 / UI-VIS-005~008 | 정렬·속성 모델·안전 bridge·실제 Canvas | #435 [✔], #436 [✔], #437 [✔], #438 [✔] (단계 B 완료) |
-| C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | #439 [✔], #440 [✔], #441 [✔], [#442 UI-VIS-012](https://github.com/Choyounhwa/-dream-guardian/issues/442) [✔], [#443 UI-VIS-013](https://github.com/Choyounhwa/-dream-guardian/issues/443) [✔], [#444 UI-VIS-014](https://github.com/Choyounhwa/-dream-guardian/issues/444) [✔], [#445 UI-VIS-015](https://github.com/Choyounhwa/-dream-guardian/issues/445) [✔], [#446 UI-VIS-016](https://github.com/Choyounhwa/-dream-guardian/issues/446) [✔], [#447 UI-VIS-017](https://github.com/Choyounhwa/-dream-guardian/issues/447) [✔], [#448 UI-VIS-018](https://github.com/Choyounhwa/-dream-guardian/issues/448) `[▶ NEXT: UI-VIS 트랙 / 승인 대기]`, 나머지 선행 대기 |
+| C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | #439 [✔], #440 [✔], #441 [✔], [#442 UI-VIS-012](https://github.com/Choyounhwa/-dream-guardian/issues/442) [✔], [#443 UI-VIS-013](https://github.com/Choyounhwa/-dream-guardian/issues/443) [✔], [#444 UI-VIS-014](https://github.com/Choyounhwa/-dream-guardian/issues/444) [✔], [#445 UI-VIS-015](https://github.com/Choyounhwa/-dream-guardian/issues/445) [✔], [#446 UI-VIS-016](https://github.com/Choyounhwa/-dream-guardian/issues/446) [✔], [#447 UI-VIS-017](https://github.com/Choyounhwa/-dream-guardian/issues/447) [✔], [#448 UI-VIS-018](https://github.com/Choyounhwa/-dream-guardian/issues/448) [✔], [#449 UI-VIS-019](https://github.com/Choyounhwa/-dream-guardian/issues/449) `[▶ NEXT: UI-VIS 트랙 / 승인 대기]`, 나머지 선행 대기 |
 | D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | 승인/선행 대기 |
 | E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | 승인/선행 대기 |
 | F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | 승인/선행 대기 |
