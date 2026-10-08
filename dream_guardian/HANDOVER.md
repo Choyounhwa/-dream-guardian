@@ -2,13 +2,12 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
-## 👣 3레인·발자국·리듬노트 단일화 및 궤적 고정 트랙 등록 (LANE-SYNC, 2026-10-08)
+## 👣 3레인·발자국·리듬노트 단일화 및 궤적 고정 트랙 (LANE-SYNC, 2026-10-08)
 
-**사용자 요청: "카드작성". 승인된 범위는 카드 작성·GitHub 이슈 등록·문서 동기화뿐이다. 구현은 미착수이며 카드마다 별도 승인을 받는다.**
-- 관리 카드: [#493 LANE-SYNC-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/493)
+- 관리 카드: [✔ 완료] [#493 LANE-SYNC-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/493) (3레인·발자국·리듬노트 단일화 및 궤적 고정 전 과정 완주)
 - 하위 카드 목록:
-  - [✔ 완료] [#494 LANE-SYNC-01](https://github.com/Choyounhwa/-dream-guardian/issues/494) 3대 레인과 발자국 슬롯 X 좌표 단일화 및 러닝 매트 3레인 중앙 발자국 정렬 (선행 없음)
-  - [▶ NEXT] [#495 LANE-SYNC-02](https://github.com/Choyounhwa/-dream-guardian/issues/495) 리듬노트 비행 궤적의 3레인 세로선 정렬 및 러닝/리듬 모드 착지 앵커 단일화 (선행 01)
+  - [✔ 완료] [#494 LANE-SYNC-01](https://github.com/Choyounhwa/-dream-guardian/issues/494) 3대 레인과 발자국 슬롯 X 좌표 단일화 및 러닝 매트 3레인 중앙 발자국 정렬
+  - [✔ 완료] [#495 LANE-SYNC-02](https://github.com/Choyounhwa/-dream-guardian/issues/495) 리듬노트 비행 궤적의 3레인 세로선 정렬 및 러닝/리듬 모드 착지 앵커 단일화
 
 ## 🚨 문제페이즈(RUN_QUESTION) 렌더링 중단 결함 등록 (BUG-RUN-QUESTION-RENDER, 2026-10-08)
 
