@@ -15,6 +15,8 @@ export interface CameraLayerOptions {
   /** 카메라 해상도 제약 */
   width?: number;
   height?: number;
+  /** 웹캠 실사 영상 렌더링 여부 (기본 true, false 시 포즈 인식을 위한 비디오 엘리먼트는 유지하되 캔버스 드로잉만 스킵) */
+  renderVideo?: boolean;
 }
 
 export type CameraStatus = 'idle' | 'requesting' | 'active' | 'denied' | 'error';
@@ -27,12 +29,14 @@ export class CameraLayer {
   private _mirror: boolean;
   private _width: number;
   private _height: number;
+  private _renderVideo: boolean;
 
   constructor(options?: CameraLayerOptions) {
     this._dimAlpha = options?.dimAlpha ?? 0.35;
     this._mirror = options?.mirror ?? true;
     this._width = options?.width ?? 640;
     this._height = options?.height ?? 480;
+    this._renderVideo = options?.renderVideo ?? true;
   }
 
   /** 현재 카메라 상태 */
@@ -52,6 +56,15 @@ export class CameraLayer {
 
   get mirror(): boolean {
     return this._mirror;
+  }
+
+  /** 웹캠 실사 영상 렌더링 여부 getter/setter */
+  get renderVideo(): boolean {
+    return this._renderVideo;
+  }
+
+  set renderVideo(val: boolean) {
+    this._renderVideo = val;
   }
 
   /**
@@ -189,9 +202,10 @@ export class CameraLayer {
   /**
    * 캔버스에 미러 웹캠 피드 + 디밍 렌더링
    * 비디오 원본 비율을 유지하는 중앙 정렬 Cover 스케일 적용
-   * 카메라가 꺼져 있으면 아무것도 그리지 않음
+   * 카메라가 꺼져 있거나 renderVideo가 false이면 아무것도 그리지 않고 즉시 반환
    */
   render(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number): void {
+    if (this._renderVideo === false) return;
     if (!this._video || this._status !== 'active') return;
     if (!this._video.readyState || this._video.readyState < 2) return;
 

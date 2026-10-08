@@ -126,4 +126,60 @@ describe('CameraLayer', () => {
     const mirrored = camera.landmarkToCanvas({ x: 0.4, y: 0.5 }, 360, 720);
     expect(mirrored.x).toBeCloseTo(308);
   });
+
+  describe('renderVideo 옵션 (#488 [AVATAR-01])', () => {
+    it('renderVideo 기본값은 true이고 getter/setter로 변경할 수 있다', () => {
+      const camera = new CameraLayer();
+      expect(camera.renderVideo).toBe(true);
+
+      camera.renderVideo = false;
+      expect(camera.renderVideo).toBe(false);
+
+      camera.renderVideo = true;
+      expect(camera.renderVideo).toBe(true);
+    });
+
+    it('CameraLayerOptions에 renderVideo: false를 지정하면 초기값이 false이다', () => {
+      const camera = new CameraLayer({ renderVideo: false });
+      expect(camera.renderVideo).toBe(false);
+    });
+
+    it('카메라가 활성 상태일 때 renderVideo === false이면 drawImage 및 디밍 fillRect를 스킵하고 즉시 반환한다', () => {
+      const camera = new CameraLayer({ renderVideo: false });
+      // 내부 상태를 가상 활성화 (포즈 인식을 위해 videoElement 스트림은 유지되는 시나리오)
+      const mockVideo = {
+        readyState: 4,
+        videoWidth: 640,
+        videoHeight: 480,
+      } as unknown as HTMLVideoElement;
+      (camera as unknown as { _status: string; _video: HTMLVideoElement })._status = 'active';
+      (camera as unknown as { _status: string; _video: HTMLVideoElement })._video = mockVideo;
+
+      expect(camera.isActive).toBe(true);
+      expect(camera.videoElement).toBe(mockVideo);
+
+      const ctx = {
+        save: vi.fn(),
+        restore: vi.fn(),
+        translate: vi.fn(),
+        scale: vi.fn(),
+        drawImage: vi.fn(),
+        fillRect: vi.fn(),
+        fillStyle: '',
+      } as unknown as CanvasRenderingContext2D;
+
+      camera.render(ctx, 1920, 1080);
+
+      expect(ctx.drawImage).not.toHaveBeenCalled();
+      expect(ctx.fillRect).not.toHaveBeenCalled();
+      expect(ctx.save).not.toHaveBeenCalled();
+
+      // renderVideo를 true로 전환 시 drawImage 정상 호출 확인
+      camera.renderVideo = true;
+      camera.render(ctx, 1920, 1080);
+
+      expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+      expect(ctx.fillRect).toHaveBeenCalledTimes(1);
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { StickmanRenderer } from '../../src/skeleton/StickmanRenderer.js';
 import { STICKMAN_CONFIG, STICKMAN_SCALE_PRESETS } from '../../config/skeleton.config.js';
 import type { NormalizedLandmark } from '../../src/types/index.js';
@@ -122,8 +122,8 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
         pose1.leftWrist.y - pose1.leftElbow.y,
       );
 
-      expect(leftUpperArmDist).toBeCloseTo(STICKMAN_CONFIG.limbLengths.upperArm, 1);
-      expect(leftForearmDist).toBeCloseTo(STICKMAN_CONFIG.limbLengths.forearm, 1);
+      expect(leftUpperArmDist).toBeCloseTo(STICKMAN_CONFIG.limbLengths.upperArm * STICKMAN_CONFIG.scale, 1);
+      expect(leftForearmDist).toBeCloseTo(STICKMAN_CONFIG.limbLengths.forearm * STICKMAN_CONFIG.scale, 1);
 
       // 카메라 앞으로 손을 뻗어 2D 손목 좌표가 극단적으로 축소된 랜드마크 시뮬레이션
       const distortedPose = createSamplePoseLandmarks();
@@ -144,7 +144,7 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       );
 
       // 왜곡된 랜드마크에서도 FK에 의해 고정 길이가 온전히 보존된다
-      expect(distortedForearmDist).toBeCloseTo(STICKMAN_CONFIG.limbLengths.forearm, 1);
+      expect(distortedForearmDist).toBeCloseTo(STICKMAN_CONFIG.limbLengths.forearm * STICKMAN_CONFIG.scale, 1);
     });
 
     it('각도 스무딩(Damping)을 통해 프레임 간 급격한 각도 떨림을 부드럽게 감쇠한다', () => {
@@ -508,15 +508,20 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
     let renderer: StickmanRenderer;
 
     beforeEach(() => {
+      STICKMAN_CONFIG.scale = 1.5;
       renderer = new StickmanRenderer();
+    });
+
+    afterEach(() => {
+      STICKMAN_CONFIG.scale = 1.5;
     });
 
     it('STICKMAN_SCALE_PRESETS에 1.0, 1.25, 1.5, 2.0 배율이 정의되어 있다', () => {
       expect(STICKMAN_SCALE_PRESETS).toEqual([1.0, 1.25, 1.5, 2.0]);
     });
 
-    it('기본 스케일은 1.0이며 setter 및 setScale()로 스케일을 변경할 수 있다', () => {
-      expect(renderer.scale).toBe(1.0);
+    it('기본 스케일은 1.5이며 setter 및 setScale()로 스케일을 변경할 수 있다', () => {
+      expect(renderer.scale).toBe(1.5);
       renderer.scale = 1.25;
       expect(renderer.scale).toBe(1.25);
       renderer.setScale(1.5);
@@ -570,16 +575,8 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       expect(armDist).toBeCloseTo(STICKMAN_CONFIG.limbLengths.upperArm * 1.25, 1);
     });
 
-    it('SettingsModal에서 stickmanScale 순환 토글 및 라벨이 정상 동작한다 (1.0x -> 1.25x -> 1.5x -> 2.0x -> 1.0x)', () => {
+    it('SettingsModal에서 stickmanScale 순환 토글 및 라벨이 정상 동작한다 (1.5x -> 2.0x -> 1.0x -> 1.25x -> 1.5x)', () => {
       const modal = new SettingsModal();
-      expect(modal.stickmanScale).toBe(1.0);
-      expect(modal.stickmanScaleLabel).toBe('기본 (1.0x)');
-
-      modal.cycleStickmanScale();
-      expect(modal.stickmanScale).toBe(1.25);
-      expect(modal.stickmanScaleLabel).toBe('크게 (1.25x)');
-
-      modal.cycleStickmanScale();
       expect(modal.stickmanScale).toBe(1.5);
       expect(modal.stickmanScaleLabel).toBe('매우 크게 (1.5x)');
 
@@ -590,19 +587,27 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       modal.cycleStickmanScale();
       expect(modal.stickmanScale).toBe(1.0);
       expect(modal.stickmanScaleLabel).toBe('기본 (1.0x)');
+
+      modal.cycleStickmanScale();
+      expect(modal.stickmanScale).toBe(1.25);
+      expect(modal.stickmanScaleLabel).toBe('크게 (1.25x)');
+
+      modal.cycleStickmanScale();
+      expect(modal.stickmanScale).toBe(1.5);
+      expect(modal.stickmanScaleLabel).toBe('매우 크게 (1.5x)');
     });
 
     it('SettingsModal의 stickmanScale 변경 시 STICKMAN_CONFIG.scale 및 렌더러 스케일이 동기화된다', () => {
       const modal = new SettingsModal();
-      modal.stickmanScale = 1.0;
+      modal.stickmanScale = 1.5;
       const testRenderer = new StickmanRenderer();
-      expect(testRenderer.scale).toBe(1.0);
+      expect(testRenderer.scale).toBe(1.5);
 
-      modal.cycleStickmanScale(); // -> 1.25
-      expect(testRenderer.scale).toBe(1.25);
-      expect(STICKMAN_CONFIG.scale).toBe(1.25);
+      modal.cycleStickmanScale(); // -> 2.0
+      expect(testRenderer.scale).toBe(2.0);
+      expect(STICKMAN_CONFIG.scale).toBe(2.0);
 
-      modal.stickmanScale = 1.0; // reset
+      modal.stickmanScale = 1.5; // reset
     });
   });
 });

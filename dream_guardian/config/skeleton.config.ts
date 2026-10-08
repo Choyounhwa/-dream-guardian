@@ -2,7 +2,7 @@
  * skeleton.config.ts - 메카 졸라맨(Mecha Stickman) 모션 아바타 및 스켈레톤 설정 (Issue #203 / FEAT-SKEL-005)
  *
  * 개발 규칙 6절 (데이터와 코드 분리) 준수:
- * - 화면 중앙 2/3 높이 앵커 비율 (X: 0.5, Y: 0.68)
+ * - 화면 중앙 하단 앵커 비율 (X: 0.5, Y: 0.72)
  * - 황금 비례 고정 길이 순운동학(Fixed-Length FK) 파라미터
  * - 네온 캡슐 두께, 관절 볼 크기, 색상 테마
  */
@@ -48,8 +48,8 @@ export type StickmanScale = (typeof STICKMAN_SCALE_PRESETS)[number];
 
 export interface StickmanConfig {
   anchorXRatio: number; // 화면 가로 앵커 비율 (0.5 = 중앙)
-  anchorYRatio: number; // 화면 세로 앵커 비율 (0.68 = 화면 중앙 2/3 높이)
-  scale: number;        // 기본 스케일
+  anchorYRatio: number; // 화면 세로 앵커 비율 (0.72 = 화면 중앙 하단 앵커)
+  scale: number;        // 기본 스케일 (1.5)
   angleSmoothing: number; // 회전각 스무딩 보간 계수 (0~1)
   squatSensitivity: number; // 스쿼트 시 Y 변위 가중치
   jumpSensitivity: number;  // 점프 시 Y 변위 가중치
@@ -60,8 +60,8 @@ export interface StickmanConfig {
 
 export const STICKMAN_CONFIG: StickmanConfig = {
   anchorXRatio: 0.5,
-  anchorYRatio: 0.68,
-  scale: 1.0,
+  anchorYRatio: 0.72,
+  scale: 1.5,
   angleSmoothing: 0.35,
   squatSensitivity: 350,
   jumpSensitivity: 350,
