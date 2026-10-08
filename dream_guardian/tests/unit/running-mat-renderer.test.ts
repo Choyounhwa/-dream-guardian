@@ -12,6 +12,7 @@ import {
   DEFAULT_MAT_BASE_Y_BOTTOM,
   DEFAULT_MAT_WIDTH_RATIO,
   MAX_NARROW_WIDTH_RATIO,
+  DEFAULT_VANISHING_Y_RATIO,
   DEFAULT_STRIKE_LINE_Y_RATIO,
 } from '../../config/running-mat.config.js';
 import type { RunningMatViewModel } from '../../src/render/RunningMatPresenter.js';
@@ -675,6 +676,129 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
     it('비트 진행도(beatProgress) 전달 시 상방 빛 파동(Beat Pulse Wave)이 렌더링된다', () => {
       renderer.render(ctx, null, width, height, { beatProgress: 0.2, elapsedTime: 1.5 });
       expect(ctx.save).toHaveBeenCalled();
+    });
+  });
+
+  describe('12. [LANE-SYNC-01 / #494] 3대 레인과 발자국 슬롯 X 좌표 단일화 및 3레인 중앙 발자국 정렬', () => {
+    it('발자국 슬롯 X 좌표가 3대 레인 규격(-0.45, 0.0, +0.45) * halfWBottom과 정확히 1:1 일치한다', () => {
+      const vx = width * 0.5;
+      const vy = height * DEFAULT_VANISHING_Y_RATIO;
+      const yTop = height * DEFAULT_MAT_BASE_Y_TOP;
+      const yBottom = height * DEFAULT_MAT_BASE_Y_BOTTOM;
+      const halfWBottom = (width * DEFAULT_MAT_WIDTH_RATIO) * 0.5;
+      const yStrike = height * DEFAULT_STRIKE_LINE_Y_RATIO;
+
+      const slots = (renderer as any).computeSlotCoordinates(
+        vx,
+        vy,
+        yTop,
+        yBottom,
+        halfWBottom,
+        width,
+        yStrike
+      );
+
+      // 좌측 슬롯(left/leftOut)은 vx - 0.45 * halfWBottom
+      expect(slots.leftOut.x).toBeCloseTo(vx - 0.45 * halfWBottom, 1);
+      expect(slots.left.x).toBeCloseTo(vx - 0.45 * halfWBottom, 1);
+
+      // 중앙 슬롯(center)은 vx
+      expect(slots.center.x).toBeCloseTo(vx, 1);
+      // 중앙 홈 발판 쌍(leftHome, rightHome)의 중심점도 정확히 vx
+      expect((slots.leftHome.x + slots.rightHome.x) * 0.5).toBeCloseTo(vx, 1);
+
+      // 우측 슬롯(right/rightOut)은 vx + 0.45 * halfWBottom
+      expect(slots.rightOut.x).toBeCloseTo(vx + 0.45 * halfWBottom, 1);
+      expect(slots.right.x).toBeCloseTo(vx + 0.45 * halfWBottom, 1);
+    });
+
+    it('모든 발자국 슬롯의 Y 좌표가 판정선 높이(yStrike = height * strikeLineYRatio)와 일치한다', () => {
+      const vx = width * 0.5;
+      const vy = height * DEFAULT_VANISHING_Y_RATIO;
+      const yTop = height * DEFAULT_MAT_BASE_Y_TOP;
+      const yBottom = height * DEFAULT_MAT_BASE_Y_BOTTOM;
+      const halfWBottom = (width * DEFAULT_MAT_WIDTH_RATIO) * 0.5;
+      const yStrike = height * DEFAULT_STRIKE_LINE_Y_RATIO;
+
+      const slots = (renderer as any).computeSlotCoordinates(
+        vx,
+        vy,
+        yTop,
+        yBottom,
+        halfWBottom,
+        width,
+        yStrike
+      );
+
+      expect(slots.leftOut.y).toBeCloseTo(yStrike, 1);
+      expect(slots.left.y).toBeCloseTo(yStrike, 1);
+      expect(slots.center.y).toBeCloseTo(yStrike, 1);
+      expect(slots.leftHome.y).toBeCloseTo(yStrike, 1);
+      expect(slots.rightHome.y).toBeCloseTo(yStrike, 1);
+      expect(slots.rightOut.y).toBeCloseTo(yStrike, 1);
+      expect(slots.right.y).toBeCloseTo(yStrike, 1);
+    });
+
+    it('3레인 타깃 앵커(Zone 9, 10, 11) X 좌표와 발자국 슬롯 X 좌표 간 불일치가 0이다', () => {
+      const vx = width * 0.5;
+      const vy = height * DEFAULT_VANISHING_Y_RATIO;
+      const yTop = height * DEFAULT_MAT_BASE_Y_TOP;
+      const yBottom = height * DEFAULT_MAT_BASE_Y_BOTTOM;
+      const halfWBottom = (width * DEFAULT_MAT_WIDTH_RATIO) * 0.5;
+      const yStrike = height * DEFAULT_STRIKE_LINE_Y_RATIO;
+
+      const slots = (renderer as any).computeSlotCoordinates(
+        vx,
+        vy,
+        yTop,
+        yBottom,
+        halfWBottom,
+        width,
+        yStrike
+      );
+
+      const expectedLeftX = vx - halfWBottom * 0.45;
+      const expectedCenterX = vx;
+      const expectedRightX = vx + halfWBottom * 0.45;
+
+      expect(slots.left.x - expectedLeftX).toBe(0);
+      expect(slots.center.x - expectedCenterX).toBe(0);
+      expect(slots.right.x - expectedRightX).toBe(0);
+    });
+
+    it('런타임 렌더링 시 좌측 및 우측 발 딛기 시 발자국이 3레인 정중앙 좌표 및 판정선 Y에 렌더링된다', () => {
+      const view = createBaseViewModel({
+        currentCue: {
+          beatIndex: 0,
+          actionId: 'left_out',
+          actionText: '왼발 딛기',
+          directionText: '왼쪽',
+          cueText: '왼발 바깥',
+          arrowDirection: 'left',
+          leftFootSlot: 'out',
+          rightFootSlot: 'home',
+          isPrepare: false,
+        },
+      });
+
+      renderer.render(ctx, view, width, height);
+
+      const vx = width * 0.5;
+      const aspect = width / height;
+      const matWidthRatio = aspect < 1.0
+        ? Math.min(MAX_NARROW_WIDTH_RATIO, DEFAULT_MAT_WIDTH_RATIO + (1.0 - aspect) * 0.15)
+        : DEFAULT_MAT_WIDTH_RATIO;
+      const halfWBottom = (width * matWidthRatio) * 0.5;
+      const expectedLeftX = vx - halfWBottom * 0.45;
+      const expectedYStrike = height * DEFAULT_STRIKE_LINE_Y_RATIO;
+
+      const ellipseCalls = vi.mocked(ctx.ellipse).mock.calls;
+      const hasLeftLaneFootprint = ellipseCalls.some((c) => {
+        const cx = c[0];
+        const cy = c[1];
+        return Math.abs(cx - expectedLeftX) < 1.0 && Math.abs(cy - expectedYStrike) < 1.0;
+      });
+      expect(hasLeftLaneFootprint).toBe(true);
     });
   });
 });

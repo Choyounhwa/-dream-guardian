@@ -13,6 +13,7 @@ import {
   RUNNING_MAT_CONFIG,
   DEFAULT_STRIKE_LINE_Y_RATIO,
   DEFAULT_STRIKE_OVERHANG_RATIO,
+  DEFAULT_LANE_SLOT_OFFSETS,
   type RunningMatConfig,
 } from '../../config/running-mat.config.js';
 import type { RunningMatViewModel } from './RunningMatPresenter.js';
@@ -33,7 +34,10 @@ interface Point2D {
   y: number;
 }
 
-interface FootprintSlotCoords {
+export interface FootprintSlotCoords {
+  readonly left: Point2D;
+  readonly center: Point2D;
+  readonly right: Point2D;
   readonly leftOut: Point2D;
   readonly leftHome: Point2D;
   readonly rightHome: Point2D;
@@ -202,14 +206,15 @@ export class RunningMatRenderer {
     // 3. 소실점에서 판정선 3대 레인으로 날아오는 발 리듬 비트 노트 렌더링 (Issue #425, #482 / MRN-08)
     this._renderFlyingStompNotes(ctx, view, vx, vy, width, height);
 
-    // 4. 발자국 슬롯 좌표 계산
+    // 4. 발자국 슬롯 좌표 계산 (3대 레인 및 yStrike 판정선 정렬)
     const slots = this._computeSlotCoordinates(
       vx,
       vy,
       yTop,
       yBottom,
       halfWBottom,
-      width
+      width,
+      yStrike
     );
 
     // 3. 기본 Home 발자국 슬롯 렌더링
@@ -380,7 +385,11 @@ export class RunningMatRenderer {
       ctx.stroke();
 
       // (4) 3대 타깃 앵커 동시 버스트 링 폭발
-      const anchorXs = [vx - halfWBottom * 0.45, vx, vx + halfWBottom * 0.45];
+      const anchorXs = [
+        vx + (this.config.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left) * halfWBottom,
+        vx,
+        vx + (this.config.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right) * halfWBottom,
+      ];
       for (const ax of anchorXs) {
         ctx.beginPath();
         if (typeof ctx.arc === 'function') {
@@ -404,11 +413,14 @@ export class RunningMatRenderer {
     const isCenterNext = view?.nextCue ? (!isLeftNext && !isRightNext) : false;
 
     const baseRadius = this.config.targetAnchorRadius ?? 15;
+    const leftAnchorX = vx + (this.config.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left) * halfWBottom;
+    const centerAnchorX = vx;
+    const rightAnchorX = vx + (this.config.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right) * halfWBottom;
 
     const anchors = [
       {
         id: 'left',
-        x: vx - halfWBottom * 0.45,
+        x: leftAnchorX,
         y: yStrike,
         label: 'LEFT (Z9)',
         isActive: isLeftActive,
@@ -416,7 +428,7 @@ export class RunningMatRenderer {
       },
       {
         id: 'center',
-        x: vx,
+        x: centerAnchorX,
         y: yStrike,
         label: 'HOME (Z10)',
         isActive: isCenterActive,
@@ -424,7 +436,7 @@ export class RunningMatRenderer {
       },
       {
         id: 'right',
-        x: vx + halfWBottom * 0.45,
+        x: rightAnchorX,
         y: yStrike,
         label: 'RIGHT (Z11)',
         isActive: isRightActive,
@@ -565,35 +577,75 @@ export class RunningMatRenderer {
   }
 
   /**
-   * 원근에 맞춘 4개 발 슬롯 좌표 계산 (LeftOut, LeftHome, RightHome, RightOut)
+   * 3대 레인(-0.45, 0.0, +0.45) 및 판정선 Y(yStrike)에 일치하는 발자국 슬롯 좌표 계산 (Issue #494 / LANE-SYNC-01)
    */
-  private _computeSlotCoordinates(
+  public computeSlotCoordinates(
     vx: number,
     vy: number,
-    yTop: number,
+    _yTop: number,
     yBottom: number,
     halfWBottom: number,
-    width: number
+    width: number,
+    yStrike?: number
   ): FootprintSlotCoords {
-    const ySlot = yTop + (yBottom - yTop) * 0.56;
+    return this._computeSlotCoordinates(
+      vx,
+      vy,
+      _yTop,
+      yBottom,
+      halfWBottom,
+      width,
+      yStrike
+    );
+  }
+
+  public _computeSlotCoordinates(
+    vx: number,
+    vy: number,
+    _yTop: number,
+    yBottom: number,
+    halfWBottom: number,
+    width: number,
+    yStrike?: number
+  ): FootprintSlotCoords {
+    const laneOffsetLeft = this.config.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left;
+    const laneOffsetRight = this.config.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right;
+    const strikeY =
+      yStrike ??
+      (yBottom > 0
+        ? (yBottom * (this.config.strikeLineYRatio ?? DEFAULT_STRIKE_LINE_Y_RATIO)) /
+          (this.config.baseYBottom ?? 0.94)
+        : 0);
+
     const floorH = Math.max(1, yBottom - vy);
-    const slotSpread = Math.max(0.2, (ySlot - vy) / floorH);
+    const slotSpread = Math.max(0.2, (strikeY - vy) / floorH);
+    const footWidth = Math.max(18, 28 * slotSpread * (width / 1080));
+    const footHeight = footWidth * 1.8;
 
-    const footWidth = Math.max(16, 26 * slotSpread * (width / 1080));
-    const footHeight = footWidth * 1.85;
+    // 3대 레인 기준 X 좌표: Left(Z9) = vx - 0.45 * halfWBottom, Center(Z10) = vx, Right(Z11) = vx + 0.45 * halfWBottom
+    const leftX = vx + laneOffsetLeft * halfWBottom;
+    const centerX = vx;
+    const rightX = vx + laneOffsetRight * halfWBottom;
 
-    // normalized lane positions:
-    // Left Out: -0.67, Left Home: -0.17, Right Home: +0.17, Right Out: +0.67
-    const leftOutX = vx + -0.67 * halfWBottom * slotSpread;
-    const leftHomeX = vx + -0.17 * halfWBottom * slotSpread;
-    const rightHomeX = vx + 0.17 * halfWBottom * slotSpread;
-    const rightOutX = vx + 0.67 * halfWBottom * slotSpread;
+    // 중앙 홈 레인(Z10) 내 좌/우 홈 발자국 미세 이격 (중앙 레인 폭 내 자연스러운 홈 발판 스탠스)
+    const homeSpread = Math.min(halfWBottom * 0.12, footWidth * (this.config.homeFootSpreadRatio ?? 0.55));
+    const leftHomeX = vx - homeSpread;
+    const rightHomeX = vx + homeSpread;
+
+    const leftPoint: Point2D = { x: leftX, y: strikeY };
+    const centerPoint: Point2D = { x: centerX, y: strikeY };
+    const rightPoint: Point2D = { x: rightX, y: strikeY };
+    const leftHomePoint: Point2D = { x: leftHomeX, y: strikeY };
+    const rightHomePoint: Point2D = { x: rightHomeX, y: strikeY };
 
     return {
-      leftOut: { x: leftOutX, y: ySlot },
-      leftHome: { x: leftHomeX, y: ySlot },
-      rightHome: { x: rightHomeX, y: ySlot },
-      rightOut: { x: rightOutX, y: ySlot },
+      left: leftPoint,
+      center: centerPoint,
+      right: rightPoint,
+      leftOut: leftPoint,
+      leftHome: leftHomePoint,
+      rightHome: rightHomePoint,
+      rightOut: rightPoint,
       footWidth,
       footHeight,
     };

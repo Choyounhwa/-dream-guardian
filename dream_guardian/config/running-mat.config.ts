@@ -14,6 +14,12 @@ export const MAX_NARROW_WIDTH_RATIO = 0.90;
 export const DEFAULT_VANISHING_Y_RATIO = 0.56;
 export const DEFAULT_RETURN_PHASE_RATIO = 0.5;
 export const DEFAULT_STRIKE_LINE_Y_RATIO = 0.86;
+export const DEFAULT_MAT_LANE_OFFSET = 0.45;
+export const DEFAULT_LANE_SLOT_OFFSETS = Object.freeze({
+  left: -0.45,
+  center: 0.0,
+  right: 0.45,
+});
 export const DEFAULT_STRIKE_CORE_LINE_WIDTH = 3.5;
 export const DEFAULT_STRIKE_INNER_GLOW_WIDTH = 12.0;
 export const DEFAULT_STRIKE_OUTER_GLOW_WIDTH = 38.0;
@@ -109,6 +115,12 @@ export interface RunningMatConfig {
   readonly strikeCoreGradientEnd: string;
   readonly strikeBreathSpeed: number;
   readonly strikeHitFlashDuration: number;
+
+  // 3대 레인 발자국 슬롯 오프셋 규격 (Issue #494 / LANE-SYNC-01)
+  readonly laneOffsetLeft?: number;
+  readonly laneOffsetCenter?: number;
+  readonly laneOffsetRight?: number;
+  readonly homeFootSpreadRatio?: number;
 }
 
 export const RUNNING_MAT_CONFIG: RunningMatConfig = Object.freeze({
@@ -185,4 +197,9 @@ export const RUNNING_MAT_CONFIG: RunningMatConfig = Object.freeze({
   strikeCoreGradientEnd: DEFAULT_STRIKE_CORE_GRADIENT_END,
   strikeBreathSpeed: 2.5,
   strikeHitFlashDuration: 0.38,
+
+  laneOffsetLeft: DEFAULT_LANE_SLOT_OFFSETS.left,
+  laneOffsetCenter: DEFAULT_LANE_SLOT_OFFSETS.center,
+  laneOffsetRight: DEFAULT_LANE_SLOT_OFFSETS.right,
+  homeFootSpreadRatio: 0.55,
 });
