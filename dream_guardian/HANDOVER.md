@@ -20,11 +20,10 @@
 
 ## 🧍 플레이어 아바타 일체화 및 위치 동기화·이탈 가이드 트랙 등록 (AVATAR, 2026-10-08)
 
-**사용자 요청: "카드작성". 승인된 범위는 카드 작성·GitHub 이슈 등록·문서 동기화뿐이다. 구현은 미착수이며 카드마다 별도 승인을 받는다.**
 - 관리 카드: [#487 AVATAR-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/487)
 - 하위 카드 목록:
-  - [#488 AVATAR-01](https://github.com/Choyounhwa/-dream-guardian/issues/488) 실사 웹캠 숨김 옵션 및 졸라맨 1.5배 기본 스케일·Y앵커 튜닝 (선행 없음)
-  - [#489 AVATAR-02](https://github.com/Choyounhwa/-dream-guardian/issues/489) 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화 및 EMA 스무딩 (선행 01)
+  - [✔] [#488 AVATAR-01](https://github.com/Choyounhwa/-dream-guardian/issues/488) 실사 웹캠 숨김 옵션 및 졸라맨 1.5배 기본 스케일·Y앵커 튜닝 (완료)
+  - [▶ NEXT] [#489 AVATAR-02](https://github.com/Choyounhwa/-dream-guardian/issues/489) 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화 및 EMA 스무딩 (선행 01 완료)
   - [#490 AVATAR-03](https://github.com/Choyounhwa/-dream-guardian/issues/490) 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI (선행 02)
   - [#491 AVATAR-04](https://github.com/Choyounhwa/-dream-guardian/issues/491) 캐릭터 교체용 `IAvatarRenderer` 인터페이스 추상화 (선행 03)
 
