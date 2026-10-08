@@ -1,5 +1,13 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-10-08 등록: 문제페이즈(RUN_QUESTION) 렌더링 중단 결함 수정 (BUG-RUN-QUESTION-RENDER)
+
+- **버그 카드**: [▶ NEXT: 버그 수정] [#492 BUG-RUN-QUESTION-RENDER-001](https://github.com/Choyounhwa/-dream-guardian/issues/492) 문제페이즈(RUN_QUESTION) 렌더링 중단 버그: RunningMatRenderer Proxy Illegal Invocation 및 tracker.render 예외 해결
+- **원인**:
+  1. `RunningMatRenderer._renderFlyingStompNotes`에서 네이티브 Canvas2D 객체에 `Proxy`를 래핑하여 호출 시 브라우저 WebIDL C++ 바인딩 검증 실패로 `TypeError: Illegal invocation` 발생 → `renderGameScene` 중단되어 뒤에 위치한 문제(QuestionRenderer)와 졸라맨(StickmanRenderer) 렌더링이 일체 실행되지 않음.
+  2. `SceneDirector.renderModalsAndOverlays`에서 `CursorTracker`에 존재하지 않는 `tracker.render(...)` 호출로 콘솔 예외 발생.
+- **수정 대상**: `src/render/RunningMatRenderer.ts`, `src/core/SceneDirector.ts`
+
 ## 2026-10-08 등록: 플레이어 아바타 일체화 및 위치 동기화·이탈 가이드 (AVATAR)
 
 **승인 범위는 카드 등록 및 문서 동기화뿐이다. 구현은 미착수이며 카드마다 별도 승인을 받는다.**
