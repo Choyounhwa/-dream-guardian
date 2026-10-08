@@ -11,6 +11,7 @@
  */
 
 import type { PhaseAHazardPattern } from '../../config/phase-a-hazard.config.js';
+import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
 import { depthRatioFromY, laneToScreenX } from './GridProjection.js';
 import { MotionNoteRenderer } from './MotionNoteRenderer.js';
 import { createDefaultPainterRegistry } from './note-painters/NotePainters.js';
@@ -19,6 +20,126 @@ import {
   HAZARD_FLOOR_PROFILE,
 } from '../../config/motion-note-profile.config.js';
 import { hazardPatternToRenderItem } from '../game/adapters/hazardAdapter.js';
+
+export interface HazardBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  width: number;
+  height: number;
+  isProtected?: boolean;
+}
+
+export interface HazardSlotOverride {
+  text?: string;
+  color?: string;
+  textColor?: string;
+  fillColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  glowColor?: string;
+  fontSize?: number;
+  visible?: boolean;
+  opacity?: number;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+}
+
+export interface HazardPresentationContext {
+  presentationDocument?: UIPresentationDocument;
+  pageId?: UIPresentationPageId | string;
+  hazardWarning?: HazardSlotOverride;
+  hazardStyle?: HazardSlotOverride;
+  timingGuide?: HazardSlotOverride;
+  safeZoneHighlight?: HazardSlotOverride;
+}
+
+export const HAZARD_ZONE_SLOT_IDS = [
+  'hazardWarning',
+  'hazardStyle',
+  'timingGuide',
+  'safeZoneHighlight',
+] as const;
+
+export const PROTECTED_HAZARD_ZONE_SLOT_IDS = [
+  'hazard_geometry',
+  'timing_ring_physics',
+  'lane_evasion_zones',
+  'projection_matrix',
+] as const;
+
+export interface HazardFixtureDTO {
+  pattern: PhaseAHazardPattern;
+  beatProgress: number; // 0.0 ~ 1.0
+  status?: 'warning' | 'active' | 'safe' | 'hit';
+  isResolved?: boolean;
+  isEvaded?: boolean;
+  vanishingPoint?: { x: number; y: number };
+  presentationContext?: HazardPresentationContext;
+  warningText?: string;
+  guideText?: string;
+}
+
+export const DEFAULT_HAZARD_FIXTURE: HazardFixtureDTO = Object.freeze({
+  pattern: 'jump',
+  beatProgress: 0.5,
+  status: 'warning',
+});
+
+export const JUMP_HAZARD_WARNING_FIXTURE: HazardFixtureDTO = Object.freeze({
+  pattern: 'jump',
+  beatProgress: 0.6,
+  status: 'warning',
+});
+
+export const JUMP_HAZARD_ACTIVE_FIXTURE: HazardFixtureDTO = Object.freeze({
+  pattern: 'jump',
+  beatProgress: 0.95,
+  status: 'active',
+});
+
+export const JUMP_HAZARD_SAFE_FIXTURE: HazardFixtureDTO = Object.freeze({
+  pattern: 'jump',
+  beatProgress: 1.0,
+  status: 'safe',
+  isResolved: true,
+  isEvaded: true,
+});
+
+export const JUMP_HAZARD_HIT_FIXTURE: HazardFixtureDTO = Object.freeze({
+  pattern: 'jump',
+  beatProgress: 1.0,
+  status: 'hit',
+  isResolved: true,
+  isEvaded: false,
+});
+
+export const LEFT_STEP_HAZARD_FIXTURE: HazardFixtureDTO = Object.freeze({
+  pattern: 'left_step',
+  beatProgress: 0.85,
+  status: 'active',
+});
+
+export const RIGHT_STEP_HAZARD_FIXTURE: HazardFixtureDTO = Object.freeze({
+  pattern: 'right_step',
+  beatProgress: 0.85,
+  status: 'active',
+});
+
+export const BALANCE_LEFT_HAZARD_FIXTURE: HazardFixtureDTO = Object.freeze({
+  pattern: 'balance_left',
+  beatProgress: 0.85,
+  status: 'active',
+});
+
+export const BALANCE_RIGHT_HAZARD_FIXTURE: HazardFixtureDTO = Object.freeze({
+  pattern: 'balance_right',
+  beatProgress: 0.85,
+  status: 'active',
+});
 
 export interface HazardRenderState {
   activePattern: PhaseAHazardPattern | null;
@@ -31,10 +152,17 @@ export interface HazardRenderState {
 
 export class HazardZoneRenderer {
   public readonly motionNoteRenderer: MotionNoteRenderer;
+  private _presentationContext?: HazardPresentationContext;
 
-  constructor(motionNoteRenderer?: MotionNoteRenderer) {
+  constructor(
+    motionNoteRenderer?: MotionNoteRenderer,
+    presentationContext?: HazardPresentationContext,
+  ) {
     this.motionNoteRenderer =
       motionNoteRenderer ?? this._createMotionNoteRenderer();
+    if (presentationContext) {
+      this._presentationContext = presentationContext;
+    }
   }
 
   /**
@@ -98,6 +226,358 @@ export class HazardZoneRenderer {
     return 2.5 - 1.5 * p;
   }
 
+  setPresentationContext(context?: HazardPresentationContext): void {
+    this._presentationContext = context;
+  }
+
+  getPresentationContext(): HazardPresentationContext | undefined {
+    return this._presentationContext;
+  }
+
+  clearPresentationContext(): void {
+    this._presentationContext = undefined;
+  }
+
+  static fromPresentationDocument(
+    doc: UIPresentationDocument,
+    pageId: UIPresentationPageId | string = 'hazard_evade',
+  ): HazardPresentationContext {
+    const page = doc.pages[pageId as UIPresentationPageId];
+    let hazardWarning: HazardSlotOverride | undefined;
+    let hazardStyle: HazardSlotOverride | undefined;
+    let timingGuide: HazardSlotOverride | undefined;
+
+    if (page?.elements) {
+      for (const el of page.elements) {
+        if (el.id === 'hazard_warning') {
+          hazardWarning = {
+            text: el.text,
+            fontSize: el.fontSize,
+            color: '#FF1E3C',
+          };
+        }
+      }
+    }
+
+    if (!hazardWarning) {
+      hazardWarning = {
+        text: '위험! 장판을 회피하세요!',
+        fontSize: 40,
+        color: '#FF1E3C',
+      };
+    }
+
+    return {
+      presentationDocument: doc,
+      pageId,
+      hazardWarning,
+      hazardStyle,
+      timingGuide,
+    };
+  }
+
+  getHazardZoneBounds(
+    pattern: PhaseAHazardPattern,
+    vw: number,
+    vh: number,
+    vanishingPoint?: { x: number; y: number },
+  ): HazardBounds {
+    const vx = vanishingPoint?.x ?? vw / 2;
+    const vy = vanishingPoint?.y ?? vh * 0.24;
+    const floorH = Math.max(1, vh - vy);
+    const targetY = vy + floorH * 0.92;
+    let targetX = vx;
+    let baseRx = vw * 0.40;
+    let baseRy = baseRx * 0.26;
+
+    switch (pattern) {
+      case 'jump':
+        targetX = vx;
+        baseRx = vw * 0.40;
+        baseRy = baseRx * 0.26;
+        break;
+      case 'left_step':
+        targetX = laneToScreenX(vx, -vw * 0.35, 1.0);
+        baseRx = vw * 0.16;
+        baseRy = baseRx * 0.30;
+        break;
+      case 'right_step':
+        targetX = laneToScreenX(vx, vw * 0.35, 1.0);
+        baseRx = vw * 0.16;
+        baseRy = baseRx * 0.30;
+        break;
+      case 'balance_left':
+        targetX = laneToScreenX(vx, vw * 0.35, 1.0);
+        baseRx = vw * 0.18;
+        baseRy = baseRx * 0.28;
+        break;
+      case 'balance_right':
+        targetX = laneToScreenX(vx, -vw * 0.35, 1.0);
+        baseRx = vw * 0.18;
+        baseRy = baseRx * 0.28;
+        break;
+    }
+
+    const x = targetX - baseRx;
+    const y = targetY - baseRy;
+    const w = baseRx * 2;
+    const h = baseRy * 2;
+
+    return {
+      x,
+      y,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: true,
+    };
+  }
+
+  getWarningLabelBounds(
+    pattern: PhaseAHazardPattern,
+    vw: number,
+    vh: number,
+    vanishingPoint?: { x: number; y: number },
+  ): HazardBounds {
+    const hz = this.getHazardZoneBounds(pattern, vw, vh, vanishingPoint);
+    const w = Math.min(vw * 0.8, 432 * (vw / 1080));
+    const h = 80 * (vh / 2160);
+    const x = hz.x + hz.w / 2 - w / 2;
+    const y = Math.max(20, hz.y - h - 30);
+
+    return {
+      x,
+      y,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: false,
+    };
+  }
+
+  getTimingRingBounds(
+    pattern: PhaseAHazardPattern,
+    progress: number,
+    vw: number,
+    vh: number,
+    vanishingPoint?: { x: number; y: number },
+  ): HazardBounds {
+    const vx = vanishingPoint?.x ?? vw / 2;
+    const vy = vanishingPoint?.y ?? vh * 0.24;
+    const floorH = Math.max(1, vh - vy);
+    const targetY = vy + floorH * 0.92;
+    let targetX = vx;
+    let baseRx = vw * 0.40;
+    let baseRy = baseRx * 0.26;
+
+    switch (pattern) {
+      case 'jump':
+        targetX = vx;
+        baseRx = vw * 0.40;
+        baseRy = baseRx * 0.26;
+        break;
+      case 'left_step':
+        targetX = laneToScreenX(vx, -vw * 0.35, 1.0);
+        baseRx = vw * 0.16;
+        baseRy = baseRx * 0.30;
+        break;
+      case 'right_step':
+        targetX = laneToScreenX(vx, vw * 0.35, 1.0);
+        baseRx = vw * 0.16;
+        baseRy = baseRx * 0.30;
+        break;
+      case 'balance_left':
+        targetX = laneToScreenX(vx, vw * 0.35, 1.0);
+        baseRx = vw * 0.18;
+        baseRy = baseRx * 0.28;
+        break;
+      case 'balance_right':
+        targetX = laneToScreenX(vx, -vw * 0.35, 1.0);
+        baseRx = vw * 0.18;
+        baseRy = baseRx * 0.28;
+        break;
+    }
+
+    const scale = this.computeTimingRingScale(progress);
+    const ringRx = baseRx * scale;
+    const ringRy = baseRy * scale;
+    const x = targetX - ringRx;
+    const y = targetY - ringRy;
+    const w = ringRx * 2;
+    const h = ringRy * 2;
+
+    return {
+      x,
+      y,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: true,
+    };
+  }
+
+  getSafeZoneBounds(
+    pattern: PhaseAHazardPattern,
+    vw: number,
+    vh: number,
+    vanishingPoint?: { x: number; y: number },
+  ): HazardBounds {
+    const vx = vanishingPoint?.x ?? vw / 2;
+    const vy = vanishingPoint?.y ?? vh * 0.24;
+    const floorH = Math.max(1, vh - vy);
+    const targetY = vy + floorH * 0.92;
+
+    let safeX = vx;
+    let safeRx = vw * 0.16;
+    let safeRy = safeRx * 0.30;
+
+    switch (pattern) {
+      case 'jump': {
+        const jb = this.getHazardZoneBounds('jump', vw, vh, vanishingPoint);
+        return {
+          x: jb.x,
+          y: Math.max(0, jb.y - jb.h * 1.5),
+          w: jb.w,
+          h: jb.h,
+          width: jb.w,
+          height: jb.h,
+          isProtected: true,
+        };
+      }
+      case 'left_step':
+        safeX = laneToScreenX(vx, vw * 0.35, 1.0);
+        safeRx = vw * 0.16;
+        safeRy = safeRx * 0.30;
+        break;
+      case 'right_step':
+        safeX = laneToScreenX(vx, -vw * 0.35, 1.0);
+        safeRx = vw * 0.16;
+        safeRy = safeRx * 0.30;
+        break;
+      case 'balance_left':
+        safeX = laneToScreenX(vx, -vw * 0.35, 1.0);
+        safeRx = vw * 0.18;
+        safeRy = safeRx * 0.28;
+        break;
+      case 'balance_right':
+        safeX = laneToScreenX(vx, vw * 0.35, 1.0);
+        safeRx = vw * 0.18;
+        safeRy = safeRx * 0.28;
+        break;
+    }
+
+    const x = safeX - safeRx;
+    const y = targetY - safeRy;
+    const w = safeRx * 2;
+    const h = safeRy * 2;
+
+    return {
+      x,
+      y,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: true,
+    };
+  }
+
+  isSlotLocked(slotId: string): boolean {
+    return (PROTECTED_HAZARD_ZONE_SLOT_IDS as readonly string[]).includes(slotId as (typeof PROTECTED_HAZARD_ZONE_SLOT_IDS)[number]);
+  }
+
+  getSlotLockReason(slotId: string): string | null {
+    if ((PROTECTED_HAZARD_ZONE_SLOT_IDS as readonly string[]).includes(slotId as (typeof PROTECTED_HAZARD_ZONE_SLOT_IDS)[number])) {
+      return `장판 물리 좌표 및 판정 기하(${slotId})는 게임플레이 무결성을 위해 보호됩니다.`;
+    }
+    return null;
+  }
+
+  validatePresentationContext(context?: HazardPresentationContext): {
+    valid: boolean;
+    issues: string[];
+  } {
+    const issues: string[] = [];
+    if (!context) return { valid: true, issues };
+
+    const slotsToCheck: (keyof HazardPresentationContext)[] = [
+      'hazardWarning',
+      'hazardStyle',
+      'timingGuide',
+      'safeZoneHighlight',
+    ];
+
+    for (const key of slotsToCheck) {
+      const override = context[key] as HazardSlotOverride | undefined;
+      if (override) {
+        if (
+          override.x !== undefined ||
+          override.y !== undefined ||
+          override.w !== undefined ||
+          override.h !== undefined
+        ) {
+          issues.push(
+            `슬롯 '${key}'에 대한 물리적 좌표(x, y, w, h) 변조는 거부됩니다. 장판 물리 기하는 보호 영역입니다.`,
+          );
+        }
+      }
+    }
+
+    return {
+      valid: issues.length === 0,
+      issues,
+    };
+  }
+
+  renderFixture(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    fixture: HazardFixtureDTO,
+  ): void {
+    const prevContext = this._presentationContext;
+    if (fixture.presentationContext) {
+      this._presentationContext = fixture.presentationContext;
+    }
+
+    try {
+      const vx = fixture.vanishingPoint?.x ?? vw / 2;
+      const vy = fixture.vanishingPoint?.y ?? vh * 0.24;
+
+      const isResolved =
+        fixture.isResolved ??
+        (fixture.status === 'safe' || fixture.status === 'hit');
+      const isEvaded =
+        fixture.isEvaded ?? (fixture.status === 'safe');
+
+      const state: HazardRenderState = {
+        activePattern: fixture.pattern,
+        beatProgress: fixture.beatProgress,
+        vanishingX: vx,
+        vanishingY: vy,
+        isResolved,
+        isEvaded,
+      };
+
+      this.render(ctx, vw, vh, state);
+    } finally {
+      this._presentationContext = prevContext;
+    }
+  }
+
+  static renderFixture(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    fixture: HazardFixtureDTO,
+  ): void {
+    const renderer = new HazardZoneRenderer();
+    renderer.renderFixture(ctx, vw, vh, fixture);
+  }
+
   /**
    * 3D 원근 바닥 장판 렌더링
    */
@@ -141,6 +621,13 @@ export class HazardZoneRenderer {
       this._renderTimingCircle(ctx, vw, vh, vx, vy, floorH, state.activePattern, p);
       // Issue #484 (MRN-10): 상공 비행 투사체 렌더링 MotionNoteRenderer 위임
       this.renderFlyingProjectile(ctx, vw, vh, state);
+    }
+
+    if (
+      this._presentationContext?.hazardWarning?.visible !== false &&
+      this._presentationContext?.hazardWarning?.text
+    ) {
+      this._renderWarningBanner(ctx, vw, vh, this._presentationContext.hazardWarning);
     }
 
     ctx.restore();
@@ -239,6 +726,10 @@ export class HazardZoneRenderer {
         break;
     }
 
+    if (this._presentationContext?.timingGuide?.text) {
+      guideText = this._presentationContext.timingGuide.text;
+    }
+
     const scale = this.computeTimingRingScale(progress);
     const ringRx = baseRx * scale;
     const ringRy = baseRy * scale;
@@ -248,7 +739,9 @@ export class HazardZoneRenderer {
 
     // 1. 목표 전경 발판 베이스 가이드 타원
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.strokeStyle =
+      this._presentationContext?.hazardStyle?.borderColor ??
+      'rgba(255, 255, 255, 0.3)';
     ctx.beginPath();
     ctx.ellipse(targetX, targetY, baseRx, baseRy, 0, 0, Math.PI * 2);
     ctx.stroke();
@@ -256,7 +749,9 @@ export class HazardZoneRenderer {
     // 2. 수축 타이밍 서클 (progress < 0.8: 황금빛 앰버, >= 0.8: 긴급 붉은색 펄스)
     const isUrgent = progress >= 0.8;
     ctx.lineWidth = isUrgent ? 7 : 4;
-    ctx.strokeStyle = isUrgent ? 'rgb(255, 68, 68)' : 'rgba(255, 203, 77, 0.85)';
+    const defaultStroke = isUrgent ? 'rgb(255, 68, 68)' : 'rgba(255, 203, 77, 0.85)';
+    ctx.strokeStyle =
+      this._presentationContext?.timingGuide?.color ?? defaultStroke;
     ctx.shadowColor = isUrgent ? 'rgba(255, 68, 68, 0.95)' : 'rgba(255, 203, 77, 0.6)';
     ctx.shadowBlur = isUrgent ? 26 : 14;
 
@@ -269,7 +764,8 @@ export class HazardZoneRenderer {
       ctx.font = 'bold 34px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#FF4444';
+      ctx.fillStyle =
+        this._presentationContext?.timingGuide?.color ?? '#FF4444';
       ctx.shadowColor = 'rgba(255, 68, 68, 0.9)';
       ctx.shadowBlur = 18;
       ctx.fillText(guideText, targetX, targetY - baseRy - 28);
@@ -279,6 +775,25 @@ export class HazardZoneRenderer {
     if (originalStrokeStyle) {
       ctx.strokeStyle = originalStrokeStyle;
     }
+  }
+
+  private _renderWarningBanner(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    override: HazardSlotOverride,
+  ): void {
+    const bounds = this.getWarningLabelBounds('jump', vw, vh);
+    ctx.save();
+    const fontSize = override.fontSize ?? Math.round(36 * (vw / 1080));
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = override.textColor ?? override.color ?? '#FF4444';
+    ctx.shadowColor = override.glowColor ?? 'rgba(255, 68, 68, 0.8)';
+    ctx.shadowBlur = 12;
+    ctx.fillText(override.text || '', bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
+    ctx.restore();
   }
 
   /**
