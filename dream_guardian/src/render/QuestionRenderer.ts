@@ -14,6 +14,165 @@ import { ShapeRenderer, deriveShapeFromQuestion } from './ShapeRenderer.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
 import { QUESTION_ANSWER_TIME_TOKENS } from '../../config/ui.config.js';
+import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
+
+export interface QuestionBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  width: number;
+  height: number;
+  isProtected?: boolean;
+}
+
+export interface QuestionSlotOverride {
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  color?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  fontSize?: number;
+  fontFamily?: string;
+  font?: string;
+  text?: string;
+  visible?: boolean;
+  shadowColor?: string;
+  shadowBlur?: number;
+}
+
+export interface QuestionPresentationContext {
+  presentationDocument?: UIPresentationDocument;
+  pageId?: UIPresentationPageId | string;
+  header?: QuestionSlotOverride;
+  choice0?: QuestionSlotOverride;
+  choice1?: QuestionSlotOverride;
+  choices?: [QuestionSlotOverride, QuestionSlotOverride];
+}
+
+export interface QuestionFixtureDTO {
+  questionText: string;
+  choices: [string, string];
+  answer?: string;
+  shapeCode?: string | null;
+  level?: number;
+  chapter?: number;
+  selectedChoiceIndex?: number | null;
+  activeHoverIndex?: number | null;
+  choiceProgress?: [number, number];
+  questionApproachProgress?: number;
+  answerApproachProgress?: number;
+  vanishingX?: number;
+  vanishingY?: number;
+  answerSelectable?: boolean;
+  buttonsOnly?: boolean;
+  headerOnly?: boolean;
+}
+
+export const QUESTION_SLOT_IDS = [
+  'header',
+  'choice_0',
+  'choice_1',
+  'zone_4_action_geometry',
+  'zone_5_action_geometry',
+] as const;
+
+export const PROTECTED_QUESTION_SLOT_IDS = [
+  'choice_0',
+  'choice_1',
+  'zone_4_action_geometry',
+  'zone_5_action_geometry',
+] as const;
+
+export const DEFAULT_QUESTION_FIXTURE: QuestionFixtureDTO = Object.freeze({
+  questionText: '12 + 15 = [ ? ]',
+  choices: ['27', '25'] as [string, string],
+  answer: '27',
+  shapeCode: null,
+  level: 1,
+  chapter: 1,
+  selectedChoiceIndex: null,
+  activeHoverIndex: null,
+  choiceProgress: [0, 0] as [number, number],
+  questionApproachProgress: 1.0,
+  answerApproachProgress: 1.0,
+  answerSelectable: true,
+  buttonsOnly: false,
+  headerOnly: false,
+});
+
+export const LONG_FORMULA_QUESTION_FIXTURE: QuestionFixtureDTO = Object.freeze({
+  questionText: '124 × 7 - 28 ÷ 4 + 50 = [ ? ]',
+  choices: ['840', '820'] as [string, string],
+  answer: '840',
+  shapeCode: null,
+  level: 4,
+  chapter: 2,
+  selectedChoiceIndex: null,
+  activeHoverIndex: null,
+  choiceProgress: [0, 0] as [number, number],
+  questionApproachProgress: 1.0,
+  answerApproachProgress: 1.0,
+  answerSelectable: true,
+  buttonsOnly: false,
+  headerOnly: false,
+});
+
+export const FRACTION_QUESTION_FIXTURE: QuestionFixtureDTO = Object.freeze({
+  questionText: '3/4 + 2/4 = [ ? ]',
+  choices: ['5/4', '6/4'] as [string, string],
+  answer: '5/4',
+  shapeCode: null,
+  level: 3,
+  chapter: 3,
+  selectedChoiceIndex: null,
+  activeHoverIndex: null,
+  choiceProgress: [0, 0] as [number, number],
+  questionApproachProgress: 1.0,
+  answerApproachProgress: 1.0,
+  answerSelectable: true,
+  buttonsOnly: false,
+  headerOnly: false,
+});
+
+export const GEOMETRY_QUESTION_FIXTURE: QuestionFixtureDTO = Object.freeze({
+  questionText: '[모양 A] 위에서 본 모양으로 알맞은 것은?',
+  choices: ['2개', '3개'] as [string, string],
+  answer: '2개',
+  shapeCode: "{type:'stack_cubes',grid:[[2,1],[1,0]],view:'top',shapeName:'모양 A'}",
+  level: 9,
+  chapter: 4,
+  selectedChoiceIndex: null,
+  activeHoverIndex: null,
+  choiceProgress: [0, 0] as [number, number],
+  questionApproachProgress: 1.0,
+  answerApproachProgress: 1.0,
+  answerSelectable: true,
+  buttonsOnly: false,
+  headerOnly: false,
+});
+
+export const APPROACH_QUESTION_FIXTURE: QuestionFixtureDTO = Object.freeze({
+  questionText: '8 × 9 = [ ? ]',
+  choices: ['72', '64'] as [string, string],
+  answer: '72',
+  shapeCode: null,
+  level: 2,
+  chapter: 2,
+  selectedChoiceIndex: null,
+  activeHoverIndex: null,
+  choiceProgress: [0, 0] as [number, number],
+  questionApproachProgress: 0.5,
+  answerApproachProgress: 0.5,
+  vanishingX: 540,
+  vanishingY: 400,
+  answerSelectable: false,
+  buttonsOnly: false,
+  headerOnly: false,
+});
 
 export interface QuestionRenderState {
   question: GeneratedQuestion | null;
@@ -58,6 +217,9 @@ export interface QuestionHeaderMathOptions {
   maxHeight?: number;
   maxWidth?: number;
   minFontSize?: number;
+  color?: string;
+  shadowColor?: string;
+  shadowBlur?: number;
 }
 
 /**
@@ -93,18 +255,22 @@ export function renderQuestionHeaderMath(
   const maxHeight = options?.maxHeight ?? defaultMaxHeight;
   const maxWidth = options?.maxWidth ?? 880 * scaleX;
 
-  ctx.shadowColor = 'rgba(40, 230, 255, 0.5)';
-  ctx.shadowBlur = 16 * scaleX;
+  const shadowCol = options?.shadowColor ?? 'rgba(40, 230, 255, 0.5)';
+  const shadowB = options?.shadowBlur !== undefined ? options.shadowBlur * scaleX : 16 * scaleX;
+  const textColor = options?.color ?? '#ffffff';
+
+  ctx.shadowColor = shadowCol;
+  ctx.shadowBlur = shadowB;
   const result = renderMath(ctx, questionText, cx, qY, {
     fontSize: qFontSize,
-    color: '#ffffff',
+    color: textColor,
     align: 'center',
     maxWidth,
     maxHeight,
     minFontSize: minSize * scaleX,
     placeholderColor: '#28E6FF',
     placeholderBgColor: 'rgba(40, 230, 255, 0.18)',
-    fractionLineColor: '#ffffff',
+    fractionLineColor: textColor,
   });
   ctx.shadowBlur = 0;
   return result;
@@ -112,9 +278,284 @@ export function renderQuestionHeaderMath(
 
 export class QuestionRenderer {
   private _shapeRenderer = new ShapeRenderer();
+  private _presentationContext?: QuestionPresentationContext;
+
+  constructor(presentationContext?: QuestionPresentationContext) {
+    if (presentationContext) {
+      this.setPresentationContext(presentationContext);
+    }
+  }
 
   get shapeRenderer(): ShapeRenderer {
     return this._shapeRenderer;
+  }
+
+  setPresentationContext(context?: QuestionPresentationContext): void {
+    this._presentationContext = context;
+  }
+
+  getPresentationContext(): QuestionPresentationContext | undefined {
+    return this._presentationContext;
+  }
+
+  clearPresentationContext(): void {
+    this._presentationContext = undefined;
+  }
+
+  private _resolveContext(overrideCtx?: QuestionPresentationContext): QuestionPresentationContext | undefined {
+    const ctx = overrideCtx ?? this._presentationContext;
+    if (!ctx) return undefined;
+    if (!ctx.presentationDocument) return ctx;
+
+    const docCtx = QuestionRenderer.fromPresentationDocument(ctx.presentationDocument, ctx.pageId);
+    return {
+      ...docCtx,
+      ...ctx,
+      header: { ...docCtx.header, ...ctx.header },
+      choice0: { ...docCtx.choice0, ...ctx.choice0 },
+      choice1: { ...docCtx.choice1, ...ctx.choice1 },
+      choices: ctx.choices ?? docCtx.choices,
+    };
+  }
+
+  isSlotLocked(slotId: string): boolean {
+    return (PROTECTED_QUESTION_SLOT_IDS as readonly string[]).includes(slotId);
+  }
+
+  getSlotLockReason(slotId: string): string | null {
+    if (this.isSlotLocked(slotId)) {
+      return '답안 버튼(choice_0, choice_1)은 피트니스 Zone 4/5 모션 인터랙션 핵심 보호 영역으로 action geometry 및 원근 앵커 변조가 원자적으로 잠겨 있습니다. 입력 판정 왜곡 방지를 위해 기하 변경이 거부됩니다.';
+    }
+    return null;
+  }
+
+  validatePresentationContext(
+    context?: QuestionPresentationContext,
+  ): { valid: boolean; violations: string[]; lockedSlots: string[] } {
+    const violations: string[] = [];
+    const lockedSlots: string[] = [];
+
+    if (!context) {
+      return { valid: true, violations, lockedSlots };
+    }
+
+    if (context.choices && context.choices.length !== 2) {
+      violations.push(
+        `2답안 규격 위반: 본 게임은 정확히 2답안(Zone 4/5) 구조만 지원하며, ${context.choices.length}개 답안은 허용되지 않습니다.`,
+      );
+    }
+
+    const checkChoice = (slotName: string, override?: QuestionSlotOverride, expectedX = 43, expectedY = 890) => {
+      if (!override) return;
+      if (
+        (override.x !== undefined && Math.abs(override.x - expectedX) > 0.001) ||
+        (override.y !== undefined && Math.abs(override.y - expectedY) > 0.001) ||
+        (override.w !== undefined && Math.abs(override.w - 281) > 0.001) ||
+        (override.h !== undefined && Math.abs(override.h - 250) > 0.001)
+      ) {
+        lockedSlots.push(slotName);
+        violations.push(
+          `${slotName}: 피트니스 Zone 4/5 보호 기하(action geometry) 변조 시도가 감지되었습니다. 입력 판정과의 왜곡을 방지하기 위해 위치/크기 변경이 거부됩니다.`,
+        );
+      }
+    };
+
+    checkChoice('choice_0', context.choice0, 43, 890);
+    checkChoice('choice_1', context.choice1, 756, 890);
+    if (context.choices && context.choices.length === 2) {
+      checkChoice('choice_0', context.choices[0], 43, 890);
+      checkChoice('choice_1', context.choices[1], 756, 890);
+    }
+
+    return {
+      valid: violations.length === 0,
+      violations,
+      lockedSlots,
+    };
+  }
+
+  getHeaderBounds(
+    w: number,
+    h: number,
+    options?: { hasShape?: boolean },
+  ): QuestionBounds {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    const hasShape = options?.hasShape ?? false;
+    const resolvedCtx = this._resolveContext();
+
+    if (resolvedCtx?.header) {
+      const hov = resolvedCtx.header;
+      const bw = hov.w !== undefined ? hov.w * scaleX : (hasShape ? 760 : 880) * scaleX;
+      const bh = hov.h !== undefined ? hov.h * scaleY : (hasShape ? 200 : 280) * scaleY;
+      const bx = hov.x !== undefined ? hov.x * scaleX : (w - bw) / 2;
+      const by = hov.y !== undefined ? hov.y * scaleY : (hasShape ? 320 * scaleY - 30 * scaleY : 320 * scaleY);
+      return {
+        x: bx,
+        y: by,
+        w: bw,
+        h: bh,
+        width: bw,
+        height: bh,
+        isProtected: false,
+      };
+    }
+
+    const defaultW = (hasShape ? 760 : 880) * scaleX;
+    const defaultH = (hasShape ? 200 : 280) * scaleY;
+    const defaultX = (w - defaultW) / 2;
+    const defaultY = hasShape ? 320 * scaleY - 30 * scaleY : 320 * scaleY;
+
+    return {
+      x: defaultX,
+      y: defaultY,
+      w: defaultW,
+      h: defaultH,
+      width: defaultW,
+      height: defaultH,
+      isProtected: false,
+    };
+  }
+
+  getChoiceButtonBounds(
+    choiceIndex: 0 | 1,
+    w: number,
+    h: number,
+  ): QuestionBounds {
+    if (choiceIndex !== 0 && choiceIndex !== 1) {
+      throw new Error(`Invalid choice button index: ${choiceIndex}. Only exactly 2 choices (0 or 1) are supported.`);
+    }
+
+    const layouts = getAnswerButtonLayouts(w, h);
+    const layout = layouts[choiceIndex];
+
+    // Protected zone geometry: button bounds are locked to Zone 4 / Zone 5 interaction geometry!
+    return {
+      x: layout.x,
+      y: layout.y,
+      w: layout.width,
+      h: layout.height,
+      width: layout.width,
+      height: layout.height,
+      isProtected: true,
+    };
+  }
+
+  static fromPresentationDocument(
+    doc: UIPresentationDocument,
+    pageId?: UIPresentationPageId | string,
+  ): QuestionPresentationContext {
+    const result: QuestionPresentationContext = {
+      presentationDocument: doc,
+      pageId,
+    };
+    if (!doc?.pages) return result;
+
+    const targetPages = pageId && doc.pages[pageId as UIPresentationPageId]
+      ? [doc.pages[pageId as UIPresentationPageId]]
+      : [
+          doc.pages['running_question' as UIPresentationPageId],
+          doc.pages['answer_select' as UIPresentationPageId],
+        ].filter(Boolean);
+
+    for (const page of targetPages) {
+      if (!page?.elements) continue;
+      for (const el of page.elements) {
+        const boundsObj: QuestionSlotOverride = el.bounds
+          ? {
+              x: el.bounds.x,
+              y: el.bounds.y,
+              w: el.bounds.width,
+              h: el.bounds.height,
+              fontSize: el.fontSize,
+              text: el.text,
+              color: (el as { color?: string }).color,
+            }
+          : {};
+
+        if (
+          el.id === 'run_question_banner' ||
+          el.id === 'question_banner' ||
+          el.id === 'header' ||
+          el.dynamicBinding === 'preview_question_text'
+        ) {
+          result.header = { ...boundsObj, ...result.header };
+        } else if (
+          el.id === 'ans_btn_left' ||
+          el.id === 'choice_0' ||
+          el.actionId === 'answer_select_0' ||
+          el.dynamicBinding === 'preview_answer_0_text'
+        ) {
+          result.choice0 = { ...boundsObj, ...result.choice0 };
+        } else if (
+          el.id === 'ans_btn_right' ||
+          el.id === 'choice_1' ||
+          el.actionId === 'answer_select_1' ||
+          el.dynamicBinding === 'preview_answer_1_text'
+        ) {
+          result.choice1 = { ...boundsObj, ...result.choice1 };
+        }
+      }
+    }
+
+    if (result.choice0 || result.choice1) {
+      result.choices = [
+        result.choice0 ?? {},
+        result.choice1 ?? {},
+      ];
+    }
+
+    return result;
+  }
+
+  renderFixture(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    fixture: QuestionFixtureDTO,
+    contextOverride?: QuestionPresentationContext,
+  ): void {
+    const prevContext = this._presentationContext;
+    if (contextOverride) {
+      this._presentationContext = contextOverride;
+    }
+    try {
+      const state: QuestionRenderState = {
+        question: {
+          questionText: fixture.questionText,
+          correctAnswer: fixture.answer ?? fixture.choices[0],
+          wrongAnswer: fixture.choices[1],
+          choices: [fixture.choices[0], fixture.choices[1]],
+          correctIndex: 0,
+          shapeCode: fixture.shapeCode ?? undefined,
+        },
+        questionVisible: true,
+        selectedChoiceIndex: fixture.selectedChoiceIndex,
+        activeHoverIndex: fixture.activeHoverIndex,
+        choiceProgress: fixture.choiceProgress,
+        questionApproachProgress: fixture.questionApproachProgress,
+        answerApproachProgress: fixture.answerApproachProgress,
+        vanishingX: fixture.vanishingX,
+        vanishingY: fixture.vanishingY,
+        buttonsOnly: fixture.buttonsOnly,
+        headerOnly: fixture.headerOnly,
+        answerSelectable: fixture.answerSelectable,
+      };
+      this.render(ctx, w, h, state);
+    } finally {
+      this._presentationContext = prevContext;
+    }
+  }
+
+  static renderFixture(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    fixture: QuestionFixtureDTO,
+    contextOverride?: QuestionPresentationContext,
+  ): void {
+    const renderer = new QuestionRenderer(contextOverride);
+    renderer.renderFixture(ctx, w, h, fixture);
   }
 
   render(
@@ -125,9 +566,16 @@ export class QuestionRenderer {
   ): void {
     if (!state.question || !state.questionVisible) return;
 
+    if (!Array.isArray(state.question.choices) || state.question.choices.length !== 2) {
+      throw new Error(
+        `QuestionRenderer requires exactly 2 choices (index 0 and 1) for Zone 4/5, but received ${state.question.choices?.length ?? 0}`,
+      );
+    }
+
     const scaleX = w / 1080;
     const scaleY = h / 2160;
 
+    const resolvedCtx = this._resolveContext();
     const shape = deriveShapeFromQuestion(state.question.questionText, state.question.shapeCode);
 
     ctx.save();
@@ -166,10 +614,10 @@ export class QuestionRenderer {
       // 1. 문제 수식 배경 패널 (Issue #290 / UI-ASSET-009)
       const boardBgImg = imageLoader.get('question', 'questionBoardBg');
       if (boardBgImg) {
-        const boardW = (shape ? 760 : 880) * scaleX;
-        const boardH = (shape ? 200 : 280) * scaleY;
-        const boardX = cx - boardW / 2;
-        const boardY = shape ? boxY - 30 * scaleY : boxY;
+        const boardW = (resolvedCtx?.header?.w !== undefined ? resolvedCtx.header.w : (shape ? 760 : 880)) * scaleX;
+        const boardH = (resolvedCtx?.header?.h !== undefined ? resolvedCtx.header.h : (shape ? 200 : 280)) * scaleY;
+        const boardX = resolvedCtx?.header?.x !== undefined ? resolvedCtx.header.x * scaleX : cx - boardW / 2;
+        const boardY = resolvedCtx?.header?.y !== undefined ? resolvedCtx.header.y * scaleY : (shape ? boxY - 30 * scaleY : boxY);
         ctx.drawImage(boardBgImg, boardX, boardY, boardW, boardH);
       }
 
@@ -177,6 +625,9 @@ export class QuestionRenderer {
       renderQuestionHeaderMath(ctx, state.question.questionText, cx, qY, scaleX, false, {
         hasShape: Boolean(shape),
         maxHeight: shape ? 140 * scaleY : 320 * scaleY,
+        color: resolvedCtx?.header?.color,
+        shadowColor: resolvedCtx?.header?.shadowColor,
+        shadowBlur: resolvedCtx?.header?.shadowBlur,
       });
 
       // 2-1. 도형(쌓기나무 3D / 전개도 / 회전) 시각화 렌더링 (텍스트와 버튼 사이 중앙 비간섭 영역)
@@ -212,6 +663,10 @@ export class QuestionRenderer {
       const targetCenterX = btn.x + btn.width / 2;
       const targetCenterY = btn.y + btn.height / 2;
 
+      const choiceOverride = i === 0
+        ? (resolvedCtx?.choice0 ?? resolvedCtx?.choices?.[0])
+        : (resolvedCtx?.choice1 ?? resolvedCtx?.choices?.[1]);
+
       // 소실점에서 목표 위치로 부채꼴 외곽 궤적 보간
       const curCenterX = isApproaching ? vx + (targetCenterX - vx) * eased : targetCenterX;
       const curCenterY = isApproaching ? vy + (targetCenterY - vy) * eased : targetCenterY;
@@ -244,7 +699,7 @@ export class QuestionRenderer {
         ctx.drawImage(btnImg, bx, btnY, curW, curH);
       } else {
         // 모던 반투명 네온 버튼 배경 (프로시저럴 폴백)
-        ctx.fillStyle = 'rgba(16, 24, 48, 0.88)';
+        ctx.fillStyle = choiceOverride?.backgroundColor ?? 'rgba(16, 24, 48, 0.88)';
         ctx.beginPath();
         if (typeof ctx.roundRect === 'function') {
           ctx.roundRect(bx, btnY, curW, curH, 20 * scaleX * effectiveScale);
@@ -252,6 +707,11 @@ export class QuestionRenderer {
           ctx.rect(bx, btnY, curW, curH);
         }
         ctx.fill();
+        if (choiceOverride?.borderColor) {
+          ctx.strokeStyle = choiceOverride.borderColor;
+          ctx.lineWidth = (choiceOverride.borderWidth ?? 3) * scaleX * effectiveScale;
+          ctx.stroke();
+        }
       }
 
       // Issue #285 (UI-ANSWER-002): 실시간 0~100% 충전 프로그레스 바 및 부드러운 네온 내부 채우기 (Fill)
@@ -388,20 +848,21 @@ export class QuestionRenderer {
       const choiceStr = String(state.question.choices[i]);
       const choiceLen = choiceStr.length;
       const baseChoiceFontSize = choiceLen > 6 ? Math.max(50 * scaleX, (96 - (choiceLen - 6) * 5) * scaleX) : 96 * scaleX;
-      const choiceFontSize = baseChoiceFontSize * effectiveScale;
+      const choiceFontSize = (choiceOverride?.fontSize ? choiceOverride.fontSize * scaleX : baseChoiceFontSize) * effectiveScale;
       const choiceTargetY = state.selectedChoiceIndex === i
         ? curCenterY - 48 * scaleY * effectiveScale
         : curCenterY;
 
+      const choiceColor = choiceOverride?.color ?? (selectable ? '#FFCB4D' : '#8A93A8');
       renderMath(ctx, choiceStr, curCenterX, choiceTargetY, {
         fontSize: choiceFontSize,
-        color: selectable ? '#FFCB4D' : '#8A93A8',
+        color: choiceColor,
         align: 'center',
         maxWidth: Math.max(20, (btn.width - 32 * scaleX) * effectiveScale),
         maxHeight: Math.max(20, (btn.height - 32 * scaleY) * effectiveScale),
         minFontSize: Math.round(32 * scaleX * effectiveScale),
-        fractionLineColor: '#FFCB4D',
-        placeholderColor: '#FFCB4D',
+        fractionLineColor: choiceColor,
+        placeholderColor: choiceColor,
       });
 
       if (!selectable) {

@@ -5,9 +5,20 @@
  * - 문제 출제 첫 2박 동안 소실점(vanishingX, vanishingY)에서 정면 목표 좌표로 서서히 접근
  * - 진행도 t(0~1)에 따라 ease-out 감속 보간, 크기 스케일(0.15 → 1.0), 투명도(0.10 → 1.0) 제어
  * - t=1.0 도달 이후 및 6박 동안은 픽셀 왜곡 없이 정면 렌더링 유지
+ *
+ * Issue #445 (UI-VIS-015):
+ * - 선택적 표시 컨텍스트(QuestionPresentationContext) 주입 및 bounds 조회 지원
+ * - getHeaderBounds, getChoiceButtonBounds 지원
+ * - 결정론적 renderFixture (인스턴스 및 정적) 지원
  */
 
-import { renderQuestionHeaderMath } from './QuestionRenderer.js';
+import {
+  renderQuestionHeaderMath,
+  QuestionRenderer,
+  type QuestionPresentationContext,
+  type QuestionBounds,
+  type QuestionHeaderMathOptions,
+} from './QuestionRenderer.js';
 import {
   DEFAULT_QUESTION_APPROACH_CONFIG,
   type QuestionApproachConfig,
@@ -22,6 +33,15 @@ export interface QuestionApproachState {
   vanishingY: number;
 }
 
+export interface QuestionApproachFixtureDTO {
+  questionText: string;
+  progress?: number;
+  vanishingX?: number;
+  vanishingY?: number;
+  shapeCode?: string | null;
+  hasShape?: boolean;
+}
+
 export interface QuestionApproachTransform {
   x: number;
   y: number;
@@ -32,16 +52,90 @@ export interface QuestionApproachTransform {
 
 export class QuestionApproachRenderer {
   private readonly _config: QuestionApproachConfig;
+  private _presentationContext?: QuestionPresentationContext;
 
-  constructor(config?: Partial<QuestionApproachConfig>) {
+  constructor(
+    config?: Partial<QuestionApproachConfig>,
+    presentationContext?: QuestionPresentationContext,
+  ) {
     this._config = {
       ...DEFAULT_QUESTION_APPROACH_CONFIG,
       ...config,
     };
+    if (presentationContext) {
+      this.setPresentationContext(presentationContext);
+    }
   }
 
   get config(): QuestionApproachConfig {
     return this._config;
+  }
+
+  setPresentationContext(context?: QuestionPresentationContext): void {
+    this._presentationContext = context;
+  }
+
+  getPresentationContext(): QuestionPresentationContext | undefined {
+    return this._presentationContext;
+  }
+
+  clearPresentationContext(): void {
+    this._presentationContext = undefined;
+  }
+
+  getHeaderBounds(
+    w: number,
+    h: number,
+    options?: { hasShape?: boolean },
+  ): QuestionBounds {
+    const renderer = new QuestionRenderer(this._presentationContext);
+    return renderer.getHeaderBounds(w, h, options);
+  }
+
+  getChoiceButtonBounds(choiceIndex: 0 | 1, w: number, h: number): QuestionBounds {
+    const renderer = new QuestionRenderer(this._presentationContext);
+    return renderer.getChoiceButtonBounds(choiceIndex, w, h);
+  }
+
+  renderFixture(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    fixture: QuestionApproachFixtureDTO,
+    contextOverride?: QuestionPresentationContext,
+  ): void {
+    const prevContext = this._presentationContext;
+    if (contextOverride) {
+      this._presentationContext = contextOverride;
+    }
+    try {
+      const scaleX = w / 1080;
+      const scaleY = h / 2160;
+      const targetX = w / 2;
+      const hasShape = Boolean(fixture.hasShape || fixture.shapeCode);
+      const targetY = hasShape ? 320 * scaleY + 70 * scaleY : 320 * scaleY + 220 * scaleY;
+      const state: QuestionApproachState = {
+        progress: fixture.progress ?? 1.0,
+        vanishingX: fixture.vanishingX ?? w / 2,
+        vanishingY: fixture.vanishingY ?? h * 0.24,
+      };
+      this.render(ctx, fixture.questionText, targetX, targetY, scaleX, state, true, {
+        hasShape,
+      });
+    } finally {
+      this._presentationContext = prevContext;
+    }
+  }
+
+  static renderFixture(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    fixture: QuestionApproachFixtureDTO,
+    contextOverride?: QuestionPresentationContext,
+  ): void {
+    const renderer = new QuestionApproachRenderer(undefined, contextOverride);
+    renderer.renderFixture(ctx, w, h, fixture);
   }
 
   /**
@@ -92,6 +186,7 @@ export class QuestionApproachRenderer {
    * @param baseScaleX 화면 비율 scaleX
    * @param state 접근 상태 (progress, vanishingX, vanishingY)
    * @param isRunningPhase 러닝 헤더 규격 여부 (기본 true)
+   * @param options 추가 폰트/스타일 옵션
    */
   render(
     ctx: CanvasRenderingContext2D,
@@ -101,6 +196,7 @@ export class QuestionApproachRenderer {
     baseScaleX: number,
     state: QuestionApproachState,
     isRunningPhase: boolean = true,
+    options?: QuestionHeaderMathOptions,
   ): void {
     const t = this.computeTransform(
       state.progress,
@@ -110,9 +206,17 @@ export class QuestionApproachRenderer {
       state.vanishingY,
     );
 
+    const resolvedCtx = this._presentationContext;
+    const mergedOptions: QuestionHeaderMathOptions = {
+      ...options,
+      color: resolvedCtx?.header?.color ?? options?.color,
+      shadowColor: resolvedCtx?.header?.shadowColor ?? options?.shadowColor,
+      shadowBlur: resolvedCtx?.header?.shadowBlur ?? options?.shadowBlur,
+    };
+
     // t=1.0(완전 도달) 시점에는 변환 행렬 적용 없이 기존 렌더링 직접 호출 (100% 픽셀 동일성 보장)
     if (t.scale >= 1.0 && t.alpha >= 1.0 && t.x === targetX && t.y === targetY) {
-      renderQuestionHeaderMath(ctx, questionText, targetX, targetY, baseScaleX, isRunningPhase);
+      renderQuestionHeaderMath(ctx, questionText, targetX, targetY, baseScaleX, isRunningPhase, mergedOptions);
       return;
     }
 
@@ -125,7 +229,7 @@ export class QuestionApproachRenderer {
     ctx.scale(t.scale, t.scale);
 
     // (0, 0)을 중심으로 렌더링
-    renderQuestionHeaderMath(ctx, questionText, 0, 0, baseScaleX, isRunningPhase);
+    renderQuestionHeaderMath(ctx, questionText, 0, 0, baseScaleX, isRunningPhase, mergedOptions);
 
     ctx.restore();
   }
