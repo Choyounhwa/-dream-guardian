@@ -7,8 +7,8 @@
 **사용자 요청: "카드작성". 승인된 범위는 카드 작성·GitHub 이슈 등록·문서 동기화뿐이다. 구현은 미착수이며 카드마다 별도 승인을 받는다.**
 - 관리 카드: [#493 LANE-SYNC-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/493)
 - 하위 카드 목록:
-  - [#494 LANE-SYNC-01](https://github.com/Choyounhwa/-dream-guardian/issues/494) 3대 레인과 발자국 슬롯 X 좌표 단일화 및 러닝 매트 3레인 중앙 발자국 정렬 (선행 없음)
-  - [#495 LANE-SYNC-02](https://github.com/Choyounhwa/-dream-guardian/issues/495) 리듬노트 비행 궤적의 3레인 세로선 정렬 및 러닝/리듬 모드 착지 앵커 단일화 (선행 01)
+  - [✔ 완료] [#494 LANE-SYNC-01](https://github.com/Choyounhwa/-dream-guardian/issues/494) 3대 레인과 발자국 슬롯 X 좌표 단일화 및 러닝 매트 3레인 중앙 발자국 정렬 (선행 없음)
+  - [▶ NEXT] [#495 LANE-SYNC-02](https://github.com/Choyounhwa/-dream-guardian/issues/495) 리듬노트 비행 궤적의 3레인 세로선 정렬 및 러닝/리듬 모드 착지 앵커 단일화 (선행 01)
 
 ## 🚨 문제페이즈(RUN_QUESTION) 렌더링 중단 결함 등록 (BUG-RUN-QUESTION-RENDER, 2026-10-08)
 
@@ -63,7 +63,7 @@
 |---|---|---|---|
 | A | #431~#434 / UI-VIS-001~004 | 표시/문서 계약·비파괴 변환·Undo 모델 | #431 [✔], #432 [✔], #433 [✔], #434 [✔] (단계 A 완료) |
 | B | #435~#438 / UI-VIS-005~008 | 정렬·속성 모델·안전 bridge·실제 Canvas | #435 [✔], #436 [✔], #437 [✔], #438 [✔] (단계 B 완료) |
-| C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | #439 [✔], #440 [✔], #441 [✔], [#442 UI-VIS-012](https://github.com/Choyounhwa/-dream-guardian/issues/442) `[▶ NEXT: UI-VIS 트랙 / 승인 대기]`, 나머지 선행 대기 |
+| C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | #439 [✔], #440 [✔], #441 [✔], [#442 UI-VIS-012](https://github.com/Choyounhwa/-dream-guardian/issues/442) [✔], [#443 UI-VIS-013](https://github.com/Choyounhwa/-dream-guardian/issues/443) `[▶ NEXT: UI-VIS 트랙 / 승인 대기]`, 나머지 선행 대기 |
 | D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | 승인/선행 대기 |
 | E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | 승인/선행 대기 |
 | F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | 승인/선행 대기 |
