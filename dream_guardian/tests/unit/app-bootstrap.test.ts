@@ -211,4 +211,23 @@ describe('AppBootstrap (Issue #302)', () => {
       expect(content).not.toMatch(/secondsPerBeat:\s*0\.5/);
     });
   });
+
+  describe('[ANSWER-REST-001 / #498] AppBootstrap 답안 선택 후 2박 쉼표 주입 검증', () => {
+    it('기본 인스턴스(브라우저 실행 환경) 생성 시 answerRestBeats가 2로 주입된다', async () => {
+      const bootstrap = new AppBootstrap({ autoStartCamera: false, preloadAssets: false });
+      expect(bootstrap.beatCoordinator.answerRestBeats).toBe(2);
+      bootstrap.dispose();
+    });
+
+    it('테스트/사용자 지정 옵션으로 answerRestBeats를 전달하면 해당 값이 주입된다', async () => {
+      const bootstrap = new AppBootstrap({
+        canvas: mockCanvas,
+        autoStartCamera: false,
+        preloadAssets: false,
+        answerRestBeats: 2,
+      });
+      expect(bootstrap.beatCoordinator.answerRestBeats).toBe(2);
+      bootstrap.dispose();
+    });
+  });
 });

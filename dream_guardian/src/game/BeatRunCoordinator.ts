@@ -105,6 +105,7 @@ export interface BeatRunCoordinatorOptions {
   onCountInBeat?: (currentBeat: number, totalBeats: number) => void;
   onBeat?: (event: BeatEvent) => void;
   onTimeout?: () => void;
+  answerRestBeats?: number;
 }
 
 export class BeatRunCoordinator {
@@ -114,6 +115,7 @@ export class BeatRunCoordinator {
   private readonly _questionBank: QuestionBank;
   private readonly _options: BeatRunCoordinatorOptions;
   private readonly _routineMode: BeatRoutineMode;
+  private readonly _answerRestBeats: number;
   private _trackConfig: MusicTrackConfig;
   private _difficultyProfile: DifficultyBeatProfile;
   private _playMetronome = true;
@@ -129,6 +131,8 @@ export class BeatRunCoordinator {
   private _readyElapsed = 0;
   private _performanceElapsed = 0;
   private _answerSelectElapsed = 0;
+  private _isAnswerResting = false;
+  private _answerRestElapsed = 0;
   private _branchElapsed = 0;
   private _branchStartElapsed = 0;
   private _isTimedOut = false;
@@ -155,18 +159,16 @@ export class BeatRunCoordinator {
       this._difficultyProfile = { ...DEFAULT_DIFFICULTY_BEAT_PROFILE };
     }
 
-    if (options?.rhythmEngine) {
-      this._rhythmEngine = options.rhythmEngine;
-      if (options.trackConfig) {
-        this._rhythmEngine.setTrackConfig(options.trackConfig);
-      }
-      this._rhythmEngine.setBeatsPerRound(this._difficultyProfile.exerciseBeats);
-    } else {
-      this._rhythmEngine = new RhythmEngine({
+    this._rhythmEngine = options?.rhythmEngine
+      ?? new RhythmEngine({
         trackConfig: this._trackConfig,
         beatsPerRound: this._difficultyProfile.exerciseBeats,
       });
+    if (options?.rhythmEngine && options.trackConfig) {
+      this._rhythmEngine.setTrackConfig(options.trackConfig);
+      this._rhythmEngine.setBeatsPerRound(this._difficultyProfile.exerciseBeats);
     }
+    this._answerRestBeats = Math.max(0, options?.answerRestBeats ?? 0);
     this._centerReturnGate = options?.centerReturnGate ?? new CenterReturnGate();
     this._armReachAnswerSelector =
       options?.armReachAnswerSelector ?? new ArmReachAnswerSelector({ isMirrored: false });
@@ -210,6 +212,18 @@ export class BeatRunCoordinator {
 
   get routineMode(): BeatRoutineMode {
     return this._routineMode;
+  }
+
+  get answerRestBeats(): number {
+    return this._answerRestBeats;
+  }
+
+  get isAnswerResting(): boolean {
+    return this._isAnswerResting;
+  }
+
+  get answerRestElapsed(): number {
+    return this._answerRestElapsed;
   }
 
   get phase(): BeatPhase {
@@ -285,6 +299,7 @@ export class BeatRunCoordinator {
   get isAnswerOpen(): boolean {
     if (this._phase === 'ANSWER_SELECT') {
       return (
+        !this._isAnswerResting &&
         this._selectedChoiceIndex === null &&
         this._answerSelectElapsed < this._answerMaxSeconds() - 1e-9
       );
@@ -593,6 +608,8 @@ export class BeatRunCoordinator {
     this._readyElapsed = 0;
     this._performanceElapsed = 0;
     this._answerSelectElapsed = 0;
+    this._isAnswerResting = false;
+    this._answerRestElapsed = 0;
     this._branchElapsed = 0;
     this._selectedChoiceIndex = null;
     this._roundResolveCount = 0;
@@ -616,6 +633,8 @@ export class BeatRunCoordinator {
     this._readyElapsed = 0;
     this._performanceElapsed = 0;
     this._answerSelectElapsed = 0;
+    this._isAnswerResting = false;
+    this._answerRestElapsed = 0;
     this._branchElapsed = 0;
     this._selectedChoiceIndex = null;
     this._roundResolveCount = 0;
@@ -725,46 +744,73 @@ export class BeatRunCoordinator {
     if (this._routineMode === 'arm_reach') {
       // 1. ANSWER_SELECT 페이즈 처리
       if (this._phase === 'ANSWER_SELECT') {
-        // #309: primary 2 + 미응답 연장 1회(총 4). readyBeats(4)와 구 max-2는 창 길이가 아니다.
-        const maxAnswerTime = this._answerMaxSeconds();
-        const samplePastDeadline = this._answerSelectElapsed + remainingDt > maxAnswerTime + 1e-9;
-        const windowAcceptsInput =
-          this._selectedChoiceIndex === null &&
-          this._answerSelectElapsed <= maxAnswerTime + 1e-9 &&
-          !this.isPaused;
-
-        if (windowAcceptsInput) {
-          const consume = (choiceIndex: number | null): boolean => {
-            if (choiceIndex === null) return false;
-            this._handleAnswer(choiceIndex);
-            return true;
-          };
-          if (this._armReachAnswerSelector.isConfirmed) {
-            if (consume(this._armReachAnswerSelector.confirmedChoiceIndex)) return;
-          } else if (!samplePastDeadline && remainingDt > 0) {
-            this._armReachAnswerSelector.updateDelta(remainingDt, landmarks);
-            if (consume(this._armReachAnswerSelector.confirmedChoiceIndex)) return;
+        if (this._isAnswerResting) {
+          if (this.isPaused) {
+            return;
           }
-        }
+          const restDuration = this._answerRestBeats * this._rhythmEngine.secondsPerBeat;
+          const remainingRest = restDuration - this._answerRestElapsed;
+          const step = Math.min(remainingDt, Math.max(0, remainingRest));
+          this._answerRestElapsed += step;
+          remainingDt -= step;
 
-        if (this.isPaused) {
-          return;
-        }
+          if (this._answerRestElapsed >= restDuration - 1e-9) {
+            this._isAnswerResting = false;
+            const correct =
+              this._selectedChoiceIndex !== null &&
+              this._selectedChoiceIndex === this._currentQuestion?.correctIndex;
+            this._phase = correct ? 'STAR_COLLECT' : 'HAZARD_EVADE';
+            this._branchStartElapsed = this._answerSelectElapsed + this._answerRestElapsed;
+            this._branchElapsed = 0;
+            this._options.onPhaseChange?.(this._phase);
+          }
+        } else {
+          // #309: primary 2 + 미응답 연장 1회(총 4). readyBeats(4)와 구 max-2는 창 길이가 아니다.
+          const maxAnswerTime = this._answerMaxSeconds();
+          const samplePastDeadline = this._answerSelectElapsed + remainingDt > maxAnswerTime + 1e-9;
+          const windowAcceptsInput =
+            this._selectedChoiceIndex === null &&
+            this._answerSelectElapsed <= maxAnswerTime + 1e-9 &&
+            !this.isPaused;
 
-        const remainingAnswerTime = maxAnswerTime - this._answerSelectElapsed;
-        const step = Math.min(remainingDt, Math.max(0, remainingAnswerTime));
-        this._answerSelectElapsed += step;
-        remainingDt -= step;
+          if (windowAcceptsInput) {
+            const consume = (choiceIndex: number | null): boolean => {
+              if (choiceIndex === null) return false;
+              this._handleAnswer(choiceIndex);
+              return true;
+            };
+            if (this._armReachAnswerSelector.isConfirmed) {
+              if (consume(this._armReachAnswerSelector.confirmedChoiceIndex)) return;
+            } else if (!samplePastDeadline && remainingDt > 0) {
+              this._armReachAnswerSelector.updateDelta(remainingDt, landmarks);
+              if (consume(this._armReachAnswerSelector.confirmedChoiceIndex)) return;
+            }
+          }
 
-        if (this._answerSelectElapsed >= maxAnswerTime - 1e-9 && this._selectedChoiceIndex === null) {
-          this._isTimedOut = true;
-          this._options.onTimeout?.();
-          this._armReachAnswerSelector.closeWindow();
-          this._selectedChoiceIndex = null;
-          this._phase = 'HAZARD_EVADE';
-          this._branchElapsed = 0;
-          this._branchStartElapsed = this._answerSelectElapsed;
-          this._options.onPhaseChange?.(this._phase);
+          if (this.isPaused) {
+            return;
+          }
+
+          const remainingAnswerTime = maxAnswerTime - this._answerSelectElapsed;
+          const step = Math.min(remainingDt, Math.max(0, remainingAnswerTime));
+          this._answerSelectElapsed += step;
+          remainingDt -= step;
+
+          if (this._answerSelectElapsed >= maxAnswerTime - 1e-9 && this._selectedChoiceIndex === null) {
+            this._isTimedOut = true;
+            this._options.onTimeout?.();
+            this._armReachAnswerSelector.closeWindow();
+            this._selectedChoiceIndex = null;
+            if (this._answerRestBeats > 0) {
+              this._isAnswerResting = true;
+              this._answerRestElapsed = 0;
+            } else {
+              this._phase = 'HAZARD_EVADE';
+              this._branchElapsed = 0;
+              this._branchStartElapsed = this._answerSelectElapsed;
+              this._options.onPhaseChange?.(this._phase);
+            }
+          }
         }
       }
 
@@ -817,6 +863,8 @@ export class BeatRunCoordinator {
     if (this._routineMode === 'arm_reach') {
       this._phase = 'ANSWER_SELECT';
       this._answerSelectElapsed = 0;
+      this._isAnswerResting = false;
+      this._answerRestElapsed = 0;
       this._branchElapsed = 0;
       this._branchStartElapsed = 0;
       this._armReachAnswerSelector.openWindow();
@@ -923,11 +971,17 @@ export class BeatRunCoordinator {
     this._options.onAnswerSelected?.(choiceIndex);
 
     if (this._routineMode === 'arm_reach') {
+      if (this._answerRestBeats > 0) {
+        this._isAnswerResting = true;
+        this._answerRestElapsed = 0;
+        return;
+      }
       const correct = choiceIndex === this._currentQuestion.correctIndex;
       this._phase = correct ? 'STAR_COLLECT' : 'HAZARD_EVADE';
       this._branchStartElapsed = this._answerSelectElapsed;
       this._branchElapsed = 0;
       this._options.onPhaseChange?.(this._phase);
+      return;
     }
   }
 

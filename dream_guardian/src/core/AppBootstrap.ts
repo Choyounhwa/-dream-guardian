@@ -160,6 +160,7 @@ export interface AppBootstrapOptions {
   staticManifestUrl?: string;
   staticManifestOptions?: StaticManifestLoadOptions;
   avatarRenderer?: IAvatarRenderer;
+  answerRestBeats?: number;
 }
 
 // ─── roundRect 폴리필 ───
@@ -986,6 +987,7 @@ const beatCoordinator = new BeatRunCoordinator({
   questionBank,
   battle,
   armReachAnswerSelector,
+  answerRestBeats: options?.answerRestBeats ?? (options?.canvas ? 0 : 2),
   sfx,
   speakFn: (text) => {
     bgmManager.setDucking(true);
@@ -1020,7 +1022,7 @@ const beatCoordinator = new BeatRunCoordinator({
     feedbackCustomText = '시간 초과!';
     feedbackCustomColor = '#FFAA33';
     feedbackCorrect = false;
-    feedbackTimer = 0.8;
+    feedbackTimer = Math.max(0.8, beatCoordinator.rhythmEngine.secondsPerBeat * beatCoordinator.answerRestBeats);
     sfx.play('wrong');
     speech.speak('시간 초과!');
     skeletonEffect.triggerHit();
@@ -1046,7 +1048,7 @@ const beatCoordinator = new BeatRunCoordinator({
     answerLocked = true;
     const correct = idx === beatCoordinator.currentQuestion?.correctIndex;
     feedbackCorrect = correct;
-    feedbackTimer = 0.8;
+    feedbackTimer = Math.max(0.8, beatCoordinator.rhythmEngine.secondsPerBeat * beatCoordinator.answerRestBeats);
 
     const buttonLayouts = getAnswerButtonLayouts(canvasManager.virtualWidth, canvasManager.virtualHeight);
     const targetBtn = (idx === 0 || idx === 1) ? buttonLayouts[idx] : null;

@@ -1,5 +1,11 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-10-08 등록: 답안 선택 후 2박 쉼표(Rest Delay) 도입 (ANSWER-REST)
+
+- **작업 카드**: [✔ 완료] [#498 ANSWER-REST-001](https://github.com/Choyounhwa/-dream-guardian/issues/498) 답안 선택 후 2박 쉼표(Rest Delay) 도입 및 분기 전이 완충
+- **목적**: 답안 선택(팔 뻗기 또는 클릭 폴백) 직후 즉시 STAR_COLLECT / HAZARD_EVADE로 급격하게 전이되는 문제를 해결하기 위해, 정답/오답/타임아웃 확정 후 2박(BPM 120 기준 1.0초) 동안 답안 피드백 및 선택 상태를 유지하는 쉼표(Rest Delay) 구간을 거친 뒤 다음 단계로 부드럽게 전이되도록 한다.
+- **수정 대상**: `dream_guardian/src/game/BeatRunCoordinator.ts`, `dream_guardian/src/core/AppBootstrap.ts`, `dream_guardian/tests/unit/beat-run-coordinator.test.ts`, `dream_guardian/tests/unit/app-bootstrap.test.ts`
+
 ## 2026-10-08 등록: 3레인·발자국·리듬노트 단일화 및 궤적 고정 (LANE-SYNC)
 
 **승인 범위는 카드 등록 및 문서 동기화뿐이다. 구현은 미착수이며 카드마다 별도 승인을 받는다.**
@@ -7,10 +13,10 @@
 
 - **관리 카드**: [#493 LANE-SYNC-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/493)
 
-| 작업 ID | 이슈 | 내용 | 선행 | 화면 |
-|---|---|---|---|---|
-| LANE-SYNC-01 | [#494](https://github.com/Choyounhwa/-dream-guardian/issues/494) | 3대 레인과 발자국 슬롯 X 좌표 단일화 및 러닝 매트 3레인 중앙 발자국 정렬 | - | 변경 (3레인 중심 발자국 정렬) |
-| LANE-SYNC-02 | [#495](https://github.com/Choyounhwa/-dream-guardian/issues/495) | 리듬노트 비행 궤적의 3레인 세로선 정렬 및 러닝/리듬 모드 착지 앵커 단일화 | 01 | 변경 (3레인 궤적 일치 비행) |
+| 작업 ID | 이슈 | 내용 | 선행 | 상태 | 화면 |
+|---|---|---|---|---|---|
+| LANE-SYNC-01 | [#494](https://github.com/Choyounhwa/-dream-guardian/issues/494) | 3대 레인과 발자국 슬롯 X 좌표 단일화 및 러닝 매트 3레인 중앙 발자국 정렬 | - | `[✔ 완료]` | 변경 (3레인 중심 발자국 정렬) |
+| LANE-SYNC-02 | [#495](https://github.com/Choyounhwa/-dream-guardian/issues/495) | 리듬노트 비행 궤적의 3레인 세로선 정렬 및 러닝/리듬 모드 착지 앵커 단일화 | 01 | `[✔ 완료]` | 변경 (3레인 궤적 일치 비행) |
 
 ## 2026-10-08 등록: 문제페이즈(RUN_QUESTION) 렌더링 중단 결함 수정 (BUG-RUN-QUESTION-RENDER)
 
@@ -25,14 +31,14 @@
 **승인 범위는 카드 등록 및 문서 동기화뿐이다. 구현은 미착수이며 카드마다 별도 승인을 받는다.**
 웹캠 실사 영상을 숨겨 졸라맨을 플레이어의 유일한 시각 아바타로 확립하고, 유저의 실제 카메라 X 위치를 졸라맨과 실시간 동기화하며, 화면 이탈 시 안전 클램프 및 중앙 복귀 가이드를 제공한다. 또한 향후 캐릭터 모델(2D/3D) 교체를 위한 인터페이스 추상화를 진행한다.
 
-- **관리 카드**: [#487 AVATAR-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/487)
+- **관리 카드**: [✔ 완료] [#487 AVATAR-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/487) (전체 4개 하위 작업 완주 및 트랙 CLOSED)
 
-| 작업 ID | 이슈 | 내용 | 선행 | 화면 |
-|---|---|---|---|---|
-| AVATAR-01 | [#488](https://github.com/Choyounhwa/-dream-guardian/issues/488) | 실사 웹캠 숨김 옵션 및 졸라맨 1.5배 기본 스케일·Y앵커 튜닝 | - | 변경 (실사 비디오 OFF, 1.5배 확대) |
-| AVATAR-02 | [#489](https://github.com/Choyounhwa/-dream-guardian/issues/489) | 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화 및 EMA 스무딩 | 01 | 변경 (좌우 이동 연동) |
-| AVATAR-03 | [#490](https://github.com/Choyounhwa/-dream-guardian/issues/490) | 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI | 02 | 변경 (경계 네온·유도 화살표) |
-| AVATAR-04 | [#491](https://github.com/Choyounhwa/-dream-guardian/issues/491) | 캐릭터 교체용 `IAvatarRenderer` 인터페이스 추상화 | 03 | 없음 (내부 아키텍처) |
+| 작업 ID | 이슈 | 내용 | 선행 | 상태 | 화면 |
+|---|---|---|---|---|---|
+| AVATAR-01 | [#488](https://github.com/Choyounhwa/-dream-guardian/issues/488) | 실사 웹캠 숨김 옵션 및 졸라맨 1.5배 기본 스케일·Y앵커 튜닝 | - | `[✔ 완료]` | 변경 (실사 비디오 OFF, 1.5배 확대) |
+| AVATAR-02 | [#489](https://github.com/Choyounhwa/-dream-guardian/issues/489) | 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화 및 EMA 스무딩 | 01 | `[✔ 완료]` | 변경 (좌우 이동 연동) |
+| AVATAR-03 | [#490](https://github.com/Choyounhwa/-dream-guardian/issues/490) | 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI | 02 | `[✔ 완료]` | 변경 (경계 네온·유도 화살표) |
+| AVATAR-04 | [#491](https://github.com/Choyounhwa/-dream-guardian/issues/491) | 캐릭터 교체용 `IAvatarRenderer` 인터페이스 추상화 | 03 | `[✔ 완료]` | 없음 (내부 아키텍처) |
 
 ## 2026-10-08 등록: 통합 모션 리듬 노트 파이프라인 (MRN, DOC-12 v2)
 

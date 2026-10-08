@@ -687,4 +687,121 @@ describe('[FEAT-ANSWER-GRACE-001 / #309] 기본 2박 · 미응답 추가 2박 ·
     expect(clock!.durationBeats).toBe(10);
     expect(clock!.endElapsed).toBeCloseTo(clock!.startElapsed + 10 * clock!.secondsPerBeat, 6);
   });
+
+  describe('[ANSWER-REST-001 / #498] 답안 선택 후 2박 쉼표(Rest Delay) 계약 검증', () => {
+    it('정답 선택 시 2박 동안 ANSWER_SELECT 상태 및 선택 피드백을 유지하고 2박 후 STAR_COLLECT로 전이한다', () => {
+      const coordinator = new BeatRunCoordinator({
+        battle: new BattleState(),
+        routineMode: 'arm_reach',
+        answerRestBeats: 2,
+      });
+      enterAnswer(coordinator);
+      const correct = coordinator.currentQuestion?.correctIndex ?? 0;
+      coordinator.confirmAnswerByFallback(correct);
+
+      // 선택 직후: 즉시 STAR_COLLECT로 전이되지 않고 ANSWER_SELECT에서 2박 쉼표 유지
+      expect(coordinator.phase).toBe('ANSWER_SELECT');
+      expect(coordinator.isAnswerResting).toBe(true);
+      expect(coordinator.selectedChoiceIndex).toBe(correct);
+      expect(coordinator.isAnswerOpen).toBe(false);
+      expect(coordinator.getBranchClock()).toBeNull();
+
+      // 1박 경과 시점: 여전히 ANSWER_SELECT 유지
+      coordinator.update(seconds(1, 120));
+      expect(coordinator.phase).toBe('ANSWER_SELECT');
+      expect(coordinator.isAnswerResting).toBe(true);
+
+      // 2박 경과 시점: STAR_COLLECT로 전이
+      coordinator.update(seconds(1, 120));
+      expect(coordinator.phase).toBe('STAR_COLLECT');
+      expect(coordinator.isAnswerResting).toBe(false);
+      expect(coordinator.getBranchClock()).not.toBeNull();
+      expect(coordinator.getBranchClock()!.durationBeats).toBe(8);
+    });
+
+    it('오답 선택 시 2박 동안 ANSWER_SELECT 상태를 유지한 뒤 HAZARD_EVADE로 전이한다', () => {
+      const coordinator = new BeatRunCoordinator({
+        battle: new BattleState(),
+        routineMode: 'arm_reach',
+        answerRestBeats: 2,
+      });
+      enterAnswer(coordinator);
+      const wrong = coordinator.currentQuestion?.correctIndex === 0 ? 1 : 0;
+      coordinator.confirmAnswerByFallback(wrong);
+
+      expect(coordinator.phase).toBe('ANSWER_SELECT');
+      expect(coordinator.isAnswerResting).toBe(true);
+
+      coordinator.update(seconds(1.9, 120));
+      expect(coordinator.phase).toBe('ANSWER_SELECT');
+
+      coordinator.update(seconds(0.2, 120));
+      expect(coordinator.phase).toBe('HAZARD_EVADE');
+      expect(coordinator.isAnswerResting).toBe(false);
+    });
+
+    it('타임아웃 발생 시에도 2박 피드백 대기 후 HAZARD_EVADE로 전이한다', () => {
+      const onTimeout = vi.fn();
+      const coordinator = new BeatRunCoordinator({
+        battle: new BattleState(),
+        routineMode: 'arm_reach',
+        answerRestBeats: 2,
+        onTimeout,
+      });
+      enterAnswer(coordinator);
+      // 4박 초과 경과 -> 타임아웃 발생
+      coordinator.update(seconds(4, 120) + 1e-4);
+
+      expect(onTimeout).toHaveBeenCalledTimes(1);
+      expect(coordinator.isTimedOut).toBe(true);
+      expect(coordinator.phase).toBe('ANSWER_SELECT');
+      expect(coordinator.isAnswerResting).toBe(true);
+
+      coordinator.update(seconds(1, 120));
+      expect(coordinator.phase).toBe('ANSWER_SELECT');
+
+      coordinator.update(seconds(1, 120));
+      expect(coordinator.phase).toBe('HAZARD_EVADE');
+      expect(coordinator.isAnswerResting).toBe(false);
+    });
+
+    it('answerRestBeats가 0이면 이전과 동일하게 즉시 분기 상태로 전이한다 (하위 호환성)', () => {
+      const coordinator = new BeatRunCoordinator({
+        battle: new BattleState(),
+        routineMode: 'arm_reach',
+        answerRestBeats: 0,
+      });
+      enterAnswer(coordinator);
+      const correct = coordinator.currentQuestion?.correctIndex ?? 0;
+      coordinator.confirmAnswerByFallback(correct);
+
+      expect(coordinator.phase).toBe('STAR_COLLECT');
+      expect(coordinator.isAnswerResting).toBe(false);
+    });
+
+    it('2박 쉼표 대기 중 pause() 호출 시 대기 시간이 멈추고 resume() 후 재개된다', () => {
+      const coordinator = new BeatRunCoordinator({
+        battle: new BattleState(),
+        routineMode: 'arm_reach',
+        answerRestBeats: 2,
+      });
+      enterAnswer(coordinator);
+      const correct = coordinator.currentQuestion?.correctIndex ?? 0;
+      coordinator.confirmAnswerByFallback(correct);
+
+      // 0.5초 경과
+      coordinator.update(0.5);
+      expect(coordinator.phase).toBe('ANSWER_SELECT');
+
+      // 일시정지 중 경과 무시
+      coordinator.pause();
+      coordinator.update(2.0);
+      expect(coordinator.phase).toBe('ANSWER_SELECT');
+
+      // 재개 후 나머지 0.5초 경과 시 전이
+      coordinator.resume();
+      coordinator.update(0.5);
+      expect(coordinator.phase).toBe('STAR_COLLECT');
+    });
+  });
 });
