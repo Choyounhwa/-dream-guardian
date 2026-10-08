@@ -53,6 +53,9 @@ export interface StickmanConfig {
   angleSmoothing: number; // 회전각 스무딩 보간 계수 (0~1)
   squatSensitivity: number; // 스쿼트 시 Y 변위 가중치
   jumpSensitivity: number;  // 점프 시 Y 변위 가중치
+  horizontalSmoothing?: number; // 가로 추적 EMA 스무딩 계수 (기본값 0.2)
+  horizontalClampMin?: number;  // 가로 앵커 최소 클램프 비율 (기본값 0.18)
+  horizontalClampMax?: number;  // 가로 앵커 최대 클램프 비율 (기본값 0.82)
   limbLengths: StickmanLimbLengths;
   capsuleWidth: StickmanCapsuleWidth;
   colors: StickmanColors;
@@ -65,6 +68,9 @@ export const STICKMAN_CONFIG: StickmanConfig = {
   angleSmoothing: 0.35,
   squatSensitivity: 350,
   jumpSensitivity: 350,
+  horizontalSmoothing: 0.2,
+  horizontalClampMin: 0.18,
+  horizontalClampMax: 0.82,
   limbLengths: {
     torso: 155,
     shoulderWidth: 105,

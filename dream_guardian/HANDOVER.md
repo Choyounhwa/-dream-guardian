@@ -23,9 +23,24 @@
 - 관리 카드: [#487 AVATAR-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/487)
 - 하위 카드 목록:
   - [✔] [#488 AVATAR-01](https://github.com/Choyounhwa/-dream-guardian/issues/488) 실사 웹캠 숨김 옵션 및 졸라맨 1.5배 기본 스케일·Y앵커 튜닝 (완료)
-  - [▶ NEXT] [#489 AVATAR-02](https://github.com/Choyounhwa/-dream-guardian/issues/489) 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화 및 EMA 스무딩 (선행 01 완료)
-  - [#490 AVATAR-03](https://github.com/Choyounhwa/-dream-guardian/issues/490) 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI (선행 02)
+  - [✔] [#489 AVATAR-02](https://github.com/Choyounhwa/-dream-guardian/issues/489) 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화 및 EMA 스무딩 (완료)
+  - [▶ NEXT] [#490 AVATAR-03](https://github.com/Choyounhwa/-dream-guardian/issues/490) 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI (선행 02 완료)
   - [#491 AVATAR-04](https://github.com/Choyounhwa/-dream-guardian/issues/491) 캐릭터 교체용 `IAvatarRenderer` 인터페이스 추상화 (선행 03)
+
+### [✔ 완료] #489 [AVATAR-02] 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화 및 EMA 스무딩 (2026-10-08)
+- **작업 목적**:
+  - 기존 화면 정중앙(X: 0.5)에 고정되어 있던 졸라맨 가로 앵커 위치를 유저의 실제 카메라 내 골반 중심 좌표와 동기화하여 플레이어의 이동감을 구현.
+- **수정 파일**:
+  1. `dream_guardian/config/skeleton.config.ts`: `StickmanConfig`에 `horizontalSmoothing`(0.2), `horizontalClampMin`(0.18), `horizontalClampMax`(0.82) 추가 및 `STICKMAN_CONFIG` 기본값 반영.
+  2. `dream_guardian/src/skeleton/StickmanRenderer.ts`: `_currentAnchorXRatio`, `isMirrored`(기본 true), `currentAnchorXRatio` getter, 골반 X 추출 및 결손 시 어깨 폴백, 미러링(1.0 - rawHipX) 및 [0.18, 0.82] 클램핑, 첫 프레임 즉시 스냅 및 이후 EMA 스무딩, 포즈 상실/fallback 시 기본 0.5 서서히 복귀, `calculateFKPositions`의 동적 `px` 반영.
+  3. `dream_guardian/tests/unit/stickman-renderer.test.ts`: TDD 8개 신규 단위 테스트 추가 (36/36 tests 100% Pass).
+- **검증 결과**:
+  - `npx vitest run tests/unit/stickman-renderer.test.ts`: 36개 100% 통과 (신규 8개 포함).
+  - 렌더/스켈레톤 도메인 테스트 4개 파일: 73개 100% 통과.
+  - 전체 단위/통합 테스트: 230개 파일, 3,194개 100% 통과 (회귀 0건).
+  - TypeScript strict typecheck 및 Vite production 번들 빌드 성공.
+- **다음 작업 대상**:
+  - **[#490 AVATAR-03]**: 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI
 
 ## 🎯 통합 모션 리듬 노트 파이프라인 카드 등록 (MRN, DOC-12 v2, 2026-10-08)
 

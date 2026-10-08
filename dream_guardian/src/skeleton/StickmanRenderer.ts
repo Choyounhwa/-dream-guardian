@@ -82,10 +82,17 @@ export class StickmanRenderer {
   private _verticalOffset = 0;
   private _baselineHipY = 0.60;
   private _initialized = false;
+  private _currentAnchorXRatio: number;
+  public isMirrored = true;
 
   constructor(config: StickmanConfig = STICKMAN_CONFIG) {
     this._config = config;
     this._angles = this._getDefaultAngles();
+    this._currentAnchorXRatio = this._config.anchorXRatio;
+  }
+
+  get currentAnchorXRatio(): number {
+    return this._currentAnchorXRatio;
   }
 
   get scale(): number {
@@ -133,6 +140,7 @@ export class StickmanRenderer {
     this._animTimer = 0;
     this._verticalOffset = 0;
     this._initialized = false;
+    this._currentAnchorXRatio = this._config.anchorXRatio;
   }
 
   /** 포즈 미인식 시 대기/러닝 폴백 애니메이션 업데이트 */
@@ -151,6 +159,11 @@ export class StickmanRenderer {
       this._verticalOffset = Math.sin(this._animTimer * 2.0) * 0.005;
     }
     this._angles = def;
+
+    // 포즈 미인식 시 기본 anchorXRatio로 서서히 복귀
+    const smoothing = this._config.horizontalSmoothing ?? 0.2;
+    this._currentAnchorXRatio +=
+      (this._config.anchorXRatio - this._currentAnchorXRatio) * (smoothing * 0.5);
   }
 
   /**
@@ -165,8 +178,14 @@ export class StickmanRenderer {
     this._animTimer += dt;
     this._breathScale = breathScale;
 
+    const smoothing = this._config.horizontalSmoothing ?? 0.2;
+    const clampMin = this._config.horizontalClampMin ?? 0.18;
+    const clampMax = this._config.horizontalClampMax ?? 0.82;
+
     if (!landmarks || landmarks.length < 25) {
       this._hasValidPose = false;
+      this._currentAnchorXRatio +=
+        (this._config.anchorXRatio - this._currentAnchorXRatio) * (smoothing * 0.5);
       return;
     }
 
@@ -176,17 +195,41 @@ export class StickmanRenderer {
     const rh = landmarks[POSE_LANDMARKS.RIGHT_HIP];
 
     const minVis = 0.25;
-    if (
-      (ls?.visibility ?? 0) < minVis ||
-      (rs?.visibility ?? 0) < minVis ||
-      (lh?.visibility ?? 0) < minVis ||
-      (rh?.visibility ?? 0) < minVis
-    ) {
+    const hasHips =
+      lh && rh && (lh.visibility ?? 0) >= minVis && (rh.visibility ?? 0) >= minVis;
+    const hasShoulders =
+      ls && rs && (ls.visibility ?? 0) >= minVis && (rs.visibility ?? 0) >= minVis;
+
+    if (!hasHips && !hasShoulders) {
       this._hasValidPose = false;
+      this._currentAnchorXRatio +=
+        (this._config.anchorXRatio - this._currentAnchorXRatio) * (smoothing * 0.5);
       return;
     }
 
     this._hasValidPose = true;
+
+    // Issue #489 [AVATAR-02]: 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화
+    let rawHipX = 0.5;
+    if (hasHips) {
+      rawHipX = (lh.x + rh.x) / 2;
+    } else if (hasShoulders) {
+      rawHipX = (ls.x + rs.x) / 2;
+    }
+    // 픽셀 좌표계(rawHipX > 2.0)인 경우 가상 너비(1920) 등으로 정규화 가정 방지 -> 0~1 사이로 정규화
+    if (rawHipX > 2.0) {
+      rawHipX = rawHipX / 1920;
+    }
+
+    const mirror = options?.mirror !== undefined ? options.mirror : this.isMirrored;
+    const rawUserX = mirror ? 1.0 - rawHipX : rawHipX;
+    const targetX = Math.max(clampMin, Math.min(clampMax, rawUserX));
+
+    if (!this._initialized) {
+      this._currentAnchorXRatio = targetX;
+    } else {
+      this._currentAnchorXRatio += (targetX - this._currentAnchorXRatio) * smoothing;
+    }
 
     // 1. 기준 랜드마크
     const le = landmarks[POSE_LANDMARKS.LEFT_ELBOW];
@@ -289,8 +332,8 @@ export class StickmanRenderer {
     };
     const angles = this._angles;
 
-    // 1. 화면 중앙 2/3 높이 앵커 (골반 중심)
-    const px = vw * cfg.anchorXRatio;
+    // 1. 화면 중앙 2/3 높이 앵커 (골반 중심, 가로 앵커는 유저 위치와 실시간 동기화)
+    const px = vw * this._currentAnchorXRatio;
     const py = vh * cfg.anchorYRatio + this._verticalOffset;
     const pelvis: StickmanPoint2D = { x: px, y: py };
 
