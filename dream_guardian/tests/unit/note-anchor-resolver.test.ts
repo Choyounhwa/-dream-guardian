@@ -24,6 +24,8 @@ import {
 } from '../../config/running-mat.config.js';
 import { DEFAULT_STAR_NOTE_VISUAL_CONFIG } from '../../config/beat-motion.config.js';
 import type { PartRequirement } from '../../src/types/motion-note.js';
+import { RunningMatRenderer } from '../../src/render/RunningMatRenderer.js';
+import { projectFlight } from '../../src/render/NoteProjection.js';
 
 describe('NoteAnchorResolver 단위 테스트 (Issue #478 / MRN-04)', () => {
   const viewport: ViewportSize = { width: 1920, height: 1080 };
@@ -274,6 +276,139 @@ describe('NoteAnchorResolver 단위 테스트 (Issue #478 / MRN-04)', () => {
       expect(Number.isFinite(footAnchor.x)).toBe(true);
       expect(Number.isFinite(footAnchor.y)).toBe(true);
       expect(Number.isFinite(footAnchor.radius)).toBe(true);
+    });
+  });
+
+  describe('7. [LANE-SYNC-02 / Issue #495] 러닝 매트 발자국과 3레인 리듬노트 착지 앵커 100% 동기화 (오차 0px)', () => {
+    const renderer = new RunningMatRenderer();
+
+    it('러닝 매트의 computeStrikeLineY 및 computeMatHalfWBottom이 NoteAnchorResolver와 100% 동일한 수치를 반환한다', () => {
+      const w = 1920;
+      const h = 1080;
+      const expectedStrikeY = computeStrikeLineY(h);
+      const expectedHalfW = computeMatHalfWBottom(w, h);
+
+      expect(renderer.computeStrikeLineY(h)).toBe(expectedStrikeY);
+      expect(renderer.computeMatHalfWBottom(w, h)).toBe(expectedHalfW);
+    });
+
+    it('기본 뷰포트에서 left/center/right 발 요구조건의 resolveAnchor 좌표가 computeSlotCoordinates와 오차 0px로 일치한다', () => {
+      const w = 1920;
+      const h = 1080;
+      const halfW = renderer.computeMatHalfWBottom(w, h);
+      const yStrike = renderer.computeStrikeLineY(h);
+      const yTop = h * RUNNING_MAT_CONFIG.baseYTop;
+      const yBottom = h * RUNNING_MAT_CONFIG.baseYBottom;
+      const currentVx = w * 0.5;
+      const currentVy = h * RUNNING_MAT_CONFIG.vanishingYRatio;
+
+      const slots = renderer.computeSlotCoordinates(
+        currentVx,
+        currentVy,
+        yTop,
+        yBottom,
+        halfW,
+        w,
+        yStrike
+      );
+
+      const leftAnchor = resolveAnchor({ part: 'leftFoot', zoneId: 9 }, { width: w, height: h });
+      const centerAnchor = resolveAnchor({ part: 'centerFoot', zoneId: 10 }, { width: w, height: h });
+      const rightAnchor = resolveAnchor({ part: 'rightFoot', zoneId: 11 }, { width: w, height: h });
+
+      // 오차 0px 엄격 일치 검증
+      expect(leftAnchor.x).toBe(slots.left.x);
+      expect(leftAnchor.y).toBe(slots.left.y);
+      expect(centerAnchor.x).toBe(slots.center.x);
+      expect(centerAnchor.y).toBe(slots.center.y);
+      expect(rightAnchor.x).toBe(slots.right.x);
+      expect(rightAnchor.y).toBe(slots.right.y);
+    });
+
+    it('소실점 X(vanishingX)가 화면 중앙과 다른 오프셋 좌표에서도 발자국 슬롯과 착지 앵커가 오차 0px로 일치한다', () => {
+      const w = 1920;
+      const h = 1080;
+      const customVx = 850; // 보스 이동 또는 카메라 시점 변화로 인한 소실점 이동
+      const halfW = renderer.computeMatHalfWBottom(w, h);
+      const yStrike = renderer.computeStrikeLineY(h);
+      const yTop = h * RUNNING_MAT_CONFIG.baseYTop;
+      const yBottom = h * RUNNING_MAT_CONFIG.baseYBottom;
+      const vy = h * RUNNING_MAT_CONFIG.vanishingYRatio;
+
+      const slots = renderer.computeSlotCoordinates(
+        customVx,
+        vy,
+        yTop,
+        yBottom,
+        halfW,
+        w,
+        yStrike
+      );
+
+      const floorLayout: FloorLayoutOptions = { vanishingX: customVx };
+      const leftAnchor = resolveAnchor({ part: 'leftFoot', zoneId: 9 }, { width: w, height: h }, undefined, floorLayout);
+      const centerAnchor = resolveAnchor({ part: 'centerFoot', zoneId: 10 }, { width: w, height: h }, undefined, floorLayout);
+      const rightAnchor = resolveAnchor({ part: 'rightFoot', zoneId: 11 }, { width: w, height: h }, undefined, floorLayout);
+
+      expect(leftAnchor.x).toBe(slots.left.x);
+      expect(leftAnchor.y).toBe(slots.left.y);
+      expect(centerAnchor.x).toBe(slots.center.x);
+      expect(centerAnchor.y).toBe(slots.center.y);
+      expect(rightAnchor.x).toBe(slots.right.x);
+      expect(rightAnchor.y).toBe(slots.right.y);
+    });
+
+    it('소실점에서 3개 레인으로 비행하는 Stomp Note의 궤적이 3레인 원근 세로선(-0.45, 0.0, +0.45)에 완벽히 정렬된다', () => {
+      const w = 1920;
+      const h = 1080;
+      const testVx = w * 0.5;
+      const testVy = h * RUNNING_MAT_CONFIG.vanishingYRatio;
+      const halfW = renderer.computeMatHalfWBottom(w, h);
+      const yStrike = renderer.computeStrikeLineY(h);
+
+      const leftAnchor = resolveAnchor({ part: 'leftFoot', zoneId: 9 }, { width: w, height: h });
+      const centerAnchor = resolveAnchor({ part: 'centerFoot', zoneId: 10 }, { width: w, height: h });
+      const rightAnchor = resolveAnchor({ part: 'rightFoot', zoneId: 11 }, { width: w, height: h });
+
+      expect(leftAnchor.x).toBeCloseTo(testVx - 0.45 * halfW, 5);
+      expect(rightAnchor.x).toBeCloseTo(testVx + 0.45 * halfW, 5);
+
+      const progressSteps = [0.0, 0.25, 0.5, 0.75, 1.0];
+
+      for (const p of progressSteps) {
+        // centerFoot 비행: X 좌표는 시종일관 testVx 유지 (중앙 레인)
+        const centerProj = projectFlight(testVx, testVy, centerAnchor.x, centerAnchor.y, p);
+        expect(centerProj.x).toBeCloseTo(testVx, 5);
+
+        // leftFoot 비행: 원근 보간 진행도 t에 대해 (x - vx) / (leftAnchor.x - vx) === (y - vy) / (yStrike - vy) === t
+        const leftProj = projectFlight(testVx, testVy, leftAnchor.x, leftAnchor.y, p);
+        const rightProj = projectFlight(testVx, testVy, rightAnchor.x, rightAnchor.y, p);
+
+        if (p > 0) {
+          const expectedLeftX = testVx + (leftAnchor.x - testVx) * leftProj.t;
+          const expectedRightX = testVx + (rightAnchor.x - testVx) * rightProj.t;
+          expect(leftProj.x).toBeCloseTo(expectedLeftX, 5);
+          expect(rightProj.x).toBeCloseTo(expectedRightX, 5);
+
+          // 기울기(원근 가이드 선상의 상대 비) 일치 검증
+          const leftRatio = (leftProj.x - testVx) / (leftAnchor.x - testVx);
+          const yRatio = (leftProj.y - testVy) / (yStrike - testVy);
+          expect(leftRatio).toBeCloseTo(yRatio, 5);
+        }
+      }
+    });
+
+    it('커스텀 laneOffsetLeft / laneOffsetRight가 주어졌을 때도 resolveAnchor가 정확히 반영한다', () => {
+      const customLayout: FloorLayoutOptions = {
+        laneOffsetLeft: -0.52,
+        laneOffsetRight: 0.52,
+      };
+      const leftAnchor = resolveAnchor({ part: 'leftFoot', zoneId: 9 }, viewport, undefined, customLayout);
+      const rightAnchor = resolveAnchor({ part: 'rightFoot', zoneId: 11 }, viewport, undefined, customLayout);
+      const halfW = computeMatHalfWBottom(viewport.width, viewport.height);
+
+      expect(leftAnchor.x).toBeCloseTo(vx - 0.52 * halfW, 5);
+      expect(rightAnchor.x).toBeCloseTo(vx + 0.52 * halfW, 5);
     });
   });
 });

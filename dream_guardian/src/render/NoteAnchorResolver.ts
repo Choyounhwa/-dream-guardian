@@ -23,6 +23,7 @@ import {
   DEFAULT_MAT_WIDTH_RATIO,
   MAX_NARROW_WIDTH_RATIO,
   DEFAULT_STOMP_NOTE_RADIUS,
+  DEFAULT_LANE_SLOT_OFFSETS,
 } from '../../config/running-mat.config.js';
 import { DEFAULT_STAR_NOTE_VISUAL_CONFIG } from '../../config/beat-motion.config.js';
 
@@ -59,8 +60,12 @@ export interface FloorLayoutOptions {
   readonly widthRatio?: number;
   readonly maxNarrowWidthRatio?: number;
   readonly laneOffset?: number;
+  readonly laneOffsetLeft?: number;
+  readonly laneOffsetRight?: number;
   readonly stompNoteRadius?: number;
   readonly zoneRadius?: number;
+  readonly vanishingX?: number;
+  readonly vanishingPoint?: { x: number; y: number };
 }
 
 /**
@@ -124,14 +129,30 @@ export function resolveAnchor(
 ): NoteAnchor {
   const w = Math.max(0, viewport.width || 0);
   const h = Math.max(0, viewport.height || 0);
-  const vx = w * 0.5;
-  const vy = h * 0.5;
+  const vx =
+    floorLayout?.vanishingX ??
+    floorLayout?.vanishingPoint?.x ??
+    w * 0.5;
+  const vy =
+    floorLayout?.vanishingPoint?.y ??
+    h * 0.5;
 
   // 1. 발 / 하체 / 전신 부위 (strikeLine 착지 모드)
   if (isFloorPart(req.part)) {
     const halfWBottom = computeMatHalfWBottom(w, h, floorLayout);
     const yStrike = computeStrikeLineY(h, floorLayout);
-    const laneOffsetMag = floorLayout?.laneOffset ?? DEFAULT_LANE_OFFSET;
+    const laneOffsetLeft =
+      floorLayout?.laneOffsetLeft ??
+      (floorLayout?.laneOffset !== undefined
+        ? -Math.abs(floorLayout.laneOffset)
+        : (RUNNING_MAT_CONFIG.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left));
+    const laneOffsetRight =
+      floorLayout?.laneOffsetRight ??
+      (floorLayout?.laneOffset !== undefined
+        ? Math.abs(floorLayout.laneOffset)
+        : (RUNNING_MAT_CONFIG.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right));
+    const laneOffsetCenter =
+      RUNNING_MAT_CONFIG.laneOffsetCenter ?? DEFAULT_LANE_SLOT_OFFSETS.center;
     const stompRadius =
       floorLayout?.stompNoteRadius ??
       RUNNING_MAT_CONFIG.stompNoteRadius ??
@@ -140,21 +161,21 @@ export function resolveAnchor(
     switch (req.part) {
       case 'leftFoot':
         return {
-          x: vx - laneOffsetMag * halfWBottom,
+          x: vx + laneOffsetLeft * halfWBottom,
           y: yStrike,
           radius: stompRadius,
           mode: 'strikeLine',
         };
       case 'rightFoot':
         return {
-          x: vx + laneOffsetMag * halfWBottom,
+          x: vx + laneOffsetRight * halfWBottom,
           y: yStrike,
           radius: stompRadius,
           mode: 'strikeLine',
         };
       case 'centerFoot':
         return {
-          x: vx,
+          x: vx + laneOffsetCenter * halfWBottom,
           y: yStrike,
           radius: stompRadius,
           mode: 'strikeLine',

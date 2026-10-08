@@ -11,7 +11,6 @@
 
 import {
   RUNNING_MAT_CONFIG,
-  DEFAULT_STRIKE_LINE_Y_RATIO,
   DEFAULT_STRIKE_OVERHANG_RATIO,
   DEFAULT_LANE_SLOT_OFFSETS,
   type RunningMatConfig,
@@ -26,6 +25,8 @@ import {
 } from '../../config/motion-note-profile.config.js';
 import {
   DEFAULT_LANE_OFFSET,
+  computeMatHalfWBottom,
+  computeStrikeLineY,
   type FloorLayoutOptions,
 } from './NoteAnchorResolver.js';
 
@@ -170,23 +171,13 @@ export class RunningMatRenderer {
     const vx = vp?.x ?? width * 0.5;
     const vy = vp?.y ?? height * this.config.vanishingYRatio;
 
-    // 반응형 폭 비율 산출 (좁은 화면 / 세로 모드 보정)
-    const aspect = width / height;
-    const matWidthRatio =
-      aspect < 1.0
-        ? Math.min(
-            this.config.maxNarrowWidthRatio,
-            this.config.widthRatio + (1.0 - aspect) * 0.15
-          )
-        : this.config.widthRatio;
-
     // Y 범위 산출
     const yTop = height * this.config.baseYTop;
     const yBottom = height * this.config.baseYBottom;
-    const halfWBottom = (width * matWidthRatio) * 0.5;
+    const halfWBottom = this.computeMatHalfWBottom(width, height);
 
     // 1. 초고휘도 네온 글로우 발 판정선(Foot Strike Line) 및 3대 레인 타깃 앵커 렌더링 (Issue #421, #422, #426)
-    const yStrike = height * (this.config.strikeLineYRatio ?? DEFAULT_STRIKE_LINE_Y_RATIO);
+    const yStrike = this.computeStrikeLineY(height);
     this._renderFootStrikeLine(
       ctx,
       view,
@@ -339,7 +330,11 @@ export class RunningMatRenderer {
       ctx.stroke();
 
       // (3) 3대 타깃 앵커 상방 수직 광선 기둥 (Upward Light Pillars)
-      const anchorXs = [vx - halfWBottom * 0.45, vx, vx + halfWBottom * 0.45];
+      const anchorXs = [
+        vx + (this.config.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left) * halfWBottom,
+        vx + (this.config.laneOffsetCenter ?? DEFAULT_LANE_SLOT_OFFSETS.center) * halfWBottom,
+        vx + (this.config.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right) * halfWBottom,
+      ];
       const pillarH = 65 * (1.0 - pulseP);
       for (const ax of anchorXs) {
         ctx.beginPath();
@@ -556,8 +551,12 @@ export class RunningMatRenderer {
       strikeLineYRatio: this.config.strikeLineYRatio,
       widthRatio: this.config.widthRatio,
       maxNarrowWidthRatio: this.config.maxNarrowWidthRatio,
-      laneOffset: DEFAULT_LANE_OFFSET,
+      laneOffset: this.config.laneOffsetRight ?? DEFAULT_LANE_OFFSET,
+      laneOffsetLeft: this.config.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left,
+      laneOffsetRight: this.config.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right,
       stompNoteRadius: this.config.stompNoteRadius,
+      vanishingPoint: { x: vx, y: vy },
+      vanishingX: vx,
     };
 
     // 네이티브 CanvasRenderingContext2D를 직접 전달하여 WebIDL Illegal invocation 원천 방지 (Issue #492)
@@ -574,6 +573,20 @@ export class RunningMatRenderer {
     // 캔버스 상태 안전 복원
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1.0;
+  }
+
+  /**
+   * 판정선 Y 좌표 산출 (NoteAnchorResolver 단일 공식 연동)
+   */
+  public computeStrikeLineY(height: number): number {
+    return computeStrikeLineY(height, this.config);
+  }
+
+  /**
+   * 반응형 러닝 매트 바닥 반폭(halfWBottom) 산출 (NoteAnchorResolver 단일 공식 연동)
+   */
+  public computeMatHalfWBottom(width: number, height: number): number {
+    return computeMatHalfWBottom(width, height, this.config);
   }
 
   /**
@@ -612,10 +625,9 @@ export class RunningMatRenderer {
     const laneOffsetRight = this.config.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right;
     const strikeY =
       yStrike ??
-      (yBottom > 0
-        ? (yBottom * (this.config.strikeLineYRatio ?? DEFAULT_STRIKE_LINE_Y_RATIO)) /
-          (this.config.baseYBottom ?? 0.94)
-        : 0);
+      this.computeStrikeLineY(
+        yBottom > 0 ? yBottom / (this.config.baseYBottom ?? 0.94) : 0
+      );
 
     const floorH = Math.max(1, yBottom - vy);
     const slotSpread = Math.max(0.2, (strikeY - vy) / floorH);
