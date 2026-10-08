@@ -6,6 +6,7 @@ export type { SkeletonAnimationOptions } from './SkeletonAnimation.js';
 export { SkeletonEffect } from './SkeletonEffect.js';
 export type { TrailPoint } from './SkeletonEffect.js';
 export { StickmanRenderer } from './StickmanRenderer.js';
+export type { IAvatarRenderer } from './IAvatarRenderer.js';
 export type {
   StickmanPoint2D,
   StickmanJointPositions,

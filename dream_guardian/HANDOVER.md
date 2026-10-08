@@ -20,12 +20,28 @@
 
 ## 🧍 플레이어 아바타 일체화 및 위치 동기화·이탈 가이드 트랙 등록 (AVATAR, 2026-10-08)
 
-- 관리 카드: [#487 AVATAR-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/487)
+- 관리 카드: [✔ 완료] [#487 AVATAR-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/487) (전체 4개 하위 작업 완주 및 트랙 CLOSED)
 - 하위 카드 목록:
   - [✔] [#488 AVATAR-01](https://github.com/Choyounhwa/-dream-guardian/issues/488) 실사 웹캠 숨김 옵션 및 졸라맨 1.5배 기본 스케일·Y앵커 튜닝 (완료)
   - [✔] [#489 AVATAR-02](https://github.com/Choyounhwa/-dream-guardian/issues/489) 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화 및 EMA 스무딩 (완료)
   - [✔] [#490 AVATAR-03](https://github.com/Choyounhwa/-dream-guardian/issues/490) 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI (완료)
-  - [▶ NEXT] [#491 AVATAR-04](https://github.com/Choyounhwa/-dream-guardian/issues/491) 캐릭터 교체용 `IAvatarRenderer` 인터페이스 추상화 (선행 03 완료)
+  - [✔] [#491 AVATAR-04](https://github.com/Choyounhwa/-dream-guardian/issues/491) 캐릭터 교체용 `IAvatarRenderer` 인터페이스 추상화 (완료)
+
+### [✔ 완료] #491 [AVATAR-04] 캐릭터 교체용 IAvatarRenderer 인터페이스 추상화 (2026-10-08)
+- **작업 목적**:
+  - 향후 졸라맨 아바타를 2D 스프라이트나 3D 모델 캐릭터로 무결하게 교체할 수 있도록 공통 아바타 렌더러 인터페이스(`IAvatarRenderer`)를 정의하고, `StickmanRenderer` 및 상위 게임 조립 레이어(`AppBootstrap.ts`)에 의존성 주입을 적용하여 캐릭터 확장성을 확보.
+- **수정 파일 (3개 소스 + 1개 테스트, Scope Guard 준수)**:
+  1. `dream_guardian/src/skeleton/IAvatarRenderer.ts` (신규): `IAvatarRenderer` 인터페이스 정의 (`scale`, `readonly hasPose`, `readonly currentAnchorXRatio`, `setScale`, `update`, `updateFallback`, `render`, `reset`).
+  2. `dream_guardian/src/skeleton/index.ts`: `export type { IAvatarRenderer }` 배럴 re-export 추가.
+  3. `dream_guardian/src/skeleton/StickmanRenderer.ts`: `implements IAvatarRenderer` 선언, `update` 시그니처에서 옵션 객체(`{ mirror, breathScale }`) 및 number breathScale 양방향 호환 지원.
+  4. `dream_guardian/src/core/AppBootstrap.ts`: `AppBootstrapOptions.avatarRenderer?: IAvatarRenderer` 의존성 주입 지원, `AppBootstrap.stickmanRenderer` 필드를 `IAvatarRenderer`로 선언.
+  5. `dream_guardian/tests/unit/avatar-interface.test.ts` (신규): TDD 단위 테스트 6건 추가 (StickmanRenderer 규격 충족 검증, MockSpriteAvatarRenderer 교체 다형성 검증, AppBootstrap DI 검증 - 6/6 tests 100% Pass).
+- **검증 결과**:
+  - `npx vitest run tests/unit/avatar-interface.test.ts`: 6개 100% 통과.
+  - `npx vitest run tests/unit/stickman-renderer.test.ts tests/unit/app-bootstrap.test.ts tests/unit/skeleton.test.ts`: 61개 100% 통과.
+  - `npx vite build`: 프로덕션 번들 빌드 성공 (tsc + vite 빌드 무결).
+- **트랙 완료 보고**:
+  - AVATAR-TRACK #487의 하위 4개 카드(#488, #489, #490, #491) 전 과정이 완주되어 플레이어 아바타 일체화 및 위치 동기화 트랙이 완료되었습니다.
 
 ### [✔ 완료] #490 [AVATAR-03] 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI (2026-10-08)
 - **작업 목적**:

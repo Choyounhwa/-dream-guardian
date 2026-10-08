@@ -24,6 +24,7 @@ import { BoneRenderer } from '../skeleton/BoneRenderer.js';
 import { JointRenderer } from '../skeleton/JointRenderer.js';
 import { SkeletonAnimation } from '../skeleton/SkeletonAnimation.js';
 import { SkeletonEffect } from '../skeleton/SkeletonEffect.js';
+import type { IAvatarRenderer } from '../skeleton/IAvatarRenderer.js';
 import { StickmanRenderer } from '../skeleton/StickmanRenderer.js';
 import { QuestionBank } from '../question/QuestionBank.js';
 import { parseCSV } from '../question/CSVLoader.js';
@@ -158,6 +159,7 @@ export interface AppBootstrapOptions {
   loadStaticManifest?: boolean;
   staticManifestUrl?: string;
   staticManifestOptions?: StaticManifestLoadOptions;
+  avatarRenderer?: IAvatarRenderer;
 }
 
 // ─── roundRect 폴리필 ───
@@ -222,7 +224,7 @@ export class AppBootstrap {
   public readonly jointRenderer: JointRenderer;
   public readonly skeletonAnimation: SkeletonAnimation;
   public readonly skeletonEffect: SkeletonEffect;
-  public readonly stickmanRenderer: StickmanRenderer;
+  public readonly stickmanRenderer: IAvatarRenderer;
   public readonly questionBank: QuestionBank;
   public readonly speech: QuestionSpeech;
   public readonly eventBus: EventBus;
@@ -370,7 +372,7 @@ const boneRenderer = new BoneRenderer({ renderHandBones: true });
 const jointRenderer = new JointRenderer();
 const skeletonAnimation = new SkeletonAnimation({ lerpFactor: 0.3, breathCycle: 3.0, breathAmplitude: 0.02 });
 const skeletonEffect = new SkeletonEffect();
-const stickmanRenderer = new StickmanRenderer();
+const stickmanRenderer = this._options.avatarRenderer ?? new StickmanRenderer();
 
 const questionBank = new QuestionBank();
 const speech = new QuestionSpeech();

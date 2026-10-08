@@ -11,6 +11,7 @@
 
 import type { NormalizedLandmark } from '../types/index.js';
 import { POSE_LANDMARKS } from '../types/index.js';
+import type { IAvatarRenderer } from './IAvatarRenderer.js';
 import type {
   StickmanConfig,
   StickmanLimbLengths,
@@ -72,7 +73,7 @@ function diffAngle(target: number, current: number): number {
   return diff;
 }
 
-export class StickmanRenderer {
+export class StickmanRenderer implements IAvatarRenderer {
   private _config: StickmanConfig;
   private _customScale?: number;
   private _angles: StickmanAngles;
@@ -171,12 +172,21 @@ export class StickmanRenderer {
    */
   update(
     dt: number,
-    landmarks: readonly NormalizedLandmark[],
-    breathScale = 1.0,
+    landmarks?: readonly NormalizedLandmark[] | null,
+    breathScale: number | { mirror?: boolean; breathScale?: number } = 1.0,
     options?: { mirror?: boolean },
   ): void {
+    let actualBreath = 1.0;
+    let actualOptions = options;
+    if (typeof breathScale === 'number') {
+      actualBreath = breathScale;
+    } else if (breathScale && typeof breathScale === 'object') {
+      actualBreath = breathScale.breathScale ?? 1.0;
+      actualOptions = breathScale;
+    }
+
     this._animTimer += dt;
-    this._breathScale = breathScale;
+    this._breathScale = actualBreath;
 
     const smoothing = this._config.horizontalSmoothing ?? 0.2;
     const clampMin = this._config.horizontalClampMin ?? 0.18;
@@ -221,7 +231,7 @@ export class StickmanRenderer {
       rawHipX = rawHipX / 1920;
     }
 
-    const mirror = options?.mirror !== undefined ? options.mirror : this.isMirrored;
+    const mirror = actualOptions?.mirror !== undefined ? actualOptions.mirror : this.isMirrored;
     const rawUserX = mirror ? 1.0 - rawHipX : rawHipX;
     const targetX = Math.max(clampMin, Math.min(clampMax, rawUserX));
 
@@ -260,7 +270,7 @@ export class StickmanRenderer {
     // 3. 미러링 정합성 판단 및 목표 관절 각도 계산 (Math.atan2)
     // 카메라 원본 좌표계(비미러)의 경우 사용자의 오른어깨가 카메라 센서 좌측(rs.x < ls.x)에 위치합니다.
     // 거울 화면 뷰(미러)에서는 좌우 X 변위가 반전되어야 하므로 dx 방향을 보정합니다.
-    const isMirrored = options?.mirror !== undefined ? options.mirror : !(rs.x < ls.x);
+    const isMirrored = actualOptions?.mirror !== undefined ? actualOptions.mirror : !(rs.x < ls.x);
     const getDx = (p2: { x: number }, p1: { x: number }) =>
       isMirrored ? p2.x - p1.x : -(p2.x - p1.x);
 
