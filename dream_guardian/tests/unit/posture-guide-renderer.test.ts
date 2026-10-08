@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { PostureGuideRenderer } from '../../src/render/PostureGuideRenderer.js';
+import { SceneDirector } from '../../src/core/SceneDirector.js';
 import type { AnswerPosture } from '../../src/types/posture.js';
 import type { FitnessZone } from '../../config/zone.config.js';
 import type { QuestionRecipePlan } from '../../src/input/RecipeGenerator.js';
@@ -25,6 +26,9 @@ function createMockCtx(): CanvasRenderingContext2D {
     fillText: vi.fn(),
     measureText: vi.fn(() => ({ width: 40 })),
     clip: vi.fn(),
+    createLinearGradient: vi.fn(() => ({
+      addColorStop: vi.fn(),
+    })),
     fillStyle: '',
     strokeStyle: '',
     lineWidth: 1,
@@ -337,6 +341,153 @@ describe('PostureGuideRenderer (Issue #159 - FEAT-GUIDE-001)', () => {
       expect(ctx.restore).toHaveBeenCalled();
       expect(ctx.beginPath).toHaveBeenCalled();
       expect(ctx.stroke).toHaveBeenCalled();
+    });
+  });
+
+  describe('Issue #490 (Card #490) - AVATAR-03: 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI', () => {
+    it('exitDirection이 null이면 아무것도 렌더링하지 않고 즉시 반환한다', () => {
+      const renderer = new PostureGuideRenderer();
+      const ctx = createMockCtx();
+
+      renderer.renderBoundaryWarning(ctx, 1080, 1920, null);
+
+      expect(ctx.save).not.toHaveBeenCalled();
+      expect(ctx.restore).not.toHaveBeenCalled();
+      expect(ctx.fillText).not.toHaveBeenCalled();
+      expect(ctx.stroke).not.toHaveBeenCalled();
+      expect(ctx.fill).not.toHaveBeenCalled();
+    });
+
+    it('exitDirection이 left일 때 좌측 경고 앰비언트 글로우, 우측(중앙) 유도 화살표 및 안내 배너를 렌더링한다', () => {
+      const renderer = new PostureGuideRenderer();
+      const ctx = createMockCtx();
+
+      renderer.renderBoundaryWarning(ctx, 1000, 2000, 'left');
+
+      expect(ctx.save).toHaveBeenCalled();
+      expect(ctx.restore).toHaveBeenCalled();
+      // 중앙 복귀 안내 문구 포함 확인
+      expect(ctx.fillText).toHaveBeenCalledWith(
+        expect.stringContaining('화면 중앙으로'),
+        expect.any(Number),
+        expect.any(Number),
+      );
+      // 화살표 및 글로우 패스 스트로크/필 호출 확인
+      expect(ctx.beginPath).toHaveBeenCalled();
+      expect(ctx.stroke).toHaveBeenCalled();
+    });
+
+    it('exitDirection이 right일 때 우측 경고 앰비언트 글로우, 좌측(중앙) 유도 화살표 및 안내 배너를 렌더링한다', () => {
+      const renderer = new PostureGuideRenderer();
+      const ctx = createMockCtx();
+
+      renderer.renderBoundaryWarning(ctx, 1000, 2000, 'right');
+
+      expect(ctx.save).toHaveBeenCalled();
+      expect(ctx.restore).toHaveBeenCalled();
+      // 중앙 복귀 안내 문구 포함 확인
+      expect(ctx.fillText).toHaveBeenCalledWith(
+        expect.stringContaining('화면 중앙으로'),
+        expect.any(Number),
+        expect.any(Number),
+      );
+      // 화살표 및 글로우 패스 호출 확인
+      expect(ctx.beginPath).toHaveBeenCalled();
+      expect(ctx.stroke).toHaveBeenCalled();
+    });
+
+    it('정상 범위(0.20~0.80) 복귀 시 exitDirection이 null로 판정되고 경고가 해제된다', () => {
+      const resolveExitDir = (anchorX: number): 'left' | 'right' | null => {
+        return anchorX < 0.20 ? 'left' : anchorX > 0.80 ? 'right' : null;
+      };
+
+      expect(resolveExitDir(0.15)).toBe('left');
+      expect(resolveExitDir(0.199)).toBe('left');
+      expect(resolveExitDir(0.20)).toBeNull();
+      expect(resolveExitDir(0.50)).toBeNull();
+      expect(resolveExitDir(0.80)).toBeNull();
+      expect(resolveExitDir(0.801)).toBe('right');
+      expect(resolveExitDir(0.85)).toBe('right');
+
+      const renderer = new PostureGuideRenderer();
+      const ctx = createMockCtx();
+      renderer.renderBoundaryWarning(ctx, 1000, 2000, resolveExitDir(0.50));
+      expect(ctx.save).not.toHaveBeenCalled();
+    });
+
+    it('update(dt) 호출 시 펄스 타이머가 갱신되어 애니메이션이 동작한다', () => {
+      const renderer = new PostureGuideRenderer();
+      const ctx = createMockCtx();
+
+      renderer.update(0.016);
+      renderer.renderBoundaryWarning(ctx, 1000, 2000, 'left');
+
+      expect(ctx.save).toHaveBeenCalled();
+      expect(ctx.restore).toHaveBeenCalled();
+    });
+
+    it('SceneDirector.renderGameScene 실행 시 stickman currentAnchorXRatio에 따라 renderBoundaryWarning을 호출한다', () => {
+      const director = new SceneDirector();
+      const mockWarning = vi.fn();
+      const mockGuide = {
+        renderBoundaryWarning: mockWarning,
+        update: vi.fn(),
+      };
+      const mockCtx: any = {
+        canvasManager: { ctx: createMockCtx(), virtualWidth: 1080, virtualHeight: 1920 },
+        state: { currentChapter: 1, gamePhase: 'playing' },
+        stateMachine: { currentState: 'RUN_QUESTION' },
+        beatCoordinator: { phase: 'REST_READY', rhythmEngine: { beatProgress: 0 } },
+        boss: { phase: 'normal' },
+        bossRenderer: { render: vi.fn() },
+        hudLayer: { render: vi.fn() },
+        getHUDData: vi.fn(() => ({})),
+        cameraLayer: { isActive: true },
+        dreamGrid: { render: vi.fn(), update: vi.fn() },
+        stickmanRenderer: {
+          render: vi.fn(),
+          currentAnchorXRatio: 0.12, // left boundary exit (< 0.20)
+        },
+        renderFeedback: vi.fn(),
+        effectManager: { render: vi.fn(), update: vi.fn() },
+        presentationAdapter: {
+          canRenderRunningHUD: vi.fn(() => false),
+          canRenderStarCollect: vi.fn(() => false),
+          canRenderBattle: vi.fn(() => false),
+          canRenderQuestion: vi.fn(() => false),
+          canRenderHazardEvade: vi.fn(() => false),
+          canRenderReadyPosition: vi.fn(() => false),
+        },
+        postureGuideRenderer: mockGuide,
+      };
+
+      director.renderGameScene(mockCtx);
+      expect(mockWarning).toHaveBeenCalledWith(
+        mockCtx.canvasManager.ctx,
+        1080,
+        1920,
+        'left',
+      );
+
+      // right boundary exit test (> 0.80)
+      mockCtx.stickmanRenderer.currentAnchorXRatio = 0.85;
+      director.renderGameScene(mockCtx);
+      expect(mockWarning).toHaveBeenCalledWith(
+        mockCtx.canvasManager.ctx,
+        1080,
+        1920,
+        'right',
+      );
+
+      // normal center range (0.50)
+      mockCtx.stickmanRenderer.currentAnchorXRatio = 0.5;
+      director.renderGameScene(mockCtx);
+      expect(mockWarning).toHaveBeenCalledWith(
+        mockCtx.canvasManager.ctx,
+        1080,
+        1920,
+        null,
+      );
     });
   });
 });

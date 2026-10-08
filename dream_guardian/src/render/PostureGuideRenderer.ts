@@ -79,6 +79,121 @@ export class PostureGuideRenderer {
   }
 
   /**
+   * 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI 렌더링 (Issue #490 / Card #490: AVATAR-03)
+   * @param ctx CanvasRenderingContext2D
+   * @param vw 가상 캔버스 너비
+   * @param vh 가상 캔버스 높이
+   * @param exitDirection 이탈 방향 ('left' | 'right' | null)
+   */
+  renderBoundaryWarning(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    exitDirection: 'left' | 'right' | null,
+  ): void {
+    if (!exitDirection) return;
+
+    ctx.save();
+
+    const pulse = 0.65 + 0.35 * Math.sin(this._pulseTimer * 3);
+    const edgeW = Math.max(90, vw * 0.12);
+    const isLeft = exitDirection === 'left';
+
+    // 1. 화면 가장자리 네온 경고 앰비언트 글로우 및 경계선
+    if (typeof ctx.createLinearGradient === 'function') {
+      const grad = isLeft
+        ? ctx.createLinearGradient(0, 0, edgeW, 0)
+        : ctx.createLinearGradient(vw, 0, vw - edgeW, 0);
+      grad.addColorStop(0, `rgba(255, 59, 48, ${0.45 * pulse})`);
+      grad.addColorStop(1, 'rgba(255, 59, 48, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(isLeft ? 0 : vw - edgeW, 0, edgeW, vh);
+    } else {
+      ctx.fillStyle = `rgba(255, 59, 48, ${0.2 * pulse})`;
+      ctx.fillRect(isLeft ? 0 : vw - edgeW, 0, edgeW, vh);
+    }
+
+    const edgeX = isLeft ? 3 : vw - 3;
+    ctx.beginPath();
+    ctx.moveTo(edgeX, 0);
+    ctx.lineTo(edgeX, vh);
+    ctx.strokeStyle = `rgba(255, 69, 58, ${0.85 * pulse})`;
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#FF3366';
+    ctx.shadowBlur = 14 * pulse;
+    ctx.stroke();
+
+    // 2. 화면 중앙을 가리키는 애니메이션 네온 화살표
+    const arrowY = vh * 0.5;
+    const bounce = Math.sin(this._pulseTimer * 4) * (vw * 0.015);
+    const chevronSize = Math.max(16, vw * 0.024);
+
+    ctx.beginPath();
+    if (isLeft) {
+      // 우측(중앙) 방향을 가리키는 쉐브론 화살표
+      const arrowX = edgeW * 0.75 + bounce;
+      ctx.moveTo(arrowX - chevronSize, arrowY - chevronSize * 1.2);
+      ctx.lineTo(arrowX + chevronSize * 0.5, arrowY);
+      ctx.lineTo(arrowX - chevronSize, arrowY + chevronSize * 1.2);
+
+      ctx.moveTo(arrowX, arrowY - chevronSize * 1.2);
+      ctx.lineTo(arrowX + chevronSize * 1.5, arrowY);
+      ctx.lineTo(arrowX, arrowY + chevronSize * 1.2);
+    } else {
+      // 좌측(중앙) 방향을 가리키는 쉐브론 화살표
+      const arrowX = vw - edgeW * 0.75 - bounce;
+      ctx.moveTo(arrowX + chevronSize, arrowY - chevronSize * 1.2);
+      ctx.lineTo(arrowX - chevronSize * 0.5, arrowY);
+      ctx.lineTo(arrowX + chevronSize, arrowY + chevronSize * 1.2);
+
+      ctx.moveTo(arrowX, arrowY - chevronSize * 1.2);
+      ctx.lineTo(arrowX - chevronSize * 1.5, arrowY);
+      ctx.lineTo(arrowX, arrowY + chevronSize * 1.2);
+    }
+    ctx.strokeStyle = '#FF3366';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = '#FF3366';
+    ctx.shadowBlur = 16;
+    ctx.stroke();
+
+    // 3. 화면 상단/중앙 안내 배너 ("화면 중앙으로 이동해 주세요")
+    const bannerX = vw * 0.5;
+    const bannerY = Math.max(90, vh * 0.16);
+    const text = '⚠️ 화면 중앙으로 이동해 주세요';
+    const fontSize = Math.max(18, Math.round(vw * 0.028));
+    ctx.font = `bold ${fontSize}px sans-serif`;
+
+    const textMetrics = typeof ctx.measureText === 'function' ? ctx.measureText(text) : { width: 260 };
+    const bannerW = (textMetrics?.width ?? 260) + 48;
+    const bannerH = fontSize + 24;
+
+    ctx.fillStyle = 'rgba(20, 10, 15, 0.85)';
+    if (typeof ctx.roundRect === 'function') {
+      ctx.beginPath();
+      ctx.roundRect(bannerX - bannerW / 2, bannerY - bannerH / 2, bannerW, bannerH, 12);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255, 69, 58, ${0.85 * pulse})`;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#FF3366';
+      ctx.shadowBlur = 12;
+      ctx.stroke();
+    } else {
+      ctx.fillRect(bannerX - bannerW / 2, bannerY - bannerH / 2, bannerW, bannerH);
+    }
+
+    ctx.shadowColor = '#FF3366';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, bannerX, bannerY);
+
+    ctx.restore();
+  }
+
+  /**
    * QuestionRecipePlan 객체 기반 렌더링 헬퍼
    */
   renderFromPlan(

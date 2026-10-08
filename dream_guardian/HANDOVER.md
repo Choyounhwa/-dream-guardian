@@ -24,8 +24,23 @@
 - 하위 카드 목록:
   - [✔] [#488 AVATAR-01](https://github.com/Choyounhwa/-dream-guardian/issues/488) 실사 웹캠 숨김 옵션 및 졸라맨 1.5배 기본 스케일·Y앵커 튜닝 (완료)
   - [✔] [#489 AVATAR-02](https://github.com/Choyounhwa/-dream-guardian/issues/489) 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화 및 EMA 스무딩 (완료)
-  - [▶ NEXT] [#490 AVATAR-03](https://github.com/Choyounhwa/-dream-guardian/issues/490) 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI (선행 02 완료)
-  - [#491 AVATAR-04](https://github.com/Choyounhwa/-dream-guardian/issues/491) 캐릭터 교체용 `IAvatarRenderer` 인터페이스 추상화 (선행 03)
+  - [✔] [#490 AVATAR-03](https://github.com/Choyounhwa/-dream-guardian/issues/490) 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI (완료)
+  - [▶ NEXT] [#491 AVATAR-04](https://github.com/Choyounhwa/-dream-guardian/issues/491) 캐릭터 교체용 `IAvatarRenderer` 인터페이스 추상화 (선행 03 완료)
+
+### [✔ 완료] #490 [AVATAR-03] 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI (2026-10-08)
+- **작업 목적**:
+  - 유저가 카메라 시야 밖으로 지나치게 벗어나는 것(좌측 < 0.20, 우측 > 0.80)을 사전에 감지하고, 화면 중앙으로 자연스럽게 복귀하도록 직관적인 시각 피드백(경계 네온 앰비언트 글로우, 중앙 유도 네온 화살표, 중앙 안내 배너) 제공.
+- **수정 파일**:
+  1. `dream_guardian/src/render/PostureGuideRenderer.ts`: `renderBoundaryWarning(ctx, vw, vh, exitDirection)` 메서드 구현. 좌/우 경계 펄스 글로우 및 경계선, 중앙 방향 바운스 네온 화살표(쉐브론 더블), 화면 상단/중앙 안내 배너("⚠️ 화면 중앙으로 이동해 주세요") 시각화.
+  2. `dream_guardian/src/core/SceneDirector.ts`: `postureGuideRenderer` 안전 주입/생성, `updateGameScene`에서 타이머 갱신, `renderGameScene`에서 `stickmanRenderer.currentAnchorXRatio` 기준 `< 0.20` ('left'), `> 0.80` ('right') 이탈 판정 및 경고 렌더링 호출 연동.
+  3. `dream_guardian/tests/unit/posture-guide-renderer.test.ts`: TDD 신규 단위 테스트 추가 (null 미호출, left/right 경고 렌더링, 정상 영역 복귀 해제, update 애니메이션 펄스, SceneDirector 연동 검증 - 23/23 tests 100% Pass).
+- **검증 결과**:
+  - `npx vitest run tests/unit/posture-guide-renderer.test.ts`: 23개 100% 통과 (신규 6개 포함).
+  - `npx vitest run tests/unit/scene-director.test.ts`: 19개 100% 통과.
+  - 전체 단위/통합 테스트: 100% Pass (회귀 0건).
+  - `npx vite build`: 프로덕션 번들 빌드 성공.
+- **다음 작업 대상**:
+  - **[#491 AVATAR-04]**: 캐릭터 교체용 `IAvatarRenderer` 인터페이스 추상화
 
 ### [✔ 완료] #489 [AVATAR-02] 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화 및 EMA 스무딩 (2026-10-08)
 - **작업 목적**:

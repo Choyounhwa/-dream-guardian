@@ -10,7 +10,7 @@
 import { DEFAULT_CONFIG } from './Config.js';
 import type { GameSessionContext } from './GameSessionContext.js';
 import { HORIZON_RATIO } from '../../config/grid.config.js';
-import { drawJoinedHandsCursor } from '../render/index.js';
+import { drawJoinedHandsCursor, PostureGuideRenderer } from '../render/index.js';
 import type { RunningMatRenderer } from '../render/RunningMatRenderer.js';
 import { RunningMatPresenter, presentRunningMat } from '../render/RunningMatPresenter.js';
 import { LOCOMOTION_MODES, type BottomBarSlot } from '../ui/index.js';
@@ -144,6 +144,7 @@ export interface MainSceneContext {
   hudLayer: any;
   dreamGrid: any;
   runningMatRenderer?: RunningMatRenderer | null;
+  postureGuideRenderer?: PostureGuideRenderer | any;
   starNoteRenderer?: any;
   beatHUDRenderer: any;
   questionRenderer: any;
@@ -807,6 +808,7 @@ export class SceneDirector<TContext = any> {
     const isRunning = ctx.state.gamePhase === 'running';
     const speedMult = isRunning ? 2.5 : 0.8;
     ctx.dreamGrid.update(dt, speedMult);
+    ctx.postureGuideRenderer?.update(dt);
 
     const sourceLandmarks =
       ctx.skeletonAnimation.smoothedLandmarks.length >= 25
@@ -1300,6 +1302,12 @@ export class SceneDirector<TContext = any> {
     ctx.stickmanRenderer.render(context2d, vw, vh, { alwaysRender: true });
     ctx.renderFeedback(context2d, vw, vh);
     ctx.effectManager.render(context2d, vw, vh);
+
+    // Issue #490 (Card #490): [AVATAR-03] 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI
+    const postureGuide = ctx.postureGuideRenderer ?? (ctx.postureGuideRenderer = new PostureGuideRenderer());
+    const anchorX = ctx.stickmanRenderer?.currentAnchorXRatio ?? 0.5;
+    const exitDir: 'left' | 'right' | null = anchorX < 0.20 ? 'left' : anchorX > 0.80 ? 'right' : null;
+    postureGuide.renderBoundaryWarning(context2d, vw, vh, exitDir);
   }
 
   renderResultScene(ctx: MainSceneContext): void {
