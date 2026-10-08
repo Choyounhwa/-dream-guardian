@@ -33,6 +33,39 @@
   - [✔] [#490 AVATAR-03](https://github.com/Choyounhwa/-dream-guardian/issues/490) 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI (완료)
   - [✔] [#491 AVATAR-04](https://github.com/Choyounhwa/-dream-guardian/issues/491) 캐릭터 교체용 `IAvatarRenderer` 인터페이스 추상화 (완료)
   - [✔] [#496 BUG-AVATAR-002](https://github.com/Choyounhwa/-dream-guardian/issues/496) 졸라맨 가로 위치 앵커 및 모션 이중 미러링 반전 결함 수정 (완료)
+  - [✔] [#497 FEAT-AVATAR-WEBCAM-TOGGLE](https://github.com/Choyounhwa/-dream-guardian/issues/497) 설정 메뉴 실사 웹캠 표시/숨김 토글 옵션 추가 (완료)
+
+### [✔ 완료] #497 [FEAT-AVATAR-WEBCAM-TOGGLE] 설정 메뉴 실사 웹캠 표시/숨김 토글 옵션 추가 (2026-10-08)
+- **작업 목적**:
+  - 설정 모달(`SettingsModal`)에 **실사 웹캠 영상(배경) 표시 여부**(`renderVideoEnabled`) 토글 옵션을 추가하여, 유저가 인게임 UI에서 언제든 실사 웹캠을 숨기고 순수 몽계 배경 + 졸라맨 아바타 모드로 전환할 수 있도록 지원.
+  - 실사 웹캠을 OFF하더라도 `CameraLayer`의 비디오 스트림 및 MediaPipe 모션 인식은 100% 정상 작동 유지.
+- **수정 내용**:
+  1. `dream_guardian/src/ui/SettingsModal.ts`:
+     - `_renderVideoEnabled = true` 및 `onRenderVideoChange` 콜백 추가
+     - `renderVideoEnabled` getter/setter 및 `toggleRenderVideo(): boolean` 메서드 구현
+     - `toViewModel(): SettingsViewModel`에 `renderVideoEnabled` 필드 동기화
+     - `saveAccessibility` 및 `loadAccessibility`에 `dg_render_webcam` 키 기반 `localStorage` 저장/복원 연동
+     - `handleClick`에서 `action === 'webcamVideo'` 시 `toggleRenderVideo()` 연동
+  2. `dream_guardian/src/ui/SettingsView.ts`:
+     - `SettingsButtonAction` 유니온 및 `SETTINGS_BUTTON_ACTIONS` 배열에 `'webcamVideo'` 추가
+     - `SETTINGS_ACTION_ORDER` 상수 정의 및 `getSettingsButtonLayout` 적용
+     - `SettingsViewModel`에 `renderVideoEnabled: boolean` 필드 추가 및 기본 DTO 헬퍼 연동
+     - 10개 버튼이 수용되도록 `getSettingsModalBounds` 기본 높이 `Math.max(baseModal.h, 1340)` 확보
+     - `renderSettingsView`에서 `'📹 실사 웹캠'` 버튼 렌더링 (`'iconCamera'` 아이콘 및 ON/OFF 토글 상태)
+  3. `dream_guardian/src/core/AppBootstrap.ts`:
+     - `cameraLayer.renderVideo = settingsModal.renderVideoEnabled` 초기화 및 `onRenderVideoChange` 콜백 등록
+     - `handleClick`에서 `action === 'webcamVideo'` 시 `cameraLayer.renderVideo` 동기화 및 hover SFX 재생
+  4. `dream_guardian/tests/unit/settings-modal.test.ts` & `tests/unit/ui-vis-011.test.ts`:
+     - TDD 단위 테스트 선작성 및 100% 통과 검증 (기본값, 토글 반전, 콜백 통지, localStorage 복원, 히트테스트, 렌더링)
+- **수정 파일**:
+  1. `dream_guardian/src/ui/SettingsModal.ts`
+  2. `dream_guardian/src/ui/SettingsView.ts`
+  3. `dream_guardian/src/core/AppBootstrap.ts`
+  4. `dream_guardian/tests/unit/settings-modal.test.ts`
+  5. `dream_guardian/tests/unit/ui-vis-011.test.ts`
+- **검증 결과**:
+  - `npx vitest run tests/unit/settings-modal.test.ts tests/unit/ui-vis-011.test.ts`: 36건 테스트 100% 통과
+  - `npx vite build`: 프로덕션 번들 정상 빌드 완료
 
 ### [✔ 완료] #496 [BUG-AVATAR-002] 졸라맨 가로 위치 앵커 및 모션 이중 미러링 반전 결함 수정 (2026-10-08)
 - **작업 목적**:
