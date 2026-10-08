@@ -10,14 +10,24 @@
 
 import type { GameState } from '../types/index.js';
 import type { PhaseAHazardPattern } from '../../config/phase-a-hazard.config.js';
-import { HazardZoneRenderer } from '../render/HazardZoneRenderer.js';
+import {
+  HazardZoneRenderer,
+  type HazardBounds,
+  type HazardPresentationContext,
+} from '../render/HazardZoneRenderer.js';
 import {
   JudgmentFeedback,
   type JudgmentFeedbackInput,
   type FeedbackReasonKey,
+  type FeedbackPresentationContext,
+  type FeedbackSlotOverride,
+  type FeedbackBounds,
 } from './JudgmentFeedback.js';
 import type { ArmReachAnswerState } from '../input/ArmReachAnswerSelector.js';
 import { UIText } from '../utils/UIText.js';
+import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
+
+export type { FeedbackPresentationContext, FeedbackSlotOverride, FeedbackBounds };
 
 export interface HazardEvadePresentationState {
   activePattern: PhaseAHazardPattern | null;
@@ -43,13 +53,18 @@ export interface AnswerSelectFeedbackState {
 export class PhasePresentationAdapter {
   private readonly _hazardZoneRenderer: HazardZoneRenderer;
   private readonly _judgmentFeedback: JudgmentFeedback;
+  private _presentationContext?: FeedbackPresentationContext;
 
   constructor(
     hazardZoneRenderer?: HazardZoneRenderer,
     judgmentFeedback?: JudgmentFeedback,
+    presentationContext?: FeedbackPresentationContext,
   ) {
     this._hazardZoneRenderer = hazardZoneRenderer ?? new HazardZoneRenderer();
     this._judgmentFeedback = judgmentFeedback ?? new JudgmentFeedback();
+    if (presentationContext) {
+      this.setPresentationContext(presentationContext);
+    }
   }
 
   get hazardZoneRenderer(): HazardZoneRenderer {
@@ -58,6 +73,75 @@ export class PhasePresentationAdapter {
 
   get judgmentFeedback(): JudgmentFeedback {
     return this._judgmentFeedback;
+  }
+
+  getPresentationContext(): FeedbackPresentationContext | undefined {
+    return this._presentationContext;
+  }
+
+  setPresentationContext(context?: FeedbackPresentationContext): void {
+    this._presentationContext = context;
+    this._judgmentFeedback.setPresentationContext(context);
+    this._hazardZoneRenderer.setPresentationContext(context as HazardPresentationContext);
+  }
+
+  clearPresentationContext(): void {
+    this._presentationContext = undefined;
+    this._judgmentFeedback.clearPresentationContext();
+    this._hazardZoneRenderer.clearPresentationContext();
+  }
+
+  getHintBounds(w: number, h: number): FeedbackBounds {
+    return this._judgmentFeedback.getHintBounds(w, h);
+  }
+
+  getHazardBounds(
+    pattern: PhaseAHazardPattern,
+    vw: number,
+    vh: number,
+    vanishingPoint?: { x: number; y: number },
+  ): HazardBounds {
+    return this._hazardZoneRenderer.getHazardZoneBounds(pattern, vw, vh, vanishingPoint);
+  }
+
+  isSlotLocked(slotId: string): boolean {
+    return (
+      this._hazardZoneRenderer.isSlotLocked(slotId) ||
+      this._judgmentFeedback.isSlotLocked(slotId)
+    );
+  }
+
+  getSlotLockReason(slotId: string): string | null {
+    return (
+      this._hazardZoneRenderer.getSlotLockReason(slotId) ??
+      this._judgmentFeedback.getSlotLockReason(slotId)
+    );
+  }
+
+  validatePresentationContext(ctx: FeedbackPresentationContext): string[] {
+    const issues: string[] = [];
+    issues.push(...this._judgmentFeedback.validatePresentationContext(ctx));
+    const hazardValidation = this._hazardZoneRenderer.validatePresentationContext(ctx as any);
+    issues.push(...hazardValidation.issues);
+    return issues;
+  }
+
+  static fromPresentationDocument(
+    doc: UIPresentationDocument,
+    pageId: UIPresentationPageId | string = 'hazard_evade',
+  ): FeedbackPresentationContext {
+    const hazardCtx = HazardZoneRenderer.fromPresentationDocument(doc, pageId);
+    const feedbackCtx = JudgmentFeedback.fromPresentationDocument(doc, pageId);
+    return {
+      presentationDocument: doc,
+      pageId,
+      hazardWarning: hazardCtx.hazardWarning,
+      hazardStyle: hazardCtx.hazardStyle,
+      timingGuide: hazardCtx.timingGuide,
+      safeZoneHighlight: hazardCtx.safeZoneHighlight,
+      hintBanner: feedbackCtx.hintBanner,
+      adaptiveBadge: feedbackCtx.adaptiveBadge,
+    };
   }
 
   /**
@@ -103,15 +187,22 @@ export class PhasePresentationAdapter {
     vw: number,
     vh: number,
     state: AnswerSelectFeedbackState,
+    contextOverride?: FeedbackPresentationContext,
   ): void {
-    this._judgmentFeedback.render(ctx, vw, vh, {
-      glowIntensity: state.glowIntensity,
-      reasonKey: state.reasonKey,
-      message: state.hintMessage,
-      isVisible: state.isVisible,
-      adaptiveRelaxed: state.adaptiveRelaxed,
-      activeZoneId: state.activeZoneId,
-    });
+    this._judgmentFeedback.render(
+      ctx,
+      vw,
+      vh,
+      {
+        glowIntensity: state.glowIntensity,
+        reasonKey: state.reasonKey,
+        message: state.hintMessage,
+        isVisible: state.isVisible,
+        adaptiveRelaxed: state.adaptiveRelaxed,
+        activeZoneId: state.activeZoneId,
+      },
+      contextOverride ?? this._presentationContext,
+    );
   }
 
   /**
@@ -129,6 +220,13 @@ export class PhasePresentationAdapter {
   }
 
   /**
+   * 러닝 매트 렌더링 허용 여부 (canRenderRunningHUD 별칭)
+   */
+  canRenderRunningMat(state: GameState): boolean {
+    return this.canRenderRunningHUD(state);
+  }
+
+  /**
    * 상단 문제 수식 및 2개 답안 버튼 렌더링 허용 여부 (ANSWER_SELECT 상태에서만 허용, allowPreview 지정 시 RUN_QUESTION 프리뷰 허용)
    */
   canRenderQuestion(
@@ -140,6 +238,16 @@ export class PhasePresentationAdapter {
       return true;
     }
     return false;
+  }
+
+  /**
+   * 답안 버튼 렌더링 허용 여부 (canRenderQuestion 별칭)
+   */
+  canRenderAnswerButtons(
+    state: GameState,
+    options?: { allowPreview?: boolean; approachProgress?: number },
+  ): boolean {
+    return this.canRenderQuestion(state, options);
   }
 
   /**
@@ -168,6 +276,13 @@ export class PhasePresentationAdapter {
   }
 
   /**
+   * 위험 장판 렌더링 허용 여부 (canRenderHazardEvade 별칭)
+   */
+  canRenderHazardZone(state: GameState): boolean {
+    return this.canRenderHazardEvade(state);
+  }
+
+  /**
    * 목표 자세 실루엣 가이드 오버레이 렌더링 허용 여부
    */
   canRenderPostureGuide(state: GameState): boolean {
@@ -182,6 +297,19 @@ export class PhasePresentationAdapter {
   }
 
   /**
+   * 위험 장판 렌더링 (renderHazardEvade 별칭)
+   */
+  renderHazardZone(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    state: HazardEvadePresentationState,
+    contextOverride?: HazardPresentationContext | FeedbackPresentationContext,
+  ): void {
+    this.renderHazardEvade(ctx, vw, vh, state, contextOverride);
+  }
+
+  /**
    * HAZARD_EVADE 전용 회피 안내 및 3D 바닥 장판 렌더링
    */
   renderHazardEvade(
@@ -189,6 +317,7 @@ export class PhasePresentationAdapter {
     vw: number,
     vh: number,
     state: HazardEvadePresentationState,
+    contextOverride?: HazardPresentationContext | FeedbackPresentationContext,
   ): void {
     if (!state.activePattern) return;
 
@@ -204,6 +333,14 @@ export class PhasePresentationAdapter {
     let title = hazard ? hazardGuide[hazard].title : '위험 회피 중!';
     let subtitle = hazard ? hazardGuide[hazard].subtitle : '바닥 장판을 피하세요';
     let color = hazard ? hazardGuide[hazard].color : '#FF4444';
+
+    const effectiveContext = contextOverride ?? this._presentationContext;
+    if (effectiveContext?.hazardWarning?.text && !state.isResolved) {
+      title = effectiveContext.hazardWarning.text;
+    }
+    if (effectiveContext?.hazardWarning?.color && !state.isResolved) {
+      color = effectiveContext.hazardWarning.color;
+    }
 
     if (state.isResolved) {
       const actionName = hazard ? hazardGuide[hazard].actionName : '';
@@ -322,14 +459,35 @@ export class PhasePresentationAdapter {
     ctx.fillText(subtitle, cx, cy - 5);
 
     if (hazard) {
-      this._hazardZoneRenderer.render(ctx, vw, vh, {
-        activePattern: hazard,
-        beatProgress: state.beatProgress,
-        vanishingX: state.vanishingX,
-        vanishingY: state.vanishingY,
-        isResolved: state.isResolved,
-        isEvaded: state.isEvaded,
-      });
+      const prevContext = this._hazardZoneRenderer.getPresentationContext();
+      if (effectiveContext) {
+        this._hazardZoneRenderer.setPresentationContext({
+          presentationDocument: effectiveContext.presentationDocument,
+          pageId: effectiveContext.pageId,
+          hazardWarning: effectiveContext.hazardWarning,
+          hazardStyle: effectiveContext.hazardStyle,
+          timingGuide: effectiveContext.timingGuide,
+          safeZoneHighlight: effectiveContext.safeZoneHighlight,
+        });
+      }
+      try {
+        this._hazardZoneRenderer.render(ctx, vw, vh, {
+          activePattern: hazard,
+          beatProgress: state.beatProgress,
+          vanishingX: state.vanishingX,
+          vanishingY: state.vanishingY,
+          isResolved: state.isResolved,
+          isEvaded: state.isEvaded,
+        });
+      } finally {
+        if (effectiveContext) {
+          if (prevContext) {
+            this._hazardZoneRenderer.setPresentationContext(prevContext);
+          } else {
+            this._hazardZoneRenderer.clearPresentationContext();
+          }
+        }
+      }
     }
 
     ctx.restore();

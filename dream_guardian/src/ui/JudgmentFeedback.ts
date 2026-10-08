@@ -20,6 +20,8 @@ import {
 } from '../../config/judgment.config.js';
 import type { ArmReachAnswerState } from '../input/ArmReachAnswerSelector.js';
 import { UIText } from '../utils/UIText.js';
+import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
+import type { HazardSlotOverride } from '../render/HazardZoneRenderer.js';
 
 export type FeedbackReasonKey = keyof JudgmentFeedbackMessages;
 
@@ -41,6 +43,99 @@ export interface JudgmentFeedbackState {
   activeZoneId?: 4 | 5 | null;
 }
 
+export interface FeedbackBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  width: number;
+  height: number;
+  isProtected?: boolean;
+}
+
+export interface FeedbackSlotOverride {
+  text?: string;
+  color?: string;
+  textColor?: string;
+  fillColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  glowColor?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  visible?: boolean;
+  opacity?: number;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+}
+
+export interface FeedbackPresentationContext {
+  presentationDocument?: UIPresentationDocument;
+  pageId?: UIPresentationPageId | string;
+  hintBanner?: FeedbackSlotOverride;
+  reasonHint?: FeedbackSlotOverride;
+  adaptiveBadge?: FeedbackSlotOverride;
+  glowEffect?: FeedbackSlotOverride;
+  hazardWarning?: HazardSlotOverride;
+  hazardStyle?: HazardSlotOverride;
+  timingGuide?: HazardSlotOverride;
+  safeZoneHighlight?: HazardSlotOverride;
+}
+
+export const FEEDBACK_SLOT_IDS = [
+  'hintBanner',
+  'reasonHint',
+  'adaptiveBadge',
+  'glowEffect',
+] as const;
+
+export const PROTECTED_FEEDBACK_SLOT_IDS = [
+  'judgment_threshold',
+  'score_evaluation',
+  'gate_physics',
+  'reserved_answer_band',
+] as const;
+
+export interface FeedbackFixtureDTO {
+  score?: number;
+  glowIntensity?: number;
+  reasonKey?: FeedbackReasonKey | null;
+  message?: string | null;
+  isVisible?: boolean;
+  adaptiveRelaxed?: boolean;
+  activeZoneId?: 4 | 5 | null;
+  presentationContext?: FeedbackPresentationContext;
+}
+
+export const DEFAULT_FEEDBACK_FIXTURE: FeedbackFixtureDTO = Object.freeze({
+  score: 0.5,
+  glowIntensity: 0.7,
+  reasonKey: 'extension',
+  message: '팔을 더 쭉 뻗어주세요!',
+  isVisible: true,
+  adaptiveRelaxed: false,
+});
+
+export const ADAPTIVE_RELAXED_FEEDBACK_FIXTURE: FeedbackFixtureDTO = Object.freeze({
+  score: 0.6,
+  glowIntensity: 0.85,
+  reasonKey: 'extension',
+  message: '자세를 유지하세요!',
+  isVisible: true,
+  adaptiveRelaxed: true,
+});
+
+export const WRONG_ANSWER_FEEDBACK_FIXTURE: FeedbackFixtureDTO = Object.freeze({
+  score: 0.2,
+  glowIntensity: 0.1,
+  reasonKey: 'visibility',
+  message: '답안 영역 안으로 손을 뻗으세요!',
+  isVisible: true,
+  adaptiveRelaxed: false,
+});
+
 /**
  * 힌트 메시지 레이아웃 경계 영역 (예약 밴드 침범 방지)
  * @param w 캔버스 너비
@@ -49,7 +144,7 @@ export interface JudgmentFeedbackState {
 export function getJudgmentHintBounds(
   w: number,
   h: number,
-): { x: number; y: number; width: number; height: number } {
+): FeedbackBounds {
   const scaleX = w / 1080;
   const scaleY = h / 2160;
   const width = 600 * scaleX;
@@ -57,12 +152,13 @@ export function getJudgmentHintBounds(
   const x = (w - width) / 2;
   // y = 1280 * scaleY (정규화 y ~ 0.5926, 답안 버튼 밴드 하단 0.56 아래 안전 배치)
   const y = 1280 * scaleY;
-  return { x, y, width, height };
+  return { x, y, width, height, w: width, h: height, isProtected: true };
 }
 
 export class JudgmentFeedback {
   private readonly _config: JudgmentFeedbackConfig;
   private readonly _confirmThreshold: number;
+  private _presentationContext?: FeedbackPresentationContext;
 
   private _currentKey: FeedbackReasonKey | null = null;
   private _timeSinceLastSwitch = 0;
@@ -77,6 +173,7 @@ export class JudgmentFeedback {
   constructor(
     config?: Partial<JudgmentFeedbackConfig>,
     confirmThreshold = DEFAULT_ARM_REACH_JUDGMENT_CONFIG.confirmThreshold,
+    presentationContext?: FeedbackPresentationContext,
   ) {
     this._config = {
       ...DEFAULT_JUDGMENT_FEEDBACK_CONFIG,
@@ -87,6 +184,9 @@ export class JudgmentFeedback {
       },
     };
     this._confirmThreshold = confirmThreshold;
+    if (presentationContext) {
+      this._presentationContext = presentationContext;
+    }
   }
 
   get config(): JudgmentFeedbackConfig {
@@ -99,6 +199,136 @@ export class JudgmentFeedback {
 
   get lastState(): JudgmentFeedbackState {
     return this._lastState;
+  }
+
+  getPresentationContext(): FeedbackPresentationContext | undefined {
+    return this._presentationContext;
+  }
+
+  setPresentationContext(context?: FeedbackPresentationContext): void {
+    this._presentationContext = context;
+  }
+
+  clearPresentationContext(): void {
+    this._presentationContext = undefined;
+  }
+
+  getHintBounds(w: number, h: number): FeedbackBounds {
+    return getJudgmentHintBounds(w, h);
+  }
+
+  isSlotLocked(slotId: string): boolean {
+    return (
+      (PROTECTED_FEEDBACK_SLOT_IDS as readonly string[]).includes(slotId as any) ||
+      slotId.startsWith('judgment_') ||
+      slotId.startsWith('gate_')
+    );
+  }
+
+  getSlotLockReason(slotId: string): string | null {
+    if (this.isSlotLocked(slotId)) {
+      return `[보호 영역] '${slotId}'는 게임플레이 판정 및 신체 인식 물리 엔진의 무결성을 위해 편집이 잠겨 있습니다.`;
+    }
+    return null;
+  }
+
+  validatePresentationContext(ctx: FeedbackPresentationContext): string[] {
+    const issues: string[] = [];
+    for (const key of Object.keys(ctx)) {
+      if (this.isSlotLocked(key)) {
+        issues.push(`보호된 슬롯 '${key}'는 수정할 수 없습니다.`);
+      }
+    }
+    if (ctx.hintBanner) {
+      if (
+        ctx.hintBanner.x !== undefined ||
+        ctx.hintBanner.y !== undefined ||
+        ctx.hintBanner.w !== undefined ||
+        ctx.hintBanner.h !== undefined
+      ) {
+        issues.push('hintBanner의 레이아웃 좌표(x, y, w, h)는 예약 밴드 보호를 위해 변경할 수 없습니다.');
+      }
+    }
+    if (ctx.adaptiveBadge) {
+      if (
+        ctx.adaptiveBadge.x !== undefined ||
+        ctx.adaptiveBadge.y !== undefined ||
+        ctx.adaptiveBadge.w !== undefined ||
+        ctx.adaptiveBadge.h !== undefined
+      ) {
+        issues.push('adaptiveBadge의 레이아웃 좌표(x, y, w, h)는 예약 밴드 보호를 위해 변경할 수 없습니다.');
+      }
+    }
+    return issues;
+  }
+
+  static fromPresentationDocument(
+    doc: UIPresentationDocument,
+    pageId: UIPresentationPageId | string = 'answer_select',
+  ): FeedbackPresentationContext {
+    const page = doc.pages[pageId as UIPresentationPageId];
+    let hintBanner: FeedbackSlotOverride | undefined;
+    let adaptiveBadge: FeedbackSlotOverride | undefined;
+
+    if (page?.elements) {
+      for (const el of page.elements) {
+        if (el.id === 'feedback_banner' || el.id === 'judgment_hint' || el.id === 'hint_banner') {
+          hintBanner = {
+            text: el.text,
+            fontSize: el.fontSize,
+            color: '#FFE082',
+          };
+        } else if (el.id === 'adaptive_badge' || el.id === 'relaxed_badge') {
+          adaptiveBadge = {
+            text: el.text,
+            fontSize: el.fontSize,
+            color: '#4DFFAA',
+          };
+        }
+      }
+    }
+
+    return {
+      presentationDocument: doc,
+      pageId,
+      hintBanner,
+      adaptiveBadge,
+    };
+  }
+
+  renderFixture(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    fixture: FeedbackFixtureDTO,
+  ): void {
+    const prevContext = this._presentationContext;
+    if (fixture.presentationContext) {
+      this._presentationContext = fixture.presentationContext;
+    }
+    try {
+      const state: JudgmentFeedbackState = {
+        glowIntensity: fixture.glowIntensity ?? 0.5,
+        reasonKey: fixture.reasonKey ?? null,
+        message: fixture.message ?? null,
+        isVisible: fixture.isVisible ?? Boolean(fixture.message),
+        adaptiveRelaxed: fixture.adaptiveRelaxed ?? false,
+        activeZoneId: fixture.activeZoneId ?? null,
+      };
+      this.render(ctx, w, h, state);
+    } finally {
+      this._presentationContext = prevContext;
+    }
+  }
+
+  static renderFixture(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    fixture: FeedbackFixtureDTO,
+  ): void {
+    const feedback = new JudgmentFeedback();
+    feedback.renderFixture(ctx, w, h, fixture);
   }
 
   /**
@@ -286,9 +516,14 @@ export class JudgmentFeedback {
     w: number,
     h: number,
     state: JudgmentFeedbackState = this._lastState,
+    contextOverride?: FeedbackPresentationContext,
   ): void {
     if (!this._config.enableFeedback) return;
     if (!state.isVisible && state.glowIntensity <= 0 && !state.adaptiveRelaxed) return;
+
+    const presentation = contextOverride ?? this._presentationContext;
+    const bannerOverride = presentation?.hintBanner;
+    const badgeOverride = presentation?.adaptiveBadge;
 
     const scaleX = w / 1080;
     const scaleY = h / 2160;
@@ -297,7 +532,7 @@ export class JudgmentFeedback {
     ctx.save();
 
     // 1. 힌트 메시지 필(Pill) 배너 렌더링
-    if (state.isVisible && state.message) {
+    if (state.isVisible && state.message && bannerOverride?.visible !== false) {
       const cx = bounds.x + bounds.width / 2;
       const cy = bounds.y + bounds.height / 2;
       const pillW = Math.min(bounds.width, Math.max(320 * scaleX, state.message.length * 36 * scaleX + 60 * scaleX));
@@ -306,12 +541,12 @@ export class JudgmentFeedback {
       const pillY = cy - pillH / 2;
 
       // 은은한 네온 반투명 배경
-      ctx.fillStyle = 'rgba(18, 24, 46, 0.85)';
-      ctx.strokeStyle = 'rgba(255, 203, 77, 0.6)';
-      ctx.lineWidth = 3 * scaleX;
+      ctx.fillStyle = bannerOverride?.fillColor ?? 'rgba(18, 24, 46, 0.85)';
+      ctx.strokeStyle = bannerOverride?.borderColor ?? (bannerOverride?.color ? bannerOverride.color : 'rgba(255, 203, 77, 0.6)');
+      ctx.lineWidth = (bannerOverride?.borderWidth ?? 3) * scaleX;
       ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(pillX, pillY, pillW, pillH, 16 * scaleX);
+      if (typeof (ctx as any).roundRect === 'function') {
+        (ctx as any).roundRect(pillX, pillY, pillW, pillH, 16 * scaleX);
       } else {
         ctx.rect(pillX, pillY, pillW, pillH);
       }
@@ -319,28 +554,32 @@ export class JudgmentFeedback {
       ctx.stroke();
 
       // 텍스트 렌더링
-      ctx.font = UIText.getFont('label', scaleX, 'bold', 'sans-serif', 22);
+      const baseFontSize = bannerOverride?.fontSize ?? 22;
+      ctx.font = UIText.getFont('label', scaleX, 'bold', bannerOverride?.fontFamily ?? 'sans-serif', baseFontSize);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#FFE082';
-      ctx.shadowColor = 'rgba(255, 224, 130, 0.8)';
+      ctx.fillStyle = bannerOverride?.textColor ?? (bannerOverride?.color ? bannerOverride.color : '#FFE082');
+      ctx.shadowColor = bannerOverride?.glowColor ?? 'rgba(255, 224, 130, 0.8)';
       ctx.shadowBlur = 10 * scaleX;
-      ctx.fillText(state.message, cx, cy);
+      const displayText = bannerOverride?.text ?? state.message;
+      ctx.fillText(displayText, cx, cy);
       ctx.shadowBlur = 0;
     }
 
     // 2. 적응형 완화(adaptiveRelaxed) 활성화 시 은은한 인디케이터 (최소 26px 하한선)
-    if (state.adaptiveRelaxed) {
+    if (state.adaptiveRelaxed && badgeOverride?.visible !== false) {
       const cx = bounds.x + bounds.width / 2;
       const badgeY = bounds.y + bounds.height + 14 * scaleY;
 
-      ctx.font = UIText.getFont('caption', scaleX, 'bold', 'sans-serif', 26);
+      const badgeFontSize = badgeOverride?.fontSize ?? 26;
+      ctx.font = UIText.getFont('caption', scaleX, 'bold', badgeOverride?.fontFamily ?? 'sans-serif', badgeFontSize);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(77, 255, 170, 0.75)';
-      ctx.shadowColor = 'rgba(77, 255, 170, 0.5)';
+      ctx.fillStyle = badgeOverride?.textColor ?? badgeOverride?.color ?? 'rgba(77, 255, 170, 0.75)';
+      ctx.shadowColor = badgeOverride?.glowColor ?? 'rgba(77, 255, 170, 0.5)';
       ctx.shadowBlur = 8 * scaleX;
-      ctx.fillText('✦ 관용 완화 활성', cx, badgeY);
+      const badgeText = badgeOverride?.text ?? '✦ 관용 완화 활성';
+      ctx.fillText(badgeText, cx, badgeY);
       ctx.shadowBlur = 0;
     }
 
