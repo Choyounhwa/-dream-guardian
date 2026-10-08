@@ -13,11 +13,18 @@ import {
   RUNNING_MAT_CONFIG,
   DEFAULT_STRIKE_OVERHANG_RATIO,
   DEFAULT_LANE_SLOT_OFFSETS,
+  DEFAULT_MAT_BASE_Y_TOP,
+  DEFAULT_MAT_BASE_Y_BOTTOM,
   type RunningMatConfig,
 } from '../../config/running-mat.config.js';
 import type { RunningMatViewModel } from './RunningMatPresenter.js';
 import { MotionNoteRenderer } from './MotionNoteRenderer.js';
 import type { FloorPart, MotionNoteRenderItem } from '../types/motion-note.js';
+import {
+  type UIPresentationDocument,
+  type UIPresentationPageId,
+  DEFAULT_PROTECTED_ZONES,
+} from '../data/UIPresentation.js';
 import {
   DEFAULT_NOTE_PROFILES,
   STOMP_FOOT_PROFILE,
@@ -34,6 +41,121 @@ interface Point2D {
   x: number;
   y: number;
 }
+
+export interface RunningMatBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  width: number;
+  height: number;
+  isProtected?: boolean;
+}
+
+export interface RunningMatSlotOverride {
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  color?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  backgroundColor?: string;
+  text?: string;
+  fontSize?: number;
+  visible?: boolean;
+  glowColor?: string;
+}
+
+export interface RunningMatPresentationContext {
+  presentationDocument?: UIPresentationDocument;
+  pageId?: UIPresentationPageId | string;
+  matVisual?: RunningMatSlotOverride;
+  strikeLine?: RunningMatSlotOverride;
+  statusHeader?: RunningMatSlotOverride;
+  upcomingPreview?: RunningMatSlotOverride;
+  footprintSlots?: RunningMatSlotOverride;
+  targetAnchors?: RunningMatSlotOverride;
+  vanishingPoint?: { x?: number; y?: number };
+}
+
+export const RUNNING_MAT_SLOT_IDS = [
+  'matVisual',
+  'strikeLine',
+  'statusHeader',
+  'upcomingPreview',
+  'zone_9_mat_cell',
+  'zone_10_mat_cell',
+  'zone_11_mat_cell',
+  'strike_line_geometry',
+  'vanishing_point_geometry',
+  'footprint_slot_left',
+  'footprint_slot_center',
+  'footprint_slot_right',
+  'target_anchors',
+] as const;
+
+export const PROTECTED_RUNNING_MAT_SLOT_IDS = [
+  'zone_9_mat_cell',
+  'zone_10_mat_cell',
+  'zone_11_mat_cell',
+  'strike_line_geometry',
+  'vanishing_point_geometry',
+  'footprint_slot_left',
+  'footprint_slot_center',
+  'footprint_slot_right',
+  'target_anchors',
+] as const;
+
+export interface RunningMatFixtureDTO {
+  viewModel?: Partial<RunningMatViewModel> | null;
+  view?: Partial<RunningMatViewModel> | null;
+  beatIndex?: number;
+  beatProgress?: number;
+  actionText?: string;
+  cueText?: string;
+  currentActionId?: string;
+  currentFootSlot?: 'left' | 'right' | 'center' | 'out' | 'home';
+  nextActionId?: string;
+  nextFootSlot?: 'left' | 'right' | 'center' | 'out' | 'home';
+  elapsedTime?: number;
+  deltaTime?: number;
+  vanishingPoint?: { x: number; y: number };
+  presentationContext?: RunningMatPresentationContext;
+}
+
+export const DEFAULT_RUNNING_MAT_FIXTURE: RunningMatFixtureDTO = Object.freeze({
+  actionText: '제자리 달리기',
+  cueText: '쿵 짝 리듬 스텝',
+  currentActionId: 'step_left',
+  currentFootSlot: 'left',
+  nextActionId: 'step_right',
+  nextFootSlot: 'right',
+  beatIndex: 1,
+  beatProgress: 0.25,
+});
+
+export const KNEE_LIFT_MAT_FIXTURE: RunningMatFixtureDTO = Object.freeze({
+  actionText: '무릎 높이 들기',
+  cueText: '무릎을 가슴까지 업!',
+  currentActionId: 'knee_left',
+  currentFootSlot: 'left',
+  nextActionId: 'knee_right',
+  nextFootSlot: 'right',
+  beatIndex: 3,
+  beatProgress: 0.5,
+});
+
+export const SIDE_STEP_LEFT_MAT_FIXTURE: RunningMatFixtureDTO = Object.freeze({
+  actionText: '왼발 사이드 스텝',
+  cueText: '왼쪽 발판 딛기',
+  currentActionId: 'side_step_left',
+  currentFootSlot: 'left',
+  nextActionId: 'center_return',
+  nextFootSlot: 'center',
+  beatIndex: 5,
+  beatProgress: 0.75,
+});
 
 export interface FootprintSlotCoords {
   readonly left: Point2D;
@@ -58,15 +180,279 @@ export class RunningMatRenderer {
   private readonly config: RunningMatConfig;
   private _hitFlashTimer = 0;
   private _lastElapsedTime = 0;
+  private _presentationContext?: RunningMatPresentationContext;
   public readonly motionNoteRenderer: MotionNoteRenderer;
 
   constructor(
     config: RunningMatConfig = RUNNING_MAT_CONFIG,
-    motionNoteRenderer?: MotionNoteRenderer
+    motionNoteRenderer?: MotionNoteRenderer,
+    presentationContext?: RunningMatPresentationContext,
   ) {
     this.config = config;
     this.motionNoteRenderer =
       motionNoteRenderer ?? this._createMotionNoteRenderer();
+    if (presentationContext) {
+      this._presentationContext = presentationContext;
+    }
+  }
+
+  setPresentationContext(context?: RunningMatPresentationContext): void {
+    this._presentationContext = context;
+  }
+
+  getPresentationContext(): RunningMatPresentationContext | undefined {
+    return this._presentationContext;
+  }
+
+  clearPresentationContext(): void {
+    this._presentationContext = undefined;
+  }
+
+  isSlotLocked(slotId: string): boolean {
+    return (PROTECTED_RUNNING_MAT_SLOT_IDS as readonly string[]).includes(slotId as any);
+  }
+
+  getSlotLockReason(slotId: string): string | null {
+    if (this.isSlotLocked(slotId)) {
+      return '발판 중심 좌표(Zone 9/10/11 대응) 및 판정선(strike line), 원근 소실점은 인게임 모션 인식 및 리듬 판정의 핵심 보호 영역으로 위치 및 크기 변경이 원자적으로 잠겨 있습니다.';
+    }
+    return null;
+  }
+
+  validatePresentationContext(
+    context?: RunningMatPresentationContext,
+  ): { valid: boolean; issues: string[] } {
+    const issues: string[] = [];
+    if (!context) return { valid: true, issues };
+
+    if (context.strikeLine?.y !== undefined || context.strikeLine?.x !== undefined) {
+      issues.push('판정선(strike line)의 물리 좌표는 수정할 수 없습니다.');
+    }
+    if (context.footprintSlots?.x !== undefined || context.footprintSlots?.y !== undefined) {
+      issues.push('발판 슬롯 물리 좌표(Zone 9/10/11)는 수정할 수 없습니다.');
+    }
+    if (context.targetAnchors?.x !== undefined || context.targetAnchors?.y !== undefined) {
+      issues.push('타깃 앵커 물리 좌표는 수정할 수 없습니다.');
+    }
+    if (context.vanishingPoint?.x !== undefined || context.vanishingPoint?.y !== undefined) {
+      issues.push('원근 소실점 좌표는 보호 영역입니다.');
+    }
+    return { valid: issues.length === 0, issues };
+  }
+
+  getRunningMatBounds(width: number, height: number): RunningMatBounds {
+    const yTop = height * (this.config.baseYTop ?? DEFAULT_MAT_BASE_Y_TOP);
+    const yBottom = height * (this.config.baseYBottom ?? DEFAULT_MAT_BASE_Y_BOTTOM);
+    const halfW = this.computeMatHalfWBottom(width, height);
+    const w = halfW * 2;
+    const x = (width - w) / 2;
+    const h = yBottom - yTop;
+    return {
+      x,
+      y: yTop,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: true,
+    };
+  }
+
+  getStrikeLineBounds(width: number, height: number): RunningMatBounds {
+    const yStrike = this.computeStrikeLineY(height);
+    const overhang = width * (this.config.strikeOverhangRatio ?? DEFAULT_STRIKE_OVERHANG_RATIO);
+    const w = width + overhang * 2;
+    const x = -overhang;
+    const h = 40;
+    const y = yStrike - h / 2;
+    return {
+      x,
+      y,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: true,
+    };
+  }
+
+  getLaneAnchorBounds(
+    lane: 'left' | 'center' | 'right' | 9 | 10 | 11,
+    width: number,
+    height: number,
+  ): RunningMatBounds {
+    const vx = width * 0.5;
+    const yStrike = this.computeStrikeLineY(height);
+    const halfWBottom = this.computeMatHalfWBottom(width, height);
+    let offset = 0;
+    if (lane === 'left' || lane === 9) {
+      offset = (this.config.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left) * halfWBottom;
+    } else if (lane === 'right' || lane === 11) {
+      offset = (this.config.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right) * halfWBottom;
+    } else {
+      offset = (this.config.laneOffsetCenter ?? DEFAULT_LANE_SLOT_OFFSETS.center) * halfWBottom;
+    }
+    const anchorX = vx + offset;
+    const radius = this.config.targetAnchorRadius ?? 15;
+    return {
+      x: anchorX,
+      y: yStrike,
+      w: radius * 2,
+      h: radius * 2,
+      width: radius * 2,
+      height: radius * 2,
+      isProtected: true,
+    };
+  }
+
+  getStatusHeaderBounds(width: number, height: number): RunningMatBounds {
+    const vx = width * 0.5;
+    const yTop = height * (this.config.baseYTop ?? DEFAULT_MAT_BASE_Y_TOP);
+    const w = Math.min(width * 0.8, 480);
+    const h = 40;
+    const x = vx - w / 2;
+    const y = yTop - 48;
+    const override = this._presentationContext?.statusHeader;
+    return {
+      x: override?.x ?? x,
+      y: override?.y ?? y,
+      w: override?.w ?? w,
+      h: override?.h ?? h,
+      width: override?.w ?? w,
+      height: override?.h ?? h,
+    };
+  }
+
+  getUpcomingPreviewsBounds(width: number, height: number): RunningMatBounds {
+    const vx = width * 0.5;
+    const yTop = height * (this.config.baseYTop ?? DEFAULT_MAT_BASE_Y_TOP);
+    const w = Math.min(width * 0.8, 420);
+    const h = 30;
+    const x = vx - w / 2;
+    const y = yTop - 48;
+    const override = this._presentationContext?.upcomingPreview;
+    return {
+      x: override?.x ?? x,
+      y: override?.y ?? y,
+      w: override?.w ?? w,
+      h: override?.h ?? h,
+      width: override?.w ?? w,
+      height: override?.h ?? h,
+    };
+  }
+
+  static fromPresentationDocument(
+    doc: UIPresentationDocument,
+    pageId: UIPresentationPageId | string = 'running_question',
+  ): RunningMatPresentationContext {
+    const page = doc.pages[pageId as UIPresentationPageId];
+    let strikeLine: RunningMatSlotOverride | undefined;
+    let matVisual: RunningMatSlotOverride | undefined;
+    let statusHeader: RunningMatSlotOverride | undefined;
+
+    const protectedZone = DEFAULT_PROTECTED_ZONES.find(
+      (z) => z.id === 'floor_strike_line_run' || z.id.includes('strike_line'),
+    );
+    if (protectedZone) {
+      strikeLine = {
+        glowColor: '#FF6600',
+      };
+    }
+
+    if (page?.elements) {
+      for (const el of page.elements) {
+        if (el.id === 'run_header') {
+          statusHeader = {
+            text: el.text,
+          };
+        }
+      }
+    }
+
+    return {
+      presentationDocument: doc,
+      pageId,
+      strikeLine: strikeLine ?? { glowColor: '#FF6600' },
+      matVisual,
+      statusHeader,
+    };
+  }
+
+  renderFixture(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    dto?: RunningMatFixtureDTO,
+    optionsOrVP?: { x: number; y: number } | RunningMatRenderOptions,
+  ): void {
+    const prevContext = this._presentationContext;
+    if (dto?.presentationContext) {
+      this._presentationContext = dto.presentationContext;
+    }
+    try {
+      const viewModel: RunningMatViewModel = {
+        visible: dto?.view?.visible ?? dto?.viewModel?.visible ?? true,
+        paused: dto?.view?.paused ?? dto?.viewModel?.paused ?? false,
+        actionText: dto?.actionText ?? dto?.view?.actionText ?? dto?.viewModel?.actionText ?? '제자리 달리기',
+        directionText: dto?.view?.directionText ?? dto?.viewModel?.directionText ?? '앞으로',
+        cueText: dto?.cueText ?? dto?.view?.cueText ?? dto?.viewModel?.cueText ?? '',
+        arrowDirection: dto?.view?.arrowDirection ?? dto?.viewModel?.arrowDirection ?? 'up',
+        nextRingRatio: dto?.view?.nextRingRatio ?? dto?.viewModel?.nextRingRatio ?? 0.5,
+        elapsedBeats: dto?.beatIndex ?? dto?.view?.elapsedBeats ?? dto?.viewModel?.elapsedBeats ?? 1,
+        acceptedExerciseCount: dto?.view?.acceptedExerciseCount ?? dto?.viewModel?.acceptedExerciseCount ?? 0,
+        requiredExerciseCount: dto?.view?.requiredExerciseCount ?? dto?.viewModel?.requiredExerciseCount ?? 8,
+        isShortage: dto?.view?.isShortage ?? dto?.viewModel?.isShortage ?? false,
+        isPreparing: dto?.view?.isPreparing ?? dto?.viewModel?.isPreparing ?? false,
+        isReturnPhase: dto?.view?.isReturnPhase ?? dto?.viewModel?.isReturnPhase ?? false,
+        phase: dto?.view?.phase ?? dto?.viewModel?.phase,
+        currentCue: (dto?.currentActionId || dto?.currentFootSlot) ? {
+          beatIndex: dto?.beatIndex ?? 1,
+          actionId: dto?.currentActionId ?? 'step_left',
+          actionText: dto?.actionText ?? '제자리 달리기',
+          directionText: '앞으로',
+          cueText: dto?.cueText ?? '',
+          arrowDirection: 'up',
+          leftFootSlot: (dto?.currentFootSlot === 'left' || dto?.currentFootSlot === 'out') ? 'out' : 'home',
+          rightFootSlot: (dto?.currentFootSlot === 'right') ? 'out' : 'home',
+          isPrepare: false,
+        } : (dto?.view?.currentCue ?? dto?.viewModel?.currentCue ?? null),
+        nextCue: (dto?.nextActionId || dto?.nextFootSlot) ? {
+          beatIndex: (dto?.beatIndex ?? 1) + 1,
+          actionId: dto?.nextActionId ?? 'step_right',
+          actionText: dto?.nextActionId ?? '다음 동작',
+          directionText: '앞으로',
+          cueText: '',
+          arrowDirection: 'up',
+          leftFootSlot: (dto?.nextFootSlot === 'left') ? 'out' : 'home',
+          rightFootSlot: (dto?.nextFootSlot === 'right' || dto?.nextFootSlot === 'out') ? 'out' : 'home',
+          isPrepare: false,
+        } : (dto?.view?.nextCue ?? dto?.viewModel?.nextCue ?? null),
+        upcomingCues: dto?.view?.upcomingCues ?? dto?.viewModel?.upcomingCues ?? [],
+      };
+
+      const opts: RunningMatRenderOptions = {
+        ...(typeof optionsOrVP === 'object' && optionsOrVP && 'vanishingPoint' in optionsOrVP ? optionsOrVP : {}),
+        elapsedTime: dto?.elapsedTime ?? (typeof optionsOrVP === 'object' && optionsOrVP && 'elapsedTime' in optionsOrVP ? (optionsOrVP as RunningMatRenderOptions).elapsedTime : 0),
+        beatProgress: dto?.beatProgress ?? (typeof optionsOrVP === 'object' && optionsOrVP && 'beatProgress' in optionsOrVP ? (optionsOrVP as RunningMatRenderOptions).beatProgress : 0),
+        deltaTime: dto?.deltaTime,
+        vanishingPoint: dto?.vanishingPoint ?? (typeof optionsOrVP === 'object' && optionsOrVP && 'x' in optionsOrVP ? (optionsOrVP as { x: number; y: number }) : undefined),
+      };
+
+      this.render(ctx, viewModel, width, height, opts);
+    } finally {
+      this._presentationContext = prevContext;
+    }
+  }
+
+  static renderFixture(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    dto?: RunningMatFixtureDTO,
+    optionsOrVP?: { x: number; y: number } | RunningMatRenderOptions,
+  ): void {
+    const renderer = new RunningMatRenderer();
+    renderer.renderFixture(ctx, width, height, dto, optionsOrVP);
   }
 
   /**
@@ -176,6 +562,9 @@ export class RunningMatRenderer {
     const yBottom = height * this.config.baseYBottom;
     const halfWBottom = this.computeMatHalfWBottom(width, height);
 
+    // 0. 매트 원근 반투명 셀 및 테두리 렌더링
+    this._renderMatCells(ctx, vx, vy, yTop, yBottom, halfWBottom);
+
     // 1. 초고휘도 네온 글로우 발 판정선(Foot Strike Line) 및 3대 레인 타깃 앵커 렌더링 (Issue #421, #422, #426)
     const yStrike = this.computeStrikeLineY(height);
     this._renderFootStrikeLine(
@@ -230,6 +619,43 @@ export class RunningMatRenderer {
   }
 
   /**
+   * 매트 원근 반투명 셀 및 테두리 렌더링
+   */
+  private _renderMatCells(
+    ctx: CanvasRenderingContext2D,
+    vx: number,
+    vy: number,
+    yTop: number,
+    yBottom: number,
+    halfWBottom: number,
+  ): void {
+    const override = this._presentationContext?.matVisual;
+    const borderColor = override?.borderColor ?? this.config.cellBorderColor;
+    const borderWidth = override?.borderWidth ?? 1.5;
+    const bgColor = override?.backgroundColor ?? this.config.cellBgColor;
+
+    const scaleTop = Math.max(0.1, (yTop - vy) / Math.max(1, (yBottom - vy)));
+    const halfWTop = halfWBottom * scaleTop;
+
+    ctx.beginPath();
+    ctx.moveTo(vx - halfWTop, yTop);
+    ctx.lineTo(vx + halfWTop, yTop);
+    ctx.lineTo(vx + halfWBottom, yBottom);
+    ctx.lineTo(vx - halfWBottom, yBottom);
+    ctx.closePath();
+
+    if (bgColor) {
+      ctx.fillStyle = bgColor;
+      ctx.fill();
+    }
+    if (borderColor) {
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = borderWidth;
+      ctx.stroke();
+    }
+  }
+
+  /**
    * 초고휘도 네온 글로우 발 판정선(Foot Strike Line) 및 3대 레인 타깃 앵커 렌더링
    * Issue #421, #422, #426: 듀얼 네온 블러(shadowBlur 22px, shadowColor #FF6600), 호흡 진동, 비트 상방 파동 및 타격 섬광 구현
    */
@@ -253,7 +679,7 @@ export class RunningMatRenderer {
 
     // 1. 듀얼 네온 블러(shadowBlur 20~25px, shadowColor #FF6600) 적용 (Issue #426)
     ctx.shadowBlur = this.config.strikeAuraShadowBlur ?? 22;
-    ctx.shadowColor = this.config.strikeAuraShadowColor ?? '#FF6600';
+    ctx.shadowColor = this._presentationContext?.strikeLine?.glowColor ?? this.config.strikeAuraShadowColor ?? '#FF6600';
 
     // 2. 3중 네온 글로우 수평 판정선 (오렌지-골드 블렌드 네온)
     // (1) Outer Ambient Glow (따뜻한 오렌지 앰버 글로우)
@@ -1042,16 +1468,19 @@ export class RunningMatRenderer {
   ): void {
     const headerY = yTop - 14;
 
+    const headerOverride = this._presentationContext?.statusHeader;
     // 1. 좌측 액션 배지 (Action / Cue Text)
-    let badgeText = `${view.actionText} · ${view.cueText}`;
-    let badgeColor = this.config.textPrimaryColor;
+    let badgeText = headerOverride?.text ?? `${view.actionText}${view.cueText ? ` · ${view.cueText}` : ''}`;
+    let badgeColor = headerOverride?.color ?? this.config.textPrimaryColor;
 
-    if (view.isShortage) {
-      badgeText = `[부족] ${view.actionText} (중앙 운동 연장!)`;
-      badgeColor = this.config.textShortageColor;
-    } else if (view.isPreparing) {
-      badgeText = `[준비] ${view.actionText} (정답 존 대기)`;
-      badgeColor = this.config.textPrepareColor;
+    if (!headerOverride?.text) {
+      if (view.isShortage) {
+        badgeText = `[부족] ${view.actionText} (중앙 운동 연장!)`;
+        badgeColor = this.config.textShortageColor;
+      } else if (view.isPreparing) {
+        badgeText = `[준비] ${view.actionText} (정답 존 대기)`;
+        badgeColor = this.config.textPrepareColor;
+      }
     }
 
     ctx.font = 'bold 14px sans-serif';

@@ -10,6 +10,7 @@
 import type { GeneratedQuestion } from '../question/QuestionEvaluator.js';
 import type { PhaseAHazardPattern } from '../../config/phase-a-hazard.config.js';
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
+import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
 import {
   BEAT_HUD_CONFIG,
   LOCOMOTION_DISPLAY_CONFIG,
@@ -18,6 +19,84 @@ import { HazardZoneRenderer } from './HazardZoneRenderer.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
 
+export interface BeatHUDBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  width: number;
+  height: number;
+  isProtected?: boolean;
+}
+
+export interface BeatHUDSlotOverride {
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  title?: string;
+  subtitle?: string;
+  text?: string;
+  color?: string;
+  fontSize?: number;
+  visible?: boolean;
+  shadowColor?: string;
+  shadowBlur?: number;
+}
+
+export interface BeatHUDPresentationContext {
+  presentationDocument?: UIPresentationDocument;
+  pageId?: UIPresentationPageId | string;
+  exerciseBadge?: BeatHUDSlotOverride;
+  beatDots?: BeatHUDSlotOverride;
+  stepCounter?: BeatHUDSlotOverride;
+  hazardGuide?: BeatHUDSlotOverride;
+}
+
+export const BEAT_HUD_SLOT_IDS = [
+  'exerciseBadge',
+  'beatDots',
+  'stepCounter',
+  'hazardGuide',
+  'hazard_zone_protection',
+  'floor_strike_line_run',
+] as const;
+
+export const PROTECTED_BEAT_HUD_SLOT_IDS = [
+  'hazard_zone_protection',
+  'floor_strike_line_run',
+] as const;
+
+export interface BeatHUDFixtureDTO {
+  state?: Partial<BeatHUDState>;
+  locomotionMode?: LocomotionMode;
+  totalSteps?: number;
+  completedExerciseBeats?: number;
+  exerciseBeats?: number;
+  activeHazardPattern?: PhaseAHazardPattern | null;
+  hazardBeatProgress?: number;
+  vanishingX?: number;
+  vanishingY?: number;
+  showBeatDots?: boolean;
+  presentationContext?: BeatHUDPresentationContext;
+}
+
+export const DEFAULT_BEAT_HUD_FIXTURE: BeatHUDFixtureDTO = Object.freeze({
+  locomotionMode: 'run',
+  totalSteps: 12,
+  completedExerciseBeats: 4,
+  exerciseBeats: 8,
+  showBeatDots: true,
+});
+
+export const HAZARD_BEAT_HUD_FIXTURE: BeatHUDFixtureDTO = Object.freeze({
+  locomotionMode: 'run',
+  activeHazardPattern: 'left_step',
+  hazardBeatProgress: 0.5,
+  totalSteps: 8,
+  showBeatDots: false,
+});
+
 export interface BeatHUDRendererOptions {
   /**
    * 8박자 원형 인디케이터 표시 여부 (기본값: false)
@@ -25,6 +104,7 @@ export interface BeatHUDRendererOptions {
    * null-hazard 러닝 경로에서는 중복/상충하는 N개 운동 목표처럼 보이지 않도록 showBeatDots를 기본 숨김(false)으로 유지합니다.
    */
   showBeatDots?: boolean;
+  presentationContext?: BeatHUDPresentationContext;
 }
 
 export interface BeatHUDState {
@@ -45,10 +125,14 @@ export interface BeatHUDState {
 export class BeatHUDRenderer {
   private _showBeatDots: boolean;
   private readonly _hazardRenderer: HazardZoneRenderer;
+  private _presentationContext?: BeatHUDPresentationContext;
 
   constructor(options?: BeatHUDRendererOptions) {
     this._showBeatDots = options?.showBeatDots ?? false;
     this._hazardRenderer = new HazardZoneRenderer();
+    if (options?.presentationContext) {
+      this._presentationContext = options.presentationContext;
+    }
   }
 
   get showBeatDots(): boolean {
@@ -61,6 +145,218 @@ export class BeatHUDRenderer {
 
   get hazardRenderer(): HazardZoneRenderer {
     return this._hazardRenderer;
+  }
+
+  setPresentationContext(context?: BeatHUDPresentationContext): void {
+    this._presentationContext = context;
+  }
+
+  getPresentationContext(): BeatHUDPresentationContext | undefined {
+    return this._presentationContext;
+  }
+
+  clearPresentationContext(): void {
+    this._presentationContext = undefined;
+  }
+
+  isSlotLocked(slotId: string): boolean {
+    return (PROTECTED_BEAT_HUD_SLOT_IDS as readonly string[]).includes(slotId);
+  }
+
+  getSlotLockReason(slotId: string): string | null {
+    if (this.isSlotLocked(slotId)) {
+      return '보스 공격 장판 영역 및 판정선은 물리 판정 핵심 구역으로 위치 및 크기 변경이 원자적으로 잠겨 있습니다.';
+    }
+    return null;
+  }
+
+  validatePresentationContext(
+    context?: BeatHUDPresentationContext,
+  ): { valid: boolean; issues: string[] } {
+    const issues: string[] = [];
+    if (!context) return { valid: true, issues };
+    return { valid: issues.length === 0, issues };
+  }
+
+  static fromPresentationDocument(
+    doc: UIPresentationDocument,
+    pageId: UIPresentationPageId | string = 'running_question',
+  ): BeatHUDPresentationContext {
+    const page = doc.pages[pageId as UIPresentationPageId];
+    let exerciseBadge: BeatHUDSlotOverride | undefined;
+    let beatDots: BeatHUDSlotOverride | undefined;
+    let stepCounter: BeatHUDSlotOverride | undefined;
+
+    if (page?.elements) {
+      for (const el of page.elements) {
+        if (el.id === 'run_header' || el.id === 'exercise_badge') {
+          exerciseBadge = {
+            x: el.bounds.x,
+            y: el.bounds.y,
+            w: el.bounds.width,
+            h: el.bounds.height,
+            title: el.text,
+          };
+        } else if (el.id === 'beat_dots' || el.id === 'run_beat_dots') {
+          beatDots = {
+            x: el.bounds.x,
+            y: el.bounds.y,
+            w: el.bounds.width,
+            h: el.bounds.height,
+          };
+        } else if (el.id === 'step_counter' || el.id === 'run_step_counter') {
+          stepCounter = {
+            x: el.bounds.x,
+            y: el.bounds.y,
+            w: el.bounds.width,
+            h: el.bounds.height,
+          };
+        }
+      }
+    }
+
+    if (!exerciseBadge) {
+      exerciseBadge = {
+        title: '제자리 달리기',
+        subtitle: '리듬에 맞춰 달려보세요',
+      };
+    }
+
+    return {
+      presentationDocument: doc,
+      pageId,
+      exerciseBadge,
+      beatDots,
+      stepCounter,
+    };
+  }
+
+  getExerciseBadgeBounds(vw: number, vh: number): BeatHUDBounds {
+    const cx = vw / 2;
+    const cy = vh * 0.52;
+    const scaleX = vw / 1080;
+    const scaleY = vh / 2160;
+    const w = 480 * scaleX;
+    const h = 100 * scaleY;
+    const x = cx - w / 2;
+    const y = cy - 80 * scaleY;
+    const override = this._presentationContext?.exerciseBadge;
+    return {
+      x: override?.x ?? x,
+      y: override?.y ?? y,
+      w: override?.w ?? w,
+      h: override?.h ?? h,
+      width: override?.w ?? w,
+      height: override?.h ?? h,
+    };
+  }
+
+  getBeatDotsBounds(vw: number, vh: number): BeatHUDBounds {
+    const cx = vw / 2;
+    const cy = vh * 0.52;
+    const scaleX = vw / 1080;
+    const scaleY = vh / 2160;
+    const dotY = cy + 260 * scaleY;
+    const dotSpacing = 44 * scaleX;
+    const w = (7 * dotSpacing) + 40 * scaleX;
+    const h = 40 * scaleY;
+    const x = cx - w / 2;
+    const y = dotY - h / 2;
+    const override = this._presentationContext?.beatDots;
+    return {
+      x: override?.x ?? x,
+      y: override?.y ?? y,
+      w: override?.w ?? w,
+      h: override?.h ?? h,
+      width: override?.w ?? w,
+      height: override?.h ?? h,
+    };
+  }
+
+  getStepCounterBounds(vw: number, vh: number): BeatHUDBounds {
+    const cx = vw / 2;
+    const cy = vh * 0.52;
+    const scaleX = vw / 1080;
+    const scaleY = vh / 2160;
+    const dotY = cy + 260 * scaleY;
+    const y = dotY + 44 * scaleY - 20 * scaleY;
+    const w = 320 * scaleX;
+    const h = 40 * scaleY;
+    const x = cx - w / 2;
+    const override = this._presentationContext?.stepCounter;
+    return {
+      x: override?.x ?? x,
+      y: override?.y ?? y,
+      w: override?.w ?? w,
+      h: override?.h ?? h,
+      width: override?.w ?? w,
+      height: override?.h ?? h,
+    };
+  }
+
+  getHazardGuideBounds(vw: number, vh: number): BeatHUDBounds {
+    const cx = vw / 2;
+    const cy = vh * 0.52;
+    const scaleX = vw / 1080;
+    const scaleY = vh / 2160;
+    const w = 500 * scaleX;
+    const h = 120 * scaleY;
+    const x = cx - w / 2;
+    const y = cy - 80 * scaleY;
+    const override = this._presentationContext?.hazardGuide;
+    return {
+      x: override?.x ?? x,
+      y: override?.y ?? y,
+      w: override?.w ?? w,
+      h: override?.h ?? h,
+      width: override?.w ?? w,
+      height: override?.h ?? h,
+    };
+  }
+
+  renderFixture(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    dto?: BeatHUDFixtureDTO,
+    contextOverride?: BeatHUDPresentationContext,
+  ): void {
+    const prevContext = this._presentationContext;
+    const prevShowBeatDots = this._showBeatDots;
+    if (contextOverride || dto?.presentationContext) {
+      this._presentationContext = contextOverride ?? dto?.presentationContext;
+    }
+    if (dto?.showBeatDots !== undefined) {
+      this._showBeatDots = dto.showBeatDots;
+    }
+    try {
+      const state: BeatHUDState = {
+        locomotionMode: dto?.locomotionMode ?? 'run',
+        totalSteps: dto?.totalSteps ?? 0,
+        completedExerciseBeats: dto?.completedExerciseBeats,
+        exerciseBeats: dto?.exerciseBeats,
+        activeHazardPattern: dto?.activeHazardPattern ?? null,
+        hazardBeatProgress: dto?.hazardBeatProgress,
+        vanishingX: dto?.vanishingX,
+        vanishingY: dto?.vanishingY,
+        ...(dto?.state ?? {}),
+      };
+      this.render(ctx, vw, vh, state);
+    } finally {
+      this._presentationContext = prevContext;
+      this._showBeatDots = prevShowBeatDots;
+    }
+  }
+
+  static renderFixture(
+    ctx: CanvasRenderingContext2D,
+    vw: number,
+    vh: number,
+    dto?: BeatHUDFixtureDTO,
+    contextOverride?: BeatHUDPresentationContext,
+  ): void {
+    const renderer = new BeatHUDRenderer({ showBeatDots: dto?.showBeatDots });
+    renderer.renderFixture(ctx, vw, vh, dto, contextOverride);
   }
 
   render(ctx: CanvasRenderingContext2D, vw: number, vh: number, state: BeatHUDState): void {
@@ -118,16 +414,21 @@ export class BeatHUDRenderer {
     } else {
       // Issue #368 (RUN-MAT-005): null-hazard 시 허위 완료/대기 안내('장판 루틴 완료!')를 제거하고
       // 모드 중립적인 운동 가이드 안내 표시 (매트 렌더러와 상충하는 '계속 뛰기' 등 지양)
+      const badgeOverride = this._presentationContext?.exerciseBadge;
+      const guideTitle = badgeOverride?.title ?? displayConfig.guideTitle;
+      const guideSubtitle = badgeOverride?.subtitle ?? displayConfig.guideSubtitle;
+      const titleColor = badgeOverride?.color ?? BEAT_HUD_CONFIG.TITLE_COLOR_CENTER;
+
       ctx.font = UIText.getFont('subheading', scaleX, 'bold', 'sans-serif', 24);
-      ctx.fillStyle = BEAT_HUD_CONFIG.TITLE_COLOR_CENTER;
-      ctx.shadowColor = BEAT_HUD_CONFIG.TITLE_COLOR_CENTER;
+      ctx.fillStyle = titleColor;
+      ctx.shadowColor = titleColor;
       ctx.shadowBlur = 24;
-      ctx.fillText(displayConfig.guideTitle, cx, cy - 60);
+      ctx.fillText(guideTitle, cx, cy - 60);
       ctx.shadowBlur = 0;
 
       ctx.font = UIText.getFont('label', scaleX, 'bold', 'sans-serif', 24);
       ctx.fillStyle = BEAT_HUD_CONFIG.TEXT_COLOR_SUBTITLE;
-      ctx.fillText(displayConfig.guideSubtitle, cx, cy - 5);
+      ctx.fillText(guideSubtitle, cx, cy - 5);
     }
 
     const dotY = cy + 260 * scaleY;
@@ -169,7 +470,8 @@ export class BeatHUDRenderer {
           ctx.arc(bx, indicatorY, dotRadius, 0, Math.PI * 2);
           if (i < completedBeats) {
             const splitBeat = Math.round((totalBeats * 5) / 8);
-            const color = i >= splitBeat ? BEAT_HUD_CONFIG.COLOR_LATE : BEAT_HUD_CONFIG.COLOR_EARLY;
+            const color = this._presentationContext?.beatDots?.color ??
+              (i >= splitBeat ? BEAT_HUD_CONFIG.COLOR_LATE : BEAT_HUD_CONFIG.COLOR_EARLY);
             ctx.fillStyle = color;
             ctx.shadowColor = color;
             ctx.shadowBlur = 10;
@@ -191,8 +493,9 @@ export class BeatHUDRenderer {
 
     // 4. 누적 운동 통계 표시 (Issue #368: 4개 모드별 누적 라벨 및 올바른 단위 구분)
     const totalSteps = state.totalSteps ?? 0;
+    const stepColor = this._presentationContext?.stepCounter?.color ?? BEAT_HUD_CONFIG.STEP_COUNT_COLOR;
     ctx.font = UIText.getFont('body', scaleX, 'bold', 'sans-serif', 24);
-    ctx.fillStyle = BEAT_HUD_CONFIG.STEP_COUNT_COLOR;
+    ctx.fillStyle = stepColor;
     ctx.fillText(`${displayConfig.cumulativeLabel}: ${totalSteps}${displayConfig.unit}`, cx, dotY + 60);
 
     ctx.restore();
