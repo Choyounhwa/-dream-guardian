@@ -16,6 +16,7 @@ import {
   LOCOMOTION_HUD_GUIDES,
   type LocomotionHUDGuide,
 } from '../../config/locomotion.config.js';
+import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
 
 export { LOCOMOTION_HUD_GUIDES };
 export type { LocomotionHUDGuide };
@@ -30,9 +31,137 @@ export interface HUDData {
   guardianStage: number;
 }
 
+export interface HUDSlotOverride {
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  marginRight?: number;
+  label?: string;
+  color?: string;
+  assetId?: string;
+  image?: HTMLImageElement | null;
+  visible?: boolean;
+}
+
+export interface HUDPresentationContext {
+  presentationDocument?: UIPresentationDocument;
+  pageId?: UIPresentationPageId | string;
+  playerHpBar?: HUDSlotOverride;
+  bossHpBar?: HUDSlotOverride;
+  bossName?: HUDSlotOverride;
+  combo?: HUDSlotOverride;
+}
+
 export class HUDLayer {
   private _displayPlayerHp = 1;
   private _displayBossHp = 1;
+  private _presentationContext?: HUDPresentationContext;
+
+  constructor(presentationContext?: HUDPresentationContext) {
+    if (presentationContext) {
+      this.setPresentationContext(presentationContext);
+    }
+  }
+
+  /**
+   * Presentation Context 주입 (선택적 표시 컨텍스트)
+   */
+  setPresentationContext(context?: HUDPresentationContext): void {
+    this._presentationContext = context;
+  }
+
+  /**
+   * 주입된 Presentation Context 조회
+   */
+  getPresentationContext(): HUDPresentationContext | undefined {
+    return this._presentationContext;
+  }
+
+  /**
+   * Presentation Context 초기화
+   */
+  clearPresentationContext(): void {
+    this._presentationContext = undefined;
+  }
+
+  /**
+   * UIPresentationDocument로부터 HUD 관련 슬롯 추출
+   */
+  static fromPresentationDocument(
+    doc: UIPresentationDocument,
+    pageId?: UIPresentationPageId | string
+  ): HUDPresentationContext {
+    const result: HUDPresentationContext = {
+      presentationDocument: doc,
+      pageId,
+    };
+    if (!doc?.pages) return result;
+
+    const targetPages = pageId && doc.pages[pageId as UIPresentationPageId]
+      ? [doc.pages[pageId as UIPresentationPageId]]
+      : Object.values(doc.pages);
+
+    for (const page of targetPages) {
+      if (!page?.elements) continue;
+      for (const el of page.elements) {
+        if (!el?.bounds) continue;
+        const b = el.bounds;
+        const boundsObj = {
+          x: b.x,
+          y: b.y,
+          w: b.width ?? (b as any).w,
+          h: b.height ?? (b as any).h,
+          label: el.text,
+        };
+
+        if (
+          el.id === 'hud_player_hp' ||
+          el.id === 'player_hp' ||
+          el.dynamicBinding === 'preview_player_hp'
+        ) {
+          result.playerHpBar = { ...boundsObj, ...result.playerHpBar };
+        } else if (
+          el.id === 'hud_boss_hp' ||
+          el.id === 'boss_hp' ||
+          el.dynamicBinding === 'preview_boss_hp'
+        ) {
+          result.bossHpBar = { ...boundsObj, ...result.bossHpBar };
+        } else if (
+          el.id === 'hud_boss_name' ||
+          el.id === 'boss_name' ||
+          el.id === 'boss_hud'
+        ) {
+          result.bossName = { ...boundsObj, ...result.bossName };
+        } else if (
+          el.id === 'hud_combo' ||
+          el.id === 'run_combo' ||
+          el.id === 'combo' ||
+          el.dynamicBinding === 'preview_combo'
+        ) {
+          result.combo = { ...boundsObj, ...result.combo };
+        }
+      }
+    }
+
+    return result;
+  }
+
+  private _resolveContext(): HUDPresentationContext | undefined {
+    if (!this._presentationContext) return undefined;
+    const ctx = this._presentationContext;
+    if (!ctx.presentationDocument) return ctx;
+
+    const docCtx = HUDLayer.fromPresentationDocument(ctx.presentationDocument, ctx.pageId);
+    return {
+      ...docCtx,
+      ...ctx,
+      playerHpBar: { ...docCtx.playerHpBar, ...ctx.playerHpBar },
+      bossHpBar: { ...docCtx.bossHpBar, ...ctx.bossHpBar },
+      bossName: { ...docCtx.bossName, ...ctx.bossName },
+      combo: { ...docCtx.combo, ...ctx.combo },
+    };
+  }
 
   /**
    * 매 프레임 호출: 부드러운 감쇠 보간
@@ -56,6 +185,92 @@ export class HUDLayer {
   }
 
   /**
+   * 플레이어 HP바 바운딩 박스 조회
+   */
+  getPlayerHpBarBounds(w: number, _h?: number): { x: number; y: number; w: number; h: number } {
+    const resolved = this._resolveContext();
+    const hpSlot = UI_LAYOUT.hud.playerHpBar;
+    const defaultW = Math.min(hpSlot.w, w * 0.28);
+    const defaultH = this.getHpBarHeight();
+    const defaultX = hpSlot.x;
+    const defaultY = hpSlot.y;
+
+    return {
+      x: resolved?.playerHpBar?.x ?? defaultX,
+      y: resolved?.playerHpBar?.y ?? defaultY,
+      w: resolved?.playerHpBar?.w ?? defaultW,
+      h: resolved?.playerHpBar?.h ?? defaultH,
+    };
+  }
+
+  /**
+   * 보스 HP바 바운딩 박스 조회
+   */
+  getBossHpBarBounds(w: number, _h?: number): { x: number; y: number; w: number; h: number } {
+    const resolved = this._resolveContext();
+    const hpSlot = UI_LAYOUT.hud.playerHpBar;
+    const defaultW = Math.min(hpSlot.w, w * 0.28);
+    const defaultH = this.getHpBarHeight();
+    const defaultX = w - hpSlot.x - defaultW;
+    const defaultY = hpSlot.y;
+
+    return {
+      x: resolved?.bossHpBar?.x ?? defaultX,
+      y: resolved?.bossHpBar?.y ?? defaultY,
+      w: resolved?.bossHpBar?.w ?? defaultW,
+      h: resolved?.bossHpBar?.h ?? defaultH,
+    };
+  }
+
+  /**
+   * HP바 바운딩 박스 범용 조회 ('player' | 'boss')
+   */
+  getHpBarBounds(
+    target: 'player' | 'boss',
+    w: number,
+    h?: number
+  ): { x: number; y: number; w: number; h: number } {
+    return target === 'player' ? this.getPlayerHpBarBounds(w, h) : this.getBossHpBarBounds(w, h);
+  }
+
+  /**
+   * 보스 이름 플레이트 바운딩 박스 조회
+   */
+  getBossNameBounds(w: number, _h?: number): { x: number; y: number; w: number; h: number } {
+    const resolved = this._resolveContext();
+    const plateW = 400;
+    const plateH = 60;
+    const defaultX = (w - plateW) / 2;
+    const defaultY = 6;
+
+    return {
+      x: resolved?.bossName?.x ?? defaultX,
+      y: resolved?.bossName?.y ?? defaultY,
+      w: resolved?.bossName?.w ?? plateW,
+      h: resolved?.bossName?.h ?? plateH,
+    };
+  }
+
+  /**
+   * 콤보 배지 바운딩 박스 조회
+   */
+  getComboBounds(w: number, _h?: number): { x: number; y: number; w: number; h: number } {
+    const resolved = this._resolveContext();
+    const badgeSlot = UI_LAYOUT.hud.comboBadge ?? { w: 160, h: 48, y: 48, marginRight: 24 };
+    const defaultW = badgeSlot.w;
+    const defaultH = badgeSlot.h;
+    const defaultX = w - defaultW - badgeSlot.marginRight;
+    const defaultY = badgeSlot.y;
+
+    return {
+      x: resolved?.combo?.x ?? defaultX,
+      y: resolved?.combo?.y ?? defaultY,
+      w: resolved?.combo?.w ?? defaultW,
+      h: resolved?.combo?.h ?? defaultH,
+    };
+  }
+
+  /**
    * HP바 높이 산출 (Issue #265 / A11Y-004: 저시력 모드 fontScale 반영, 기본 32px -> 상한 64px 클램프)
    */
   getHpBarHeight(fontScale?: number): number {
@@ -67,14 +282,15 @@ export class HUDLayer {
   private _renderHpBars(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
     // Issue #132: 1m+ 원거리 가독성을 위한 HP바 및 수치 텍스트 대형화 (UI_LAYOUT 슬롯 참조)
     // Issue #265: 저시력 모드(A11Y-004) 동적 스케일링 (기본 32px -> Math.min(64, 32 * fontScale))
-    const hpSlot = UI_LAYOUT.hud.playerHpBar;
-    const barW = Math.min(hpSlot.w, w * 0.28);
-    const barH = this.getHpBarHeight();
-    const y = hpSlot.y;
-    const pad = hpSlot.x;
+    const resolved = this._resolveContext();
+    const pBounds = this.getPlayerHpBarBounds(w);
+    const pad = pBounds.x;
+    const y = pBounds.y;
+    const barW = pBounds.w;
+    const barH = pBounds.h;
 
     // 플레이어 HP (좌측)
-    const hpFrameImg = imageLoader.get('hud', 'hpBarFrame');
+    const hpFrameImg = resolved?.playerHpBar?.image ?? imageLoader.get('hud', 'hpBarFrame');
     const playerFillImg = imageLoader.get('hud', 'hpBarFillPlayer');
     const legacyPlayerImg = imageLoader.get('hud', 'playerHpBar');
 
@@ -90,7 +306,7 @@ export class HUDLayer {
           ctx.drawImage(playerFillImg, 0, 0, srcW, playerFillImg.height, pad, y, fillW, barH);
         } else {
           const pGrad = ctx.createLinearGradient(pad, 0, pad + barW, 0);
-          pGrad.addColorStop(0, '#28E6FF');
+          pGrad.addColorStop(0, resolved?.playerHpBar?.color ?? '#28E6FF');
           pGrad.addColorStop(1, '#4DFFAA');
           ctx.fillStyle = pGrad;
           ctx.fillRect(pad, y, fillW, barH);
@@ -110,7 +326,7 @@ export class HUDLayer {
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
       ctx.fillRect(pad, y, barW, barH);
       const pGrad = ctx.createLinearGradient(pad, 0, pad + barW, 0);
-      pGrad.addColorStop(0, '#28E6FF');
+      pGrad.addColorStop(0, resolved?.playerHpBar?.color ?? '#28E6FF');
       pGrad.addColorStop(1, '#4DFFAA');
       ctx.fillStyle = pGrad;
       ctx.fillRect(pad, y, barW * Math.max(0, this._displayPlayerHp), barH);
@@ -127,55 +343,62 @@ export class HUDLayer {
     ctx.font = UIText.getFont('caption', 1.0, 'bold', 'sans-serif', 26);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`HP ${data.playerHp}/${data.playerMaxHp}`, pad + 8, y + barH / 2);
+    const playerHpLabel = resolved?.playerHpBar?.label ?? `HP ${data.playerHp}/${data.playerMaxHp}`;
+    ctx.fillText(playerHpLabel, pad + 8, y + barH / 2);
     ctx.restore();
 
     // 보스 HP (우측)
-    const bx = w - pad - barW;
+    const bBounds = this.getBossHpBarBounds(w);
+    const bx = bBounds.x;
+    const by = bBounds.y;
+    const bossBarW = bBounds.w;
+    const bossBarH = bBounds.h;
+
+    const bossFrameImg = resolved?.bossHpBar?.image ?? hpFrameImg;
     const bossFillImg = imageLoader.get('hud', 'hpBarFillBoss');
     const legacyBossImg = imageLoader.get('hud', 'bossHpBar');
 
-    if (hpFrameImg || bossFillImg) {
+    if (bossFrameImg || bossFillImg) {
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(bx, y, barW, barH);
+      ctx.fillRect(bx, by, bossBarW, bossBarH);
 
       const currentRatio = Math.max(0, Math.min(1, this._displayBossHp));
       if (currentRatio > 0) {
-        const bossBarW = barW * currentRatio;
+        const fillW = bossBarW * currentRatio;
         if (bossFillImg) {
           const srcW = bossFillImg.width * currentRatio;
           const srcX = bossFillImg.width - srcW;
-          ctx.drawImage(bossFillImg, srcX, 0, srcW, bossFillImg.height, bx + barW - bossBarW, y, bossBarW, barH);
+          ctx.drawImage(bossFillImg, srcX, 0, srcW, bossFillImg.height, bx + bossBarW - fillW, by, fillW, bossBarH);
         } else {
-          const bGrad = ctx.createLinearGradient(bx + barW, 0, bx, 0);
-          bGrad.addColorStop(0, '#FF4444');
+          const bGrad = ctx.createLinearGradient(bx + bossBarW, 0, bx, 0);
+          bGrad.addColorStop(0, resolved?.bossHpBar?.color ?? '#FF4444');
           bGrad.addColorStop(1, '#FF8844');
           ctx.fillStyle = bGrad;
-          ctx.fillRect(bx + barW - bossBarW, y, bossBarW, barH);
+          ctx.fillRect(bx + bossBarW - fillW, by, fillW, bossBarH);
         }
       }
 
-      if (hpFrameImg) {
-        ctx.drawImage(hpFrameImg, bx, y, barW, barH);
+      if (bossFrameImg) {
+        ctx.drawImage(bossFrameImg, bx, by, bossBarW, bossBarH);
       } else {
         ctx.strokeStyle = 'rgba(255,255,255,0.4)';
         ctx.lineWidth = 2.5;
-        ctx.strokeRect(bx, y, barW, barH);
+        ctx.strokeRect(bx, by, bossBarW, bossBarH);
       }
     } else if (legacyBossImg) {
-      ctx.drawImage(legacyBossImg, bx, y, barW, barH);
+      ctx.drawImage(legacyBossImg, bx, by, bossBarW, bossBarH);
     } else {
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(bx, y, barW, barH);
-      const bGrad = ctx.createLinearGradient(bx + barW, 0, bx, 0);
-      bGrad.addColorStop(0, '#FF4444');
+      ctx.fillRect(bx, by, bossBarW, bossBarH);
+      const bGrad = ctx.createLinearGradient(bx + bossBarW, 0, bx, 0);
+      bGrad.addColorStop(0, resolved?.bossHpBar?.color ?? '#FF4444');
       bGrad.addColorStop(1, '#FF8844');
       ctx.fillStyle = bGrad;
-      const bossBarW = barW * Math.max(0, this._displayBossHp);
-      ctx.fillRect(bx + barW - bossBarW, y, bossBarW, barH);
+      const fillBossW = bossBarW * Math.max(0, this._displayBossHp);
+      ctx.fillRect(bx + bossBarW - fillBossW, by, fillBossW, bossBarH);
       ctx.strokeStyle = 'rgba(255,255,255,0.4)';
       ctx.lineWidth = 2.5;
-      ctx.strokeRect(bx, y, barW, barH);
+      ctx.strokeRect(bx, by, bossBarW, bossBarH);
     }
 
     ctx.save();
@@ -185,61 +408,73 @@ export class HUDLayer {
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
     ctx.font = UIText.getFont('caption', 1.0, 'bold', 'sans-serif', 26);
-    ctx.fillText(`HP ${data.bossHp}/${data.bossMaxHp}`, bx + barW - 8, y + barH / 2);
+    const bossHpLabel = resolved?.bossHpBar?.label ?? `HP ${data.bossHp}/${data.bossMaxHp}`;
+    ctx.fillText(bossHpLabel, bx + bossBarW - 8, by + bossBarH / 2);
     ctx.restore();
   }
 
   private _renderCombo(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
     if (data.combo <= 0) return;
-    const badgeSlot = UI_LAYOUT.hud.comboBadge ?? { w: 160, h: 48, y: 48, marginRight: 24 };
-    const comboImg = imageLoader.get('hud', 'comboBadge');
+    const resolved = this._resolveContext();
+    const cBounds = this.getComboBounds(w);
+    const badgeW = cBounds.w;
+    const badgeH = cBounds.h;
+    const badgeX = cBounds.x;
+    const badgeY = cBounds.y;
+
+    const comboImg = resolved?.combo?.image ?? imageLoader.get('hud', 'comboBadge');
     if (comboImg) {
-      const badgeW = badgeSlot.w;
-      const badgeH = badgeSlot.h;
-      ctx.drawImage(comboImg, w - badgeW - badgeSlot.marginRight, badgeSlot.y, badgeW, badgeH);
+      ctx.drawImage(comboImg, badgeX, badgeY, badgeW, badgeH);
     }
 
-    const comboText = `COMBO x${data.combo}`;
+    const comboText = resolved?.combo?.label ?? `COMBO x${data.combo}`;
     const font = UIText.getFont(data.combo >= 5 ? 'body' : 'badge', 1.0, 'bold');
 
     ctx.save();
     ctx.font = font;
 
     const comboIcon = imageLoader.get('hud', 'comboIcon');
+    const textRight = badgeX + badgeW;
+    const textY = badgeY + badgeH / 2 + 4;
+
     if (comboIcon) {
       const textW = ctx.measureText ? ctx.measureText(comboText).width : 80;
       const iconSize = 36;
-      const iconX = w - badgeSlot.marginRight - textW - iconSize - 8;
-      const iconY = 76 - iconSize / 2 - 8;
+      const iconX = textRight - textW - iconSize - 8;
+      const iconY = textY - iconSize / 2;
       ctx.drawImage(comboIcon, iconX, iconY, iconSize, iconSize);
     }
 
     ctx.shadowColor = data.combo >= 5 ? '#FFCB4D' : '#28E6FF';
     ctx.shadowBlur = 10;
-    ctx.fillStyle = data.combo >= 5 ? '#FFCB4D' : '#fff';
+    ctx.fillStyle = resolved?.combo?.color ?? (data.combo >= 5 ? '#FFCB4D' : '#fff');
     ctx.textAlign = 'right';
-    ctx.fillText(comboText, w - badgeSlot.marginRight, 76);
+    ctx.fillText(comboText, textRight, textY);
     ctx.restore();
   }
 
   private _renderBossName(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
-    const bossNameplate = imageLoader.get('hud', 'bossNameplate');
+    const resolved = this._resolveContext();
+    const nameBounds = this.getBossNameBounds(w);
+    const plateW = nameBounds.w;
+    const plateH = nameBounds.h;
+    const plateX = nameBounds.x;
+    const plateY = nameBounds.y;
+
+    const bossNameplate = resolved?.bossName?.image ?? imageLoader.get('hud', 'bossNameplate');
     if (bossNameplate) {
-      const plateW = 400;
-      const plateH = 60;
-      const plateX = (w - plateW) / 2;
-      const plateY = 6;
       ctx.drawImage(bossNameplate, plateX, plateY, plateW, plateH);
     }
 
     ctx.save();
     ctx.shadowColor = '#FF4444';
     ctx.shadowBlur = 8;
-    ctx.fillStyle = '#FFCB4D';
+    ctx.fillStyle = resolved?.bossName?.color ?? '#FFCB4D';
     ctx.font = UIText.getFont('badge', 1.0, 'bold', 'sans-serif', 28);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`Ch.${data.chapter} ${getBossName(data.chapter)}`, w / 2, 36);
+    const bossText = resolved?.bossName?.label ?? `Ch.${data.chapter} ${getBossName(data.chapter)}`;
+    ctx.fillText(bossText, plateX + plateW / 2, plateY + plateH / 2);
     ctx.restore();
   }
 
