@@ -6,7 +6,12 @@
  * - 타이틀 bold 100px (승리/패배), 챕터명 42px, 별점 54px
  * - 8개 운동 통계 1:1 매칭 74px 라인 x 44px 대형 폰트 리포트
  *
- * @see Issue #23 (GitHub #88), Issue #135, Issue #143
+ * Issue #443 (Card #443 / UI-VIS-013):
+ * - 결과 화면 표시 context와 통계 분리
+ * - 선택적 ResultPresentationContext 주입 및 bounds 조회 메서드 지원
+ * - 순수 읽기 전용 draw data 유지 및 무부작용 Fixture DTO 렌더 진입점 (renderFixture) 제공
+ *
+ * @see Issue #23 (GitHub #88), Issue #135, Issue #143, Issue #443
  */
 
 import { CALORIE_RATES, LOCOMOTION_CALORIE_RATES } from '../../config/posture.config.js';
@@ -16,6 +21,7 @@ import { getBossName } from '../data/bossData.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
 import { UI_LAYOUT } from '../../config/ui.config.js';
+import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
 
 export interface ResultData {
   victory: boolean;
@@ -33,6 +39,12 @@ export interface ResultData {
   locomotionMode?: LocomotionMode;
   /** BEAT MOTION 리듬 통계 (Issue #206 / #184) */
   rhythmStats?: BeatRhythmStats;
+  /** 사전 계산된 칼로리 (선택적) */
+  calories?: number;
+  /** 사전 계산된 별 등급 (선택적) */
+  stars?: number;
+  /** 사전 계산된 랭크 등급 (선택적) */
+  rank?: RankGrade;
 }
 
 export interface ResultPanelLayout {
@@ -41,6 +53,60 @@ export interface ResultPanelLayout {
   w: number;
   h: number;
 }
+
+export type ResultBounds = ResultPanelLayout;
+
+export interface ResultPanelBoundsOverride {
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  backgroundColor?: string;
+  borderColor?: string;
+}
+
+export interface ResultSlotOverride {
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  text?: string;
+  color?: string;
+  fontSize?: number;
+  lineHeight?: number;
+}
+
+export interface ResultPresentationContext {
+  presentationDocument?: UIPresentationDocument;
+  pageId?: UIPresentationPageId | string;
+  panel?: ResultPanelBoundsOverride;
+  title?: ResultSlotOverride;
+  chapterTitle?: ResultSlotOverride;
+  grade?: ResultSlotOverride;
+  rankStamp?: ResultSlotOverride;
+  stats?: ResultSlotOverride;
+  bottomPrompt?: ResultSlotOverride;
+}
+
+export interface ResultRendererFixtureDTO {
+  animTime?: number;
+  presentationContext?: ResultPresentationContext;
+  resultData?: Partial<ResultData>;
+}
+
+export const DEFAULT_RESULT_FIXTURE_DATA: Readonly<ResultData> = Object.freeze({
+  victory: true,
+  chapter: 1,
+  correctCount: 10,
+  totalQuestions: 10,
+  maxCombo: 10,
+  steps: 200,
+  squats: 10,
+  jumps: 5,
+  elapsedTime: 60,
+  dwellTime: 10,
+  locomotionMode: 'run',
+});
 
 /** 칼로리 계산 (자세 유지 시간 및 운동 모드별 METs 반영 확장, Issue #135 / #155) */
 export function calcCalories(
@@ -102,9 +168,16 @@ export function calcRank(
 
 export class ResultRenderer {
   private _animTime: number = 10.0; // 기본값: 안착 완료 상태 (기존 테스트 호환성 유지)
+  private _presentationContext?: ResultPresentationContext;
   readonly slideDuration: number = 0.5;
   readonly statStaggerDelay: number = 0.08;
   readonly statFadeDuration: number = 0.15;
+
+  constructor(presentationContext?: ResultPresentationContext) {
+    if (presentationContext) {
+      this.setPresentationContext(presentationContext);
+    }
+  }
 
   get animTime(): number {
     return this._animTime;
@@ -120,6 +193,159 @@ export class ResultRenderer {
 
   update(dt: number): void {
     this._animTime += dt;
+  }
+
+  /**
+   * Presentation Context 주입 (선택적 표시 컨텍스트)
+   */
+  setPresentationContext(context?: ResultPresentationContext): void {
+    this._presentationContext = context;
+  }
+
+  /**
+   * 주입된 Presentation Context 조회
+   */
+  getPresentationContext(): ResultPresentationContext | undefined {
+    return this._presentationContext;
+  }
+
+  /**
+   * Presentation Context 초기화
+   */
+  clearPresentationContext(): void {
+    this._presentationContext = undefined;
+  }
+
+  private _resolveContext(overrideCtx?: ResultPresentationContext): ResultPresentationContext | undefined {
+    const ctx = overrideCtx ?? this._presentationContext;
+    if (!ctx) return undefined;
+    if (!ctx.presentationDocument) return ctx;
+
+    const docCtx = ResultRenderer.fromPresentationDocument(ctx.presentationDocument, ctx.pageId);
+    return {
+      ...docCtx,
+      ...ctx,
+      panel: { ...docCtx.panel, ...ctx.panel },
+      title: { ...docCtx.title, ...ctx.title },
+      chapterTitle: { ...docCtx.chapterTitle, ...ctx.chapterTitle },
+      grade: { ...docCtx.grade, ...ctx.grade },
+      rankStamp: { ...docCtx.rankStamp, ...ctx.rankStamp },
+      stats: { ...docCtx.stats, ...ctx.stats },
+      bottomPrompt: { ...docCtx.bottomPrompt, ...ctx.bottomPrompt },
+    };
+  }
+
+  /**
+   * UIPresentationDocument로부터 ResultPresentationContext 추출
+   */
+  static fromPresentationDocument(
+    doc: UIPresentationDocument,
+    pageId: UIPresentationPageId | string = 'result',
+  ): ResultPresentationContext {
+    const result: ResultPresentationContext = {
+      presentationDocument: doc,
+      pageId,
+    };
+    if (!doc?.pages) return result;
+
+    const targetPages =
+      pageId && doc.pages[pageId as UIPresentationPageId]
+        ? [doc.pages[pageId as UIPresentationPageId]]
+        : Object.values(doc.pages);
+
+    for (const page of targetPages) {
+      if (!page?.elements) continue;
+      for (const el of page.elements) {
+        if (!el?.bounds) continue;
+        const b = el.bounds;
+        const boundsObj = {
+          x: b.x,
+          y: b.y,
+          w: b.width ?? (b as any).w ?? 0,
+          h: b.height ?? (b as any).h ?? 0,
+        };
+
+        if (
+          el.id === 'result_panel' ||
+          el.id === 'panel' ||
+          el.id === 'res_panel' ||
+          el.id === 'card'
+        ) {
+          result.panel = {
+            ...boundsObj,
+            backgroundColor: (el as any).style?.backgroundColor,
+            borderColor: (el as any).style?.borderColor,
+            ...result.panel,
+          };
+        } else if (
+          el.id === 'res_title' ||
+          el.id === 'result_title' ||
+          el.id === 'title'
+        ) {
+          result.title = {
+            ...boundsObj,
+            text: el.text,
+            color: (el as any).style?.fillColor ?? (el as any).style?.textColor,
+            fontSize: (el as any).style?.fontSize,
+            ...result.title,
+          };
+        } else if (
+          el.id === 'res_chapter' ||
+          el.id === 'result_chapter' ||
+          el.id === 'chapter'
+        ) {
+          result.chapterTitle = {
+            ...boundsObj,
+            text: el.text,
+            color: (el as any).style?.fillColor ?? (el as any).style?.textColor,
+            fontSize: (el as any).style?.fontSize,
+            ...result.chapterTitle,
+          };
+        } else if (
+          el.id === 'res_grade' ||
+          el.id === 'result_grade' ||
+          el.id === 'grade' ||
+          el.id === 'stars'
+        ) {
+          result.grade = {
+            ...boundsObj,
+            text: el.text,
+            ...result.grade,
+          };
+        } else if (
+          el.id === 'res_rank' ||
+          el.id === 'rank_stamp' ||
+          el.id === 'rank'
+        ) {
+          result.rankStamp = {
+            ...boundsObj,
+            ...result.rankStamp,
+          };
+        } else if (
+          el.id === 'res_stats' ||
+          el.id === 'result_stats' ||
+          el.id === 'stats'
+        ) {
+          result.stats = {
+            ...boundsObj,
+            fontSize: (el as any).style?.fontSize,
+            ...result.stats,
+          };
+        } else if (
+          el.id === 'res_footer' ||
+          el.id === 'result_footer' ||
+          el.id === 'footer' ||
+          el.id === 'bottom_prompt'
+        ) {
+          result.bottomPrompt = {
+            ...boundsObj,
+            text: el.text,
+            ...result.bottomPrompt,
+          };
+        }
+      }
+    }
+    return result;
   }
 
   /**
@@ -156,18 +382,176 @@ export class ResultRenderer {
   }
 
   /**
+   * 결과 패널 바운딩 박스 반환 (UI_LAYOUT.result.panel 연동 및 PresentationContext 지원)
+   */
+  getPanelBounds(w: number, h: number, context?: ResultPresentationContext): ResultBounds {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    const ctx = this._resolveContext(context);
+    const slot = UI_LAYOUT.result.panel;
+
+    const x = ctx?.panel?.x !== undefined ? ctx.panel.x * scaleX : slot.x * scaleX;
+    const y = ctx?.panel?.y !== undefined ? ctx.panel.y * scaleY : slot.y * scaleY;
+    const pw = ctx?.panel?.w !== undefined ? ctx.panel.w * scaleX : slot.w * scaleX;
+    const ph = ctx?.panel?.h !== undefined ? ctx.panel.h * scaleY : slot.h * scaleY;
+
+    return { x, y, w: pw, h: ph };
+  }
+
+  /**
    * 마젠타 결과 카드 패널 레이아웃 (1080x2160 기준 UI_LAYOUT.result.panel 연동)
    */
   getPanelLayout(w: number, h: number): ResultPanelLayout {
+    return this.getPanelBounds(w, h);
+  }
+
+  /**
+   * 타이틀 영역 바운딩 박스 반환
+   */
+  getTitleBounds(w: number, h: number, context?: ResultPresentationContext): ResultBounds {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
-    const slot = UI_LAYOUT.result.panel;
+    const ctx = this._resolveContext(context);
+    const panel = this.getPanelBounds(w, h, ctx);
+    const titleY = panel.y + 110 * scaleY;
+    const bw = 600 * scaleX;
+    const bh = 160 * scaleY;
+
+    const x = ctx?.title?.x !== undefined ? ctx.title.x * scaleX : (w - bw) / 2;
+    const y = ctx?.title?.y !== undefined ? ctx.title.y * scaleY : titleY - bh / 2;
+    const tw = ctx?.title?.w !== undefined ? ctx.title.w * scaleX : bw;
+    const th = ctx?.title?.h !== undefined ? ctx.title.h * scaleY : bh;
+
+    return { x, y, w: tw, h: th };
+  }
+
+  /**
+   * 챕터/보스명 영역 바운딩 박스 반환
+   */
+  getChapterTitleBounds(w: number, h: number, context?: ResultPresentationContext): ResultBounds {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    const ctx = this._resolveContext(context);
+    const panel = this.getPanelBounds(w, h, ctx);
+    const titleY = panel.y + 110 * scaleY;
+    const cy = titleY + 90 * scaleY;
+    const ch = 50 * scaleY;
+
+    const x = ctx?.chapterTitle?.x !== undefined ? ctx.chapterTitle.x * scaleX : panel.x + 40 * scaleX;
+    const y = ctx?.chapterTitle?.y !== undefined ? ctx.chapterTitle.y * scaleY : cy - ch / 2;
+    const cw = ctx?.chapterTitle?.w !== undefined ? ctx.chapterTitle.w * scaleX : panel.w - 80 * scaleX;
+    const rh = ctx?.chapterTitle?.h !== undefined ? ctx.chapterTitle.h * scaleY : ch;
+
+    return { x, y, w: cw, h: rh };
+  }
+
+  /**
+   * 별 등급 영역 바운딩 박스 반환
+   */
+  getGradeBounds(w: number, h: number, context?: ResultPresentationContext): ResultBounds {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    const ctx = this._resolveContext(context);
+    const panel = this.getPanelBounds(w, h, ctx);
+    const titleY = panel.y + 110 * scaleY;
+    const starSize = 54 * scaleX;
+    const gw = 3 * starSize;
+    const gh = starSize;
+    const gy = titleY + 165 * scaleY - starSize / 2;
+
+    const x = ctx?.grade?.x !== undefined ? ctx.grade.x * scaleX : (w - gw) / 2;
+    const y = ctx?.grade?.y !== undefined ? ctx.grade.y * scaleY : gy;
+    const rw = ctx?.grade?.w !== undefined ? ctx.grade.w * scaleX : gw;
+    const rh = ctx?.grade?.h !== undefined ? ctx.grade.h * scaleY : gh;
+
+    return { x, y, w: rw, h: rh };
+  }
+
+  /**
+   * 랭크 스탬프 바운딩 박스 반환
+   */
+  getRankStampBounds(w: number, h: number, context?: ResultPresentationContext): ResultBounds {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    const ctx = this._resolveContext(context);
+    const panel = this.getPanelBounds(w, h, ctx);
+    const size = 180 * scaleX;
+
+    const x =
+      ctx?.rankStamp?.x !== undefined
+        ? ctx.rankStamp.x * scaleX
+        : panel.x + panel.w - size - 40 * scaleX;
+    const y =
+      ctx?.rankStamp?.y !== undefined
+        ? ctx.rankStamp.y * scaleY
+        : panel.y + 40 * scaleY;
+    const rw = ctx?.rankStamp?.w !== undefined ? ctx.rankStamp.w * scaleX : size;
+    const rh = ctx?.rankStamp?.h !== undefined ? ctx.rankStamp.h * scaleY : size;
+
+    return { x, y, w: rw, h: rh };
+  }
+
+  /**
+   * 랭크 스탬프 레이아웃 (우측 상단 엠블럼, 기존 호환성 유지)
+   */
+  getRankStampLayout(w: number, h: number): ResultBounds {
+    return this.getRankStampBounds(w, h);
+  }
+
+  /**
+   * 통계 리포트 전체 영역 바운딩 박스 반환
+   */
+  getStatsBounds(w: number, h: number, context?: ResultPresentationContext): ResultBounds {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    const ctx = this._resolveContext(context);
+    const panel = this.getPanelBounds(w, h, ctx);
+    const startY = ctx?.stats?.y !== undefined ? ctx.stats.y * scaleY : panel.y + 470 * scaleY;
+    const lineH = ctx?.stats?.lineHeight !== undefined ? Math.round(ctx.stats.lineHeight * scaleY) : this.getStatLineHeight(h);
+    const totalH = ctx?.stats?.h !== undefined ? ctx.stats.h * scaleY : 8 * lineH;
+
+    const x = ctx?.stats?.x !== undefined ? ctx.stats.x * scaleX : panel.x + 60 * scaleX;
+    const y = startY;
+    const sw = ctx?.stats?.w !== undefined ? ctx.stats.w * scaleX : panel.w - 120 * scaleX;
+    const sh = totalH;
+
+    return { x, y, w: sw, h: sh };
+  }
+
+  /**
+   * 개별 통계 라인 바운딩 박스 반환
+   */
+  getStatLineBounds(index: number, w: number, h: number, context?: ResultPresentationContext): ResultBounds {
+    const scaleY = h / 2160;
+    const ctx = this._resolveContext(context);
+    const statsBounds = this.getStatsBounds(w, h, ctx);
+    const lineH = ctx?.stats?.lineHeight !== undefined ? Math.round(ctx.stats.lineHeight * scaleY) : this.getStatLineHeight(h);
+
     return {
-      x: slot.x * scaleX,
-      y: slot.y * scaleY,
-      w: slot.w * scaleX,
-      h: slot.h * scaleY,
+      x: statsBounds.x,
+      y: statsBounds.y + index * lineH,
+      w: statsBounds.w,
+      h: lineH,
     };
+  }
+
+  /**
+   * 하단 안내 문구 바운딩 박스 반환
+   */
+  getBottomPromptBounds(w: number, h: number, context?: ResultPresentationContext): ResultBounds {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    const ctx = this._resolveContext(context);
+    const panel = this.getPanelBounds(w, h, ctx);
+    const promptY = panel.y + panel.h - 50 * scaleY;
+    const ph = ctx?.bottomPrompt?.h !== undefined ? ctx.bottomPrompt.h * scaleY : 40 * scaleY;
+
+    const x = ctx?.bottomPrompt?.x !== undefined ? ctx.bottomPrompt.x * scaleX : panel.x;
+    const y = ctx?.bottomPrompt?.y !== undefined ? ctx.bottomPrompt.y * scaleY : promptY - ph / 2;
+    const pw = ctx?.bottomPrompt?.w !== undefined ? ctx.bottomPrompt.w * scaleX : panel.w;
+    const rh = ph;
+
+    return { x, y, w: pw, h: rh };
   }
 
   /**
@@ -185,24 +569,54 @@ export class ResultRenderer {
   }
 
   /**
-   * 랭크 스탬프 레이아웃 (우측 상단 엠블럼)
+   * 결정적 Fixture DTO 렌더 진입 (인스턴스 기반, 게임 라이프사이클 영향 0건)
    */
-  getRankStampLayout(w: number, h: number): { x: number; y: number; w: number; h: number } {
-    const scaleX = w / 1080;
-    const scaleY = h / 2160;
-    const panel = this.getPanelLayout(w, h);
-    const size = 180 * scaleX;
-    return {
-      x: panel.x + panel.w - size - 40 * scaleX,
-      y: panel.y + 40 * scaleY,
-      w: size,
-      h: size,
+  renderFixture(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    dto?: ResultRendererFixtureDTO,
+  ): void {
+    const rawData = dto?.resultData ?? {};
+    const effectiveData: ResultData = {
+      ...DEFAULT_RESULT_FIXTURE_DATA,
+      ...rawData,
     };
+    const prevAnim = this._animTime;
+    const prevCtx = this._presentationContext;
+
+    if (dto?.animTime !== undefined) {
+      this._animTime = dto.animTime;
+    }
+    if (dto?.presentationContext) {
+      this._presentationContext = dto.presentationContext;
+    }
+
+    try {
+      this.render(ctx, w, h, effectiveData);
+    } finally {
+      this._animTime = prevAnim;
+      this._presentationContext = prevCtx;
+    }
+  }
+
+  /**
+   * 정적 Fixture DTO 렌더 진입 (에디터 프리뷰 등에서 인스턴스 없이 직접 렌더링)
+   */
+  static renderFixture(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    dto?: ResultRendererFixtureDTO,
+  ): void {
+    const renderer = new ResultRenderer(dto?.presentationContext);
+    renderer.renderFixture(ctx, w, h, dto);
   }
 
   render(ctx: CanvasRenderingContext2D, w: number, h: number, data: ResultData): void {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
+    const effectiveCtx = this._resolveContext();
 
     ctx.save();
 
@@ -217,15 +631,15 @@ export class ResultRenderer {
     }
 
     // 2. 마젠타 결과 카드 패널 (x: 100, y: 240, w: 880, h: 1580)
-    const panel = this.getPanelLayout(w, h);
+    const panel = this.getPanelBounds(w, h, effectiveCtx);
     const panelImg = imageLoader.get('result', 'panelBg');
     if (panelImg) {
       ctx.drawImage(panelImg, panel.x, panel.y, panel.w, panel.h);
     } else {
-      ctx.fillStyle = 'rgba(20, 10, 30, 0.95)';
-      ctx.strokeStyle = '#FF28D8';
+      ctx.fillStyle = effectiveCtx?.panel?.backgroundColor ?? 'rgba(20, 10, 30, 0.95)';
+      ctx.strokeStyle = effectiveCtx?.panel?.borderColor ?? '#FF28D8';
       ctx.lineWidth = 3.5 * scaleX;
-      ctx.shadowColor = '#FF28D8';
+      ctx.shadowColor = effectiveCtx?.panel?.borderColor ?? '#FF28D8';
       ctx.shadowBlur = 18 * scaleX;
       ctx.beginPath();
       if (ctx.roundRect) {
@@ -242,37 +656,42 @@ export class ResultRenderer {
     ctx.textBaseline = 'middle';
 
     // 3. 타이틀 영역: bold 100px ("승리!" / "패배...")
-    const titleY = panel.y + 110 * scaleY;
+    const titleBounds = this.getTitleBounds(w, h, effectiveCtx);
     const titleImg = data.victory
       ? (imageLoader.get('result', 'victoryTitle') ?? imageLoader.get('result', 'victoryBadge'))
       : (imageLoader.get('result', 'defeatTitle') ?? imageLoader.get('result', 'defeatBadge'));
     if (titleImg) {
-      const bw = 600 * scaleX;
-      const bh = 160 * scaleY;
-      ctx.drawImage(titleImg, (w - bw) / 2, titleY - bh / 2, bw, bh);
+      ctx.drawImage(titleImg, titleBounds.x, titleBounds.y, titleBounds.w, titleBounds.h);
     } else {
+      const defaultTitle = data.victory ? '승리!' : '패배...';
+      const defaultColor = data.victory ? '#4DFFAA' : '#FF4444';
+      const titleText = effectiveCtx?.title?.text ?? defaultTitle;
+      const titleColor = effectiveCtx?.title?.color ?? defaultColor;
       ctx.font = UIText.getFont('hero', scaleX, 'bold');
-      ctx.fillStyle = data.victory ? '#4DFFAA' : '#FF4444';
-      ctx.shadowColor = data.victory ? '#4DFFAA' : '#FF4444';
+      ctx.fillStyle = titleColor;
+      ctx.shadowColor = titleColor;
       ctx.shadowBlur = 20 * scaleX;
-      ctx.fillText(data.victory ? '승리!' : '패배...', w / 2, titleY);
+      ctx.fillText(titleText, titleBounds.x + titleBounds.w / 2, titleBounds.y + titleBounds.h / 2);
       ctx.shadowBlur = 0;
     }
 
     // 챕터명: bold 42px
+    const chapterBounds = this.getChapterTitleBounds(w, h, effectiveCtx);
+    const chapterText = effectiveCtx?.chapterTitle?.text ?? `Ch.${data.chapter} ${getBossName(data.chapter)}`;
     ctx.font = UIText.getFont('body', scaleX, 'bold');
-    ctx.fillStyle = '#FFCB4D';
-    ctx.fillText(`Ch.${data.chapter} ${getBossName(data.chapter)}`, w / 2, titleY + 90 * scaleY);
+    ctx.fillStyle = effectiveCtx?.chapterTitle?.color ?? '#FFCB4D';
+    ctx.fillText(chapterText, chapterBounds.x + chapterBounds.w / 2, chapterBounds.y + chapterBounds.h / 2);
 
     // 별 등급 (승리 시): bold 54px
     if (data.victory) {
-      const stars = calcStars(data.correctCount, data.totalQuestions, data.elapsedTime);
+      const stars = data.stars ?? calcStars(data.correctCount, data.totalQuestions, data.elapsedTime);
+      const gradeBounds = this.getGradeBounds(w, h, effectiveCtx);
       const starFilledImg = imageLoader.get('result', 'starFilled');
       const starEmptyImg = imageLoader.get('result', 'starEmpty');
       if (starFilledImg && starEmptyImg) {
         const starSize = 54 * scaleX;
-        const startX = w / 2 - (3 * starSize) / 2;
-        const starY = titleY + 165 * scaleY - starSize / 2;
+        const startX = gradeBounds.x;
+        const starY = gradeBounds.y;
         for (let s = 0; s < 3; s++) {
           const sImg = s < stars ? starFilledImg : starEmptyImg;
           ctx.drawImage(sImg, startX + s * starSize, starY, starSize, starSize);
@@ -282,14 +701,14 @@ export class ResultRenderer {
         ctx.fillStyle = '#FFCB4D';
         ctx.shadowColor = '#FFCB4D';
         ctx.shadowBlur = 14 * scaleX;
-        ctx.fillText('★'.repeat(stars) + '☆'.repeat(3 - stars), w / 2, titleY + 165 * scaleY);
+        ctx.fillText('★'.repeat(stars) + '☆'.repeat(Math.max(0, 3 - stars)), gradeBounds.x + gradeBounds.w / 2, gradeBounds.y + gradeBounds.h / 2);
         ctx.shadowBlur = 0;
       }
     }
 
     // 3.5. 종합 평가 랭크 스탬프 (S / A / B / C)
-    const rank = calcRank(data.correctCount, data.totalQuestions, data.elapsedTime, data.victory);
-    const stampLayout = this.getRankStampLayout(w, h);
+    const rank = data.rank ?? calcRank(data.correctCount, data.totalQuestions, data.elapsedTime, data.victory);
+    const stampLayout = this.getRankStampBounds(w, h, effectiveCtx);
     const stampKey = `rankStamp${rank}` as const;
     const stampImg = imageLoader.get('result', stampKey);
 
@@ -339,17 +758,27 @@ export class ResultRenderer {
     }
 
     // 4. 8개 운동 통계 리포트 (74px 라인 x bold 44px 1:1 매칭)
-    const statStartY = panel.y + (data.victory ? 470 : 380) * scaleY;
-    const lineH = this.getStatLineHeight(h);
+    const statsBounds = this.getStatsBounds(w, h, effectiveCtx);
+    const lineH = effectiveCtx?.stats?.lineHeight !== undefined
+      ? Math.round(effectiveCtx.stats.lineHeight * scaleY)
+      : this.getStatLineHeight(h);
+    const statStartY = effectiveCtx?.stats?.y !== undefined
+      ? statsBounds.y
+      : panel.y + (data.victory ? 470 : 380) * scaleY;
+    const statFontSize = effectiveCtx?.stats?.fontSize !== undefined
+      ? Math.round(effectiveCtx.stats.fontSize * scaleX)
+      : this.getStatFontSize(w);
 
-    ctx.font = UIText.getFont('subheading', scaleX, 'bold');
+    ctx.font = effectiveCtx?.stats?.fontSize !== undefined
+      ? `bold ${statFontSize}px sans-serif`
+      : UIText.getFont('subheading', scaleX, 'bold');
     ctx.fillStyle = '#FFFFFF';
 
     const accuracy = data.totalQuestions > 0
       ? Math.round((data.correctCount / data.totalQuestions) * 100)
       : 0;
     const dwell = data.dwellTime ?? 0;
-    const calories = calcCalories(data.steps, data.squats, data.jumps, dwell, data.locomotionMode);
+    const calories = data.calories ?? calcCalories(data.steps, data.squats, data.jumps, dwell, data.locomotionMode);
     const timeStr = `${Math.floor(data.elapsedTime / 60)}분 ${String(Math.floor(data.elapsedTime % 60)).padStart(2, '0')}초`;
     const stepLine = getLocomotionStatLine(data.locomotionMode, data.steps);
 
@@ -443,10 +872,15 @@ export class ResultRenderer {
     }
 
     // 5. 하단 안내문
+    const promptBounds = this.getBottomPromptBounds(w, h, effectiveCtx);
+    const promptText = effectiveCtx?.bottomPrompt?.text ?? '양손을 모으거나 하단 [메뉴로] 버튼을 클릭하세요';
     ctx.textAlign = 'center';
     ctx.font = UIText.getFont('label', scaleX, 'normal');
     ctx.fillStyle = '#BBBBBB';
-    ctx.fillText('양손을 모으거나 하단 [메뉴로] 버튼을 클릭하세요', w / 2, panel.y + panel.h - 50 * scaleY);
+    if (effectiveCtx?.bottomPrompt?.color) {
+      ctx.fillStyle = effectiveCtx.bottomPrompt.color;
+    }
+    ctx.fillText(promptText, promptBounds.x + promptBounds.w / 2, promptBounds.y + promptBounds.h / 2);
 
     ctx.restore();
     ctx.restore();
