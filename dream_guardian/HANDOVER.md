@@ -2,6 +2,12 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## ⏸️ 답안 선택 후 2박 쉼표(Rest Delay) 도입 트랙 (ANSWER-REST, 2026-10-08)
+
+- **작업 카드**: [▶ NEXT] [#498 ANSWER-REST-001](https://github.com/Choyounhwa/-dream-guardian/issues/498) 답안 선택 후 2박 쉼표(Rest Delay) 도입 및 분기 전이 완충
+- **목적**: 답안 선택(팔 뻗기 또는 클릭 폴백) 직후 즉시 STAR_COLLECT / HAZARD_EVADE로 급격하게 전이되는 문제를 해결하기 위해, 정답/오답/타임아웃 확정 후 2박(BPM 120 기준 1.0초) 동안 답안 피드백 및 선택 상태를 유지하는 쉼표(Rest Delay) 구간을 거친 뒤 다음 단계로 부드럽게 전이되도록 한다.
+- **수정 대상**: `src/game/BeatRunCoordinator.ts`, `tests/unit/beat-run-coordinator.test.ts`
+
 ## 👣 3레인·발자국·리듬노트 단일화 및 궤적 고정 트랙 (LANE-SYNC, 2026-10-08)
 
 - 관리 카드: [✔ 완료] [#493 LANE-SYNC-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/493) (3레인·발자국·리듬노트 단일화 및 궤적 고정 전 과정 완주)
@@ -26,6 +32,18 @@
   - [✔] [#489 AVATAR-02](https://github.com/Choyounhwa/-dream-guardian/issues/489) 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화 및 EMA 스무딩 (완료)
   - [✔] [#490 AVATAR-03](https://github.com/Choyounhwa/-dream-guardian/issues/490) 화면 이탈 감지 및 중앙 복귀 유도 가이드 UI (완료)
   - [✔] [#491 AVATAR-04](https://github.com/Choyounhwa/-dream-guardian/issues/491) 캐릭터 교체용 `IAvatarRenderer` 인터페이스 추상화 (완료)
+  - [✔] [#496 BUG-AVATAR-002](https://github.com/Choyounhwa/-dream-guardian/issues/496) 졸라맨 가로 위치 앵커 및 모션 이중 미러링 반전 결함 수정 (완료)
+
+### [✔ 완료] #496 [BUG-AVATAR-002] 졸라맨 가로 위치 앵커 및 모션 이중 미러링 반전 결함 수정 (2026-10-08)
+- **작업 목적**:
+  - `PoseManager`의 미러 가상 좌표계(`virtualLandmarks`)와 `StickmanRenderer` 가로 앵커 동기화 간의 이중 반전을 해소하여, 스켈레톤/커서/유저의 실제 움직임과 졸라맨이 동일한 방향(1:1 일치)으로 자연스럽게 움직이도록 수정.
+- **수정 내용**:
+  - `StickmanRenderer.ts`: 가로 앵커 `rawUserX` 계산 시 랜드마크가 이미 미러링된 화면 좌표계(`isLandmarkMirrored = !(rs.x < ls.x)`)인지 확인하여 이중 반전을 제거하고 1:1 동기화. 원본 비미러 카메라 좌표계(`rs.x < ls.x`)일 때만 미러 모드 반전(`1.0 - rawHipX`) 적용. 관절 각도 계산의 `isMirrored`와도 완벽히 정합.
+  - `stickman-renderer.test.ts`: 미러링된 화면 랜드마크(`ls.x = 0.65, rs.x = 0.75`) 인입 시 졸라맨의 `currentAnchorXRatio`가 우측(0.7)으로 이동함을 검증하는 테스트 추가 및 기대값 갱신 (39건 100% 통과).
+- **수정 파일**:
+  1. `dream_guardian/src/skeleton/StickmanRenderer.ts`
+  2. `dream_guardian/tests/unit/stickman-renderer.test.ts`
+
 
 ### [✔ 완료] #491 [AVATAR-04] 캐릭터 교체용 IAvatarRenderer 인터페이스 추상화 (2026-10-08)
 - **작업 목적**:

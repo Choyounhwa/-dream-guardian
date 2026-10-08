@@ -219,7 +219,7 @@ export class StickmanRenderer implements IAvatarRenderer {
 
     this._hasValidPose = true;
 
-    // Issue #489 [AVATAR-02]: 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화
+    // Issue #489 & #496 [BUG-AVATAR-002]: 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화
     let rawHipX = 0.5;
     if (hasHips) {
       rawHipX = (lh.x + rh.x) / 2;
@@ -231,8 +231,20 @@ export class StickmanRenderer implements IAvatarRenderer {
       rawHipX = rawHipX / 1920;
     }
 
-    const mirror = actualOptions?.mirror !== undefined ? actualOptions.mirror : this.isMirrored;
-    const rawUserX = mirror ? 1.0 - rawHipX : rawHipX;
+    // 랜드마크가 이미 미러링된 화면 좌표계인지 판단:
+    // 거울 화면 뷰에서는 유저의 오른어깨(또는 골반)가 화면 우측(rs.x >= ls.x)에 위치합니다.
+    const isLandmarkMirrored = hasShoulders
+      ? !(rs.x < ls.x)
+      : hasHips
+        ? !(rh.x < lh.x)
+        : true;
+    const isMirrored =
+      actualOptions?.mirror !== undefined ? actualOptions.mirror : isLandmarkMirrored;
+
+    // 미러링 화면 좌표계(isMirrored === true)에서는 rawHipX가 이미 화면 좌표계와 일치하므로 1:1 반영
+    // 원본 비미러 카메라 좌표계(isMirrored === false)인 경우에만 미러 모드(this.isMirrored) 시 1 - rawHipX 반전
+    const shouldInvert = this.isMirrored && !isMirrored;
+    const rawUserX = shouldInvert ? 1.0 - rawHipX : rawHipX;
     const targetX = Math.max(clampMin, Math.min(clampMax, rawUserX));
 
     if (!this._initialized) {
@@ -270,7 +282,6 @@ export class StickmanRenderer implements IAvatarRenderer {
     // 3. 미러링 정합성 판단 및 목표 관절 각도 계산 (Math.atan2)
     // 카메라 원본 좌표계(비미러)의 경우 사용자의 오른어깨가 카메라 센서 좌측(rs.x < ls.x)에 위치합니다.
     // 거울 화면 뷰(미러)에서는 좌우 X 변위가 반전되어야 하므로 dx 방향을 보정합니다.
-    const isMirrored = actualOptions?.mirror !== undefined ? actualOptions.mirror : !(rs.x < ls.x);
     const getDx = (p2: { x: number }, p1: { x: number }) =>
       isMirrored ? p2.x - p1.x : -(p2.x - p1.x);
 

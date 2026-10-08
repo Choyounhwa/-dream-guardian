@@ -624,18 +624,60 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       expect(r.isMirrored).toBe(true);
     });
 
-    it('첫 유효 포즈 시 즉시 targetX(미러링 반영: 1 - rawHipX)로 스냅 초기화된다', () => {
+    it('첫 유효 포즈 시 즉시 targetX(화면 좌표계 1:1 동기화: rawHipX)로 스냅 초기화된다', () => {
       const r = new StickmanRenderer();
       const pose = createSamplePoseLandmarks();
-      // 유저가 카메라 좌측(x = 0.4)에 위치 -> 미러 모드 화면에서는 1 - 0.4 = 0.6
+      // 유저가 화면 우측(x = 0.7: ls.x = 0.65, rs.x = 0.75)에 위치 -> 화면 좌표계 1:1 일치로 targetX = 0.7
+      pose[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.65, y: 0.32, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.75, y: 0.32, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.65, y: 0.60, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 0.75, y: 0.60, z: 0, visibility: 0.95 };
+
+      r.update(0.016, pose);
+      expect(r.currentAnchorXRatio).toBeCloseTo(0.7, 2);
+
+      const fk = r.calculateFKPositions(1000, 2000);
+      expect(fk.pelvis.x).toBeCloseTo(700, 1);
+    });
+
+    it('미러링된 가상 화면 랜드마크(ls.x=0.65, rs.x=0.75) 인입 시 졸라맨의 currentAnchorXRatio가 우측(0.7)으로 이동한다 (#496)', () => {
+      const r = new StickmanRenderer();
+      const pose = createSamplePoseLandmarks();
+      pose[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.65, y: 0.32, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.75, y: 0.32, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.65, y: 0.60, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 0.75, y: 0.60, z: 0, visibility: 0.95 };
+
+      r.update(0.016, pose);
+      expect(r.currentAnchorXRatio).toBeCloseTo(0.7, 2);
+    });
+
+    it('화면 좌측(ls.x=0.35, rs.x=0.45, rawHipX=0.4) 인입 시 targetX가 좌측(0.4)으로 일치한다', () => {
+      const r = new StickmanRenderer();
+      const pose = createSamplePoseLandmarks();
+      pose[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.35, y: 0.32, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.45, y: 0.32, z: 0, visibility: 0.95 };
       pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.35, y: 0.60, z: 0, visibility: 0.95 };
       pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 0.45, y: 0.60, z: 0, visibility: 0.95 };
 
       r.update(0.016, pose);
-      expect(r.currentAnchorXRatio).toBeCloseTo(0.6, 2);
+      expect(r.currentAnchorXRatio).toBeCloseTo(0.4, 2);
 
       const fk = r.calculateFKPositions(1000, 2000);
-      expect(fk.pelvis.x).toBeCloseTo(600, 1);
+      expect(fk.pelvis.x).toBeCloseTo(400, 1);
+    });
+
+    it('비미러 원본 카메라 랜드마크(rs.x < ls.x, rawHipX=0.3) 인입 시 미러 모드에서 targetX가 0.7로 반전된다', () => {
+      const r = new StickmanRenderer();
+      const pose = createSamplePoseLandmarks();
+      // 카메라 원본: 오른어깨가 카메라 좌측(0.25), 왼어깨가 카메라 우측(0.35)
+      pose[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.25, y: 0.32, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.35, y: 0.32, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 0.25, y: 0.60, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.35, y: 0.60, z: 0, visibility: 0.95 };
+
+      r.update(0.016, pose);
+      expect(r.currentAnchorXRatio).toBeCloseTo(0.7, 2);
     });
 
     it('이후 프레임에서 유저 이동 시 EMA 스무딩(smoothing = 0.2)이 단계적으로 적용된다', () => {
@@ -647,9 +689,9 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       r.update(0.016, pose);
       expect(r.currentAnchorXRatio).toBeCloseTo(0.5, 2);
 
-      // 프레임 2: 유저가 rawHipX = 0.3으로 이동 -> 미러 targetX = 0.7
-      pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.25, y: 0.60, z: 0, visibility: 0.95 };
-      pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 0.35, y: 0.60, z: 0, visibility: 0.95 };
+      // 프레임 2: 유저가 화면 우측(rawHipX = 0.7)으로 이동 -> targetX = 0.7
+      pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.65, y: 0.60, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 0.75, y: 0.60, z: 0, visibility: 0.95 };
       r.update(0.016, pose);
       // EMA: 0.5 + (0.7 - 0.5) * 0.2 = 0.54
       expect(r.currentAnchorXRatio).toBeCloseTo(0.54, 3);
@@ -663,16 +705,16 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       const r = new StickmanRenderer();
       const pose = createSamplePoseLandmarks();
 
-      // 유저가 카메라 좌측 극단(rawHipX = 0.05)으로 이동 -> 미러 targetX = 0.95 -> 클램프 0.82
-      pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.0, y: 0.60, z: 0, visibility: 0.95 };
-      pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 0.1, y: 0.60, z: 0, visibility: 0.95 };
+      // 유저가 화면 우측 극단(rawHipX = 0.95)으로 이동 -> targetX = 0.95 -> 클램프 0.82
+      pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.9, y: 0.60, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 1.0, y: 0.60, z: 0, visibility: 0.95 };
       r.update(0.016, pose);
       expect(r.currentAnchorXRatio).toBeCloseTo(0.82, 2);
 
-      // r.reset() 후 유저가 카메라 우측 극단(rawHipX = 0.95)으로 이동 -> 미러 targetX = 0.05 -> 클램프 0.18
+      // r.reset() 후 유저가 화면 좌측 극단(rawHipX = 0.05)으로 이동 -> targetX = 0.05 -> 클램프 0.18
       r.reset();
-      pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.9, y: 0.60, z: 0, visibility: 0.95 };
-      pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 1.0, y: 0.60, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.0, y: 0.60, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 0.1, y: 0.60, z: 0, visibility: 0.95 };
       r.update(0.016, pose);
       expect(r.currentAnchorXRatio).toBeCloseTo(0.18, 2);
     });
@@ -696,20 +738,20 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.0, y: 0.0, z: 0, visibility: 0.1 };
       pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 0.0, y: 0.0, z: 0, visibility: 0.1 };
 
-      // 어깨는 정상 (평균 0.40 -> 미러 0.60)
-      pose[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.35, y: 0.35, z: 0, visibility: 0.95 };
-      pose[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.45, y: 0.35, z: 0, visibility: 0.95 };
+      // 어깨는 정상 (화면 우측 평균 0.70 -> targetX = 0.70)
+      pose[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.65, y: 0.35, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.75, y: 0.35, z: 0, visibility: 0.95 };
 
       r.update(0.016, pose);
-      expect(r.currentAnchorXRatio).toBeCloseTo(0.60, 2);
+      expect(r.currentAnchorXRatio).toBeCloseTo(0.70, 2);
     });
 
     it('포즈 상실 시 currentAnchorXRatio가 기본 anchorXRatio(0.5)로 서서히 복귀한다', () => {
       const r = new StickmanRenderer();
       const pose = createSamplePoseLandmarks();
       // 오른쪽으로 이동
-      pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.25, y: 0.60, z: 0, visibility: 0.95 };
-      pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 0.35, y: 0.60, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.LEFT_HIP] = { x: 0.65, y: 0.60, z: 0, visibility: 0.95 };
+      pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 0.75, y: 0.60, z: 0, visibility: 0.95 };
       r.update(0.016, pose);
       const initialRatio = r.currentAnchorXRatio; // 0.7
       expect(initialRatio).toBeCloseTo(0.7, 2);
