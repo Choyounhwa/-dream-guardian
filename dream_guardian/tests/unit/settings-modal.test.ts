@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { SettingsModal } from '../../src/ui/SettingsModal.js';
@@ -197,6 +197,106 @@ describe('SettingsModal & PauseModal 에셋 연동 (Issue #293 / UI-ASSET-012)',
       );
 
       vi.restoreAllMocks();
+    });
+  });
+
+  describe('4. SettingsModal 실사 웹캠 표시/숨김 토글 (Issue #497 / FEAT-AVATAR-WEBCAM-TOGGLE)', () => {
+    let mockStore: Record<string, string> = {};
+
+    beforeEach(() => {
+      mockStore = {};
+      vi.stubGlobal('localStorage', {
+        getItem: vi.fn((key: string) => mockStore[key] ?? null),
+        setItem: vi.fn((key: string, val: string) => {
+          mockStore[key] = String(val);
+        }),
+        removeItem: vi.fn((key: string) => {
+          delete mockStore[key];
+        }),
+        clear: vi.fn(() => {
+          mockStore = {};
+        }),
+      });
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('renderVideoEnabled의 기본값은 true이며 toViewModel()에도 반영된다', () => {
+      const modal = new SettingsModal();
+      expect(modal.renderVideoEnabled).toBe(true);
+      expect(modal.toViewModel().renderVideoEnabled).toBe(true);
+    });
+
+    it('toggleRenderVideo() 호출 시 true/false가 반전되고 toViewModel 및 localStorage에 동기화된다', () => {
+      const modal = new SettingsModal();
+      const res1 = modal.toggleRenderVideo();
+      expect(res1).toBe(false);
+      expect(modal.renderVideoEnabled).toBe(false);
+      expect(modal.toViewModel().renderVideoEnabled).toBe(false);
+      expect(mockStore['dg_render_webcam']).toBe('false');
+
+      const res2 = modal.toggleRenderVideo();
+      expect(res2).toBe(true);
+      expect(modal.renderVideoEnabled).toBe(true);
+      expect(modal.toViewModel().renderVideoEnabled).toBe(true);
+      expect(mockStore['dg_render_webcam']).toBe('true');
+    });
+
+    it('onRenderVideoChange 콜백 등록 시 토글 및 setter 변경 시 알림을 받는다', () => {
+      const modal = new SettingsModal();
+      const callback = vi.fn();
+      modal.onRenderVideoChange = callback;
+
+      modal.toggleRenderVideo();
+      expect(callback).toHaveBeenCalledWith(false);
+
+      modal.renderVideoEnabled = true;
+      expect(callback).toHaveBeenCalledWith(true);
+    });
+
+    it('새 SettingsModal 생성 시 localStorage에 저장된 dg_render_webcam 값을 복원한다', () => {
+      mockStore['dg_render_webcam'] = 'false';
+      const restored = new SettingsModal();
+      expect(restored.renderVideoEnabled).toBe(false);
+      expect(restored.toViewModel().renderVideoEnabled).toBe(false);
+    });
+
+    it('webcamVideo 버튼의 레이아웃 좌표가 유효하게 계산된다', () => {
+      const modal = new SettingsModal();
+      const slot = modal.getButtonLayout('webcamVideo', 1080, 2160);
+      expect(slot).toBeDefined();
+      expect(slot.w).toBeGreaterThan(0);
+      expect(slot.h).toBeGreaterThan(0);
+    });
+
+    it('모달 오픈 상태에서 webcamVideo 버튼 좌표를 클릭하면 "webcamVideo" 액션을 반환하고 토글된다', () => {
+      const modal = new SettingsModal();
+      modal.open();
+      modal.update(0.3);
+
+      const slot = modal.getButtonLayout('webcamVideo', 1080, 2160);
+      const clickX = slot.x + slot.w / 2;
+      const clickY = slot.y + slot.h / 2;
+
+      expect(modal.renderVideoEnabled).toBe(true);
+      const action = modal.handleClick(clickX, clickY, 1080, 2160);
+      expect(action).toBe('webcamVideo');
+      expect(modal.renderVideoEnabled).toBe(false);
+    });
+
+    it('SettingsModal render() 시 📹 실사 웹캠 레이블을 그린다', () => {
+      const modal = new SettingsModal();
+      modal.open();
+      modal.update(0.3);
+
+      modal.render(ctx, 1080, 2160);
+      expect(ctx.fillText).toHaveBeenCalledWith(
+        '📹 실사 웹캠',
+        expect.any(Number),
+        expect.any(Number),
+      );
     });
   });
 });

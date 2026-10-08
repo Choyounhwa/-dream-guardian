@@ -425,6 +425,10 @@ const bgmManager = new BGMManager({ audioContext: sfx.audioContext ?? undefined 
 const tutorial = new TutorialOverlay();
 const bottomBar = new BottomBar();
 const settingsModal = new SettingsModal();
+cameraLayer.renderVideo = settingsModal.renderVideoEnabled;
+settingsModal.onRenderVideoChange = (enabled) => {
+  cameraLayer.renderVideo = enabled;
+};
 speech.enabled = settingsModal.soundEnabled;
 stageBgm.setMuted(!settingsModal.soundEnabled);
 bgmManager.setMuted(!settingsModal.soundEnabled);
@@ -2222,6 +2226,9 @@ engine = new GameEngine({
       speech.enabled = settingsModal.soundEnabled;
       if (settingsModal.soundEnabled) sfx.play('correct');
     } else if (action === 'fontScale' || action === 'highContrast') {
+      sfx.play('hover');
+    } else if (action === 'webcamVideo') {
+      cameraLayer.renderVideo = settingsModal.renderVideoEnabled;
       sfx.play('hover');
     }
     return;

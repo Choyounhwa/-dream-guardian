@@ -36,6 +36,7 @@ export class SettingsModal {
   private readonly CLOSE_DURATION = 0.20;
 
   private _cameraEnabled = true;
+  private _renderVideoEnabled = true;
   private _skeletonEnabled = true;
   private _soundEnabled = true;
   private _locomotionModeLabel = '제자리 달리기';
@@ -43,6 +44,7 @@ export class SettingsModal {
   private _highContrast = UI_ACCESSIBILITY.highContrast ?? false;
   private _stickmanScale = STICKMAN_CONFIG.scale ?? 1.0;
   public onStickmanScaleChange?: (scale: number) => void;
+  public onRenderVideoChange?: (enabled: boolean) => void;
 
   // 순수 뷰 렌더러 및 프레젠테이션 컨텍스트
   private readonly _view = new SettingsView();
@@ -94,6 +96,21 @@ export class SettingsModal {
 
   set cameraEnabled(val: boolean) {
     this._cameraEnabled = val;
+  }
+
+  get renderVideoEnabled(): boolean {
+    return this._renderVideoEnabled;
+  }
+
+  set renderVideoEnabled(val: boolean) {
+    this._renderVideoEnabled = val;
+    this.saveAccessibility();
+    this.onRenderVideoChange?.(val);
+  }
+
+  toggleRenderVideo(): boolean {
+    this.renderVideoEnabled = !this._renderVideoEnabled;
+    return this._renderVideoEnabled;
   }
 
   get skeletonEnabled(): boolean {
@@ -222,6 +239,7 @@ export class SettingsModal {
       alpha: this.alpha,
       scale: this.scale,
       cameraEnabled: this._cameraEnabled,
+      renderVideoEnabled: this._renderVideoEnabled,
       skeletonEnabled: this._skeletonEnabled,
       soundEnabled: this._soundEnabled,
       locomotionModeLabel: this._locomotionModeLabel,
@@ -240,6 +258,7 @@ export class SettingsModal {
         localStorage.setItem('dg_a11y_fontScale', String(this._fontScale));
         localStorage.setItem('dg_a11y_highContrast', String(this._highContrast));
         localStorage.setItem('dg_stickman_scale', String(this._stickmanScale));
+        localStorage.setItem('dg_render_webcam', String(this._renderVideoEnabled));
       }
     } catch {
       // localStorage 불가 환경 무시
@@ -276,6 +295,11 @@ export class SettingsModal {
             this._stickmanScale = parsedStickman;
             STICKMAN_CONFIG.scale = parsedStickman;
           }
+        }
+
+        const savedWebcam = localStorage.getItem('dg_render_webcam');
+        if (savedWebcam !== null) {
+          this._renderVideoEnabled = savedWebcam !== 'false';
         }
       }
     } catch {
@@ -404,6 +428,8 @@ export class SettingsModal {
       this.cycleStickmanScale();
     } else if (action === 'highContrast') {
       this.toggleHighContrast();
+    } else if (action === 'webcamVideo') {
+      this.toggleRenderVideo();
     }
 
     return action;

@@ -240,8 +240,8 @@ describe('[Issue #441 / UI-VIS-011] 설정 모달 부작용 없는 실제 그리
   });
 
   describe('3. 9개 버튼 레이아웃 및 SettingsModal과의 1:1 일치 검증', () => {
-    it('SETTINGS_BUTTON_ACTIONS 상수에 9개 액션이 모두 포함되어 있다', () => {
-      expect(SETTINGS_BUTTON_ACTIONS).toHaveLength(9);
+    it('SETTINGS_BUTTON_ACTIONS 상수에 10개 액션이 모두 포함되어 있다', () => {
+      expect(SETTINGS_BUTTON_ACTIONS).toHaveLength(10);
       expect(SETTINGS_BUTTON_ACTIONS).toContain('close');
       expect(SETTINGS_BUTTON_ACTIONS).toContain('camera');
       expect(SETTINGS_BUTTON_ACTIONS).toContain('fullscreen');
@@ -251,6 +251,7 @@ describe('[Issue #441 / UI-VIS-011] 설정 모달 부작용 없는 실제 그리
       expect(SETTINGS_BUTTON_ACTIONS).toContain('fontScale');
       expect(SETTINGS_BUTTON_ACTIONS).toContain('highContrast');
       expect(SETTINGS_BUTTON_ACTIONS).toContain('stickmanScale');
+      expect(SETTINGS_BUTTON_ACTIONS).toContain('webcamVideo');
     });
 
     it('getSettingsButtonLayouts가 9개 액션 모두에 대한 layout 슬롯을 반환한다', () => {

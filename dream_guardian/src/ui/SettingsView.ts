@@ -22,7 +22,8 @@ export type SettingsButtonAction =
   | 'locomotion'
   | 'fontScale'
   | 'highContrast'
-  | 'stickmanScale';
+  | 'stickmanScale'
+  | 'webcamVideo';
 
 export type SettingsAction = SettingsButtonAction | 'backdrop-close';
 
@@ -36,6 +37,19 @@ export const SETTINGS_BUTTON_ACTIONS: readonly SettingsButtonAction[] = [
   'fontScale',
   'highContrast',
   'stickmanScale',
+  'webcamVideo',
+] as const;
+
+export const SETTINGS_ACTION_ORDER: readonly SettingsButtonAction[] = [
+  'camera',
+  'fullscreen',
+  'skeleton',
+  'sound',
+  'locomotion',
+  'fontScale',
+  'highContrast',
+  'stickmanScale',
+  'webcamVideo',
 ] as const;
 
 export interface ModalButtonSlot {
@@ -51,6 +65,7 @@ export interface SettingsViewModel {
   alpha: number;
   scale: number;
   cameraEnabled: boolean;
+  renderVideoEnabled: boolean;
   skeletonEnabled: boolean;
   soundEnabled: boolean;
   locomotionModeLabel: string;
@@ -125,6 +140,7 @@ export function createDefaultSettingsViewModel(
     alpha: 1.0,
     scale: 1.0,
     cameraEnabled: true,
+    renderVideoEnabled: true,
     skeletonEnabled: true,
     soundEnabled: true,
     locomotionModeLabel: '제자리 달리기',
@@ -152,7 +168,7 @@ export function getSettingsModalBounds(
   const mx = (context?.modal?.x ?? baseModal.x) * scaleX;
   const my = (context?.modal?.y ?? baseModal.y) * scaleY;
   const mw = (context?.modal?.w ?? baseModal.w) * scaleX;
-  const baseH = context?.modal?.h ?? Math.max(baseModal.h, 1200);
+  const baseH = context?.modal?.h ?? Math.max(baseModal.h, 1340);
   const mh = baseH * scaleY;
   return { x: mx, y: my, w: mw, h: mh };
 }
@@ -206,17 +222,7 @@ export function getSettingsButtonLayout(
   const my = modalSlot.y;
   const mw = modalSlot.w;
 
-  const actionOrder: SettingsButtonAction[] = [
-    'camera',
-    'fullscreen',
-    'skeleton',
-    'sound',
-    'locomotion',
-    'fontScale',
-    'highContrast',
-    'stickmanScale',
-  ];
-  const idx = actionOrder.indexOf(action);
+  const idx = SETTINGS_ACTION_ORDER.indexOf(action);
   const offsetY = idx >= 0 ? 140 + idx * 130 : 140;
 
   const defaultSlot: ModalButtonSlot = {
@@ -502,6 +508,15 @@ export function renderSettingsView(
     '📷 카메라',
     model.cameraEnabled ? 'ON' : 'OFF',
     model.cameraEnabled,
+    'iconCamera',
+  );
+
+  // 실사 웹캠 표시 버튼 (Issue #497)
+  renderOptionBtn(
+    getSettingsButtonLayout('webcamVideo', w, h, context),
+    '📹 실사 웹캠',
+    (model.renderVideoEnabled ?? true) ? 'ON' : 'OFF',
+    model.renderVideoEnabled ?? true,
     'iconCamera',
   );
 
