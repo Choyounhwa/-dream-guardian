@@ -1,8 +1,20 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-10-08 등록: 3레인·발자국·리듬노트 단일화 및 궤적 고정 (LANE-SYNC)
+
+**승인 범위는 카드 등록 및 문서 동기화뿐이다. 구현은 미착수이며 카드마다 별도 승인을 받는다.**
+바닥 발 판정선에 3대 레인 타깃 앵커(Zone 9, 10, 11)와 피트니스 러닝 매트 발자국 슬롯(4슬롯)이 어긋나 겹쳐 있던 체계를 3대 레인 규격(-0.45, 0.0, +0.45)의 레인 중앙으로 단일화하고, 소실점에서 날아오는 리듬 노트 비행 궤적을 3대 레인 선에 고정하며, 러닝 및 리듬 모드의 판정선/노트 착지 좌표를 동일한 SSOT로 통합한다.
+
+- **관리 카드**: [#493 LANE-SYNC-TRACK](https://github.com/Choyounhwa/-dream-guardian/issues/493)
+
+| 작업 ID | 이슈 | 내용 | 선행 | 화면 |
+|---|---|---|---|---|
+| LANE-SYNC-01 | [#494](https://github.com/Choyounhwa/-dream-guardian/issues/494) | 3대 레인과 발자국 슬롯 X 좌표 단일화 및 러닝 매트 3레인 중앙 발자국 정렬 | - | 변경 (3레인 중심 발자국 정렬) |
+| LANE-SYNC-02 | [#495](https://github.com/Choyounhwa/-dream-guardian/issues/495) | 리듬노트 비행 궤적의 3레인 세로선 정렬 및 러닝/리듬 모드 착지 앵커 단일화 | 01 | 변경 (3레인 궤적 일치 비행) |
+
 ## 2026-10-08 등록: 문제페이즈(RUN_QUESTION) 렌더링 중단 결함 수정 (BUG-RUN-QUESTION-RENDER)
 
-- **버그 카드**: [▶ NEXT: 버그 수정] [#492 BUG-RUN-QUESTION-RENDER-001](https://github.com/Choyounhwa/-dream-guardian/issues/492) 문제페이즈(RUN_QUESTION) 렌더링 중단 버그: RunningMatRenderer Proxy Illegal Invocation 및 tracker.render 예외 해결
+- **버그 카드**: [✔ 완료] [#492 BUG-RUN-QUESTION-RENDER-001](https://github.com/Choyounhwa/-dream-guardian/issues/492) 문제페이즈(RUN_QUESTION) 렌더링 중단 버그: RunningMatRenderer Proxy Illegal Invocation 및 tracker.render 예외 해결
 - **원인**:
   1. `RunningMatRenderer._renderFlyingStompNotes`에서 네이티브 Canvas2D 객체에 `Proxy`를 래핑하여 호출 시 브라우저 WebIDL C++ 바인딩 검증 실패로 `TypeError: Illegal invocation` 발생 → `renderGameScene` 중단되어 뒤에 위치한 문제(QuestionRenderer)와 졸라맨(StickmanRenderer) 렌더링이 일체 실행되지 않음.
   2. `SceneDirector.renderModalsAndOverlays`에서 `CursorTracker`에 존재하지 않는 `tracker.render(...)` 호출로 콘솔 예외 발생.
