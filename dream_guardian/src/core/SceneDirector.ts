@@ -1369,28 +1369,22 @@ export class SceneDirector<TContext = any> {
       ctx.kneeFramingGuideRenderer?.render(context2d, vw, vh, this._currentKneeFraming);
     }
 
-    // 커서 렌더링
+    // 커서 렌더링 (Issue #492: tracker.render 미존재 예외 해소 및 answerSelectionRenderer 교정)
     const tracker = ctx.answerSelector?.cursorTracker ?? ctx.cursorTracker;
-    if (tracker) {
-      if (ctx.state.screenMode === 'menu' || ctx.state.screenMode === 'result' || ctx.pauseModal.isOpen) {
-        tracker.render(context2d, vw, vh);
-      } else if (ctx.state.screenMode === 'game') {
-        if (tracker.cursors && tracker.cursors.size > 0) {
-          const renderCursors = new Map(tracker.cursors.entries());
-          if (ctx.menuInput?.isActive) {
-            renderCursors.delete('leftHand');
-            renderCursors.delete('rightHand');
-          }
-          ctx.answerSelectionRenderer.render(
-            context2d,
-            vw,
-            vh,
-            [],
-            renderCursors,
-            [0, 0],
-          );
-        }
+    if (tracker && tracker.cursors && tracker.cursors.size > 0) {
+      const renderCursors = new Map(tracker.cursors.entries());
+      if (ctx.menuInput?.isActive) {
+        renderCursors.delete('leftHand');
+        renderCursors.delete('rightHand');
       }
+      ctx.answerSelectionRenderer?.render(
+        context2d,
+        vw,
+        vh,
+        [],
+        renderCursors,
+        [0, 0],
+      );
     }
 
     // 금빛 합장 링 렌더링

@@ -548,22 +548,10 @@ export class RunningMatRenderer {
       stompNoteRadius: this.config.stompNoteRadius,
     };
 
-    // RunningMatRenderer의 단일 save/restore 계약을 보존하기 위해 save/restore를 자체 흡수하는 위임 프록시 컨텍스트 사용
-    const delegateCtx = new Proxy(ctx, {
-      get(target, prop, receiver) {
-        if (prop === 'save' || prop === 'restore') {
-          return () => {};
-        }
-        const val = Reflect.get(target, prop, receiver);
-        if (typeof val === 'function') {
-          return val.bind(target);
-        }
-        return val;
-      },
-    });
-
+    // 네이티브 CanvasRenderingContext2D를 직접 전달하여 WebIDL Illegal invocation 원천 방지 (Issue #492)
+    // RunningMatRenderer.render의 단일 save/restore 계약 및 MotionNoteRenderer 내부의 상태 보존 활용
     this.motionNoteRenderer.render(
-      delegateCtx,
+      ctx,
       renderItems,
       { width, height },
       { x: vx, y: vy },

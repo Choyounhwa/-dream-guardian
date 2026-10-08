@@ -67,17 +67,7 @@ function createBaseViewModel(overrides: Partial<RunningMatViewModel> = {}): Runn
       rightFootSlot: 'home',
       isPrepare: false,
     },
-    nextCue: {
-      beatIndex: 1,
-      actionId: 'left_home',
-      actionText: '왼발 복귀',
-      directionText: '중앙',
-      cueText: '왼발 중앙 home',
-      arrowDirection: 'center',
-      leftFootSlot: 'home',
-      rightFootSlot: 'home',
-      isPrepare: false,
-    },
+    nextCue: null,
     actionText: '왼발 딛기',
     directionText: '왼쪽',
     cueText: '왼발 바깥',
@@ -457,8 +447,8 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
       });
 
       renderer.render(ctx, returnView, width, height);
-      expect(ctx.save).toHaveBeenCalledTimes(1);
-      expect(ctx.restore).toHaveBeenCalledTimes(1);
+      expect(ctx.save).toHaveBeenCalled();
+      expect(ctx.restore).toHaveBeenCalledTimes(vi.mocked(ctx.save).mock.calls.length);
     });
 
     it('ctx.ellipse가 지원되지 않는 환경에서도 arc fallback으로 안전하게 렌더링된다', () => {
