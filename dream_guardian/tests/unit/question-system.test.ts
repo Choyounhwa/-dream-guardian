@@ -460,20 +460,24 @@ describe('QuestionEvaluator - generateQuestion', () => {
 // ═══════════════════════════════════
 
 describe('QuestionSpeech - mathToKorean', () => {
-  it('덧셈을 변환한다', () => {
-    expect(mathToKorean('3 + 5 = ?')).toBe('3 더하기 5는?');
+  it('덧셈을 간결하게 변환한다 (끝맺음 생략)', () => {
+    expect(mathToKorean('3 + 5 = ?')).toBe('3 더하기 5');
   });
 
-  it('뺄셈을 변환한다', () => {
-    expect(mathToKorean('12 - 7 = ?')).toBe('12 빼기 7는?');
+  it('뺄셈을 간결하게 변환한다 (끝맺음 생략)', () => {
+    expect(mathToKorean('12 - 7 = ?')).toBe('12 빼기 7');
   });
 
-  it('곱셈을 변환한다', () => {
-    expect(mathToKorean('4 × 6 = ?')).toBe('4 곱하기 6는?');
+  it('곱셈을 간결하게 변환한다 (끝맺음 생략)', () => {
+    expect(mathToKorean('4 × 6 = ?')).toBe('4 곱하기 6');
   });
 
-  it('나눗셈을 변환한다', () => {
-    expect(mathToKorean('15 ÷ 3 = ?')).toBe('15 나누기 3는?');
+  it('나눗셈을 간결하게 변환한다 (끝맺음 생략)', () => {
+    expect(mathToKorean('15 ÷ 3 = ?')).toBe('15 나누기 3');
+  });
+
+  it('대괄호 물음표 [?] 형태도 간결하게 변환한다', () => {
+    expect(mathToKorean('3 + 5 = [?]')).toBe('3 더하기 5');
   });
 
   it('분수를 변환한다', () => {

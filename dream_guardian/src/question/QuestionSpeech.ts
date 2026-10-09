@@ -116,7 +116,18 @@ export class QuestionSpeech {
     try {
       this._utterance = new SpeechSynthesisUtterance(text);
       this._utterance.lang = 'ko-KR';
-      this._utterance.rate = 1.0;
+      this._utterance.pitch = 1.3;
+      this._utterance.rate = 1.15;
+
+      if (typeof window.speechSynthesis.getVoices === 'function') {
+        const voices = window.speechSynthesis.getVoices();
+        const koVoice = voices.find(
+          (v) => v.lang === 'ko-KR' || v.lang === 'ko' || v.lang?.toLowerCase().startsWith('ko')
+        );
+        if (koVoice) {
+          this._utterance.voice = koVoice;
+        }
+      }
 
       this._utterance.onend = () => {
         this._status = 'idle';
@@ -167,10 +178,10 @@ export class QuestionSpeech {
  * 수학 표기를 한국어 음성 텍스트로 변환
  *
  * 예:
- *   "3 + 5 = ?"  → "3 더하기 5는?"
- *   "12 - 7 = ?" → "12 빼기 7은?"
- *   "4 × 6 = ?"  → "4 곱하기 6은?"
- *   "15 ÷ 3 = ?" → "15 나누기 3은?"
+ *   "3 + 5 = ?"  → "3 더하기 5"
+ *   "12 - 7 = ?" → "12 빼기 7"
+ *   "4 × 6 = ?"  → "4 곱하기 6"
+ *   "15 ÷ 3 = ?" → "15 나누기 3"
  *   "1/2 + 3"    → "2분의 1 더하기 3"
  */
 export function mathToKorean(text: string): string {
@@ -185,8 +196,11 @@ export function mathToKorean(text: string): string {
   result = result.replace(/[×\*]/g, ' 곱하기 ');
   result = result.replace(/[÷\/]/g, ' 나누기 ');
 
-  // "= ?" 또는 단독 "?" → "는?"
-  result = result.replace(/\s*=?\s*\?\s*$/, '는?');
+  // 수식 간결화: "= [?]", "= ?" 끝맺음 생략 (Issue #500)
+  result = result.replace(/=\s*\[\s*\?\s*\]/g, '');
+  result = result.replace(/=\s*\?/g, '');
+  result = result.replace(/\s*=?\s*\?\s*$/, '');
+  result = result.replace(/\s*=\s*$/, '');
 
   // 연속 공백 정리
   result = result.replace(/\s+/g, ' ').trim();

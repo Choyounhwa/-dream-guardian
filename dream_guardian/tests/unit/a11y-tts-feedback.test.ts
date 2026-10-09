@@ -13,6 +13,8 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
       text: string;
       lang = '';
       rate = 1;
+      pitch = 1;
+      voice: any = null;
       onend: (() => void) | null = null;
       onerror: (() => void) | null = null;
 
@@ -22,6 +24,11 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
       }
     }
 
+    const mockVoices = [
+      { name: 'Google US English', lang: 'en-US' },
+      { name: 'Google 한국의', lang: 'ko-KR' },
+    ];
+
     mockSpeechSynthesis = {
       speak: vi.fn((utt: any) => {
         // 비동기 완료 시뮬레이션
@@ -30,6 +37,7 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
         }, 10);
       }),
       cancel: vi.fn(),
+      getVoices: vi.fn(() => mockVoices),
     };
 
     vi.stubGlobal('SpeechSynthesisUtterance', MockSpeechSynthesisUtterance);
@@ -172,6 +180,31 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
 
       speech.speakFeedback('boss_enrage');
       expect(mockSpeechSynthesis.speak).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('5. [TTS-VOICE-001 / #500] 꼬마 수호신 밝은 보이스 톤(Pitch/Rate) 및 수식 간결 낭독', () => {
+    it('발화 시 pitch=1.3, rate=1.15 및 한국어 음성이 적용된다', () => {
+      const speech = new QuestionSpeech();
+      speech.speakFeedback('correct');
+
+      expect(mockUtterances.length).toBe(1);
+      const utt = mockUtterances[0];
+      expect(utt.pitch).toBe(1.3);
+      expect(utt.rate).toBe(1.15);
+      expect(utt.voice).toEqual({ name: 'Google 한국의', lang: 'ko-KR' });
+    });
+
+    it('수학 문제 speak("3 + 5 = ?") 시 끝맺음 없이 "3 더하기 5"로 pitch/rate와 함께 발화된다', () => {
+      const speech = new QuestionSpeech();
+      speech.speak('3 + 5 = ?');
+
+      expect(mockUtterances.length).toBe(1);
+      const utt = mockUtterances[0];
+      expect(utt.text).toBe('3 더하기 5');
+      expect(utt.pitch).toBe(1.3);
+      expect(utt.rate).toBe(1.15);
+      expect(utt.voice?.lang).toBe('ko-KR');
     });
   });
 });

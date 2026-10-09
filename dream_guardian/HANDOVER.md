@@ -2,6 +2,15 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🗣️ 꼬마 수호신 밝은 보이스 톤 및 수식 간결 낭독 트랙 (TTS-VOICE, 2026-10-10)
+
+- **작업 카드**: [✔ 완료] [#500 TTS-VOICE-001](https://github.com/Choyounhwa/-dream-guardian/issues/500) 꼬마 수호신 밝은 보이스 톤(Pitch/Rate) 및 수식 간결 낭독 반영
+- **목적**:
+  - 꼬마 수호신 캐릭터에 어울리는 밝고 경쾌한 목소리(Pitch 1.3, Rate 1.15, 한국어 음성 `ko-KR` / `ko` 우선 매칭)로 TTS 보이스 설정
+  - 수식 문제 낭독 시 끝맺음('는?')을 생략하여 '3 더하기 5'처럼 핵심 수식만 빠르고 간결하게 읽어 게임 템포 및 전달력 개선
+- **수정 대상**: `src/question/QuestionSpeech.ts`, `tests/unit/question-system.test.ts`, `tests/unit/a11y-tts-feedback.test.ts`
+- **검증**: 단위 테스트 100% 통과, 전체 295 test suites / 3,813 tests 100% Pass, `npm run build` 번들 검증 통과
+
 ## ⏸️ 답안 선택 후 2박 쉼표(Rest Delay) 도입 트랙 (ANSWER-REST, 2026-10-08)
 
 - **작업 카드**: [✔ 완료] [#498 ANSWER-REST-001](https://github.com/Choyounhwa/-dream-guardian/issues/498) 답안 선택 후 2박 쉼표(Rest Delay) 도입 및 분기 전이 완충
