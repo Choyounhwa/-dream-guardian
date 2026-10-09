@@ -40,6 +40,10 @@ import {
   type DirtyExportChoice,
   bindFileActions,
 } from "./UIFileActionView";
+import {
+  type ArrangementViewInstance,
+  mountArrangementView,
+} from "./UIArrangementView";
 import type { PreviewEnvelope } from "../UIPreviewHost";
 
 export interface ShellInstance {
@@ -52,6 +56,7 @@ export interface ShellInstance {
   readonly propertyForm: PropertyFormInstance;
   readonly previewFrame: PreviewFrameInstance;
   readonly fileActions: FileActionInstance;
+  readonly arrangementView: ArrangementViewInstance;
   getState(): ShellState & { selectedId: (typeof MENU_CARD_IDS)[number] };
   selectElement(indexOrId: number | string): void;
   unmount(): void;
@@ -174,6 +179,7 @@ export function mountShell(
       if (currentDoc) {
         propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
       }
+      arrangementView.setSession(session);
       updateToolbarMeta();
       state = announce(state, `실행 취소(Undo) 완료 · rev ${session.revision}`);
       statusText.textContent = `실행 취소(Undo) 완료`;
@@ -199,6 +205,7 @@ export function mountShell(
       if (currentDoc) {
         propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
       }
+      arrangementView.setSession(session);
       updateToolbarMeta();
       state = announce(state, `다시 실행(Redo) 완료 · rev ${session.revision}`);
       statusText.textContent = `다시 실행(Redo) 완료`;
@@ -317,6 +324,8 @@ export function mountShell(
       previewFrame.updateDocument(currentScreenId);
       currentElements = getElementsForScreen(currentScreenId);
       renderElementItems();
+      arrangementView?.updateDocument?.(currentDoc, currentScreenId as UIVisualPageId);
+      arrangementView?.setSelection?.(currentElements[0] ? [currentElements[0].id] : []);
       const screenLabel = screenRegistry.find((s) => s.id === currentScreenId)?.label ?? currentScreenId;
       const firstElem = currentElements[0]?.id ?? "";
       const msg = `[화면 전환: ${screenLabel}] 선택: ${firstElem} · 게임에는 반영되지 않음`;
@@ -407,6 +416,38 @@ export function mountShell(
 
   shellRoot.appendChild(layoutBody);
 
+  // Mount Arrangement Toolbar/View
+  const initialSelectedId =
+    currentElements[state.selectedIndex]?.id ?? MENU_CARD_IDS[state.selectedIndex];
+  const arrangementView = mountArrangementView(toolbar, {
+    document: currentDoc,
+    session,
+    activePageId: currentScreenId as UIVisualPageId,
+    selectedIds: initialSelectedId ? [initialSelectedId] : [],
+    keyObjectId: initialSelectedId,
+    onSessionChange: (nextSession) => {
+      session = nextSession;
+      currentDoc = nextSession.present;
+      updateToolbarMeta();
+      previewFrame.updateDocument(currentScreenId);
+      propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+      options?.onDocumentChange?.(currentDoc);
+    },
+    onAlign: (_result, cmd) => {
+      state = announce(state, `정렬 완료 · rev ${session?.revision ?? 0}`);
+      options?.onVisualCommit?.(cmd);
+      options?.onDocumentChange?.(currentDoc);
+      previewFrame.updateDocument(currentScreenId);
+      updateToolbarMeta();
+    },
+    onStatus: (msg) => {
+      state = announce(state, msg);
+      options?.onStatus?.(msg);
+      statusText.textContent = msg;
+      statusPanel.textContent = msg;
+    },
+  });
+
   // 3. Status Bar
   shellRoot.appendChild(statusPanel);
   container.appendChild(shellRoot);
@@ -451,6 +492,8 @@ export function mountShell(
       session = selectVisualElements(session, [currentId]);
     }
     propertyForm.setSelectedId(currentId, currentScreenId as UIVisualPageId, currentDoc);
+    arrangementView.setSelection([currentId], currentId);
+    arrangementView.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
     syncDOMSelection();
   }
 
@@ -489,6 +532,7 @@ export function mountShell(
   syncDOMSelection();
 
   const unmount = () => {
+    arrangementView.unmount();
     fileActions.unmount();
     previewFrame.unmount();
     propertyForm.unmount();
@@ -512,6 +556,7 @@ export function mountShell(
     propertyForm,
     previewFrame,
     fileActions,
+    arrangementView,
     getState: () => ({
       selectedIndex: state.selectedIndex,
       status: state.status.slice(),

@@ -227,7 +227,25 @@
 - **다음 작업 대상**:
   - **[✔ 완료: UI-VIS-030] [#460]**: 선택·숫자 검사기·문서 양방향 DOM 연결 (TDD 12개 테스트 100% 통과, build/build:ui-editor 성공)
   - **[✔ 완료: UI-VIS-031] [#461]**: 다중 선택·그리드·스냅 조작 (TDD 16개 테스트 100% 통과, build/build:ui-editor 성공)
-  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#462 UI-VIS-032]**: 다중 선택 정렬·분배 조작
+  - **[✔ 완료: UI-VIS-032] [#462]**: 6방향 정렬·기준 선택·묶음 이동 도구 (TDD 14개 테스트 100% 통과, build/build:ui-editor 성공)
+  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#463 UI-VIS-033]**: 이미지 카탈로그·가져오기 검증
+
+## 📐 [UI-VIS-032 / #462] 6방향 정렬·기준 선택·묶음 이동 도구 완료 (2026-10-10)
+
+- **작업 카드**: [✔ 완료] [#462 UI-VIS-032](https://github.com/Choyounhwa/-dream-guardian/issues/462) 6방향 정렬·기준 선택·묶음 이동 도구
+- **목적**: 실게임 렌더러 재사용 10페이지 시각 UI 편집기의 6방향 정렬·기준 선택·묶음 이동 도구 단일 책임 구현. 좌(left), 가로중앙(hcenter), 우(right), 상(top), 세로중앙(vcenter), 하(bottom) 6정렬 toolbar와 selection / artboard / key-object 3가지 기준(reference) 선택 컨트롤을 `UIArrangementView`로 구현하고 `UIShellView`에 연동. 18가지 조합 (6방향 × 3기준) UI → `UIArrangement` 모델 인자 바인딩 지원. key-object 기준 선택 시 기준이 되는 키 객체를 UI 상에 명시적으로 강조하고 식별 설명 제공. 개별 정렬(Individual Align)과 묶음 전체(Group / En-bloc Align)를 버튼/모드로 명확히 분리하여 혼동 방지 문구 및 동작 제공. 이미지+글자 묶음 중앙 정렬 시 자식 간 상대 offset을 100% 보존하고, Undo 1회로 원본 좌표 완전 복원. 잠긴 요소(isLocked) 선택 시 정렬 조작을 원자적으로 거부(0건 변경)하고 잠금 사유(lockReason) 통지. DOM에서 정렬 수학을 중복 재구현하지 않고 기존 `UIArrangement.ts` 정렬 순수 함수를 단일 진실로 사용.
+- **수정 소스 파일**:
+  1. `dream_guardian/src/editor/ui/view/UIArrangementView.ts` (신규 - 6정렬 툴바, 3기준 선택, 키 객체 강조/식별자 표시, 개별/묶음 모드 토글, 원자적 잠금 거부/사유 통지, 명령 발행)
+  2. `dream_guardian/src/editor/ui/view/UIShellView.ts` (수정 - UIArrangementView 마운트 및 셸/선택/세션/문서/프리뷰 양방향 연동)
+- **테스트 파일**:
+  - `dream_guardian/tests/unit/ui-vis-032.test.ts` (신규 14개 단위 테스트 100% 통과)
+- **검증 결과**:
+  - `npx vitest run tests/unit/ui-vis-032.test.ts`: 14/14 통과 (100%)
+  - 관련 단위 테스트 (`ui-vis-005`, `ui-vis-030`, `ui-vis-031`, `ui-vis-032`): 75/75 통과 (100%)
+  - 전체 단위/통합 테스트: 300개 파일, 3,912개 100% 통과 (회귀 결함 0건)
+  - TypeScript strict compile (`tsc`) 및 Vite bundle build (`build`, `build:ui-editor`) 성공
+- **다음 작업 대상**:
+  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#463 UI-VIS-033]**: 이미지 카탈로그·가져오기 검증
 
 ## 📐 [UI-VIS-031 / #461] 캔버스 다중 선택·은은한 그리드·스냅 조작 완료 (2026-10-10)
 
@@ -378,8 +396,8 @@
 | B | #435~#438 / UI-VIS-005~008 | 정렬·속성 모델·안전 bridge·실제 Canvas | #435 [✔], #436 [✔], #437 [✔], #438 [✔] (단계 B 완료) |
 | C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | #439 [✔], #440 [✔], #441 [✔], [#442 UI-VIS-012](https://github.com/Choyounhwa/-dream-guardian/issues/442) [✔], [#443 UI-VIS-013](https://github.com/Choyounhwa/-dream-guardian/issues/443) [✔], [#444 UI-VIS-014](https://github.com/Choyounhwa/-dream-guardian/issues/444) [✔], [#445 UI-VIS-015](https://github.com/Choyounhwa/-dream-guardian/issues/445) [✔], [#446 UI-VIS-016](https://github.com/Choyounhwa/-dream-guardian/issues/446) [✔], [#447 UI-VIS-017](https://github.com/Choyounhwa/-dream-guardian/issues/447) [✔], [#448 UI-VIS-018](https://github.com/Choyounhwa/-dream-guardian/issues/448) [✔], [#449 UI-VIS-019](https://github.com/Choyounhwa/-dream-guardian/issues/449) [✔] (단계 C 10개 런타임 렌더/UI 레이어 표시 경계 전원 완료) |
 | D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | #450 [✔], #451 [✔], #452 [✔], #453 [✔], #454 [✔], [#455 UI-VIS-025](https://github.com/Choyounhwa/-dream-guardian/issues/455) [✔], [#456 UI-VIS-026](https://github.com/Choyounhwa/-dream-guardian/issues/456) [✔], [#457 UI-VIS-027](https://github.com/Choyounhwa/-dream-guardian/issues/457) [✔], [#458 UI-VIS-028](https://github.com/Choyounhwa/-dream-guardian/issues/458) [✔], [#459 UI-VIS-029](https://github.com/Choyounhwa/-dream-guardian/issues/459) [✔] (단계 D 10개 화면 실제 연결 전원 완료) |
-| E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | [✔ #460, #461 완료], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#462 UI-VIS-032], 나머지 선행 대기 |
-| F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | 승인/선행 대기 |
+| E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | [✔ #460, #461, #462 전원 완료 (단계 E 완료)] |
+| F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#463 UI-VIS-033], 나머지 선행 대기 |
 | G | #468 → #469 / UI-VIS-038~039 | 적용본/백업 모델→추출·게시 UI | 승인/선행 대기 |
 | H | #470 → #471 / UI-VIS-040~041 | UI 전용 수신→게임 주입/입력 일치/롤백 | 승인/선행 대기 |
 | I | [#472 UI-VIS-042](https://github.com/Choyounhwa/-dream-guardian/issues/472) | 실제 브라우저 10페이지 픽셀·복구·게임 적용 인수 | 승인/전체 선행 대기 |
