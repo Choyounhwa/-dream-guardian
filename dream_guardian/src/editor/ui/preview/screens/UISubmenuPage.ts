@@ -29,7 +29,9 @@ import type {
   PageRenderBounds,
   PageAdapterRegistry,
 } from '../UIPageAdapters.js';
-import { ARTBOARD_WIDTH, ARTBOARD_HEIGHT } from '../UIPageAdapters.js';
+
+const ARTBOARD_WIDTH = 1080;
+const ARTBOARD_HEIGHT = 2160;
 import type { UIPresentationDocument } from '../../../../data/UIPresentation.js';
 import type { SubLevelInfo } from '../../../../types/index.js';
 

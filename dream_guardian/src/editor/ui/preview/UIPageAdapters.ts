@@ -23,6 +23,13 @@ import {
   MENU_SUB_PAGE_ID,
   registerSubmenuPageAdapter,
 } from './screens/UISubmenuPage';
+import {
+  optionsPageAdapter,
+  settingsPageAdapter,
+  OPTIONS_PAGE_ID,
+  SETTINGS_PAGE_ID,
+  registerOptionsPageAdapter,
+} from './screens/UISettingsPage';
 
 export const ARTBOARD_WIDTH = 1080;
 export const ARTBOARD_HEIGHT = 2160;
@@ -198,6 +205,7 @@ export class PageAdapterRegistry {
 export const defaultPageAdapterRegistry = new PageAdapterRegistry();
 registerHomePageAdapter(defaultPageAdapterRegistry);
 registerSubmenuPageAdapter(defaultPageAdapterRegistry);
+registerOptionsPageAdapter(defaultPageAdapterRegistry);
 
 export { homePageAdapter, MAIN_HOME_PAGE_ID, registerHomePageAdapter };
 export {
@@ -205,6 +213,13 @@ export {
   SUBMENU_PAGE_ID,
   MENU_SUB_PAGE_ID,
   registerSubmenuPageAdapter,
+};
+export {
+  optionsPageAdapter,
+  settingsPageAdapter,
+  OPTIONS_PAGE_ID,
+  SETTINGS_PAGE_ID,
+  registerOptionsPageAdapter,
 };
 
 export function registerPageAdapter(pageId: string, adapter: PageAdapter): void {
