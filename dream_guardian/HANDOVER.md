@@ -167,6 +167,24 @@
 - **다음 작업 대상**:
   - **[#451 UI-VIS-021]**: 서브메뉴 실제 렌더 페이지 연결
 
+## ⚙️ [UI-VIS-022 / #452] 옵션 실제 렌더 페이지 연결 완료 (2026-10-09)
+
+- **작업 카드**: [✔ 완료] [#452 UI-VIS-022](https://github.com/Choyounhwa/-dream-guardian/issues/452) 옵션 실제 렌더 페이지 연결
+- **목적**: 실게임 렌더러 재사용 10페이지 시각 UI 편집기의 옵션/설정 실제 렌더 페이지 연결 단일 책임 구현. `options` 및 `settings` 페이지 요청을 순수 `SettingsView` 렌더링 파이프라인과 연결하고, 브라우저 사이드 이펙트 0건(localStorage/fullscreen/camera/audio 0건, `SettingsModal` 인스턴스 생성 0건), 실제 모든 설정 항목/닫기 버튼 렌더, UIPresentationDocument/SettingsPresentationContext 바인딩, 공통 HUD/BottomBar 정적 합성 및 stable bounds 반환 보장.
+- **수정 소스 파일**:
+  1. `dream_guardian/src/editor/ui/preview/screens/UISettingsPage.ts` (신규 - options/settings 페이지 어댑터 구현, 순수 SettingsViewModel 조립, SettingsView 실제 draw, stable bounds 계산)
+  2. `dream_guardian/src/editor/ui/preview/screens/UISubmenuPage.ts` (수정 - 순환 참조 TDZ 방지를 위해 artboard 상수 내부화)
+  3. `dream_guardian/src/editor/ui/preview/UIPageAdapters.ts` (수정 - defaultPageAdapterRegistry에 options/settings 등록 및 익스포트)
+- **테스트 파일**:
+  - `dream_guardian/tests/unit/ui-vis-022.test.ts` (신규 20개 단위 테스트 100% 통과)
+- **검증 결과**:
+  - `npx vitest run tests/unit/ui-vis-022.test.ts`: 20/20 통과 (100%)
+  - 관련 어댑터 단위 테스트 (`ui-vis-008`, `ui-vis-011`, `ui-vis-020`, `ui-vis-021`, `ui-vis-022`): 96/96 통과 (100%)
+  - 전체 단위/통합 테스트: 290개 파일, 3,703개 100% 통과
+  - TypeScript strict compile (`tsc`) 및 Vite bundle build 성공
+- **다음 작업 대상**:
+  - **[#453 UI-VIS-023]**: 일시정지(pause) 실제 렌더 페이지 연결
+
 ## 📋 [UI-VIS-021 / #451] 서브메뉴 실제 렌더 페이지 연결 완료 (2026-10-09)
 
 - **작업 카드**: [✔ 완료] [#451 UI-VIS-021](https://github.com/Choyounhwa/-dream-guardian/issues/451) 서브메뉴 실제 렌더 페이지 연결
@@ -212,7 +230,7 @@
 | A | #431~#434 / UI-VIS-001~004 | 표시/문서 계약·비파괴 변환·Undo 모델 | #431 [✔], #432 [✔], #433 [✔], #434 [✔] (단계 A 완료) |
 | B | #435~#438 / UI-VIS-005~008 | 정렬·속성 모델·안전 bridge·실제 Canvas | #435 [✔], #436 [✔], #437 [✔], #438 [✔] (단계 B 완료) |
 | C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | #439 [✔], #440 [✔], #441 [✔], [#442 UI-VIS-012](https://github.com/Choyounhwa/-dream-guardian/issues/442) [✔], [#443 UI-VIS-013](https://github.com/Choyounhwa/-dream-guardian/issues/443) [✔], [#444 UI-VIS-014](https://github.com/Choyounhwa/-dream-guardian/issues/444) [✔], [#445 UI-VIS-015](https://github.com/Choyounhwa/-dream-guardian/issues/445) [✔], [#446 UI-VIS-016](https://github.com/Choyounhwa/-dream-guardian/issues/446) [✔], [#447 UI-VIS-017](https://github.com/Choyounhwa/-dream-guardian/issues/447) [✔], [#448 UI-VIS-018](https://github.com/Choyounhwa/-dream-guardian/issues/448) [✔], [#449 UI-VIS-019](https://github.com/Choyounhwa/-dream-guardian/issues/449) [✔] (단계 C 10개 런타임 렌더/UI 레이어 표시 경계 전원 완료) |
-| D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | #450 [✔], #451 [✔], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#452 UI-VIS-022], 나머지 선행 대기 |
+| D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | #450 [✔], #451 [✔], #452 [✔], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#453 UI-VIS-023], 나머지 선행 대기 |
 | E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | 승인/선행 대기 |
 | F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | 승인/선행 대기 |
 | G | #468 → #469 / UI-VIS-038~039 | 적용본/백업 모델→추출·게시 UI | 승인/선행 대기 |
