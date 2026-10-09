@@ -283,3 +283,12 @@ export function registerSubmenuPreview(): {
     linked: false,
   };
 }
+
+export {
+  submenuPageAdapter,
+  SUBMENU_PAGE_ID,
+  MENU_SUB_PAGE_ID,
+  DEFAULT_SUBMENU_SUBLEVELS,
+  SUBMENU_BOUNDS_IDS,
+  registerSubmenuPageAdapter,
+} from './UISubmenuPage';
