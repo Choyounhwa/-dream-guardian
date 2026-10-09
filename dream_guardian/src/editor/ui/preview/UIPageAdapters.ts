@@ -30,6 +30,11 @@ import {
   SETTINGS_PAGE_ID,
   registerOptionsPageAdapter,
 } from './screens/UISettingsPage';
+import {
+  pausePageAdapter,
+  PAUSE_PAGE_ID,
+  registerPausePageAdapter,
+} from './screens/UIPausePage';
 
 export const ARTBOARD_WIDTH = 1080;
 export const ARTBOARD_HEIGHT = 2160;
@@ -206,6 +211,7 @@ export const defaultPageAdapterRegistry = new PageAdapterRegistry();
 registerHomePageAdapter(defaultPageAdapterRegistry);
 registerSubmenuPageAdapter(defaultPageAdapterRegistry);
 registerOptionsPageAdapter(defaultPageAdapterRegistry);
+registerPausePageAdapter(defaultPageAdapterRegistry);
 
 export { homePageAdapter, MAIN_HOME_PAGE_ID, registerHomePageAdapter };
 export {
@@ -220,6 +226,11 @@ export {
   OPTIONS_PAGE_ID,
   SETTINGS_PAGE_ID,
   registerOptionsPageAdapter,
+};
+export {
+  pausePageAdapter,
+  PAUSE_PAGE_ID,
+  registerPausePageAdapter,
 };
 
 export function registerPageAdapter(pageId: string, adapter: PageAdapter): void {
