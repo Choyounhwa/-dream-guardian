@@ -230,7 +230,26 @@
   - **[✔ 완료: UI-VIS-032] [#462]**: 6방향 정렬·기준 선택·묶음 이동 도구 (TDD 14개 테스트 100% 통과, build/build:ui-editor 성공)
   - **[✔ 완료: UI-VIS-033] [#463]**: 이미지 카탈로그·로컬 가져오기 검증 모델 (TDD 23개 테스트 100% 통과, build/build:ui-editor 성공)
   - **[✔ 완료: UI-VIS-035] [#464]**: UI visual 전용 비동기 IndexedDB 원자 저장 (TDD 16개 테스트 100% 통과, build/build:ui-editor 성공)
-  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#465 UI-VIS-034]**: 이미지 에셋 관리 UI 및 선택·교체
+  - **[✔ 완료: UI-VIS-034] [#465]**: 이미지 선택·가져오기·교체 UI와 preview 캐시 (TDD 10개 테스트 100% 통과, build 성공)
+  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#466 UI-VIS-036]**: 자동저장·복구 상태 모델
+
+## 🖼️ [UI-VIS-034 / #465] 이미지 선택·가져오기·교체 UI와 preview 캐시 완료 (2026-10-10)
+
+- **작업 카드**: [✔ 완료] [#465 UI-VIS-034](https://github.com/Choyounhwa/-dream-guardian/issues/465) 이미지 선택·가져오기·교체 UI와 preview 캐시
+- **목적**: 실게임 렌더러 재사용 10페이지 시각 UI 편집기의 이미지 선택·가져오기·교체 UI와 preview 캐시 단일 책임 구현.
+- **수정/신규 파일**:
+  1. `dream_guardian/src/editor/ui/view/UIVisualAssetView.ts` (신규: 파일 picker/카탈로그 검색, 썸네일, 이미지 이름/치수/용량 표시, 카탈로그 선택 및 교체/해제 UI, UIVisualImageImport 및 UIVisualStore 연동, 실패/취소 시 기존 참조 100% 보존)
+  2. `dream_guardian/src/editor/ui/preview/styles/UIAssetPreview.ts` (수정: UIAssetPreviewCache 디코드/blob URL 수명 관리, releaseAsset/clear 시 revokeObjectURL 누수 0, 브리지 origin 검증 및 위험 스크립트/임의 URL 거부 필터링)
+  3. `dream_guardian/src/editor/ui/view/UIShellView.ts` (수정: visual asset view 마운트 및 속성 패널 연계, 요소 선택/화면 전환/Undo/Redo 시 에셋 뷰 동기화 및 dispose 수명 주기 해제)
+- **테스트 파일**:
+  - `dream_guardian/tests/unit/ui-vis-034.test.ts` (신규 10개 단위 테스트 100% 통과)
+- **검증 결과**:
+  - `npx vitest run tests/unit/ui-vis-034.test.ts`: 10/10 통과 (100%)
+  - 관련 단위 테스트 (`ui-vis-030`, `ui-vis-032`, `ui-vis-033`, `ui-vis-034`, `ui-vis-035`): 75/75 통과 (100%)
+  - 전체 단위/통합 테스트: 63개 테스트 파일, 608개 테스트 100% 통과 (회귀 결함 0건)
+  - TypeScript strict compile (`tsc`) 및 Vite bundle build (`npm run build`) 성공
+- **다음 작업 대상**:
+  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#466 UI-VIS-036]**: 자동저장·복구 상태 모델
 
 ## 💾 [UI-VIS-035 / #464] UI visual 전용 비동기 IndexedDB 원자 저장 완료 (2026-10-10)
 
@@ -433,7 +452,7 @@
 | C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | #439 [✔], #440 [✔], #441 [✔], [#442 UI-VIS-012](https://github.com/Choyounhwa/-dream-guardian/issues/442) [✔], [#443 UI-VIS-013](https://github.com/Choyounhwa/-dream-guardian/issues/443) [✔], [#444 UI-VIS-014](https://github.com/Choyounhwa/-dream-guardian/issues/444) [✔], [#445 UI-VIS-015](https://github.com/Choyounhwa/-dream-guardian/issues/445) [✔], [#446 UI-VIS-016](https://github.com/Choyounhwa/-dream-guardian/issues/446) [✔], [#447 UI-VIS-017](https://github.com/Choyounhwa/-dream-guardian/issues/447) [✔], [#448 UI-VIS-018](https://github.com/Choyounhwa/-dream-guardian/issues/448) [✔], [#449 UI-VIS-019](https://github.com/Choyounhwa/-dream-guardian/issues/449) [✔] (단계 C 10개 런타임 렌더/UI 레이어 표시 경계 전원 완료) |
 | D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | #450 [✔], #451 [✔], #452 [✔], #453 [✔], #454 [✔], [#455 UI-VIS-025](https://github.com/Choyounhwa/-dream-guardian/issues/455) [✔], [#456 UI-VIS-026](https://github.com/Choyounhwa/-dream-guardian/issues/456) [✔], [#457 UI-VIS-027](https://github.com/Choyounhwa/-dream-guardian/issues/457) [✔], [#458 UI-VIS-028](https://github.com/Choyounhwa/-dream-guardian/issues/458) [✔], [#459 UI-VIS-029](https://github.com/Choyounhwa/-dream-guardian/issues/459) [✔] (단계 D 10개 화면 실제 연결 전원 완료) |
 | E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | [✔ #460, #461, #462 전원 완료 (단계 E 완료)] |
-| F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | #463 [✔], #464 [✔], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#465 UI-VIS-034], 나머지 선행 대기 |
+| F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | #463 [✔], #464 [✔], [#465 UI-VIS-034] [✔], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#466 UI-VIS-036], 나머지 선행 대기 |
 | G | #468 → #469 / UI-VIS-038~039 | 적용본/백업 모델→추출·게시 UI | 승인/선행 대기 |
 | H | #470 → #471 / UI-VIS-040~041 | UI 전용 수신→게임 주입/입력 일치/롤백 | 승인/선행 대기 |
 | I | [#472 UI-VIS-042](https://github.com/Choyounhwa/-dream-guardian/issues/472) | 실제 브라우저 10페이지 픽셀·복구·게임 적용 인수 | 승인/전체 선행 대기 |

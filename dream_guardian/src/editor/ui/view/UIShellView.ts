@@ -44,6 +44,10 @@ import {
   type ArrangementViewInstance,
   mountArrangementView,
 } from "./UIArrangementView";
+import {
+  type VisualAssetViewInstance,
+  mountVisualAssetView,
+} from "./UIVisualAssetView";
 import type { PreviewEnvelope } from "../UIPreviewHost";
 
 export interface ShellInstance {
@@ -57,6 +61,7 @@ export interface ShellInstance {
   readonly previewFrame: PreviewFrameInstance;
   readonly fileActions: FileActionInstance;
   readonly arrangementView: ArrangementViewInstance;
+  readonly assetView: VisualAssetViewInstance;
   getState(): ShellState & { selectedId: (typeof MENU_CARD_IDS)[number] };
   selectElement(indexOrId: number | string): void;
   unmount(): void;
@@ -70,6 +75,9 @@ export interface MountShellOptions {
   document?: UIVisualDocument;
   session?: VisualEditorSession | any;
   controller?: any;
+  catalog?: any;
+  store?: any;
+  previewCache?: any;
   onCommitProperty?: (result: CommitResult) => void;
   onVisualCommit?: (command: VisualCommand) => void;
   previewDocId?: string;
@@ -113,6 +121,8 @@ export function mountShell(
     selectedIndex: options?.initialIndex ?? 0,
     status: [`초기화: ${MENU_CARD_IDS[options?.initialIndex ?? 0]}`],
   };
+
+  let assetView: VisualAssetViewInstance;
 
   const doc = container.ownerDocument ?? (globalThis as any).document;
   const shellRoot = doc.createElement("div");
@@ -178,6 +188,8 @@ export function mountShell(
       currentDoc = session.present;
       if (currentDoc) {
         propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+        assetView?.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+        assetView?.setSession?.(session);
       }
       arrangementView.setSession(session);
       updateToolbarMeta();
@@ -204,6 +216,8 @@ export function mountShell(
       currentDoc = session.present;
       if (currentDoc) {
         propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+        assetView?.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+        assetView?.setSession?.(session);
       }
       arrangementView.setSession(session);
       updateToolbarMeta();
@@ -326,6 +340,8 @@ export function mountShell(
       renderElementItems();
       arrangementView?.updateDocument?.(currentDoc, currentScreenId as UIVisualPageId);
       arrangementView?.setSelection?.(currentElements[0] ? [currentElements[0].id] : []);
+      assetView?.updateDocument?.(currentDoc, currentScreenId as UIVisualPageId);
+      assetView?.setSelectedElement?.(currentElements[0]?.id ?? null, currentScreenId as UIVisualPageId, currentDoc);
       const screenLabel = screenRegistry.find((s) => s.id === currentScreenId)?.label ?? currentScreenId;
       const firstElem = currentElements[0]?.id ?? "";
       const msg = `[화면 전환: ${screenLabel}] 선택: ${firstElem} · 게임에는 반영되지 않음`;
@@ -394,6 +410,9 @@ export function mountShell(
         session = executeVisualCommand(session, visualCmd);
         currentDoc = session.present;
       }
+      if (currentDoc) {
+        assetView?.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+      }
       updateToolbarMeta();
       previewFrame.updateDocument(currentScreenId);
       options?.onDocumentChange?.(currentDoc);
@@ -412,6 +431,30 @@ export function mountShell(
       options?.onCommitProperty?.(result);
     },
   });
+
+  assetView = mountVisualAssetView(propertiesPanel, {
+    session,
+    document: currentDoc,
+    activePageId: currentScreenId as UIVisualPageId,
+    selectedElementId: initialId,
+    catalog: options?.catalog,
+    store: options?.store,
+    previewCache: options?.previewCache,
+    onVisualCommit: (visualCmd) => {
+      if (session && session.present?.pages && typeof executeVisualCommand === "function") {
+        session = executeVisualCommand(session, visualCmd);
+        currentDoc = session.present;
+      }
+      if (currentDoc) {
+        propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+      }
+      updateToolbarMeta();
+      previewFrame.updateDocument(currentScreenId);
+      options?.onDocumentChange?.(currentDoc);
+      options?.onVisualCommit?.(visualCmd);
+    },
+  });
+
   layoutBody.appendChild(propertiesPanel);
 
   shellRoot.appendChild(layoutBody);
@@ -431,6 +474,7 @@ export function mountShell(
       updateToolbarMeta();
       previewFrame.updateDocument(currentScreenId);
       propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+      assetView?.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
       options?.onDocumentChange?.(currentDoc);
     },
     onAlign: (_result, cmd) => {
@@ -467,6 +511,7 @@ export function mountShell(
     });
     const currentMeta = currentElements[state.selectedIndex] ?? currentElements[0];
     const currentId = currentMeta ? currentMeta.id : MENU_CARD_IDS[state.selectedIndex];
+    assetView?.setSelectedElement(currentId, currentScreenId as UIVisualPageId, currentDoc);
     const activeMsg = `[선택: ${currentId}] 검증 완료 · 게임에는 반영되지 않음 · 샌드박스 미보장 (IFRAME_IS_SECURITY_SANDBOX=false)`;
     statusText.textContent = activeMsg;
     statusPanel.textContent = activeMsg;
@@ -494,6 +539,7 @@ export function mountShell(
     propertyForm.setSelectedId(currentId, currentScreenId as UIVisualPageId, currentDoc);
     arrangementView.setSelection([currentId], currentId);
     arrangementView.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+    assetView?.setSelectedElement(currentId, currentScreenId as UIVisualPageId, currentDoc);
     syncDOMSelection();
   }
 
@@ -532,6 +578,7 @@ export function mountShell(
   syncDOMSelection();
 
   const unmount = () => {
+    assetView?.dispose();
     arrangementView.unmount();
     fileActions.unmount();
     previewFrame.unmount();
@@ -557,6 +604,7 @@ export function mountShell(
     previewFrame,
     fileActions,
     arrangementView,
+    assetView,
     getState: () => ({
       selectedIndex: state.selectedIndex,
       status: state.status.slice(),
