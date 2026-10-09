@@ -74,6 +74,14 @@ export function bootEditor(): {
   };
 }
 
+export function isInputElement(target: unknown): boolean {
+  if (!target || typeof target !== "object") return false;
+  const el = target as any;
+  const tag = typeof el.tagName === "string" ? el.tagName.toLowerCase() : "";
+  if (tag === "input" || tag === "textarea" || tag === "select") return true;
+  return Boolean(el.isContentEditable);
+}
+
 export function attachExportController<T extends ShellState>(
   state: T,
   controller: unknown

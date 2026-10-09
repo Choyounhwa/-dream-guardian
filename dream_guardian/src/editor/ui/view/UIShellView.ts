@@ -8,8 +8,23 @@ import {
   type ShellState,
   announce,
   selectElementByKey,
+  isInputElement,
 } from "../UIEditorShell";
 import type { CommitResult } from "../UIPropertyPanel";
+import type {
+  UIVisualDocument,
+  UIVisualPageId,
+} from "../data/UIVisualDocument";
+import {
+  type VisualEditorSession,
+  createVisualSession,
+  switchVisualPage,
+  selectVisualElements,
+  executeVisualCommand,
+  undoVisual,
+  redoVisual,
+} from "../UIEditorState";
+import type { VisualCommand } from "../UICommands";
 import {
   type PropertyFormInstance,
   mountPropertyForm,
@@ -25,6 +40,7 @@ import {
   type DirtyExportChoice,
   bindFileActions,
 } from "./UIFileActionView";
+import type { PreviewEnvelope } from "../UIPreviewHost";
 
 export interface ShellInstance {
   readonly root: HTMLElement;
@@ -37,7 +53,7 @@ export interface ShellInstance {
   readonly previewFrame: PreviewFrameInstance;
   readonly fileActions: FileActionInstance;
   getState(): ShellState & { selectedId: (typeof MENU_CARD_IDS)[number] };
-  selectElement(indexOrId: number | (typeof MENU_CARD_IDS)[number]): void;
+  selectElement(indexOrId: number | string): void;
   unmount(): void;
   dispose(): void;
 }
@@ -45,15 +61,20 @@ export interface ShellInstance {
 export interface MountShellOptions {
   keyTarget?: EventTarget;
   initialIndex?: number;
+  initialScreenId?: string;
+  document?: UIVisualDocument;
+  session?: VisualEditorSession | any;
+  controller?: any;
   onCommitProperty?: (result: CommitResult) => void;
+  onVisualCommit?: (command: VisualCommand) => void;
   previewDocId?: string;
   previewOrigin?: string;
-  controller?: any;
   downloader?: Downloader;
   picker?: FilePicker;
   confirm?: (summary: string) => boolean;
   promptDirtyExport?: () => DirtyExportChoice;
   onStatus?: (message: string) => void;
+  onDocumentChange?: (doc: any) => void;
 }
 
 const TOOLBAR_ACTION_NAMES = [
@@ -70,6 +91,19 @@ export function mountShell(
   container: HTMLElement,
   options?: MountShellOptions
 ): ShellInstance {
+  let session: VisualEditorSession | any = options?.session;
+  let currentDoc: UIVisualDocument | undefined =
+    session?.present ?? options?.document ?? options?.controller?.document?.();
+
+  let currentScreenId: string =
+    session?.activePageId ??
+    options?.initialScreenId ??
+    "menu_main";
+
+  if (!session && currentDoc && "pages" in currentDoc) {
+    session = createVisualSession(currentDoc, currentScreenId as UIVisualPageId);
+  }
+
   let state: ShellState = {
     selectedIndex: options?.initialIndex ?? 0,
     status: [`초기화: ${MENU_CARD_IDS[options?.initialIndex ?? 0]}`],
@@ -87,7 +121,13 @@ export function mountShell(
 
   const metaBox = doc.createElement("div");
   metaBox.className = "toolbar-meta";
-  metaBox.textContent = "Dream Guardian UI Editor · rev 0 · 최신 초안";
+
+  function updateToolbarMeta(): void {
+    const rev = session?.revision ?? 0;
+    const dirty = session?.dirty ?? false;
+    metaBox.textContent = `Dream Guardian UI Editor · rev ${rev} · ${dirty ? "수정됨" : "최신 초안"}`;
+  }
+  updateToolbarMeta();
   toolbar.appendChild(metaBox);
 
   const actionsGroup = doc.createElement("div");
@@ -106,12 +146,78 @@ export function mountShell(
   const statusPanel = doc.createElement("footer");
   statusPanel.className = "editor-status";
   statusPanel.setAttribute("data-panel", "status");
+  statusPanel.setAttribute("role", "status");
+  statusPanel.setAttribute("aria-live", "polite");
 
   const statusText = doc.createElement("span");
   statusText.className = "status-message";
+  statusText.textContent = state.status[0] ?? "";
   statusPanel.appendChild(statusText);
 
-  // 1-1. File Actions Binding
+  // Undo / Redo / 변경 비교 toolbar listeners using single revision / command pipeline
+  const undoBtn = toolbar.querySelector('button[data-action="Undo"]');
+  const redoBtn = toolbar.querySelector('button[data-action="Redo"]');
+  const diffBtn = toolbar.querySelector('button[data-action="변경 비교"]');
+
+  diffBtn?.addEventListener("click", () => {
+    const isDirty = (session?.dirty ?? options?.controller?.status?.()?.dirty) ?? false;
+    const msg = `변경 비교: ${isDirty ? "미저장 편집본 존재 (수정됨)" : "베이스라인과 일치"} · 게임에는 반영되지 않음`;
+    state = announce(state, msg);
+    statusText.textContent = msg;
+    statusPanel.textContent = msg;
+  });
+
+  undoBtn?.addEventListener("click", () => {
+    if (session && session.present?.pages && typeof undoVisual === "function" && session.undo.length > 0) {
+      session = undoVisual(session);
+      currentDoc = session.present;
+      if (currentDoc) {
+        propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+      }
+      updateToolbarMeta();
+      state = announce(state, `실행 취소(Undo) 완료 · rev ${session.revision}`);
+      statusText.textContent = `실행 취소(Undo) 완료`;
+      statusPanel.textContent = `실행 취소(Undo) 완료`;
+      options?.onDocumentChange?.(currentDoc);
+      previewFrame.updateDocument(currentScreenId);
+    } else if (options?.controller && typeof options.controller.undo === "function") {
+      options.controller.undo();
+      state = announce(state, `실행 취소(Undo) 완료`);
+      statusText.textContent = `실행 취소(Undo) 완료`;
+      statusPanel.textContent = `실행 취소(Undo) 완료`;
+    } else {
+      state = announce(state, `취소할 작업 내역이 없습니다.`);
+      statusText.textContent = `취소할 작업 내역이 없습니다.`;
+      statusPanel.textContent = `취소할 작업 내역이 없습니다.`;
+    }
+  });
+
+  redoBtn?.addEventListener("click", () => {
+    if (session && session.present?.pages && typeof redoVisual === "function" && session.redo.length > 0) {
+      session = redoVisual(session);
+      currentDoc = session.present;
+      if (currentDoc) {
+        propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+      }
+      updateToolbarMeta();
+      state = announce(state, `다시 실행(Redo) 완료 · rev ${session.revision}`);
+      statusText.textContent = `다시 실행(Redo) 완료`;
+      statusPanel.textContent = `다시 실행(Redo) 완료`;
+      options?.onDocumentChange?.(currentDoc);
+      previewFrame.updateDocument(currentScreenId);
+    } else if (options?.controller && typeof options.controller.redo === "function") {
+      options.controller.redo();
+      state = announce(state, `다시 실행(Redo) 완료`);
+      statusText.textContent = `다시 실행(Redo) 완료`;
+      statusPanel.textContent = `다시 실행(Redo) 완료`;
+    } else {
+      state = announce(state, `다시 실행할 내역이 없습니다.`);
+      statusText.textContent = `다시 실행할 내역이 없습니다.`;
+      statusPanel.textContent = `다시 실행할 내역이 없습니다.`;
+    }
+  });
+
+  // Bind file actions
   const fileActions = bindFileActions(toolbar, {
     controller: options?.controller,
     downloader: options?.downloader,
@@ -120,85 +226,15 @@ export function mountShell(
     promptDirtyExport: options?.promptDirtyExport,
     onStatus: (msg) => {
       state = announce(state, msg);
+      options?.onStatus?.(msg);
       statusText.textContent = msg;
       statusPanel.textContent = msg;
-      options?.onStatus?.(msg);
     },
   });
 
-  // 1-2. Undo / Redo / 변경 비교 Toolbar Actions Binding
-  const historyStack: any[] = [];
-  const futureStack: any[] = [];
-
-  const undoBtn = toolbar.querySelector?.('[data-action="Undo"]');
-  const redoBtn = toolbar.querySelector?.('[data-action="Redo"]');
-  const diffBtn = toolbar.querySelector?.('[data-action="변경 비교"]');
-
-  const onUndoClick = () => {
-    if (historyStack.length === 0) {
-      const msg = "실행 취소할 이전 변경이 없습니다 · 게임에는 반영되지 않음";
-      state = announce(state, msg);
-      statusText.textContent = msg;
-      statusPanel.textContent = msg;
-      return;
-    }
-    const currentDoc = options?.controller?.document?.();
-    if (currentDoc) {
-      futureStack.push(structuredClone(currentDoc));
-    }
-    const prevDoc = historyStack.pop();
-    if (prevDoc && options?.controller && typeof options.controller.edit === "function") {
-      options.controller.edit(prevDoc);
-    }
-    const msg = "실행 취소(Undo) 완료 · 게임에는 반영되지 않음";
-    state = announce(state, msg);
-    statusText.textContent = msg;
-    statusPanel.textContent = msg;
-  };
-
-  const onRedoClick = () => {
-    if (futureStack.length === 0) {
-      const msg = "다시 실행할 다음 변경이 없습니다 · 게임에는 반영되지 않음";
-      state = announce(state, msg);
-      statusText.textContent = msg;
-      statusPanel.textContent = msg;
-      return;
-    }
-    const currentDoc = options?.controller?.document?.();
-    if (currentDoc) {
-      historyStack.push(structuredClone(currentDoc));
-    }
-    const nextDoc = futureStack.pop();
-    if (nextDoc && options?.controller && typeof options.controller.edit === "function") {
-      options.controller.edit(nextDoc);
-    }
-    const msg = "다시 실행(Redo) 완료 · 게임에는 반영되지 않음";
-    state = announce(state, msg);
-    statusText.textContent = msg;
-    statusPanel.textContent = msg;
-  };
-
-  const onDiffClick = () => {
-    const isDirty = options?.controller?.status?.()?.dirty ?? false;
-    const msg = `변경 비교: ${isDirty ? "미저장 편집본 존재 (수정됨)" : "베이스라인과 일치"} · 게임에는 반영되지 않음`;
-    state = announce(state, msg);
-    statusText.textContent = msg;
-    statusPanel.textContent = msg;
-  };
-
-  if (undoBtn && typeof undoBtn.addEventListener === "function") {
-    undoBtn.addEventListener("click", onUndoClick);
-  }
-  if (redoBtn && typeof redoBtn.addEventListener === "function") {
-    redoBtn.addEventListener("click", onRedoClick);
-  }
-  if (diffBtn && typeof diffBtn.addEventListener === "function") {
-    diffBtn.addEventListener("click", onDiffClick);
-  }
-
-  // 2. 3-Panel Layout Body
-  const layoutBody = doc.createElement("div");
-  layoutBody.className = "editor-layout-3col";
+  // 2. Layout Body
+  const layoutBody = doc.createElement("main");
+  layoutBody.className = "editor-layout-body editor-layout-3col";
 
   // 2-1. Elements Panel
   const elementsPanel = doc.createElement("section");
@@ -209,32 +245,36 @@ export function mountShell(
   elementsTitle.textContent = "화면 / 요소 목록";
   elementsPanel.appendChild(elementsTitle);
 
-  // 2-1-A. Screen Selector (10 Screens / Phases)
+  // Screen Selector (10 screens)
   const screenRegistry = getScreenRegistry();
-  let currentScreenId = "menu_main";
-  let currentElements: readonly UIElementMeta[] = getScreenElements(currentScreenId);
-
   const screenSelector = doc.createElement("select");
   screenSelector.className = "screen-selector";
   screenSelector.setAttribute("data-view", "screen-selector");
+  screenSelector.setAttribute("data-action", "switch-screen");
   screenSelector.setAttribute("aria-label", "편집할 화면 및 페이즈 선택");
-  if (screenSelector.style) {
-    screenSelector.style.width = "100%";
-    screenSelector.style.marginBottom = "8px";
-    screenSelector.style.padding = "6px 8px";
-    screenSelector.style.background = "#1a2235";
-    screenSelector.style.color = "#38bdf8";
-    screenSelector.style.border = "1px solid #334155";
-    screenSelector.style.borderRadius = "6px";
-    screenSelector.style.fontSize = "12px";
-    screenSelector.style.fontWeight = "bold";
+
+  function getElementsForScreen(screenId: string): readonly UIElementMeta[] {
+    if (currentDoc && currentDoc.pages && currentDoc.pages[screenId as UIVisualPageId]) {
+      const page = currentDoc.pages[screenId as UIVisualPageId];
+      if (page.elements && page.elements.length > 0) {
+        return page.elements.map((el) => ({
+          id: el.id,
+          label: el.name || el.id,
+          defaultRect: el.bounds,
+        }));
+      }
+    }
+    return getScreenElements(screenId);
   }
 
-  for (const s of screenRegistry) {
+  let currentElements: readonly UIElementMeta[] = getElementsForScreen(currentScreenId);
+
+  for (const screen of screenRegistry) {
     const opt = doc.createElement("option");
-    opt.value = s.id;
-    opt.textContent = s.label;
-    if (s.id === currentScreenId) {
+    opt.value = screen.id;
+    opt.textContent = screen.label;
+    if (screen.id === currentScreenId) {
+      opt.selected = true;
       opt.setAttribute("selected", "selected");
     }
     screenSelector.appendChild(opt);
@@ -250,6 +290,7 @@ export function mountShell(
       elementsList.removeChild(elementsList.children[0]);
     }
     itemElements = [];
+    currentElements = getElementsForScreen(currentScreenId);
     currentElements.forEach((meta, index) => {
       const item = doc.createElement("li");
       item.className = "element-card-item";
@@ -268,15 +309,18 @@ export function mountShell(
   screenSelector.addEventListener("change", (e: any) => {
     const newScreen = e?.target?.value ?? screenSelector.value;
     if (newScreen && newScreen !== currentScreenId) {
+      propertyForm.cancelDraft?.();
       currentScreenId = newScreen;
-      currentElements = getScreenElements(currentScreenId);
+      if (session && session.present?.pages && typeof switchVisualPage === "function") {
+        session = switchVisualPage(session, currentScreenId as UIVisualPageId);
+      }
+      previewFrame.updateDocument(currentScreenId);
+      currentElements = getElementsForScreen(currentScreenId);
       renderElementItems();
       const screenLabel = screenRegistry.find((s) => s.id === currentScreenId)?.label ?? currentScreenId;
       const firstElem = currentElements[0]?.id ?? "";
       const msg = `[화면 전환: ${screenLabel}] 선택: ${firstElem} · 게임에는 반영되지 않음`;
       state = announce(state, msg);
-      statusText.textContent = msg;
-      statusPanel.textContent = msg;
     }
   });
 
@@ -293,12 +337,33 @@ export function mountShell(
   previewPanel.appendChild(previewTitle);
 
   const previewFrame = mountPreviewFrame(previewPanel, {
-    docId: options?.previewDocId ?? "menu-main",
+    docId: options?.previewDocId ?? currentScreenId,
+    pageId: currentScreenId,
     origin: options?.previewOrigin,
     onStatus: (msg) => {
       state = announce(state, msg);
+      options?.onStatus?.(msg);
+      statusText.textContent = msg;
+      statusPanel.textContent = msg;
     },
   });
+
+  // Intercept preview messages for bidirectional selection synchronization
+  const originalHandlePreviewMessage = previewFrame.handlePreviewMessage.bind(previewFrame);
+  previewFrame.handlePreviewMessage = (message: PreviewEnvelope) => {
+    const decision = originalHandlePreviewMessage(message);
+    if (message.kind === "preview:selection") {
+      const payload: any = message.payload;
+      const targetId =
+        payload?.elementId ??
+        (Array.isArray(payload?.selectedIds) ? payload.selectedIds[0] : undefined);
+      if (typeof targetId === "string") {
+        selectElement(targetId);
+      }
+    }
+    return decision;
+  };
+
   layoutBody.appendChild(previewPanel);
 
   // 2-3. Properties Panel
@@ -310,36 +375,29 @@ export function mountShell(
   propertiesTitle.textContent = "요소 속성";
   propertiesPanel.appendChild(propertiesTitle);
 
-  const initialId = MENU_CARD_IDS[state.selectedIndex];
+  const initialId = currentElements[state.selectedIndex]?.id ?? MENU_CARD_IDS[state.selectedIndex];
   const propertyForm = mountPropertyForm(propertiesPanel, {
     initialId,
+    document: currentDoc,
+    activePageId: currentScreenId as UIVisualPageId,
+    onVisualCommit: (visualCmd) => {
+      if (session && session.present?.pages && typeof executeVisualCommand === "function") {
+        session = executeVisualCommand(session, visualCmd);
+        currentDoc = session.present;
+      }
+      updateToolbarMeta();
+      previewFrame.updateDocument(currentScreenId);
+      options?.onDocumentChange?.(currentDoc);
+      options?.onVisualCommit?.(visualCmd);
+    },
     onCommit: (result) => {
       if (result.command) {
         state = announce(
           state,
           `속성 변경: ${result.command.target}.${result.command.field} = ${result.command.value}`
         );
-        const currentDoc = options?.controller?.document?.();
-        if (currentDoc) {
-          historyStack.push(structuredClone(currentDoc));
-          futureStack.length = 0;
-          const updatedDoc = structuredClone(currentDoc);
-          if (updatedDoc.menu) {
-            const cmd = result.command;
-            if (cmd.target === "workout-button") {
-              if (updatedDoc.menu.workoutButton) updatedDoc.menu.workoutButton[cmd.field] = cmd.value;
-            } else if (cmd.field === "width" || cmd.field === "height") {
-              updatedDoc.menu[cmd.field] = cmd.value;
-            } else if (Array.isArray(updatedDoc.menu.cards)) {
-              const card = updatedDoc.menu.cards.find((c: any) => c.id === cmd.target);
-              if (card && (cmd.field === "x" || cmd.field === "y")) {
-                card[cmd.field] = cmd.value;
-              }
-            }
-          }
-          if (options?.controller && typeof options.controller.edit === "function") {
-            options.controller.edit(updatedDoc);
-          }
+        if (options?.controller && typeof options.controller.edit === "function") {
+          options.controller.edit(currentDoc);
         }
       }
       options?.onCommitProperty?.(result);
@@ -354,31 +412,31 @@ export function mountShell(
   container.appendChild(shellRoot);
 
   function syncDOMSelection(): void {
-    const currentMeta = currentElements[state.selectedIndex] ?? currentElements[0];
-    const currentId = currentMeta ? currentMeta.id : MENU_CARD_IDS[state.selectedIndex];
-    itemElements.forEach((el, idx) => {
-      const isSelected = idx === state.selectedIndex;
+    itemElements.forEach((el, index) => {
+      const isSelected = index === state.selectedIndex;
       el.setAttribute("data-selected", isSelected ? "true" : "false");
       el.setAttribute("aria-selected", isSelected ? "true" : "false");
       if (isSelected) {
         if (!el.className.includes("selected")) {
-          el.className = `${el.className} selected is-selected`.trim();
+          el.className = `${el.className} selected is-selected active`.trim();
         }
       } else {
-        el.className = el.className.replace(/\b(selected|is-selected)\b/g, "").trim();
+        el.className = el.className.replace(/\b(selected|is-selected|active)\b/g, "").trim();
       }
     });
-    const msg = `[선택: ${currentId}] 검증 완료 · 게임에는 반영되지 않음 · 샌드박스 미보장 (IFRAME_IS_SECURITY_SANDBOX=false)`;
-    statusText.textContent = msg;
-    statusPanel.textContent = msg;
-    propertyForm.setSelectedId(currentId);
+    const currentMeta = currentElements[state.selectedIndex] ?? currentElements[0];
+    const currentId = currentMeta ? currentMeta.id : MENU_CARD_IDS[state.selectedIndex];
+    const activeMsg = `[선택: ${currentId}] 검증 완료 · 게임에는 반영되지 않음 · 샌드박스 미보장 (IFRAME_IS_SECURITY_SANDBOX=false)`;
+    statusText.textContent = activeMsg;
+    statusPanel.textContent = activeMsg;
   }
 
   function selectElement(indexOrId: number | string): void {
-    let nextIndex: number;
+    currentElements = getElementsForScreen(currentScreenId);
+    let nextIndex = 0;
     if (typeof indexOrId === "number") {
       const len = currentElements.length || 1;
-      nextIndex = (indexOrId % len + len) % len;
+      nextIndex = ((indexOrId % len) + len) % len;
     } else {
       nextIndex = currentElements.findIndex((m) => m.id === indexOrId);
       if (nextIndex === -1) nextIndex = 0;
@@ -389,6 +447,10 @@ export function mountShell(
       selectedIndex: nextIndex,
       status: [...state.status, `선택: ${currentId}`],
     };
+    if (session && session.present?.pages && typeof selectVisualElements === "function") {
+      session = selectVisualElements(session, [currentId]);
+    }
+    propertyForm.setSelectedId(currentId, currentScreenId as UIVisualPageId, currentDoc);
     syncDOMSelection();
   }
 
@@ -402,6 +464,11 @@ export function mountShell(
       : container);
 
   const onKeyDown = (event: any) => {
+    // Prevent shortcut conflicts while focusing inputs/textareas
+    if (isInputElement(event?.target)) {
+      return;
+    }
+
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event?.key)) {
       if (typeof event.preventDefault === "function") {
         event.preventDefault();
@@ -411,7 +478,7 @@ export function mountShell(
         selectedIndex: result.selectedIndex,
         status: result.status,
       };
-      syncDOMSelection();
+      selectElement(state.selectedIndex);
     }
   };
 
@@ -445,13 +512,12 @@ export function mountShell(
     propertyForm,
     previewFrame,
     fileActions,
-    getState() {
-      return {
-        selectedIndex: state.selectedIndex,
-        selectedId: MENU_CARD_IDS[state.selectedIndex],
-        status: state.status.slice(),
-      };
-    },
+    getState: () => ({
+      selectedIndex: state.selectedIndex,
+      status: state.status.slice(),
+      selectedId: (currentElements[state.selectedIndex]?.id ??
+        MENU_CARD_IDS[state.selectedIndex]) as any,
+    }),
     selectElement,
     unmount,
     dispose: unmount,

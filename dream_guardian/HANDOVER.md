@@ -2,6 +2,16 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 보스 접근전 계획·등록 인계 (BOSS-ASSAULT, 2026-10-10, 독립 트랙)
+
+- **승인 및 수행 범위**: DOC-14 v0.2(§6.4~6.7 포함)를 읽고 문서화·GitHub 등록만 수행. 소스/config/tests 수정, 구현, 카드 실행, 커밋/푸시 없음. DOC-14는 주 담당 소유로 편집하지 않음.
+- **관리**: [BOSS-ASSAULT-TRACK #502](https://github.com/Choyounhwa/-dream-guardian/issues/502). 하위 **37개 BOSS-ASSAULT-01~37 / #503~#539**, 모두 OPEN / 계획 / 개별 승인 대기.
+- **상세 원장**: [DOC-15 작업 카드](../docs/15_BOSS_ASSAULT_WORK_CARDS.md), [이슈 목록](../docs/03_GITHUB_ISSUES.md). exact allowlist 최대 3 src/config, tests 별도, 데이터/로직/정산/화면/core/저장 분리 및 A01~A23 추적표 포함.
+- **단계**: 계약 → 데이터/검증/순수 계획 → MVP 구성 요소 → core loop 인수 → 결전 → 보상/저장 → 실기기 인수. 위상 순서 01~26 → 37 → 27~36. 37은 현행 BossController의 HP 초기화 옵션 부재를 별도 game 카드로 분리한 것.
+- **차단**: 구현 승인 없음. BPM100/4박/2쌍/10라운드는 후보. 읽기/TTS/입력/안전 정지/피해/결전/보상·저장 정책은 01에서 단계별 결정·승인 또는 차단. 수식/랭킹/편집기/기본 모드 전환은 미등록 후속.
+- **검증 기록**: 이번 등록 세션 테스트·빌드·실기기·개발 서버 미실행. 통과한 구현 테스트 없음. 등록 완료와 구현 완료는 별개이며 기존 완료 기록을 이 트랙의 증거로 재사용하지 않음.
+- **후속 검토 대상**: [#503 BOSS-ASSAULT-01](https://github.com/Choyounhwa/-dream-guardian/issues/503) 문서 계약 결정(별도 착수 승인 필요). 자동 진행하지 않는다. **기존 모든 SSOT/진행 표시와 순서를 그대로 유지하며 이 트랙을 다음 실행 카드로 지정하지 않는다.**
+
 ## 🗣️ 꼬마 수호신 밝은 보이스 톤 및 수식 간결 낭독 트랙 (TTS-VOICE, 2026-10-10)
 
 - **작업 카드**:
@@ -214,7 +224,8 @@
   - 전체 단위/통합 테스트: 297개 파일, 3,866개 100% 통과 (회귀 결함 0건)
   - TypeScript strict compile (`tsc`) 및 Vite bundle build 성공
 - **다음 작업 대상**:
-  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#460 UI-VIS-030]**: 에디터-프리뷰 간 선택 동기화 (Stage E 진입)
+  - **[✔ 완료: UI-VIS-030] [#460]**: 선택·숫자 검사기·문서 양방향 DOM 연결 (TDD 12개 테스트 100% 통과, build/build:ui-editor 성공)
+  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#461 UI-VIS-031]**: 다중 선택·그리드·스냅 조작
 
 ## 👾 [UI-VIS-028 / #458] 보스 결전 실제 렌더 페이지 연결 완료 (2026-10-10)
 
@@ -347,7 +358,7 @@
 | B | #435~#438 / UI-VIS-005~008 | 정렬·속성 모델·안전 bridge·실제 Canvas | #435 [✔], #436 [✔], #437 [✔], #438 [✔] (단계 B 완료) |
 | C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | #439 [✔], #440 [✔], #441 [✔], [#442 UI-VIS-012](https://github.com/Choyounhwa/-dream-guardian/issues/442) [✔], [#443 UI-VIS-013](https://github.com/Choyounhwa/-dream-guardian/issues/443) [✔], [#444 UI-VIS-014](https://github.com/Choyounhwa/-dream-guardian/issues/444) [✔], [#445 UI-VIS-015](https://github.com/Choyounhwa/-dream-guardian/issues/445) [✔], [#446 UI-VIS-016](https://github.com/Choyounhwa/-dream-guardian/issues/446) [✔], [#447 UI-VIS-017](https://github.com/Choyounhwa/-dream-guardian/issues/447) [✔], [#448 UI-VIS-018](https://github.com/Choyounhwa/-dream-guardian/issues/448) [✔], [#449 UI-VIS-019](https://github.com/Choyounhwa/-dream-guardian/issues/449) [✔] (단계 C 10개 런타임 렌더/UI 레이어 표시 경계 전원 완료) |
 | D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | #450 [✔], #451 [✔], #452 [✔], #453 [✔], #454 [✔], [#455 UI-VIS-025](https://github.com/Choyounhwa/-dream-guardian/issues/455) [✔], [#456 UI-VIS-026](https://github.com/Choyounhwa/-dream-guardian/issues/456) [✔], [#457 UI-VIS-027](https://github.com/Choyounhwa/-dream-guardian/issues/457) [✔], [#458 UI-VIS-028](https://github.com/Choyounhwa/-dream-guardian/issues/458) [✔], [#459 UI-VIS-029](https://github.com/Choyounhwa/-dream-guardian/issues/459) [✔] (단계 D 10개 화면 실제 연결 전원 완료) |
-| E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#460 UI-VIS-030], 나머지 선행 대기 |
+| E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | [✔ #460 완료], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#461 UI-VIS-031], 나머지 선행 대기 |
 | F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | 승인/선행 대기 |
 | G | #468 → #469 / UI-VIS-038~039 | 적용본/백업 모델→추출·게시 UI | 승인/선행 대기 |
 | H | #470 → #471 / UI-VIS-040~041 | UI 전용 수신→게임 주입/입력 일치/롤백 | 승인/선행 대기 |
