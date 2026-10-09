@@ -73,3 +73,15 @@ export function bootEditor(): {
     loadsGameMain: SHELL_LOADS_GAME_MAIN,
   };
 }
+
+export function attachExportController<T extends ShellState>(
+  state: T,
+  controller: unknown
+): T & { exportController: unknown } {
+  return {
+    ...state,
+    exportController: controller,
+    status: [...state.status, "추출 컨트롤러 연결됨"],
+  };
+}
+

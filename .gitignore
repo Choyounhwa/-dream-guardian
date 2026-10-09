@@ -42,3 +42,24 @@ Thumbs.db
 OLD 파일들/
 docs/archive/
 docs/보류/
+
+# Local Editors (Fitness & UI Editors - Not committed to repo)
+dream_guardian/src/editor/
+dream_guardian/editor.html
+dream_guardian/ui-editor.html
+dream_guardian/vite.ui-editor.config.ts
+dream_guardian/dist-ui-editor/
+dream_guardian/tests/unit/editor-*
+dream_guardian/tests/unit/phase-sequence-editor*
+dream_guardian/tests/unit/audio-sync-controller*
+dream_guardian/tests/unit/beat-timeline-renderer*
+dream_guardian/tests/unit/choreo-pose-simulator*
+dream_guardian/tests/unit/uix-*
+dream_guardian/tests/integration/*editor*
+dream_guardian/tests/integration/fitness-editor*
+dream_guardian/tests/e2e/*editor*
+dream_guardian/tests/e2e/uix-*
+docs/*EDITOR*
+docs/*editor*
+docs/06_DANCE_CHOREO_EDITOR_SPEC.md
+docs/11_FITNESS_EDITOR_ACCEPTANCE_CHECKLIST.md

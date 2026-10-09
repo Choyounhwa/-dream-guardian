@@ -5,7 +5,6 @@
 import {
   ALLOWED_VISUAL_ELEMENT_TYPES,
   UIRect,
-  UIVisualDocument,
   UIVisualElement,
   UIVisualGroup,
   UI_VISUAL_CANVAS,

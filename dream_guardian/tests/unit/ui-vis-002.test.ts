@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  SCREEN_DEFINITIONS,
   getScreenElements,
   getScreenRegistry,
 } from "../../src/editor/ui/data/UIScreenRegistry";
 import {
   UI_VISUAL_DOCUMENT_KIND,
   UI_VISUAL_SCHEMA_VERSION,
-  UIVisualDocument,
   createDefaultUIVisualDocument,
 } from "../../src/editor/ui/data/UIVisualDocument";
 import {

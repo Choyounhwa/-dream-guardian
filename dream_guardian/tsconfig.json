@@ -17,5 +17,6 @@
     "noImplicitReturns": true,
     "skipLibCheck": true
   },
-  "include": ["src", "tests", "config", "vite.config.ts"]
+  "include": ["src", "tests", "config", "vite.config.ts"],
+  "exclude": ["tests/unit/uix-*", "tests/e2e/uix-*"]
 }
