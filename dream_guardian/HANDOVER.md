@@ -17,12 +17,13 @@
 - **작업 카드**:
   - [✔ 완료] [#500 TTS-VOICE-001](https://github.com/Choyounhwa/-dream-guardian/issues/500) 꼬마 수호신 밝은 보이스 톤(Pitch/Rate) 및 수식 간결 낭독 반영
   - [✔ 완료] [#501 TTS-VOICE-002](https://github.com/Choyounhwa/-dream-guardian/issues/501) 실브라우저 비동기 getVoices 로딩 및 피치 조절 지원 한국어 보이스 우선 매칭
-  - [▶ NEXT] [#540 TTS-VOICE-003](https://github.com/Choyounhwa/-dream-guardian/issues/540) TTS 피드백 멘트 간결화 및 러닝페이즈 '달려' 순차 낭독 구현
+  - [✔ 완료] [#540 TTS-VOICE-003](https://github.com/Choyounhwa/-dream-guardian/issues/540) TTS 피드백 멘트 간결화 및 러닝페이즈 '달려' 순차 낭독 구현
 - **목적**:
   - "정답입니다!", "틀렸습니다!" 음성 발화 삭제 (효과음 SFX로 충분히 전달되므로 중복 제거)
   - 긴 경고 멘트 간결화: "주의! 체력이 절반입니다!" -> "HP 주의", "보스가 광폭화했습니다!" -> "보스 광폭화"
   - 러닝페이즈(RUN_QUESTION) 진입 시 "달려!" 발화 후 수식 순차 낭독(`speakRunPhase`)
 - **수정 대상**: `src/question/QuestionSpeech.ts`, `src/core/AppBootstrap.ts`, `tests/unit/a11y-tts-feedback.test.ts`
+- **검증**: Vitest 18 tests 통과, 전체 테스트 297 suites / 3,870 tests 100% 통과, `npm run build` 번들 검증 통과
 - **검증**: Vitest 17 tests 통과, 전체 테스트 297 suites / 3,869 tests 100% 통과, `npm run build` 번들 검증 통과
 
 ## ⏸️ 답안 선택 후 2박 쉼표(Rest Delay) 도입 트랙 (ANSWER-REST, 2026-10-08)

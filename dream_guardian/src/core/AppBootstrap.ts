@@ -995,8 +995,8 @@ const beatCoordinator = new BeatRunCoordinator({
   sfx,
   speakFn: (text) => {
     bgmManager.setDucking(true);
-    speech.speak(text);
-    setTimeout(() => bgmManager.setDucking(false), 2200);
+    speech.speakRunPhase(text);
+    setTimeout(() => bgmManager.setDucking(false), 2600);
   },
   onBeat: (event) => {
     (eventBus as any).emit?.('beat:tick', event);
@@ -1070,14 +1070,14 @@ const beatCoordinator = new BeatRunCoordinator({
         canvasManager.virtualHeight * HORIZON_RATIO,
         isEnraged,
       );
-      speech.speakFeedback('correct');
+      // Issue #540: 정답 TTS 낭독 삭제 (SFX 효과음으로 대체)
       eventBus.emit('answer:correct', { mana: battle.mana, combo: battle.combo + 1 });
       eventBus.emit('boss:hit', { bossHp: boss.hp });
     } else {
       sfx.play('wrong');
       effectManager.playAnswerEffect('wrong', bx, by);
       effectManager.playPreset('wrong', bx, by);
-      speech.speakFeedback('wrong');
+      // Issue #540: 오답 TTS 낭독 삭제 (SFX 효과음으로 대체)
       eventBus.emit('answer:wrong', { hp: battle.hp });
     }
   },

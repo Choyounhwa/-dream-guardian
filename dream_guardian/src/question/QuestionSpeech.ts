@@ -18,6 +18,7 @@ export class QuestionSpeech {
   private _supported = false;
   private _enabled = true;
   private _cachedVoice: SpeechSynthesisVoice | null = null;
+  private _speakQueue: string[] = [];
 
   // 저시력 모드 음성 피드백 중복 방지 제어
   private _lastLowHpTime = 0;
@@ -67,16 +68,28 @@ export class QuestionSpeech {
   speak(mathText: string): void {
     if (!this._supported || !this._enabled) return;
 
+    this._speakQueue = [];
     const koreanText = mathToKorean(mathText);
     this._speakRaw(koreanText);
   }
 
   /**
-   * 게임 상태 피드백 음성 안내 (Issue #265 / A11Y-004)
-   * - correct: "정답입니다!"
-   * - wrong: "틀렸습니다!"
-   * - low_hp: "주의! 체력이 절반입니다!" (쿨다운 중복 방지)
-   * - boss_enrage: "보스가 광폭화했습니다!" (1회 트리거)
+   * 러닝페이즈(RUN_QUESTION) 낭독 (Issue #540 / TTS-VOICE-003)
+   * 1. "달려!" 먼저 발화
+   * 2. 발화 완료(onend) 시 수학 문제("3 더하기 5") 순차 발화
+   */
+  speakRunPhase(mathText: string): void {
+    if (!this._supported || !this._enabled) return;
+
+    const koreanQuestion = mathToKorean(mathText);
+    this._speakRawSequence(['달려!', koreanQuestion]);
+  }
+
+  /**
+   * 게임 상태 피드백 음성 안내 (Issue #265, #540)
+   * - low_hp: "HP 주의" (쿨다운 중복 방지)
+   * - boss_enrage: "보스 광폭화" (1회 트리거)
+   * - correct / wrong: 효과음(SFX)으로 충분히 전달되므로 음성 삭제 (no-op)
    */
   speakFeedback(type: SpeechFeedbackType): void {
     if (!this._supported || !this._enabled) return;
@@ -94,15 +107,14 @@ export class QuestionSpeech {
       this._lastLowHpTime = now;
     }
 
-    const messages: Record<SpeechFeedbackType, string> = {
-      correct: '정답입니다!',
-      wrong: '틀렸습니다!',
-      low_hp: '주의! 체력이 절반입니다!',
-      boss_enrage: '보스가 광폭화했습니다!',
+    const messages: Partial<Record<SpeechFeedbackType, string>> = {
+      low_hp: 'HP 주의',
+      boss_enrage: '보스 광폭화',
     };
 
     const text = messages[type];
     if (text) {
+      this._speakQueue = [];
       this._speakRaw(text);
     }
   }
@@ -191,11 +203,11 @@ export class QuestionSpeech {
   }
 
   /** 한국어 텍스트 직접 발화 내부 헬퍼 */
-  private _speakRaw(text: string): void {
+  private _speakRaw(text: string, onDone?: () => void): void {
     if (!this._supported || !this._enabled) return;
 
-    // 이전 음성 취소
-    this.cancel();
+    // 이전 발화 취소 (큐는 유지)
+    this._cancelCurrentUtterance();
 
     try {
       this._utterance = new SpeechSynthesisUtterance(text);
@@ -212,11 +224,13 @@ export class QuestionSpeech {
       this._utterance.onend = () => {
         this._status = 'idle';
         this._clearTimeout();
+        onDone?.();
       };
 
       this._utterance.onerror = () => {
         this._status = 'idle';
         this._clearTimeout();
+        this._speakQueue = [];
       };
 
       this._status = 'speaking';
@@ -231,8 +245,32 @@ export class QuestionSpeech {
     }
   }
 
-  /** 현재 음성 취소 */
+  /** 순차 음성 발화 큐잉 내부 헬퍼 */
+  private _speakRawSequence(texts: string[]): void {
+    if (!this._supported || !this._enabled) return;
+    this.cancel();
+    if (texts.length === 0) return;
+    this._speakQueue = [...texts];
+    this._playNextInQueue();
+  }
+
+  private _playNextInQueue(): void {
+    if (this._speakQueue.length === 0) return;
+    const nextText = this._speakQueue.shift()!;
+    this._speakRaw(nextText, () => {
+      if (this._speakQueue.length > 0) {
+        this._playNextInQueue();
+      }
+    });
+  }
+
+  /** 현재 발화 취소 및 큐 초기화 */
   cancel(): void {
+    this._speakQueue = [];
+    this._cancelCurrentUtterance();
+  }
+
+  private _cancelCurrentUtterance(): void {
     if (this._supported && typeof window !== 'undefined') {
       window.speechSynthesis.cancel();
     }

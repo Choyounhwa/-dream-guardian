@@ -57,39 +57,30 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
   });
 
   describe('1. speakFeedback 발화 내용 및 타입별 한국어 매핑', () => {
-    it('correct 타입 호출 시 "정답입니다!"를 발화한다', () => {
+    it('correct 및 wrong 타입 호출 시 음성을 발화하지 않는다 (효과음 SFX 전담)', () => {
       const speech = new QuestionSpeech();
       speech.speakFeedback('correct');
-
-      expect(mockSpeechSynthesis.speak).toHaveBeenCalledTimes(1);
-      expect(mockUtterances[0].text).toBe('정답입니다!');
-      expect(mockUtterances[0].lang).toBe('ko-KR');
-    });
-
-    it('wrong 타입 호출 시 "틀렸습니다!"를 발화한다', () => {
-      const speech = new QuestionSpeech();
       speech.speakFeedback('wrong');
 
-      expect(mockSpeechSynthesis.speak).toHaveBeenCalledTimes(1);
-      expect(mockUtterances[0].text).toBe('틀렸습니다!');
-      expect(mockUtterances[0].lang).toBe('ko-KR');
+      expect(mockSpeechSynthesis.speak).not.toHaveBeenCalled();
+      expect(mockUtterances.length).toBe(0);
     });
 
-    it('low_hp 타입 호출 시 "주의! 체력이 절반입니다!"를 발화한다', () => {
+    it('low_hp 타입 호출 시 간결한 "HP 주의"를 발화한다', () => {
       const speech = new QuestionSpeech();
       speech.speakFeedback('low_hp');
 
       expect(mockSpeechSynthesis.speak).toHaveBeenCalledTimes(1);
-      expect(mockUtterances[0].text).toBe('주의! 체력이 절반입니다!');
+      expect(mockUtterances[0].text).toBe('HP 주의');
       expect(mockUtterances[0].lang).toBe('ko-KR');
     });
 
-    it('boss_enrage 타입 호출 시 "보스가 광폭화했습니다!"를 발화한다', () => {
+    it('boss_enrage 타입 호출 시 간결한 "보스 광폭화"를 발화한다', () => {
       const speech = new QuestionSpeech();
       speech.speakFeedback('boss_enrage');
 
       expect(mockSpeechSynthesis.speak).toHaveBeenCalledTimes(1);
-      expect(mockUtterances[0].text).toBe('보스가 광폭화했습니다!');
+      expect(mockUtterances[0].text).toBe('보스 광폭화');
       expect(mockUtterances[0].lang).toBe('ko-KR');
     });
   });
@@ -128,9 +119,9 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
       expect(mockSpeechSynthesis.speak).not.toHaveBeenCalled();
 
       speech.enabled = true;
-      speech.speakFeedback('correct');
+      speech.speakFeedback('boss_enrage');
       expect(mockSpeechSynthesis.speak).toHaveBeenCalledTimes(1);
-      expect(mockUtterances[0].text).toBe('정답입니다!');
+      expect(mockUtterances[0].text).toBe('보스 광폭화');
     });
   });
 
@@ -189,7 +180,7 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
   describe('5. [TTS-VOICE-001 / #500] 꼬마 수호신 밝은 보이스 톤(Pitch/Rate) 및 수식 간결 낭독', () => {
     it('발화 시 pitch=1.35, rate=1.15 및 한국어 음성이 적용된다', () => {
       const speech = new QuestionSpeech();
-      speech.speakFeedback('correct');
+      speech.speakFeedback('boss_enrage');
 
       expect(mockUtterances.length).toBe(1);
       const utt = mockUtterances[0];
@@ -221,7 +212,7 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
       mockSpeechSynthesis.getVoices = vi.fn(() => edgeVoices);
 
       const speech = new QuestionSpeech();
-      speech.speakFeedback('correct');
+      speech.speakFeedback('boss_enrage');
 
       expect(mockUtterances.length).toBe(1);
       const utt = mockUtterances[0];
@@ -254,6 +245,37 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
       expect(mockSpeechSynthesis.onvoiceschanged).not.toBeNull();
       speech.destroy();
       expect(mockSpeechSynthesis.onvoiceschanged).toBeNull();
+    });
+  });
+
+  describe('7. [TTS-VOICE-003 / #540] 러닝페이즈 "달려!" 발화 후 수식 순차 낭독 (speakRunPhase)', () => {
+    it('speakRunPhase 호출 시 먼저 "달려!"가 발화되고, 완료(onend) 시 수식이 순차 발화된다', () => {
+      const speech = new QuestionSpeech();
+      speech.speakRunPhase('3 + 5 = ?');
+
+      // 1단계: "달려!" 발화 시작
+      expect(mockSpeechSynthesis.speak).toHaveBeenCalledTimes(1);
+      expect(mockUtterances.length).toBe(1);
+      expect(mockUtterances[0].text).toBe('달려!');
+      expect(mockUtterances[0].pitch).toBe(1.35);
+
+      // 첫 번째 발화 완료 시뮬레이션
+      if (mockUtterances[0].onend) {
+        mockUtterances[0].onend();
+      }
+
+      // 2단계: 수식 "3 더하기 5" 순차 발화
+      expect(mockSpeechSynthesis.speak).toHaveBeenCalledTimes(2);
+      expect(mockUtterances.length).toBe(2);
+      expect(mockUtterances[1].text).toBe('3 더하기 5');
+      expect(mockUtterances[1].pitch).toBe(1.35);
+    });
+
+    it('enabled=false 시 speakRunPhase 가 차단된다', () => {
+      const speech = new QuestionSpeech();
+      speech.enabled = false;
+      speech.speakRunPhase('3 + 5 = ?');
+      expect(mockSpeechSynthesis.speak).not.toHaveBeenCalled();
     });
   });
 });
