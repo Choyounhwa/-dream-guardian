@@ -35,6 +35,12 @@ import {
   PAUSE_PAGE_ID,
   registerPausePageAdapter,
 } from './screens/UIPausePage';
+import {
+  playReadyPageAdapter,
+  PLAY_READY_PAGE_ID,
+  READY_POSITION_PAGE_ID,
+  registerPlayReadyPageAdapter,
+} from './screens/UIPlayReadyPage';
 
 export const ARTBOARD_WIDTH = 1080;
 export const ARTBOARD_HEIGHT = 2160;
@@ -141,6 +147,7 @@ export interface PageRenderBounds {
   y: number;
   width: number;
   height: number;
+  isProtected?: boolean;
 }
 
 export interface PageRenderContext {
@@ -212,6 +219,7 @@ registerHomePageAdapter(defaultPageAdapterRegistry);
 registerSubmenuPageAdapter(defaultPageAdapterRegistry);
 registerOptionsPageAdapter(defaultPageAdapterRegistry);
 registerPausePageAdapter(defaultPageAdapterRegistry);
+registerPlayReadyPageAdapter(defaultPageAdapterRegistry);
 
 export { homePageAdapter, MAIN_HOME_PAGE_ID, registerHomePageAdapter };
 export {
@@ -231,6 +239,12 @@ export {
   pausePageAdapter,
   PAUSE_PAGE_ID,
   registerPausePageAdapter,
+};
+export {
+  playReadyPageAdapter,
+  PLAY_READY_PAGE_ID,
+  READY_POSITION_PAGE_ID,
+  registerPlayReadyPageAdapter,
 };
 
 export function registerPageAdapter(pageId: string, adapter: PageAdapter): void {
