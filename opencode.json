@@ -58,5 +58,11 @@
       "Test-Path*": "allow",
       "Get-ChildItem*": "allow"
     }
+  },
+  "command": {
+    "card-run": {
+      "description": "작업 카드를 범위(#A~#B) 또는 단일(#A) 단위로 독립 서브에이전트(fresh context) 기반 TDD 5단계 자동 실행 및 연속 연계 (실패 시 즉시 롤백)",
+      "template": "작업 자동 실행 지침:\n1. 대상 카드 큐 산출 ($ARGUMENTS):\n   - 범위 지정 시 (예: #124~#555, MRN-06~MRN-08): dream_guardian/HANDOVER.md의 SSOT 표에서 시작 카드부터 종료 카드까지의 목록을 큐로 설정하고, 종료 카드 완료 시 자동으로 멈춘다.\n   - 단일 지정 시 (예: #124): 해당 카드만 실행 후 멈춘다.\n   - 인자 미지정 시: 현재 SSOT의 [▶ NEXT] 카드를 실행한다.\n2. 컨텍스트 누적 방지를 위해 각 작업 카드마다 반드시 도메인 전담 독립 서브에이전트(task 도구, fresh context)를 새로 생성하여 TDD 5단계(Step 1 Baseline -> Step 2 Red -> Step 3 Green -> Step 4 Refactor/회귀검증 -> Step 5 커밋/코멘트)를 수행하도록 위임한다.\n3. 서브에이전트가 카드를 완료하고 보고하면, 메인에서 HANDOVER.md의 SSOT 표를 [✔]로 갱신하고 다음 카드를 [▶ NEXT]로 지정한 뒤 큐의 다음 카드를 새 독립 서브에이전트로 즉시 연속 실행한다.\n4. 중간에 테스트나 빌드가 실패하면 즉시 중단하고 git reset --hard HEAD로 롤백한다.\n5. 모든 프로젝트 개발 규칙(AGENTS.md, docs/Dream_Guardian_개발_규칙.md, Rule 12 코멘트, Rule 13 로컬서버 안내)을 엄격히 준수한다."
+    }
   }
 }
