@@ -41,6 +41,12 @@ import {
   READY_POSITION_PAGE_ID,
   registerPlayReadyPageAdapter,
 } from './screens/UIPlayReadyPage';
+import {
+  runningQuestionPageAdapter,
+  RUNNING_QUESTION_PAGE_ID,
+  RUN_QUESTION_PAGE_ID,
+  registerRunningQuestionPageAdapter,
+} from './screens/UIRunningQuestionPage';
 
 export const ARTBOARD_WIDTH = 1080;
 export const ARTBOARD_HEIGHT = 2160;
@@ -220,6 +226,7 @@ registerSubmenuPageAdapter(defaultPageAdapterRegistry);
 registerOptionsPageAdapter(defaultPageAdapterRegistry);
 registerPausePageAdapter(defaultPageAdapterRegistry);
 registerPlayReadyPageAdapter(defaultPageAdapterRegistry);
+registerRunningQuestionPageAdapter(defaultPageAdapterRegistry);
 
 export { homePageAdapter, MAIN_HOME_PAGE_ID, registerHomePageAdapter };
 export {
@@ -245,6 +252,12 @@ export {
   PLAY_READY_PAGE_ID,
   READY_POSITION_PAGE_ID,
   registerPlayReadyPageAdapter,
+};
+export {
+  runningQuestionPageAdapter,
+  RUNNING_QUESTION_PAGE_ID,
+  RUN_QUESTION_PAGE_ID,
+  registerRunningQuestionPageAdapter,
 };
 
 export function registerPageAdapter(pageId: string, adapter: PageAdapter): void {
