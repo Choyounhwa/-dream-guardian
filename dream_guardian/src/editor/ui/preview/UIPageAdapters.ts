@@ -59,6 +59,12 @@ import {
   HAZARD_PAGE_ID,
   registerHazardPageAdapter,
 } from './screens/UIHazardPage';
+import {
+  bossPageAdapter,
+  BOSS_BATTLE_PAGE_ID,
+  BOSS_CLIMAX_PAGE_ID,
+  registerBossPageAdapter,
+} from './screens/UIBossPage';
 
 export const ARTBOARD_WIDTH = 1080;
 export const ARTBOARD_HEIGHT = 2160;
@@ -241,6 +247,7 @@ registerPlayReadyPageAdapter(defaultPageAdapterRegistry);
 registerRunningQuestionPageAdapter(defaultPageAdapterRegistry);
 registerAnswerPageAdapter(defaultPageAdapterRegistry);
 registerHazardPageAdapter(defaultPageAdapterRegistry);
+registerBossPageAdapter(defaultPageAdapterRegistry);
 
 export { homePageAdapter, MAIN_HOME_PAGE_ID, registerHomePageAdapter };
 export {
@@ -284,6 +291,12 @@ export {
   HAZARD_EVADE_PAGE_ID,
   HAZARD_PAGE_ID,
   registerHazardPageAdapter,
+};
+export {
+  bossPageAdapter,
+  BOSS_BATTLE_PAGE_ID,
+  BOSS_CLIMAX_PAGE_ID,
+  registerBossPageAdapter,
 };
 
 export function registerPageAdapter(pageId: string, adapter: PageAdapter): void {
