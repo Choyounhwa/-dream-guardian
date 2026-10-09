@@ -698,18 +698,18 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
         yStrike
       );
 
-      // 좌측 슬롯(left/leftOut)은 vx - 0.45 * halfWBottom
-      expect(slots.leftOut.x).toBeCloseTo(vx - 0.45 * halfWBottom, 1);
-      expect(slots.left.x).toBeCloseTo(vx - 0.45 * halfWBottom, 1);
+      // 좌측 슬롯(left/leftOut)은 width * (1 / 6) (피트니스 Zone 9 중심)
+      expect(slots.leftOut.x).toBeCloseTo(width * (1 / 6), 1);
+      expect(slots.left.x).toBeCloseTo(width * (1 / 6), 1);
 
-      // 중앙 슬롯(center)은 vx
-      expect(slots.center.x).toBeCloseTo(vx, 1);
-      // 중앙 홈 발판 쌍(leftHome, rightHome)의 중심점도 정확히 vx
-      expect((slots.leftHome.x + slots.rightHome.x) * 0.5).toBeCloseTo(vx, 1);
+      // 중앙 슬롯(center)은 width * 0.5 (피트니스 Zone 10 중심)
+      expect(slots.center.x).toBeCloseTo(width * 0.5, 1);
+      // 중앙 홈 발판 쌍(leftHome, rightHome)의 중심점도 정확히 width * 0.5
+      expect((slots.leftHome.x + slots.rightHome.x) * 0.5).toBeCloseTo(width * 0.5, 1);
 
-      // 우측 슬롯(right/rightOut)은 vx + 0.45 * halfWBottom
-      expect(slots.rightOut.x).toBeCloseTo(vx + 0.45 * halfWBottom, 1);
-      expect(slots.right.x).toBeCloseTo(vx + 0.45 * halfWBottom, 1);
+      // 우측 슬롯(right/rightOut)은 width * (5 / 6) (피트니스 Zone 11 중심)
+      expect(slots.rightOut.x).toBeCloseTo(width * (5 / 6), 1);
+      expect(slots.right.x).toBeCloseTo(width * (5 / 6), 1);
     });
 
     it('모든 발자국 슬롯의 Y 좌표가 판정선 높이(yStrike = height * strikeLineYRatio)와 일치한다', () => {
@@ -757,13 +757,13 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
         yStrike
       );
 
-      const expectedLeftX = vx - halfWBottom * 0.45;
-      const expectedCenterX = vx;
-      const expectedRightX = vx + halfWBottom * 0.45;
+      const expectedLeftX = width * (1 / 6);
+      const expectedCenterX = width * 0.5;
+      const expectedRightX = width * (5 / 6);
 
-      expect(slots.left.x - expectedLeftX).toBe(0);
-      expect(slots.center.x - expectedCenterX).toBe(0);
-      expect(slots.right.x - expectedRightX).toBe(0);
+      expect(slots.left.x - expectedLeftX).toBeCloseTo(0, 5);
+      expect(slots.center.x - expectedCenterX).toBeCloseTo(0, 5);
+      expect(slots.right.x - expectedRightX).toBeCloseTo(0, 5);
     });
 
     it('런타임 렌더링 시 좌측 및 우측 발 딛기 시 발자국이 3레인 정중앙 좌표 및 판정선 Y에 렌더링된다', () => {
@@ -783,13 +783,7 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
 
       renderer.render(ctx, view, width, height);
 
-      const vx = width * 0.5;
-      const aspect = width / height;
-      const matWidthRatio = aspect < 1.0
-        ? Math.min(MAX_NARROW_WIDTH_RATIO, DEFAULT_MAT_WIDTH_RATIO + (1.0 - aspect) * 0.15)
-        : DEFAULT_MAT_WIDTH_RATIO;
-      const halfWBottom = (width * matWidthRatio) * 0.5;
-      const expectedLeftX = vx - halfWBottom * 0.45;
+      const expectedLeftX = width * (1 / 6);
       const expectedYStrike = height * DEFAULT_STRIKE_LINE_Y_RATIO;
 
       const ellipseCalls = vi.mocked(ctx.ellipse).mock.calls;
@@ -799,6 +793,26 @@ describe('RunningMatRenderer (Issue #372 - RUN-MAT-003)', () => {
         return Math.abs(cx - expectedLeftX) < 1.0 && Math.abs(cy - expectedYStrike) < 1.0;
       });
       expect(hasLeftLaneFootprint).toBe(true);
+    });
+
+    it('[LANE-ALIGN-01 / Issue #499] getLaneAnchorBounds가 Zone 9/10/11 중심 X 좌표(1/6, 1/2, 5/6)와 정확히 일치한다', () => {
+      const w = 1200;
+      const h = 800;
+      const leftBound = renderer.getLaneAnchorBounds('left', w, h);
+      const centerBound = renderer.getLaneAnchorBounds('center', w, h);
+      const rightBound = renderer.getLaneAnchorBounds('right', w, h);
+
+      expect(leftBound.x).toBeCloseTo(w * (1 / 6), 5);
+      expect(centerBound.x).toBeCloseTo(w * 0.5, 5);
+      expect(rightBound.x).toBeCloseTo(w * (5 / 6), 5);
+
+      const z9Bound = renderer.getLaneAnchorBounds(9, w, h);
+      const z10Bound = renderer.getLaneAnchorBounds(10, w, h);
+      const z11Bound = renderer.getLaneAnchorBounds(11, w, h);
+
+      expect(z9Bound.x).toBeCloseTo(w * (1 / 6), 5);
+      expect(z10Bound.x).toBeCloseTo(w * 0.5, 5);
+      expect(z11Bound.x).toBeCloseTo(w * (5 / 6), 5);
     });
   });
 });

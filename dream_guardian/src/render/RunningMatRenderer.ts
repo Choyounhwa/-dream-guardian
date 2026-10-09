@@ -13,6 +13,7 @@ import {
   RUNNING_MAT_CONFIG,
   DEFAULT_STRIKE_OVERHANG_RATIO,
   DEFAULT_LANE_SLOT_OFFSETS,
+  DEFAULT_ZONE_LANE_X_RATIOS,
   DEFAULT_MAT_BASE_Y_TOP,
   DEFAULT_MAT_BASE_Y_BOTTOM,
   type RunningMatConfig,
@@ -283,16 +284,15 @@ export class RunningMatRenderer {
   ): RunningMatBounds {
     const vx = width * 0.5;
     const yStrike = this.computeStrikeLineY(height);
-    const halfWBottom = this.computeMatHalfWBottom(width, height);
-    let offset = 0;
+    const zoneRatios = this.config.zoneLaneXRatios ?? DEFAULT_ZONE_LANE_X_RATIOS;
+    let anchorX = vx;
     if (lane === 'left' || lane === 9) {
-      offset = (this.config.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left) * halfWBottom;
+      anchorX = vx + (zoneRatios.left - 0.5) * width;
     } else if (lane === 'right' || lane === 11) {
-      offset = (this.config.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right) * halfWBottom;
+      anchorX = vx + (zoneRatios.right - 0.5) * width;
     } else {
-      offset = (this.config.laneOffsetCenter ?? DEFAULT_LANE_SLOT_OFFSETS.center) * halfWBottom;
+      anchorX = vx + (zoneRatios.center - 0.5) * width;
     }
-    const anchorX = vx + offset;
     const radius = this.config.targetAnchorRadius ?? 15;
     return {
       x: anchorX,
@@ -806,10 +806,14 @@ export class RunningMatRenderer {
       ctx.stroke();
 
       // (4) 3대 타깃 앵커 동시 버스트 링 폭발
+      const burstZoneRatios = this.config.zoneLaneXRatios ?? DEFAULT_ZONE_LANE_X_RATIOS;
+      const burstLeftX = vx + (burstZoneRatios.left - 0.5) * width;
+      const burstCenterX = vx + (burstZoneRatios.center - 0.5) * width;
+      const burstRightX = vx + (burstZoneRatios.right - 0.5) * width;
       const anchorXs = [
-        vx + (this.config.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left) * halfWBottom,
-        vx,
-        vx + (this.config.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right) * halfWBottom,
+        burstLeftX,
+        burstCenterX,
+        burstRightX,
       ];
       for (const ax of anchorXs) {
         ctx.beginPath();
@@ -834,9 +838,10 @@ export class RunningMatRenderer {
     const isCenterNext = view?.nextCue ? (!isLeftNext && !isRightNext) : false;
 
     const baseRadius = this.config.targetAnchorRadius ?? 15;
-    const leftAnchorX = vx + (this.config.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left) * halfWBottom;
-    const centerAnchorX = vx;
-    const rightAnchorX = vx + (this.config.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right) * halfWBottom;
+    const zoneRatios = this.config.zoneLaneXRatios ?? DEFAULT_ZONE_LANE_X_RATIOS;
+    const leftAnchorX = vx + (zoneRatios.left - 0.5) * width;
+    const centerAnchorX = vx + (zoneRatios.center - 0.5) * width;
+    const rightAnchorX = vx + (zoneRatios.right - 0.5) * width;
 
     const anchors = [
       {
@@ -978,8 +983,7 @@ export class RunningMatRenderer {
       widthRatio: this.config.widthRatio,
       maxNarrowWidthRatio: this.config.maxNarrowWidthRatio,
       laneOffset: this.config.laneOffsetRight ?? DEFAULT_LANE_OFFSET,
-      laneOffsetLeft: this.config.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left,
-      laneOffsetRight: this.config.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right,
+      zoneLaneXRatios: this.config.zoneLaneXRatios ?? DEFAULT_ZONE_LANE_X_RATIOS,
       stompNoteRadius: this.config.stompNoteRadius,
       vanishingPoint: { x: vx, y: vy },
       vanishingX: vx,
@@ -1047,8 +1051,6 @@ export class RunningMatRenderer {
     width: number,
     yStrike?: number
   ): FootprintSlotCoords {
-    const laneOffsetLeft = this.config.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left;
-    const laneOffsetRight = this.config.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right;
     const strikeY =
       yStrike ??
       this.computeStrikeLineY(
@@ -1060,10 +1062,11 @@ export class RunningMatRenderer {
     const footWidth = Math.max(18, 28 * slotSpread * (width / 1080));
     const footHeight = footWidth * 1.8;
 
-    // 3대 레인 기준 X 좌표: Left(Z9) = vx - 0.45 * halfWBottom, Center(Z10) = vx, Right(Z11) = vx + 0.45 * halfWBottom
-    const leftX = vx + laneOffsetLeft * halfWBottom;
-    const centerX = vx;
-    const rightX = vx + laneOffsetRight * halfWBottom;
+    // 3대 레인 기준 X 좌표 (Issue #499 [LANE-ALIGN-01]): Zone 9 (1/6), Zone 10 (1/2), Zone 11 (5/6)
+    const zoneRatios = this.config.zoneLaneXRatios ?? DEFAULT_ZONE_LANE_X_RATIOS;
+    const leftX = vx + (zoneRatios.left - 0.5) * width;
+    const centerX = vx + (zoneRatios.center - 0.5) * width;
+    const rightX = vx + (zoneRatios.right - 0.5) * width;
 
     // 중앙 홈 레인(Z10) 내 좌/우 홈 발자국 미세 이격 (중앙 레인 폭 내 자연스러운 홈 발판 스탠스)
     const homeSpread = Math.min(halfWBottom * 0.12, footWidth * (this.config.homeFootSpreadRatio ?? 0.55));

@@ -20,6 +20,18 @@ export const DEFAULT_LANE_SLOT_OFFSETS = Object.freeze({
   center: 0.0,
   right: 0.45,
 });
+
+/**
+ * 피트니스 Zone 9/10/11 중심 기준 발 판정선 3대 레인 X 좌표 비율 (Issue #499 [LANE-ALIGN-01])
+ * - Zone 9 (Left): x = width * (1 / 6) (~16.67%)
+ * - Zone 10 (Home/Center): x = width * 0.5 (50.0%)
+ * - Zone 11 (Right): x = width * (5 / 6) (~83.33%)
+ */
+export const DEFAULT_ZONE_LANE_X_RATIOS = Object.freeze({
+  left: 1 / 6,
+  center: 0.5,
+  right: 5 / 6,
+});
 export const DEFAULT_STRIKE_CORE_LINE_WIDTH = 3.5;
 export const DEFAULT_STRIKE_INNER_GLOW_WIDTH = 12.0;
 export const DEFAULT_STRIKE_OUTER_GLOW_WIDTH = 38.0;
@@ -120,6 +132,11 @@ export interface RunningMatConfig {
   readonly laneOffsetLeft?: number;
   readonly laneOffsetCenter?: number;
   readonly laneOffsetRight?: number;
+  readonly zoneLaneXRatios?: {
+    readonly left: number;
+    readonly center: number;
+    readonly right: number;
+  };
   readonly homeFootSpreadRatio?: number;
 }
 
@@ -201,5 +218,6 @@ export const RUNNING_MAT_CONFIG: RunningMatConfig = Object.freeze({
   laneOffsetLeft: DEFAULT_LANE_SLOT_OFFSETS.left,
   laneOffsetCenter: DEFAULT_LANE_SLOT_OFFSETS.center,
   laneOffsetRight: DEFAULT_LANE_SLOT_OFFSETS.right,
+  zoneLaneXRatios: DEFAULT_ZONE_LANE_X_RATIOS,
   homeFootSpreadRatio: 0.55,
 });

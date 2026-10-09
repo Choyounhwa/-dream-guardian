@@ -10,7 +10,6 @@ import {
   resolveAnchor,
   computeMatHalfWBottom,
   computeStrikeLineY,
-  DEFAULT_LANE_OFFSET,
   type LandingMode,
   type NoteAnchor,
   type ViewportSize,
@@ -140,10 +139,10 @@ describe('NoteAnchorResolver 단위 테스트 (Issue #478 / MRN-04)', () => {
       expect(rightAnchor.y).toBeCloseTo(expectedStrikeY, 4);
     });
 
-    it('발 3대 레인(leftFoot, centerFoot, rightFoot)의 X 좌표가 {-0.45, 0, +0.45} 오프셋과 정확히 일치한다', () => {
-      const expectedLeftX = vx - DEFAULT_LANE_OFFSET * halfWBottom;
-      const expectedCenterX = vx;
-      const expectedRightX = vx + DEFAULT_LANE_OFFSET * halfWBottom;
+    it('발 3대 레인(leftFoot, centerFoot, rightFoot)의 X 좌표가 피트니스 Zone 9/10/11 중심(1/6, 1/2, 5/6)과 정확히 일치한다 (Issue #499)', () => {
+      const expectedLeftX = viewport.width * (1 / 6);
+      const expectedCenterX = viewport.width * 0.5;
+      const expectedRightX = viewport.width * (5 / 6);
 
       const leftAnchor = resolveAnchor({ part: 'leftFoot', zoneId: 9 }, viewport);
       const centerAnchor = resolveAnchor({ part: 'centerFoot', zoneId: 10 }, viewport);
@@ -197,10 +196,10 @@ describe('NoteAnchorResolver 단위 테스트 (Issue #478 / MRN-04)', () => {
       expect(computedYStrike).toBeCloseTo(expectedYStrike, 4);
 
       const anchorL = resolveAnchor({ part: 'leftFoot', zoneId: 9 }, { width: w, height: h });
-      expect(anchorL.x).toBeCloseTo(w * 0.5 - expectedHalfW * 0.45, 4);
+      expect(anchorL.x).toBeCloseTo(w * (1 / 6), 4);
     });
 
-    it('세로/좁은 모드(aspect < 1.0)에서 반응형 폭 보정이 RunningMatRenderer와 동일하게 적용된다', () => {
+    it('세로/좁은 모드(aspect < 1.0)에서도 존 중심 X 좌표(1/6, 5/6)가 유지된다', () => {
       const w = 720;
       const h = 1280;
       const aspect = w / h; // 0.5625
@@ -214,7 +213,7 @@ describe('NoteAnchorResolver 단위 테스트 (Issue #478 / MRN-04)', () => {
       expect(computedHalfW).toBeCloseTo(expectedHalfW, 4);
 
       const anchorR = resolveAnchor({ part: 'rightFoot', zoneId: 11 }, { width: w, height: h });
-      expect(anchorR.x).toBeCloseTo(w * 0.5 + expectedHalfW * 0.45, 4);
+      expect(anchorR.x).toBeCloseTo(w * (5 / 6), 4);
     });
   });
 
@@ -318,10 +317,13 @@ describe('NoteAnchorResolver 단위 테스트 (Issue #478 / MRN-04)', () => {
 
       // 오차 0px 엄격 일치 검증
       expect(leftAnchor.x).toBe(slots.left.x);
+      expect(leftAnchor.x).toBeCloseTo(w * (1 / 6), 4);
       expect(leftAnchor.y).toBe(slots.left.y);
       expect(centerAnchor.x).toBe(slots.center.x);
+      expect(centerAnchor.x).toBeCloseTo(w * 0.5, 4);
       expect(centerAnchor.y).toBe(slots.center.y);
       expect(rightAnchor.x).toBe(slots.right.x);
+      expect(rightAnchor.x).toBeCloseTo(w * (5 / 6), 4);
       expect(rightAnchor.y).toBe(slots.right.y);
     });
 
@@ -363,15 +365,14 @@ describe('NoteAnchorResolver 단위 테스트 (Issue #478 / MRN-04)', () => {
       const h = 1080;
       const testVx = w * 0.5;
       const testVy = h * RUNNING_MAT_CONFIG.vanishingYRatio;
-      const halfW = renderer.computeMatHalfWBottom(w, h);
       const yStrike = renderer.computeStrikeLineY(h);
 
       const leftAnchor = resolveAnchor({ part: 'leftFoot', zoneId: 9 }, { width: w, height: h });
       const centerAnchor = resolveAnchor({ part: 'centerFoot', zoneId: 10 }, { width: w, height: h });
       const rightAnchor = resolveAnchor({ part: 'rightFoot', zoneId: 11 }, { width: w, height: h });
 
-      expect(leftAnchor.x).toBeCloseTo(testVx - 0.45 * halfW, 5);
-      expect(rightAnchor.x).toBeCloseTo(testVx + 0.45 * halfW, 5);
+      expect(leftAnchor.x).toBeCloseTo(w * (1 / 6), 5);
+      expect(rightAnchor.x).toBeCloseTo(w * (5 / 6), 5);
 
       const progressSteps = [0.0, 0.25, 0.5, 0.75, 1.0];
 
@@ -409,6 +410,19 @@ describe('NoteAnchorResolver 단위 테스트 (Issue #478 / MRN-04)', () => {
 
       expect(leftAnchor.x).toBeCloseTo(vx - 0.52 * halfW, 5);
       expect(rightAnchor.x).toBeCloseTo(vx + 0.52 * halfW, 5);
+    });
+
+    it('[LANE-ALIGN-01 / Issue #499] 커스텀 zoneLaneXRatios가 FloorLayoutOptions에 전달되면 해당 비율이 반영된다', () => {
+      const customLayout: FloorLayoutOptions = {
+        zoneLaneXRatios: { left: 0.2, center: 0.5, right: 0.8 },
+      };
+      const leftAnchor = resolveAnchor({ part: 'leftFoot', zoneId: 9 }, viewport, undefined, customLayout);
+      const centerAnchor = resolveAnchor({ part: 'centerFoot', zoneId: 10 }, viewport, undefined, customLayout);
+      const rightAnchor = resolveAnchor({ part: 'rightFoot', zoneId: 11 }, viewport, undefined, customLayout);
+
+      expect(leftAnchor.x).toBeCloseTo(viewport.width * 0.2, 5);
+      expect(centerAnchor.x).toBeCloseTo(viewport.width * 0.5, 5);
+      expect(rightAnchor.x).toBeCloseTo(viewport.width * 0.8, 5);
     });
   });
 });

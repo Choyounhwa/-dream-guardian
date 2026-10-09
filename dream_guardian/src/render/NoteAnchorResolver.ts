@@ -24,6 +24,7 @@ import {
   MAX_NARROW_WIDTH_RATIO,
   DEFAULT_STOMP_NOTE_RADIUS,
   DEFAULT_LANE_SLOT_OFFSETS,
+  DEFAULT_ZONE_LANE_X_RATIOS,
 } from '../../config/running-mat.config.js';
 import { DEFAULT_STAR_NOTE_VISUAL_CONFIG } from '../../config/beat-motion.config.js';
 
@@ -62,6 +63,11 @@ export interface FloorLayoutOptions {
   readonly laneOffset?: number;
   readonly laneOffsetLeft?: number;
   readonly laneOffsetRight?: number;
+  readonly zoneLaneXRatios?: {
+    readonly left: number;
+    readonly center: number;
+    readonly right: number;
+  };
   readonly stompNoteRadius?: number;
   readonly zoneRadius?: number;
   readonly vanishingX?: number;
@@ -141,41 +147,68 @@ export function resolveAnchor(
   if (isFloorPart(req.part)) {
     const halfWBottom = computeMatHalfWBottom(w, h, floorLayout);
     const yStrike = computeStrikeLineY(h, floorLayout);
-    const laneOffsetLeft =
-      floorLayout?.laneOffsetLeft ??
-      (floorLayout?.laneOffset !== undefined
-        ? -Math.abs(floorLayout.laneOffset)
-        : (RUNNING_MAT_CONFIG.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left));
-    const laneOffsetRight =
-      floorLayout?.laneOffsetRight ??
-      (floorLayout?.laneOffset !== undefined
-        ? Math.abs(floorLayout.laneOffset)
-        : (RUNNING_MAT_CONFIG.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right));
-    const laneOffsetCenter =
-      RUNNING_MAT_CONFIG.laneOffsetCenter ?? DEFAULT_LANE_SLOT_OFFSETS.center;
     const stompRadius =
       floorLayout?.stompNoteRadius ??
       RUNNING_MAT_CONFIG.stompNoteRadius ??
       DEFAULT_STOMP_NOTE_RADIUS;
 
+    // 커스텀 laneOffsetLeft / laneOffsetRight 또는 명시적 laneOffset 오버라이드 지원 (하위 호환성)
+    const hasCustomLaneOffset =
+      floorLayout?.laneOffsetLeft !== undefined ||
+      floorLayout?.laneOffsetRight !== undefined ||
+      (floorLayout?.laneOffset !== undefined && floorLayout?.zoneLaneXRatios === undefined);
+
+    let leftX: number;
+    let centerX: number;
+    let rightX: number;
+
+    if (hasCustomLaneOffset) {
+      const laneOffsetLeft =
+        floorLayout?.laneOffsetLeft ??
+        (floorLayout?.laneOffset !== undefined
+          ? -Math.abs(floorLayout.laneOffset)
+          : (RUNNING_MAT_CONFIG.laneOffsetLeft ?? DEFAULT_LANE_SLOT_OFFSETS.left));
+      const laneOffsetRight =
+        floorLayout?.laneOffsetRight ??
+        (floorLayout?.laneOffset !== undefined
+          ? Math.abs(floorLayout.laneOffset)
+          : (RUNNING_MAT_CONFIG.laneOffsetRight ?? DEFAULT_LANE_SLOT_OFFSETS.right));
+      const laneOffsetCenter =
+        RUNNING_MAT_CONFIG.laneOffsetCenter ?? DEFAULT_LANE_SLOT_OFFSETS.center;
+
+      leftX = vx + laneOffsetLeft * halfWBottom;
+      centerX = vx + laneOffsetCenter * halfWBottom;
+      rightX = vx + laneOffsetRight * halfWBottom;
+    } else {
+      // 피트니스 Zone 9/10/11 중심 기준 (Issue #499 [LANE-ALIGN-01])
+      const zoneRatios =
+        floorLayout?.zoneLaneXRatios ??
+        RUNNING_MAT_CONFIG.zoneLaneXRatios ??
+        DEFAULT_ZONE_LANE_X_RATIOS;
+
+      leftX = vx + (zoneRatios.left - 0.5) * w;
+      centerX = vx + (zoneRatios.center - 0.5) * w;
+      rightX = vx + (zoneRatios.right - 0.5) * w;
+    }
+
     switch (req.part) {
       case 'leftFoot':
         return {
-          x: vx + laneOffsetLeft * halfWBottom,
+          x: leftX,
           y: yStrike,
           radius: stompRadius,
           mode: 'strikeLine',
         };
       case 'rightFoot':
         return {
-          x: vx + laneOffsetRight * halfWBottom,
+          x: rightX,
           y: yStrike,
           radius: stompRadius,
           mode: 'strikeLine',
         };
       case 'centerFoot':
         return {
-          x: vx + laneOffsetCenter * halfWBottom,
+          x: centerX,
           y: yStrike,
           radius: stompRadius,
           mode: 'strikeLine',
