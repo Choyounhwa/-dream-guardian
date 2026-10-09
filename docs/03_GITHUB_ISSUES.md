@@ -17,6 +17,7 @@
 |---|---|---|---|---|---|
 | LANE-SYNC-01 | [#494](https://github.com/Choyounhwa/-dream-guardian/issues/494) | 3대 레인과 발자국 슬롯 X 좌표 단일화 및 러닝 매트 3레인 중앙 발자국 정렬 | - | `[✔ 완료]` | 변경 (3레인 중심 발자국 정렬) |
 | LANE-SYNC-02 | [#495](https://github.com/Choyounhwa/-dream-guardian/issues/495) | 리듬노트 비행 궤적의 3레인 세로선 정렬 및 러닝/리듬 모드 착지 앵커 단일화 | 01 | `[✔ 완료]` | 변경 (3레인 궤적 일치 비행) |
+| LANE-ALIGN-01 | [#499](https://github.com/Choyounhwa/-dream-guardian/issues/499) | 피트니스 Zone 9/10/11 중심 기준 발 판정선 앵커 및 발자국 위치 동기화 (x: 1/6, 1/2, 5/6) | 02 | `[✔ 완료]` | 변경 (Zone 9/11 중심 넓은 앵커 이동) |
 
 ## 2026-10-08 등록: 문제페이즈(RUN_QUESTION) 렌더링 중단 결함 수정 (BUG-RUN-QUESTION-RENDER)
 
