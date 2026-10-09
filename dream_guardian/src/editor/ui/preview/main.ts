@@ -11,6 +11,10 @@ import {
   type PreviewCanvasMountInstance,
 } from "./UIPageAdapters";
 import type { ChildBridge } from "./UIVisualBridge";
+import {
+  UISelectionOverlay,
+  type UISelectionOverlayOptions,
+} from "./UISelectionOverlay";
 
 const noopStorage = {
   getItem: (_key: string) => null as string | null,
@@ -27,6 +31,7 @@ export interface PreviewEntryOptions {
   canvas?: HTMLCanvasElement;
   bridge?: ChildBridge;
   dpr?: number;
+  overlayOptions?: Partial<UISelectionOverlayOptions>;
 }
 
 export function createPreviewEntry(options?: PreviewEntryOptions): {
@@ -35,6 +40,7 @@ export function createPreviewEntry(options?: PreviewEntryOptions): {
   GAME_APPLY_VERIFIED: false;
   session: PreviewSession;
   mount?: PreviewCanvasMountInstance;
+  overlay?: UISelectionOverlay;
 } {
   const session = createPreviewSession({
     fingerprint: RENDERER_FINGERPRINT,
@@ -47,12 +53,21 @@ export function createPreviewEntry(options?: PreviewEntryOptions): {
   });
 
   let mount: PreviewCanvasMountInstance | undefined = undefined;
+  let overlay: UISelectionOverlay | undefined = undefined;
   if (options?.container) {
     mount = mountPreviewCanvas({
       container: options.container,
       canvas: options.canvas,
       bridge: options.bridge,
       dpr: options.dpr,
+    });
+
+    overlay = new UISelectionOverlay({
+      container: options.container,
+      renderCanvas: mount.canvas,
+      bridge: options.bridge,
+      getLayout: () => mount?.getLayout(),
+      ...options.overlayOptions,
     });
   }
 
@@ -62,6 +77,7 @@ export function createPreviewEntry(options?: PreviewEntryOptions): {
     GAME_APPLY_VERIFIED,
     session,
     mount,
+    overlay,
   };
 }
 

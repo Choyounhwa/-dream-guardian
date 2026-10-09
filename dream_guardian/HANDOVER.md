@@ -17,12 +17,12 @@
 - **작업 카드**:
   - [✔ 완료] [#500 TTS-VOICE-001](https://github.com/Choyounhwa/-dream-guardian/issues/500) 꼬마 수호신 밝은 보이스 톤(Pitch/Rate) 및 수식 간결 낭독 반영
   - [✔ 완료] [#501 TTS-VOICE-002](https://github.com/Choyounhwa/-dream-guardian/issues/501) 실브라우저 비동기 getVoices 로딩 및 피치 조절 지원 한국어 보이스 우선 매칭
+  - [▶ NEXT] [#540 TTS-VOICE-003](https://github.com/Choyounhwa/-dream-guardian/issues/540) TTS 피드백 멘트 간결화 및 러닝페이즈 '달려' 순차 낭독 구현
 - **목적**:
-  - Edge/Chrome 실브라우저에서 `pitch`(1.35) 변조가 뚜렷하게 체감되도록 보이스 선택 및 로딩 알고리즘 고도화
-  - Edge의 `Online (Natural)` 음성은 브라우저 Web Speech API 구현 한계로 `utterance.pitch`를 완전히 무시하므로, 피치 변조가 정상 작동하는 데스크톱/로컬 음성(`Microsoft Heami`, `Google 한국의`, `localService: true`)을 최우선 매칭
-  - Chrome/Safari 등에서 최초 로드 시 `getVoices()`가 빈 배열로 시작하는 비동기 지연을 해결하기 위해 `speechSynthesis.onvoiceschanged` 이벤트 리스너 및 캐싱 구현
-  - 꼬마 수호신 캐릭터 톤(밝고 통통 튀는 목소리)의 확실한 청각적 체감을 위해 `pitch: 1.35`, `rate: 1.15` 정밀 튜닝
-- **수정 대상**: `src/question/QuestionSpeech.ts`, `tests/unit/a11y-tts-feedback.test.ts`
+  - "정답입니다!", "틀렸습니다!" 음성 발화 삭제 (효과음 SFX로 충분히 전달되므로 중복 제거)
+  - 긴 경고 멘트 간결화: "주의! 체력이 절반입니다!" -> "HP 주의", "보스가 광폭화했습니다!" -> "보스 광폭화"
+  - 러닝페이즈(RUN_QUESTION) 진입 시 "달려!" 발화 후 수식 순차 낭독(`speakRunPhase`)
+- **수정 대상**: `src/question/QuestionSpeech.ts`, `src/core/AppBootstrap.ts`, `tests/unit/a11y-tts-feedback.test.ts`
 - **검증**: Vitest 17 tests 통과, 전체 테스트 297 suites / 3,869 tests 100% 통과, `npm run build` 번들 검증 통과
 
 ## ⏸️ 답안 선택 후 2박 쉼표(Rest Delay) 도입 트랙 (ANSWER-REST, 2026-10-08)
@@ -225,7 +225,26 @@
   - TypeScript strict compile (`tsc`) 및 Vite bundle build 성공
 - **다음 작업 대상**:
   - **[✔ 완료: UI-VIS-030] [#460]**: 선택·숫자 검사기·문서 양방향 DOM 연결 (TDD 12개 테스트 100% 통과, build/build:ui-editor 성공)
-  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#461 UI-VIS-031]**: 다중 선택·그리드·스냅 조작
+  - **[✔ 완료: UI-VIS-031] [#461]**: 다중 선택·그리드·스냅 조작 (TDD 16개 테스트 100% 통과, build/build:ui-editor 성공)
+  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#462 UI-VIS-032]**: 다중 선택 정렬·분배 조작
+
+## 📐 [UI-VIS-031 / #461] 캔버스 다중 선택·은은한 그리드·스냅 조작 완료 (2026-10-10)
+
+- **작업 카드**: [✔ 완료] [#461 UI-VIS-031](https://github.com/Choyounhwa/-dream-guardian/issues/461) 캔버스 다중 선택·은은한 그리드·스냅 조작
+- **목적**: 실게임 렌더러 재사용 10페이지 시각 UI 편집기의 캔버스 다중 선택·은은한 그리드·스냅 조작 단일 책임 구현. 실제 render canvas 위에 별도 editor overlay(`UISelectionOverlay`)를 마운트하여 은은한 그리드 및 선택 윤곽선/8방향 리사이즈 핸들을 렌더링하고(내보내기/게임 프레임 비오염 격리), 단일 클릭·Shift 다중 선택·마키 박스 드래그 선택 및 DPR/Letterbox 좌표 역변환(screenToArtboard/artboardToScreen) 처리, 그리드 표시 여부와 스냅 on/off·간격의 엄격한 분리, 다중 선택 그룹 드래그 시 그룹 앵커 기준 스냅 및 개별 요소 간 상대 오프셋 100% 보존, 직접 숫자 입력 스냅 비강제, 잠긴 요소(isLocked / 보호 모션 판정 영역) 핸들 비활성화 및 거부 사유 통지, pointercancel/Escape/화면 전환 시 원자적 롤백 및 단일 Bridge 명령(`VisualMoveElementsCommand` / `VisualResizeElementCommand`) 확정 보장.
+- **수정 소스 파일**:
+  1. `dream_guardian/src/editor/ui/preview/UISelectionOverlay.ts` (신규 - 별도 에디터 오버레이 캔버스, 은은한 그리드, 8방향 핸들/윤곽선, 마키 박스 선택, 좌표 변환, 원자적 롤백, 브리지 명령 발행)
+  2. `dream_guardian/src/editor/ui/preview/main.ts` (수정 - createPreviewEntry에 UISelectionOverlay 마운트 및 옵션/참조 연결)
+  3. `dream_guardian/src/editor/ui/UIInteraction.ts` (수정 - startMultiDrag, updateMultiDrag, commitMultiDrag, cancelMultiDrag, computeBoxSelection, toggleGridVisible, applyDirectInput 구현)
+- **테스트 파일**:
+  - `dream_guardian/tests/unit/ui-vis-031.test.ts` (신규 16개 단위 테스트 100% 통과)
+- **검증 결과**:
+  - `npx vitest run tests/unit/ui-vis-031.test.ts`: 16/16 통과 (100%)
+  - 관련 단위 테스트 (`ui-vis-005`, `ui-vis-007`, `ui-vis-008`, `ui-vis-030`, `ui-vis-031`): 76/76 통과 (100%)
+  - 전체 단위/통합 테스트: 299개 파일, 3,897개 100% 통과 (회귀 결함 0건)
+  - TypeScript strict compile (`tsc`) 및 Vite bundle build (`build`, `build:ui-editor`) 성공
+- **다음 작업 대상**:
+  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#462 UI-VIS-032]**: 다중 선택 정렬·분배 조작
 
 ## 👾 [UI-VIS-028 / #458] 보스 결전 실제 렌더 페이지 연결 완료 (2026-10-10)
 
@@ -358,7 +377,7 @@
 | B | #435~#438 / UI-VIS-005~008 | 정렬·속성 모델·안전 bridge·실제 Canvas | #435 [✔], #436 [✔], #437 [✔], #438 [✔] (단계 B 완료) |
 | C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | #439 [✔], #440 [✔], #441 [✔], [#442 UI-VIS-012](https://github.com/Choyounhwa/-dream-guardian/issues/442) [✔], [#443 UI-VIS-013](https://github.com/Choyounhwa/-dream-guardian/issues/443) [✔], [#444 UI-VIS-014](https://github.com/Choyounhwa/-dream-guardian/issues/444) [✔], [#445 UI-VIS-015](https://github.com/Choyounhwa/-dream-guardian/issues/445) [✔], [#446 UI-VIS-016](https://github.com/Choyounhwa/-dream-guardian/issues/446) [✔], [#447 UI-VIS-017](https://github.com/Choyounhwa/-dream-guardian/issues/447) [✔], [#448 UI-VIS-018](https://github.com/Choyounhwa/-dream-guardian/issues/448) [✔], [#449 UI-VIS-019](https://github.com/Choyounhwa/-dream-guardian/issues/449) [✔] (단계 C 10개 런타임 렌더/UI 레이어 표시 경계 전원 완료) |
 | D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | #450 [✔], #451 [✔], #452 [✔], #453 [✔], #454 [✔], [#455 UI-VIS-025](https://github.com/Choyounhwa/-dream-guardian/issues/455) [✔], [#456 UI-VIS-026](https://github.com/Choyounhwa/-dream-guardian/issues/456) [✔], [#457 UI-VIS-027](https://github.com/Choyounhwa/-dream-guardian/issues/457) [✔], [#458 UI-VIS-028](https://github.com/Choyounhwa/-dream-guardian/issues/458) [✔], [#459 UI-VIS-029](https://github.com/Choyounhwa/-dream-guardian/issues/459) [✔] (단계 D 10개 화면 실제 연결 전원 완료) |
-| E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | [✔ #460 완료], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#461 UI-VIS-031], 나머지 선행 대기 |
+| E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | [✔ #460, #461 완료], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#462 UI-VIS-032], 나머지 선행 대기 |
 | F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | 승인/선행 대기 |
 | G | #468 → #469 / UI-VIS-038~039 | 적용본/백업 모델→추출·게시 UI | 승인/선행 대기 |
 | H | #470 → #471 / UI-VIS-040~041 | UI 전용 수신→게임 주입/입력 일치/롤백 | 승인/선행 대기 |
