@@ -182,7 +182,25 @@
   - 전체 단위/통합 테스트: 292개 파일, 3,740개 100% 통과 (회귀 결함 0건)
   - TypeScript strict compile (`tsc`) 및 Vite bundle build 성공
 - **다음 작업 대상**:
-  - **[#455 UI-VIS-025]**: 러닝 문제 제시(running_question) 실제 렌더 페이지 연결
+  - **[✔ 완료] [#455 UI-VIS-025]**: 러닝 문제 제시(running_question) 실제 렌더 페이지 연결
+  - **[▶ NEXT] [#456 UI-VIS-026]**: 답안 선택(answer_select) 실제 렌더 페이지 연결
+
+## 🏃 [UI-VIS-025 / #455] 러닝·문제 실제 렌더 페이지 연결 완료 (2026-10-09)
+
+- **작업 카드**: [✔ 완료] [#455 UI-VIS-025](https://github.com/Choyounhwa/-dream-guardian/issues/455) 러닝·문제 실제 렌더 페이지 연결
+- **목적**: 실게임 렌더러 재사용 10페이지 시각 UI 편집기의 러닝/문제 페이즈 실제 렌더 페이지 연결 단일 책임 구현. `running_question` 및 `run_question` 페이지 요청을 `QuestionRenderer`(수학 문제 수식 및 답안 버튼), `BeatHUDRenderer`(8박 인디케이터 및 모드 뱃지), `RunningMatRenderer`(3레인 원근 러닝 매트 및 스트라이크 라인) 실제 드로잉 파이프라인과 결합하고, 게임 엔진/런타임 부팅 0건(GameEngine, AppBootstrap, SceneDirector, 카메라/포즈, 오디오/TTS 0건), UIPresentationDocument 연동(fromPresentationDocument), 공통 HUD/BottomBar 정적 합성 및 stable bounds 반환 보장.
+- **수정 소스 파일**:
+  1. `dream_guardian/src/editor/ui/preview/screens/UIRunningQuestionPage.ts` (신규 - running_question 페이지 어댑터 구현, QuestionRenderer/BeatHUDRenderer/RunningMatRenderer 실제 draw, HUD/BottomBar 정적 합성, stable bounds 계산)
+  2. `dream_guardian/src/editor/ui/preview/UIPageAdapters.ts` (수정 - defaultPageAdapterRegistry에 running_question/run_question 등록 및 익스포트)
+- **테스트 파일**:
+  - `dream_guardian/tests/unit/ui-vis-025.test.ts` (신규 17개 단위 테스트 100% 통과)
+- **검증 결과**:
+  - `npx vitest run tests/unit/ui-vis-025.test.ts`: 17/17 통과 (100%)
+  - 관련 단위 테스트 (`ui-vis-015`, `ui-vis-016`, `ui-vis-024`, `ui-vis-025`): 74/74 통과 (100%)
+  - 전체 단위/통합 테스트: 293개 파일, 3,757개 100% 통과 (회귀 결함 0건)
+  - TypeScript strict compile (`tsc`) 및 Vite bundle build 성공
+- **다음 작업 대상**:
+  - **[#456 UI-VIS-026]**: 답안 선택(answer_select) 실제 렌더 페이지 연결
 
 ## ⏸️ [UI-VIS-023 / #453] 일시정지 실제 렌더 페이지 연결 완료 (2026-10-09)
 
@@ -264,7 +282,7 @@
 | A | #431~#434 / UI-VIS-001~004 | 표시/문서 계약·비파괴 변환·Undo 모델 | #431 [✔], #432 [✔], #433 [✔], #434 [✔] (단계 A 완료) |
 | B | #435~#438 / UI-VIS-005~008 | 정렬·속성 모델·안전 bridge·실제 Canvas | #435 [✔], #436 [✔], #437 [✔], #438 [✔] (단계 B 완료) |
 | C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | #439 [✔], #440 [✔], #441 [✔], [#442 UI-VIS-012](https://github.com/Choyounhwa/-dream-guardian/issues/442) [✔], [#443 UI-VIS-013](https://github.com/Choyounhwa/-dream-guardian/issues/443) [✔], [#444 UI-VIS-014](https://github.com/Choyounhwa/-dream-guardian/issues/444) [✔], [#445 UI-VIS-015](https://github.com/Choyounhwa/-dream-guardian/issues/445) [✔], [#446 UI-VIS-016](https://github.com/Choyounhwa/-dream-guardian/issues/446) [✔], [#447 UI-VIS-017](https://github.com/Choyounhwa/-dream-guardian/issues/447) [✔], [#448 UI-VIS-018](https://github.com/Choyounhwa/-dream-guardian/issues/448) [✔], [#449 UI-VIS-019](https://github.com/Choyounhwa/-dream-guardian/issues/449) [✔] (단계 C 10개 런타임 렌더/UI 레이어 표시 경계 전원 완료) |
-| D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | #450 [✔], #451 [✔], #452 [✔], #453 [✔], #454 [✔], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#455 UI-VIS-025], 나머지 선행 대기 |
+| D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | #450 [✔], #451 [✔], #452 [✔], #453 [✔], #454 [✔], [#455 UI-VIS-025](https://github.com/Choyounhwa/-dream-guardian/issues/455) [✔], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#456 UI-VIS-026], 나머지 선행 대기 |
 | E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | 승인/선행 대기 |
 | F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | 승인/선행 대기 |
 | G | #468 → #469 / UI-VIS-038~039 | 적용본/백업 모델→추출·게시 UI | 승인/선행 대기 |
