@@ -53,6 +53,12 @@ import {
   ANSWER_PAGE_ID,
   registerAnswerPageAdapter,
 } from './screens/UIAnswerPage';
+import {
+  hazardPageAdapter,
+  HAZARD_EVADE_PAGE_ID,
+  HAZARD_PAGE_ID,
+  registerHazardPageAdapter,
+} from './screens/UIHazardPage';
 
 export const ARTBOARD_WIDTH = 1080;
 export const ARTBOARD_HEIGHT = 2160;
@@ -234,6 +240,7 @@ registerPausePageAdapter(defaultPageAdapterRegistry);
 registerPlayReadyPageAdapter(defaultPageAdapterRegistry);
 registerRunningQuestionPageAdapter(defaultPageAdapterRegistry);
 registerAnswerPageAdapter(defaultPageAdapterRegistry);
+registerHazardPageAdapter(defaultPageAdapterRegistry);
 
 export { homePageAdapter, MAIN_HOME_PAGE_ID, registerHomePageAdapter };
 export {
@@ -271,6 +278,12 @@ export {
   ANSWER_SELECT_PAGE_ID,
   ANSWER_PAGE_ID,
   registerAnswerPageAdapter,
+};
+export {
+  hazardPageAdapter,
+  HAZARD_EVADE_PAGE_ID,
+  HAZARD_PAGE_ID,
+  registerHazardPageAdapter,
 };
 
 export function registerPageAdapter(pageId: string, adapter: PageAdapter): void {
