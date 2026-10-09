@@ -4,12 +4,16 @@
 
 ## 🗣️ 꼬마 수호신 밝은 보이스 톤 및 수식 간결 낭독 트랙 (TTS-VOICE, 2026-10-10)
 
-- **작업 카드**: [✔ 완료] [#500 TTS-VOICE-001](https://github.com/Choyounhwa/-dream-guardian/issues/500) 꼬마 수호신 밝은 보이스 톤(Pitch/Rate) 및 수식 간결 낭독 반영
+- **작업 카드**:
+  - [✔ 완료] [#500 TTS-VOICE-001](https://github.com/Choyounhwa/-dream-guardian/issues/500) 꼬마 수호신 밝은 보이스 톤(Pitch/Rate) 및 수식 간결 낭독 반영
+  - [✔ 완료] [#501 TTS-VOICE-002](https://github.com/Choyounhwa/-dream-guardian/issues/501) 실브라우저 비동기 getVoices 로딩 및 피치 조절 지원 한국어 보이스 우선 매칭
 - **목적**:
-  - 꼬마 수호신 캐릭터에 어울리는 밝고 경쾌한 목소리(Pitch 1.3, Rate 1.15, 한국어 음성 `ko-KR` / `ko` 우선 매칭)로 TTS 보이스 설정
-  - 수식 문제 낭독 시 끝맺음('는?')을 생략하여 '3 더하기 5'처럼 핵심 수식만 빠르고 간결하게 읽어 게임 템포 및 전달력 개선
-- **수정 대상**: `src/question/QuestionSpeech.ts`, `tests/unit/question-system.test.ts`, `tests/unit/a11y-tts-feedback.test.ts`
-- **검증**: 단위 테스트 100% 통과, 전체 295 test suites / 3,813 tests 100% Pass, `npm run build` 번들 검증 통과
+  - Edge/Chrome 실브라우저에서 `pitch`(1.35) 변조가 뚜렷하게 체감되도록 보이스 선택 및 로딩 알고리즘 고도화
+  - Edge의 `Online (Natural)` 음성은 브라우저 Web Speech API 구현 한계로 `utterance.pitch`를 완전히 무시하므로, 피치 변조가 정상 작동하는 데스크톱/로컬 음성(`Microsoft Heami`, `Google 한국의`, `localService: true`)을 최우선 매칭
+  - Chrome/Safari 등에서 최초 로드 시 `getVoices()`가 빈 배열로 시작하는 비동기 지연을 해결하기 위해 `speechSynthesis.onvoiceschanged` 이벤트 리스너 및 캐싱 구현
+  - 꼬마 수호신 캐릭터 톤(밝고 통통 튀는 목소리)의 확실한 청각적 체감을 위해 `pitch: 1.35`, `rate: 1.15` 정밀 튜닝
+- **수정 대상**: `src/question/QuestionSpeech.ts`, `tests/unit/a11y-tts-feedback.test.ts`
+- **검증**: Vitest 17 tests 통과, 전체 테스트 297 suites / 3,869 tests 100% 통과, `npm run build` 번들 검증 통과
 
 ## ⏸️ 답안 선택 후 2박 쉼표(Rest Delay) 도입 트랙 (ANSWER-REST, 2026-10-08)
 

@@ -17,11 +17,16 @@ export class QuestionSpeech {
   private _timeoutId: ReturnType<typeof setTimeout> | null = null;
   private _supported = false;
   private _enabled = true;
+  private _cachedVoice: SpeechSynthesisVoice | null = null;
 
   // 저시력 모드 음성 피드백 중복 방지 제어
   private _lastLowHpTime = 0;
   private _lowHpCooldownMs = 8000;
   private _bossEnrageTriggered = false;
+
+  private _onVoicesChanged = (): void => {
+    this._cachedVoice = this._pickBestVoice();
+  };
 
   constructor() {
     this._supported =
@@ -31,6 +36,8 @@ export class QuestionSpeech {
 
     if (!this._supported) {
       this._status = 'unsupported';
+    } else {
+      this._initVoices();
     }
   }
 
@@ -100,6 +107,83 @@ export class QuestionSpeech {
     }
   }
 
+  /** 음성 리스너 초기화 및 비동기 음성 로딩 대응 */
+  private _initVoices(): void {
+    this._cachedVoice = this._pickBestVoice();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      if ('onvoiceschanged' in window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = this._onVoicesChanged;
+      } else if (typeof (window.speechSynthesis as any).addEventListener === 'function') {
+        (window.speechSynthesis as any).addEventListener('voiceschanged', this._onVoicesChanged);
+      }
+    }
+  }
+
+  /**
+   * 한국어 음성 우선순위 스코어링 (Issue #501)
+   * - Edge의 Online (Natural) 음성은 브라우저 Web Speech API에서 pitch 변경을 무시하므로 최하위 점수 부여
+   * - 로컬 서비스(localService: true), Heami Desktop, Google 한국의 등 피치 조절 가능 음성을 최우선 매칭
+   */
+  private _scoreVoice(voice: SpeechSynthesisVoice): number {
+    const lang = voice.lang?.toLowerCase() ?? '';
+    if (lang !== 'ko-kr' && lang !== 'ko' && !lang.startsWith('ko')) {
+      return -1000;
+    }
+
+    let score = 10;
+    const name = voice.name?.toLowerCase() ?? '';
+
+    // Edge Natural/Online 음성은 Web Speech API 스펙상 pitch 변경 무시 -> 감점
+    if (name.includes('natural') || name.includes('online')) {
+      score -= 100;
+    }
+
+    // 로컬 음성 가산점 (피치 조절 지원 보장)
+    if (voice.localService) {
+      score += 50;
+    }
+
+    // 피치 변조가 잘 동작하는 한국어 대표 음성
+    if (name.includes('heami')) {
+      score += 40;
+    } else if (name.includes('google')) {
+      score += 30;
+    } else if (name.includes('yuna') || name.includes('sora')) {
+      score += 30;
+    }
+
+    return score;
+  }
+
+  /** 피치 변조를 완벽히 지원하는 최적 한국어 음성 탐색 */
+  private _pickBestVoice(): SpeechSynthesisVoice | null {
+    if (
+      !this._supported ||
+      typeof window === 'undefined' ||
+      typeof window.speechSynthesis.getVoices !== 'function'
+    ) {
+      return null;
+    }
+
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) {
+      return null;
+    }
+
+    let bestVoice: SpeechSynthesisVoice | null = null;
+    let bestScore = -999;
+
+    for (const voice of voices) {
+      const score = this._scoreVoice(voice);
+      if (score > bestScore) {
+        bestScore = score;
+        bestVoice = voice;
+      }
+    }
+
+    return bestVoice;
+  }
+
   /** 피드백 발화 제어 상태 초기화 (새 게임 시작 시) */
   resetFeedbackState(): void {
     this._bossEnrageTriggered = false;
@@ -116,17 +200,13 @@ export class QuestionSpeech {
     try {
       this._utterance = new SpeechSynthesisUtterance(text);
       this._utterance.lang = 'ko-KR';
-      this._utterance.pitch = 1.3;
+      this._utterance.pitch = 1.35;
       this._utterance.rate = 1.15;
 
-      if (typeof window.speechSynthesis.getVoices === 'function') {
-        const voices = window.speechSynthesis.getVoices();
-        const koVoice = voices.find(
-          (v) => v.lang === 'ko-KR' || v.lang === 'ko' || v.lang?.toLowerCase().startsWith('ko')
-        );
-        if (koVoice) {
-          this._utterance.voice = koVoice;
-        }
+      const voice = this._cachedVoice ?? this._pickBestVoice();
+      if (voice) {
+        this._utterance.voice = voice;
+        this._cachedVoice = voice;
       }
 
       this._utterance.onend = () => {
@@ -164,6 +244,15 @@ export class QuestionSpeech {
   destroy(): void {
     this.cancel();
     this._utterance = null;
+    this._cachedVoice = null;
+    if (this._supported && typeof window !== 'undefined' && window.speechSynthesis) {
+      if (window.speechSynthesis.onvoiceschanged === this._onVoicesChanged) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+      if (typeof (window.speechSynthesis as any).removeEventListener === 'function') {
+        (window.speechSynthesis as any).removeEventListener('voiceschanged', this._onVoicesChanged);
+      }
+    }
   }
 
   private _clearTimeout(): void {

@@ -30,6 +30,7 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
     ];
 
     mockSpeechSynthesis = {
+      onvoiceschanged: null,
       speak: vi.fn((utt: any) => {
         // 비동기 완료 시뮬레이션
         setTimeout(() => {
@@ -38,6 +39,8 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
       }),
       cancel: vi.fn(),
       getVoices: vi.fn(() => mockVoices),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
     };
 
     vi.stubGlobal('SpeechSynthesisUtterance', MockSpeechSynthesisUtterance);
@@ -184,13 +187,13 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
   });
 
   describe('5. [TTS-VOICE-001 / #500] 꼬마 수호신 밝은 보이스 톤(Pitch/Rate) 및 수식 간결 낭독', () => {
-    it('발화 시 pitch=1.3, rate=1.15 및 한국어 음성이 적용된다', () => {
+    it('발화 시 pitch=1.35, rate=1.15 및 한국어 음성이 적용된다', () => {
       const speech = new QuestionSpeech();
       speech.speakFeedback('correct');
 
       expect(mockUtterances.length).toBe(1);
       const utt = mockUtterances[0];
-      expect(utt.pitch).toBe(1.3);
+      expect(utt.pitch).toBe(1.35);
       expect(utt.rate).toBe(1.15);
       expect(utt.voice).toEqual({ name: 'Google 한국의', lang: 'ko-KR' });
     });
@@ -202,9 +205,55 @@ describe('[A11Y-004 / #265] 음성 피드백 강화 (TTS)', () => {
       expect(mockUtterances.length).toBe(1);
       const utt = mockUtterances[0];
       expect(utt.text).toBe('3 더하기 5');
-      expect(utt.pitch).toBe(1.3);
+      expect(utt.pitch).toBe(1.35);
       expect(utt.rate).toBe(1.15);
       expect(utt.voice?.lang).toBe('ko-KR');
+    });
+  });
+
+  describe('6. [TTS-VOICE-002 / #501] 실브라우저 비동기 getVoices 및 피치 지원 보이스 우선 매칭', () => {
+    it('Online Natural 음성이 앞에 있어도 피치 조절을 지원하는 로컬/데스크톱 음성을 우선 선택한다', () => {
+      const edgeVoices = [
+        { name: 'Microsoft SunHi Online (Natural) - Korean (Korea)', lang: 'ko-KR', localService: false },
+        { name: 'Microsoft InJoon Online (Natural) - Korean (Korea)', lang: 'ko-KR', localService: false },
+        { name: 'Microsoft Heami Desktop - Korean', lang: 'ko-KR', localService: true },
+      ];
+      mockSpeechSynthesis.getVoices = vi.fn(() => edgeVoices);
+
+      const speech = new QuestionSpeech();
+      speech.speakFeedback('correct');
+
+      expect(mockUtterances.length).toBe(1);
+      const utt = mockUtterances[0];
+      expect(utt.pitch).toBe(1.35);
+      expect(utt.rate).toBe(1.15);
+      expect(utt.voice.name).toBe('Microsoft Heami Desktop - Korean');
+    });
+
+    it('초기 getVoices()가 빈 배열이어도 onvoiceschanged 이벤트 발생 시 음성이 갱신된다', () => {
+      let currentVoices: any[] = [];
+      mockSpeechSynthesis.getVoices = vi.fn(() => currentVoices);
+
+      const speech = new QuestionSpeech();
+
+      // 음성 로드 완료 시뮬레이션
+      currentVoices = [
+        { name: 'Google 한국의', lang: 'ko-KR', localService: true },
+      ];
+      if (typeof mockSpeechSynthesis.onvoiceschanged === 'function') {
+        mockSpeechSynthesis.onvoiceschanged();
+      }
+
+      speech.speak('3 + 5 = ?');
+      expect(mockUtterances.length).toBe(1);
+      expect(mockUtterances[0].voice?.name).toBe('Google 한국의');
+    });
+
+    it('destroy() 호출 시 onvoiceschanged 리스너가 정리된다', () => {
+      const speech = new QuestionSpeech();
+      expect(mockSpeechSynthesis.onvoiceschanged).not.toBeNull();
+      speech.destroy();
+      expect(mockSpeechSynthesis.onvoiceschanged).toBeNull();
     });
   });
 });
