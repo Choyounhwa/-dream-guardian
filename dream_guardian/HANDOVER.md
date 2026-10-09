@@ -14,6 +14,7 @@
 - 하위 카드 목록:
   - [✔ 완료] [#494 LANE-SYNC-01](https://github.com/Choyounhwa/-dream-guardian/issues/494) 3대 레인과 발자국 슬롯 X 좌표 단일화 및 러닝 매트 3레인 중앙 발자국 정렬
   - [✔ 완료] [#495 LANE-SYNC-02](https://github.com/Choyounhwa/-dream-guardian/issues/495) 리듬노트 비행 궤적의 3레인 세로선 정렬 및 러닝/리듬 모드 착지 앵커 단일화
+  - [▶ NEXT: 승인 대기] [#499 LANE-ALIGN-01](https://github.com/Choyounhwa/-dream-guardian/issues/499) 피트니스 Zone 9/10/11 중심 기준 발 판정선 앵커 및 발자국 위치 동기화 (x: 1/6, 1/2, 5/6)
 
 ## 🚨 문제페이즈(RUN_QUESTION) 렌더링 중단 결함 등록 (BUG-RUN-QUESTION-RENDER, 2026-10-08)
 
@@ -149,6 +150,23 @@
 | MRN-12 | [#486](https://github.com/Choyounhwa/-dream-guardian/issues/486) | 비행감 통일 (config만) | [✔] 완료 |
 
 
+## 👑 [UI-VIS-020 / #450] 메인 홈 실제 렌더 페이지 연결 완료 (2026-10-09)
+
+- **작업 카드**: [✔ 완료] [#450 UI-VIS-020](https://github.com/Choyounhwa/-dream-guardian/issues/450) 메인 홈 실제 렌더 페이지 연결
+- **목적**: 실게임 렌더러 재사용 10페이지 시각 UI 편집기의 메인 홈 실제 렌더 페이지 연결 단일 책임 구현. 가짜 사각형 UI나 단순 metadata 반환 대신 `MenuRenderer`, `HUDLayer`, `BottomBar`의 실제 Canvas 드로잉을 조합하여 정적 합성하고, runtime seam의 geometry와 stable ID(chapter_1~5, locomotion_btn, menu_title, hud_..., bottom_bar_...)를 포함한 `renderedBounds`를 반환.
+- **수정 소스 파일**:
+  1. `dream_guardian/src/editor/ui/preview/screens/UIHomePage.ts` (신규 생성: main_home 및 menu_main 페이지 어댑터 구현, 실제 5챕터 카드 2-2-1 와이드 다이아몬드 그리드 및 UI_LAYOUT 기하학 렌더, 공통 HUD/BottomBar 정적 합성, selectedElementIds 하이라이트, stale fixture/미지원 슬롯/보호영역 침범 가드)
+  2. `dream_guardian/src/editor/ui/preview/UIPageAdapters.ts` (defaultPageAdapterRegistry에 main_home 어댑터 자동 등록 및 registerHomePageAdapter/homePageAdapter 익스포트, fixture 오버라이드 확장)
+- **테스트 파일**:
+  - `dream_guardian/tests/unit/ui-vis-020.test.ts` (신규 17개 단위/통합 테스트 100% 통과)
+- **검증 결과**:
+  - `npx vitest run tests/unit/ui-vis-020.test.ts`: 17/17 통과 (100%)
+  - 관련 어댑터/메뉴 단위 테스트: 42/42 통과 (100%)
+  - 전체 단위/통합 테스트: 288개 파일, 3,665개 100% 통과
+  - TypeScript strict compile (`tsc`) 및 Vite bundle build 성공
+- **다음 작업 대상**:
+  - **[#451 UI-VIS-021]**: 서브메뉴 실제 렌더 페이지 연결
+
 ## 👑 [UI-VIS-019 / #449] 보스 결전 실제 표시 주입 경계 완료 (2026-10-08)
 
 - **작업 카드**: [✔ 완료] [#449 UI-VIS-019](https://github.com/Choyounhwa/-dream-guardian/issues/449) 보스 결전 실제 표시 주입 경계
@@ -176,7 +194,7 @@
 | A | #431~#434 / UI-VIS-001~004 | 표시/문서 계약·비파괴 변환·Undo 모델 | #431 [✔], #432 [✔], #433 [✔], #434 [✔] (단계 A 완료) |
 | B | #435~#438 / UI-VIS-005~008 | 정렬·속성 모델·안전 bridge·실제 Canvas | #435 [✔], #436 [✔], #437 [✔], #438 [✔] (단계 B 완료) |
 | C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | #439 [✔], #440 [✔], #441 [✔], [#442 UI-VIS-012](https://github.com/Choyounhwa/-dream-guardian/issues/442) [✔], [#443 UI-VIS-013](https://github.com/Choyounhwa/-dream-guardian/issues/443) [✔], [#444 UI-VIS-014](https://github.com/Choyounhwa/-dream-guardian/issues/444) [✔], [#445 UI-VIS-015](https://github.com/Choyounhwa/-dream-guardian/issues/445) [✔], [#446 UI-VIS-016](https://github.com/Choyounhwa/-dream-guardian/issues/446) [✔], [#447 UI-VIS-017](https://github.com/Choyounhwa/-dream-guardian/issues/447) [✔], [#448 UI-VIS-018](https://github.com/Choyounhwa/-dream-guardian/issues/448) [✔], [#449 UI-VIS-019](https://github.com/Choyounhwa/-dream-guardian/issues/449) [✔] (단계 C 10개 런타임 렌더/UI 레이어 표시 경계 전원 완료) |
-| D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#450 UI-VIS-020], 나머지 선행 대기 |
+| D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | #450 [✔], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#451 UI-VIS-021], 나머지 선행 대기 |
 | E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | 승인/선행 대기 |
 | F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | 승인/선행 대기 |
 | G | #468 → #469 / UI-VIS-038~039 | 적용본/백업 모델→추출·게시 UI | 승인/선행 대기 |
