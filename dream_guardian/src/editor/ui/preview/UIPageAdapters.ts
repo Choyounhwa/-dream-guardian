@@ -12,6 +12,11 @@
  */
 
 import type { ChildBridge, UIVisualBridgeEnvelope } from './UIVisualBridge';
+import {
+  homePageAdapter,
+  MAIN_HOME_PAGE_ID,
+  registerHomePageAdapter,
+} from './screens/UIHomePage';
 
 export const ARTBOARD_WIDTH = 1080;
 export const ARTBOARD_HEIGHT = 2160;
@@ -108,6 +113,7 @@ export function createDeterministicFixture(
     clockMs: overrides?.clockMs ?? 0,
     seed: overrides?.seed ?? 12345,
     assetResolver: overrides?.assetResolver ?? ((assetId: string) => `asset://${assetId}`),
+    ...(overrides as any),
   });
 }
 
@@ -184,6 +190,9 @@ export class PageAdapterRegistry {
 }
 
 export const defaultPageAdapterRegistry = new PageAdapterRegistry();
+registerHomePageAdapter(defaultPageAdapterRegistry);
+
+export { homePageAdapter, MAIN_HOME_PAGE_ID, registerHomePageAdapter };
 
 export function registerPageAdapter(pageId: string, adapter: PageAdapter): void {
   defaultPageAdapterRegistry.register(pageId, adapter);
