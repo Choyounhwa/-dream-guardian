@@ -51,6 +51,23 @@
 | 35 종료 포트 배선 | [#537](https://github.com/Choyounhwa/-dream-guardian/issues/537) | G5 / OPEN |
 | 36 최종 인수 | [#538](https://github.com/Choyounhwa/-dream-guardian/issues/538) | G6 / OPEN |
 
+### 2026-10-11 v0.3 보완 등록 (DOC-14 §15)
+
+현행 코드 대조 결함(A1~A8, B1~B8, C1~C10, D1~D4)을 반영했다. 기존 #503, #504, #505, #509, #510, #511, #514, #517, #518, #522~#527 본문에 "v0.3 보완 조항"을 append했고, 아래 신규 카드를 등록했다. 등록은 구현 승인이 아니다.
+
+| 카드 | 실제 이슈 | 단계 / 상태 |
+|---|---|---|
+| 38 펀치·스쿼트·지연 실측 스파이크 | [#541](https://github.com/Choyounhwa/-dream-guardian/issues/541) | G0 / OPEN |
+| 39 문항 적격성·읽기 시간 분류 | [#542](https://github.com/Choyounhwa/-dream-guardian/issues/542) | G1 / OPEN |
+| 40 ASSAULT_ROUND 동작 소유권 config | [#543](https://github.com/Choyounhwa/-dream-guardian/issues/543) | G1 / OPEN |
+| 41 박자·연출 효과음 큐 | [#544](https://github.com/Choyounhwa/-dream-guardian/issues/544) | G2 / OPEN |
+| 42 접근 진행도 연출 렌더러 | [#545](https://github.com/Choyounhwa/-dream-guardian/issues/545) | G3 / OPEN |
+| 43 운동량 실측 집계 | [#546](https://github.com/Choyounhwa/-dream-guardian/issues/546) | G2 / OPEN |
+| 44 스쿼트 저충격 대체 | [#547](https://github.com/Choyounhwa/-dream-guardian/issues/547) | G2 / OPEN |
+| 45 3단계 튜토리얼 | [#548](https://github.com/Choyounhwa/-dream-guardian/issues/548) | G3 이후 / OPEN |
+| 46 (선택) TTS 완료 콜백 | [#549](https://github.com/Choyounhwa/-dream-guardian/issues/549) | 선택 / OPEN |
+
+
 ## 2026-10-08 등록: 답안 선택 후 2박 쉼표(Rest Delay) 도입 (ANSWER-REST)
 
 - **작업 카드**: [✔ 완료] [#498 ANSWER-REST-001](https://github.com/Choyounhwa/-dream-guardian/issues/498) 답안 선택 후 2박 쉼표(Rest Delay) 도입 및 분기 전이 완충

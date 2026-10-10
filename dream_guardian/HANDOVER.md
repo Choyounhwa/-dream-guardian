@@ -12,6 +12,25 @@
 - **검증 기록**: 이번 등록 세션 테스트·빌드·실기기·개발 서버 미실행. 통과한 구현 테스트 없음. 등록 완료와 구현 완료는 별개이며 기존 완료 기록을 이 트랙의 증거로 재사용하지 않음.
 - **후속 검토 대상**: [#503 BOSS-ASSAULT-01](https://github.com/Choyounhwa/-dream-guardian/issues/503) 문서 계약 결정(별도 착수 승인 필요). 자동 진행하지 않는다. **기존 모든 SSOT/진행 표시와 순서를 그대로 유지하며 이 트랙을 다음 실행 카드로 지정하지 않는다.**
 
+### BOSS-ASSAULT v0.3 보완 (2026-10-11) 및 독립 트랙 진행 표
+
+- **수행 범위**: 현행 코드 대조 결함 분석 결과를 문서·이슈에 반영. DOC-14 v0.3(§15 신설), DOC-15(결정 원장 DEC-*, §4.1 기존 카드 보완, §4.2 신규 카드, A24~A31 추적), #502 및 기존 15개 카드 본문 append, 신규 #541~#549 등록. 제품 소스/config/tests 수정·테스트·빌드·서버 실행 없음.
+- **주요 결함**: `GameState` 위치 불일치(#523 파일 교체), 신규 상태 intent ownership 부재(#543), 2D 펀치 판정·손 매핑 미정(#541 실측 → #503), 반복 보기 재현 불가(#509 수정), 숫자 외 문항(#542), HP0 `showResult` 중복 종료·low_hp TTS 낭독 취소·X자 일시정지 오발·visibilitychange 부재(#525/#526), 입력 지연·재개 정책(#510/#514/#517).
+- **커밋 규칙(D1)**: 카드 완료 커밋은 AGENTS.md Step 5를 따른다. 푸시·기본 모드 전환은 별도 승인.
+
+| 순서 | 카드 | 상태 |
+|---|---|---|
+| G0 | [#541 38 실측 스파이크](https://github.com/Choyounhwa/-dream-guardian/issues/541) → [#503 01 계약 결정](https://github.com/Choyounhwa/-dream-guardian/issues/503) | `[▶ NEXT: BOSS-ASSAULT 트랙 / 승인 대기]` #541 |
+| G1 | #504~#509, [#542 39](https://github.com/Choyounhwa/-dream-guardian/issues/542), [#543 40](https://github.com/Choyounhwa/-dream-guardian/issues/543) | 대기 |
+| G2 | #510~#522, [#544 41](https://github.com/Choyounhwa/-dream-guardian/issues/544), [#546 43](https://github.com/Choyounhwa/-dream-guardian/issues/546), [#547 44](https://github.com/Choyounhwa/-dream-guardian/issues/547) | 대기 |
+| G3 | #523~#526, [#545 42](https://github.com/Choyounhwa/-dream-guardian/issues/545) → #527 인수 → [#548 45](https://github.com/Choyounhwa/-dream-guardian/issues/548) | 대기 |
+| G4 | #528 → #539 → #529~#532 | 대기 (결전 수치 별도 승인) |
+| G5 | #533~#537 | 대기 (보상/저장 별도 승인) |
+| G6 | #538 | 대기 |
+| 선택 | [#549 46](https://github.com/Choyounhwa/-dream-guardian/issues/549) TTS 콜백 | DEC-B3 대안 채택 시만 |
+
+이 표의 NEXT는 BOSS-ASSAULT 트랙 내부 표시이며 다른 트랙의 NEXT와 메인 SSOT 순서를 변경하지 않는다.
+
 ## 🗣️ 꼬마 수호신 밝은 보이스 톤 및 수식 간결 낭독 트랙 (TTS-VOICE, 2026-10-10)
 
 - **작업 카드**:
@@ -236,7 +255,25 @@
    - **[✔ 완료: UI-VIS-038] [#468]**: 적용본/백업 모델 (TDD 16개 테스트 100% 통과, build 성공)
    - **[✔ 완료: UI-VIS-039] [#469]**: 백업·추출·불변 게시본 선택 UI (TDD 12개 테스트 100% 통과, build 성공)
    - **[✔ 완료: UI-VIS-040] [#470]**: 피트니스와 분리된 UI 표시 적용본 로더 (TDD 18개 테스트 100% 통과, build 성공)
-   - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#471 UI-VIS-041]**: UI 표시 스냅샷 게임 런타임 프리뷰 주입 및 안전 롤백
+   - **[✔ 완료: UI-VIS-041] [#471]**: UI 표시 스냅샷 게임 런타임 프리뷰 주입 및 안전 롤백 (TDD 10개 테스트 100% 통과, build 성공)
+   - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#472 UI-VIS-042]**: 실제 브라우저 10페이지 픽셀·복구·게임 적용 인수
+
+## 🚀 [UI-VIS-041 / #471] 런타임 표시 snapshot 주입·입력 일치·롤백 완료 (2026-10-11)
+
+- **작업 카드**: [✔ 완료] [#471 UI-VIS-041](https://github.com/Choyounhwa/-dream-guardian/issues/471) 런타임 표시 snapshot 주입·입력 일치·롤백
+- **목적**: 실게임 렌더러 재사용 10페이지 시각 UI 편집기의 런타임 표시 snapshot 주입·입력 일치·롤백 단일 책임 구현.
+- **수정 소스 파일 (2개)**:
+  1. `dream_guardian/src/core/SceneDirector.ts` (하단바 submenu customActionSlot 등 Core 하드코딩 경로를 `resolveBottomBarActionSlot` 검증 seam geometry 조회로 통일, 터치/마우스 클릭 및 메뉴 hover와 그려진 버튼 일치, 렌더 시 `pageId` 및 seam options 주입, 보호 motion/답안 존 유지)
+  2. `dream_guardian/src/core/AppBootstrap.ts` (명시적으로 검증된 UI presentation snapshot의 실제 runtime renderer/modal 10개 페이지 인스턴스 주입 관리 `setUIPresentationArtifact`/`applyUIPresentation`/`rollbackUIPresentation`/`flushPendingUIPresentation`, 플레이 중 publish 시 다음 경계(`MENU_MAIN`, `MENU_SUB`, `startChapter`, `goToMenu`)까지 지연 채택하는 Session Pinning, 손상/변조 시 이전 정상본 또는 builtin fallback 전체 롤백 및 Zero Partial Apply, 실제 game DTO 우선순위 보장 및 기본 실행 시 config 값 보존, 클릭 시 `resolveBottomBarActionSlot` 연동)
+- **테스트 파일**:
+  - `dream_guardian/tests/unit/ui-vis-041.test.ts` (신규 10개 단위 테스트 100% 통과)
+- **검증 결과**:
+  - `npx vitest run tests/unit/ui-vis-041.test.ts`: 10/10 Pass (100%)
+  - `npm run build`: tsc 컴파일 & vite build 통과 (에러 0건)
+  - `npm run build:ui-editor`: tsc 컴파일 & vite ui-editor build 통과 (에러 0건)
+  - `npm test`: 전체 309개 테스트 파일, 4,045개 테스트 100% 통과 (회귀 결함 0건)
+  - Git Commit: `39001e7` (`feat(core): inject runtime ui presentation snapshot, align hit geometry, and support safe rollback (#471)`)
+  - 로컬 개발 서버: `http://localhost:3000/` (정상 가동 가능 상태)
 
 ## 🚀 [UI-VIS-040 / #470] 피트니스와 분리된 UI 표시 적용본 로더 완료 (2026-10-10)
 
@@ -539,8 +576,8 @@
 | E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | [✔ #460, #461, #462 전원 완료 (단계 E 완료)] |
 | F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | #463 [✔], #464 [✔], [#465 UI-VIS-034] [✔], [#466 UI-VIS-036] [✔], [#467 UI-VIS-037] [✔] (단계 F 완료) |
 | G | #468 → #469 / UI-VIS-038~039 | 적용본/백업 모델→추출·게시 UI | [#468 UI-VIS-038] [✔], [#469 UI-VIS-039] [✔] (단계 G 완료) |
-| H | #470 → #471 / UI-VIS-040~041 | UI 전용 수신→게임 주입/입력 일치/롤백 | [#470 UI-VIS-040] [✔], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#471 UI-VIS-041] |
-| I | [#472 UI-VIS-042](https://github.com/Choyounhwa/-dream-guardian/issues/472) | 실제 브라우저 10페이지 픽셀·복구·게임 적용 인수 | 승인/전체 선행 대기 |
+| H | #470 → #471 / UI-VIS-040~041 | UI 전용 수신→게임 주입/입력 일치/롤백 | [#470 UI-VIS-040] [✔], [#471 UI-VIS-041] [✔] (단계 H 완료) |
+| I | [#472 UI-VIS-042](https://github.com/Choyounhwa/-dream-guardian/issues/472) | 실제 브라우저 10페이지 픽셀·복구·게임 적용 인수 | `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#472 UI-VIS-042] |
 
 정확한 이슈별 URL/선행/파일수는 `docs/03_GITHUB_ISSUES.md`의 2026-10-08 표와 #430에 동기화했다. 실행 순서는 숫자만이 아니라 선행 DAG로 판단하며 **UI-VIS-035=#464가 UI-VIS-034=#465보다 먼저**다.
 
