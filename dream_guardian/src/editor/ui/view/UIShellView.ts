@@ -41,6 +41,10 @@ import {
   bindFileActions,
 } from "./UIFileActionView";
 import {
+  UIVisualPublishController,
+  type DirtyPublishChoice,
+} from "../UIVisualPublishController";
+import {
   type ArrangementViewInstance,
   mountArrangementView,
 } from "./UIArrangementView";
@@ -60,6 +64,7 @@ export interface ShellInstance {
   readonly propertyForm: PropertyFormInstance;
   readonly previewFrame: PreviewFrameInstance;
   readonly fileActions: FileActionInstance;
+  readonly publishController?: UIVisualPublishController;
   readonly arrangementView: ArrangementViewInstance;
   readonly assetView: VisualAssetViewInstance;
   readonly controller?: any;
@@ -79,6 +84,7 @@ export interface MountShellOptions {
   catalog?: any;
   store?: any;
   previewCache?: any;
+  publishController?: UIVisualPublishController;
   onCommitProperty?: (result: CommitResult) => void;
   onVisualCommit?: (command: VisualCommand) => void;
   previewDocId?: string;
@@ -87,6 +93,7 @@ export interface MountShellOptions {
   picker?: FilePicker;
   confirm?: (summary: string) => boolean;
   promptDirtyExport?: () => DirtyExportChoice;
+  promptDirtyPublish?: () => DirtyPublishChoice;
   onStatus?: (message: string) => void;
   onDocumentChange?: (doc: any) => void;
 }
@@ -295,13 +302,39 @@ export function mountShell(
     }
   });
 
+  // Publish controller instance
+  const publishController =
+    options?.publishController ??
+    (options?.controller
+      ? new UIVisualPublishController({
+          projectId:
+            typeof options.controller.projectId === "function"
+              ? options.controller.projectId()
+              : options.controller.projectId ?? "proj-ui",
+          projectController: options.controller,
+          store: options.store ?? options.controller.store,
+          downloader: options.downloader,
+          confirm: options.confirm,
+          promptDirtyPublish: options.promptDirtyPublish,
+          onStatus: (msg) => {
+            state = announce(state, msg);
+            options?.onStatus?.(msg);
+            statusText.textContent = msg;
+            statusPanel.textContent = msg;
+            updateToolbarMeta();
+          },
+        })
+      : undefined);
+
   // Bind file actions
   const fileActions = bindFileActions(toolbar, {
     controller: options?.controller,
+    publishController,
     downloader: options?.downloader,
     picker: options?.picker,
     confirm: options?.confirm,
     promptDirtyExport: options?.promptDirtyExport,
+    promptDirtyPublish: options?.promptDirtyPublish,
     onStatus: (msg) => {
       state = announce(state, msg);
       options?.onStatus?.(msg);
@@ -714,6 +747,7 @@ export function mountShell(
     propertyForm,
     previewFrame,
     fileActions,
+    publishController: fileActions.publishController ?? publishController,
     arrangementView,
     assetView,
     controller: options?.controller,

@@ -13,6 +13,10 @@ import {
   runBackup,
   runOpen,
 } from "../io/UIProjectIO";
+import {
+  UIVisualPublishController,
+  type DirtyPublishChoice,
+} from "../UIVisualPublishController";
 
 export { type Downloader, type FilePicker, type ReplacePort };
 
@@ -24,10 +28,12 @@ export type DirtyExportChoice = "save-and-export" | "saved-only" | "cancel";
 
 export interface FileActionOptions {
   controller?: any;
+  publishController?: UIVisualPublishController;
   downloader?: Downloader;
   picker?: FilePicker;
   confirm?: (summary: string) => boolean;
   promptDirtyExport?: () => DirtyExportChoice;
+  promptDirtyPublish?: () => DirtyPublishChoice;
   baseline?: Record<string, unknown>;
   onStatus?: (message: string) => void;
   onProjectOpened?: (doc: any, session?: any) => void;
@@ -35,8 +41,19 @@ export interface FileActionOptions {
 
 export interface FileActionInstance {
   readonly root: HTMLElement;
+  readonly publishController?: UIVisualPublishController;
   triggerAction(
-    actionName: "저장" | "프로젝트 백업" | "전달 데이터 추출" | "열기"
+    actionName:
+      | "저장"
+      | "프로젝트 백업"
+      | "전달 데이터 추출"
+      | "열기"
+      | "불변 게시"
+      | "적용본 추출"
+      | "전체 백업"
+      | "Publish"
+      | "Export Artifact"
+      | "Full Backup"
   ): Promise<void>;
   unmount(): void;
   dispose(): void;
@@ -62,13 +79,17 @@ function ensureValidProjectSnapshot(doc: any): any {
 }
 
 function findButton(root: HTMLElement, actionName: string): HTMLElement | null {
-  const byAttr = root.querySelector(`[data-action="${actionName}"]`);
-  if (byAttr) return byAttr as HTMLElement;
-  const allBtns = root.querySelectorAll("button");
-  for (let i = 0; i < allBtns.length; i++) {
-    const btn = allBtns[i];
-    if (btn.textContent && btn.textContent.trim() === actionName) {
-      return btn as HTMLElement;
+  if (typeof root?.querySelector === "function") {
+    const byAttr = root.querySelector(`[data-action="${actionName}"]`);
+    if (byAttr) return byAttr as HTMLElement;
+  }
+  if (typeof root?.querySelectorAll === "function") {
+    const allBtns = root.querySelectorAll("button");
+    for (let i = 0; i < allBtns.length; i++) {
+      const btn = allBtns[i];
+      if (btn.textContent && btn.textContent.trim() === actionName) {
+        return btn as HTMLElement;
+      }
     }
   }
   return null;
@@ -378,10 +399,107 @@ async function handleOpen(options?: FileActionOptions): Promise<void> {
   }
 }
 
+function getOrCreatePublishController(
+  options?: FileActionOptions
+): UIVisualPublishController | undefined {
+  if (options?.publishController) return options.publishController;
+  if (options?.controller) {
+    if (options.controller instanceof UIVisualPublishController) {
+      return options.controller;
+    }
+    if (options.controller.publishController) {
+      return options.controller.publishController;
+    }
+    return new UIVisualPublishController({
+      projectId:
+        typeof options.controller.projectId === "function"
+          ? options.controller.projectId()
+          : options.controller.projectId ?? "proj-ui",
+      projectController: options.controller,
+      store: options.controller.store,
+      downloader: options.downloader,
+      confirm: options.confirm,
+      promptDirtyPublish: options.promptDirtyPublish,
+      onStatus: options.onStatus,
+    });
+  }
+  return undefined;
+}
+
+async function handlePublish(
+  options?: FileActionOptions,
+  pubCtrl?: UIVisualPublishController
+): Promise<void> {
+  const ctrl = pubCtrl ?? getOrCreatePublishController(options);
+  if (!ctrl) {
+    options?.onStatus?.(
+      `게시 대상 컨트롤러가 없습니다 (저장 성공 0건) · ${GAME_REFLECTION_DISCLAIMER}`
+    );
+    return;
+  }
+  const res = await ctrl.publishRelease();
+  if (res.ok) {
+    options?.onStatus?.(
+      `불변 게시 완료 (릴리즈 등록): ${res.releaseId} · ${GAME_REFLECTION_DISCLAIMER}`
+    );
+  } else {
+    options?.onStatus?.(
+      `게시 실패 또는 취소: ${res.reason ?? "failed"} (저장 성공 0건) · ${GAME_REFLECTION_DISCLAIMER}`
+    );
+  }
+}
+
+async function handleExportArtifact(
+  options?: FileActionOptions,
+  pubCtrl?: UIVisualPublishController
+): Promise<void> {
+  const ctrl = pubCtrl ?? getOrCreatePublishController(options);
+  if (!ctrl) {
+    options?.onStatus?.(
+      `추출 대상 컨트롤러가 없습니다 (저장 성공 0건) · ${GAME_REFLECTION_DISCLAIMER}`
+    );
+    return;
+  }
+  const res = await ctrl.exportArtifact();
+  if (res.ok) {
+    options?.onStatus?.(
+      `적용본 추출 완료 (다운로드 요청): ${res.filename} · ${GAME_REFLECTION_DISCLAIMER}`
+    );
+  } else {
+    options?.onStatus?.(
+      `적용본 추출 실패 또는 취소: ${res.reason ?? "failed"} (저장 성공 0건) · ${GAME_REFLECTION_DISCLAIMER}`
+    );
+  }
+}
+
+async function handleFullBackup(
+  options?: FileActionOptions,
+  pubCtrl?: UIVisualPublishController
+): Promise<void> {
+  const ctrl = pubCtrl ?? getOrCreatePublishController(options);
+  if (!ctrl) {
+    options?.onStatus?.(
+      `백업 대상 컨트롤러가 없습니다 (저장 성공 0건) · ${GAME_REFLECTION_DISCLAIMER}`
+    );
+    return;
+  }
+  const res = await ctrl.exportFullBackup();
+  if (res.ok) {
+    options?.onStatus?.(
+      `전체 백업 완료 (다운로드 요청): ${res.filename} · ${GAME_REFLECTION_DISCLAIMER}`
+    );
+  } else {
+    options?.onStatus?.(
+      `전체 백업 실패 또는 취소: ${res.reason ?? "failed"} (저장 성공 0건) · ${GAME_REFLECTION_DISCLAIMER}`
+    );
+  }
+}
+
 export function bindFileActions(
   toolbar: HTMLElement,
   options?: FileActionOptions
 ): FileActionInstance {
+  const pubCtrl = getOrCreatePublishController(options);
   const listeners: {
     element: HTMLElement;
     type: string;
@@ -393,6 +511,12 @@ export function bindFileActions(
     "프로젝트 백업": () => handleBackup(options),
     "전달 데이터 추출": () => handleExport(options),
     "열기": () => handleOpen(options),
+    "불변 게시": () => handlePublish(options, pubCtrl),
+    "적용본 추출": () => handleExportArtifact(options, pubCtrl),
+    "전체 백업": () => handleFullBackup(options, pubCtrl),
+    "Publish": () => handlePublish(options, pubCtrl),
+    "Export Artifact": () => handleExportArtifact(options, pubCtrl),
+    "Full Backup": () => handleFullBackup(options, pubCtrl),
   };
 
   for (const [actionName, fn] of Object.entries(actions)) {
@@ -410,7 +534,17 @@ export function bindFileActions(
   }
 
   const triggerAction = async (
-    actionName: "저장" | "프로젝트 백업" | "전달 데이터 추출" | "열기"
+    actionName:
+      | "저장"
+      | "프로젝트 백업"
+      | "전달 데이터 추출"
+      | "열기"
+      | "불변 게시"
+      | "적용본 추출"
+      | "전체 백업"
+      | "Publish"
+      | "Export Artifact"
+      | "Full Backup"
   ): Promise<void> => {
     const fn = actions[actionName];
     if (fn) {
@@ -427,6 +561,7 @@ export function bindFileActions(
 
   return {
     root: toolbar,
+    publishController: pubCtrl,
     triggerAction,
     unmount,
     dispose: unmount,
