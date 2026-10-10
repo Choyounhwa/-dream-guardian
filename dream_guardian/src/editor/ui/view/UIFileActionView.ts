@@ -62,6 +62,55 @@ export interface FileActionInstance {
 function ensureValidProjectSnapshot(doc: any): any {
   if (!doc || typeof doc !== "object") return doc;
   const menuPreset = clonePresetForEdit(BASELINE_REGISTRY.id);
+  let menu = doc.menu;
+  if (!menu && doc.pages && doc.pages.menu_main && doc.pages.menu_main.elements) {
+    const rawElements = doc.pages.menu_main.elements;
+    const getEl = (id: string) => {
+      if (Array.isArray(rawElements)) {
+        return rawElements.find((e: any) => e.id === id);
+      }
+      return rawElements[id];
+    };
+
+    menu = {
+      ...menuPreset,
+      cards: menuPreset.cards.map((c: any) => {
+        const aliasId =
+          c.id === "card-story"
+            ? "btn_story"
+            : c.id === "card-play"
+            ? "btn_play"
+            : c.id;
+        const el = getEl(c.id) ?? getEl(aliasId);
+        const layout = el?.bounds ?? el?.layout;
+        if (layout) {
+          return {
+            ...c,
+            x: typeof layout.x === "number" ? layout.x : c.x,
+            y: typeof layout.y === "number" ? layout.y : c.y,
+          };
+        }
+        return c;
+      }),
+      workoutButton: (() => {
+        const wb = getEl("workout-button") ?? getEl("btn_workout");
+        const layout = wb?.bounds ?? wb?.layout;
+        return layout
+          ? {
+              ...menuPreset.workoutButton,
+              x:
+                typeof layout.x === "number"
+                  ? layout.x
+                  : menuPreset.workoutButton.x,
+              y:
+                typeof layout.y === "number"
+                  ? layout.y
+                  : menuPreset.workoutButton.y,
+            }
+          : menuPreset.workoutButton;
+      })(),
+    };
+  }
   const baseline = {
     id: BASELINE_REGISTRY.id,
     version: BASELINE_REGISTRY.version,
@@ -73,7 +122,7 @@ function ensureValidProjectSnapshot(doc: any): any {
     kind: KINDS.project,
     schemaVersion: SCHEMA_VERSION,
     design: { width: DESIGN_SIZE.width, height: DESIGN_SIZE.height },
-    menu: doc.menu ?? menuPreset,
+    menu: menu ?? menuPreset,
     baseline: doc.baseline ?? baseline,
   };
 }
@@ -236,28 +285,44 @@ async function handleExport(options?: FileActionOptions): Promise<void> {
     } else if (choice === "saved-only") {
       targetDoc =
         ctrl?.saved ??
-        (typeof ctrl?.document === "function" ? ctrl.document() : ctrl?._doc);
+        (typeof ctrl?.getDocument === "function"
+          ? ctrl.getDocument()
+          : typeof ctrl?.document === "function"
+          ? ctrl.document()
+          : ctrl?._doc);
     } else {
       // save-and-export
       if (ctrl && typeof ctrl.save === "function") {
         const flight = ctrl.save();
         if (typeof ctrl.completeSave === "function") {
-          ctrl.completeSave(flight?.actionId ?? "act-export");
+          await ctrl.completeSave(flight?.actionId ?? "act-export");
         }
       }
       targetDoc =
-        typeof ctrl?.document === "function" ? ctrl.document() : ctrl?._doc;
+        typeof ctrl?.getDocument === "function"
+          ? ctrl.getDocument()
+          : typeof ctrl?.document === "function"
+          ? ctrl.document()
+          : ctrl?._doc;
     }
   } else {
     targetDoc =
-      typeof ctrl?.document === "function"
+      typeof ctrl?.getDocument === "function"
+        ? ctrl.getDocument()
+        : typeof ctrl?.document === "function"
         ? ctrl.document()
         : (ctrl?._doc ?? {});
   }
 
   const exportId = `export-${Date.now()}`;
   const sourceId =
-    typeof ctrl?.projectId === "function" ? ctrl.projectId() : "proj-export";
+    typeof ctrl?.getProjectId === "function"
+      ? ctrl.getProjectId()
+      : typeof ctrl?.projectId === "function"
+      ? ctrl.projectId()
+      : typeof ctrl?.projectId === "string"
+      ? ctrl.projectId
+      : "proj-export";
 
   const result = buildTransfer({
     checkpoint: ensureValidProjectSnapshot(targetDoc),
@@ -364,16 +429,22 @@ async function handleOpen(options?: FileActionOptions): Promise<void> {
 
   const replacePort: ReplacePort = {
     projectId: () =>
-      typeof options.controller?.projectId === "function"
+      typeof options?.controller?.getProjectId === "function"
+        ? options.controller.getProjectId()
+        : typeof options?.controller?.projectId === "function"
         ? options.controller.projectId()
+        : typeof options?.controller?.projectId === "string"
+        ? options.controller.projectId
         : "proj-open",
     document: () =>
-      typeof options.controller?.document === "function"
+      typeof options?.controller?.getDocument === "function"
+        ? options.controller.getDocument()
+        : typeof options?.controller?.document === "function"
         ? options.controller.document()
-        : (options.controller?._doc ?? {}),
-    requestReplace: (inc) => options.controller?.requestReplace?.(inc),
+        : (options?.controller?._doc ?? {}),
+    requestReplace: (inc) => options?.controller?.requestReplace?.(inc),
     confirmReplace: (c) =>
-      options.controller?.confirmReplace?.(c) ?? { applied: true },
+      options?.controller?.confirmReplace?.(c) ?? { applied: true },
   };
 
   try {
@@ -412,9 +483,13 @@ function getOrCreatePublishController(
     }
     return new UIVisualPublishController({
       projectId:
-        typeof options.controller.projectId === "function"
+        typeof options.controller.getProjectId === "function"
+          ? options.controller.getProjectId()
+          : typeof options.controller.projectId === "function"
           ? options.controller.projectId()
-          : options.controller.projectId ?? "proj-ui",
+          : typeof options.controller.projectId === "string"
+          ? options.controller.projectId
+          : "proj-ui",
       projectController: options.controller,
       store: options.controller.store,
       downloader: options.downloader,

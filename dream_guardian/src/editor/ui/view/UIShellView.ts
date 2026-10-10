@@ -106,6 +106,8 @@ const TOOLBAR_ACTION_NAMES = [
   "변경 비교",
   "프로젝트 백업",
   "전달 데이터 추출",
+  "적용본 추출",
+  "전체 백업",
 ] as const;
 
 export function mountShell(
@@ -114,7 +116,11 @@ export function mountShell(
 ): ShellInstance {
   let session: VisualEditorSession | any = options?.session;
   let currentDoc: UIVisualDocument | undefined =
-    session?.present ?? options?.document ?? options?.controller?.document?.();
+    session?.present ??
+    options?.document ??
+    (typeof options?.controller?.getDocument === "function"
+      ? options.controller.getDocument()
+      : options?.controller?.document?.());
 
   let currentScreenId: string =
     session?.activePageId ??
@@ -308,9 +314,13 @@ export function mountShell(
     (options?.controller
       ? new UIVisualPublishController({
           projectId:
-            typeof options.controller.projectId === "function"
+            typeof options.controller.getProjectId === "function"
+              ? options.controller.getProjectId()
+              : typeof options.controller.projectId === "function"
               ? options.controller.projectId()
-              : options.controller.projectId ?? "proj-ui",
+              : typeof options.controller.projectId === "string"
+              ? options.controller.projectId
+              : "proj-ui",
           projectController: options.controller,
           store: options.store ?? options.controller.store,
           downloader: options.downloader,
