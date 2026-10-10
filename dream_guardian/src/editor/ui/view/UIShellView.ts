@@ -542,9 +542,12 @@ export function mountShell(
           state,
           `속성 변경: ${result.command.target}.${result.command.field} = ${result.command.value}`
         );
-        if (options?.controller && typeof options.controller.edit === "function") {
+        if (
+          options?.controller &&
+          typeof options.controller.edit === "function" &&
+          typeof options.controller.getSession !== "function"
+        ) {
           options.controller.edit(currentDoc);
-          session = options.controller.getSession();
         }
       }
       updateToolbarMeta();

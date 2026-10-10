@@ -139,6 +139,18 @@ export interface UIVisualProjectControllerOptions {
   assetValidator?: (assetId: string) => Promise<boolean> | boolean;
 }
 
+function isValidVisualEditorSession(val: unknown): val is VisualEditorSession {
+  if (!val || typeof val !== "object") return false;
+  const s = val as Partial<VisualEditorSession>;
+  return (
+    typeof s.activePageId === "string" &&
+    typeof s.present === "object" &&
+    s.present !== null &&
+    typeof (s.present as Partial<UIVisualDocument>).pages === "object" &&
+    (s.present as Partial<UIVisualDocument>).pages !== null
+  );
+}
+
 export class UIVisualProjectController {
   private readonly store: UIVisualStore;
   private readonly scheduler: TimeScheduler;
@@ -246,15 +258,21 @@ export class UIVisualProjectController {
 
     let nextSession: VisualEditorSession;
     if (typeof updater === "function") {
-      nextSession = updater(this.session);
-    } else if ("type" in updater) {
-      nextSession = executeVisualCommand(this.session, updater);
-    } else {
+      const candidate = updater(this.session);
+      if (!isValidVisualEditorSession(candidate)) {
+        return;
+      }
+      nextSession = candidate;
+    } else if (updater && typeof updater === "object" && typeof (updater as any).type === "string") {
+      nextSession = executeVisualCommand(this.session, updater as VisualCommand);
+    } else if (isValidVisualEditorSession(updater)) {
       nextSession = updater;
+    } else {
+      return;
     }
 
     // revision이 명시적으로 증가하지 않은 경우 안전하게 1 증가
-    if (nextSession.revision <= this.session.revision) {
+    if (typeof nextSession.revision !== "number" || nextSession.revision <= this.session.revision) {
       nextSession = {
         ...nextSession,
         revision: this.session.revision + 1,

@@ -396,19 +396,21 @@ export function mountPropertyForm(
           };
         }
 
-        options?.onVisualCommit?.(visualCmd);
-
-        const legacyCmd: PanelCommand = {
-          field: (BOUND_FIELDS.has(commitField) ? commitField : "x") as FieldName,
-          value: typeof parsedVal === "number" ? parsedVal : 0,
-          target: activeSelectedId,
-          affectedIds: [activeSelectedId],
-        };
-        options?.onCommit?.({
-          panel,
-          command: legacyCmd,
-          affectedIds: [activeSelectedId],
-        });
+        if (options?.onVisualCommit) {
+          options.onVisualCommit(visualCmd);
+        } else if (options?.onCommit) {
+          const legacyCmd: PanelCommand = {
+            field: (BOUND_FIELDS.has(commitField) ? commitField : "x") as FieldName,
+            value: typeof parsedVal === "number" ? parsedVal : 0,
+            target: activeSelectedId,
+            affectedIds: [activeSelectedId],
+          };
+          options.onCommit({
+            panel,
+            command: legacyCmd,
+            affectedIds: [activeSelectedId],
+          });
+        }
       }
     } else {
       const result = commit(panel, { reason });
