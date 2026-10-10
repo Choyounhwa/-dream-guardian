@@ -2,6 +2,23 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## UI 비주얼 에디터 복구 및 게임 적용 트랙 (UI-EDITOR-FIX, 2026-10-11, 등록만)
+
+- **배경**: `ui-editor.html`에서 편집해도 게임에 반영되지 않는다. 원인은 에디터 자체 버그와 게임 런타임 미연결(#471) 두 가지다.
+- **게임 적용 방식 (사용자 결정)**: 에디터에서 "적용본 추출"로 JSON을 받는다. 사용자가 그 파일을 `dream_guardian/public/ui-presentation.json`에 직접 넣으면, 게임이 시작할 때 검증 후 적용한다. 실패하면 `config/ui.config.ts` 기본값을 쓴다.
+- **검증 기록**: 이슈 등록만 했다. 소스·테스트 수정, 테스트·빌드 실행 모두 하지 않았다.
+
+| 순서 | 카드 | 내용 | 상태 |
+|---|---|---|---|
+| 1 | [#550 BUG-UI-EDITOR-003](https://github.com/Choyounhwa/-dream-guardian/issues/550) | 속성 편집 이중 커밋으로 세션 손상 | `[✔ 완료]` |
+| 2 | [#551 BUG-UI-EDITOR-004](https://github.com/Choyounhwa/-dream-guardian/issues/551) | 미리보기 iframe 공백 | `[▶ NEXT: UI-EDITOR-FIX / 승인 대기]` |
+| 3 | [#552 BUG-UI-EDITOR-005](https://github.com/Choyounhwa/-dream-guardian/issues/552) | 적용본 추출 버튼 누락, 추출이 편집 내용 무시 | 대기 |
+| 4 | [#553 BUG-UI-EDITOR-006](https://github.com/Choyounhwa/-dream-guardian/issues/553) | 에디터와 게임 요소 ID 불일치, BottomBar 중복 매칭 | 대기 |
+| 5 | [#471 UI-VIS-041](https://github.com/Choyounhwa/-dream-guardian/issues/471) | 게임 런타임 적용본 로드 (`public/ui-presentation.json`) | 대기 |
+| 6 | [#554 CHORE-UI-EDITOR-001](https://github.com/Choyounhwa/-dream-guardian/issues/554) | `.gitignore` 때문에 에디터 파일 5개 미추적 | 대기 (언제든 가능) |
+
+이 표의 NEXT는 이 트랙 안에서만 쓰는 표시다. 다른 트랙의 NEXT와 SSOT 순서는 바꾸지 않는다.
+
 ## 보스 접근전 계획·등록 인계 (BOSS-ASSAULT, 2026-10-10, 독립 트랙)
 
 - **승인 및 수행 범위**: DOC-14 v0.2(§6.4~6.7 포함)를 읽고 문서화·GitHub 등록만 수행. 소스/config/tests 수정, 구현, 카드 실행, 커밋/푸시 없음. DOC-14는 주 담당 소유로 편집하지 않음.
