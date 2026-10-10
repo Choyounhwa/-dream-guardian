@@ -232,7 +232,26 @@
   - **[✔ 완료: UI-VIS-035] [#464]**: UI visual 전용 비동기 IndexedDB 원자 저장 (TDD 16개 테스트 100% 통과, build/build:ui-editor 성공)
   - **[✔ 완료: UI-VIS-034] [#465]**: 이미지 선택·가져오기·교체 UI와 preview 캐시 (TDD 10개 테스트 100% 통과, build 성공)
   - **[✔ 완료: UI-VIS-036] [#466]**: 자동저장·복구·프로젝트 교체 상태 모델 (TDD 18개 테스트 100% 통과, build 성공)
-  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#467 UI-VIS-037]**: 브라우저 영속 저장·열기 연결
+  - **[✔ 완료: UI-VIS-037] [#467]**: 브라우저 영속 저장·열기·자동저장 연결 (TDD 10개 테스트 100% 통과, build 성공)
+  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#468 UI-VIS-038]**: 적용본/백업 모델
+
+## 🌐 [UI-VIS-037 / #467] 브라우저 영속 저장·열기·자동저장 연결 완료 (2026-10-10)
+
+- **작업 카드**: [✔ 완료] [#467 UI-VIS-037](https://github.com/Choyounhwa/-dream-guardian/issues/467) 브라우저 영속 저장·열기·자동저장 연결
+- **목적**: 실게임 렌더러 재사용 10페이지 시각 UI 편집기의 브라우저 영속 저장·열기·자동저장 연결 단일 책임 구현.
+- **수정/신규 파일 (3개)**:
+  1. `dream_guardian/src/editor/ui/main.ts` (수정: async IndexedDB `UIVisualIndexedDB`/`UIVisualStore` 및 비동기 컨트롤러 `UIVisualProjectController` 연결, `initVisualEditor` 브라우저 영속 entry 제공 및 head checkpoint 복원/draft 복구 안내, InMemoryDatabasePort 테스트/호환 전용 격리 유지)
+  2. `dream_guardian/src/editor/ui/view/UIFileActionView.ts` (수정: 저장 checkpoint 비동기 완료 및 "저장중/저장 완료(저장됨)/초안만/충돌/저장 실패/다운로드 요청" 정직 구분 상태 알림, Quota 실패 시 성공 라벨 0건, 다운로드 요청을 실제 디스크 저장으로 과장하지 않는 안내 문구, 새 프로젝트 열기 취소/변환 실패 시 기존 문서 100% 보존)
+  3. `dream_guardian/src/editor/ui/view/UIShellView.ts` (수정: 단일 VisualEditorSession 양방향 구독 및 propertyForm/arrangementView/assetView 커밋 연계, Undo/Redo 단일 세션 복귀 및 폼/프리뷰/메타 동기화, visibilitychange/unmount autosave flush 및 beforeunload dirty confirm)
+- **테스트 파일**:
+  - `dream_guardian/tests/unit/ui-vis-037.test.ts` (신규 10개 단위/통합 테스트 100% 통과)
+- **검증 결과**:
+  - `npx vitest run tests/unit/ui-vis-037.test.ts`: 10/10 통과 (100%)
+  - 관련 UI-VIS 단위 테스트: 37개 파일 643개 테스트 100% 통과
+  - 전체 단위/통합 테스트: 305개 테스트 파일 3989개 테스트 100% 통과 (회귀 결함 0건)
+  - TypeScript strict compile (`tsc`) 및 Vite bundle build (`npm run build`) 성공
+- **다음 작업 대상**:
+  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#468 UI-VIS-038]**: 적용본/백업 모델
 
 ## 💾 [UI-VIS-036 / #466] 자동저장·복구·프로젝트 교체 상태 모델 완료 (2026-10-10)
 
@@ -469,8 +488,8 @@
 | C | #439~#449 / UI-VIS-009~019 | 기존 런타임 UI/Render 단일 레이어 표시 경계 | #439 [✔], #440 [✔], #441 [✔], [#442 UI-VIS-012](https://github.com/Choyounhwa/-dream-guardian/issues/442) [✔], [#443 UI-VIS-013](https://github.com/Choyounhwa/-dream-guardian/issues/443) [✔], [#444 UI-VIS-014](https://github.com/Choyounhwa/-dream-guardian/issues/444) [✔], [#445 UI-VIS-015](https://github.com/Choyounhwa/-dream-guardian/issues/445) [✔], [#446 UI-VIS-016](https://github.com/Choyounhwa/-dream-guardian/issues/446) [✔], [#447 UI-VIS-017](https://github.com/Choyounhwa/-dream-guardian/issues/447) [✔], [#448 UI-VIS-018](https://github.com/Choyounhwa/-dream-guardian/issues/448) [✔], [#449 UI-VIS-019](https://github.com/Choyounhwa/-dream-guardian/issues/449) [✔] (단계 C 10개 런타임 렌더/UI 레이어 표시 경계 전원 완료) |
 | D | #450~#459 / UI-VIS-020~029 | 홈·서브·옵션·pause·시작·러닝/문제·답안·위험·보스·결과 개별 연결 | #450 [✔], #451 [✔], #452 [✔], #453 [✔], #454 [✔], [#455 UI-VIS-025](https://github.com/Choyounhwa/-dream-guardian/issues/455) [✔], [#456 UI-VIS-026](https://github.com/Choyounhwa/-dream-guardian/issues/456) [✔], [#457 UI-VIS-027](https://github.com/Choyounhwa/-dream-guardian/issues/457) [✔], [#458 UI-VIS-028](https://github.com/Choyounhwa/-dream-guardian/issues/458) [✔], [#459 UI-VIS-029](https://github.com/Choyounhwa/-dream-guardian/issues/459) [✔] (단계 D 10개 화면 실제 연결 전원 완료) |
 | E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | [✔ #460, #461, #462 전원 완료 (단계 E 완료)] |
-| F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | #463 [✔], #464 [✔], [#465 UI-VIS-034] [✔], [#466 UI-VIS-036] [✔], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#467 UI-VIS-037], 나머지 선행 대기 |
-| G | #468 → #469 / UI-VIS-038~039 | 적용본/백업 모델→추출·게시 UI | 승인/선행 대기 |
+| F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | #463 [✔], #464 [✔], [#465 UI-VIS-034] [✔], [#466 UI-VIS-036] [✔], [#467 UI-VIS-037] [✔] (단계 F 완료) |
+| G | #468 → #469 / UI-VIS-038~039 | 적용본/백업 모델→추출·게시 UI | `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#468 UI-VIS-038], 나머지 선행 대기 |
 | H | #470 → #471 / UI-VIS-040~041 | UI 전용 수신→게임 주입/입력 일치/롤백 | 승인/선행 대기 |
 | I | [#472 UI-VIS-042](https://github.com/Choyounhwa/-dream-guardian/issues/472) | 실제 브라우저 10페이지 픽셀·복구·게임 적용 인수 | 승인/전체 선행 대기 |
 

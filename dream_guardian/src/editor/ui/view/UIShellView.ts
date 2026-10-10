@@ -62,6 +62,7 @@ export interface ShellInstance {
   readonly fileActions: FileActionInstance;
   readonly arrangementView: ArrangementViewInstance;
   readonly assetView: VisualAssetViewInstance;
+  readonly controller?: any;
   getState(): ShellState & { selectedId: (typeof MENU_CARD_IDS)[number] };
   selectElement(indexOrId: number | string): void;
   unmount(): void;
@@ -139,8 +140,32 @@ export function mountShell(
 
   function updateToolbarMeta(): void {
     const rev = session?.revision ?? 0;
-    const dirty = session?.dirty ?? false;
-    metaBox.textContent = `Dream Guardian UI Editor · rev ${rev} · ${dirty ? "수정됨" : "최신 초안"}`;
+    const ctrlStatus =
+      typeof options?.controller?.status === "function"
+        ? options.controller.status()
+        : null;
+
+    let statusLabel = "최신 초안";
+    if (ctrlStatus) {
+      if (ctrlStatus.saving) {
+        statusLabel = "저장중...";
+      } else if (ctrlStatus.conflict) {
+        statusLabel = "충돌 (2탭 동시 수정)";
+      } else if (ctrlStatus.saved) {
+        statusLabel = "저장됨";
+      } else if (ctrlStatus.draftSaved || ctrlStatus.dirty) {
+        statusLabel = "초안만 (수정됨)";
+      } else if (ctrlStatus.label === "failed" || ctrlStatus.label === "rejected") {
+        statusLabel = "저장 실패 (저장 성공 0건)";
+      } else {
+        statusLabel = "최신 초안";
+      }
+    } else {
+      const dirty = session?.dirty ?? false;
+      statusLabel = dirty ? "수정됨" : "최신 초안";
+    }
+
+    metaBox.textContent = `Dream Guardian UI Editor · rev ${rev} · ${statusLabel}`;
   }
   updateToolbarMeta();
   toolbar.appendChild(metaBox);
@@ -183,7 +208,23 @@ export function mountShell(
   });
 
   undoBtn?.addEventListener("click", () => {
-    if (session && session.present?.pages && typeof undoVisual === "function" && session.undo.length > 0) {
+    if (options?.controller && typeof options.controller.edit === "function" && options.controller.getSession && options.controller.getSession().undo?.length > 0) {
+      options.controller.edit((s: VisualEditorSession) => undoVisual(s));
+      session = options.controller.getSession();
+      currentDoc = options.controller.getDocument();
+      if (currentDoc) {
+        propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+        assetView?.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+        assetView?.setSession?.(session);
+      }
+      arrangementView.setSession(session);
+      updateToolbarMeta();
+      state = announce(state, `실행 취소(Undo) 완료 · rev ${session.revision}`);
+      statusText.textContent = `실행 취소(Undo) 완료`;
+      statusPanel.textContent = `실행 취소(Undo) 완료`;
+      options?.onDocumentChange?.(currentDoc);
+      previewFrame.updateDocument(currentScreenId);
+    } else if (session && session.present?.pages && typeof undoVisual === "function" && session.undo.length > 0) {
       session = undoVisual(session);
       currentDoc = session.present;
       if (currentDoc) {
@@ -211,7 +252,23 @@ export function mountShell(
   });
 
   redoBtn?.addEventListener("click", () => {
-    if (session && session.present?.pages && typeof redoVisual === "function" && session.redo.length > 0) {
+    if (options?.controller && typeof options.controller.edit === "function" && options.controller.getSession && options.controller.getSession().redo?.length > 0) {
+      options.controller.edit((s: VisualEditorSession) => redoVisual(s));
+      session = options.controller.getSession();
+      currentDoc = options.controller.getDocument();
+      if (currentDoc) {
+        propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+        assetView?.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+        assetView?.setSession?.(session);
+      }
+      arrangementView.setSession(session);
+      updateToolbarMeta();
+      state = announce(state, `다시 실행(Redo) 완료 · rev ${session.revision}`);
+      statusText.textContent = `다시 실행(Redo) 완료`;
+      statusPanel.textContent = `다시 실행(Redo) 완료`;
+      options?.onDocumentChange?.(currentDoc);
+      previewFrame.updateDocument(currentScreenId);
+    } else if (session && session.present?.pages && typeof redoVisual === "function" && session.redo.length > 0) {
       session = redoVisual(session);
       currentDoc = session.present;
       if (currentDoc) {
@@ -250,6 +307,25 @@ export function mountShell(
       options?.onStatus?.(msg);
       statusText.textContent = msg;
       statusPanel.textContent = msg;
+      updateToolbarMeta();
+    },
+    onProjectOpened: (newDoc, newSession) => {
+      currentDoc = newDoc;
+      if (newSession) {
+        session = newSession;
+      }
+      if (currentDoc) {
+        propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+        assetView?.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+        arrangementView.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+      }
+      assetView?.setSession?.(session);
+      arrangementView.setSession(session);
+      previewFrame.updateDocument(currentScreenId);
+      currentElements = getElementsForScreen(currentScreenId);
+      renderElementItems();
+      updateToolbarMeta();
+      options?.onDocumentChange?.(currentDoc);
     },
   });
 
@@ -400,24 +476,33 @@ export function mountShell(
   propertiesTitle.textContent = "요소 속성";
   propertiesPanel.appendChild(propertiesTitle);
 
+  const handleVisualCommit = (visualCmd: VisualCommand) => {
+    if (options?.controller && typeof options.controller.edit === "function") {
+      options.controller.edit(visualCmd);
+      session = options.controller.getSession();
+      currentDoc = options.controller.getDocument();
+    } else if (session && session.present?.pages && typeof executeVisualCommand === "function") {
+      session = executeVisualCommand(session, visualCmd);
+      currentDoc = session.present;
+    }
+    if (currentDoc) {
+      propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+      assetView?.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
+      assetView?.setSession?.(session);
+    }
+    arrangementView.setSession(session);
+    updateToolbarMeta();
+    previewFrame.updateDocument(currentScreenId);
+    options?.onDocumentChange?.(currentDoc);
+    options?.onVisualCommit?.(visualCmd);
+  };
+
   const initialId = currentElements[state.selectedIndex]?.id ?? MENU_CARD_IDS[state.selectedIndex];
   const propertyForm = mountPropertyForm(propertiesPanel, {
     initialId,
     document: currentDoc,
     activePageId: currentScreenId as UIVisualPageId,
-    onVisualCommit: (visualCmd) => {
-      if (session && session.present?.pages && typeof executeVisualCommand === "function") {
-        session = executeVisualCommand(session, visualCmd);
-        currentDoc = session.present;
-      }
-      if (currentDoc) {
-        assetView?.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
-      }
-      updateToolbarMeta();
-      previewFrame.updateDocument(currentScreenId);
-      options?.onDocumentChange?.(currentDoc);
-      options?.onVisualCommit?.(visualCmd);
-    },
+    onVisualCommit: handleVisualCommit,
     onCommit: (result) => {
       if (result.command) {
         state = announce(
@@ -426,11 +511,14 @@ export function mountShell(
         );
         if (options?.controller && typeof options.controller.edit === "function") {
           options.controller.edit(currentDoc);
+          session = options.controller.getSession();
         }
       }
+      updateToolbarMeta();
       options?.onCommitProperty?.(result);
     },
   });
+  (propertyForm as any).onVisualCommit = handleVisualCommit;
 
   assetView = mountVisualAssetView(propertiesPanel, {
     session,
@@ -440,19 +528,7 @@ export function mountShell(
     catalog: options?.catalog,
     store: options?.store,
     previewCache: options?.previewCache,
-    onVisualCommit: (visualCmd) => {
-      if (session && session.present?.pages && typeof executeVisualCommand === "function") {
-        session = executeVisualCommand(session, visualCmd);
-        currentDoc = session.present;
-      }
-      if (currentDoc) {
-        propertyForm.updateDocument(currentDoc, currentScreenId as UIVisualPageId);
-      }
-      updateToolbarMeta();
-      previewFrame.updateDocument(currentScreenId);
-      options?.onDocumentChange?.(currentDoc);
-      options?.onVisualCommit?.(visualCmd);
-    },
+    onVisualCommit: handleVisualCommit,
   });
 
   layoutBody.appendChild(propertiesPanel);
@@ -575,14 +651,49 @@ export function mountShell(
     keyTarget.addEventListener("keydown", onKeyDown);
   }
 
+  const onVisibilityChange = () => {
+    if (doc.visibilityState === "hidden") {
+      if (options?.controller && typeof options.controller.flushAutosave === "function") {
+        options.controller.flushAutosave();
+      }
+    }
+  };
+  if (doc && typeof doc.addEventListener === "function") {
+    doc.addEventListener("visibilitychange", onVisibilityChange);
+  }
+
+  const onBeforeUnload = (e: any) => {
+    const isDirty = (typeof options?.controller?.status === "function" ? options.controller.status().dirty : session?.dirty) ?? false;
+    if (isDirty) {
+      if (options?.controller && typeof options.controller.flushAutosave === "function") {
+        options.controller.flushAutosave();
+      }
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  };
+  const win = typeof window !== "undefined" ? window : (globalThis as any).window;
+  if (win && typeof win.addEventListener === "function") {
+    win.addEventListener("beforeunload", onBeforeUnload);
+  }
+
   syncDOMSelection();
 
   const unmount = () => {
+    if (options?.controller && typeof options.controller.flushAutosave === "function") {
+      options.controller.flushAutosave();
+    }
     assetView?.dispose();
     arrangementView.unmount();
     fileActions.unmount();
     previewFrame.unmount();
     propertyForm.unmount();
+    if (doc && typeof doc.removeEventListener === "function") {
+      doc.removeEventListener("visibilitychange", onVisibilityChange);
+    }
+    if (win && typeof win.removeEventListener === "function") {
+      win.removeEventListener("beforeunload", onBeforeUnload);
+    }
     if (keyTarget && typeof keyTarget.removeEventListener === "function") {
       keyTarget.removeEventListener("keydown", onKeyDown);
     }
@@ -605,6 +716,7 @@ export function mountShell(
     fileActions,
     arrangementView,
     assetView,
+    controller: options?.controller,
     getState: () => ({
       selectedIndex: state.selectedIndex,
       status: state.status.slice(),

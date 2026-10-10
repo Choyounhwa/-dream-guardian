@@ -18,6 +18,19 @@ import {
   clonePresetForEdit,
 } from "./data/UIBaselines";
 import { KINDS, SCHEMA_VERSION } from "./data/UIContracts";
+import {
+  UIVisualIndexedDB,
+} from "./storage/UIVisualIndexedDB";
+import { UIVisualStore } from "./storage/UIVisualStore";
+import {
+  UIVisualProjectController,
+  type TimeScheduler,
+  defaultTimeScheduler,
+} from "./UIVisualProjectController";
+import {
+  createDefaultUIVisualDocument,
+  type UIVisualDocument,
+} from "./data/UIVisualDocument";
 
 class InMemoryDatabasePort implements DatabasePort {
   readonly name = "dream-guardian-ui-editor";
@@ -207,10 +220,117 @@ export function start(
   };
 }
 
+export interface VisualEditorOptions extends MountShellOptions {
+  projectId?: string;
+  factory?: IDBFactory;
+  dbName?: string;
+  scheduler?: TimeScheduler;
+  writerId?: string;
+}
+
+export type VisualEditorApp = ShellInstance & {
+  controller: UIVisualProjectController;
+  store: UIVisualStore;
+  idb: UIVisualIndexedDB;
+};
+
+export async function initVisualEditor(
+  container: HTMLElement,
+  options?: VisualEditorOptions
+): Promise<VisualEditorApp> {
+  const projectId = options?.projectId ?? "proj-1";
+  const writerId = options?.writerId ?? `writer-${Date.now()}`;
+  const scheduler = options?.scheduler ?? defaultTimeScheduler;
+
+  const idb = new UIVisualIndexedDB({
+    dbName: options?.dbName,
+    factory: options?.factory,
+  });
+  await idb.open();
+  const store = new UIVisualStore(idb);
+
+  let initialDoc: UIVisualDocument | undefined;
+  let initialGeneration = 0;
+
+  // 1. Try restore from project head
+  const head = await store.getProjectHead(projectId);
+  if (head) {
+    const cp = await store.getCheckpoint(head.headCheckpointId);
+    if (cp && cp.snapshot) {
+      initialDoc = cp.snapshot as unknown as UIVisualDocument;
+      initialGeneration = head.generation;
+    }
+  }
+
+  // 2. Try restore from writer draft if no head
+  if (!initialDoc) {
+    const draft = await store.loadDraft(projectId, writerId);
+    if (draft && draft.document) {
+      initialDoc = draft.document as unknown as UIVisualDocument;
+      initialGeneration = draft.expectedGeneration;
+    }
+  }
+
+  // 3. Fallback to passed option or default 10-page document
+  if (!initialDoc && options?.document) {
+    initialDoc = options.document;
+  }
+  if (!initialDoc) {
+    initialDoc = createDefaultUIVisualDocument();
+  }
+
+  const controller = new UIVisualProjectController({
+    store,
+    projectId,
+    writerId,
+    scheduler,
+    initialDocument: initialDoc,
+    initialGeneration,
+  });
+
+  const downloader = options?.downloader ?? createBrowserDownloader();
+  const picker = options?.picker ?? createBrowserPicker();
+
+  const shell = mountShell(container, {
+    downloader,
+    picker,
+    ...options,
+    controller,
+    session: controller.getSession(),
+    document: controller.getDocument(),
+    store,
+  });
+
+  const origUnmount = shell.unmount.bind(shell);
+  const unmount = () => {
+    origUnmount();
+    idb.close();
+  };
+
+  const app: VisualEditorApp = Object.assign(shell, {
+    controller,
+    store,
+    idb,
+    unmount,
+    dispose: unmount,
+  });
+
+  return app;
+}
+
 if (typeof document !== "undefined") {
-  const root = document.getElementById("app");
+  const root =
+    document.getElementById("app") ??
+    document.getElementById("editor-root");
   if (root) {
-    start(root);
+    if (typeof indexedDB !== "undefined") {
+      initVisualEditor(root).catch((err) => {
+        console.error("[UI Editor] Failed to init visual editor:", err);
+        start(root);
+      });
+    } else {
+      start(root);
+    }
   }
 }
 
