@@ -233,9 +233,27 @@
   - **[✔ 완료: UI-VIS-034] [#465]**: 이미지 선택·가져오기·교체 UI와 preview 캐시 (TDD 10개 테스트 100% 통과, build 성공)
   - **[✔ 완료: UI-VIS-036] [#466]**: 자동저장·복구·프로젝트 교체 상태 모델 (TDD 18개 테스트 100% 통과, build 성공)
   - **[✔ 완료: UI-VIS-037] [#467]**: 브라우저 영속 저장·열기·자동저장 연결 (TDD 10개 테스트 100% 통과, build 성공)
-  - **[✔ 완료: UI-VIS-038] [#468]**: 적용본/백업 모델 (TDD 16개 테스트 100% 통과, build 성공)
-  - **[✔ 완료: UI-VIS-039] [#469]**: 백업·추출·불변 게시본 선택 UI (TDD 12개 테스트 100% 통과, build 성공)
-  - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#470 UI-VIS-040]**: UI 전용 수신·검증과 게임 프리뷰 주입
+   - **[✔ 완료: UI-VIS-038] [#468]**: 적용본/백업 모델 (TDD 16개 테스트 100% 통과, build 성공)
+   - **[✔ 완료: UI-VIS-039] [#469]**: 백업·추출·불변 게시본 선택 UI (TDD 12개 테스트 100% 통과, build 성공)
+   - **[✔ 완료: UI-VIS-040] [#470]**: 피트니스와 분리된 UI 표시 적용본 로더 (TDD 18개 테스트 100% 통과, build 성공)
+   - **[▶ NEXT: UI-VIS 트랙 / 승인 대기] [#471 UI-VIS-041]**: UI 표시 스냅샷 게임 런타임 프리뷰 주입 및 안전 롤백
+
+## 🚀 [UI-VIS-040 / #470] 피트니스와 분리된 UI 표시 적용본 로더 완료 (2026-10-10)
+
+- **작업 카드**: [✔ 완료] [#470 UI-VIS-040](https://github.com/Choyounhwa/-dream-guardian/issues/470) 피트니스와 분리된 UI 표시 적용본 로더
+- **목적**: 실게임 렌더러 재사용 10페이지 시각 UI 편집기의 피트니스와 분리된 UI 표시 적용본 로더 단일 책임 구현.
+- **수정/신규 파일 (1개)**:
+  1. `dream_guardian/src/core/UIPresentationLoadService.ts` (신규: UI 전용 artifact(`kind: 'dream-guardian-ui-presentation'`)와 asset bundle 명시적 수신·재검증, `src/editor/` 모듈 및 DB import 배제, 피트니스 pack / legacy draft / legacy transfer 거부 및 whole-snapshot fallback 반환, kind/version(1.0.0)/contentHash/artifactHash/rendererFingerprint(menu-renderer-v1)/10개 페이지/11개 피트니스 보호 구역 침범 검증, 임의 URL 및 스크립트 실행 차단, 순수 SHA-256 바이트 검증 및 승인 정적 catalog 지원, generation/AbortSignal 수명 관리, Zero Partial Apply 및 Object.freeze 심층 동결 스냅샷 반환)
+- **테스트 파일**:
+  - `dream_guardian/tests/unit/ui-vis-040.test.ts` (신규 18개 단위/통합 테스트 100% 통과)
+- **검증 결과**:
+  - `npx vitest run tests/unit/ui-vis-040.test.ts`: 18/18 Pass (100%)
+  - `npm run build`: tsc 컴파일 & vite build 통과 (에러 0건)
+  - `npm run build:ui-editor`: tsc 컴파일 & vite ui-editor build 통과 (에러 0건)
+  - `npm test`: 전체 308개 테스트 파일, 4,035개 테스트 100% 통과 (회귀 결함 0건)
+  - Git Commit: `92cb195` (`feat(core): implement ui presentation load service separated from fitness content (#470)`)
+  - GitHub Issue Comment: [Comment #6097375070](https://github.com/Choyounhwa/-dream-guardian/issues/470#issuecomment-6097375070) 등록 완료
+  - 로컬 개발 서버: `http://localhost:3000/` (HTTP 200 정상 응답)
 
 ## 🚀 [UI-VIS-039 / #469] 백업·추출·불변 게시본 선택 UI 완료 (2026-10-10)
 
@@ -521,7 +539,7 @@
 | E | #460~#462 / UI-VIS-030~032 | 선택/속성 양방향 DOM·grid/snap·다중 정렬 | [✔ #460, #461, #462 전원 완료 (단계 E 완료)] |
 | F | #463 → #464 → #465, #466 → #467 | 자산 모델→IndexedDB→자산 UI, 복구 controller→브라우저 연결 | #463 [✔], #464 [✔], [#465 UI-VIS-034] [✔], [#466 UI-VIS-036] [✔], [#467 UI-VIS-037] [✔] (단계 F 완료) |
 | G | #468 → #469 / UI-VIS-038~039 | 적용본/백업 모델→추출·게시 UI | [#468 UI-VIS-038] [✔], [#469 UI-VIS-039] [✔] (단계 G 완료) |
-| H | #470 → #471 / UI-VIS-040~041 | UI 전용 수신→게임 주입/입력 일치/롤백 | `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#470 UI-VIS-040] |
+| H | #470 → #471 / UI-VIS-040~041 | UI 전용 수신→게임 주입/입력 일치/롤백 | [#470 UI-VIS-040] [✔], `[▶ NEXT: UI-VIS 트랙 / 승인 대기]` [#471 UI-VIS-041] |
 | I | [#472 UI-VIS-042](https://github.com/Choyounhwa/-dream-guardian/issues/472) | 실제 브라우저 10페이지 픽셀·복구·게임 적용 인수 | 승인/전체 선행 대기 |
 
 정확한 이슈별 URL/선행/파일수는 `docs/03_GITHUB_ISSUES.md`의 2026-10-08 표와 #430에 동기화했다. 실행 순서는 숫자만이 아니라 선행 DAG로 판단하며 **UI-VIS-035=#464가 UI-VIS-034=#465보다 먼저**다.
