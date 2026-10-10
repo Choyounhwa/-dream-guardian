@@ -11,8 +11,8 @@
 | 순서 | 카드 | 내용 | 상태 |
 |---|---|---|---|
 | 1 | [#550 BUG-UI-EDITOR-003](https://github.com/Choyounhwa/-dream-guardian/issues/550) | 속성 편집 이중 커밋으로 세션 손상 | `[✔ 완료]` |
-| 2 | [#551 BUG-UI-EDITOR-004](https://github.com/Choyounhwa/-dream-guardian/issues/551) | 미리보기 iframe 공백 | `[▶ NEXT: UI-EDITOR-FIX / 승인 대기]` |
-| 3 | [#552 BUG-UI-EDITOR-005](https://github.com/Choyounhwa/-dream-guardian/issues/552) | 적용본 추출 버튼 누락, 추출이 편집 내용 무시 | 대기 |
+| 2 | [#551 BUG-UI-EDITOR-004](https://github.com/Choyounhwa/-dream-guardian/issues/551) | 미리보기 iframe 공백 | `[✔ 완료]` |
+| 3 | [#552 BUG-UI-EDITOR-005](https://github.com/Choyounhwa/-dream-guardian/issues/552) | 적용본 추출 버튼 누락, 추출이 편집 내용 무시 | `[▶ NEXT: UI-EDITOR-FIX / 승인 대기]` |
 | 4 | [#553 BUG-UI-EDITOR-006](https://github.com/Choyounhwa/-dream-guardian/issues/553) | 에디터와 게임 요소 ID 불일치, BottomBar 중복 매칭 | 대기 |
 | 5 | [#471 UI-VIS-041](https://github.com/Choyounhwa/-dream-guardian/issues/471) | 게임 런타임 적용본 로드 (`public/ui-presentation.json`) | 대기 |
 | 6 | [#554 CHORE-UI-EDITOR-001](https://github.com/Choyounhwa/-dream-guardian/issues/554) | `.gitignore` 때문에 에디터 파일 5개 미추적 | 대기 (언제든 가능) |
