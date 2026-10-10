@@ -14,7 +14,12 @@
 | 2 | [#551 BUG-UI-EDITOR-004](https://github.com/Choyounhwa/-dream-guardian/issues/551) | 미리보기 iframe 공백 | `[✔ 완료]` |
 | 3 | [#552 BUG-UI-EDITOR-005](https://github.com/Choyounhwa/-dream-guardian/issues/552) | 적용본 추출 버튼 누락, 추출이 편집 내용 무시 | `[✔ 완료]` |
 | 3-1 | [#555 BUG-UI-EDITOR-007](https://github.com/Choyounhwa/-dream-guardian/issues/555) | 미리보기 모듈 순환 import TDZ 오류로 캔버스 미생성 (실브라우저에서 발견, #551 보완) | `[✔ 완료]` |
-| 4 | [#553 BUG-UI-EDITOR-006](https://github.com/Choyounhwa/-dream-guardian/issues/553) | 에디터와 게임 요소 ID 불일치, BottomBar 중복 매칭 | `[▶ NEXT: UI-EDITOR-FIX / 승인 대기]` |
+| 4 | [#553 BUG-UI-EDITOR-006](https://github.com/Choyounhwa/-dream-guardian/issues/553) | 에디터와 게임 요소 ID 불일치, BottomBar 중복 매칭 | `[✔ 완료]` |
+| 4-1 | [#556 BUG-UI-EDITOR-008](https://github.com/Choyounhwa/-dream-guardian/issues/556) | 미리보기 snapshot payload 비어 있음 → 속성 편집이 미리보기에 반영되지 않음 | `[▶ NEXT: UI-EDITOR-FIX / 승인 대기]` |
+| 4-2 | [#557 BUG-UI-EDITOR-009](https://github.com/Choyounhwa/-dream-guardian/issues/557) | 실제 미리보기에서 UISelectionOverlay 미생성 → 캔버스 선택·드래그 불가 | 대기 (#556 다음) |
+| 4-3 | [#558 BUG-UI-EDITOR-010](https://github.com/Choyounhwa/-dream-guardian/issues/558) | 미리보기에서 에디터로 역방향 동기화 부재 (선택·이동·크기) | 대기 (#557 다음) |
+| 4-4 | [#559 BUG-UI-EDITOR-011](https://github.com/Choyounhwa/-dream-guardian/issues/559) | 정상 응답이 stale-document 거부로 표시됨 | 대기 (독립, 언제든 가능) |
+| 4-5 | [#560 BUG-UI-EDITOR-012](https://github.com/Choyounhwa/-dream-guardian/issues/560) | 기본 문서의 페이지별 요소 구성이 실제 게임 화면과 불일치 | 대기 (#553 완료 후) |
 | 5 | [#471 UI-VIS-041](https://github.com/Choyounhwa/-dream-guardian/issues/471) | 게임 런타임 적용본 로드 (`public/ui-presentation.json`) | 대기 |
 | 6 | [#554 CHORE-UI-EDITOR-001](https://github.com/Choyounhwa/-dream-guardian/issues/554) | `.gitignore` 때문에 에디터 파일 5개 미추적 | 대기 (언제든 가능) |
 

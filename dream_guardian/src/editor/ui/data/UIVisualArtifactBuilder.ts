@@ -26,6 +26,7 @@ import {
   type UIVisualDocument,
 } from './UIVisualDocument';
 import { validateUIVisualDocument } from './UIVisualValidator';
+import { resolveElementIdMapping } from './UIVisualElementIdMap.js';
 import { RENDERER_FINGERPRINT } from './UIBaselines';
 import {
   canonicalize,
@@ -391,7 +392,8 @@ function cleanUndefined<T>(value: T): T {
 function normalizeActionId(actionId: string | undefined): string | undefined {
   if (!actionId) return undefined;
   if (actionId.startsWith('select_sublevel_')) {
-    return actionId.replace('select_sublevel_', 'select_chapter_');
+    // sublevel 선택은 전역 presentation action이 아니므로 chapter로 오변환하지 않고 무시
+    return undefined;
   }
   return actionId;
 }
@@ -540,28 +542,53 @@ export function buildPresentationArtifact(input: BuildPresentationInput): BuildP
         };
       }
 
-      // 닫힌 속성 허용목록 필터링 (편집 전용 속성 groupId, isLocked, isSupported 등 완전 배제)
+      // 닫힌 속성 허용목록 필터링 및 런타임 요소 ID 매핑 (BUG-UI-EDITOR-006)
+      const mapping = resolveElementIdMapping(el.id);
+      const targetId = mapping ? mapping.targetId : el.id;
+
+      let bounds = { ...el.bounds };
+      if (mapping?.normalizedBounds) {
+        bounds = { ...mapping.normalizedBounds };
+      }
+
       const cleanEl: any = {
-        id: el.id,
+        id: targetId,
         name: el.name,
         type: el.type,
-        bounds: { ...el.bounds },
+        bounds,
       };
 
       if (el.hitBounds) {
-        cleanEl.hitBounds = { ...el.hitBounds };
+        cleanEl.hitBounds = mapping?.normalizedBounds ? { ...mapping.normalizedBounds } : { ...el.hitBounds };
       } else if (el.type === 'button') {
-        cleanEl.hitBounds = { ...el.bounds };
+        cleanEl.hitBounds = { ...bounds };
       }
 
-      if (el.actionId !== undefined) cleanEl.actionId = normalizeActionId(el.actionId);
+      if (mapping?.isProtected || el.isLocked || (el as any).isProtected) {
+        cleanEl.isProtected = true;
+      }
+
+      if (mapping?.actionId !== undefined) {
+        cleanEl.actionId = mapping.actionId;
+      } else if (el.actionId !== undefined) {
+        const normAction = normalizeActionId(el.actionId);
+        if (normAction !== undefined) {
+          cleanEl.actionId = normAction;
+        }
+      }
+
       if (el.text !== undefined) cleanEl.text = el.text;
       if (el.assetId !== undefined) {
         cleanEl.assetId = el.assetId;
         referencedAssetIds.add(el.assetId);
       }
       if (el.fontSize !== undefined) cleanEl.fontSize = el.fontSize;
-      if (el.dynamicBinding !== undefined) cleanEl.dynamicBinding = el.dynamicBinding;
+
+      if (mapping?.dynamicBinding !== undefined) {
+        cleanEl.dynamicBinding = mapping.dynamicBinding;
+      } else if (el.dynamicBinding !== undefined) {
+        cleanEl.dynamicBinding = el.dynamicBinding;
+      }
 
       cleanElements.push(cleanEl);
     }
