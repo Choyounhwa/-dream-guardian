@@ -38,6 +38,48 @@ export const CHAPTER_COLORS = ['', '#4DFFAA', '#28E6FF', '#FFCB4D', '#C889FF', '
 export const MENU_HOVER_DWELL_TIME = 0.8;
 export const CLIMAX_BARRAGE_DURATION = 0.8;
 
+/**
+ * 하단바 submenu customActionSlot 등 Core의 액션 버튼 seam 검증 geometry 조회
+ * [UI-VIS-041 / Issue #471]
+ */
+export function resolveBottomBarActionSlot(
+  bottomBar: any,
+  vw: number = 1080,
+  vh: number = 2160,
+  screenMode: string,
+  menuMode?: string
+): { x: number; y: number; w: number; h: number } | undefined {
+  const isSubmenu = screenMode === 'menu' && menuMode === 'sub';
+  const hasAction = isSubmenu || screenMode === 'game' || screenMode === 'result';
+  if (!hasAction) return undefined;
+
+  const pageId = isSubmenu ? 'submenu' : screenMode === 'game' ? 'pause' : 'result';
+  const defaultSubmenuSlot = isSubmenu ? { x: 780, y: 1990, w: 270, h: 140 } : undefined;
+
+  if (bottomBar && typeof bottomBar.getActionButtonBounds === 'function') {
+    return bottomBar.getActionButtonBounds(vw, vh, {
+      pageId,
+      customActionSlot: defaultSubmenuSlot,
+      customSlot: defaultSubmenuSlot,
+    });
+  }
+
+  if (isSubmenu) {
+    return {
+      x: (780 / 1080) * vw,
+      y: (1990 / 2160) * vh,
+      w: (270 / 1080) * vw,
+      h: (140 / 2160) * vh,
+    };
+  }
+  return {
+    x: (810 / 1080) * vw,
+    y: (1990 / 2160) * vh,
+    w: (240 / 1080) * vw,
+    h: (140 / 2160) * vh,
+  };
+}
+
 export type SceneId = 'loading' | 'menu' | 'game' | 'result' | string;
 
 export interface SceneHandler<TContext = any> {
@@ -674,12 +716,10 @@ export class SceneDirector<TContext = any> {
           ctx.state.settingsHoverTimer = Math.max(0, ctx.state.settingsHoverTimer - dt * 2);
         }
 
-        const customSlot = (ctx.state.screenMode === 'menu' && ctx.state.menuMode === 'sub')
-          ? { x: 780, y: 1990, w: 270, h: 140 }
-          : undefined;
-        const hasAction = (ctx.state.screenMode === 'menu' && ctx.state.menuMode === 'sub') || ctx.state.screenMode === 'game' || ctx.state.screenMode === 'result';
+        const actionSlot = resolveBottomBarActionSlot(ctx.bottomBar, vw, vh, ctx.state.screenMode, ctx.state.menuMode);
+        const hasAction = actionSlot !== undefined;
 
-        if (hasAction && ctx.bottomBar.hitTestAction(hoverTarget.x, hoverTarget.y, vw, vh, 15, customSlot)) {
+        if (hasAction && ctx.bottomBar.hitTestAction(hoverTarget.x, hoverTarget.y, vw, vh, 15, actionSlot)) {
           ctx.state.actionHoverTimer += dt;
           if (ctx.state.actionHoverTimer >= MENU_HOVER_DWELL_TIME) {
             ctx.state.actionHoverTimer = 0;
@@ -1329,25 +1369,32 @@ export class SceneDirector<TContext = any> {
 
     let actionLabel: string | undefined;
     let actionColor: string | undefined;
+    let pageId: string | undefined;
     let customActionSlot: BottomBarSlot | undefined;
 
     if (ctx.state.screenMode === 'menu') {
       if (ctx.state.menuMode === 'sub') {
         actionLabel = '← 뒤로';
         actionColor = '#28E6FF';
+        pageId = 'submenu';
         customActionSlot = { x: 780, y: 1990, w: 270, h: 140 };
+      } else {
+        pageId = 'main_home';
       }
     } else if (ctx.state.screenMode === 'game') {
       actionLabel = '정지';
       actionColor = '#FF4444';
+      pageId = 'pause';
     } else if (ctx.state.screenMode === 'result') {
       actionLabel = '메뉴로';
       actionColor = '#FFCB4D';
+      pageId = 'result';
     }
 
     ctx.bottomBar.render(context2d, vw, vh, {
       actionLabel,
       actionColor,
+      pageId,
       customActionSlot,
       settingsHoverProgress: ctx.state.settingsHoverTimer / MENU_HOVER_DWELL_TIME,
       actionHoverProgress: ctx.state.actionHoverTimer / MENU_HOVER_DWELL_TIME,

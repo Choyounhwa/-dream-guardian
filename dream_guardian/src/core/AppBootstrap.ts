@@ -35,6 +35,17 @@ import {
   type StaticManifestLoadOptions,
   type ContentLoadOptions,
 } from './ContentLoadService.js';
+import {
+  UIPresentationLoadService,
+  type UIPresentationArtifact,
+  type UIPresentationLoadOptions,
+  type UIPresentationLoadResult,
+} from './UIPresentationLoadService.js';
+import {
+  type UIPresentationDocument,
+} from '../data/UIPresentation.js';
+import { computeContentHash } from '../data/ContentCanonical.js';
+import { resolveBottomBarActionSlot } from './SceneDirector.js';
 import { ContentProvider } from '../game/ContentProvider.js';
 import {
   type PublishedContentPack,
@@ -290,6 +301,21 @@ export class AppBootstrap {
   public readonly engine: GameEngine;
   public readonly contentLoadService: ContentLoadService;
   public readonly contentProvider: ContentProvider;
+  public readonly uiPresentationLoadService: UIPresentationLoadService;
+  public readonly getActiveUIPresentation: () => Readonly<UIPresentationDocument> | null;
+  public readonly getActiveUIArtifact: () => Readonly<UIPresentationArtifact> | null;
+  public readonly getActiveUIHash: () => string | null;
+  public readonly getPendingUIArtifact: () => Readonly<UIPresentationArtifact> | null;
+  public readonly setUIPresentationArtifact: (
+    artifact: UIPresentationArtifact | null,
+    options?: UIPresentationLoadOptions,
+  ) => Promise<UIPresentationLoadResult>;
+  public readonly applyUIPresentation: (
+    presentation: UIPresentationDocument | null,
+    artifact?: UIPresentationArtifact | null,
+  ) => void;
+  public readonly rollbackUIPresentation: () => boolean;
+  public readonly flushPendingUIPresentation: () => boolean;
   public setCustomContentPack: (pack: PublishedContentPack | null) => void;
   public get activePublishedPack(): PublishedContentPack | null {
     return activePublishedPack;
@@ -511,6 +537,171 @@ starNoteScheduler.setViewport(
 // Issue #390 (CONTENT-BOOT-STAR): 게시본 콘텐츠 팩 주입 및 로드 수명 관리
 const contentLoadService = new ContentLoadService();
 const contentProvider = new ContentProvider();
+
+// [UI-VIS-041 / Issue #471]: UI 표시 스냅샷 런타임 주입·입력 일치·안전 롤백 관리
+const uiPresentationLoadService = new UIPresentationLoadService();
+let activeUIPresentation: Readonly<UIPresentationDocument> | null = null;
+let activeUIArtifact: Readonly<UIPresentationArtifact> | null = null;
+let pendingUIArtifact: Readonly<UIPresentationArtifact> | null = null;
+let pendingUIPresentation: Readonly<UIPresentationDocument> | null = null;
+let previousHealthyPresentation: Readonly<UIPresentationDocument> | null = null;
+let previousHealthyArtifact: Readonly<UIPresentationArtifact> | null = null;
+
+function applyUIPresentation(
+  presentation: UIPresentationDocument | null,
+  artifact?: UIPresentationArtifact | null,
+): void {
+  if (activeUIPresentation && presentation && activeUIPresentation !== presentation) {
+    previousHealthyPresentation = activeUIPresentation;
+    previousHealthyArtifact = activeUIArtifact;
+  }
+  activeUIPresentation = presentation;
+  activeUIArtifact = artifact ?? null;
+
+  if (!presentation) {
+    menuRenderer.clearPresentationContext();
+    hudLayer.clearPresentationContext();
+    bottomBar.clearPresentationContext();
+    pauseModal.clearPresentationContext();
+    settingsModal.clearPresentationContext();
+    resultRenderer.clearPresentationContext();
+    readyPositionRenderer.clearPresentationContext();
+    runningMatRenderer?.clearPresentationContext();
+    questionRenderer.clearPresentationContext();
+    presentationAdapter.clearPresentationContext();
+    beatHUDRenderer.clearPresentationContext();
+    bossRenderer.clearPresentationContext();
+    bossClimaxRenderer.clearPresentationContext();
+    return;
+  }
+
+  menuRenderer.setPresentationContext({ presentationDocument: presentation });
+  hudLayer.setPresentationContext({ presentationDocument: presentation });
+  bottomBar.setPresentationContext({ presentationDocument: presentation });
+  pauseModal.setPresentationContext({ presentationDocument: presentation, pageId: 'pause' });
+  settingsModal.setPresentationContext({ presentationDocument: presentation, pageId: 'options' });
+  resultRenderer.setPresentationContext({ presentationDocument: presentation, pageId: 'result' });
+  readyPositionRenderer.setPresentationContext({ presentationDocument: presentation, pageId: 'play_ready' });
+  runningMatRenderer?.setPresentationContext({ presentationDocument: presentation, pageId: 'running_question' });
+  questionRenderer.setPresentationContext({ presentationDocument: presentation, pageId: 'running_question' });
+  presentationAdapter.setPresentationContext({ presentationDocument: presentation, pageId: 'hazard_evade' });
+  beatHUDRenderer.setPresentationContext({ presentationDocument: presentation, pageId: 'running_question' });
+  bossRenderer.setPresentationContext({ presentationDocument: presentation, pageId: 'boss_battle' });
+  bossClimaxRenderer.setPresentationContext({ presentationDocument: presentation, pageId: 'boss_battle' });
+}
+
+function flushPendingUIPresentation(): boolean {
+  if (!pendingUIPresentation && !pendingUIArtifact) return false;
+  if (pendingUIPresentation) {
+    applyUIPresentation(pendingUIPresentation, pendingUIArtifact);
+    pendingUIPresentation = null;
+    pendingUIArtifact = null;
+    return true;
+  }
+  return false;
+}
+
+function rollbackUIPresentation(): boolean {
+  const targetDoc = previousHealthyPresentation ?? uiPresentationLoadService.previousHealthyPresentation;
+  const targetArtifact = previousHealthyArtifact;
+  if (targetDoc) {
+    applyUIPresentation(targetDoc, targetArtifact);
+    pendingUIPresentation = null;
+    pendingUIArtifact = null;
+    return true;
+  }
+  if (activeUIPresentation !== null) {
+    applyUIPresentation(null, null);
+    pendingUIPresentation = null;
+    pendingUIArtifact = null;
+    return true;
+  }
+  return false;
+}
+
+async function setUIPresentationArtifact(
+  artifact: UIPresentationArtifact | null,
+  options?: UIPresentationLoadOptions,
+): Promise<UIPresentationLoadResult> {
+  if (artifact === null) {
+    applyUIPresentation(null, null);
+    pendingUIArtifact = null;
+    pendingUIPresentation = null;
+    return {
+      status: 'success',
+      presentation: null as any,
+      generation: uiPresentationLoadService.currentGeneration,
+    };
+  }
+
+  const effectiveOptions: UIPresentationLoadOptions = {
+    previousHealthyPresentation: (activeUIPresentation ?? undefined) as any,
+    ...options,
+  };
+
+  const loadResult = await uiPresentationLoadService.loadPresentation(artifact, effectiveOptions);
+  if (loadResult.status === 'success') {
+    const isPlaying =
+      stateMachine.currentState !== 'MENU_MAIN' &&
+      stateMachine.currentState !== 'MENU_SUB' &&
+      stateMachine.currentState !== 'LOADING' &&
+      stateMachine.currentState !== 'RESULT' &&
+      stateMachine.currentState !== 'GAMEOVER';
+
+    if (isPlaying) {
+      pendingUIArtifact = loadResult.artifact ?? artifact;
+      pendingUIPresentation = loadResult.presentation;
+      return loadResult;
+    }
+
+    applyUIPresentation(loadResult.presentation, loadResult.artifact);
+    pendingUIArtifact = null;
+    pendingUIPresentation = null;
+    return loadResult;
+  }
+
+  if (loadResult.status === 'fallback') {
+    if (activeUIPresentation) {
+      applyUIPresentation(activeUIPresentation, activeUIArtifact);
+    } else {
+      applyUIPresentation(loadResult.fallbackPresentation, null);
+    }
+    pendingUIArtifact = null;
+    pendingUIPresentation = null;
+    return loadResult;
+  }
+
+  return loadResult;
+}
+
+function getActiveUIPresentation(): Readonly<UIPresentationDocument> | null {
+  return activeUIPresentation;
+}
+
+function getActiveUIArtifact(): Readonly<UIPresentationArtifact> | null {
+  return activeUIArtifact;
+}
+
+function getActiveUIHash(): string | null {
+  if (activeUIArtifact?.contentHash) {
+    return activeUIArtifact.contentHash;
+  }
+  if (activeUIPresentation) {
+    return (
+      (activeUIPresentation as any).contentHash ??
+      computeContentHash({
+        manifest: activeUIPresentation.manifest,
+        pages: activeUIPresentation.pages,
+        resolution: activeUIPresentation.resolution,
+      })
+    );
+  }
+  return null;
+}
+
+function getPendingUIArtifact(): Readonly<UIPresentationArtifact> | null {
+  return pendingUIArtifact;
+}
 
 // Issue #411 & #390: Phase A 7노트 단일 공급원 (커스텀 팩 또는 기본 입문 루틴)
 let sessionContext: GameSessionContext;
@@ -937,6 +1128,7 @@ stateMachine.registerState('BOSS_CLIMAX', {
 
 stateMachine.registerState('MENU_MAIN', {
   enter: () => {
+    flushPendingUIPresentation();
     sfx.stopDwellCharge();
     stageBgm.stop();
     bgmManager.stop();
@@ -947,6 +1139,7 @@ stateMachine.registerState('MENU_MAIN', {
 
 stateMachine.registerState('MENU_SUB', {
   enter: () => {
+    flushPendingUIPresentation();
     menuInput.reset();
   },
 });
@@ -1438,6 +1631,7 @@ function startChapter(
   subLevel?: number,
   options?: { pack?: PublishedContentPack | null; isTestSession?: boolean; contentHash?: string },
 ): void {
+  flushPendingUIPresentation();
   if (ch < 1 || ch > 5) return;
   const isTest = Boolean(options?.isTestSession);
 
@@ -1700,6 +1894,7 @@ function showResult(victory: boolean): void {
 }
 
 function goToMenu(): void {
+  flushPendingUIPresentation();
   sessionLifecycle.cancelAllReservations();
   sessionLifecycle.endSession();
   contentLoadService.cancelCurrentRequest();
@@ -2046,6 +2241,15 @@ engine = new GameEngine({
     this.engine = engine;
     this.contentLoadService = contentLoadService;
     this.contentProvider = contentProvider;
+    this.uiPresentationLoadService = uiPresentationLoadService;
+    this.getActiveUIPresentation = getActiveUIPresentation;
+    this.getActiveUIArtifact = getActiveUIArtifact;
+    this.getActiveUIHash = getActiveUIHash;
+    this.getPendingUIArtifact = getPendingUIArtifact;
+    this.setUIPresentationArtifact = setUIPresentationArtifact;
+    this.applyUIPresentation = applyUIPresentation;
+    this.rollbackUIPresentation = rollbackUIPresentation;
+    this.flushPendingUIPresentation = flushPendingUIPresentation;
     this.setCustomContentPack = (pack: PublishedContentPack | null) => {
       activePublishedPack = pack;
     };
@@ -2241,13 +2445,11 @@ engine = new GameEngine({
     return;
   }
 
-  // Issue #141: 공통 하단 바 클릭 (우측 액션 버튼)
-  const customSlot = (screenMode === 'menu' && menuMode === 'sub')
-    ? { x: 780, y: 1990, w: 270, h: 140 }
-    : undefined;
-  const hasAction = (screenMode === 'menu' && menuMode === 'sub') || screenMode === 'game' || screenMode === 'result';
+  // Issue #141 & #471: 공통 하단 바 클릭 (우측 액션 버튼 - seam geometry 조회 통일)
+  const actionSlot = resolveBottomBarActionSlot(bottomBar, vw, vh, screenMode, menuMode);
+  const hasAction = actionSlot !== undefined;
 
-  if (hasAction && bottomBar.hitTestAction(x, y, vw, vh, 0, customSlot)) {
+  if (hasAction && bottomBar.hitTestAction(x, y, vw, vh, 0, actionSlot)) {
     if (screenMode === 'menu' && menuMode === 'sub') {
       selectSubLevel(-1);
     } else if (screenMode === 'game') {
