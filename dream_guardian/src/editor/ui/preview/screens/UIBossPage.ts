@@ -41,11 +41,10 @@ import type {
   UIPresentationDocument,
   UIPresentationPageId,
 } from '../../../../data/UIPresentation.js';
-import {
-  ARTBOARD_WIDTH,
-  ARTBOARD_HEIGHT,
-  defaultPageAdapterRegistry,
-} from '../UIPageAdapters.js';
+import { defaultPageAdapterRegistry } from '../UIPageAdapters.js';
+
+export const ARTBOARD_WIDTH = 1080;
+export const ARTBOARD_HEIGHT = 2160;
 import { HORIZON_RATIO } from '../../../../../config/grid.config.js';
 import { BOSS_REGISTRY } from '../../../../data/bossData.js';
 
