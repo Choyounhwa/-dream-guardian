@@ -28,8 +28,28 @@
 | 14 | [#575 LAYOUT-008](https://github.com/Choyounhwa/-dream-guardian/issues/575) | 장애물·판정 피드백 이전 (레인 잠금) | 대기 |
 | 15 | [#576 LAYOUT-009](https://github.com/Choyounhwa/-dream-guardian/issues/576) | 보스·결전 이전 | 대기 |
 | 16 | [#567 DEVUI-007](https://github.com/Choyounhwa/-dream-guardian/issues/567) | 인스펙터 오버레이 (클릭 선택·드래그) | 대기 |
+| 17 | [#577 DEVUI-008](https://github.com/Choyounhwa/-dream-guardian/issues/577) | 보스 접근전 화면 프리셋, `assault-visual.config` 편집 (다중 소스) | 대기 (BOSS-ASSAULT G3 및 #505·#521·#522·#545 완료 후) |
 
 이 표의 NEXT는 이 트랙 안에서만 쓰는 표시다. 다른 트랙의 NEXT와 SSOT 순서는 바꾸지 않는다. 기존 UI-EDITOR-FIX 트랙의 #556~#560 보류 여부는 사용자 결정 대기다.
+
+### BOSS-ASSAULT 병행 규칙 (2026-10-11 파일 겹침 분석)
+
+- **한 번에 한 카드만 작업한다**: 브랜치가 하나이므로 두 세션이 동시에 작업하지 않는다. 카드는 번갈아 하나씩 진행한다. 동시에 진행하려면 브랜치나 `git worktree`로 작업 폴더를 분리한다. `git reset --hard` 롤백이 상대 트랙 작업까지 지우는 것을 막기 위해서다.
+- **겹치는 파일은 3개뿐이다**:
+
+| 파일 | BOSS-ASSAULT | DEVUI / LAYOUT |
+|---|---|---|
+| `src/core/StateMachine.ts` | 21 #523 (G3, `ASSAULT_ROUND` 상태 추가) | DEVUI-003 #563 |
+| `src/core/AppBootstrap.ts` | 22·23·24 (G3), 30 (G4), 35 (G5) | DEVUI-002 #562, DEVUI-005 #565 |
+| `src/core/SceneDirector.ts` | 23 (G3), 30 (G4), 35 (G5) | LAYOUT-002 #569, LAYOUT-009 #576 |
+
+- **순서 규칙**:
+  1. BOSS-ASSAULT G1·G2는 DEVUI-001~004·006, LAYOUT-001·003~008과 제약 없이 병행할 수 있다.
+  2. **DEVUI-002, DEVUI-003, LAYOUT-002는 BOSS-ASSAULT G3(#523~#527) 착수 전에 완료한다.**
+  3. G3 진행 중에는 위 3개 파일을 수정하는 DEVUI/LAYOUT 카드를 보류한다.
+  4. **DEVUI-005, LAYOUT-009는 G3 완료 후** 진행한다 (`ASSAULT_ROUND` 포함). DEVUI-008은 그 뒤에 진행한다.
+- **URL 파라미터 통일**: `?mode=boss_assault`(BOSS-ASSAULT-22)와 `?dev=ui&screen=`(DEVUI-003)이 함께 쓰여도 충돌하지 않아야 한다. 나중에 진행하는 카드가 결합 규칙을 테스트로 고정한다.
+- **좌표 소스 분리 유지**: 보스 접근전 화면 좌표는 `config/assault-visual.config.ts`에 두고, `UI_LAYOUT`으로 옮기지 않는다 (#503 결정 보존). 개발 패널은 DEVUI-008에서 다중 소스로 확장한다.
 
 ## UI 비주얼 에디터 복구 및 게임 적용 트랙 (UI-EDITOR-FIX, 2026-10-11, 등록만)
 
@@ -86,6 +106,8 @@
 | 선택 | [#549 46](https://github.com/Choyounhwa/-dream-guardian/issues/549) TTS 콜백 | 제외 (DEC-B3 시간 기반 비대기 확정) |
 
 이 표의 NEXT는 BOSS-ASSAULT 트랙 내부 표시이며 다른 트랙의 NEXT와 메인 SSOT 순서를 변경하지 않는다.
+
+> **DEVUI/LAYOUT 트랙과 병행 시 (2026-10-11)**: G3(#523~#527) 착수 전에 DEVUI-002 #562, DEVUI-003 #563, LAYOUT-002 #569의 완료 여부를 확인한다. 이 카드들과 `StateMachine.ts`·`AppBootstrap.ts`·`SceneDirector.ts`가 겹친다. 22 #524의 `?mode=boss_assault`는 `?dev=ui&screen=` 파라미터와 함께 쓰여도 충돌하지 않아야 한다. 두 트랙은 한 번에 한 카드씩 번갈아 진행한다. 상세는 상단 "BOSS-ASSAULT 병행 규칙"을 따른다.
 
 ## 🗣️ 꼬마 수호신 밝은 보이스 톤 및 수식 간결 낭독 트랙 (TTS-VOICE, 2026-10-10)
 
