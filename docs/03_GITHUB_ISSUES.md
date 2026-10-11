@@ -17,7 +17,7 @@
 | 02 타입 계약 | [#504](https://github.com/Choyounhwa/-dream-guardian/issues/504) | G1 / DONE |
 | 03 MVP config | [#505](https://github.com/Choyounhwa/-dream-guardian/issues/505) | G1 / DONE |
 | 04 교대 콘텐츠 | [#506](https://github.com/Choyounhwa/-dream-guardian/issues/506) | G1 / DONE |
-| 05 사전 검증 | [#507](https://github.com/Choyounhwa/-dream-guardian/issues/507) | G1 / OPEN |
+| 05 사전 검증 | [#507](https://github.com/Choyounhwa/-dream-guardian/issues/507) | G1 / DONE |
 | 06 순수 계획 컴파일 | [#508](https://github.com/Choyounhwa/-dream-guardian/issues/508) | G1 / OPEN |
 | 07 숫자 보기 공급 | [#509](https://github.com/Choyounhwa/-dream-guardian/issues/509) | G1 / OPEN |
 | 08 활성 시각 | [#510](https://github.com/Choyounhwa/-dream-guardian/issues/510) | G2 / OPEN |

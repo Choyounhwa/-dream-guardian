@@ -118,7 +118,7 @@
 | BOSS-ASSAULT-02 | https://github.com/Choyounhwa/-dream-guardian/issues/504 | DONE (타입 계약 완료) |
 | BOSS-ASSAULT-03 | https://github.com/Choyounhwa/-dream-guardian/issues/505 | DONE (MVP 프로필 데이터 분리 완료) |
 | BOSS-ASSAULT-04 | https://github.com/Choyounhwa/-dream-guardian/issues/506 | DONE (MVP 교대 콘텐츠 정의 완료) |
-| BOSS-ASSAULT-05 | https://github.com/Choyounhwa/-dream-guardian/issues/507 | OPEN / 승인 대기 |
+| BOSS-ASSAULT-05 | https://github.com/Choyounhwa/-dream-guardian/issues/507 | DONE (사전 유효성 검증 순수 검증기 구현 완료) |
 | BOSS-ASSAULT-06 | https://github.com/Choyounhwa/-dream-guardian/issues/508 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-07 | https://github.com/Choyounhwa/-dream-guardian/issues/509 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-08 | https://github.com/Choyounhwa/-dream-guardian/issues/510 | OPEN / 승인 대기 |
@@ -297,15 +297,15 @@
 
 ### [BOSS-ASSAULT-05]
 제목: 공격 데이터 사전 유효성 검증
-상태: OPEN / 계획 / 구현·테스트 미착수, 개별 승인 대기.
+상태: DONE / 구현·테스트 완료 (2026-10-12).
 책임 레이어: Game 순수 검증. config/콘텐츠를 읽고 runtime/정산/effects는 실행하지 않는다.
 목적: 잘못된 콘텐츠가 부분 세션을 시작하지 못하게 한다.
 수정 대상:
-- `dream_guardian/src/game/assault/AssaultPlanValidator.ts` — 신규 제안.
+- `dream_guardian/src/game/assault/AssaultPlanValidator.ts` — 구현 완료.
 
 파일 수: `src/` 및 `config/` 합계 1개.
 테스트 파일(별도):
-- `dream_guardian/tests/unit/assault-validation.test.ts` — 신규 제안.
+- `dream_guardian/tests/unit/assault-validation.test.ts` — 테스트 38개 통과.
 구현 내용:
 1. unknown 입력에서 버전/kind/필수 필드와 프로필 참조를 확인하여 경로·원인 있는 오류를 반환한다.
 2. 패턴/공격 ID 중복, 음수/NaN/Infinity, 순서 역전을 검사한다.
@@ -315,9 +315,9 @@
 유지 사항: 원본 데이터 불변.
 변경 금지: 자동 보정·legacy 폴백·세션 시작·자원 변경·eval.
 완료 조건:
-- [ ] 정상 데이터만 통과하고 각 오류군의 경로/원인을 식별한다(A02, §6.5).
-- [ ] 슬롯 끝과 같은 경계/조금 초과, 인접 창/중첩, 복귀 최소값/미만이 승인된 계약대로 판별된다.
-- [ ] 실패 시 HP/세션/저장 호출 0회·입력 불변이며 Red→Green·전체 npm test/build 및 #507 코멘트/HANDOVER 증거를 기록한다.
+- [x] 정상 데이터만 통과하고 각 오류군의 경로/원인을 식별한다(A02, §6.5).
+- [x] 슬롯 끝과 같은 경계/조금 초과, 인접 창/중첩, 복귀 최소값/미만이 승인된 계약대로 판별된다.
+- [x] 실패 시 HP/세션/저장 호출 0회·입력 불변이며 Red→Green·전체 npm test/build 및 #507 코멘트/HANDOVER 증거를 기록한다.
 테스트: 표 기반 Red로 unknown 버전/kind/profile, 중복 ID, 수치 오류, 창 역전/도착 초과, 중첩/복귀 부족을 각각 격리한다. 동결 입력 반복 검증은 같은 결과다. npm test Baseline → 대상 Red → 별도 최소 구현 Green → 전체 npm test/npm run build.
 관련 파일: DOC-14 §6.5; 02~04 읽기 전용.
 선행 카드: [02 #504](https://github.com/Choyounhwa/-dream-guardian/issues/504), [03 #505](https://github.com/Choyounhwa/-dream-guardian/issues/505), [04 #506](https://github.com/Choyounhwa/-dream-guardian/issues/506)의 실제 완료 증거와 본 카드 승인.
