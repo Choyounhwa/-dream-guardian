@@ -153,7 +153,7 @@
 | BOSS-ASSAULT-37 | https://github.com/Choyounhwa/-dream-guardian/issues/539 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-38 | https://github.com/Choyounhwa/-dream-guardian/issues/541 | DONE (실측 스파이크 완료, 01 결정 입력 증거 제출) |
 | BOSS-ASSAULT-39 | https://github.com/Choyounhwa/-dream-guardian/issues/542 | DONE (문항 적격성 필터 및 읽기 시간 분류 완료) |
-| BOSS-ASSAULT-40 | https://github.com/Choyounhwa/-dream-guardian/issues/543 | OPEN / 승인 대기 (v0.3) |
+| BOSS-ASSAULT-40 | https://github.com/Choyounhwa/-dream-guardian/issues/543 | DONE (ASSAULT_ROUND 동작 소유권 config 완료) |
 | BOSS-ASSAULT-41 | https://github.com/Choyounhwa/-dream-guardian/issues/544 | OPEN / 승인 대기 (v0.3) |
 | BOSS-ASSAULT-42 | https://github.com/Choyounhwa/-dream-guardian/issues/545 | OPEN / 승인 대기 (v0.3) |
 | BOSS-ASSAULT-43 | https://github.com/Choyounhwa/-dream-guardian/issues/546 | OPEN / 승인 대기 (v0.3) |
@@ -1318,7 +1318,7 @@
 
 ### [BOSS-ASSAULT-40]
 제목: ASSAULT_ROUND 동작 소유권 config 항목
-상태: OPEN / 계획 / 개별 승인 대기.
+상태: DONE / 완료.
 책임 레이어: Config.
 목적: 신규 상태에서 `default` 소유권(전 intent 허용)이 적용되는 결함을 막는다.
 수정 대상:
@@ -1335,9 +1335,9 @@
 유지 사항: 기존 phase ownership 전체.
 변경 금지: default 수정, 임계값 변경.
 완료 조건:
-- [ ] `ASSAULT_ROUND`에서 jump/step 비허용, reach/squat 허용(A24).
-- [ ] 기존 ANSWER_SELECT/HAZARD_EVADE/STAR_COLLECT/BOSS_CLIMAX/default 결과 불변.
-- [ ] Red→Green·전체 npm test/build 및 이슈 코멘트/HANDOVER 기록.
+- [x] `ASSAULT_ROUND`에서 jump/step 비허용, reach/squat 허용(A24).
+- [x] 기존 ANSWER_SELECT/HAZARD_EVADE/STAR_COLLECT/BOSS_CLIMAX/default 결과 불변.
+- [x] Red→Green·전체 npm test/build 및 이슈 코멘트/HANDOVER 기록.
 테스트: `MotionIntentBus.isIntentAllowedInPhase` 표 기반 Red. npm test Baseline → 대상 Red → 별도 구현 Green → 전체 npm test/npm run build.
 관련 파일: DOC-14 §15.1-A2; MotionIntentBus 읽기 전용.
 선행 카드: 01 상태 이름 승인 증거. (상태 문자열 키이므로 21 타입 확장과 독립 실행 가능)
