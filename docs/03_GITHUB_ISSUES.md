@@ -13,7 +13,7 @@
 
 | 카드 | 실제 이슈 | 단계 / 상태 |
 |---|---|---|
-| 01 계약·수치 결정 | [#503](https://github.com/Choyounhwa/-dream-guardian/issues/503) | G0 / OPEN |
+| 01 계약·수치 결정 | [#503](https://github.com/Choyounhwa/-dream-guardian/issues/503) | G0 / DONE (MVP 결정 완료, G1 해제) |
 | 02 타입 계약 | [#504](https://github.com/Choyounhwa/-dream-guardian/issues/504) | G1 / OPEN |
 | 03 MVP config | [#505](https://github.com/Choyounhwa/-dream-guardian/issues/505) | G1 / OPEN |
 | 04 교대 콘텐츠 | [#506](https://github.com/Choyounhwa/-dream-guardian/issues/506) | G1 / OPEN |
