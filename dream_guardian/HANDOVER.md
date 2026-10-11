@@ -43,7 +43,7 @@
 
 | 순서 | 카드 | 상태 |
 |---|---|---|
-| G0 | [#541 38 실측 스파이크](https://github.com/Choyounhwa/-dream-guardian/issues/541) → [#503 01 계약 결정](https://github.com/Choyounhwa/-dream-guardian/issues/503) | `[▶ NEXT: BOSS-ASSAULT 트랙 / 승인 대기]` #541 |
+| G0 | [#541 38 실측 스파이크](https://github.com/Choyounhwa/-dream-guardian/issues/541) → [#503 01 계약 결정](https://github.com/Choyounhwa/-dream-guardian/issues/503) | `[✔ 완료]` #541 (01 입력 증거 제출) → `[▶ NEXT: BOSS-ASSAULT 트랙 / 승인 대기]` #503 |
 | G1 | #504~#509, [#542 39](https://github.com/Choyounhwa/-dream-guardian/issues/542), [#543 40](https://github.com/Choyounhwa/-dream-guardian/issues/543) | 대기 |
 | G2 | #510~#522, [#544 41](https://github.com/Choyounhwa/-dream-guardian/issues/544), [#546 43](https://github.com/Choyounhwa/-dream-guardian/issues/546), [#547 44](https://github.com/Choyounhwa/-dream-guardian/issues/547) | 대기 |
 | G3 | #523~#526, [#545 42](https://github.com/Choyounhwa/-dream-guardian/issues/545) → #527 인수 → [#548 45](https://github.com/Choyounhwa/-dream-guardian/issues/548) | 대기 |
