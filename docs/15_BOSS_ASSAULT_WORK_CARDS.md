@@ -120,7 +120,7 @@
 | BOSS-ASSAULT-04 | https://github.com/Choyounhwa/-dream-guardian/issues/506 | DONE (MVP 교대 콘텐츠 정의 완료) |
 | BOSS-ASSAULT-05 | https://github.com/Choyounhwa/-dream-guardian/issues/507 | DONE (사전 유효성 검증 순수 검증기 구현 완료) |
 | BOSS-ASSAULT-06 | https://github.com/Choyounhwa/-dream-guardian/issues/508 | DONE (불변 실행 시간표 순수 컴파일러 구현 완료) |
-| BOSS-ASSAULT-07 | https://github.com/Choyounhwa/-dream-guardian/issues/509 | OPEN / 승인 대기 |
+| BOSS-ASSAULT-07 | https://github.com/Choyounhwa/-dream-guardian/issues/509 | DONE (숫자형 반복 보기 쌍 공급 어댑터 구현 완료) |
 | BOSS-ASSAULT-08 | https://github.com/Choyounhwa/-dream-guardian/issues/510 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-09 | https://github.com/Choyounhwa/-dream-guardian/issues/511 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-10 | https://github.com/Choyounhwa/-dream-guardian/issues/512 | OPEN / 승인 대기 |
@@ -353,15 +353,15 @@
 
 ### [BOSS-ASSAULT-07]
 제목: 숫자형 반복 보기 쌍 공급 어댑터
-상태: OPEN / 계획 / 구현·테스트 미착수, 개별 승인 대기.
+상태: DONE (TDD 100% Pass, build 성공, commit 완료)
 책임 레이어: Question. config는 개수/정책, 콘텐츠는 공격 순서, 이 어댑터는 숫자 보기 생성만, runtime/HP/effects 실행 없음.
 목적: 한 문제에 정답이 유일한 여러 보기 쌍을 공급한다.
 수정 대상:
-- `dream_guardian/src/question/AssaultAnswerPairFactory.ts` — 신규 제안.
+- `dream_guardian/src/question/AssaultAnswerPairFactory.ts` — 신규 구현.
 
 파일 수: `src/` 및 `config/` 합계 1개.
 테스트 파일(별도):
-- `dream_guardian/tests/unit/assault-answer-pairs.test.ts` — 신규 제안.
+- `dream_guardian/tests/unit/assault-answer-pairs.test.ts` — 신규 구현.
 구현 내용:
 1. 기존 QuestionBank/QuestionEvaluator가 공급한 문제 하나의 숫자 정답과 승인 쌍 수·시드를 받는다.
 2. 수치적으로 같은 오답을 제외하여 각 쌍에 유일 정답을 둔다. 문자열 표기 차이를 다른 값으로 오인하지 않는다.
@@ -371,9 +371,9 @@
 유지 사항: CSV 로딩/안전 평가 경로.
 변경 금지: 수식형 보기 확장·문제 수 증가·HP·TTS 직접 요청.
 완료 조건:
-- [ ] 3쌍 이상에도 문제 공급 1회, 각 pair 정답 1개이며 같은 시드 결과가 같다(A11).
-- [ ] 1/1.0 등 동치 오답, NaN/Infinity, 지원 밖 표현을 거부하고 원본 문제 불변이다.
-- [ ] Red→Green·전체 npm test/build 및 #509 코멘트/HANDOVER에 실제 변경/완료 증거를 기록한다.
+- [x] 3쌍 이상에도 문제 공급 1회, 각 pair 정답 1개이며 같은 시드 결과가 같다(A11).
+- [x] 1/1.0 등 동치 오답, NaN/Infinity, 지원 밖 표현을 거부하고 원본 문제 불변이다.
+- [x] Red→Green·전체 npm test/build 및 #509 코멘트/HANDOVER에 실제 변경/완료 증거를 기록한다.
 테스트: 유일성/동치/시드 반복/원본 동결/오답 공급 실패/좌우 편향을 검증한다. npm test Baseline → 대상 테스트 선작성 Red 확인 → 별도 최소 구현 Green → 전체 npm test/npm run build. CSV/평가기 수정 필요 시 별도 카드로 차단.
 관련 파일: DOC-14 §7.2; QuestionBank/QuestionEvaluator 읽기 전용.
 선행 카드: [02 #504](https://github.com/Choyounhwa/-dream-guardian/issues/504) 완료, [01 #503](https://github.com/Choyounhwa/-dream-guardian/issues/503) 숫자형 MVP 부분 승인 증거(01 CLOSED 불필요). 본 카드 승인 별도.

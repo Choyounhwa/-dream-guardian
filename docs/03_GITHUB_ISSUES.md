@@ -18,8 +18,8 @@
 | 03 MVP config | [#505](https://github.com/Choyounhwa/-dream-guardian/issues/505) | G1 / DONE |
 | 04 교대 콘텐츠 | [#506](https://github.com/Choyounhwa/-dream-guardian/issues/506) | G1 / DONE |
 | 05 사전 검증 | [#507](https://github.com/Choyounhwa/-dream-guardian/issues/507) | G1 / DONE |
-| 06 순수 계획 컴파일 | [#508](https://github.com/Choyounhwa/-dream-guardian/issues/508) | G1 / OPEN |
-| 07 숫자 보기 공급 | [#509](https://github.com/Choyounhwa/-dream-guardian/issues/509) | G1 / OPEN |
+| 06 순수 계획 컴파일 | [#508](https://github.com/Choyounhwa/-dream-guardian/issues/508) | G1 / DONE |
+| 07 숫자 보기 공급 | [#509](https://github.com/Choyounhwa/-dream-guardian/issues/509) | G1 / DONE |
 | 08 활성 시각 | [#510](https://github.com/Choyounhwa/-dream-guardian/issues/510) | G2 / OPEN |
 | 09 펀치 입력 | [#511](https://github.com/Choyounhwa/-dream-guardian/issues/511) | G2 / OPEN |
 | 10 스쿼트 자세 | [#512](https://github.com/Choyounhwa/-dream-guardian/issues/512) | G2 / OPEN |
