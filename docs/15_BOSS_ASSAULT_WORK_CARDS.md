@@ -115,8 +115,8 @@
 | 작업 ID | 실제 GitHub URL | 상태 |
 |---|---|---|
 | BOSS-ASSAULT-01 | https://github.com/Choyounhwa/-dream-guardian/issues/503 | DONE (MVP 계약·수치 결정 완료, G0 해제, G1 착수 허용) |
-| BOSS-ASSAULT-02 | https://github.com/Choyounhwa/-dream-guardian/issues/504 | OPEN / 승인 대기 |
-| BOSS-ASSAULT-03 | https://github.com/Choyounhwa/-dream-guardian/issues/505 | OPEN / 승인 대기 |
+| BOSS-ASSAULT-02 | https://github.com/Choyounhwa/-dream-guardian/issues/504 | DONE (타입 계약 완료) |
+| BOSS-ASSAULT-03 | https://github.com/Choyounhwa/-dream-guardian/issues/505 | DONE (MVP 프로필 데이터 분리 완료) |
 | BOSS-ASSAULT-04 | https://github.com/Choyounhwa/-dream-guardian/issues/506 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-05 | https://github.com/Choyounhwa/-dream-guardian/issues/507 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-06 | https://github.com/Choyounhwa/-dream-guardian/issues/508 | OPEN / 승인 대기 |
@@ -210,7 +210,7 @@
 
 ### [BOSS-ASSAULT-02]
 제목: 불변 정의·런타임·결과·표시 타입 계약
-상태: OPEN / 계획 / 구현·테스트 미착수, 개별 승인 대기.
+상태: DONE (타입 계약 및 테스트 완료)
 책임 레이어: Types. config 수치/콘텐츠 순서/runtime 상태/시각 효과 실행을 타입 파일에 넣지 않는다.
 목적: 데이터와 가변 상태 및 부작용 요청의 경계를 고정한다.
 수정 대상:
@@ -239,7 +239,7 @@
 
 ### [BOSS-ASSAULT-03]
 제목: MVP 조정 프로필 데이터
-상태: OPEN / 계획 / 구현·테스트 미착수, 개별 승인 대기.
+상태: DONE (MVP 프로필 데이터 분리 및 단위 테스트 완료)
 책임 레이어: Config 데이터. 콘텐츠 순서·runtime 분기·효과 실행은 소유하지 않는다.
 목적: 읽기·피해·입력·표현 조정값의 단일 출처를 만든다.
 수정 대상:
@@ -259,9 +259,9 @@
 유지 사항: legacy DEFAULT_CONFIG 및 기존 battle.config 값.
 변경 금지: 함수/타이머/조건부 패턴 선택·문제 텍스트·실행 상태.
 완료 조건:
-- [ ] 모든 값이 승인 URL/단위로 추적되고 8박 미만·읽기 하한 누락·음수/비유한 안전값을 검사한다(A03,A19,A23).
-- [ ] 중첩 프로필 변경 시도 후 원본과 legacy DEFAULT_CONFIG가 불변이며 함수/문제 텍스트가 없다.
-- [ ] Red→Green·전체 npm test/build, 승인 대조와 변경 파일을 #505 코멘트/HANDOVER에 기록한다. 미검증 DONE 금지.
+- [x] 모든 값이 승인 URL/단위로 추적되고 8박 미만·읽기 하한 누락·음수/비유한 안전값을 검사한다(A03,A19,A23).
+- [x] 중첩 프로필 변경 시도 후 원본과 legacy DEFAULT_CONFIG가 불변이며 함수/문제 텍스트가 없다.
+- [x] Red→Green·전체 npm test/build, 승인 대조와 변경 파일을 #505 코멘트/HANDOVER에 기록한다. 미검증 DONE 금지.
 테스트: 승인 fixture 정상값, 8박 경계/미만, Seconds/Ms 혼용, 필수값 누락, NaN/Infinity와 readonly 변경 시도를 Red로 작성한다. 별도 승인 → npm test Baseline → 대상 테스트 Red 확인 → 별도 최소 데이터 작성 Green → 전체 npm test/npm run build. validator 구현을 이 config 카드에 추가하지 않는다.
 관련 파일: DOC-14 §§5,6.4,6.7,14.
 선행 카드: [01 #503](https://github.com/Choyounhwa/-dream-guardian/issues/503) MVP 수치 승인 증거, [02 #504](https://github.com/Choyounhwa/-dream-guardian/issues/504) 실제 계약 완료. 01 CLOSED 불필요; 미결 단계는 차단.

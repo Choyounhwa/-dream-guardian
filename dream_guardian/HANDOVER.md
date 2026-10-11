@@ -2,6 +2,35 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 인게임 UI 개발 모드 트랙 (DEVUI / LAYOUT, 2026-10-11, 등록만)
+
+- **배경**: iframe 기반 ui-editor는 화면을 다시 조립하고, 요소 이름을 변환하고, 메시지를 주고받는 구조라 실제 게임과 계속 어긋났다. 이를 대신해 실제 게임 화면에서 `UI_LAYOUT`을 직접 편집한다(Tweakpane + 화면 강제 이동 + 시간 정지).
+- **적용 방식**: 내보낸 `ui-layout.json`을 `dream_guardian/public/`에 수동으로 복사한다. 게임은 부팅 시 검증한 뒤 깊은 병합(in-place)으로 반영한다.
+- **판정 좌표 잠금 (사용자 결정)**: 피트니스 존 1~11, 바닥 판정선, 장애물 회피 레인 등 모션 판정과 연결된 좌표는 편집하지 않는다. 읽기 전용으로 표시만 하고, 변경은 별도 게임플레이 카드로 처리한다.
+- **근거**: 2026-10-11 코드 감사. `UI_LAYOUT`은 변경 가능하고 매 프레임 다시 읽힌다. 메뉴 계열은 그리기와 hit 판정이 같은 getter를 쓴다. 플레이 화면 5종은 하드코딩이나 비율 좌표라 이전이 필요하다.
+- **검증 기록**: 이슈 등록만 했다. 소스·테스트 수정, 테스트·빌드 실행 모두 하지 않았다.
+
+| 순서 | 카드 | 내용 | 상태 |
+|---|---|---|---|
+| 1 | [#561 DEVUI-001](https://github.com/Choyounhwa/-dream-guardian/issues/561) | `?dev=ui` 진입점, 프로덕션 번들 격리 | `[▶ NEXT: DEVUI / 승인 대기]` |
+| 2 | [#562 DEVUI-002](https://github.com/Choyounhwa/-dream-guardian/issues/562) | `ui-layout.json` 검증 후 깊은 병합(in-place) 적용 | 대기 |
+| 3 | [#563 DEVUI-003](https://github.com/Choyounhwa/-dream-guardian/issues/563) | 화면 강제 이동, 시간 정지 | 대기 |
+| 4 | [#564 DEVUI-004](https://github.com/Choyounhwa/-dream-guardian/issues/564) | 메뉴 계열 화면 프리셋 | 대기 |
+| 5 | [#566 DEVUI-006](https://github.com/Choyounhwa/-dream-guardian/issues/566) | Tweakpane 패널, JSON 내보내기 → **메뉴 계열 편집 가능** | 대기 |
+| 6 | [#568 LAYOUT-001](https://github.com/Choyounhwa/-dream-guardian/issues/568) | HUD 이전 | 대기 |
+| 7 | [#569 LAYOUT-002](https://github.com/Choyounhwa/-dream-guardian/issues/569) | 메인 메뉴·서브메뉴 이전 (뒤로가기 버튼 좌표 단일화) | 대기 |
+| 8 | [#570 LAYOUT-003](https://github.com/Choyounhwa/-dream-guardian/issues/570) | 설정·운동 모드 모달 이전 | 대기 |
+| 9 | [#571 LAYOUT-004](https://github.com/Choyounhwa/-dream-guardian/issues/571) | 결과 화면 이전 | 대기 |
+| 10 | [#565 DEVUI-005](https://github.com/Choyounhwa/-dream-guardian/issues/565) | 플레이 계열 화면 프리셋 | 대기 |
+| 11 | [#572 LAYOUT-005](https://github.com/Choyounhwa/-dream-guardian/issues/572) | 준비 자세 화면 이전 | 대기 |
+| 12 | [#573 LAYOUT-006](https://github.com/Choyounhwa/-dream-guardian/issues/573) | 문제·정답 버튼 이전 (존 4/5 잠금) | 대기 |
+| 13 | [#574 LAYOUT-007](https://github.com/Choyounhwa/-dream-guardian/issues/574) | BeatHUD·러닝 매트 시각 요소 이전 (페달 존 잠금) | 대기 |
+| 14 | [#575 LAYOUT-008](https://github.com/Choyounhwa/-dream-guardian/issues/575) | 장애물·판정 피드백 이전 (레인 잠금) | 대기 |
+| 15 | [#576 LAYOUT-009](https://github.com/Choyounhwa/-dream-guardian/issues/576) | 보스·결전 이전 | 대기 |
+| 16 | [#567 DEVUI-007](https://github.com/Choyounhwa/-dream-guardian/issues/567) | 인스펙터 오버레이 (클릭 선택·드래그) | 대기 |
+
+이 표의 NEXT는 이 트랙 안에서만 쓰는 표시다. 다른 트랙의 NEXT와 SSOT 순서는 바꾸지 않는다. 기존 UI-EDITOR-FIX 트랙의 #556~#560 보류 여부는 사용자 결정 대기다.
+
 ## UI 비주얼 에디터 복구 및 게임 적용 트랙 (UI-EDITOR-FIX, 2026-10-11, 등록만)
 
 - **배경**: `ui-editor.html`에서 편집해도 게임에 반영되지 않는다. 원인은 에디터 자체 버그와 게임 런타임 미연결(#471) 두 가지다.
@@ -35,7 +64,8 @@
 - **검증 기록**: 이번 등록 세션 테스트·빌드·실기기·개발 서버 미실행. 통과한 구현 테스트 없음. 등록 완료와 구현 완료는 별개이며 기존 완료 기록을 이 트랙의 증거로 재사용하지 않음.
 - **완료 이력 (2026-10-12)**:
   - `[✔ 완료]` [#504 BOSS-ASSAULT-02](https://github.com/Choyounhwa/-dream-guardian/issues/504) 불변 정의·런타임·결과·표시 타입 계약 및 MotionNote 호환 확장 (TDD 100% Pass, build 성공, commit 완료).
-- **후속 검토 대상**: [#505 BOSS-ASSAULT-03](https://github.com/Choyounhwa/-dream-guardian/issues/505) MVP 조정 프로필 데이터. 자동 진행하지 않는다. **기존 모든 SSOT/진행 표시와 순서를 그대로 유지하며 이 트랙을 다음 실행 카드로 지정하지 않는다.**
+  - `[✔ 완료]` [#505 BOSS-ASSAULT-03](https://github.com/Choyounhwa/-dream-guardian/issues/505) MVP 조정 프로필 데이터 (TDD 100% Pass, build 성공, commit 완료).
+- **후속 검토 대상**: [#506 BOSS-ASSAULT-04](https://github.com/Choyounhwa/-dream-guardian/issues/506) MVP 교대 공격 정적 콘텐츠. 자동 진행하지 않는다. **기존 모든 SSOT/진행 표시와 순서를 그대로 유지하며 이 트랙을 다음 실행 카드로 지정하지 않는다.**
 
 ### BOSS-ASSAULT v0.3 보완 (2026-10-11) 및 독립 트랙 진행 표
 
@@ -46,7 +76,7 @@
 | 순서 | 카드 | 상태 |
 |---|---|---|
 | G0 | [#541 38 실측 스파이크](https://github.com/Choyounhwa/-dream-guardian/issues/541) → [#503 01 계약 결정](https://github.com/Choyounhwa/-dream-guardian/issues/503) | `[✔ 완료]` #541 (01 입력 증거 제출) → `[✔ 완료]` #503 (MVP 계약 확정, G0 해제) |
-| G1 | #504~#509, [#542 39](https://github.com/Choyounhwa/-dream-guardian/issues/542), [#543 40](https://github.com/Choyounhwa/-dream-guardian/issues/543) | `[✔ 완료]` #504 (타입 계약) → `[▶ NEXT: BOSS-ASSAULT 트랙 / 승인 대기]` #505 (MVP 프로필) |
+| G1 | #504~#509, [#542 39](https://github.com/Choyounhwa/-dream-guardian/issues/542), [#543 40](https://github.com/Choyounhwa/-dream-guardian/issues/543) | `[✔ 완료]` #504 (타입 계약) → `[✔ 완료]` #505 (MVP 프로필) → `[▶ NEXT: BOSS-ASSAULT 트랙 / 승인 대기]` #506 (교대 콘텐츠) |
 | G2 | #510~#522, [#544 41](https://github.com/Choyounhwa/-dream-guardian/issues/544), [#546 43](https://github.com/Choyounhwa/-dream-guardian/issues/546), [#547 44](https://github.com/Choyounhwa/-dream-guardian/issues/547) | 대기 |
 | G3 | #523~#526, [#545 42](https://github.com/Choyounhwa/-dream-guardian/issues/545) → #527 인수 → [#548 45](https://github.com/Choyounhwa/-dream-guardian/issues/548) | 대기 |
 | G4 | #528 → #539 → #529~#532 | 대기 (결전 수치 별도 승인 전 차단) |
