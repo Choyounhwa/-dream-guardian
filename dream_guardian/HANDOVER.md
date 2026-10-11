@@ -65,7 +65,8 @@
 - **완료 이력 (2026-10-12)**:
   - `[✔ 완료]` [#504 BOSS-ASSAULT-02](https://github.com/Choyounhwa/-dream-guardian/issues/504) 불변 정의·런타임·결과·표시 타입 계약 및 MotionNote 호환 확장 (TDD 100% Pass, build 성공, commit 완료).
   - `[✔ 완료]` [#505 BOSS-ASSAULT-03](https://github.com/Choyounhwa/-dream-guardian/issues/505) MVP 조정 프로필 데이터 (TDD 100% Pass, build 성공, commit 완료).
-- **후속 검토 대상**: [#506 BOSS-ASSAULT-04](https://github.com/Choyounhwa/-dream-guardian/issues/506) MVP 교대 공격 정적 콘텐츠. 자동 진행하지 않는다. **기존 모든 SSOT/진행 표시와 순서를 그대로 유지하며 이 트랙을 다음 실행 카드로 지정하지 않는다.**
+  - `[✔ 완료]` [#506 BOSS-ASSAULT-04](https://github.com/Choyounhwa/-dream-guardian/issues/506) MVP 교대 공격 정적 콘텐츠 (TDD 100% Pass, build 성공, commit 완료).
+- **후속 검토 대상**: [#507 BOSS-ASSAULT-05](https://github.com/Choyounhwa/-dream-guardian/issues/507) 공격 데이터 사전 유효성 검증. 자동 진행하지 않는다. **기존 모든 SSOT/진행 표시와 순서를 그대로 유지하며 이 트랙을 다음 실행 카드로 지정하지 않는다.**
 
 ### BOSS-ASSAULT v0.3 보완 (2026-10-11) 및 독립 트랙 진행 표
 
@@ -76,7 +77,7 @@
 | 순서 | 카드 | 상태 |
 |---|---|---|
 | G0 | [#541 38 실측 스파이크](https://github.com/Choyounhwa/-dream-guardian/issues/541) → [#503 01 계약 결정](https://github.com/Choyounhwa/-dream-guardian/issues/503) | `[✔ 완료]` #541 (01 입력 증거 제출) → `[✔ 완료]` #503 (MVP 계약 확정, G0 해제) |
-| G1 | #504~#509, [#542 39](https://github.com/Choyounhwa/-dream-guardian/issues/542), [#543 40](https://github.com/Choyounhwa/-dream-guardian/issues/543) | `[✔ 완료]` #504 (타입 계약) → `[✔ 완료]` #505 (MVP 프로필) → `[▶ NEXT: BOSS-ASSAULT 트랙 / 승인 대기]` #506 (교대 콘텐츠) |
+| G1 | #504~#509, [#542 39](https://github.com/Choyounhwa/-dream-guardian/issues/542), [#543 40](https://github.com/Choyounhwa/-dream-guardian/issues/543) | `[✔ 완료]` #504 (타입 계약) → `[✔ 완료]` #505 (MVP 프로필) → `[✔ 완료]` #506 (교대 콘텐츠) → `[▶ NEXT: BOSS-ASSAULT 트랙 / 승인 대기]` #507 (사전 유효성 검증) |
 | G2 | #510~#522, [#544 41](https://github.com/Choyounhwa/-dream-guardian/issues/544), [#546 43](https://github.com/Choyounhwa/-dream-guardian/issues/546), [#547 44](https://github.com/Choyounhwa/-dream-guardian/issues/547) | 대기 |
 | G3 | #523~#526, [#545 42](https://github.com/Choyounhwa/-dream-guardian/issues/545) → #527 인수 → [#548 45](https://github.com/Choyounhwa/-dream-guardian/issues/548) | 대기 |
 | G4 | #528 → #539 → #529~#532 | 대기 (결전 수치 별도 승인 전 차단) |

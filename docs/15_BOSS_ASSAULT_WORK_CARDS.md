@@ -117,7 +117,7 @@
 | BOSS-ASSAULT-01 | https://github.com/Choyounhwa/-dream-guardian/issues/503 | DONE (MVP 계약·수치 결정 완료, G0 해제, G1 착수 허용) |
 | BOSS-ASSAULT-02 | https://github.com/Choyounhwa/-dream-guardian/issues/504 | DONE (타입 계약 완료) |
 | BOSS-ASSAULT-03 | https://github.com/Choyounhwa/-dream-guardian/issues/505 | DONE (MVP 프로필 데이터 분리 완료) |
-| BOSS-ASSAULT-04 | https://github.com/Choyounhwa/-dream-guardian/issues/506 | OPEN / 승인 대기 |
+| BOSS-ASSAULT-04 | https://github.com/Choyounhwa/-dream-guardian/issues/506 | DONE (MVP 교대 콘텐츠 정의 완료) |
 | BOSS-ASSAULT-05 | https://github.com/Choyounhwa/-dream-guardian/issues/507 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-06 | https://github.com/Choyounhwa/-dream-guardian/issues/508 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-07 | https://github.com/Choyounhwa/-dream-guardian/issues/509 | OPEN / 승인 대기 |
@@ -269,7 +269,7 @@
 
 ### [BOSS-ASSAULT-04]
 제목: MVP 교대 공격 정적 콘텐츠
-상태: OPEN / 계획 / 구현·테스트 미착수, 개별 승인 대기.
+상태: DONE (MVP 교대 공격 정적 콘텐츠 정의 및 단위 테스트 완료)
 책임 레이어: Content 데이터. config는 수치, 콘텐츠는 순서, runtime은 실행, effects는 표시만 담당한다.
 목적: 무엇을 어떤 순서로 할지를 실행 코드 밖에 둔다.
 수정 대상:
@@ -287,9 +287,9 @@
 유지 사항: 기존 CSV와 편집기 형식.
 변경 금지: 실제 정답 복사·함수·조건문·피해 수치·런타임 상태.
 완료 조건:
-- [ ] 승인 공격 수·교대 순서·0-based 첫 슬롯이 일치하고 3쌍 fixture도 같은 구조로 표현된다(A11).
-- [ ] 중복 ID/없는 프로필/잘못된 박자 fixture를 식별하고 원본 및 CSV/편집기 데이터가 불변이다.
-- [ ] 정답/피해/실행 함수가 없으며 Red→Green·전체 npm test/build 및 실제 완료 기록을 #506 코멘트/HANDOVER에 남긴다.
+- [x] 승인 공격 수·교대 순서·0-based 첫 슬롯이 일치하고 3쌍 fixture도 같은 구조로 표현된다(A11).
+- [x] 중복 ID/없는 프로필/잘못된 박자 fixture를 식별하고 원본 및 CSV/편집기 데이터가 불변이다.
+- [x] 정답/피해/실행 함수가 없으며 Red→Green·전체 npm test/build 및 실제 완료 기록을 #506 코멘트/HANDOVER에 남긴다.
 테스트: 정상 단일 패턴, 3쌍 교대, 첫 startBeat=0, 중복 ID/참조 누락/음수 박자와 데이터 변경 시도를 Red로 검증한다. Baseline npm test → 테스트 선작성/대상 Red → 별도 데이터 Green → 전체 npm test/npm run build. 05 validator를 미리 구현하지 않는다.
 관련 파일: DOC-14 §6.4~6.7.
 선행 카드: [01 #503](https://github.com/Choyounhwa/-dream-guardian/issues/503) 공격 수 부분 승인 증거, [02 #504](https://github.com/Choyounhwa/-dream-guardian/issues/504), [03 #505](https://github.com/Choyounhwa/-dream-guardian/issues/505) 실제 완료. 개별 착수 승인 필수.
