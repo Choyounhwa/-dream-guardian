@@ -6,7 +6,9 @@
  * main.ts 200줄 이하 경량화: 부트스트랩 및 이벤트 리스너 분리
  */
 
+/// <reference types="vite/client" />
 import { AppBootstrap } from './core/AppBootstrap.js';
+import { maybeStartDevUi } from './dev/DevUiGate.js';
 
 // 메인 앱 부트스트랩 인스턴스 생성
 export const app = new AppBootstrap();
@@ -19,6 +21,12 @@ if (typeof document !== 'undefined') {
     });
   } else {
     app.init().then(() => app.start());
+  }
+
+  // [DEVUI-001] (Issue #561) ?dev=ui 개발 모드 진입점.
+  // import.meta.env.DEV 리터럴 가드로 프로덕션 빌드에서는 동적 import 자체가 제거된다.
+  if (import.meta.env.DEV) {
+    void maybeStartDevUi(window.location, import.meta.env, app, () => import('./dev/DevBootstrap.js'));
   }
 }
 
