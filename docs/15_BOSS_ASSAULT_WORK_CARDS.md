@@ -119,7 +119,7 @@
 | BOSS-ASSAULT-03 | https://github.com/Choyounhwa/-dream-guardian/issues/505 | DONE (MVP 프로필 데이터 분리 완료) |
 | BOSS-ASSAULT-04 | https://github.com/Choyounhwa/-dream-guardian/issues/506 | DONE (MVP 교대 콘텐츠 정의 완료) |
 | BOSS-ASSAULT-05 | https://github.com/Choyounhwa/-dream-guardian/issues/507 | DONE (사전 유효성 검증 순수 검증기 구현 완료) |
-| BOSS-ASSAULT-06 | https://github.com/Choyounhwa/-dream-guardian/issues/508 | OPEN / 승인 대기 |
+| BOSS-ASSAULT-06 | https://github.com/Choyounhwa/-dream-guardian/issues/508 | DONE (불변 실행 시간표 순수 컴파일러 구현 완료) |
 | BOSS-ASSAULT-07 | https://github.com/Choyounhwa/-dream-guardian/issues/509 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-08 | https://github.com/Choyounhwa/-dream-guardian/issues/510 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-09 | https://github.com/Choyounhwa/-dream-guardian/issues/511 | OPEN / 승인 대기 |
@@ -325,7 +325,7 @@
 
 ### [BOSS-ASSAULT-06]
 제목: 불변 실행 시간표 순수 컴파일
-상태: OPEN / 계획 / 구현·테스트 미착수, 개별 승인 대기.
+상태: DONE / 구현·테스트 완료 (100% Pass, build 통과)
 책임 레이어: Game 순수 컴파일. config/콘텐츠 입력과 runtime 진행/effects 실행을 분리한다.
 목적: 데이터 해석을 매 프레임 진행과 분리한다.
 수정 대상:
@@ -343,9 +343,9 @@
 유지 사항: 0-based 콘텐츠와 기존 1-based 경계 명시.
 변경 금지: Math.random/Date.now 내장·전역 config 재읽기·타이머.
 완료 조건:
-- [ ] 같은 입력/시드/버전은 동일 계획이며 첫 박자 0과 소수 박자의 seconds 변환이 기대값과 일치한다(A17).
-- [ ] 반복 호출·호출 후 외부 config 변경에도 기존 계획과 원본은 불변이고 검증 실패 입력을 실행하지 않는다.
-- [ ] 타이머/HP/effects 호출 0회, Red→Green·전체 npm test/build 및 #508 코멘트/HANDOVER 기록을 남긴다.
+- [x] 같은 입력/시드/버전은 동일 계획이며 첫 박자 0과 소수 박자의 seconds 변환이 기대값과 일치한다(A17).
+- [x] 반복 호출·호출 후 외부 config 변경에도 기존 계획과 원본은 불변이고 검증 실패 입력을 실행하지 않는다.
+- [x] 타이머/HP/effects 호출 0회, Red→Green·전체 npm test/build 및 #508 코멘트/HANDOVER 기록을 남긴다.
 테스트: 고정 시드 반복, 다른 승인 BPM fixture, startBeat=0/소수, 같은 시각 경계, 복귀 간격과 동결 입력을 Red로 검증한다. npm test Baseline → 대상 Red → 별도 구현 Green → 전체 npm test/npm run build. 런타임 프레임 누락 처리는 15의 범위다.
 관련 파일: DOC-14 §6.5~6.6.
 선행 카드: [05 #507](https://github.com/Choyounhwa/-dream-guardian/issues/507)의 실제 완료 증거 및 본 카드 승인.
