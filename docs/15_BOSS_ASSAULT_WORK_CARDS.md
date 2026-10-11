@@ -152,7 +152,7 @@
 | BOSS-ASSAULT-36 | https://github.com/Choyounhwa/-dream-guardian/issues/538 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-37 | https://github.com/Choyounhwa/-dream-guardian/issues/539 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-38 | https://github.com/Choyounhwa/-dream-guardian/issues/541 | DONE (실측 스파이크 완료, 01 결정 입력 증거 제출) |
-| BOSS-ASSAULT-39 | https://github.com/Choyounhwa/-dream-guardian/issues/542 | OPEN / 승인 대기 (v0.3) |
+| BOSS-ASSAULT-39 | https://github.com/Choyounhwa/-dream-guardian/issues/542 | DONE (문항 적격성 필터 및 읽기 시간 분류 완료) |
 | BOSS-ASSAULT-40 | https://github.com/Choyounhwa/-dream-guardian/issues/543 | OPEN / 승인 대기 (v0.3) |
 | BOSS-ASSAULT-41 | https://github.com/Choyounhwa/-dream-guardian/issues/544 | OPEN / 승인 대기 (v0.3) |
 | BOSS-ASSAULT-42 | https://github.com/Choyounhwa/-dream-guardian/issues/545 | OPEN / 승인 대기 (v0.3) |
@@ -1289,7 +1289,7 @@
 
 ### [BOSS-ASSAULT-39]
 제목: 접근전 문항 적격성 필터 및 읽기 시간 분류
-상태: OPEN / 계획 / 개별 승인 대기.
+상태: DONE / 완료.
 책임 레이어: Question(순수 필터) + Config(규칙표).
 목적: 숫자형 반복 보기에 맞지 않는 문항을 진입 전에 제외하고 문항별 최소 읽기 시간을 산출한다.
 수정 대상:
@@ -1308,9 +1308,9 @@
 유지 사항: CSV 원본, QuestionBank/QuestionEvaluator 동작.
 변경 금지: CSV 수정, legacy 출제 경로 변경, Math.random 사용.
 완료 조건:
-- [ ] 실제 CSV 샘플(L1 비교 기호, L3 분수, L7 도형, 정상 숫자)이 승인 범위대로 분류된다(A29).
-- [ ] 읽기 규칙 경계(길이 N 직전/동일/초과)가 일치하고 원본 레코드가 불변이다.
-- [ ] Red→Green·전체 npm test/build 및 이슈 코멘트/HANDOVER 기록.
+- [x] 실제 CSV 샘플(L1 비교 기호, L3 분수, L7 도형, 정상 숫자)이 승인 범위대로 분류된다(A29).
+- [x] 읽기 규칙 경계(길이 N 직전/동일/초과)가 일치하고 원본 레코드가 불변이다.
+- [x] Red→Green·전체 npm test/build 및 이슈 코멘트/HANDOVER 기록.
 테스트: 표 기반 Red. npm test Baseline → 대상 Red → 별도 최소 구현 Green → 전체 npm test/npm run build.
 관련 파일: DOC-14 §§5.1,15.1-A6,15.3-C1,C9; `questions.csv`, `QuestionEvaluator.ts` 읽기 전용.
 선행 카드: [02 #504](https://github.com/Choyounhwa/-dream-guardian/issues/504), [03 #505](https://github.com/Choyounhwa/-dream-guardian/issues/505) 실제 완료, 01 DEC-A6 승인 증거.

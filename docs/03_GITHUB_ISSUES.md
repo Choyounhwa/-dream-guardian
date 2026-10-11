@@ -58,7 +58,7 @@
 | 카드 | 실제 이슈 | 단계 / 상태 |
 |---|---|---|
 | 38 펀치·스쿼트·지연 실측 스파이크 | [#541](https://github.com/Choyounhwa/-dream-guardian/issues/541) | G0 / DONE |
-| 39 문항 적격성·읽기 시간 분류 | [#542](https://github.com/Choyounhwa/-dream-guardian/issues/542) | G1 / OPEN |
+| 39 문항 적격성·읽기 시간 분류 | [#542](https://github.com/Choyounhwa/-dream-guardian/issues/542) | G1 / DONE |
 | 40 ASSAULT_ROUND 동작 소유권 config | [#543](https://github.com/Choyounhwa/-dream-guardian/issues/543) | G1 / OPEN |
 | 41 박자·연출 효과음 큐 | [#544](https://github.com/Choyounhwa/-dream-guardian/issues/544) | G2 / OPEN |
 | 42 접근 진행도 연출 렌더러 | [#545](https://github.com/Choyounhwa/-dream-guardian/issues/545) | G3 / OPEN |
