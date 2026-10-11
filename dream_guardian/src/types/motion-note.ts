@@ -41,7 +41,7 @@ export interface MotionNote {
   readonly profileId?: string; // 미지정 시 config의 기본 매핑으로 결정
   readonly leadBeats?: number; // 비행 박 수 override (미지정 시 기본값)
   readonly holdBeats?: number; // hold/rub 전용: 착지 후 유지 박 수
-  readonly source?: 'star' | 'stomp' | 'hazard' | 'boss' | 'fever'; // 출처 태그
+  readonly source?: 'star' | 'stomp' | 'hazard' | 'boss' | 'fever' | 'assault'; // 출처 태그
 }
 
 /**
