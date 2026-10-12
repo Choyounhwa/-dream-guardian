@@ -13,7 +13,7 @@
 | 순서 | 카드 | 내용 | 상태 |
 |---|---|---|---|
 | 1 | [#561 DEVUI-001](https://github.com/Choyounhwa/-dream-guardian/issues/561) | `?dev=ui` 진입점, 프로덕션 번들 격리 | `[✔]` 9b69a04 (브라우저 실검증 완료 2026-10-12) |
-| 2 | [#562 DEVUI-002](https://github.com/Choyounhwa/-dream-guardian/issues/562) | `ui-layout.json` 검증 후 깊은 병합(in-place) 적용 | `[✔]` 961caba (브라우저 실검증 대기: `public/ui-layout.json` 적용·미존재·거부 경고) |
+| 2 | [#562 DEVUI-002](https://github.com/Choyounhwa/-dream-guardian/issues/562) | `ui-layout.json` 검증 후 깊은 병합(in-place) 적용 | `[✔]` 961caba (브라우저 실검증 완료 2026-10-12) |
 | 3 | [#563 DEVUI-003](https://github.com/Choyounhwa/-dream-guardian/issues/563) | 화면 강제 이동, 시간 정지 | `[▶ NEXT: DEVUI]` |
 | 4 | [#564 DEVUI-004](https://github.com/Choyounhwa/-dream-guardian/issues/564) | 메뉴 계열 화면 프리셋 | 대기 |
 | 5 | [#566 DEVUI-006](https://github.com/Choyounhwa/-dream-guardian/issues/566) | Tweakpane 패널, JSON 내보내기 → **메뉴 계열 편집 가능** | 대기 |
