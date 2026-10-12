@@ -146,12 +146,23 @@ export interface UILayoutConfig {
     cardWidth: number;
     cardHeight: number;
     chapterCards: Array<{ chapter: number; x: number; y: number; w: number; h: number }>;
+    /** 타이틀 텍스트: 중심 y = title.y + title.h/2 - liftY, 슬로건은 중심 + sloganGapY */
+    titleText: { liftY: number; sloganGapY: number };
+    /** 타이틀 배너 이미지 높이 (타이틀 중심 기준) */
+    titleBanner: { h: number };
+    /** 챕터 카드 내부 텍스트 기준선: 카드 top 기준 y 오프셋 */
+    cardText: { chapterY: number; nameY: number; subY: number; starsY: number };
   };
   subMenu: UILayoutSlot & {
     title: UILayoutSlot;
-    cardWidth: number;
-    cardHeight: number;
+    /** 제목 텍스트: 중심 y = title.y + title.h/2 - liftY, 안내문은 중심 + captionGapY */
+    titleText: { liftY: number; captionGapY: number };
+    /** 제목 배너 이미지 높이 (제목 중심 기준) */
+    titleBanner: { h: number };
+    /** 단계 카드 내부 텍스트 기준선: 카드 top 기준 y 오프셋 */
+    cardText: { labelY: number; subLabelY: number };
     grid: { startX: number; startY: number; gapX: number; gapY: number; cols: number; w: number; h: number };
+    /** 뒤로가기 버튼: 하단 바 액션 슬롯. 그리기(SceneDirector.renderHUD)와 hit 가 같은 값을 쓴다 */
     backBtn: UILayoutSlot;
   };
   result: UILayoutSlot & {
@@ -213,6 +224,9 @@ export const UI_LAYOUT: UILayoutConfig = {
       { chapter: 4, x: 600, y: 920, w: 360, h: 380 },
       { chapter: 5, x: 360, y: 1380, w: 360, h: 380 },
     ],
+    titleText: { liftY: 30, sloganGapY: 54 },
+    titleBanner: { h: 120 },
+    cardText: { chapterY: 75, nameY: 160, subY: 225, starsY: 305 },
   },
   subMenu: {
     x: 0,
@@ -220,8 +234,9 @@ export const UI_LAYOUT: UILayoutConfig = {
     w: 1080,
     h: 1960,
     title: { x: 80, y: 160, w: 920, h: 200 },
-    cardWidth: 420,
-    cardHeight: 380,
+    titleText: { liftY: 20, captionGapY: 65 },
+    titleBanner: { h: 120 },
+    cardText: { labelY: 140, subLabelY: 230 },
     grid: {
       startX: 80,
       startY: 440,

@@ -10,6 +10,7 @@
 import { DEFAULT_CONFIG } from './Config.js';
 import type { GameSessionContext } from './GameSessionContext.js';
 import { HORIZON_RATIO } from '../../config/grid.config.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
 import { drawJoinedHandsCursor, PostureGuideRenderer } from '../render/index.js';
 import type { RunningMatRenderer } from '../render/RunningMatRenderer.js';
 import { RunningMatPresenter, presentRunningMat } from '../render/RunningMatPresenter.js';
@@ -39,6 +40,16 @@ export const MENU_HOVER_DWELL_TIME = 0.8;
 export const CLIMAX_BARRAGE_DURATION = 0.8;
 
 /**
+ * 서브메뉴 뒤로가기 버튼 슬롯 (1080x2160 가상 px)
+ * [LAYOUT-002 / Issue #569] 그리기(renderHUD)와 hit(resolveBottomBarActionSlot)의 단일 getter.
+ * UI_LAYOUT.subMenu.backBtn 을 매 호출마다 다시 읽는다 (캐시 금지).
+ */
+export function getSubmenuBackSlot(): BottomBarSlot {
+  const { x, y, w, h } = UI_LAYOUT.subMenu.backBtn;
+  return { x, y, w, h };
+}
+
+/**
  * 하단바 submenu customActionSlot 등 Core의 액션 버튼 seam 검증 geometry 조회
  * [UI-VIS-041 / Issue #471]
  */
@@ -54,7 +65,7 @@ export function resolveBottomBarActionSlot(
   if (!hasAction) return undefined;
 
   const pageId = isSubmenu ? 'submenu' : screenMode === 'game' ? 'pause' : 'result';
-  const defaultSubmenuSlot = isSubmenu ? { x: 780, y: 1990, w: 270, h: 140 } : undefined;
+  const defaultSubmenuSlot = isSubmenu ? getSubmenuBackSlot() : undefined;
 
   if (bottomBar && typeof bottomBar.getActionButtonBounds === 'function') {
     return bottomBar.getActionButtonBounds(vw, vh, {
@@ -64,12 +75,12 @@ export function resolveBottomBarActionSlot(
     });
   }
 
-  if (isSubmenu) {
+  if (defaultSubmenuSlot) {
     return {
-      x: (780 / 1080) * vw,
-      y: (1990 / 2160) * vh,
-      w: (270 / 1080) * vw,
-      h: (140 / 2160) * vh,
+      x: (defaultSubmenuSlot.x / 1080) * vw,
+      y: (defaultSubmenuSlot.y / 2160) * vh,
+      w: (defaultSubmenuSlot.w / 1080) * vw,
+      h: (defaultSubmenuSlot.h / 2160) * vh,
     };
   }
   return {
@@ -1377,7 +1388,7 @@ export class SceneDirector<TContext = any> {
         actionLabel = '← 뒤로';
         actionColor = '#28E6FF';
         pageId = 'submenu';
-        customActionSlot = { x: 780, y: 1990, w: 270, h: 140 };
+        customActionSlot = getSubmenuBackSlot();
       } else {
         pageId = 'main_home';
       }
