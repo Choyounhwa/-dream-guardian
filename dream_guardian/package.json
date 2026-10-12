@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.9",
+    "tweakpane": "^4.0.5",
     "typescript": "^5.8.2",
     "vite": "^6.2.0",
     "vitest": "^3.0.7"

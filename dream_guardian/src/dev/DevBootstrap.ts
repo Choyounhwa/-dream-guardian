@@ -135,6 +135,16 @@ function defaultSchedule(app: unknown): (fn: () => void) => void {
 
 export interface StartDevUiOptions {
   schedule?: (fn: () => void) => void;
+  /** [DEVUI-006] 레이아웃 패널 마운트 (테스트 주입용). 기본은 DevLayoutPanel 동적 import */
+  mountLayoutPanel?: (app: unknown, doc: Document) => void;
+}
+
+/** [DEVUI-006] 기본 레이아웃 패널 마운트: 브라우저에서만 tweakpane 패널을 동적 로드한다 */
+function defaultMountLayoutPanel(app: unknown, doc: Document): void {
+  if (typeof window === 'undefined') return;
+  import('./DevLayoutPanel.js')
+    .then((m) => m.mountDevLayoutPanel(app, doc))
+    .catch((err) => console.warn('[DEV UI] 레이아웃 패널 로드 실패:', err));
 }
 
 function mountSceneJumper(
@@ -265,6 +275,9 @@ export function startDevUi(
       opts.schedule ?? defaultSchedule(app),
       opts.schedule,
     );
+    // [DEVUI-006] 부팅(ui-layout.json 적용) 이후 레이아웃 패널을 붙인다.
+    const mountLayoutPanel = opts.mountLayoutPanel ?? defaultMountLayoutPanel;
+    (opts.schedule ?? defaultSchedule(app))(() => mountLayoutPanel(app, doc));
   }
   return badge;
 }
