@@ -85,9 +85,9 @@ describe('DEVUI-006 바인딩 생성', () => {
   it('잠금 패턴과 일치하는 항목은 읽기 전용이다 (* 는 한 단계 와일드카드)', () => {
     expect(isLockedPath('menu.chapterCards.3.chapter', ['menu.chapterCards.*.chapter'])).toBe(true);
     expect(isLockedPath('menu.chapterCards.3.x', ['menu.chapterCards.*.chapter'])).toBe(false);
-    expect(isLockedPath('hud.combo.x', ['hud.combo'])).toBe(true);
-    const bindings = flattenLayoutBindings(UI_LAYOUT, ['hud.combo', 'menu.chapterCards.*.chapter']);
-    expect(bindings.find((b) => b.path === 'hud.combo.y')!.readonly).toBe(true);
+    expect(isLockedPath('hud.comboBadge.w', ['hud.comboBadge'])).toBe(true);
+    const bindings = flattenLayoutBindings(UI_LAYOUT, ['hud.comboBadge', 'menu.chapterCards.*.chapter']);
+    expect(bindings.find((b) => b.path === 'hud.comboBadge.y')!.readonly).toBe(true);
     expect(bindings.find((b) => b.path === 'menu.chapterCards.0.chapter')!.readonly).toBe(true);
     expect(bindings.find((b) => b.path === 'menu.title.y')!.readonly).toBe(false);
   });
@@ -142,8 +142,8 @@ describe('DEVUI-006 diff·내보내기', () => {
 
   it('pinned 경로는 값이 같아도 포함한다 (기존 ui-layout.json 항목 보존)', () => {
     const base = snapshotLayout(UI_LAYOUT);
-    const diff = buildLayoutDiff(UI_LAYOUT, base, new Set(['hud.combo.x']));
-    expect(diff).toEqual({ hud: { combo: { x: UI_LAYOUT.hud.combo.x } } });
+    const diff = buildLayoutDiff(UI_LAYOUT, base, new Set(['hud.comboBadge.w']));
+    expect(diff).toEqual({ hud: { comboBadge: { w: UI_LAYOUT.hud.comboBadge!.w } } });
   });
 
   it('내보낸 JSON 을 DEVUI-002 로 기본값에 재적용하면 결과가 같다 (왕복)', () => {

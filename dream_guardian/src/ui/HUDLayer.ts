@@ -18,6 +18,9 @@ import {
 } from '../../config/locomotion.config.js';
 import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
 
+/** UI_LAYOUT 가상 좌표계 기준 너비 */
+const VIRTUAL_WIDTH = 1080;
+
 export { LOCOMOTION_HUD_GUIDES };
 export type { LocomotionHUDGuide };
 
@@ -190,7 +193,7 @@ export class HUDLayer {
   getPlayerHpBarBounds(w: number, _h?: number): { x: number; y: number; w: number; h: number } {
     const resolved = this._resolveContext();
     const hpSlot = UI_LAYOUT.hud.playerHpBar;
-    const defaultW = Math.min(hpSlot.w, w * 0.28);
+    const defaultW = Math.min(hpSlot.w, this._hpBarMaxWidth(w));
     const defaultH = this.getHpBarHeight();
     const defaultX = hpSlot.x;
     const defaultY = hpSlot.y;
@@ -208,11 +211,13 @@ export class HUDLayer {
    */
   getBossHpBarBounds(w: number, _h?: number): { x: number; y: number; w: number; h: number } {
     const resolved = this._resolveContext();
-    const hpSlot = UI_LAYOUT.hud.playerHpBar;
-    const defaultW = Math.min(hpSlot.w, w * 0.28);
-    const defaultH = this.getHpBarHeight();
-    const defaultX = w - hpSlot.x - defaultW;
-    const defaultY = hpSlot.y;
+    const bossSlot = UI_LAYOUT.hud.bossHpBar;
+    const defaultW = Math.min(bossSlot.w, this._hpBarMaxWidth(w));
+    const defaultH = this._scaledHpBarHeight(bossSlot.h);
+    // 우측 앵커: 1080 기준 오른쪽 여백을 실제 화면 너비에서도 유지
+    const marginRight = VIRTUAL_WIDTH - bossSlot.x - bossSlot.w;
+    const defaultX = w - marginRight - defaultW;
+    const defaultY = bossSlot.y;
 
     return {
       x: resolved?.bossHpBar?.x ?? defaultX,
@@ -238,10 +243,12 @@ export class HUDLayer {
    */
   getBossNameBounds(w: number, _h?: number): { x: number; y: number; w: number; h: number } {
     const resolved = this._resolveContext();
-    const plateW = 400;
-    const plateH = 60;
-    const defaultX = (w - plateW) / 2;
-    const defaultY = 6;
+    const nameSlot = UI_LAYOUT.hud.bossName;
+    const plateW = nameSlot.w;
+    const plateH = nameSlot.h;
+    // 중앙 앵커: 1080 기준 x를 실제 화면 너비의 중앙 이동량만큼 평행 이동
+    const defaultX = nameSlot.x + (w - VIRTUAL_WIDTH) / 2;
+    const defaultY = nameSlot.y;
 
     return {
       x: resolved?.bossName?.x ?? defaultX,
@@ -274,9 +281,17 @@ export class HUDLayer {
    * HP바 높이 산출 (Issue #265 / A11Y-004: 저시력 모드 fontScale 반영, 기본 32px -> 상한 64px 클램프)
    */
   getHpBarHeight(fontScale?: number): number {
+    return this._scaledHpBarHeight(UI_LAYOUT.hud.playerHpBar?.h ?? 32, fontScale);
+  }
+
+  private _scaledHpBarHeight(baseH: number, fontScale?: number): number {
     const scale = fontScale ?? UIText.getAccessibility().fontScale ?? 1.0;
-    const baseH = UI_LAYOUT.hud.playerHpBar?.h ?? 32;
-    return Math.min(64, baseH * scale);
+    return Math.min(UI_LAYOUT.hud.hpBarMax.h, baseH * scale);
+  }
+
+  /** HP바 너비 상한: 1080 가상 px 기준 값을 화면 너비 비율로 환산 (매 호출 시 UI_LAYOUT 재조회) */
+  private _hpBarMaxWidth(w: number): number {
+    return w * (UI_LAYOUT.hud.hpBarMax.w / VIRTUAL_WIDTH);
   }
 
   private _renderHpBars(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
@@ -344,7 +359,7 @@ export class HUDLayer {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const playerHpLabel = resolved?.playerHpBar?.label ?? `HP ${data.playerHp}/${data.playerMaxHp}`;
-    ctx.fillText(playerHpLabel, pad + 8, y + barH / 2);
+    ctx.fillText(playerHpLabel, pad + UI_LAYOUT.hud.hpLabelInset.x, y + barH / 2);
     ctx.restore();
 
     // 보스 HP (우측)
@@ -409,7 +424,7 @@ export class HUDLayer {
     ctx.fillStyle = '#fff';
     ctx.font = UIText.getFont('caption', 1.0, 'bold', 'sans-serif', 26);
     const bossHpLabel = resolved?.bossHpBar?.label ?? `HP ${data.bossHp}/${data.bossMaxHp}`;
-    ctx.fillText(bossHpLabel, bx + bossBarW - 8, by + bossBarH / 2);
+    ctx.fillText(bossHpLabel, bx + bossBarW - UI_LAYOUT.hud.hpLabelInset.x, by + bossBarH / 2);
     ctx.restore();
   }
 
@@ -435,14 +450,14 @@ export class HUDLayer {
 
     const comboIcon = imageLoader.get('hud', 'comboIcon');
     const textRight = badgeX + badgeW;
-    const textY = badgeY + badgeH / 2 + 4;
+    const textY = badgeY + badgeH / 2 + UI_LAYOUT.hud.comboTextOffsetY;
 
     if (comboIcon) {
       const textW = ctx.measureText ? ctx.measureText(comboText).width : 80;
-      const iconSize = 36;
-      const iconX = textRight - textW - iconSize - 8;
-      const iconY = textY - iconSize / 2;
-      ctx.drawImage(comboIcon, iconX, iconY, iconSize, iconSize);
+      const iconSlot = UI_LAYOUT.hud.comboIcon;
+      const iconX = textRight - textW - iconSlot.w - iconSlot.gapX;
+      const iconY = textY - iconSlot.h / 2;
+      ctx.drawImage(comboIcon, iconX, iconY, iconSlot.w, iconSlot.h);
     }
 
     ctx.shadowColor = data.combo >= 5 ? '#FFCB4D' : '#28E6FF';

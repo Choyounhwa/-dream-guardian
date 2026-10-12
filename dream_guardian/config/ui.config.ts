@@ -126,10 +126,19 @@ export interface UILayoutSlot {
 export interface UILayoutConfig {
   hud: UILayoutSlot & {
     playerHpBar: UILayoutSlot;
+    /** 보스 HP바: 오른쪽 여백(1080 - (x + w))을 유지하는 우측 앵커 */
     bossHpBar: UILayoutSlot;
-    combo: { x: number; y: number; w?: number; h?: number };
+    /** 보스 이름 플레이트: 화면 중앙 기준 앵커 (x + (화면너비 - 1080) / 2) */
     bossName: UILayoutSlot;
     comboBadge?: { w: number; h: number; y: number; marginRight: number };
+    /** HP바 상한: w = 1080 가상 px 기준 반응형 너비 상한(화면너비 × w/1080), h = 접근성 확대 시 높이 상한 */
+    hpBarMax: { w: number; h: number };
+    /** HP 수치 라벨의 바 가장자리 안쪽 여백 */
+    hpLabelInset: { x: number };
+    /** 콤보 텍스트 기준선의 배지 중앙 대비 아래 오프셋 */
+    comboTextOffsetY: number;
+    /** 콤보 아이콘 크기와 텍스트 사이 간격 */
+    comboIcon: { w: number; h: number; gapX: number };
   };
   menu: UILayoutSlot & {
     title: UILayoutSlot;
@@ -181,9 +190,12 @@ export const UI_LAYOUT: UILayoutConfig = {
     h: 200,
     playerHpBar: { x: 20, y: 20, w: 320, h: 32 },
     bossHpBar: { x: 740, y: 20, w: 320, h: 32 },
-    combo: { x: 540, y: 120, w: 200, h: 60 },
-    bossName: { x: 740, y: 60, w: 320, h: 30 },
+    bossName: { x: 340, y: 6, w: 400, h: 60 },
     comboBadge: { w: 160, h: 48, y: 48, marginRight: 24 },
+    hpBarMax: { w: 1080 * 0.28, h: 64 },
+    hpLabelInset: { x: 8 },
+    comboTextOffsetY: 4,
+    comboIcon: { w: 36, h: 36, gapX: 8 },
   },
   menu: {
     x: 0,
