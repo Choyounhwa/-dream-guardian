@@ -19,8 +19,8 @@
 | 5 | [#566 DEVUI-006](https://github.com/Choyounhwa/-dream-guardian/issues/566) | Tweakpane 패널, JSON 내보내기 → **메뉴 계열 편집 가능** | `[✔]` 09b6ef7 (브라우저 실검증 대기. devDependency `tweakpane@^4.0.5` 추가) |
 | 6 | [#568 LAYOUT-001](https://github.com/Choyounhwa/-dream-guardian/issues/568) | HUD 이전 | `[✔]` 7a4e3f3 (브라우저 전·후 스크린샷 비교 대기. 미사용 `hud.combo` 제거) |
 | 7 | [#569 LAYOUT-002](https://github.com/Choyounhwa/-dream-guardian/issues/569) | 메인 메뉴·서브메뉴 이전 (뒤로가기 버튼 좌표 단일화) | `[✔]` 845cfb9 (브라우저 전·후 비교 대기. `SceneDirector.ts`는 `getSubmenuBackSlot()` 추가만) |
-| 7-1 | [#578 DEVUI-009](https://github.com/Choyounhwa/-dream-guardian/issues/578) | 내보내기 `public/layouts/` 저장(브라우저 저장 대화상자), 로드 경로 `/layouts/ui-layout.json` | `[▶ NEXT: DEVUI]` |
-| 7-2 | [#579 DEVUI-010](https://github.com/Choyounhwa/-dream-guardian/issues/579) | 패널 Undo/Redo (버튼·Ctrl+Z/Y·드래그 묶음) | 대기 |
+| 7-1 | [#578 DEVUI-009](https://github.com/Choyounhwa/-dream-guardian/issues/578) | 내보내기 `public/layouts/` 저장(브라우저 저장 대화상자), 로드 경로 `/layouts/ui-layout.json` | `[✔]` 2f20e87 (TDD 100% Pass) |
+| 7-2 | [#579 DEVUI-010](https://github.com/Choyounhwa/-dream-guardian/issues/579) | 패널 Undo/Redo (버튼·Ctrl+Z/Y·드래그 묶음) | `[▶ NEXT: DEVUI]` |
 | 7-3 | [#580 DEVUI-011](https://github.com/Choyounhwa/-dream-guardian/issues/580) | 미세 조정 ▲▼ 화살표 (1px / Shift 10px) | 대기 |
 | 7-4 | [#581 LAYOUT-010](https://github.com/Choyounhwa/-dream-guardian/issues/581) | 값 검증 규칙 단일화 + 글자 배율 `textScale` 규칙 | 대기 |
 | 7-5 | [#582 LAYOUT-011](https://github.com/Choyounhwa/-dream-guardian/issues/582) | 메인 메뉴·서브메뉴 글자 크기 `textScale` | 대기 |
