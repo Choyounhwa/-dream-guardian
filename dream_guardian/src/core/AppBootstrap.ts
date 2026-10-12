@@ -46,6 +46,7 @@ import {
 } from '../data/UIPresentation.js';
 import { computeContentHash } from '../data/ContentCanonical.js';
 import { resolveBottomBarActionSlot } from './SceneDirector.js';
+import { loadUiLayoutOverride } from './UILayoutOverride.js';
 import { ContentProvider } from '../game/ContentProvider.js';
 import {
   type PublishedContentPack,
@@ -2737,6 +2738,12 @@ engine = new GameEngine({
 
   public async init(): Promise<void> {
     if (this._isInitialized) return;
+
+    // [DEVUI-002] (Issue #562): 엔진 시작(첫 렌더) 전 public/ui-layout.json 을 UI_LAYOUT 에 in-place 병합.
+    // 파일이 없거나 실패하면 기본값 그대로 부팅한다.
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+      await loadUiLayoutOverride(fetch.bind(window)).catch(() => undefined);
+    }
 
     if (this._options.preloadAssets !== false) {
       await Promise.all([
