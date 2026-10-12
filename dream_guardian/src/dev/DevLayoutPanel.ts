@@ -21,6 +21,10 @@ import {
   UI_LAYOUT_OVERRIDE_URL,
   type LayoutOverrideResult,
 } from '../core/UILayoutOverride.js';
+import {
+  DevLayoutHistory,
+  type LayoutChangeItem,
+} from './DevLayoutHistory.js';
 
 export const DEV_LAYOUT_PANEL_ID = 'dg-dev-layout-panel';
 export const DEV_LAYOUT_STORAGE_KEY = 'dg-dev-ui-layout-diff';
@@ -151,6 +155,36 @@ export function resetLayoutTo(target: object, base: object): void {
   walk(target as Obj, base as Obj);
 }
 
+/** 점(.) 경로를 따라 값을 읽는다 */
+export function getPathValue(root: unknown, path: string): unknown {
+  if (!root || typeof root !== 'object') return undefined;
+  const segs = path.split('.');
+  let cur: any = root;
+  for (const seg of segs) {
+    if (cur === null || typeof cur !== 'object' || !(seg in cur)) return undefined;
+    cur = cur[seg];
+  }
+  return cur;
+}
+
+/** 점(.) 경로를 따라 값을 in-place 로 설정한다 (상위 객체 참조 유지) */
+export function applyPathValue(root: unknown, path: string, value: number): boolean {
+  if (!root || typeof root !== 'object') return false;
+  const segs = path.split('.');
+  let cur: any = root;
+  for (let i = 0; i < segs.length - 1; i++) {
+    const seg = segs[i];
+    if (cur === null || typeof cur !== 'object' || !(seg in cur)) return false;
+    cur = cur[seg];
+  }
+  const lastKey = segs[segs.length - 1];
+  if (cur && typeof cur === 'object' && lastKey in cur) {
+    cur[lastKey] = value;
+    return true;
+  }
+  return false;
+}
+
 export interface StorageLike {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
@@ -194,13 +228,14 @@ export function getSectionsForState(state: string): string[] {
 
 interface ApiLike {
   on(event: string, fn: (ev?: unknown) => void): unknown;
+  disabled?: boolean;
 }
 
 export interface FolderLike {
   expanded?: boolean;
   addFolder(params: { title: string; expanded?: boolean }): FolderLike;
   addBinding(obj: object, key: string, params: Record<string, unknown>): ApiLike;
-  addButton(params: { title: string }): ApiLike;
+  addButton(params: { title: string; disabled?: boolean }): ApiLike;
 }
 
 export interface FileSystemWritableFileStreamLike {
@@ -298,10 +333,15 @@ export interface MountLayoutPanelOptions {
   fileOverride?: unknown;
   /** 화면 전환을 감지해 섹션 펼침을 갱신 (기본 true) */
   watchState?: boolean;
+  /** 외부에서 주입할 이력 관리자 (미지정 시 신규 생성) */
+  history?: DevLayoutHistory;
 }
 
 export interface DevLayoutPanelHandle {
   pane: PaneLike;
+  history?: DevLayoutHistory;
+  undo?: () => void;
+  redo?: () => void;
   dispose(): void;
 }
 
@@ -347,7 +387,13 @@ async function fetchFileOverride(): Promise<unknown> {
   }
 }
 
-function addLayoutFolder(parent: FolderLike, node: Obj | unknown[], path: string, metas: Map<string, LayoutBinding>, onChange: () => void): void {
+function addLayoutFolder(
+  parent: FolderLike,
+  node: Obj | unknown[],
+  path: string,
+  metas: Map<string, LayoutBinding>,
+  onChange: (path: string, val: number, isLast: boolean) => void,
+): void {
   for (const key of Object.keys(node)) {
     const p = path ? `${path}.${key}` : key;
     const v = (node as Obj)[key];
@@ -356,7 +402,12 @@ function addLayoutFolder(parent: FolderLike, node: Obj | unknown[], path: string
       const params: Record<string, unknown> = { label: key, readonly: m.readonly };
       if (!m.readonly) Object.assign(params, { min: m.min, max: m.max, step: 1 });
       const api = parent.addBinding(node as object, key, params);
-      if (!m.readonly) api.on('change', onChange);
+      if (!m.readonly) {
+        api.on('change', (ev?: any) => {
+          const isLast = ev ? (ev.last !== false) : true;
+          onChange(p, (node as Obj)[key] as number, isLast);
+        });
+      }
     } else if (isContainer(v)) {
       addLayoutFolder(parent.addFolder({ title: key, expanded: false }), v, p, metas, onChange);
     }
@@ -390,6 +441,7 @@ export async function mountDevLayoutPanel(
   const storage = opts.storage === undefined ? defaultStorage() : opts.storage;
   const download = opts.download ?? defaultDownload;
   const fileOverride = opts.fileOverride === undefined ? await fetchFileOverride() : opts.fileOverride;
+  const history = opts.history ?? new DevLayoutHistory();
 
   // 기준값 = 부팅 시 값(기본값 + ui-layout.json). 기존 파일 항목은 내보내기에 항상 포함한다.
   const base = snapshotLayout(UI_LAYOUT);
@@ -399,7 +451,64 @@ export async function mountDevLayoutPanel(
   const sm = (app as AppLike | null)?.stateMachine;
   const sections = new Set(getSectionsForState(sm?.currentState ?? ''));
   const metas = new Map(flattenLayoutBindings(UI_LAYOUT, DEV_UI_LOCKED_LAYOUT_PATHS).map((b) => [b.path, b]));
-  const onChange = () => saveLayoutDiff(storage, UI_LAYOUT, base);
+
+  for (const [path, m] of metas) {
+    if (!m.readonly) {
+      history.setValue(path, (m.target as Record<string, number>)[m.key]);
+    }
+  }
+
+  const undoBtn = pane.addButton({ title: '↶ Undo', disabled: true });
+  const redoBtn = pane.addButton({ title: '↷ Redo', disabled: true });
+
+  const updateButtons = () => {
+    undoBtn.disabled = !history.canUndo();
+    redoBtn.disabled = !history.canRedo();
+  };
+
+  const performUndo = () => {
+    const entry = history.undo();
+    if (!entry) return;
+    const items = DevLayoutHistory.toItems(entry);
+    for (const item of items) {
+      applyPathValue(UI_LAYOUT, item.path, item.before);
+    }
+    pane.refresh();
+    saveLayoutDiff(storage, UI_LAYOUT, base);
+    updateButtons();
+  };
+
+  const performRedo = () => {
+    const entry = history.redo();
+    if (!entry) return;
+    const items = DevLayoutHistory.toItems(entry);
+    for (const item of items) {
+      applyPathValue(UI_LAYOUT, item.path, item.after);
+    }
+    pane.refresh();
+    saveLayoutDiff(storage, UI_LAYOUT, base);
+    updateButtons();
+  };
+
+  undoBtn.on('click', () => {
+    if (history.canUndo()) {
+      performUndo();
+    }
+  });
+
+  redoBtn.on('click', () => {
+    if (history.canRedo()) {
+      performRedo();
+    }
+  });
+
+  const onChange = (path: string, val: number, isLast: boolean) => {
+    history.recordChange(path, val, isLast);
+    if (isLast) {
+      saveLayoutDiff(storage, UI_LAYOUT, base);
+      updateButtons();
+    }
+  };
 
   pane
     .addButton({ title: `내보내기 (${DEV_LAYOUT_EXPORT_DIR}${DEV_LAYOUT_EXPORT_FILENAME})` })
@@ -411,10 +520,25 @@ export async function mountDevLayoutPanel(
         showSaveFilePicker: opts.showSaveFilePicker,
       });
     });
+
   pane.addButton({ title: '전체 초기화' }).on('click', () => {
+    const batch: LayoutChangeItem[] = [];
+    for (const [path, m] of metas) {
+      if (!m.readonly) {
+        const curVal = (m.target as Record<string, number>)[m.key];
+        const baseVal = getPathValue(base, path);
+        if (typeof baseVal === 'number' && curVal !== baseVal) {
+          batch.push({ path, before: curVal, after: baseVal });
+        }
+      }
+    }
+    if (batch.length > 0) {
+      history.push(batch);
+    }
     resetLayoutTo(UI_LAYOUT, base);
-    storage?.removeItem(DEV_LAYOUT_STORAGE_KEY);
+    saveLayoutDiff(storage, UI_LAYOUT, base);
     pane.refresh();
+    updateButtons();
   });
 
   const sectionFolders = new Map<string, FolderLike>();
@@ -432,6 +556,40 @@ export async function mountDevLayoutPanel(
     }
   }
 
+  const handleKeyDown = (ev: KeyboardEvent) => {
+    const active = doc.activeElement as HTMLElement | null;
+    if (active) {
+      const tag = active.tagName?.toUpperCase();
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || active.isContentEditable) {
+        return;
+      }
+    }
+
+    const isCtrlOrMeta = ev.ctrlKey || ev.metaKey;
+    if (!isCtrlOrMeta) return;
+
+    const key = ev.key ? ev.key.toLowerCase() : '';
+    if (key === 'z' && !ev.shiftKey) {
+      if (history.canUndo()) {
+        ev.preventDefault?.();
+        performUndo();
+      }
+      return;
+    }
+
+    if (key === 'y' || (key === 'z' && ev.shiftKey)) {
+      if (history.canRedo()) {
+        ev.preventDefault?.();
+        performRedo();
+      }
+      return;
+    }
+  };
+
+  if (typeof doc?.addEventListener === 'function') {
+    doc.addEventListener('keydown', handleKeyDown);
+  }
+
   let timer: ReturnType<typeof setInterval> | null = null;
   if (opts.watchState !== false && sm) {
     let last = sm.currentState;
@@ -445,7 +603,13 @@ export async function mountDevLayoutPanel(
 
   return {
     pane,
+    history,
+    undo: performUndo,
+    redo: performRedo,
     dispose() {
+      if (typeof doc?.removeEventListener === 'function') {
+        doc.removeEventListener('keydown', handleKeyDown);
+      }
       if (timer) clearInterval(timer);
       pane.dispose();
     },
