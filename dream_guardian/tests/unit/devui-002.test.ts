@@ -169,15 +169,15 @@ describe('DEVUI-002 loadUiLayoutOverride: 부팅 시 로드', () => {
     text: async () => body,
   });
 
-  it('기본 URL은 /ui-layout.json 이다', () => {
-    expect(UI_LAYOUT_OVERRIDE_URL).toBe('/ui-layout.json');
+  it('기본 URL은 /layouts/ui-layout.json 이다', () => {
+    expect(UI_LAYOUT_OVERRIDE_URL).toBe('/layouts/ui-layout.json');
   });
 
   it('메뉴 타이틀 y 변경 예시 JSON이 반영된다', async () => {
     const fetchFn = vi.fn(async () => fakeResponse(200, '{"menu":{"title":{"y":260}}}'));
     const titleRef = UI_LAYOUT.menu.title;
     const r = await loadUiLayoutOverride(fetchFn as unknown as typeof fetch);
-    expect(fetchFn).toHaveBeenCalledWith('/ui-layout.json', expect.anything());
+    expect(fetchFn).toHaveBeenCalledWith(UI_LAYOUT_OVERRIDE_URL, expect.anything());
     expect(r.status).toBe('applied');
     expect(UI_LAYOUT.menu.title).toBe(titleRef);
     expect(UI_LAYOUT.menu.title.y).toBe(260);

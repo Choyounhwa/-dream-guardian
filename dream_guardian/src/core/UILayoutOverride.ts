@@ -1,7 +1,7 @@
 /**
- * UILayoutOverride - public/ui-layout.json 을 UI_LAYOUT 에 검증 후 깊은 병합(in-place) 적용
+ * UILayoutOverride - public/layouts/ui-layout.json 을 UI_LAYOUT 에 검증 후 깊은 병합(in-place) 적용
  *
- * [DEVUI-002] (Issue #562)
+ * [DEVUI-002] (Issue #562) / [DEVUI-009] (Issue #578)
  * - 객체를 교체하지 않고 숫자 값만 제자리에서 갱신한다.
  *   (BOTTOM_BAR_CONFIG, PauseModal.MODAL_VIRTUAL 등이 하위 객체 참조를 보관하기 때문)
  * - 대상에 존재하는 키만, 같은 타입의 유한한 숫자만 허용한다.
@@ -13,7 +13,7 @@
 
 import { UI_LAYOUT } from '../../config/ui.config.js';
 
-export const UI_LAYOUT_OVERRIDE_URL = '/ui-layout.json';
+export const UI_LAYOUT_OVERRIDE_URL = '/layouts/ui-layout.json';
 
 const VIRTUAL_WIDTH = 1080;
 const VIRTUAL_HEIGHT = 2160;
@@ -110,7 +110,7 @@ export function applyLayoutOverride(target: object, patch: unknown): LayoutOverr
 }
 
 /**
- * 부팅 시 1회: /ui-layout.json 을 읽어 UI_LAYOUT 에 적용한다.
+ * 부팅 시 1회: /layouts/ui-layout.json 을 읽어 UI_LAYOUT 에 적용한다.
  * 파일이 없거나 실패하면 기본값 그대로 두고 예외를 던지지 않는다.
  */
 export async function loadUiLayoutOverride(

@@ -24,7 +24,9 @@ import {
 
 export const DEV_LAYOUT_PANEL_ID = 'dg-dev-layout-panel';
 export const DEV_LAYOUT_STORAGE_KEY = 'dg-dev-ui-layout-diff';
+export const DEV_LAYOUT_EXPORT_DIR = 'public/layouts/';
 export const DEV_LAYOUT_EXPORT_FILENAME = 'ui-layout.json';
+export const DEV_LAYOUT_LOAD_URL = UI_LAYOUT_OVERRIDE_URL;
 
 const VIRTUAL_WIDTH = 1080;
 const VIRTUAL_HEIGHT = 2160;
@@ -201,6 +203,87 @@ export interface FolderLike {
   addButton(params: { title: string }): ApiLike;
 }
 
+export interface FileSystemWritableFileStreamLike {
+  write(data: unknown): Promise<void>;
+  close(): Promise<void>;
+}
+
+export interface FileSystemFileHandleLike {
+  createWritable(): Promise<FileSystemWritableFileStreamLike>;
+}
+
+export interface SaveFilePickerOptionsLike {
+  suggestedName?: string;
+  types?: Array<{
+    description?: string;
+    accept: Record<string, string[]>;
+  }>;
+  startIn?: unknown;
+}
+
+let cachedSaveFileHandle: FileSystemFileHandleLike | null = null;
+
+export function getCachedSaveFileHandle(): FileSystemFileHandleLike | null {
+  return cachedSaveFileHandle;
+}
+
+export function clearCachedSaveFileHandle(): void {
+  cachedSaveFileHandle = null;
+}
+
+export interface SaveLayoutExportOptions {
+  download?: (text: string, filename: string) => void;
+  showSaveFilePicker?: (opts?: SaveFilePickerOptionsLike) => Promise<FileSystemFileHandleLike>;
+}
+
+export async function saveLayoutExport(
+  exportData: { json: string; filename: string },
+  options?: SaveLayoutExportOptions,
+): Promise<'saved' | 'downloaded' | 'cancelled'> {
+  const download = options?.download ?? defaultDownload;
+  const picker =
+    options?.showSaveFilePicker ??
+    (typeof window !== 'undefined'
+      ? (window as unknown as { showSaveFilePicker?: (opts?: SaveFilePickerOptionsLike) => Promise<FileSystemFileHandleLike> })
+          .showSaveFilePicker
+      : undefined);
+
+  if (typeof picker === 'function') {
+    try {
+      const pickerOptions: SaveFilePickerOptionsLike = {
+        suggestedName: exportData.filename,
+        types: [
+          {
+            description: 'JSON Files',
+            accept: {
+              'application/json': ['.json'],
+            },
+          },
+        ],
+      };
+      if (cachedSaveFileHandle) {
+        pickerOptions.startIn = cachedSaveFileHandle;
+      }
+      const handle = await picker(pickerOptions);
+      cachedSaveFileHandle = handle;
+      const writable = await handle.createWritable();
+      await writable.write(exportData.json);
+      await writable.close();
+      return 'saved';
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && (err as { name?: string }).name === 'AbortError') {
+        return 'cancelled';
+      }
+      console.warn('[DEV UI] 파일 저장 실패:', err);
+      return 'cancelled';
+    }
+  }
+
+  console.info('[DEV UI] showSaveFilePicker 미지원 환경 - 다운로드로 대체합니다 (저장 후 public/layouts/ 에 복사하세요).');
+  download(exportData.json, exportData.filename);
+  return 'downloaded';
+}
+
 export interface PaneLike extends FolderLike {
   refresh(): void;
   dispose(): void;
@@ -210,6 +293,7 @@ export interface MountLayoutPanelOptions {
   createPane?: (container: HTMLElement) => PaneLike | Promise<PaneLike>;
   storage?: StorageLike | null;
   download?: (text: string, filename: string) => void;
+  showSaveFilePicker?: (opts?: SaveFilePickerOptionsLike) => Promise<FileSystemFileHandleLike>;
   /** 부팅 시 적용된 ui-layout.json 내용. undefined 면 다시 읽어 온다, null 이면 없음 */
   fileOverride?: unknown;
   /** 화면 전환을 감지해 섹션 펼침을 갱신 (기본 true) */
@@ -317,11 +401,16 @@ export async function mountDevLayoutPanel(
   const metas = new Map(flattenLayoutBindings(UI_LAYOUT, DEV_UI_LOCKED_LAYOUT_PATHS).map((b) => [b.path, b]));
   const onChange = () => saveLayoutDiff(storage, UI_LAYOUT, base);
 
-  pane.addButton({ title: `내보내기 (${DEV_LAYOUT_EXPORT_FILENAME})` }).on('click', () => {
-    const out = buildLayoutExport(UI_LAYOUT, base, pinned);
-    if (out.warnings.length > 0) console.warn('[DEV UI] 내보내기 검증 경고:', out.warnings);
-    download(out.json, out.filename);
-  });
+  pane
+    .addButton({ title: `내보내기 (${DEV_LAYOUT_EXPORT_DIR}${DEV_LAYOUT_EXPORT_FILENAME})` })
+    .on('click', async () => {
+      const out = buildLayoutExport(UI_LAYOUT, base, pinned);
+      if (out.warnings.length > 0) console.warn('[DEV UI] 내보내기 검증 경고:', out.warnings);
+      await saveLayoutExport(out, {
+        download,
+        showSaveFilePicker: opts.showSaveFilePicker,
+      });
+    });
   pane.addButton({ title: '전체 초기화' }).on('click', () => {
     resetLayoutTo(UI_LAYOUT, base);
     storage?.removeItem(DEV_LAYOUT_STORAGE_KEY);
