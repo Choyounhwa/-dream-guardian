@@ -36,6 +36,8 @@
 | 16 | [#567 DEVUI-007](https://github.com/Choyounhwa/-dream-guardian/issues/567) | 인스펙터 오버레이 (클릭 선택·드래그) | 대기 |
 | 17 | [#577 DEVUI-008](https://github.com/Choyounhwa/-dream-guardian/issues/577) | 보스 접근전 화면 프리셋, `assault-visual.config` 편집 (다중 소스) | 대기 (BOSS-ASSAULT G3 및 #505·#521·#522·#545 완료 후) |
 
+**2026-10-13 추가 카드 (#578~#583, 사용자 결정)**: #570 앞에 끼워 넣는다. 내보내기는 (B) 브라우저 저장 대화상자 + `public/layouts/`. 글자 크기는 **모든 글자** 대상이며 요소별 `textScale`(0.5~3.0, 기본 1.0, 접근성 `fontScale`과 별개)로 둔다. 미세 조정은 1px / Shift 10px (`textScale`은 0.01 / Shift 0.1). #570~#576에는 "+글자 `textScale`" 범위를 이슈 코멘트로 추가했다. 기존 `public/ui-layout.json`은 #578 완료 후 사용자가 `public/layouts/`로 옮긴다.
+
 이 표의 NEXT는 이 트랙 안에서만 쓰는 표시다. 다른 트랙의 NEXT와 SSOT 순서는 바꾸지 않는다. 기존 UI-EDITOR-FIX 트랙의 #556~#560 보류 여부는 사용자 결정 대기다.
 
 ### BOSS-ASSAULT 병행 규칙 (2026-10-11 파일 겹침 분석)
