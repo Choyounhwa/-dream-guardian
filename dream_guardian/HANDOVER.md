@@ -14,8 +14,8 @@
 |---|---|---|---|
 | 1 | [#561 DEVUI-001](https://github.com/Choyounhwa/-dream-guardian/issues/561) | `?dev=ui` 진입점, 프로덕션 번들 격리 | `[✔]` 9b69a04 (브라우저 실검증 완료 2026-10-12) |
 | 2 | [#562 DEVUI-002](https://github.com/Choyounhwa/-dream-guardian/issues/562) | `ui-layout.json` 검증 후 깊은 병합(in-place) 적용 | `[✔]` 961caba (브라우저 실검증 완료 2026-10-12) |
-| 3 | [#563 DEVUI-003](https://github.com/Choyounhwa/-dream-guardian/issues/563) | 화면 강제 이동, 시간 정지 | `[▶ NEXT: DEVUI]` |
-| 4 | [#564 DEVUI-004](https://github.com/Choyounhwa/-dream-guardian/issues/564) | 메뉴 계열 화면 프리셋 | 대기 |
+| 3 | [#563 DEVUI-003](https://github.com/Choyounhwa/-dream-guardian/issues/563) | 화면 강제 이동, 시간 정지 | `[✔]` 651ec47 (브라우저 실검증 대기. 카드의 `DevSceneJumper.ts` 신규 대신 3파일 제한으로 `DevBootstrap.ts`에 통합) |
+| 4 | [#564 DEVUI-004](https://github.com/Choyounhwa/-dream-guardian/issues/564) | 메뉴 계열 화면 프리셋 | `[▶ NEXT: DEVUI]` |
 | 5 | [#566 DEVUI-006](https://github.com/Choyounhwa/-dream-guardian/issues/566) | Tweakpane 패널, JSON 내보내기 → **메뉴 계열 편집 가능** | 대기 |
 | 6 | [#568 LAYOUT-001](https://github.com/Choyounhwa/-dream-guardian/issues/568) | HUD 이전 | 대기 |
 | 7 | [#569 LAYOUT-002](https://github.com/Choyounhwa/-dream-guardian/issues/569) | 메인 메뉴·서브메뉴 이전 (뒤로가기 버튼 좌표 단일화) | 대기 |
