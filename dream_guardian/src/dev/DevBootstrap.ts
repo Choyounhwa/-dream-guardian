@@ -9,6 +9,7 @@
 
 import { StateMachine } from '../core/StateMachine.js';
 import type { GameState } from '../types/index.js';
+import { DEV_PRESET_IDS, applyDevPreset, parseDevPreset, type DevPresetId } from './DevScenePresets.js';
 
 export const DEV_UI_BADGE_ID = 'dg-dev-ui-badge';
 export const DEV_UI_BADGE_TEXT = 'DEV UI';
@@ -99,6 +100,31 @@ export function jumpToScreen(app: unknown, state: GameState, opts: JumpOptions):
   return ok;
 }
 
+/**
+ * [DEVUI-004] (Issue #564) 화면 프리셋 적용. 공개 API로 도달하지 못하는 전환만 개발 토큰으로 강제 이동하고,
+ * 옵션에 따라 정지를 예약한다.
+ */
+export function applyPresetScreen(app: unknown, id: DevPresetId, opts: JumpOptions): boolean {
+  const sm = getStateMachine(app);
+  if (!sm) return false;
+  const engine = getEngine(app);
+  if (engine?.frozen) engine.setFrozen(false);
+  sm.enableDevForce(DEV_FORCE_TOKEN);
+  let ok = false;
+  try {
+    ok = applyDevPreset(app, id, {
+      force: (state) => sm.forceState(state, DEV_FORCE_TOKEN) || sm.currentState === state,
+    }).ok;
+  } catch (err) {
+    console.warn('[DEV UI] 프리셋 적용 실패:', id, err);
+    return false;
+  }
+  if (ok && opts.autoFreeze && engine) {
+    (opts.scheduleFreeze ?? defaultScheduleFreeze)(() => engine.setFrozen(true));
+  }
+  return ok;
+}
+
 /** 기본 시작 예약: 엔진 루프가 시작된 뒤 실행한다 (init 완료 전 이동 방지) */
 function defaultSchedule(app: unknown): (fn: () => void) => void {
   return (fn) => {
@@ -165,12 +191,38 @@ function mountSceneJumper(
     engine?.setFrozen(freezeBox.checked);
   });
 
+  // [DEVUI-004] 프리셋 드롭다운 (첫 항목은 선택 안내)
+  const presetSelect = doc.createElement('select');
+  const placeholder = doc.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'preset…';
+  presetSelect.appendChild(placeholder);
+  for (const id of DEV_PRESET_IDS) {
+    const option = doc.createElement('option');
+    option.value = id;
+    option.textContent = id;
+    presetSelect.appendChild(option);
+  }
+  const runPreset = (id: DevPresetId) => {
+    applyPresetScreen(app, id, { autoFreeze, scheduleFreeze: freezeAfterJump });
+    select.value = sm.currentState;
+    syncBox();
+  };
+  presetSelect.addEventListener('change', () => {
+    if (presetSelect.value) runPreset(presetSelect.value as DevPresetId);
+  });
+
   panel.appendChild(select);
+  panel.appendChild(presetSelect);
   panel.appendChild(freezeLabel);
   doc.body.appendChild(panel);
 
-  const target = parseDevScreen(search);
-  if (target) {
+  const preset = parseDevPreset(search);
+  const target = preset ? null : parseDevScreen(search);
+  if (preset) {
+    presetSelect.value = preset;
+    schedule(() => runPreset(preset));
+  } else if (target) {
     schedule(() => {
       jumpToScreen(app, target, { autoFreeze, scheduleFreeze: freezeAfterJump });
       select.value = sm.currentState;
