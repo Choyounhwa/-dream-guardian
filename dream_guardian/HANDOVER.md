@@ -18,8 +18,8 @@
 | 4 | [#564 DEVUI-004](https://github.com/Choyounhwa/-dream-guardian/issues/564) | 메뉴 계열 화면 프리셋 | `[✔]` 26132eb (브라우저 실검증 대기. `?dev=ui&preset=<id>`, 결과 별 1~3·gameover로 대체) |
 | 5 | [#566 DEVUI-006](https://github.com/Choyounhwa/-dream-guardian/issues/566) | Tweakpane 패널, JSON 내보내기 → **메뉴 계열 편집 가능** | `[✔]` 09b6ef7 (브라우저 실검증 대기. devDependency `tweakpane@^4.0.5` 추가) |
 | 6 | [#568 LAYOUT-001](https://github.com/Choyounhwa/-dream-guardian/issues/568) | HUD 이전 | `[✔]` 7a4e3f3 (브라우저 전·후 스크린샷 비교 대기. 미사용 `hud.combo` 제거) |
-| 7 | [#569 LAYOUT-002](https://github.com/Choyounhwa/-dream-guardian/issues/569) | 메인 메뉴·서브메뉴 이전 (뒤로가기 버튼 좌표 단일화) | `[▶ NEXT: DEVUI]` (BOSS-ASSAULT G3 착수 전 완료 필요) |
-| 8 | [#570 LAYOUT-003](https://github.com/Choyounhwa/-dream-guardian/issues/570) | 설정·운동 모드 모달 이전 | 대기 |
+| 7 | [#569 LAYOUT-002](https://github.com/Choyounhwa/-dream-guardian/issues/569) | 메인 메뉴·서브메뉴 이전 (뒤로가기 버튼 좌표 단일화) | `[✔]` 845cfb9 (브라우저 전·후 비교 대기. `SceneDirector.ts`는 `getSubmenuBackSlot()` 추가만) |
+| 8 | [#570 LAYOUT-003](https://github.com/Choyounhwa/-dream-guardian/issues/570) | 설정·운동 모드 모달 이전 | `[▶ NEXT: DEVUI]` |
 | 9 | [#571 LAYOUT-004](https://github.com/Choyounhwa/-dream-guardian/issues/571) | 결과 화면 이전 | 대기 |
 | 10 | [#565 DEVUI-005](https://github.com/Choyounhwa/-dream-guardian/issues/565) | 플레이 계열 화면 프리셋 | 대기 |
 | 11 | [#572 LAYOUT-005](https://github.com/Choyounhwa/-dream-guardian/issues/572) | 준비 자세 화면 이전 | 대기 |
