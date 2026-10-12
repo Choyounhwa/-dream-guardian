@@ -19,14 +19,20 @@
 | 5 | [#566 DEVUI-006](https://github.com/Choyounhwa/-dream-guardian/issues/566) | Tweakpane 패널, JSON 내보내기 → **메뉴 계열 편집 가능** | `[✔]` 09b6ef7 (브라우저 실검증 대기. devDependency `tweakpane@^4.0.5` 추가) |
 | 6 | [#568 LAYOUT-001](https://github.com/Choyounhwa/-dream-guardian/issues/568) | HUD 이전 | `[✔]` 7a4e3f3 (브라우저 전·후 스크린샷 비교 대기. 미사용 `hud.combo` 제거) |
 | 7 | [#569 LAYOUT-002](https://github.com/Choyounhwa/-dream-guardian/issues/569) | 메인 메뉴·서브메뉴 이전 (뒤로가기 버튼 좌표 단일화) | `[✔]` 845cfb9 (브라우저 전·후 비교 대기. `SceneDirector.ts`는 `getSubmenuBackSlot()` 추가만) |
-| 8 | [#570 LAYOUT-003](https://github.com/Choyounhwa/-dream-guardian/issues/570) | 설정·운동 모드 모달 이전 | `[▶ NEXT: DEVUI]` |
-| 9 | [#571 LAYOUT-004](https://github.com/Choyounhwa/-dream-guardian/issues/571) | 결과 화면 이전 | 대기 |
+| 7-1 | [#578 DEVUI-009](https://github.com/Choyounhwa/-dream-guardian/issues/578) | 내보내기 `public/layouts/` 저장(브라우저 저장 대화상자), 로드 경로 `/layouts/ui-layout.json` | `[▶ NEXT: DEVUI]` |
+| 7-2 | [#579 DEVUI-010](https://github.com/Choyounhwa/-dream-guardian/issues/579) | 패널 Undo/Redo (버튼·Ctrl+Z/Y·드래그 묶음) | 대기 |
+| 7-3 | [#580 DEVUI-011](https://github.com/Choyounhwa/-dream-guardian/issues/580) | 미세 조정 ▲▼ 화살표 (1px / Shift 10px) | 대기 |
+| 7-4 | [#581 LAYOUT-010](https://github.com/Choyounhwa/-dream-guardian/issues/581) | 값 검증 규칙 단일화 + 글자 배율 `textScale` 규칙 | 대기 |
+| 7-5 | [#582 LAYOUT-011](https://github.com/Choyounhwa/-dream-guardian/issues/582) | 메인 메뉴·서브메뉴 글자 크기 `textScale` | 대기 |
+| 7-6 | [#583 LAYOUT-012](https://github.com/Choyounhwa/-dream-guardian/issues/583) | HUD 글자 크기 `textScale` | 대기 |
+| 8 | [#570 LAYOUT-003](https://github.com/Choyounhwa/-dream-guardian/issues/570) | 설정·운동 모드 모달 이전 (+글자 `textScale`) | 대기 |
+| 9 | [#571 LAYOUT-004](https://github.com/Choyounhwa/-dream-guardian/issues/571) | 결과 화면 이전 (+글자 `textScale`) | 대기 |
 | 10 | [#565 DEVUI-005](https://github.com/Choyounhwa/-dream-guardian/issues/565) | 플레이 계열 화면 프리셋 | 대기 |
-| 11 | [#572 LAYOUT-005](https://github.com/Choyounhwa/-dream-guardian/issues/572) | 준비 자세 화면 이전 | 대기 |
-| 12 | [#573 LAYOUT-006](https://github.com/Choyounhwa/-dream-guardian/issues/573) | 문제·정답 버튼 이전 (존 4/5 잠금) | 대기 |
-| 13 | [#574 LAYOUT-007](https://github.com/Choyounhwa/-dream-guardian/issues/574) | BeatHUD·러닝 매트 시각 요소 이전 (페달 존 잠금) | 대기 |
-| 14 | [#575 LAYOUT-008](https://github.com/Choyounhwa/-dream-guardian/issues/575) | 장애물·판정 피드백 이전 (레인 잠금) | 대기 |
-| 15 | [#576 LAYOUT-009](https://github.com/Choyounhwa/-dream-guardian/issues/576) | 보스·결전 이전 | 대기 |
+| 11 | [#572 LAYOUT-005](https://github.com/Choyounhwa/-dream-guardian/issues/572) | 준비 자세 화면 이전 (+글자 `textScale`) | 대기 |
+| 12 | [#573 LAYOUT-006](https://github.com/Choyounhwa/-dream-guardian/issues/573) | 문제·정답 버튼 이전 (존 4/5 잠금, +글자 `textScale`) | 대기 |
+| 13 | [#574 LAYOUT-007](https://github.com/Choyounhwa/-dream-guardian/issues/574) | BeatHUD·러닝 매트 시각 요소 이전 (페달 존 잠금, +글자 `textScale`) | 대기 |
+| 14 | [#575 LAYOUT-008](https://github.com/Choyounhwa/-dream-guardian/issues/575) | 장애물·판정 피드백 이전 (레인 잠금, +글자 `textScale`) | 대기 |
+| 15 | [#576 LAYOUT-009](https://github.com/Choyounhwa/-dream-guardian/issues/576) | 보스·결전 이전 (+글자 `textScale`) | 대기 |
 | 16 | [#567 DEVUI-007](https://github.com/Choyounhwa/-dream-guardian/issues/567) | 인스펙터 오버레이 (클릭 선택·드래그) | 대기 |
 | 17 | [#577 DEVUI-008](https://github.com/Choyounhwa/-dream-guardian/issues/577) | 보스 접근전 화면 프리셋, `assault-visual.config` 편집 (다중 소스) | 대기 (BOSS-ASSAULT G3 및 #505·#521·#522·#545 완료 후) |
 
