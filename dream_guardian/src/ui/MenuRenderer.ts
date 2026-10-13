@@ -543,7 +543,8 @@ export class MenuRenderer {
       const bannerH = menuLayout.titleBanner.h * scaleY;
       ctx.drawImage(titleBgImg, titleSlot.x + (titleSlot.w - bannerW) / 2, titleCenterY - bannerH / 2, bannerW, bannerH);
     } else {
-      ctx.font = UIText.getFont('title', scaleX, 'bold');
+      const titleScale = menuLayout.title?.textScale ?? 1.0;
+      ctx.font = UIText.getFont('title', scaleX * titleScale, 'bold');
       const titleColor = resolved?.title?.color ?? '#C889FF';
       ctx.fillStyle = titleColor;
       ctx.shadowColor = titleColor;
@@ -553,7 +554,8 @@ export class MenuRenderer {
       ctx.shadowBlur = 0;
 
       // 상단 슬로건 배너 텍스트 (Issue #216 / UI-STORY-001)
-      ctx.font = UIText.getFont('caption', scaleX, 'normal');
+      const sloganScale = menuLayout.slogan?.textScale ?? 1.0;
+      ctx.font = UIText.getFont('caption', scaleX * sloganScale, 'normal');
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText('깨비와 함께 신비로운 꿈의 성역으로 다이빙!', titleSlot.x + titleSlot.w / 2, titleCenterY + menuLayout.titleText.sloganGapY * scaleY);
     }
@@ -652,24 +654,28 @@ export class MenuRenderer {
       const cardText = menuLayout.cardText;
       const starsY = item.y + cardText.starsY * scaleY;
       // 1) 챕터 번호 (Ch.X): bold 48px
+      const chapterScale = cardText?.chapter?.textScale ?? 1.0;
       ctx.fillStyle = locked ? '#999999' : cardColor;
-      ctx.font = UIText.getFont('subheading', scaleX, 'bold');
+      ctx.font = UIText.getFont('subheading', scaleX * chapterScale, 'bold');
       ctx.fillText(`Ch.${ch}`, item.x + item.w / 2, item.y + cardText.chapterY * scaleY);
 
       // 2) 챕터명 (꿈속 탐험 테마): bold 44px
+      const nameScale = cardText?.name?.textScale ?? 1.0;
       ctx.fillStyle = locked ? '#888888' : '#FFFFFF';
-      ctx.font = UIText.getFont('subheading', scaleX, 'bold');
+      ctx.font = UIText.getFont('subheading', scaleX * nameScale, 'bold');
       const cardTitle = item.title ?? chOverride?.title ?? (locked ? '???' : info.name);
       ctx.fillText(cardTitle, item.x + item.w / 2, item.y + cardText.nameY * scaleY);
 
       // 3) 학습 영역 / 테마 부제: 26px
+      const subScale = cardText?.sub?.textScale ?? 1.0;
       ctx.fillStyle = locked ? '#777777' : '#BBBBBB';
-      ctx.font = UIText.getFont('label', scaleX, 'normal');
+      ctx.font = UIText.getFont('label', scaleX * subScale, 'normal');
       const lockReasonText = item.lockReason ?? chOverride?.lockReason ?? '미개방 성역';
       const subTitleText = item.subtitle ?? chOverride?.subtitle ?? info.sub;
       ctx.fillText(locked ? lockReasonText : subTitleText, item.x + item.w / 2, item.y + cardText.subY * scaleY);
 
       // 4) 별점 (★★★) 또는 잠금 (🔒)
+      const metaScale = cardText?.meta?.textScale ?? 1.0;
       if (!locked) {
         const starCount = Math.max(0, Math.min(3, state.stars[ch] ?? 0));
         const starFullImg =
@@ -693,7 +699,7 @@ export class MenuRenderer {
           }
         } else {
           const starStr = '★'.repeat(starCount) + '☆'.repeat(3 - starCount);
-          ctx.font = UIText.getFont('heading', scaleX, 'bold');
+          ctx.font = UIText.getFont('heading', scaleX * metaScale, 'bold');
           ctx.fillStyle = '#FFCB4D';
           ctx.fillText(starStr, item.x + item.w / 2, starsY);
         }
@@ -714,7 +720,7 @@ export class MenuRenderer {
             lockSize
           );
         } else {
-          ctx.font = UIText.getFont('heading', scaleX, 'bold');
+          ctx.font = UIText.getFont('heading', scaleX * metaScale, 'bold');
           ctx.fillStyle = '#888888';
           ctx.fillText('🔒', item.x + item.w / 2, starsY);
         }
@@ -880,7 +886,8 @@ export class MenuRenderer {
       const bannerH = subLayout.titleBanner.h * scaleY;
       ctx.drawImage(titleBgImg, titleSlot.x + (titleSlot.w - bannerW) / 2, titleCenterY - bannerH / 2, bannerW, bannerH);
     } else {
-      ctx.font = UIText.getFont('heading', scaleX, 'bold');
+      const titleScale = subLayout.title?.textScale ?? 1.0;
+      ctx.font = UIText.getFont('heading', scaleX * titleScale, 'bold');
       const titleColor = resolved?.subMenuTitle?.color ?? chInfo.color;
       ctx.fillStyle = titleColor;
       ctx.shadowColor = titleColor;
@@ -890,7 +897,8 @@ export class MenuRenderer {
       ctx.shadowBlur = 0;
 
       // 안내 문구: 풀 테마명 및 학습 영역
-      ctx.font = UIText.getFont('label', scaleX, 'normal');
+      const guideScale = subLayout.guide?.textScale ?? 1.0;
+      ctx.font = UIText.getFont('label', scaleX * guideScale, 'normal');
       ctx.fillStyle = '#CCCCCC';
       ctx.fillText(`${chInfo.fullName} (${chInfo.sub})`, titleSlot.x + titleSlot.w / 2, titleCenterY + subLayout.titleText.captionGapY * scaleY);
     }
@@ -955,13 +963,15 @@ export class MenuRenderer {
 
       // 텍스트 (칸별 높이 1:1 매핑)
       // 1) 단계명 (대형 38px)
+      const labelScale = subLayout.cardText?.label?.textScale ?? 1.0;
       ctx.fillStyle = locked ? '#888888' : isSelected ? baseColor : '#FFFFFF';
-      ctx.font = UIText.getFont('heading', scaleX, 'bold');
+      ctx.font = UIText.getFont('heading', scaleX * labelScale, 'bold');
       ctx.fillText(item.label, item.x + item.w / 2, item.y + subLayout.cardText.labelY * scaleY);
 
       // 2) 부제 (문항 수 또는 잠금 사유)
+      const subLabelScale = subLayout.cardText?.subLabel?.textScale ?? 1.0;
       ctx.fillStyle = locked ? '#777777' : '#BBBBBB';
-      ctx.font = UIText.getFont('subheading', scaleX, 'normal');
+      ctx.font = UIText.getFont('subheading', scaleX * subLabelScale, 'normal');
       const displaySubLabel = locked ? (item.lockReason ?? '도전 불가') : item.subLabel;
       ctx.fillText(displaySubLabel, item.x + item.w / 2, item.y + subLayout.cardText.subLabelY * scaleY);
 

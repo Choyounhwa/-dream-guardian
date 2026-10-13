@@ -141,7 +141,8 @@ export interface UILayoutConfig {
     comboIcon: { w: number; h: number; gapX: number };
   };
   menu: UILayoutSlot & {
-    title: UILayoutSlot;
+    title: UILayoutSlot & { textScale: number };
+    slogan: { textScale: number };
     locomotionBtn: UILayoutSlot;
     cardWidth: number;
     cardHeight: number;
@@ -150,20 +151,36 @@ export interface UILayoutConfig {
     titleText: { liftY: number; sloganGapY: number };
     /** 타이틀 배너 이미지 높이 (타이틀 중심 기준) */
     titleBanner: { h: number };
-    /** 챕터 카드 내부 텍스트 기준선: 카드 top 기준 y 오프셋 */
-    cardText: { chapterY: number; nameY: number; subY: number; starsY: number };
+    /** 챕터 카드 내부 텍스트 기준선 및 textScale */
+    cardText: {
+      chapterY: number;
+      nameY: number;
+      subY: number;
+      starsY: number;
+      chapter: { textScale: number };
+      name: { textScale: number };
+      sub: { textScale: number };
+      meta: { textScale: number };
+    };
   };
   subMenu: UILayoutSlot & {
-    title: UILayoutSlot;
+    title: UILayoutSlot & { textScale: number };
+    guide: { textScale: number };
     /** 제목 텍스트: 중심 y = title.y + title.h/2 - liftY, 안내문은 중심 + captionGapY */
     titleText: { liftY: number; captionGapY: number };
     /** 제목 배너 이미지 높이 (제목 중심 기준) */
     titleBanner: { h: number };
-    /** 단계 카드 내부 텍스트 기준선: 카드 top 기준 y 오프셋 */
-    cardText: { labelY: number; subLabelY: number };
+    /** 단계 카드 내부 텍스트 기준선 및 textScale */
+    cardText: {
+      labelY: number;
+      subLabelY: number;
+      label: { textScale: number };
+      subLabel: { textScale: number };
+    };
     grid: { startX: number; startY: number; gapX: number; gapY: number; cols: number; w: number; h: number };
     /** 뒤로가기 버튼: 하단 바 액션 슬롯. 그리기(SceneDirector.renderHUD)와 hit 가 같은 값을 쓴다 */
     backBtn: UILayoutSlot;
+    backButton: { textScale: number };
   };
   result: UILayoutSlot & {
     panel: UILayoutSlot;
@@ -213,7 +230,8 @@ export const UI_LAYOUT: UILayoutConfig = {
     y: 0,
     w: 1080,
     h: 1960,
-    title: { x: 140, y: 180, w: 800, h: 220 },
+    title: { x: 140, y: 180, w: 800, h: 220, textScale: 1.0 },
+    slogan: { textScale: 1.0 },
     locomotionBtn: { x: 290, y: 375, w: 500, h: 56 },
     cardWidth: 360,
     cardHeight: 380,
@@ -226,17 +244,32 @@ export const UI_LAYOUT: UILayoutConfig = {
     ],
     titleText: { liftY: 30, sloganGapY: 54 },
     titleBanner: { h: 120 },
-    cardText: { chapterY: 75, nameY: 160, subY: 225, starsY: 305 },
+    cardText: {
+      chapterY: 75,
+      nameY: 160,
+      subY: 225,
+      starsY: 305,
+      chapter: { textScale: 1.0 },
+      name: { textScale: 1.0 },
+      sub: { textScale: 1.0 },
+      meta: { textScale: 1.0 },
+    },
   },
   subMenu: {
     x: 0,
     y: 0,
     w: 1080,
     h: 1960,
-    title: { x: 80, y: 160, w: 920, h: 200 },
+    title: { x: 80, y: 160, w: 920, h: 200, textScale: 1.0 },
+    guide: { textScale: 1.0 },
     titleText: { liftY: 20, captionGapY: 65 },
     titleBanner: { h: 120 },
-    cardText: { labelY: 140, subLabelY: 230 },
+    cardText: {
+      labelY: 140,
+      subLabelY: 230,
+      label: { textScale: 1.0 },
+      subLabel: { textScale: 1.0 },
+    },
     grid: {
       startX: 80,
       startY: 440,
@@ -247,6 +280,7 @@ export const UI_LAYOUT: UILayoutConfig = {
       h: 380,
     },
     backBtn: { x: 780, y: 1990, w: 270, h: 140 },
+    backButton: { textScale: 1.0 },
   },
   result: {
     x: 100,
