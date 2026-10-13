@@ -19,8 +19,78 @@ const VIRTUAL_WIDTH = 1080;
 const VIRTUAL_HEIGHT = 2160;
 
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-const HORIZONTAL_KEYS = new Set(['x', 'w', 'width', 'startX', 'gapX', 'cardWidth', 'marginRight']);
-const SIZE_KEYS = new Set(['w', 'h', 'width', 'height', 'cardWidth', 'cardHeight', 'cols']);
+
+const HORIZONTAL_KEYS = new Set([
+  'x', 'cx', 'left', 'right', 'startX', 'gapX', 'marginRight', 'barX', 'textX',
+  'w', 'width', 'cardWidth', 'barW',
+]);
+
+const VERTICAL_KEYS = new Set([
+  'y', 'cy', 'top', 'bottom', 'startY', 'gapY', 'cardHeight', 'barY', 'textY',
+  'h', 'height', 'barH',
+  'liftY', 'sloganGapY', 'captionGapY', 'chapterY', 'nameY', 'subY', 'starsY', 'labelY', 'subLabelY', 'comboTextOffsetY', 'statLineHeight',
+]);
+
+const SIZE_KEYS = new Set([
+  'w', 'h', 'width', 'height', 'cardWidth', 'cardHeight', 'cols',
+  'r', 'radius', 'barW', 'barH', 'iconSize',
+]);
+
+export interface LayoutKeyRule {
+  min: number;
+  max: number;
+  step: number;
+  integer: boolean;
+}
+
+export function isTextScaleKey(key: string): boolean {
+  const leaf = key.includes('.') ? key.split('.').pop()! : key;
+  return leaf === 'textScale' || leaf.endsWith('TextScale') || key.endsWith('.textScale');
+}
+
+export function isHorizontalKey(key: string): boolean {
+  const leaf = key.includes('.') ? key.split('.').pop()! : key;
+  if (HORIZONTAL_KEYS.has(leaf)) return true;
+  if (leaf === 'w' || leaf === 'W') return true;
+  return /(?:x|width|left|right)$/i.test(leaf);
+}
+
+export function isVerticalKey(key: string): boolean {
+  const leaf = key.includes('.') ? key.split('.').pop()! : key;
+  if (VERTICAL_KEYS.has(leaf)) return true;
+  if (leaf === 'h' || leaf === 'H') return true;
+  return /(?:y|height|top|bottom)$/i.test(leaf);
+}
+
+export function isSizeKey(key: string): boolean {
+  const leaf = key.includes('.') ? key.split('.').pop()! : key;
+  if (SIZE_KEYS.has(leaf)) return true;
+  return /(?:w|h|width|height|size|radius|^gap|Gap)$/i.test(leaf);
+}
+
+/**
+ * [LAYOUT-010] (Issue #581) 레이아웃 키별 허용 범위 및 단위 규칙 반환
+ * - textScale 계열: min 0.5, max 3.0, step 0.01, integer false
+ * - 가로 계열: min 0 (크기는 1), max 1080, step 1, integer true
+ * - 세로 계열: min 0 (크기는 1), max 2160, step 1, integer true
+ * - 크기 계열: min 1, max (가로 1080 / 세로 및 일반 2160), step 1, integer true
+ * - 기본 fallback: min 0, max 2160, step 1, integer true
+ */
+export function getLayoutKeyRule(key: string): LayoutKeyRule {
+  const leaf = key.includes('.') ? key.split('.').pop()! : key;
+  if (isTextScaleKey(leaf)) {
+    return { min: 0.5, max: 3.0, step: 0.01, integer: false };
+  }
+  const isSize = isSizeKey(leaf);
+  const isHoriz = isHorizontalKey(leaf);
+
+  return {
+    min: isSize ? 1 : 0,
+    max: isHoriz ? VIRTUAL_WIDTH : VIRTUAL_HEIGHT,
+    step: 1,
+    integer: true,
+  };
+}
 
 export interface LayoutOverrideResult {
   applied: string[];
@@ -39,9 +109,11 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 
 function validateNumber(key: string, value: number): string | null {
   if (!Number.isFinite(value)) return '유한한 숫자가 아님';
-  const max = HORIZONTAL_KEYS.has(key) ? VIRTUAL_WIDTH : VIRTUAL_HEIGHT;
-  if (value < 0 || value > max) return `범위 밖 (0~${max})`;
-  if (SIZE_KEYS.has(key) && value <= 0) return '크기는 0보다 커야 함';
+  const rule = getLayoutKeyRule(key);
+  if (value < rule.min || value > rule.max) {
+    if (rule.min === 1 && value <= 0) return '크기는 0보다 커야 함';
+    return `범위 밖 (${rule.min}~${rule.max})`;
+  }
   return null;
 }
 
@@ -107,6 +179,15 @@ export function applyLayoutOverride(target: object, patch: unknown): LayoutOverr
   }
   mergeInto(target as Record<string, unknown>, patch, '', result);
   return result;
+}
+
+/**
+ * [LAYOUT-010] patch 를 임시 복사본에 적용하여 검증 결과(warnings, applied)만 반환한다.
+ * 원본 target 은 변경되지 않는다.
+ */
+export function validateLayoutPatch(target: object, patch: unknown): LayoutOverrideResult {
+  const clone = JSON.parse(JSON.stringify(target));
+  return applyLayoutOverride(clone, patch);
 }
 
 /**

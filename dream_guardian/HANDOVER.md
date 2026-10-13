@@ -21,9 +21,9 @@
 | 7 | [#569 LAYOUT-002](https://github.com/Choyounhwa/-dream-guardian/issues/569) | 메인 메뉴·서브메뉴 이전 (뒤로가기 버튼 좌표 단일화) | `[✔]` 845cfb9 (브라우저 전·후 비교 대기. `SceneDirector.ts`는 `getSubmenuBackSlot()` 추가만) |
 | 7-1 | [#578 DEVUI-009](https://github.com/Choyounhwa/-dream-guardian/issues/578) | 내보내기 `public/layouts/` 저장(브라우저 저장 대화상자), 로드 경로 `/layouts/ui-layout.json` | `[✔]` 2f20e87 (TDD 100% Pass) |
 | 7-2 | [#579 DEVUI-010](https://github.com/Choyounhwa/-dream-guardian/issues/579) | 패널 Undo/Redo (버튼·Ctrl+Z/Y·드래그 묶음) | `[✔]` 3945af0 (TDD 100% Pass) |
-| 7-3 | [#580 DEVUI-011](https://github.com/Choyounhwa/-dream-guardian/issues/580) | 미세 조정 ▲▼ 화살표 (1px / Shift 10px) | `[✔]` (TDD 100% Pass) |
-| 7-4 | [#581 LAYOUT-010](https://github.com/Choyounhwa/-dream-guardian/issues/581) | 값 검증 규칙 단일화 + 글자 배율 `textScale` 규칙 | `[▶ NEXT: LAYOUT]` |
-| 7-5 | [#582 LAYOUT-011](https://github.com/Choyounhwa/-dream-guardian/issues/582) | 메인 메뉴·서브메뉴 글자 크기 `textScale` | 대기 |
+| 7-3 | [#580 DEVUI-011](https://github.com/Choyounhwa/-dream-guardian/issues/580) | 미세 조정 ▲▼ 화살표 (1px / Shift 10px) | `[✔]` 45e881d (TDD 100% Pass) |
+| 7-4 | [#581 LAYOUT-010](https://github.com/Choyounhwa/-dream-guardian/issues/581) | 값 검증 규칙 단일화 + 글자 배율 `textScale` 규칙 | `[✔]` cea7c7f (TDD 100% Pass) |
+| 7-5 | [#582 LAYOUT-011](https://github.com/Choyounhwa/-dream-guardian/issues/582) | 메인 메뉴·서브메뉴 글자 크기 `textScale` | `[▶ NEXT: LAYOUT]` |
 | 7-6 | [#583 LAYOUT-012](https://github.com/Choyounhwa/-dream-guardian/issues/583) | HUD 글자 크기 `textScale` | 대기 |
 | 8 | [#570 LAYOUT-003](https://github.com/Choyounhwa/-dream-guardian/issues/570) | 설정·운동 모드 모달 이전 (+글자 `textScale`) | 대기 |
 | 9 | [#571 LAYOUT-004](https://github.com/Choyounhwa/-dream-guardian/issues/571) | 결과 화면 이전 (+글자 `textScale`) | 대기 |

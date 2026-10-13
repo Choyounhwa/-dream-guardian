@@ -18,6 +18,7 @@ import {
 } from '../../config/dev-ui.config.js';
 import {
   applyLayoutOverride,
+  getLayoutKeyRule,
   UI_LAYOUT_OVERRIDE_URL,
   type LayoutOverrideResult,
 } from '../core/UILayoutOverride.js';
@@ -32,12 +33,6 @@ export const DEV_LAYOUT_EXPORT_DIR = 'public/layouts/';
 export const DEV_LAYOUT_EXPORT_FILENAME = 'ui-layout.json';
 export const DEV_LAYOUT_LOAD_URL = UI_LAYOUT_OVERRIDE_URL;
 
-const VIRTUAL_WIDTH = 1080;
-const VIRTUAL_HEIGHT = 2160;
-// UILayoutOverride 검증 규칙과 동일한 키 분류
-const HORIZONTAL_KEYS = new Set(['x', 'w', 'width', 'startX', 'gapX', 'cardWidth', 'marginRight']);
-const SIZE_KEYS = new Set(['w', 'h', 'width', 'height', 'cardWidth', 'cardHeight', 'cols']);
-
 type Obj = Record<string, unknown>;
 
 function isContainer(v: unknown): v is Obj | unknown[] {
@@ -50,6 +45,8 @@ export interface LayoutBinding {
   key: string;
   min: number;
   max: number;
+  step?: number;
+  integer?: boolean;
   readonly: boolean;
 }
 
@@ -63,13 +60,6 @@ export function isLockedPath(path: string, patterns: readonly string[]): boolean
   });
 }
 
-function bindingRange(key: string): { min: number; max: number } {
-  return {
-    min: SIZE_KEYS.has(key) ? 1 : 0,
-    max: HORIZONTAL_KEYS.has(key) ? VIRTUAL_WIDTH : VIRTUAL_HEIGHT,
-  };
-}
-
 /** UI_LAYOUT 의 모든 숫자 필드를 바인딩 목록으로 평탄화한다 (target 은 원본 객체 참조) */
 export function flattenLayoutBindings(root: object, locked: readonly string[]): LayoutBinding[] {
   const out: LayoutBinding[] = [];
@@ -78,11 +68,15 @@ export function flattenLayoutBindings(root: object, locked: readonly string[]): 
       const p = path ? `${path}.${key}` : key;
       const v = (node as Obj)[key];
       if (typeof v === 'number') {
+        const rule = getLayoutKeyRule(key);
         out.push({
           path: p,
           target: node as Record<string, number>,
           key,
-          ...bindingRange(key),
+          min: rule.min,
+          max: rule.max,
+          step: rule.step,
+          integer: rule.integer,
           readonly: isLockedPath(p, locked),
         });
       } else if (isContainer(v)) {
@@ -523,6 +517,8 @@ export function attachNudgeControls(
   const valEl = el.querySelector?.('.tp-lblv_v') ?? el;
   valEl.appendChild(container);
 
+  const step = opts.meta.step ?? 1;
+
   const bindButton = (btn: HTMLElement, dir: 1 | -1) => {
     let delayTimer: any = null;
     let intervalTimer: any = null;
@@ -532,7 +528,7 @@ export function attachNudgeControls(
 
     const stepOnce = (shift: boolean) => {
       const cur = (opts.node as Obj)[opts.key] as number;
-      const next = nudgeValue(cur, dir, shift, 1, opts.meta.min, opts.meta.max);
+      const next = nudgeValue(cur, dir, shift, step, opts.meta.min, opts.meta.max);
       if (next !== cur) {
         (opts.node as Obj)[opts.key] = next;
         opts.history.setValue(opts.path, next);
@@ -615,7 +611,7 @@ export function attachNudgeControls(
         return;
       }
       const cur = (opts.node as Obj)[opts.key] as number;
-      const next = nudgeValue(cur, dir, !!ev.shiftKey, 1, opts.meta.min, opts.meta.max);
+      const next = nudgeValue(cur, dir, !!ev.shiftKey, step, opts.meta.min, opts.meta.max);
       if (next !== cur) {
         opts.history.beginDrag(opts.path, cur);
         (opts.node as Obj)[opts.key] = next;
@@ -641,7 +637,7 @@ export function attachNudgeControls(
         ev.stopPropagation?.();
         const dir: 1 | -1 = ev.key === 'ArrowUp' ? 1 : -1;
         const cur = (opts.node as Obj)[opts.key] as number;
-        const next = nudgeValue(cur, dir, !!ev.shiftKey, 1, opts.meta.min, opts.meta.max);
+        const next = nudgeValue(cur, dir, !!ev.shiftKey, step, opts.meta.min, opts.meta.max);
         if (next !== cur) {
           opts.history.beginDrag(opts.path, cur);
           (opts.node as Obj)[opts.key] = next;
@@ -681,7 +677,7 @@ function addLayoutFolder(
     if (typeof v === 'number') {
       const m = metas.get(p)!;
       const params: Record<string, unknown> = { label: key, readonly: m.readonly };
-      if (!m.readonly) Object.assign(params, { min: m.min, max: m.max, step: 1 });
+      if (!m.readonly) Object.assign(params, { min: m.min, max: m.max, step: m.step ?? 1 });
       const api = parent.addBinding(node as object, key, params);
       if (!m.readonly) {
         api.on('change', (ev?: any) => {
