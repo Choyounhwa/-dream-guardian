@@ -139,6 +139,11 @@ export interface UILayoutConfig {
     comboTextOffsetY: number;
     /** 콤보 아이콘 크기와 텍스트 사이 간격 */
     comboIcon: { w: number; h: number; gapX: number };
+    /** [LAYOUT-012] HUD 텍스트 요소별 크기 배율 */
+    playerHpText: { textScale: number };
+    bossHpText: { textScale: number };
+    bossNameText: { textScale: number };
+    comboText: { textScale: number };
   };
   menu: UILayoutSlot & {
     title: UILayoutSlot & { textScale: number };
@@ -224,6 +229,10 @@ export const UI_LAYOUT: UILayoutConfig = {
     hpLabelInset: { x: 8 },
     comboTextOffsetY: 4,
     comboIcon: { w: 36, h: 36, gapX: 8 },
+    playerHpText: { textScale: 1.0 },
+    bossHpText: { textScale: 1.0 },
+    bossNameText: { textScale: 1.0 },
+    comboText: { textScale: 1.0 },
   },
   menu: {
     x: 0,

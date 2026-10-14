@@ -297,6 +297,7 @@ export class HUDLayer {
   private _renderHpBars(ctx: CanvasRenderingContext2D, w: number, data: HUDData): void {
     // Issue #132: 1m+ 원거리 가독성을 위한 HP바 및 수치 텍스트 대형화 (UI_LAYOUT 슬롯 참조)
     // Issue #265: 저시력 모드(A11Y-004) 동적 스케일링 (기본 32px -> Math.min(64, 32 * fontScale))
+    const hud = UI_LAYOUT.hud as any;
     const resolved = this._resolveContext();
     const pBounds = this.getPlayerHpBarBounds(w);
     const pad = pBounds.x;
@@ -355,7 +356,19 @@ export class HUDLayer {
     ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
     ctx.shadowBlur = 4;
     ctx.fillStyle = '#fff';
-    ctx.font = UIText.getFont('caption', 1.0, 'bold', 'sans-serif', 26);
+    const playerHpScale =
+      hud.playerHpBar?.textScale !== undefined && hud.playerHpBar.textScale !== 1.0
+        ? hud.playerHpBar.textScale
+        : hud.playerHpText?.textScale !== undefined && hud.playerHpText.textScale !== 1.0
+          ? hud.playerHpText.textScale
+          : hud.playerHp?.textScale ?? hud.playerHpText?.textScale ?? hud.playerHpBar?.textScale ?? 1.0;
+    ctx.font = UIText.getFont(
+      'caption',
+      1.0 * playerHpScale,
+      'bold',
+      'sans-serif',
+      Math.round(26 * playerHpScale),
+    );
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const playerHpLabel = resolved?.playerHpBar?.label ?? `HP ${data.playerHp}/${data.playerMaxHp}`;
@@ -422,7 +435,19 @@ export class HUDLayer {
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
-    ctx.font = UIText.getFont('caption', 1.0, 'bold', 'sans-serif', 26);
+    const bossHpScale =
+      hud.bossHpBar?.textScale !== undefined && hud.bossHpBar.textScale !== 1.0
+        ? hud.bossHpBar.textScale
+        : hud.bossHpText?.textScale !== undefined && hud.bossHpText.textScale !== 1.0
+          ? hud.bossHpText.textScale
+          : hud.bossHp?.textScale ?? hud.bossHpText?.textScale ?? hud.bossHpBar?.textScale ?? 1.0;
+    ctx.font = UIText.getFont(
+      'caption',
+      1.0 * bossHpScale,
+      'bold',
+      'sans-serif',
+      Math.round(26 * bossHpScale),
+    );
     const bossHpLabel = resolved?.bossHpBar?.label ?? `HP ${data.bossHp}/${data.bossMaxHp}`;
     ctx.fillText(bossHpLabel, bx + bossBarW - UI_LAYOUT.hud.hpLabelInset.x, by + bossBarH / 2);
     ctx.restore();
@@ -443,7 +468,12 @@ export class HUDLayer {
     }
 
     const comboText = resolved?.combo?.label ?? `COMBO x${data.combo}`;
-    const font = UIText.getFont(data.combo >= 5 ? 'body' : 'badge', 1.0, 'bold');
+    const hud = UI_LAYOUT.hud as any;
+    const comboScale =
+      hud.comboBadge?.textScale !== undefined && hud.comboBadge.textScale !== 1.0
+        ? hud.comboBadge.textScale
+        : hud.comboText?.textScale ?? hud.comboBadge?.textScale ?? 1.0;
+    const font = UIText.getFont(data.combo >= 5 ? 'body' : 'badge', 1.0 * comboScale, 'bold');
 
     ctx.save();
     ctx.font = font;
@@ -485,7 +515,18 @@ export class HUDLayer {
     ctx.shadowColor = '#FF4444';
     ctx.shadowBlur = 8;
     ctx.fillStyle = resolved?.bossName?.color ?? '#FFCB4D';
-    ctx.font = UIText.getFont('badge', 1.0, 'bold', 'sans-serif', 28);
+    const hud = UI_LAYOUT.hud as any;
+    const bossNameScale =
+      hud.bossName?.textScale !== undefined && hud.bossName.textScale !== 1.0
+        ? hud.bossName.textScale
+        : hud.bossNameText?.textScale ?? hud.bossName?.textScale ?? 1.0;
+    ctx.font = UIText.getFont(
+      'badge',
+      1.0 * bossNameScale,
+      'bold',
+      'sans-serif',
+      Math.round(28 * bossNameScale),
+    );
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const bossText = resolved?.bossName?.label ?? `Ch.${data.chapter} ${getBossName(data.chapter)}`;
