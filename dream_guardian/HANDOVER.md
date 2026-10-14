@@ -30,8 +30,8 @@
 | 10 | [#565 DEVUI-005](https://github.com/Choyounhwa/-dream-guardian/issues/565) | 플레이 계열 화면 프리셋 | `[✔]` b718811 (TDD 100% Pass) |
 | 11 | [#572 LAYOUT-005](https://github.com/Choyounhwa/-dream-guardian/issues/572) | 준비 자세 화면 이전 (+글자 `textScale`) | `[✔]` 51e26c9 (TDD 100% Pass) |
 | 12 | [#573 LAYOUT-006](https://github.com/Choyounhwa/-dream-guardian/issues/573) | 문제·정답 버튼 이전 (존 4/5 잠금, +글자 `textScale`) | `[✔]` fe3022d (TDD 100% Pass) |
-| 13 | [#574 LAYOUT-007](https://github.com/Choyounhwa/-dream-guardian/issues/574) | BeatHUD·러닝 매트 시각 요소 이전 (페달 존 잠금, +글자 `textScale`) | `[▶ NEXT: LAYOUT]` |
-| 14 | [#575 LAYOUT-008](https://github.com/Choyounhwa/-dream-guardian/issues/575) | 장애물·판정 피드백 이전 (레인 잠금, +글자 `textScale`) | 대기 |
+| 13 | [#574 LAYOUT-007](https://github.com/Choyounhwa/-dream-guardian/issues/574) | BeatHUD·러닝 매트 시각 요소 이전 (페달 존 잠금, +글자 `textScale`) | `[✔]` b108f96 (TDD 100% Pass) |
+| 14 | [#575 LAYOUT-008](https://github.com/Choyounhwa/-dream-guardian/issues/575) | 장애물·판정 피드백 이전 (레인 잠금, +글자 `textScale`) | `[▶ NEXT: LAYOUT]` |
 | 15 | [#576 LAYOUT-009](https://github.com/Choyounhwa/-dream-guardian/issues/576) | 보스·결전 이전 (+글자 `textScale`) | 대기 |
 | 16 | [#567 DEVUI-007](https://github.com/Choyounhwa/-dream-guardian/issues/567) | 인스펙터 오버레이 (클릭 선택·드래그) | 대기 |
 | 17 | [#577 DEVUI-008](https://github.com/Choyounhwa/-dream-guardian/issues/577) | 보스 접근전 화면 프리셋, `assault-visual.config` 편집 (다중 소스) | 대기 (BOSS-ASSAULT G3 및 #505·#521·#522·#545 완료 후) |
