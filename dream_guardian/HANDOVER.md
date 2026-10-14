@@ -27,8 +27,8 @@
 | 7-6 | [#583 LAYOUT-012](https://github.com/Choyounhwa/-dream-guardian/issues/583) | HUD 글자 크기 `textScale` | `[✔]` 94367d8 (TDD 100% Pass) |
 | 8 | [#570 LAYOUT-003](https://github.com/Choyounhwa/-dream-guardian/issues/570) | 설정·운동 모드 모달 이전 (+글자 `textScale`) | `[✔]` b06a19e (TDD 100% Pass) |
 | 9 | [#571 LAYOUT-004](https://github.com/Choyounhwa/-dream-guardian/issues/571) | 결과 화면 이전 (+글자 `textScale`) | `[✔]` ff3a1c2 (TDD 100% Pass) |
-| 10 | [#565 DEVUI-005](https://github.com/Choyounhwa/-dream-guardian/issues/565) | 플레이 계열 화면 프리셋 | `[▶ NEXT: DEVUI]` |
-| 11 | [#572 LAYOUT-005](https://github.com/Choyounhwa/-dream-guardian/issues/572) | 준비 자세 화면 이전 (+글자 `textScale`) | 대기 |
+| 10 | [#565 DEVUI-005](https://github.com/Choyounhwa/-dream-guardian/issues/565) | 플레이 계열 화면 프리셋 | `[✔]` b718811 (TDD 100% Pass) |
+| 11 | [#572 LAYOUT-005](https://github.com/Choyounhwa/-dream-guardian/issues/572) | 준비 자세 화면 이전 (+글자 `textScale`) | `[▶ NEXT: LAYOUT]` |
 | 12 | [#573 LAYOUT-006](https://github.com/Choyounhwa/-dream-guardian/issues/573) | 문제·정답 버튼 이전 (존 4/5 잠금, +글자 `textScale`) | 대기 |
 | 13 | [#574 LAYOUT-007](https://github.com/Choyounhwa/-dream-guardian/issues/574) | BeatHUD·러닝 매트 시각 요소 이전 (페달 존 잠금, +글자 `textScale`) | 대기 |
 | 14 | [#575 LAYOUT-008](https://github.com/Choyounhwa/-dream-guardian/issues/575) | 장애물·판정 피드백 이전 (레인 잠금, +글자 `textScale`) | 대기 |
