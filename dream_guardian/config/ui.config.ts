@@ -246,6 +246,12 @@ export interface UILayoutConfig {
       badge: { textScale: number };
     };
   };
+  ready: UILayoutSlot & {
+    headerMessage: UILayoutSlot & { textScale: number };
+    countdown: UILayoutSlot & { textScale: number };
+    skipNotice: UILayoutSlot & { textScale: number };
+    guideMessage?: UILayoutSlot & { textScale: number };
+  };
 }
 
 export const UI_LAYOUT: UILayoutConfig = {
@@ -413,6 +419,15 @@ export const UI_LAYOUT: UILayoutConfig = {
       desc: { textScale: 1.0 },
       badge: { textScale: 1.0 },
     },
+  },
+  ready: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    headerMessage: { x: 140, y: 180, w: 800, h: 100, textScale: 1.0 },
+    countdown: { x: 340, y: 794, w: 400, h: 400, textScale: 1.0 },
+    skipNotice: { x: 140, y: 1861, w: 800, h: 80, textScale: 1.0 },
   },
 };
 
