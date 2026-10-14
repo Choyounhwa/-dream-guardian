@@ -189,10 +189,19 @@ export interface UILayoutConfig {
   };
   result: UILayoutSlot & {
     panel: UILayoutSlot;
-    title: { x: number; y: number };
-    stars: { x: number; y: number };
-    chapter: { x: number; y: number };
+    title: UILayoutSlot & { textScale: number };
+    stars: UILayoutSlot & { textScale?: number };
+    stamp: UILayoutSlot & { textScale?: number };
+    chapter: UILayoutSlot & { textScale: number };
+    stats: UILayoutSlot & {
+      victoryY: number;
+      defeatY: number;
+      label: { textScale: number };
+      value: { textScale: number };
+    };
     statLineHeight: number;
+    prompt?: UILayoutSlot & { textScale: number };
+    button?: { textScale: number };
   };
   bottomBar: UILayoutSlot & {
     height: number;
@@ -321,10 +330,23 @@ export const UI_LAYOUT: UILayoutConfig = {
     w: 880,
     h: 1580,
     panel: { x: 100, y: 240, w: 880, h: 1580 },
-    title: { x: 540, y: 360 },
-    stars: { x: 540, y: 490 },
-    chapter: { x: 540, y: 580 },
+    title: { x: 240, y: 270, w: 600, h: 160, textScale: 1.0 },
+    stars: { x: 459, y: 488, w: 162, h: 54, textScale: 1.0 },
+    stamp: { x: 760, y: 280, w: 180, h: 180, textScale: 1.0 },
+    chapter: { x: 140, y: 415, w: 800, h: 50, textScale: 1.0 },
+    stats: {
+      x: 160,
+      y: 710,
+      w: 760,
+      h: 592,
+      victoryY: 710,
+      defeatY: 620,
+      label: { textScale: 1.0 },
+      value: { textScale: 1.0 },
+    },
     statLineHeight: 74,
+    prompt: { x: 100, y: 1750, w: 880, h: 40, textScale: 1.0 },
+    button: { textScale: 1.0 },
   },
   bottomBar: {
     x: 0,
