@@ -168,7 +168,8 @@ export function getSettingsModalBounds(
   const mx = (context?.modal?.x ?? baseModal.x) * scaleX;
   const my = (context?.modal?.y ?? baseModal.y) * scaleY;
   const mw = (context?.modal?.w ?? baseModal.w) * scaleX;
-  const baseH = context?.modal?.h ?? Math.max(baseModal.h, 1340);
+  const minH = UI_LAYOUT.settings.minModalH ?? 1340;
+  const baseH = context?.modal?.h ?? Math.max(baseModal.h, minH);
   const mh = baseH * scaleY;
   return { x: mx, y: my, w: mw, h: mh };
 }
@@ -200,6 +201,24 @@ export function getSettingsButtonLayout(
       y: y * scaleY,
       w: slotW * scaleX,
       h: slotH * scaleY,
+    };
+  }
+
+  // context.modal 이 직접 주입되고 버튼 개별 오버라이드가 없는 경우, 모달 크기에 맞춰 기본 배치 계산
+  if (context?.modal && !directOverride) {
+    const modalSlot = getSettingsModalBounds(w, h, context);
+    const mx = modalSlot.x;
+    const my = modalSlot.y;
+    const mw = modalSlot.w;
+
+    const idx = SETTINGS_ACTION_ORDER.indexOf(action);
+    const offsetY = idx >= 0 ? 140 + idx * 130 : 140;
+
+    return {
+      x: mx + 60 * scaleX,
+      y: my + offsetY * scaleY,
+      w: mw - 120 * scaleX,
+      h: 110 * scaleY,
     };
   }
 
@@ -408,7 +427,9 @@ export function renderSettingsView(
   }
 
   // 3. 타이틀
-  ctx.font = UIText.getFont('subheading', scaleX, 'bold');
+  const settingsLayout = UI_LAYOUT.settings;
+  const titleScale = settingsLayout.titleText?.textScale ?? 1.0;
+  ctx.font = UIText.getFont('subheading', scaleX * titleScale, 'bold');
   ctx.fillStyle = '#FFCB4D';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
@@ -433,7 +454,8 @@ export function renderSettingsView(
     ctx.fill();
     ctx.stroke();
 
-    ctx.font = UIText.getFont('body', scaleX, 'bold');
+    const closeScale = settingsLayout.closeBtn?.textScale ?? 1.0;
+    ctx.font = UIText.getFont('body', scaleX * closeScale, 'bold');
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -447,6 +469,7 @@ export function renderSettingsView(
     statusText: string,
     isActive: boolean,
     iconKey?: string,
+    actionKey?: SettingsButtonAction,
   ) => {
     ctx.fillStyle = isActive ? 'rgba(40, 230, 255, 0.15)' : 'rgba(255, 255, 255, 0.05)';
     ctx.strokeStyle = isActive ? '#28E6FF' : 'rgba(255, 255, 255, 0.2)';
@@ -459,6 +482,25 @@ export function renderSettingsView(
     }
     ctx.fill();
     ctx.stroke();
+
+    const btnSlot =
+      actionKey && actionKey !== 'close'
+        ? (settingsLayout.buttons as Record<string, (ModalButtonSlot & { textScale?: number; valueTextScale?: number }) | undefined>)?.[actionKey]
+        : undefined;
+    const labelScale =
+      btnSlot?.textScale !== undefined && btnSlot.textScale !== 1.0
+        ? btnSlot.textScale
+        : settingsLayout.labelText?.textScale ?? btnSlot?.textScale ?? 1.0;
+    const valueScale =
+      btnSlot?.valueTextScale !== undefined && btnSlot.valueTextScale !== 1.0
+        ? btnSlot.valueTextScale
+        : btnSlot?.textScale !== undefined && btnSlot.textScale !== 1.0
+          ? btnSlot.textScale
+          : settingsLayout.valueText?.textScale ??
+            settingsLayout.labelText?.textScale ??
+            btnSlot?.valueTextScale ??
+            btnSlot?.textScale ??
+            1.0;
 
     // 옵션 아이콘 비트맵 우선 드로잉
     const iconImg = iconKey
@@ -475,7 +517,7 @@ export function renderSettingsView(
     }
 
     // 옵션 명
-    ctx.font = UIText.getFont('body', scaleX, 'bold');
+    ctx.font = UIText.getFont('body', scaleX * labelScale, 'bold');
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
@@ -495,7 +537,7 @@ export function renderSettingsView(
       ctx.drawImage(toggleImg, tx, ty, tw, th);
     } else {
       // 기존 텍스트 태그 폴백
-      ctx.font = UIText.getFont('body', scaleX, 'bold');
+      ctx.font = UIText.getFont('body', scaleX * valueScale, 'bold');
       ctx.fillStyle = isActive ? '#28E6FF' : '#BBBBBB';
       ctx.textAlign = 'right';
       ctx.fillText(statusText, btn.x + btn.w - 36 * scaleX, btn.y + btn.h / 2);
@@ -509,6 +551,7 @@ export function renderSettingsView(
     model.cameraEnabled ? 'ON' : 'OFF',
     model.cameraEnabled,
     'iconCamera',
+    'camera',
   );
 
   // 실사 웹캠 표시 버튼 (Issue #497)
@@ -518,6 +561,7 @@ export function renderSettingsView(
     (model.renderVideoEnabled ?? true) ? 'ON' : 'OFF',
     model.renderVideoEnabled ?? true,
     'iconCamera',
+    'webcamVideo',
   );
 
   // 전체화면 버튼
@@ -528,6 +572,7 @@ export function renderSettingsView(
     isFull ? 'ON' : 'OFF',
     isFull,
     'iconFullscreen',
+    'fullscreen',
   );
 
   // 스켈레톤 본(웹캠 선/점) 표시 버튼 (Issue #280)
@@ -537,6 +582,7 @@ export function renderSettingsView(
     model.skeletonEnabled ? 'ON' : 'OFF',
     model.skeletonEnabled,
     'iconSkeleton',
+    'skeleton',
   );
 
   // 사운드 버튼
@@ -546,6 +592,7 @@ export function renderSettingsView(
     model.soundEnabled ? 'ON' : 'OFF',
     model.soundEnabled,
     'iconSound',
+    'sound',
   );
 
   // 운동 방식 선택 버튼
@@ -554,6 +601,8 @@ export function renderSettingsView(
     '🏃 운동 방식',
     `${model.locomotionModeLabel} ⚙`,
     true,
+    undefined,
+    'locomotion',
   );
 
   // 글씨 크기 버튼
@@ -562,6 +611,8 @@ export function renderSettingsView(
     '🔤 글씨 크기',
     model.fontScaleLabel ?? getFontScaleLabel(model.fontScale),
     model.fontScale > 1.0,
+    undefined,
+    'fontScale',
   );
 
   // 고대비 모드 버튼
@@ -570,6 +621,8 @@ export function renderSettingsView(
     '👁 고대비 모드',
     model.highContrast ? 'ON' : 'OFF',
     model.highContrast,
+    undefined,
+    'highContrast',
   );
 
   // 졸라맨 크기 버튼 (Issue #420)
@@ -579,6 +632,7 @@ export function renderSettingsView(
     model.stickmanScaleLabel ?? getStickmanScaleLabel(model.stickmanScale),
     model.stickmanScale > 1.0,
     'iconSkeleton',
+    'stickmanScale',
   );
 
   ctx.restore(); // 카드 transform 복원

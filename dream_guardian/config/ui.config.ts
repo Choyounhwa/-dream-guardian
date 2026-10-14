@@ -201,17 +201,41 @@ export interface UILayoutConfig {
     manaBar?: UILayoutSlot;
   };
   settings: UILayoutSlot & {
+    minModalH: number;
     modal: UILayoutSlot;
-    closeBtn: UILayoutSlot;
+    closeBtn: UILayoutSlot & { textScale?: number };
+    titleText: { textScale: number };
+    labelText: { textScale: number };
+    valueText: { textScale: number };
     buttons?: Record<
-      'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion' | 'fontScale' | 'highContrast',
-      UILayoutSlot
+      'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion' | 'fontScale' | 'highContrast' | 'stickmanScale' | 'webcamVideo',
+      UILayoutSlot & { textScale?: number; valueTextScale?: number }
     >;
   };
   pause: UILayoutSlot & {
     modal: UILayoutSlot;
     resumeBtn: UILayoutSlot;
     quitBtn: UILayoutSlot;
+  };
+  locomotion: UILayoutSlot & {
+    modal: UILayoutSlot;
+    closeBtn: UILayoutSlot & { textScale?: number };
+    titleText: { textScale: number };
+    noticeText: { textScale: number };
+    cards: {
+      startX: number;
+      startY: number;
+      w: number;
+      h: number;
+      gapX: number;
+      gapY: number;
+    };
+    cardText: {
+      title: { textScale: number };
+      sub: { textScale: number };
+      desc: { textScale: number };
+      badge: { textScale: number };
+    };
   };
 }
 
@@ -317,8 +341,12 @@ export const UI_LAYOUT: UILayoutConfig = {
     y: 480,
     w: 800,
     h: 1080,
+    minModalH: 1340,
     modal: { x: 140, y: 480, w: 800, h: 1080 },
     closeBtn: { x: 850, y: 510, w: 60, h: 60 },
+    titleText: { textScale: 1.0 },
+    labelText: { textScale: 1.0 },
+    valueText: { textScale: 1.0 },
     buttons: {
       camera: { x: 200, y: 620, w: 680, h: 110 },
       fullscreen: { x: 200, y: 750, w: 680, h: 110 },
@@ -327,6 +355,8 @@ export const UI_LAYOUT: UILayoutConfig = {
       locomotion: { x: 200, y: 1140, w: 680, h: 110 },
       fontScale: { x: 200, y: 1270, w: 680, h: 110 },
       highContrast: { x: 200, y: 1400, w: 680, h: 110 },
+      stickmanScale: { x: 200, y: 1530, w: 680, h: 110 },
+      webcamVideo: { x: 200, y: 1660, w: 680, h: 110 },
     },
   },
   pause: {
@@ -337,6 +367,30 @@ export const UI_LAYOUT: UILayoutConfig = {
     modal: { x: 140, y: 720, w: 800, h: 720 },
     resumeBtn: { x: 200, y: 980, w: 680, h: 130 },
     quitBtn: { x: 200, y: 1160, w: 680, h: 130 },
+  },
+  locomotion: {
+    x: 80,
+    y: 380,
+    w: 920,
+    h: 1400,
+    modal: { x: 80, y: 380, w: 920, h: 1400 },
+    closeBtn: { x: 915, y: 415, w: 60, h: 60 },
+    titleText: { textScale: 1.0 },
+    noticeText: { textScale: 1.0 },
+    cards: {
+      startX: 110,
+      startY: 560,
+      w: 415,
+      h: 560,
+      gapX: 30,
+      gapY: 30,
+    },
+    cardText: {
+      title: { textScale: 1.0 },
+      sub: { textScale: 1.0 },
+      desc: { textScale: 1.0 },
+      badge: { textScale: 1.0 },
+    },
   },
 };
 

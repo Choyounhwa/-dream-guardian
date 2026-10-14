@@ -12,6 +12,7 @@
 
 import type { LocomotionMode } from '../motion/LocomotionDetector.js';
 import { UIText } from '../utils/UIText.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
 
 export interface ModalButtonSlot {
   x: number;
@@ -83,13 +84,29 @@ export class LocomotionModal {
   private _hoveredCard: LocomotionMode | null = null;
   private _hoverTime = 0;
 
-  // 1080x2160 가상 해상도 기준 모달 영역
-  private readonly MODAL_VIRTUAL = {
-    x: 80,
-    y: 380,
-    w: 920,
-    h: 1400,
-  };
+  // 1080x2160 가상 해상도 기준 모달 영역 (UI_LAYOUT.locomotion 연동)
+  get MODAL_VIRTUAL(): { x: number; y: number; w: number; h: number } {
+    return (
+      UI_LAYOUT.locomotion?.modal ?? {
+        x: 80,
+        y: 380,
+        w: 920,
+        h: 1400,
+      }
+    );
+  }
+
+  getModalBounds(w: number, h: number): ModalButtonSlot {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    const m = this.MODAL_VIRTUAL;
+    return {
+      x: m.x * scaleX,
+      y: m.y * scaleY,
+      w: m.w * scaleX,
+      h: m.h * scaleY,
+    };
+  }
 
   constructor() {
     this._selectedMode = this.loadMode();
@@ -171,6 +188,15 @@ export class LocomotionModal {
   getCloseButtonLayout(w: number, h: number): ModalButtonSlot {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
+    const btn = UI_LAYOUT.locomotion?.closeBtn;
+    if (btn) {
+      return {
+        x: btn.x * scaleX,
+        y: btn.y * scaleY,
+        w: btn.w * scaleX,
+        h: btn.h * scaleY,
+      };
+    }
     const mx = this.MODAL_VIRTUAL.x * scaleX;
     const my = this.MODAL_VIRTUAL.y * scaleY;
     const mw = this.MODAL_VIRTUAL.w * scaleX;
@@ -191,15 +217,20 @@ export class LocomotionModal {
   getCardLayout(mode: LocomotionMode, w: number, h: number): ModalButtonSlot {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
-    const mx = this.MODAL_VIRTUAL.x * scaleX;
-    const my = this.MODAL_VIRTUAL.y * scaleY;
+    const cardsCfg = UI_LAYOUT.locomotion?.cards;
 
-    const startX = mx + 30 * scaleX;
-    const startY = my + 180 * scaleY;
-    const cardW = 415 * scaleX;
-    const cardH = 560 * scaleY;
-    const gapX = 30 * scaleX;
-    const gapY = 30 * scaleY;
+    const startX =
+      cardsCfg?.startX !== undefined
+        ? cardsCfg.startX * scaleX
+        : (this.MODAL_VIRTUAL.x + 30) * scaleX;
+    const startY =
+      cardsCfg?.startY !== undefined
+        ? cardsCfg.startY * scaleY
+        : (this.MODAL_VIRTUAL.y + 180) * scaleY;
+    const cardW = cardsCfg?.w !== undefined ? cardsCfg.w * scaleX : 415 * scaleX;
+    const cardH = cardsCfg?.h !== undefined ? cardsCfg.h * scaleY : 560 * scaleY;
+    const gapX = cardsCfg?.gapX !== undefined ? cardsCfg.gapX * scaleX : 30 * scaleX;
+    const gapY = cardsCfg?.gapY !== undefined ? cardsCfg.gapY * scaleY : 30 * scaleY;
 
     let col = 0;
     let row = 0;
@@ -357,13 +388,16 @@ export class LocomotionModal {
     ctx.stroke();
 
     // 3. 헤더 타이틀 및 서브텍스트
-    ctx.font = UIText.getFont('subheading', scaleX, 'bold');
+    const locoLayout = UI_LAYOUT.locomotion;
+    const titleScale = locoLayout?.titleText?.textScale ?? 1.0;
+    ctx.font = UIText.getFont('subheading', scaleX * titleScale, 'bold');
     ctx.fillStyle = '#FFCB4D';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillText('🏃 운동 모드 (이동 방식) 선택', mx + 50 * scaleX, my + 45 * scaleY);
 
-    ctx.font = UIText.getFont('badge', scaleX, 'normal');
+    const noticeScale = locoLayout?.noticeText?.textScale ?? 1.0;
+    ctx.font = UIText.getFont('badge', scaleX * noticeScale, 'normal');
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
     ctx.fillText('거주 환경과 신체 상태에 맞게 선택하세요 (0.8초 체류 또는 클릭)', mx + 50 * scaleX, my + 105 * scaleY);
 
@@ -381,13 +415,20 @@ export class LocomotionModal {
     ctx.fill();
     ctx.stroke();
 
-    ctx.font = UIText.getFont('body', scaleX, 'bold');
+    const closeScale = locoLayout?.closeBtn?.textScale ?? 1.0;
+    ctx.font = UIText.getFont('body', scaleX * closeScale, 'bold');
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('✕', closeBtn.x + closeBtn.w / 2, closeBtn.y + closeBtn.h / 2);
 
     // 5. 2x2 모드 카드 렌더링
+    const cardText = locoLayout?.cardText;
+    const cardTitleScale = cardText?.title?.textScale ?? (cardText as any)?.textScale ?? 1.0;
+    const cardSubScale = cardText?.sub?.textScale ?? (cardText as any)?.textScale ?? 1.0;
+    const cardBadgeScale = cardText?.badge?.textScale ?? (cardText as any)?.textScale ?? 1.0;
+    const cardDescScale = cardText?.desc?.textScale ?? (cardText as any)?.textScale ?? 1.0;
+
     for (const info of LOCOMOTION_MODES) {
       const card = this.getCardLayout(info.mode, w, h);
       const isSelected = this._selectedMode === info.mode;
@@ -413,18 +454,18 @@ export class LocomotionModal {
       ctx.stroke();
 
       // 아이콘 (대형)
-      ctx.font = UIText.getFont('title', scaleX, 'normal');
+      ctx.font = UIText.getFont('title', scaleX * cardTitleScale, 'normal');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(info.icon, card.x + card.w / 2, card.y + 90 * scaleY);
 
       // 모드 이름
-      ctx.font = UIText.getFont('body', scaleX, 'bold');
+      ctx.font = UIText.getFont('body', scaleX * cardTitleScale, 'bold');
       ctx.fillStyle = isSelected ? info.color : '#FFFFFF';
       ctx.fillText(info.label, card.x + card.w / 2, card.y + 170 * scaleY);
 
       // 서브 라벨
-      ctx.font = UIText.getFont('badge', scaleX, 'normal');
+      ctx.font = UIText.getFont('badge', scaleX * cardSubScale, 'normal');
       ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
       ctx.fillText(info.subLabel, card.x + card.w / 2, card.y + 215 * scaleY);
 
@@ -445,7 +486,7 @@ export class LocomotionModal {
       ctx.fill();
       ctx.stroke();
 
-      ctx.font = UIText.getFont('caption', scaleX, 'bold');
+      ctx.font = UIText.getFont('caption', scaleX * cardBadgeScale, 'bold');
       ctx.fillStyle = info.color;
       ctx.fillText(`부위: ${info.targetPart}`, card.x + card.w / 2, card.y + 283 * scaleY);
 
@@ -462,12 +503,12 @@ export class LocomotionModal {
       ctx.fill();
       ctx.stroke();
 
-      ctx.font = UIText.getFont('caption', scaleX, 'bold');
+      ctx.font = UIText.getFont('caption', scaleX * cardBadgeScale, 'bold');
       ctx.fillStyle = info.mode === 'run' ? '#FF865E' : '#4DFFAA';
       ctx.fillText(info.noiseLevel, card.x + card.w / 2, card.y + 343 * scaleY);
 
       // 설명 텍스트 (단어 자동 줄바꿈 또는 간결 안내)
-      ctx.font = UIText.getFont('caption', scaleX, 'normal');
+      ctx.font = UIText.getFont('caption', scaleX * cardDescScale, 'normal');
       this._renderWrappedText(
         ctx,
         info.description,
@@ -480,7 +521,7 @@ export class LocomotionModal {
       // 선택 상태 안내 띠 또는 체크마크
       if (isSelected) {
         const checkY = card.y + card.h - 45 * scaleY;
-        ctx.font = UIText.getFont('badge', scaleX, 'bold');
+        ctx.font = UIText.getFont('badge', scaleX * cardBadgeScale, 'bold');
         ctx.fillStyle = '#4DFFAA';
         ctx.fillText('✓ 현재 사용 중', card.x + card.w / 2, checkY);
       }
