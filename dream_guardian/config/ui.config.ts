@@ -252,6 +252,33 @@ export interface UILayoutConfig {
     skipNotice: UILayoutSlot & { textScale: number };
     guideMessage?: UILayoutSlot & { textScale: number };
   };
+  question: UILayoutSlot & {
+    board: UILayoutSlot & {
+      shapeW: number;
+      shapeH: number;
+      shapeOffsetY: number;
+      textOffsetY: number;
+      shapeTextOffsetY: number;
+      textScale: number;
+    };
+    panel: UILayoutSlot & {
+      cy: number;
+      vanishingY: number;
+    };
+    answerButtons: {
+      height: number;
+      gapY: number;
+      textScale: number;
+      badgeTextScale: number;
+      hintTextScale: number;
+      waitingTextScale: number;
+    };
+    timer: {
+      y: number;
+      maxYRatio: number;
+      textScale: number;
+    };
+  };
 }
 
 export const UI_LAYOUT: UILayoutConfig = {
@@ -429,6 +456,45 @@ export const UI_LAYOUT: UILayoutConfig = {
     countdown: { x: 340, y: 794, w: 400, h: 400, textScale: 1.0 },
     skipNotice: { x: 140, y: 1861, w: 800, h: 80, textScale: 1.0 },
   },
+  question: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    board: {
+      x: 100,
+      y: 320,
+      w: 880,
+      h: 280,
+      shapeW: 760,
+      shapeH: 200,
+      shapeOffsetY: -30,
+      textOffsetY: 220,
+      shapeTextOffsetY: 70,
+      textScale: 1.0,
+    },
+    panel: {
+      x: 300,
+      y: 480,
+      w: 480,
+      h: 340,
+      cy: 650,
+      vanishingY: 518.4,
+    },
+    answerButtons: {
+      height: 250,
+      gapY: 26,
+      textScale: 1.0,
+      badgeTextScale: 1.0,
+      hintTextScale: 1.0,
+      waitingTextScale: 1.0,
+    },
+    timer: {
+      y: 860,
+      maxYRatio: 0.4,
+      textScale: 1.0,
+    },
+  },
 };
 
 // ─── 5. UI Image Assets (프로시저럴 / 이미지 전환 슬롯) ───
@@ -598,7 +664,14 @@ export interface QuestionAnswerTimeTokens {
 }
 
 export const QUESTION_ANSWER_TIME_TOKENS: QuestionAnswerTimeTokens = {
-  y: 860,
+  get y() {
+    return UI_LAYOUT.question?.timer?.y ?? 860;
+  },
+  set y(val: number) {
+    if (UI_LAYOUT.question?.timer) {
+      UI_LAYOUT.question.timer.y = val;
+    }
+  },
   primaryLabel: '기본',
   extensionLabel: '연장',
   primaryColor: '#28E6FF',

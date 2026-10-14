@@ -13,8 +13,13 @@ import type { QuestionRecipePlan } from '../input/RecipeGenerator.js';
 import { ShapeRenderer, deriveShapeFromQuestion } from './ShapeRenderer.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
-import { QUESTION_ANSWER_TIME_TOKENS } from '../../config/ui.config.js';
+import { QUESTION_ANSWER_TIME_TOKENS, UI_LAYOUT } from '../../config/ui.config.js';
 import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
+
+function clampTextScale(scale: number | undefined): number {
+  if (scale === undefined || Number.isNaN(scale)) return 1.0;
+  return Math.max(0.5, Math.min(3.0, scale));
+}
 
 export interface QuestionBounds {
   x: number;
@@ -220,6 +225,7 @@ export interface QuestionHeaderMathOptions {
   color?: string;
   shadowColor?: string;
   shadowBlur?: number;
+  textScale?: number;
 }
 
 /**
@@ -245,10 +251,11 @@ export function renderQuestionHeaderMath(
   // Issue #322: 러닝·답선택 페이즈 간 132px 대형 폰트 일원화 (SSOT)
   const baseSize = 132;
   const minSize = options?.minFontSize ?? (options?.hasShape ? 44 : 64);
+  const textScale = clampTextScale(options?.textScale);
 
-  let qFontSize = baseSize * scaleX;
+  let qFontSize = baseSize * scaleX * textScale;
   if (qLen > 10) {
-    qFontSize = Math.max(minSize * scaleX, (baseSize - (qLen - 10) * 2.8) * scaleX);
+    qFontSize = Math.max(minSize * scaleX * textScale, (baseSize - (qLen - 10) * 2.8) * scaleX * textScale);
   }
 
   const defaultMaxHeight = options?.hasShape ? 150 * scaleX : 340 * scaleX;
@@ -383,13 +390,20 @@ export class QuestionRenderer {
     const scaleY = h / 2160;
     const hasShape = options?.hasShape ?? false;
     const resolvedCtx = this._resolveContext();
+    const board = UI_LAYOUT.question?.board;
+    const baseW = (hasShape ? (board?.shapeW ?? 760) : (board?.w ?? 880)) * scaleX;
+    const baseH = (hasShape ? (board?.shapeH ?? 200) : (board?.h ?? 280)) * scaleY;
+    const boxY = (board?.y ?? 320) * scaleY;
+    const shapeOffsetY = (board?.shapeOffsetY ?? -30) * scaleY;
+    const defaultY = hasShape ? boxY + shapeOffsetY : boxY;
+    const defaultX = board?.x !== undefined && !hasShape ? board.x * scaleX : (w - baseW) / 2;
 
     if (resolvedCtx?.header) {
       const hov = resolvedCtx.header;
-      const bw = hov.w !== undefined ? hov.w * scaleX : (hasShape ? 760 : 880) * scaleX;
-      const bh = hov.h !== undefined ? hov.h * scaleY : (hasShape ? 200 : 280) * scaleY;
+      const bw = hov.w !== undefined ? hov.w * scaleX : baseW;
+      const bh = hov.h !== undefined ? hov.h * scaleY : baseH;
       const bx = hov.x !== undefined ? hov.x * scaleX : (w - bw) / 2;
-      const by = hov.y !== undefined ? hov.y * scaleY : (hasShape ? 320 * scaleY - 30 * scaleY : 320 * scaleY);
+      const by = hov.y !== undefined ? hov.y * scaleY : defaultY;
       return {
         x: bx,
         y: by,
@@ -401,20 +415,23 @@ export class QuestionRenderer {
       };
     }
 
-    const defaultW = (hasShape ? 760 : 880) * scaleX;
-    const defaultH = (hasShape ? 200 : 280) * scaleY;
-    const defaultX = (w - defaultW) / 2;
-    const defaultY = hasShape ? 320 * scaleY - 30 * scaleY : 320 * scaleY;
-
     return {
       x: defaultX,
       y: defaultY,
-      w: defaultW,
-      h: defaultH,
-      width: defaultW,
-      height: defaultH,
+      w: baseW,
+      h: baseH,
+      width: baseW,
+      height: baseH,
       isProtected: false,
     };
+  }
+
+  getQuestionBounds(
+    w: number,
+    h: number,
+    options?: { hasShape?: boolean },
+  ): QuestionBounds {
+    return this.getHeaderBounds(w, h, options);
   }
 
   getChoiceButtonBounds(
@@ -582,10 +599,15 @@ export class QuestionRenderer {
 
     // 1 & 2. 문제영역 가상 레이아웃 및 수식/도형 (buttonsOnly가 아닐 때만 렌더)
     if (!state.buttonsOnly) {
-      const boxY = 320 * scaleY;
+      const board = UI_LAYOUT.question?.board;
+      const boxY = (board?.y ?? 320) * scaleY;
       const cx = w / 2;
+      const shapeOffsetY = (board?.shapeOffsetY ?? -30) * scaleY;
+      const textOffsetY = (board?.textOffsetY ?? 220) * scaleY;
+      const shapeTextOffsetY = (board?.shapeTextOffsetY ?? 70) * scaleY;
+
       // 도형 존재 시 문제 텍스트를 상단으로 정렬하여 중앙 3D 뷰포트 영역(480~820px)과 겹침 0% 보장
-      const qY = shape ? boxY + 70 * scaleY : boxY + 220 * scaleY;
+      const qY = shape ? boxY + shapeTextOffsetY : boxY + textOffsetY;
 
       const qProgress = state.questionApproachProgress !== undefined
         ? Math.max(0, Math.min(1.0, state.questionApproachProgress))
@@ -595,9 +617,11 @@ export class QuestionRenderer {
 
       // Issue #322: 러닝 페이즈 첫 2박 동안 소실점(보스)에서 목표 정면으로 원근 접근 연출
       if (qProgress < 1.0) {
+        const panelLayout = UI_LAYOUT.question?.panel;
+        const defaultVy = panelLayout?.vanishingY !== undefined ? panelLayout.vanishingY * scaleY : (h * 0.24);
         const vx = state.vanishingX ?? cx;
-        const vy = state.vanishingY ?? (h * 0.24);
-        const headerCenterY = shape ? boxY + 70 * scaleY : boxY + 140 * scaleY;
+        const vy = state.vanishingY ?? defaultVy;
+        const headerCenterY = shape ? boxY + shapeTextOffsetY : boxY + (board?.h ?? 280) / 2 * scaleY;
 
         const eased = 1.0 - Math.pow(1.0 - qProgress, 2.0);
         const curX = vx + (cx - vx) * eased;
@@ -614,10 +638,18 @@ export class QuestionRenderer {
       // 1. 문제 수식 배경 패널 (Issue #290 / UI-ASSET-009)
       const boardBgImg = imageLoader.get('question', 'questionBoardBg');
       if (boardBgImg) {
-        const boardW = (resolvedCtx?.header?.w !== undefined ? resolvedCtx.header.w : (shape ? 760 : 880)) * scaleX;
-        const boardH = (resolvedCtx?.header?.h !== undefined ? resolvedCtx.header.h : (shape ? 200 : 280)) * scaleY;
-        const boardX = resolvedCtx?.header?.x !== undefined ? resolvedCtx.header.x * scaleX : cx - boardW / 2;
-        const boardY = resolvedCtx?.header?.y !== undefined ? resolvedCtx.header.y * scaleY : (shape ? boxY - 30 * scaleY : boxY);
+        const boardW = (resolvedCtx?.header?.w !== undefined
+          ? resolvedCtx.header.w * scaleX
+          : (shape ? (board?.shapeW ?? 760) : (board?.w ?? 880)) * scaleX);
+        const boardH = (resolvedCtx?.header?.h !== undefined
+          ? resolvedCtx.header.h * scaleY
+          : (shape ? (board?.shapeH ?? 200) : (board?.h ?? 280)) * scaleY);
+        const boardX = resolvedCtx?.header?.x !== undefined
+          ? resolvedCtx.header.x * scaleX
+          : cx - boardW / 2;
+        const boardY = resolvedCtx?.header?.y !== undefined
+          ? resolvedCtx.header.y * scaleY
+          : (shape ? boxY + shapeOffsetY : boxY);
         ctx.drawImage(boardBgImg, boardX, boardY, boardW, boardH);
       }
 
@@ -628,13 +660,17 @@ export class QuestionRenderer {
         color: resolvedCtx?.header?.color,
         shadowColor: resolvedCtx?.header?.shadowColor,
         shadowBlur: resolvedCtx?.header?.shadowBlur,
+        textScale: board?.textScale,
       });
 
       // 2-1. 도형(쌓기나무 3D / 전개도 / 회전) 시각화 렌더링 (텍스트와 버튼 사이 중앙 비간섭 영역)
       if (shape) {
-        const panelW = 480 * scaleX;
-        const panelH = 340 * scaleY;
-        const panelCy = 650 * scaleY;
+        const panelLayout = UI_LAYOUT.question?.panel;
+        const panelW = (panelLayout?.w ?? 480) * scaleX;
+        const panelH = (panelLayout?.h ?? 340) * scaleY;
+        const panelCy = (panelLayout?.cy !== undefined
+          ? panelLayout.cy
+          : (panelLayout?.y !== undefined ? panelLayout.y + panelH / 2 : 650)) * scaleY;
         this._shapeRenderer.renderShape(ctx, shape, cx, panelCy, panelW, panelH);
       }
 
@@ -647,8 +683,10 @@ export class QuestionRenderer {
     const progress = state.answerApproachProgress !== undefined
       ? Math.max(0, Math.min(1.0, state.answerApproachProgress))
       : 1.0;
+    const panelLayout = UI_LAYOUT.question?.panel;
+    const defaultVy = panelLayout?.vanishingY !== undefined ? panelLayout.vanishingY * scaleY : (h * 0.24);
     const vx = state.vanishingX ?? (w / 2);
-    const vy = state.vanishingY ?? (h * 0.24);
+    const vy = state.vanishingY ?? defaultVy;
 
     const isApproaching = progress < 1.0;
     const eased = isApproaching ? 1.0 - Math.pow(1.0 - progress, 2) : 1.0;
@@ -816,7 +854,9 @@ export class QuestionRenderer {
 
         // 버튼 중앙 '선택 완료! [V]' 네온 뱃지/스탬프
         const badgeText = '선택 완료! [V]';
-        ctx.font = UIText.getFont('badge', scaleX * effectiveScale, 'bold');
+        const btnConfig = UI_LAYOUT.question?.answerButtons;
+        const badgeTextScale = clampTextScale(btnConfig?.badgeTextScale);
+        ctx.font = UIText.getFont('badge', scaleX * effectiveScale * badgeTextScale, 'bold');
         const textMetrics = ctx.measureText ? ctx.measureText(badgeText) : { width: 100 };
         const badgeW = (textMetrics.width || 100) + 24 * scaleX * effectiveScale;
         const badgeH = 34 * scaleY * effectiveScale;
@@ -845,10 +885,15 @@ export class QuestionRenderer {
       }
 
       // 수식 폰트: bold 96px (긴 수식은 최소 32px까지 자동 축소, 버튼 경계 내 안전 수용)
+      const btnConfig = UI_LAYOUT.question?.answerButtons;
+      const btnTextScale = clampTextScale(btnConfig?.textScale);
+      const hintTextScale = clampTextScale(btnConfig?.hintTextScale);
+      const waitingTextScale = clampTextScale(btnConfig?.waitingTextScale);
+
       const choiceStr = String(state.question.choices[i]);
       const choiceLen = choiceStr.length;
       const baseChoiceFontSize = choiceLen > 6 ? Math.max(50 * scaleX, (96 - (choiceLen - 6) * 5) * scaleX) : 96 * scaleX;
-      const choiceFontSize = (choiceOverride?.fontSize ? choiceOverride.fontSize * scaleX : baseChoiceFontSize) * effectiveScale;
+      const choiceFontSize = (choiceOverride?.fontSize ? choiceOverride.fontSize * scaleX : baseChoiceFontSize * btnTextScale) * effectiveScale;
       const choiceTargetY = state.selectedChoiceIndex === i
         ? curCenterY - 48 * scaleY * effectiveScale
         : curCenterY;
@@ -860,14 +905,14 @@ export class QuestionRenderer {
         align: 'center',
         maxWidth: Math.max(20, (btn.width - 32 * scaleX) * effectiveScale),
         maxHeight: Math.max(20, (btn.height - 32 * scaleY) * effectiveScale),
-        minFontSize: Math.round(32 * scaleX * effectiveScale),
+        minFontSize: Math.round(32 * scaleX * effectiveScale * btnTextScale),
         fractionLineColor: choiceColor,
         placeholderColor: choiceColor,
       });
 
       if (!selectable) {
         ctx.save();
-        ctx.font = UIText.getFont('badge', scaleX * scale, 'bold');
+        ctx.font = UIText.getFont('badge', scaleX * scale * waitingTextScale, 'bold');
         ctx.fillStyle = '#9AA3B5';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -880,7 +925,7 @@ export class QuestionRenderer {
         const badgeAlpha = isApproaching ? Math.min(1.0, (progress - 0.7) / 0.3) : 1.0;
         ctx.save();
         ctx.globalAlpha *= badgeAlpha;
-        ctx.font = UIText.getFont('badge', scaleX * scale, 'bold');
+        ctx.font = UIText.getFont('badge', scaleX * scale * hintTextScale, 'bold');
         ctx.fillStyle = '#CCCCCC';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -918,17 +963,20 @@ export class QuestionRenderer {
       ? QUESTION_ANSWER_TIME_TOKENS.primaryLabel
       : QUESTION_ANSWER_TIME_TOKENS.extensionLabel;
     const label = `${phaseLabel} ${snap.remainingBeats}박 남음`;
-    const y = QUESTION_ANSWER_TIME_TOKENS.y * scaleY;
+    const timerConfig = UI_LAYOUT.question?.timer;
+    const y = (timerConfig?.y ?? QUESTION_ANSWER_TIME_TOKENS.y) * scaleY;
+    const maxYRatio = timerConfig?.maxYRatio ?? 0.4;
+    const timerTextScale = clampTextScale(timerConfig?.textScale);
 
     ctx.save();
     ctx.globalAlpha = 1;
-    ctx.font = UIText.getFont('caption', scaleX, 'bold');
+    ctx.font = UIText.getFont('caption', scaleX * timerTextScale, 'bold');
     ctx.fillStyle = snap.phase === 'primary'
       ? QUESTION_ANSWER_TIME_TOKENS.primaryColor
       : QUESTION_ANSWER_TIME_TOKENS.extensionColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, w / 2, Math.min(y, h * 0.4));
+    ctx.fillText(label, w / 2, Math.min(y, h * maxYRatio));
     ctx.restore();
   }
 }
