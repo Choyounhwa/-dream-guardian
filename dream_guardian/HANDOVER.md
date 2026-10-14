@@ -25,8 +25,8 @@
 | 7-4 | [#581 LAYOUT-010](https://github.com/Choyounhwa/-dream-guardian/issues/581) | 값 검증 규칙 단일화 + 글자 배율 `textScale` 규칙 | `[✔]` cea7c7f (TDD 100% Pass) |
 | 7-5 | [#582 LAYOUT-011](https://github.com/Choyounhwa/-dream-guardian/issues/582) | 메인 메뉴·서브메뉴 글자 크기 `textScale` | `[✔]` d1330fc (TDD 100% Pass) |
 | 7-6 | [#583 LAYOUT-012](https://github.com/Choyounhwa/-dream-guardian/issues/583) | HUD 글자 크기 `textScale` | `[✔]` 94367d8 (TDD 100% Pass) |
-| 8 | [#570 LAYOUT-003](https://github.com/Choyounhwa/-dream-guardian/issues/570) | 설정·운동 모드 모달 이전 (+글자 `textScale`) | `[▶ NEXT: LAYOUT]` |
-| 9 | [#571 LAYOUT-004](https://github.com/Choyounhwa/-dream-guardian/issues/571) | 결과 화면 이전 (+글자 `textScale`) | 대기 |
+| 8 | [#570 LAYOUT-003](https://github.com/Choyounhwa/-dream-guardian/issues/570) | 설정·운동 모드 모달 이전 (+글자 `textScale`) | `[✔]` b06a19e (TDD 100% Pass) |
+| 9 | [#571 LAYOUT-004](https://github.com/Choyounhwa/-dream-guardian/issues/571) | 결과 화면 이전 (+글자 `textScale`) | `[▶ NEXT: LAYOUT]` |
 | 10 | [#565 DEVUI-005](https://github.com/Choyounhwa/-dream-guardian/issues/565) | 플레이 계열 화면 프리셋 | 대기 |
 | 11 | [#572 LAYOUT-005](https://github.com/Choyounhwa/-dream-guardian/issues/572) | 준비 자세 화면 이전 (+글자 `textScale`) | 대기 |
 | 12 | [#573 LAYOUT-006](https://github.com/Choyounhwa/-dream-guardian/issues/573) | 문제·정답 버튼 이전 (존 4/5 잠금, +글자 `textScale`) | 대기 |
