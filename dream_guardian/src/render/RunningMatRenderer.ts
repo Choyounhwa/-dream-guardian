@@ -37,6 +37,7 @@ import {
   computeStrikeLineY,
   type FloorLayoutOptions,
 } from './NoteAnchorResolver.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
 
 interface Point2D {
   x: number;
@@ -264,7 +265,8 @@ export class RunningMatRenderer {
     const overhang = width * (this.config.strikeOverhangRatio ?? DEFAULT_STRIKE_OVERHANG_RATIO);
     const w = width + overhang * 2;
     const x = -overhang;
-    const h = 40;
+    const strikeLayout = UI_LAYOUT.runningMat?.strikeLine;
+    const h = strikeLayout?.h ?? strikeLayout?.height ?? 40;
     const y = yStrike - h / 2;
     return {
       x,
@@ -308,10 +310,13 @@ export class RunningMatRenderer {
   getStatusHeaderBounds(width: number, height: number): RunningMatBounds {
     const vx = width * 0.5;
     const yTop = height * (this.config.baseYTop ?? DEFAULT_MAT_BASE_Y_TOP);
-    const w = Math.min(width * 0.8, 480);
-    const h = 40;
-    const x = vx - w / 2;
-    const y = yTop - 48;
+    const headerLayout = UI_LAYOUT.runningMat?.header;
+    const maxW = headerLayout?.maxWidth ?? 480;
+    const w = headerLayout?.w !== undefined ? headerLayout.w : Math.min(width * 0.8, maxW);
+    const h = headerLayout?.h ?? 40;
+    const x = headerLayout?.x !== undefined ? headerLayout.x : (vx - w / 2);
+    const offsetY = headerLayout?.offsetY ?? -48;
+    const y = headerLayout?.y !== undefined ? headerLayout.y : (yTop + offsetY);
     const override = this._presentationContext?.statusHeader;
     return {
       x: override?.x ?? x,
@@ -326,10 +331,13 @@ export class RunningMatRenderer {
   getUpcomingPreviewsBounds(width: number, height: number): RunningMatBounds {
     const vx = width * 0.5;
     const yTop = height * (this.config.baseYTop ?? DEFAULT_MAT_BASE_Y_TOP);
-    const w = Math.min(width * 0.8, 420);
-    const h = 30;
-    const x = vx - w / 2;
-    const y = yTop - 48;
+    const previewLayout = UI_LAYOUT.runningMat?.upcomingPreview;
+    const maxW = previewLayout?.maxWidth ?? 420;
+    const w = previewLayout?.w !== undefined ? previewLayout.w : Math.min(width * 0.8, maxW);
+    const h = previewLayout?.h ?? 30;
+    const x = previewLayout?.x !== undefined ? previewLayout.x : (vx - w / 2);
+    const offsetY = previewLayout?.offsetY ?? -48;
+    const y = previewLayout?.y !== undefined ? previewLayout.y : (yTop + offsetY);
     const override = this._presentationContext?.upcomingPreview;
     return {
       x: override?.x ?? x,
@@ -897,7 +905,8 @@ export class RunningMatRenderer {
       ctx.fill();
 
       // 접근성 / 레인 식별 라벨
-      ctx.font = 'bold 9px sans-serif';
+      const anchorTextScale = Math.max(0.5, Math.min(3.0, UI_LAYOUT.runningMat?.anchor?.textScale ?? UI_LAYOUT.runningMat?.textScale ?? 1.0));
+      ctx.font = `bold ${Math.round(9 * anchorTextScale)}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.fillStyle = anchor.isActive
@@ -1316,7 +1325,8 @@ export class RunningMatRenderer {
     }
 
     // 4. 접근성 식별 텍스트 L / R
-    ctx.font = 'bold 11px sans-serif';
+    const footTextScale = Math.max(0.5, Math.min(3.0, UI_LAYOUT.runningMat?.footprint?.textScale ?? UI_LAYOUT.runningMat?.textScale ?? 1.0));
+    ctx.font = `bold ${Math.round(11 * footTextScale)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if (style === 'current') {
@@ -1361,7 +1371,8 @@ export class RunningMatRenderer {
     ctx.stroke();
 
     // NEXT 미니 뱃지 텍스트
-    ctx.font = 'bold 10px sans-serif';
+    const ringTextScale = Math.max(0.5, Math.min(3.0, UI_LAYOUT.runningMat?.footprint?.textScale ?? UI_LAYOUT.runningMat?.textScale ?? 1.0));
+    ctx.font = `bold ${Math.round(10 * ringTextScale)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = this.config.nextRingColor;
@@ -1414,7 +1425,8 @@ export class RunningMatRenderer {
     const arrowY = yTop + (yBottom - yTop) * 0.26;
     const centerX = (slots.leftHome.x + slots.rightHome.x) * 0.5;
 
-    ctx.font = 'bold 16px sans-serif';
+    const arrowTextScale = Math.max(0.5, Math.min(3.0, UI_LAYOUT.runningMat?.arrow?.textScale ?? UI_LAYOUT.runningMat?.textScale ?? 1.0));
+    ctx.font = `bold ${Math.round(16 * arrowTextScale)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -1469,7 +1481,9 @@ export class RunningMatRenderer {
     yTop: number,
     width: number
   ): void {
-    const headerY = yTop - 14;
+    const headerLayout = UI_LAYOUT.runningMat?.header;
+    const textOffsetY = headerLayout?.textOffsetY ?? -14;
+    const headerY = headerLayout?.textY !== undefined ? headerLayout.textY : (yTop + textOffsetY);
 
     const headerOverride = this._presentationContext?.statusHeader;
     // 1. 좌측 액션 배지 (Action / Cue Text)
@@ -1486,7 +1500,12 @@ export class RunningMatRenderer {
       }
     }
 
-    ctx.font = 'bold 14px sans-serif';
+    const baseTextScale = Math.max(0.5, Math.min(3.0, headerLayout?.textScale ?? UI_LAYOUT.runningMat?.textScale ?? 1.0));
+    const badgeTextScale = Math.max(0.5, Math.min(3.0, headerLayout?.badgeTextScale ?? baseTextScale));
+    const countTextScale = Math.max(0.5, Math.min(3.0, headerLayout?.countTextScale ?? baseTextScale));
+
+    const badgeFontSize = Math.round(14 * badgeTextScale);
+    ctx.font = `bold ${badgeFontSize}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = badgeColor;
@@ -1494,7 +1513,8 @@ export class RunningMatRenderer {
 
     // 2. 우측 인정 수 / 필수 수 배지
     const countText = `인정: ${view.acceptedExerciseCount} / ${view.requiredExerciseCount} 회`;
-    ctx.font = 'bold 12px sans-serif';
+    const countFontSize = Math.round(12 * countTextScale);
+    ctx.font = `bold ${countFontSize}px sans-serif`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = this.config.textSecondaryColor;
@@ -1563,7 +1583,11 @@ export class RunningMatRenderer {
     const nodeHeight = 26;
     const totalW = nodes.length * nodeWidth + (nodes.length - 1) * 8;
     const startX = vx - totalW * 0.5;
-    const previewY = yTop - 48;
+
+    const previewLayout = UI_LAYOUT.runningMat?.upcomingPreview;
+    const previewOffsetY = previewLayout?.offsetY ?? -48;
+    const previewY = previewLayout?.y !== undefined ? previewLayout.y : (yTop + previewOffsetY);
+    const previewTextScale = Math.max(0.5, Math.min(3.0, previewLayout?.textScale ?? UI_LAYOUT.runningMat?.textScale ?? 1.0));
 
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
@@ -1584,13 +1608,13 @@ export class RunningMatRenderer {
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        ctx.font = 'bold 11px sans-serif';
+        ctx.font = `bold ${Math.round(11 * previewTextScale)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#061325';
         ctx.fillText(node.label, nx + nodeWidth * 0.28, previewY + nodeHeight * 0.5);
 
-        ctx.font = 'bold 10px sans-serif';
+        ctx.font = `bold ${Math.round(10 * previewTextScale)}px sans-serif`;
         ctx.fillStyle = '#061325';
         const displayTxt = node.actionText.length > 6 ? node.actionText.slice(0, 5) + '..' : node.actionText;
         ctx.fillText(displayTxt, nx + nodeWidth * 0.72, previewY + nodeHeight * 0.5);
@@ -1602,13 +1626,13 @@ export class RunningMatRenderer {
         ctx.lineWidth = this.config.preview1LineWidth || 2.5;
         ctx.stroke();
 
-        ctx.font = 'bold 11px sans-serif';
+        ctx.font = `bold ${Math.round(11 * previewTextScale)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = this.config.textAccentColor;
         ctx.fillText(node.label, nx + nodeWidth * 0.28, previewY + nodeHeight * 0.5);
 
-        ctx.font = '10px sans-serif';
+        ctx.font = `${Math.round(10 * previewTextScale)}px sans-serif`;
         ctx.fillStyle = this.config.textPrimaryColor;
         const displayTxt = node.actionText.length > 6 ? node.actionText.slice(0, 5) + '..' : node.actionText;
         ctx.fillText(displayTxt, nx + nodeWidth * 0.72, previewY + nodeHeight * 0.5);
@@ -1620,13 +1644,13 @@ export class RunningMatRenderer {
         ctx.lineWidth = this.config.preview2LineWidth || 1.5;
         ctx.stroke();
 
-        ctx.font = '11px sans-serif';
+        ctx.font = `${Math.round(11 * previewTextScale)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = 'rgba(255, 203, 77, 0.75)';
         ctx.fillText(node.label, nx + nodeWidth * 0.28, previewY + nodeHeight * 0.5);
 
-        ctx.font = '10px sans-serif';
+        ctx.font = `${Math.round(10 * previewTextScale)}px sans-serif`;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
         const displayTxt = node.actionText.length > 6 ? node.actionText.slice(0, 5) + '..' : node.actionText;
         ctx.fillText(displayTxt, nx + nodeWidth * 0.72, previewY + nodeHeight * 0.5);

@@ -279,6 +279,74 @@ export interface UILayoutConfig {
       textScale: number;
     };
   };
+  beatHud: UILayoutSlot & {
+    exerciseBadge: UILayoutSlot & {
+      titleOffsetY?: number;
+      subtitleOffsetY?: number;
+      textScale: number;
+      titleTextScale?: number;
+      subtitleTextScale?: number;
+    };
+    hazardGuide: UILayoutSlot & {
+      titleOffsetY?: number;
+      subtitleOffsetY?: number;
+      textScale: number;
+      titleTextScale?: number;
+      subtitleTextScale?: number;
+    };
+    beatDots: UILayoutSlot & {
+      dotSpacing: number;
+      dotRadius: number;
+      dotY?: number;
+      offsetY?: number;
+      textScale: number;
+    };
+    stepCounter: UILayoutSlot & {
+      offsetY?: number;
+      textOffsetY?: number;
+      textY?: number;
+      textScale: number;
+    };
+    cyRatio?: number;
+  };
+  runningMat: UILayoutSlot & {
+    header: {
+      x?: number;
+      y?: number;
+      w?: number;
+      h: number;
+      maxWidth: number;
+      offsetY: number;
+      textOffsetY: number;
+      textY?: number;
+      textScale: number;
+      badgeTextScale?: number;
+      countTextScale?: number;
+    };
+    upcomingPreview: {
+      x?: number;
+      y?: number;
+      w?: number;
+      h: number;
+      maxWidth: number;
+      offsetY: number;
+      textScale: number;
+    };
+    strikeLine: {
+      h: number;
+      height?: number;
+    };
+    arrow?: {
+      textScale?: number;
+    };
+    anchor?: {
+      textScale?: number;
+    };
+    footprint?: {
+      textScale?: number;
+    };
+    textScale?: number;
+  };
 }
 
 export const UI_LAYOUT: UILayoutConfig = {
@@ -494,6 +562,91 @@ export const UI_LAYOUT: UILayoutConfig = {
       maxYRatio: 0.4,
       textScale: 1.0,
     },
+  },
+  beatHud: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    exerciseBadge: {
+      x: 300,
+      y: 1043.2,
+      w: 480,
+      h: 100,
+      titleOffsetY: -60,
+      subtitleOffsetY: -5,
+      textScale: 1.0,
+      titleTextScale: 1.0,
+      subtitleTextScale: 1.0,
+    },
+    hazardGuide: {
+      x: 290,
+      y: 1043.2,
+      w: 500,
+      h: 120,
+      titleOffsetY: -60,
+      subtitleOffsetY: -5,
+      textScale: 1.0,
+      titleTextScale: 1.0,
+      subtitleTextScale: 1.0,
+    },
+    beatDots: {
+      x: 366,
+      y: 1363.2,
+      w: 348,
+      h: 40,
+      dotSpacing: 44,
+      dotRadius: 14,
+      dotY: 1383.2,
+      offsetY: 260,
+      textScale: 1.0,
+    },
+    stepCounter: {
+      x: 380,
+      y: 1407.2,
+      w: 320,
+      h: 40,
+      offsetY: 284,
+      textOffsetY: 60,
+      textY: 1443.2,
+      textScale: 1.0,
+    },
+    cyRatio: 0.52,
+  },
+  runningMat: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    header: {
+      maxWidth: 480,
+      offsetY: -48,
+      h: 40,
+      textOffsetY: -14,
+      textScale: 1.0,
+      badgeTextScale: 1.0,
+      countTextScale: 1.0,
+    },
+    upcomingPreview: {
+      maxWidth: 420,
+      offsetY: -48,
+      h: 30,
+      textScale: 1.0,
+    },
+    strikeLine: {
+      h: 40,
+      height: 40,
+    },
+    arrow: {
+      textScale: 1.0,
+    },
+    anchor: {
+      textScale: 1.0,
+    },
+    footprint: {
+      textScale: 1.0,
+    },
+    textScale: 1.0,
   },
 };
 
