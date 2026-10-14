@@ -8,7 +8,21 @@
  * - 에디터 fixture/UIPageAdapters 는 순환 import 위험(#555)으로 쓰지 않는다.
  */
 
-import type { GameState } from '../types/index.js';
+import type { GameState, GeneratedQuestion } from '../types/index.js';
+import type { PhaseAHazardPattern } from '../../config/phase-a-hazard.config.js';
+
+export interface DevPlayStateParams {
+  chapter?: number;
+  playerHp?: number;
+  playerMaxHp?: number;
+  playerMana?: number;
+  combo?: number;
+  bossHp?: number;
+  bossMaxHp?: number;
+  bossPhase?: 'idle' | 'warning' | 'attacking' | 'defeated';
+  question?: GeneratedQuestion | null;
+  hazardPattern?: PhaseAHazardPattern;
+}
 
 export const DEV_PRESET_IDS = [
   'menu_main',
@@ -25,6 +39,24 @@ export const DEV_PRESET_IDS = [
   'result_2',
   'result_3',
   'gameover',
+  // DEVUI-005 Play Presets
+  'run_question',
+  'answer_select',
+  'hazard_evade',
+  'boss_battle',
+  'boss_battle_ch1',
+  'boss_battle_ch2',
+  'boss_battle_ch3',
+  'boss_battle_ch4',
+  'boss_battle_ch5',
+  'boss_battle_low_hp',
+  'boss_battle_ch1_low',
+  'boss_battle_ch2_low',
+  'boss_battle_ch3_low',
+  'boss_battle_ch4_low',
+  'boss_battle_ch5_low',
+  'boss_climax',
+  'star_collect',
 ] as const;
 
 export type DevPresetId = (typeof DEV_PRESET_IDS)[number];
@@ -33,6 +65,7 @@ export type DevPresetId = (typeof DEV_PRESET_IDS)[number];
 const PRESET_ALIASES: Record<string, DevPresetId> = {
   menu_sub: 'menu_sub_1',
   result: 'result_3',
+  boss_battle_low: 'boss_battle_low_hp',
 };
 
 /** 결과 고정 값: 별 개수 → 정답 수 (10문항, 60초 기준 calcStars 1/2/3) */
@@ -42,9 +75,103 @@ const FIXED_GAMEOVER_CORRECT = 3;
 /** 표시용 고정 운동 기록 */
 const FIXED_RESULT_DISPLAY = { steps: 120, squats: 0, jumps: 12, elapsedTime: 60, dwellTime: 30 };
 
+/** DEVUI-005 고정 문제 규격 (Zone 4/5 2답안 구조 엄격 준수) */
+export const FIXED_DEV_QUESTION: GeneratedQuestion = {
+  questionText: '3 + 5 = ?',
+  correctAnswer: 8,
+  wrongAnswer: 6,
+  choices: [6, 8],
+  correctIndex: 1,
+};
+
+export const FIXED_DEV_PLAYER_HP = 80;
+export const FIXED_DEV_PLAYER_MANA = 50;
+export const FIXED_DEV_COMBO = 3;
+
+export const FIXED_BOSS_HP: Record<number, { normal: number; low: number; max: number }> = {
+  1: { normal: 7, low: 2, max: 10 },
+  2: { normal: 7, low: 2, max: 10 },
+  3: { normal: 7, low: 2, max: 10 },
+  4: { normal: 7, low: 2, max: 10 },
+  5: { normal: 14, low: 4, max: 20 },
+};
+
+export const FIXED_DEV_HAZARD_PATTERN: PhaseAHazardPattern = 'jump';
+
+export function getPlayPresetParams(id: DevPresetId): DevPlayStateParams | null {
+  if (id === 'run_question' || id === 'answer_select') {
+    return {
+      chapter: 1,
+      playerHp: FIXED_DEV_PLAYER_HP,
+      playerMana: FIXED_DEV_PLAYER_MANA,
+      combo: FIXED_DEV_COMBO,
+      bossHp: FIXED_BOSS_HP[1].normal,
+      bossMaxHp: FIXED_BOSS_HP[1].max,
+      question: FIXED_DEV_QUESTION,
+    };
+  }
+  if (id === 'hazard_evade') {
+    return {
+      chapter: 1,
+      playerHp: FIXED_DEV_PLAYER_HP,
+      playerMana: FIXED_DEV_PLAYER_MANA,
+      combo: FIXED_DEV_COMBO,
+      bossHp: FIXED_BOSS_HP[1].normal,
+      bossMaxHp: FIXED_BOSS_HP[1].max,
+      hazardPattern: FIXED_DEV_HAZARD_PATTERN,
+    };
+  }
+  if (id === 'star_collect') {
+    return {
+      chapter: 1,
+      playerHp: FIXED_DEV_PLAYER_HP,
+      playerMana: FIXED_DEV_PLAYER_MANA,
+      combo: FIXED_DEV_COMBO,
+      bossHp: FIXED_BOSS_HP[1].normal,
+      bossMaxHp: FIXED_BOSS_HP[1].max,
+    };
+  }
+  if (id === 'boss_climax') {
+    return {
+      chapter: 5,
+      playerHp: FIXED_DEV_PLAYER_HP,
+      playerMana: 75,
+      combo: 5,
+      bossHp: 6,
+      bossMaxHp: FIXED_BOSS_HP[5].max,
+      bossPhase: 'idle',
+    };
+  }
+  if (id.startsWith('boss_battle')) {
+    let ch = 1;
+    const isLow = id.includes('low');
+    if (id.includes('ch2')) ch = 2;
+    else if (id.includes('ch3')) ch = 3;
+    else if (id.includes('ch4')) ch = 4;
+    else if (id.includes('ch5')) ch = 5;
+
+    const hpInfo = FIXED_BOSS_HP[ch] ?? FIXED_BOSS_HP[1];
+    return {
+      chapter: ch,
+      playerHp: FIXED_DEV_PLAYER_HP,
+      playerMana: FIXED_DEV_PLAYER_MANA,
+      combo: FIXED_DEV_COMBO,
+      bossHp: isLow ? hpInfo.low : hpInfo.normal,
+      bossMaxHp: hpInfo.max,
+      question: FIXED_DEV_QUESTION,
+    };
+  }
+  return null;
+}
+
 export function getPresetTarget(id: DevPresetId): GameState {
   if (id.startsWith('menu_sub_')) return 'MENU_SUB';
   if (id.startsWith('result_')) return 'RESULT';
+  if (id === 'run_question' || id.startsWith('boss_battle')) return 'RUN_QUESTION';
+  if (id === 'answer_select') return 'ANSWER_SELECT';
+  if (id === 'hazard_evade') return 'HAZARD_EVADE';
+  if (id === 'boss_climax') return 'BOSS_CLIMAX';
+  if (id === 'star_collect') return 'STAR_COLLECT';
   switch (id) {
     case 'pause':
     case 'ready_position':
@@ -127,7 +254,30 @@ interface PresetAppLike {
   startReadyPhase?: () => void;
   showResult?: (victory: boolean) => void;
   resultData?: Record<string, unknown> | null;
-  battle?: { reset(): void; onCorrect(): void; recordWrongAnswer(): void };
+  battle?: {
+    reset(): void;
+    onCorrect(): void;
+    recordWrongAnswer(): void;
+    setHp?(v: number): void;
+    hp?: number;
+    maxHp?: number;
+    mana?: number;
+    combo?: number;
+  };
+  boss?: {
+    reset(ch?: number): void;
+    takeDamage(amount: number): void;
+    hp?: number;
+    maxHp?: number;
+    chapter?: number;
+    phase?: string;
+  };
+  guardian?: { stage?: number; setStage?(stage: number): void };
+  beatCoordinator?: { currentQuestion?: GeneratedQuestion | null; isAnswerOpen?: boolean };
+  phaseAHazardController?: { isActive?: boolean; activePattern?: any };
+  applyDevPlayState?: (params: DevPlayStateParams) => void;
+  currentChapter?: number;
+  currentQuestion?: GeneratedQuestion | null;
   sessionLifecycle?: { setTestSession(isTest: boolean): void };
   settingsModal?: { isOpen?: boolean; open(): void; close?(): void; update?(dt: number): void };
   locomotionModal?: { open(): void; close?(): void };
@@ -173,10 +323,81 @@ function showFixedResult(
   app.showResult?.(victory);
 }
 
+function applyPlayStateToApp(app: PresetAppLike, params: DevPlayStateParams): void {
+  if (typeof app.applyDevPlayState === 'function') {
+    app.applyDevPlayState(params);
+    return;
+  }
+  if (params.chapter !== undefined) {
+    app.selectChapter?.(params.chapter);
+    if (app.boss?.reset) {
+      app.boss.reset(params.chapter);
+    }
+  }
+  if (app.battle) {
+    if (params.playerHp !== undefined) {
+      if (typeof app.battle.setHp === 'function') {
+        app.battle.setHp(params.playerHp);
+      } else {
+        (app.battle as any)._hp = params.playerHp;
+        (app.battle as any).hp = params.playerHp;
+      }
+    }
+    if (params.playerMana !== undefined) {
+      (app.battle as any)._mana = params.playerMana;
+      (app.battle as any).mana = params.playerMana;
+    }
+    if (params.combo !== undefined) {
+      (app.battle as any)._combo = params.combo;
+      (app.battle as any).combo = params.combo;
+    }
+  }
+  if (app.boss) {
+    if (params.bossHp !== undefined) {
+      (app.boss as any)._hp = params.bossHp;
+      (app.boss as any).hp = params.bossHp;
+    }
+    if (params.bossMaxHp !== undefined) {
+      (app.boss as any)._maxHp = params.bossMaxHp;
+      (app.boss as any).maxHp = params.bossMaxHp;
+    }
+    if (params.bossPhase !== undefined) {
+      (app.boss as any)._phase = params.bossPhase;
+      (app.boss as any).phase = params.bossPhase;
+    }
+  }
+  if (params.question !== undefined) {
+    if (app.beatCoordinator) {
+      (app.beatCoordinator as any)._currentQuestion = params.question;
+      (app.beatCoordinator as any).currentQuestion = params.question;
+    }
+    (app as any).currentQuestion = params.question;
+  }
+  if (params.hazardPattern !== undefined) {
+    if (app.phaseAHazardController) {
+      (app.phaseAHazardController as any)._activePattern = params.hazardPattern;
+      (app.phaseAHazardController as any)._active = true;
+    }
+  }
+}
+
 function runPreset(app: PresetAppLike, id: DevPresetId, force?: (s: GameState) => boolean): void {
   closeModals(app);
-  app.goToMenu?.();
   const target = getPresetTarget(id);
+
+  const playParams = getPlayPresetParams(id);
+  if (playParams) {
+    applyPlayStateToApp(app, playParams);
+    if (app.stateMachine && app.stateMachine.currentState !== target) {
+      force?.(target);
+    }
+    applyPlayStateToApp(app, playParams);
+    app.transitionManager?.cancel?.();
+    app.effectManager?.clear?.();
+    return;
+  }
+
+  app.goToMenu?.();
 
   if (id.startsWith('menu_sub_')) {
     app.selectChapter?.(Number(id.slice('menu_sub_'.length)));

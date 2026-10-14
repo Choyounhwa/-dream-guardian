@@ -228,6 +228,19 @@ export function isVerifiedPublishedPack(
 
 let activePublishedPack: PublishedContentPack | null = null;
 
+export interface DevPlayStateParams {
+  chapter?: number;
+  playerHp?: number;
+  playerMaxHp?: number;
+  playerMana?: number;
+  combo?: number;
+  bossHp?: number;
+  bossMaxHp?: number;
+  bossPhase?: 'idle' | 'warning' | 'attacking' | 'defeated';
+  question?: GeneratedQuestion | null;
+  hazardPattern?: PhaseAHazardPattern;
+}
+
 export class AppBootstrap {
   public readonly canvas: HTMLCanvasElement;
   public readonly canvasManager: CanvasManager;
@@ -364,6 +377,7 @@ export class AppBootstrap {
     identifier: string,
     options?: ContentLoadOptions,
   ) => Promise<boolean>;
+  public readonly applyDevPlayState?: (params: DevPlayStateParams) => void;
 
   private _isInitialized = false;
   private _isRunning = false;
@@ -377,6 +391,8 @@ export class AppBootstrap {
   get isInitialized(): boolean { return this._isInitialized; }
   get isRunning(): boolean { return this._isRunning; }
   get isDisposed(): boolean { return this._isDisposed; }
+  get currentChapter(): number { return this.mainSceneContext?.state?.currentChapter ?? 1; }
+  get currentQuestion(): GeneratedQuestion | null { return (this.mainSceneContext?.state?.currentQuestion ?? null) as GeneratedQuestion | null; }
 
   constructor(options?: AppBootstrapOptions) {
     this._options = options ?? {};
@@ -2290,6 +2306,41 @@ engine = new GameEngine({
     this.ensureCameraStarted = ensureCameraStarted;
     this.loadQuestions = loadQuestions;
     this.loadFitnessPatterns = loadFitnessPatterns;
+
+    this.applyDevPlayState = (params: DevPlayStateParams): void => {
+      if (params.chapter !== undefined && params.chapter >= 1 && params.chapter <= 5) {
+        currentChapter = params.chapter;
+        selectedChapter = params.chapter;
+        boss.reset(params.chapter);
+      }
+      if (params.playerHp !== undefined) {
+        battle.setHp(params.playerHp);
+      }
+      if (params.playerMana !== undefined) {
+        (battle as any)._mana = params.playerMana;
+      }
+      if (params.combo !== undefined) {
+        (battle as any)._combo = params.combo;
+      }
+      if (params.bossHp !== undefined) {
+        (boss as any)._hp = params.bossHp;
+      }
+      if (params.bossMaxHp !== undefined) {
+        (boss as any)._maxHp = params.bossMaxHp;
+      }
+      if (params.bossPhase !== undefined) {
+        (boss as any)._phase = params.bossPhase;
+      }
+      if (params.question !== undefined) {
+        currentQuestion = params.question;
+        (beatCoordinator as any)._currentQuestion = params.question;
+        questionVisible = true;
+      }
+      if (params.hazardPattern !== undefined) {
+        (phaseAHazardController as any)._activePattern = params.hazardPattern;
+        (phaseAHazardController as any)._active = true;
+      }
+    };
 
     const loadStaticManifest = async (
       manifestUrl?: string,
