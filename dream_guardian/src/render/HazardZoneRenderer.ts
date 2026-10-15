@@ -12,6 +12,7 @@
 
 import type { PhaseAHazardPattern } from '../../config/phase-a-hazard.config.js';
 import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
 import { depthRatioFromY, laneToScreenX } from './GridProjection.js';
 import { MotionNoteRenderer } from './MotionNoteRenderer.js';
 import { createDefaultPainterRegistry } from './note-painters/NotePainters.js';
@@ -144,8 +145,8 @@ export const BALANCE_RIGHT_HAZARD_FIXTURE: HazardFixtureDTO = Object.freeze({
 export interface HazardRenderState {
   activePattern: PhaseAHazardPattern | null;
   beatProgress: number; // 0.0 ~ 1.0
-  vanishingX: number;
-  vanishingY: number;
+  vanishingX?: number;
+  vanishingY?: number;
   isResolved?: boolean;
   isEvaded?: boolean;
 }
@@ -340,15 +341,55 @@ export class HazardZoneRenderer {
     vh: number,
     vanishingPoint?: { x: number; y: number },
   ): HazardBounds {
+    const layout = UI_LAYOUT.hazard?.warningBanner;
     const hz = this.getHazardZoneBounds(pattern, vw, vh, vanishingPoint);
-    const w = Math.min(vw * 0.8, 432 * (vw / 1080));
-    const h = 80 * (vh / 2160);
-    const x = hz.x + hz.w / 2 - w / 2;
-    const y = Math.max(20, hz.y - h - 30);
+    const scaleX = vw / 1080;
+    const scaleY = vh / 2160;
+    const baseW = layout?.w ?? 432;
+    const baseH = layout?.h ?? 80;
+    const w = Math.min(vw * 0.8, baseW * scaleX);
+    const h = baseH * scaleY;
+    const gapY = (layout?.gapY ?? 30) * scaleY;
+    const minY = (layout?.minY ?? 20) * scaleY;
+    const defaultX = hz.x + hz.w / 2 - w / 2;
+    const defaultY = Math.max(minY, hz.y - h - gapY);
+    const x = layout?.x !== undefined && layout.x !== 324 ? layout.x * scaleX : defaultX;
+    const y = layout?.y !== undefined && layout.y !== 1806 ? layout.y * scaleY : defaultY;
 
     return {
       x,
       y,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: false,
+    };
+  }
+
+  getTimingGuideBounds(
+    pattern: PhaseAHazardPattern,
+    vw: number,
+    vh: number,
+    vanishingPoint?: { x: number; y: number },
+  ): HazardBounds {
+    const layout = UI_LAYOUT.hazard?.timingGuide;
+    const ring = this.getTimingRingBounds(pattern, 1.0, vw, vh, vanishingPoint);
+    const targetX = ring.x + ring.w / 2;
+    const targetY = ring.y + ring.h / 2;
+    const baseRy = ring.h / 2;
+    const scaleX = vw / 1080;
+    const scaleY = vh / 2160;
+    const offsetY = (layout?.offsetY ?? 28) * scaleY;
+    const defaultX = targetX;
+    const defaultY = targetY - baseRy - offsetY;
+    const textX = layout?.x !== undefined && layout.x !== 540 ? layout.x * scaleX : defaultX;
+    const textY = layout?.y !== undefined && layout.y !== 1886 ? layout.y * scaleY : defaultY;
+    const w = (layout?.w ?? 400) * scaleX;
+    const h = (layout?.h ?? 60) * scaleY;
+    return {
+      x: textX - w / 2,
+      y: textY - h / 2,
       w,
       h,
       width: w,
@@ -589,8 +630,8 @@ export class HazardZoneRenderer {
   ): void {
     if (!state.activePattern) return;
 
-    const vx = state.vanishingX;
-    const vy = state.vanishingY;
+    const vx = state.vanishingX ?? vw / 2;
+    const vy = state.vanishingY ?? vh * 0.24;
     const floorH = Math.max(1, vh - vy);
     const p = Math.max(0, Math.min(1.0, state.beatProgress));
     const frontY = this.computeHazardFrontY(p, vy, vh);
@@ -661,7 +702,7 @@ export class HazardZoneRenderer {
       ctx,
       [renderItem],
       { width: vw, height: vh },
-      { x: state.vanishingX, y: state.vanishingY },
+      { x: state.vanishingX ?? vw / 2, y: state.vanishingY ?? vh * 0.24 },
     );
 
     if (originalStrokeStyle) {
@@ -678,7 +719,7 @@ export class HazardZoneRenderer {
   private _renderTimingCircle(
     ctx: CanvasRenderingContext2D,
     vw: number,
-    _vh: number,
+    vh: number,
     vx: number,
     vy: number,
     floorH: number,
@@ -761,14 +802,35 @@ export class HazardZoneRenderer {
 
     // 3. 80%~100% 구간: 직관적 타이밍 유도 가이드 텍스트
     if (isUrgent) {
-      ctx.font = 'bold 34px sans-serif';
+      const guideLayout = UI_LAYOUT.hazard?.timingGuide;
+      const textScale = Math.max(
+        0.5,
+        Math.min(3.0, guideLayout?.textScale ?? UI_LAYOUT.hazard?.textScale ?? 1.0),
+      );
+      const baseFontSize =
+        this._presentationContext?.timingGuide?.fontSize ?? (guideLayout?.fontSize ?? 34);
+      const fontSize = Math.round(baseFontSize * textScale);
+      ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle =
         this._presentationContext?.timingGuide?.color ?? '#FF4444';
       ctx.shadowColor = 'rgba(255, 68, 68, 0.9)';
       ctx.shadowBlur = 18;
-      ctx.fillText(guideText, targetX, targetY - baseRy - 28);
+      const scaleX = vw / 1080;
+      const scaleY = vh / 2160;
+      const offsetY = (guideLayout?.offsetY ?? 28) * scaleY;
+      const defaultX = targetX;
+      const defaultY = targetY - baseRy - offsetY;
+      const textX =
+        guideLayout?.x !== undefined && guideLayout.x !== 540
+          ? guideLayout.x * scaleX
+          : defaultX;
+      const textY =
+        guideLayout?.y !== undefined && guideLayout.y !== 1886
+          ? guideLayout.y * scaleY
+          : defaultY;
+      ctx.fillText(guideText, textX, textY);
     }
 
     ctx.restore();
@@ -783,9 +845,18 @@ export class HazardZoneRenderer {
     vh: number,
     override: HazardSlotOverride,
   ): void {
+    const bannerLayout = UI_LAYOUT.hazard?.warningBanner;
+    const textScale = Math.max(
+      0.5,
+      Math.min(3.0, bannerLayout?.textScale ?? UI_LAYOUT.hazard?.textScale ?? 1.0),
+    );
     const bounds = this.getWarningLabelBounds('jump', vw, vh);
     ctx.save();
-    const fontSize = override.fontSize ?? Math.round(36 * (vw / 1080));
+    const baseFontSize =
+      override.fontSize !== undefined
+        ? override.fontSize
+        : Math.round((bannerLayout?.fontSize ?? 36) * (vw / 1080));
+    const fontSize = Math.round(baseFontSize * textScale);
     ctx.font = `bold ${fontSize}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

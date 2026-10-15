@@ -22,6 +22,7 @@ import type { ArmReachAnswerState } from '../input/ArmReachAnswerSelector.js';
 import { UIText } from '../utils/UIText.js';
 import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
 import type { HazardSlotOverride } from '../render/HazardZoneRenderer.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
 
 export type FeedbackReasonKey = keyof JudgmentFeedbackMessages;
 
@@ -147,11 +148,11 @@ export function getJudgmentHintBounds(
 ): FeedbackBounds {
   const scaleX = w / 1080;
   const scaleY = h / 2160;
-  const width = 600 * scaleX;
-  const height = 80 * scaleY;
-  const x = (w - width) / 2;
-  // y = 1280 * scaleY (정규화 y ~ 0.5926, 답안 버튼 밴드 하단 0.56 아래 안전 배치)
-  const y = 1280 * scaleY;
+  const hintLayout = UI_LAYOUT.feedback?.hint;
+  const width = (hintLayout?.w ?? 600) * scaleX;
+  const height = (hintLayout?.h ?? 80) * scaleY;
+  const x = hintLayout?.x !== undefined ? hintLayout.x * scaleX : (w - width) / 2;
+  const y = (hintLayout?.y ?? 1280) * scaleY;
   return { x, y, width, height, w: width, h: height, isProtected: true };
 }
 
@@ -215,6 +216,51 @@ export class JudgmentFeedback {
 
   getHintBounds(w: number, h: number): FeedbackBounds {
     return getJudgmentHintBounds(w, h);
+  }
+
+  getPillBounds(w: number, h: number, messageLength: number = 0): FeedbackBounds {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    const bounds = this.getHintBounds(w, h);
+    const cx = bounds.x + bounds.width / 2;
+    const cy = bounds.y + bounds.height / 2;
+    const pillLayout = UI_LAYOUT.feedback?.pill;
+    const minW = (pillLayout?.minW ?? 320) * scaleX;
+    const charW = (pillLayout?.charW ?? 36) * scaleX;
+    const padW = (pillLayout?.padW ?? 60) * scaleX;
+    const pillW = Math.min(bounds.width, Math.max(minW, messageLength * charW + padW));
+    const pillH = (pillLayout?.h ?? 56) * scaleY;
+    const pillX = cx - pillW / 2;
+    const pillY = cy - pillH / 2;
+    return {
+      x: pillX,
+      y: pillY,
+      w: pillW,
+      h: pillH,
+      width: pillW,
+      height: pillH,
+      isProtected: false,
+    };
+  }
+
+  getAdaptiveBadgeBounds(w: number, h: number): FeedbackBounds {
+    const scaleX = w / 1080;
+    const scaleY = h / 2160;
+    const bounds = this.getHintBounds(w, h);
+    const badgeLayout = UI_LAYOUT.feedback?.adaptiveBadge;
+    const badgeOffsetY = (badgeLayout?.offsetY ?? 14) * scaleY;
+    const badgeY = bounds.y + bounds.height + badgeOffsetY;
+    const badgeW = (badgeLayout?.w ?? 400) * scaleX;
+    const badgeH = (badgeLayout?.h ?? 40) * scaleY;
+    return {
+      x: bounds.x + bounds.width / 2 - badgeW / 2,
+      y: badgeY,
+      w: badgeW,
+      h: badgeH,
+      width: badgeW,
+      height: badgeH,
+      isProtected: false,
+    };
   }
 
   isSlotLocked(slotId: string): boolean {
@@ -535,18 +581,20 @@ export class JudgmentFeedback {
     if (state.isVisible && state.message && bannerOverride?.visible !== false) {
       const cx = bounds.x + bounds.width / 2;
       const cy = bounds.y + bounds.height / 2;
-      const pillW = Math.min(bounds.width, Math.max(320 * scaleX, state.message.length * 36 * scaleX + 60 * scaleX));
-      const pillH = 56 * scaleY;
-      const pillX = cx - pillW / 2;
-      const pillY = cy - pillH / 2;
+      const pillBounds = this.getPillBounds(w, h, state.message.length);
+      const pillW = pillBounds.w;
+      const pillH = pillBounds.h;
+      const pillX = pillBounds.x;
+      const pillY = pillBounds.y;
 
       // 은은한 네온 반투명 배경
       ctx.fillStyle = bannerOverride?.fillColor ?? 'rgba(18, 24, 46, 0.85)';
       ctx.strokeStyle = bannerOverride?.borderColor ?? (bannerOverride?.color ? bannerOverride.color : 'rgba(255, 203, 77, 0.6)');
       ctx.lineWidth = (bannerOverride?.borderWidth ?? 3) * scaleX;
       ctx.beginPath();
+      const radius = (UI_LAYOUT.feedback?.pill?.radius ?? 16) * scaleX;
       if (typeof (ctx as any).roundRect === 'function') {
-        (ctx as any).roundRect(pillX, pillY, pillW, pillH, 16 * scaleX);
+        (ctx as any).roundRect(pillX, pillY, pillW, pillH, radius);
       } else {
         ctx.rect(pillX, pillY, pillW, pillH);
       }
@@ -554,8 +602,13 @@ export class JudgmentFeedback {
       ctx.stroke();
 
       // 텍스트 렌더링
-      const baseFontSize = bannerOverride?.fontSize ?? 22;
-      ctx.font = UIText.getFont('label', scaleX, 'bold', bannerOverride?.fontFamily ?? 'sans-serif', baseFontSize);
+      const hintLayout = UI_LAYOUT.feedback?.hint;
+      const textScale = Math.max(
+        0.5,
+        Math.min(3.0, hintLayout?.textScale ?? UI_LAYOUT.feedback?.textScale ?? 1.0),
+      );
+      const baseFontSize = bannerOverride?.fontSize ?? (hintLayout?.fontSize ?? 22);
+      ctx.font = UIText.getFont('label', scaleX * textScale, 'bold', bannerOverride?.fontFamily ?? 'sans-serif', baseFontSize);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = bannerOverride?.textColor ?? (bannerOverride?.color ? bannerOverride.color : '#FFE082');
@@ -569,10 +622,16 @@ export class JudgmentFeedback {
     // 2. 적응형 완화(adaptiveRelaxed) 활성화 시 은은한 인디케이터 (최소 26px 하한선)
     if (state.adaptiveRelaxed && badgeOverride?.visible !== false) {
       const cx = bounds.x + bounds.width / 2;
-      const badgeY = bounds.y + bounds.height + 14 * scaleY;
+      const badgeLayout = UI_LAYOUT.feedback?.adaptiveBadge;
+      const badgeOffsetY = (badgeLayout?.offsetY ?? 14) * scaleY;
+      const badgeY = bounds.y + bounds.height + badgeOffsetY;
 
-      const badgeFontSize = badgeOverride?.fontSize ?? 26;
-      ctx.font = UIText.getFont('caption', scaleX, 'bold', badgeOverride?.fontFamily ?? 'sans-serif', badgeFontSize);
+      const badgeTextScale = Math.max(
+        0.5,
+        Math.min(3.0, badgeLayout?.textScale ?? UI_LAYOUT.feedback?.textScale ?? 1.0),
+      );
+      const badgeFontSize = badgeOverride?.fontSize ?? (badgeLayout?.fontSize ?? 26);
+      ctx.font = UIText.getFont('caption', scaleX * badgeTextScale, 'bold', badgeOverride?.fontFamily ?? 'sans-serif', badgeFontSize);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = badgeOverride?.textColor ?? badgeOverride?.color ?? 'rgba(77, 255, 170, 0.75)';

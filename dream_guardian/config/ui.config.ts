@@ -347,6 +347,45 @@ export interface UILayoutConfig {
     };
     textScale?: number;
   };
+  hazard: UILayoutSlot & {
+    warningBanner: UILayoutSlot & {
+      gapY: number;
+      minY: number;
+      fontSize: number;
+      textScale: number;
+    };
+    timingGuide: {
+      x?: number;
+      y?: number;
+      w?: number;
+      h?: number;
+      offsetY: number;
+      fontSize: number;
+      textScale: number;
+    };
+    textScale?: number;
+  };
+  feedback: UILayoutSlot & {
+    hint: UILayoutSlot & {
+      fontSize: number;
+      textScale: number;
+    };
+    pill: {
+      h: number;
+      minW?: number;
+      charW?: number;
+      padW?: number;
+      radius?: number;
+    };
+    adaptiveBadge: {
+      w?: number;
+      h?: number;
+      offsetY: number;
+      fontSize: number;
+      textScale: number;
+    };
+    textScale?: number;
+  };
 }
 
 export const UI_LAYOUT: UILayoutConfig = {
@@ -644,6 +683,61 @@ export const UI_LAYOUT: UILayoutConfig = {
       textScale: 1.0,
     },
     footprint: {
+      textScale: 1.0,
+    },
+    textScale: 1.0,
+  },
+  hazard: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    warningBanner: {
+      x: 324,
+      y: 1806,
+      w: 432,
+      h: 80,
+      gapY: 30,
+      minY: 20,
+      fontSize: 36,
+      textScale: 1.0,
+    },
+    timingGuide: {
+      x: 540,
+      y: 1886,
+      w: 400,
+      h: 60,
+      offsetY: 28,
+      fontSize: 34,
+      textScale: 1.0,
+    },
+    textScale: 1.0,
+  },
+  feedback: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    hint: {
+      x: 240,
+      y: 1280,
+      w: 600,
+      h: 80,
+      fontSize: 22,
+      textScale: 1.0,
+    },
+    pill: {
+      h: 56,
+      minW: 320,
+      charW: 36,
+      padW: 60,
+      radius: 16,
+    },
+    adaptiveBadge: {
+      w: 400,
+      h: 40,
+      offsetY: 14,
+      fontSize: 26,
       textScale: 1.0,
     },
     textScale: 1.0,
