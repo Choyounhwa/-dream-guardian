@@ -34,4 +34,16 @@ export {
   type AssaultHandSnapshot,
   type AssaultPunchAdapterOptions,
 } from './AssaultPunchAdapter.js';
+export {
+  AssaultFallbackAdapter,
+  DEFAULT_ASSAULT_FALLBACK_CONFIG,
+  type AssaultFallbackAction,
+  type FallbackKeyboardInput,
+  type FallbackTouchPointInput,
+  type FallbackTouchPoint,
+  type FallbackTouchInput,
+  type AssaultFallbackEvent,
+  type AssaultFallbackConfig,
+} from './AssaultFallbackAdapter.js';
+
 
