@@ -57,6 +57,10 @@ export const DEV_PRESET_IDS = [
   'boss_battle_ch5_low',
   'boss_climax',
   'star_collect',
+  // DEVUI-008 Boss Assault Presets
+  'boss_assault',
+  'boss_assault_low_hp',
+  'boss_assault_result',
 ] as const;
 
 export type DevPresetId = (typeof DEV_PRESET_IDS)[number];
@@ -66,6 +70,7 @@ const PRESET_ALIASES: Record<string, DevPresetId> = {
   menu_sub: 'menu_sub_1',
   result: 'result_3',
   boss_battle_low: 'boss_battle_low_hp',
+  boss_assault_low: 'boss_assault_low_hp',
 };
 
 /** 결과 고정 값: 별 개수 → 정답 수 (10문항, 60초 기준 calcStars 1/2/3) */
@@ -81,6 +86,15 @@ export const FIXED_DEV_QUESTION: GeneratedQuestion = {
   correctAnswer: 8,
   wrongAnswer: 6,
   choices: [6, 8],
+  correctIndex: 1,
+};
+
+/** DEVUI-008 보스 접근전 고정 문제 규격 */
+export const FIXED_DEV_ASSAULT_QUESTION: GeneratedQuestion = {
+  questionText: '7 + 6 = ?',
+  correctAnswer: 13,
+  wrongAnswer: 12,
+  choices: [12, 13],
   correctIndex: 1,
 };
 
@@ -161,13 +175,57 @@ export function getPlayPresetParams(id: DevPresetId): DevPlayStateParams | null 
       question: FIXED_DEV_QUESTION,
     };
   }
+  if (id === 'boss_assault') {
+    return {
+      chapter: 1,
+      playerHp: FIXED_DEV_PLAYER_HP,
+      playerMana: FIXED_DEV_PLAYER_MANA,
+      combo: FIXED_DEV_COMBO,
+      bossHp: FIXED_BOSS_HP[1].normal,
+      bossMaxHp: FIXED_BOSS_HP[1].max,
+      question: FIXED_DEV_ASSAULT_QUESTION,
+      bossPhase: 'idle',
+    };
+  }
+  if (id === 'boss_assault_low_hp') {
+    return {
+      chapter: 1,
+      playerHp: 20,
+      playerMana: 25,
+      combo: 1,
+      bossHp: FIXED_BOSS_HP[1].low,
+      bossMaxHp: FIXED_BOSS_HP[1].max,
+      question: FIXED_DEV_ASSAULT_QUESTION,
+      bossPhase: 'warning',
+    };
+  }
+  if (id === 'boss_assault_result') {
+    return {
+      chapter: 1,
+      playerHp: FIXED_DEV_PLAYER_HP,
+      playerMana: 100,
+      combo: 5,
+      bossHp: 0,
+      bossMaxHp: FIXED_BOSS_HP[1].max,
+      question: FIXED_DEV_ASSAULT_QUESTION,
+      bossPhase: 'defeated',
+    };
+  }
   return null;
 }
 
 export function getPresetTarget(id: DevPresetId): GameState {
   if (id.startsWith('menu_sub_')) return 'MENU_SUB';
   if (id.startsWith('result_')) return 'RESULT';
-  if (id === 'run_question' || id.startsWith('boss_battle')) return 'RUN_QUESTION';
+  if (
+    id === 'run_question' ||
+    id.startsWith('boss_battle') ||
+    id === 'boss_assault' ||
+    id === 'boss_assault_low_hp' ||
+    id === 'boss_assault_result'
+  ) {
+    return 'RUN_QUESTION';
+  }
   if (id === 'answer_select') return 'ANSWER_SELECT';
   if (id === 'hazard_evade') return 'HAZARD_EVADE';
   if (id === 'boss_climax') return 'BOSS_CLIMAX';
@@ -187,8 +245,38 @@ export function getPresetTarget(id: DevPresetId): GameState {
 export function parseDevPreset(search: string): DevPresetId | null {
   const params = new URLSearchParams(search ?? '');
   if (params.get('dev') !== 'ui') return null;
-  const raw = (params.get('preset') ?? '').trim().toLowerCase();
+
+  let raw = (params.get('preset') ?? '').trim().toLowerCase();
+
+  // screen 파라미터 지원 (screen=boss_assault 등)
+  if (!raw) {
+    const screen = (params.get('screen') ?? '').trim().toLowerCase();
+    if (
+      screen === 'boss_assault' ||
+      screen === 'boss_assault_low_hp' ||
+      screen === 'boss_assault_result'
+    ) {
+      raw = screen;
+    }
+  }
+
+  // mode=boss_assault 결합 지원 (preset/screen 이 없는 경우 기본 boss_assault)
+  if (!raw && params.get('mode') === 'boss_assault') {
+    raw = 'boss_assault';
+  }
+
   if (!raw) return null;
+
+  // variant 파라미터 결합 처리
+  const variant = (params.get('variant') ?? '').trim().toLowerCase();
+  if (raw === 'boss_assault') {
+    if (variant === 'low_hp' || variant === 'low') {
+      raw = 'boss_assault_low_hp';
+    } else if (variant === 'result') {
+      raw = 'boss_assault_result';
+    }
+  }
+
   if (PRESET_ALIASES[raw]) return PRESET_ALIASES[raw];
   return (DEV_PRESET_IDS as readonly string[]).includes(raw) ? (raw as DevPresetId) : null;
 }
@@ -441,11 +529,12 @@ function runPreset(app: PresetAppLike, id: DevPresetId, force?: (s: GameState) =
 export function applyDevPreset(
   app: unknown,
   id: DevPresetId,
-  opts: ApplyPresetOptions = {},
+  opts: ApplyPresetOptions | ((state: GameState) => boolean) = {},
 ): ApplyPresetResult {
+  const options: ApplyPresetOptions = typeof opts === 'function' ? { force: opts } : opts;
   const a = (app ?? {}) as PresetAppLike;
-  const storage = opts.storage === undefined ? defaultStorage() : opts.storage;
-  const { blocked } = withStorageWriteGuard(storage, () => runPreset(a, id, opts.force));
+  const storage = options.storage === undefined ? defaultStorage() : options.storage;
+  const { blocked } = withStorageWriteGuard(storage, () => runPreset(a, id, options.force));
   const state = a.stateMachine?.currentState ?? null;
   return { ok: state === getPresetTarget(id), state, blocked };
 }

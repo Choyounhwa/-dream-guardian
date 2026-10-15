@@ -81,6 +81,25 @@ export function getLayoutKeyRule(key: string): LayoutKeyRule {
   if (isTextScaleKey(leaf)) {
     return { min: 0.5, max: 3.0, step: 0.01, integer: false };
   }
+  if (
+    leaf.endsWith('Ratio') ||
+    leaf.endsWith('ratio') ||
+    (key.startsWith('assault.') && (leaf === 'x' || leaf === 'y'))
+  ) {
+    return { min: 0, max: 1, step: 0.01, integer: false };
+  }
+  if (leaf === 'visualScale' || leaf === 'minScale' || leaf === 'maxScale') {
+    return { min: 0.1, max: 3.0, step: 0.01, integer: false };
+  }
+  if (leaf.endsWith('Ms')) {
+    return { min: 0, max: 5000, step: 10, integer: true };
+  }
+  if (leaf === 'labelMaxChars') {
+    return { min: 1, max: 30, step: 1, integer: true };
+  }
+  if (leaf === 'labelMinFontSizePx') {
+    return { min: 8, max: 100, step: 1, integer: true };
+  }
   const isSize = isSizeKey(leaf);
   const isHoriz = isHorizontalKey(leaf);
 
@@ -168,6 +187,12 @@ function mergeInto(
   }
 }
 
+export interface MultiLayoutTargets {
+  ui?: Record<string, unknown> | object;
+  assault?: Record<string, unknown> | object;
+  [key: string]: unknown;
+}
+
 /**
  * target 의 숫자 값만 patch 로 제자리 갱신한다. 객체·배열 참조는 교체하지 않는다.
  */
@@ -177,8 +202,99 @@ export function applyLayoutOverride(target: object, patch: unknown): LayoutOverr
     result.warnings.push('(root): 객체가 아님 — 전체 무시');
     return result;
   }
+  const pObj = patch as Record<string, unknown>;
+  if (('ui' in pObj || 'assault' in pObj) && !('ui' in target)) {
+    if ('ui' in pObj && isPlainObject(pObj.ui)) {
+      mergeInto(target as Record<string, unknown>, pObj.ui as Record<string, unknown>, '', result);
+    }
+    return result;
+  }
   mergeInto(target as Record<string, unknown>, patch, '', result);
   return result;
+}
+
+/**
+ * [DEVUI-008] (Issue #577) 다중 네임스페이스 오버라이드 지원 ({ ui: ..., assault: ... })
+ * 루트에 ui 또는 assault 키가 있는 경우 네임스페이스별 타겟에 패치를 적용하고,
+ * 레거시 단일 소스 패치는 targets.ui 에 100% 하위 호환으로 적용한다.
+ */
+export function applyMultiLayoutOverride(
+  targets: MultiLayoutTargets,
+  patch: unknown,
+): LayoutOverrideResult {
+  const result: LayoutOverrideResult = { applied: [], warnings: [] };
+  if (!isPlainObject(patch)) {
+    result.warnings.push('(root): 객체가 아님 — 전체 무시');
+    return result;
+  }
+
+  const pObj = patch as Record<string, unknown>;
+  const hasUi = 'ui' in pObj;
+  const hasAssault = 'assault' in pObj;
+
+  if (hasUi || hasAssault) {
+    if (hasUi) {
+      if (!targets.ui) {
+        result.warnings.push('ui: 대상 없음');
+      } else if (!isPlainObject(pObj.ui)) {
+        result.warnings.push('ui: 객체가 아님');
+      } else {
+        const subResult: LayoutOverrideResult = { applied: [], warnings: [] };
+        mergeInto(
+          targets.ui as Record<string, unknown>,
+          pObj.ui as Record<string, unknown>,
+          'ui',
+          subResult,
+        );
+        result.applied.push(...subResult.applied);
+        result.warnings.push(...subResult.warnings);
+      }
+    }
+
+    if (hasAssault) {
+      if (!targets.assault) {
+        result.warnings.push('assault: 대상 없음');
+      } else if (!isPlainObject(pObj.assault)) {
+        result.warnings.push('assault: 객체가 아님');
+      } else {
+        const subResult: LayoutOverrideResult = { applied: [], warnings: [] };
+        mergeInto(
+          targets.assault as Record<string, unknown>,
+          pObj.assault as Record<string, unknown>,
+          'assault',
+          subResult,
+        );
+        result.applied.push(...subResult.applied);
+        result.warnings.push(...subResult.warnings);
+      }
+    }
+
+    for (const k of Object.keys(pObj)) {
+      if (k !== 'ui' && k !== 'assault' && k !== 'version') {
+        result.warnings.push(`${k}: 알 수 없는 네임스페이스`);
+      }
+    }
+
+    return result;
+  }
+
+  // 레거시 단일 소스: ui 키 없이 직접 hud, menu 등이 있는 경우
+  const targetUi = (targets.ui ?? targets) as Record<string, unknown>;
+  return applyLayoutOverride(targetUi, patch);
+}
+
+/**
+ * [DEVUI-008] patch 를 임시 복사본에 적용하여 다중 타겟 검증 결과만 반환한다.
+ * 원본 targets 는 변경되지 않는다.
+ */
+export function validateMultiLayoutPatch(
+  targets: MultiLayoutTargets,
+  patch: unknown,
+): LayoutOverrideResult {
+  const cloneTargets: MultiLayoutTargets = {};
+  if (targets.ui) cloneTargets.ui = JSON.parse(JSON.stringify(targets.ui));
+  if (targets.assault) cloneTargets.assault = JSON.parse(JSON.stringify(targets.assault));
+  return applyMultiLayoutOverride(cloneTargets, patch);
 }
 
 /**

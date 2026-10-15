@@ -11,6 +11,7 @@
  */
 
 import { UI_LAYOUT } from '../../config/ui.config.js';
+import { DEFAULT_ASSAULT_VISUAL_CONFIG } from '../../config/assault-visual.config.js';
 import {
   DEV_UI_SECTION_MAP,
   DEV_UI_LOCKED_LAYOUT_PATHS,
@@ -18,6 +19,7 @@ import {
 } from '../../config/dev-ui.config.js';
 import {
   applyLayoutOverride,
+  applyMultiLayoutOverride,
   getLayoutKeyRule,
   UI_LAYOUT_OVERRIDE_URL,
   type LayoutOverrideResult,
@@ -26,6 +28,13 @@ import {
   DevLayoutHistory,
   type LayoutChangeItem,
 } from './DevLayoutHistory.js';
+
+/**
+ * [DEVUI-008] (Issue #577) 보스 접근전(Boss Assault) 변경 가능한 레이아웃 싱글턴
+ */
+export const ASSAULT_VISUAL: Record<string, any> = JSON.parse(
+  JSON.stringify(DEFAULT_ASSAULT_VISUAL_CONFIG),
+);
 
 export const DEV_LAYOUT_PANEL_ID = 'dg-dev-layout-panel';
 export const DEV_LAYOUT_STORAGE_KEY = 'dg-dev-ui-layout-diff';
@@ -128,11 +137,52 @@ export interface LayoutExport {
   warnings: string[];
 }
 
-/** 내보낼 JSON 을 만들고 DEVUI-002 검증기로 사전 검증한다 */
-export function buildLayoutExport(current: object, base: object, pinned?: ReadonlySet<string>): LayoutExport {
-  const diff = buildLayoutDiff(current, base, pinned);
+/**
+ * [DEVUI-008] (Issue #577) 다중 소스 네임스페이스 JSON ({ version: 1, ui: ..., assault: ... }) 을 생성하고 검증한다.
+ */
+export function buildMultiLayoutExport(sources: {
+  ui: { current: object; base: object; pinned?: ReadonlySet<string> };
+  assault: { current: object; base: object; pinned?: ReadonlySet<string> };
+}): LayoutExport {
+  const diffUi = buildLayoutDiff(sources.ui.current, sources.ui.base, sources.ui.pinned);
+  const diffAssault = buildLayoutDiff(
+    sources.assault.current,
+    sources.assault.base,
+    sources.assault.pinned,
+  );
+  const payload = {
+    version: 1,
+    ui: diffUi,
+    assault: diffAssault,
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const { warnings } = applyMultiLayoutOverride(
+    {
+      ui: snapshotLayout(sources.ui.base),
+      assault: snapshotLayout(sources.assault.base),
+    },
+    JSON.parse(json),
+  );
+  return { json, filename: DEV_LAYOUT_EXPORT_FILENAME, warnings };
+}
+
+/** 내보낼 JSON 을 만들고 DEVUI-002 검증기로 사전 검증한다 (단일 및 다중 소스 지원) */
+export function buildLayoutExport(
+  currentOrSources: any,
+  base?: object,
+  pinned?: ReadonlySet<string>,
+): LayoutExport {
+  if (
+    base === undefined &&
+    currentOrSources &&
+    typeof currentOrSources === 'object' &&
+    'ui' in currentOrSources
+  ) {
+    return buildMultiLayoutExport(currentOrSources);
+  }
+  const diff = buildLayoutDiff(currentOrSources, base!, pinned);
   const json = JSON.stringify(diff, null, 2);
-  const { warnings } = applyLayoutOverride(snapshotLayout(base), JSON.parse(json));
+  const { warnings } = applyLayoutOverride(snapshotLayout(base!), JSON.parse(json));
   return { json, filename: DEV_LAYOUT_EXPORT_FILENAME, warnings };
 }
 
@@ -215,7 +265,16 @@ export function restoreLayoutDiff(storage: StorageLike | null, target: object): 
 }
 
 export function getSectionsForState(state: string): string[] {
-  return [...(DEV_UI_SECTION_MAP[state] ?? [])];
+  const base = [...(DEV_UI_SECTION_MAP[state] ?? [])];
+  if (
+    state === 'ASSAULT_ROUND' ||
+    state === 'boss_assault' ||
+    state === 'boss_assault_low_hp' ||
+    state === 'boss_assault_result'
+  ) {
+    return ['assault', ...base];
+  }
+  return base;
 }
 
 // ─── 패널 마운트 ───
@@ -373,6 +432,8 @@ export interface MountLayoutPanelOptions {
   watchState?: boolean;
   /** 외부에서 주입할 이력 관리자 (미지정 시 신규 생성) */
   history?: DevLayoutHistory;
+  /** [DEVUI-008] 다중 소스 네임스페이스 내보내기 강제 활성화 */
+  multiSource?: boolean;
 }
 
 export interface DevLayoutPanelHandle {
@@ -736,12 +797,61 @@ export async function mountDevLayoutPanel(
 
   // 기준값 = 부팅 시 값(기본값 + ui-layout.json). 기존 파일 항목은 내보내기에 항상 포함한다.
   const base = snapshotLayout(UI_LAYOUT);
-  const pinned = new Set(fileOverride ? applyLayoutOverride(snapshotLayout(base), fileOverride).applied : []);
-  restoreLayoutDiff(storage, UI_LAYOUT);
+  const baseAssault = snapshotLayout(ASSAULT_VISUAL);
+
+  let pinned: Set<string>;
+  let pinnedAssault: Set<string>;
+
+  if (fileOverride && typeof fileOverride === 'object') {
+    const fo = fileOverride as Record<string, unknown>;
+    if ('ui' in fo || 'assault' in fo) {
+      const res = applyMultiLayoutOverride(
+        { ui: snapshotLayout(base), assault: snapshotLayout(baseAssault) },
+        fileOverride,
+      );
+      pinned = new Set(res.applied.filter((p) => p.startsWith('ui.')).map((p) => p.slice(3)));
+      pinnedAssault = new Set(
+        res.applied.filter((p) => p.startsWith('assault.')).map((p) => p.slice(8)),
+      );
+    } else {
+      pinned = new Set(applyLayoutOverride(snapshotLayout(base), fileOverride).applied);
+      pinnedAssault = new Set();
+    }
+  } else {
+    pinned = new Set();
+    pinnedAssault = new Set();
+  }
+
+  // 저장된 diff 복원
+  if (storage) {
+    const raw = storage.getItem(DEV_LAYOUT_STORAGE_KEY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && ('ui' in parsed || 'assault' in parsed)) {
+          applyMultiLayoutOverride({ ui: UI_LAYOUT, assault: ASSAULT_VISUAL }, parsed);
+        } else {
+          applyLayoutOverride(UI_LAYOUT, parsed);
+        }
+      } catch {
+        console.warn('[DEV UI] 저장된 레이아웃 변경분이 손상되어 무시합니다.');
+      }
+    }
+  }
 
   const sm = (app as AppLike | null)?.stateMachine;
   const sections = new Set(getSectionsForState(sm?.currentState ?? ''));
-  const metas = new Map(flattenLayoutBindings(UI_LAYOUT, DEV_UI_LOCKED_LAYOUT_PATHS).map((b) => [b.path, b]));
+
+  const uiMetas = flattenLayoutBindings(UI_LAYOUT, DEV_UI_LOCKED_LAYOUT_PATHS);
+  const assaultMetas = flattenLayoutBindings(ASSAULT_VISUAL, []).map((b) => ({
+    ...b,
+    path: `assault.${b.path}`,
+  }));
+
+  const metas = new Map<string, LayoutBinding>([
+    ...uiMetas.map((b) => [b.path, b] as [string, LayoutBinding]),
+    ...assaultMetas.map((b) => [b.path, b] as [string, LayoutBinding]),
+  ]);
 
   for (const [path, m] of metas) {
     if (!m.readonly) {
@@ -757,15 +867,50 @@ export async function mountDevLayoutPanel(
     redoBtn.disabled = !history.canRedo();
   };
 
+  const saveDiff = () => {
+    if (!storage) return;
+    const uiDiff = buildLayoutDiff(UI_LAYOUT, base);
+    const assaultDiff = buildLayoutDiff(ASSAULT_VISUAL, baseAssault);
+    const hasAssault = Object.keys(assaultDiff).length > 0;
+    const hasUi = Object.keys(uiDiff).length > 0;
+
+    if (opts.multiSource || hasAssault) {
+      if (!hasUi && !hasAssault) {
+        storage.removeItem(DEV_LAYOUT_STORAGE_KEY);
+      } else {
+        storage.setItem(
+          DEV_LAYOUT_STORAGE_KEY,
+          JSON.stringify({ version: 1, ui: uiDiff, assault: assaultDiff }),
+        );
+      }
+    } else {
+      if (!hasUi) {
+        storage.removeItem(DEV_LAYOUT_STORAGE_KEY);
+      } else {
+        storage.setItem(DEV_LAYOUT_STORAGE_KEY, JSON.stringify(uiDiff));
+      }
+    }
+  };
+
+  const applyPath = (path: string, val: number) => {
+    if (path.startsWith('assault.')) {
+      applyPathValue(ASSAULT_VISUAL, path.slice('assault.'.length), val);
+    } else if (path.startsWith('ui.')) {
+      applyPathValue(UI_LAYOUT, path.slice('ui.'.length), val);
+    } else {
+      applyPathValue(UI_LAYOUT, path, val);
+    }
+  };
+
   const performUndo = () => {
     const entry = history.undo();
     if (!entry) return;
     const items = DevLayoutHistory.toItems(entry);
     for (const item of items) {
-      applyPathValue(UI_LAYOUT, item.path, item.before);
+      applyPath(item.path, item.before);
     }
     pane.refresh();
-    saveLayoutDiff(storage, UI_LAYOUT, base);
+    saveDiff();
     updateButtons();
   };
 
@@ -774,10 +919,10 @@ export async function mountDevLayoutPanel(
     if (!entry) return;
     const items = DevLayoutHistory.toItems(entry);
     for (const item of items) {
-      applyPathValue(UI_LAYOUT, item.path, item.after);
+      applyPath(item.path, item.after);
     }
     pane.refresh();
-    saveLayoutDiff(storage, UI_LAYOUT, base);
+    saveDiff();
     updateButtons();
   };
 
@@ -796,7 +941,7 @@ export async function mountDevLayoutPanel(
   const onChange = (path: string, val: number, isLast: boolean) => {
     history.recordChange(path, val, isLast);
     if (isLast) {
-      saveLayoutDiff(storage, UI_LAYOUT, base);
+      saveDiff();
       updateButtons();
     }
   };
@@ -804,7 +949,14 @@ export async function mountDevLayoutPanel(
   pane
     .addButton({ title: `내보내기 (${DEV_LAYOUT_EXPORT_DIR}${DEV_LAYOUT_EXPORT_FILENAME})` })
     .on('click', async () => {
-      const out = buildLayoutExport(UI_LAYOUT, base, pinned);
+      const isMulti =
+        opts.multiSource || Object.keys(buildLayoutDiff(ASSAULT_VISUAL, baseAssault)).length > 0;
+      const out = isMulti
+        ? buildMultiLayoutExport({
+            ui: { current: UI_LAYOUT, base, pinned },
+            assault: { current: ASSAULT_VISUAL, base: baseAssault, pinned: pinnedAssault },
+          })
+        : buildLayoutExport(UI_LAYOUT, base, pinned);
       if (out.warnings.length > 0) console.warn('[DEV UI] 내보내기 검증 경고:', out.warnings);
       await saveLayoutExport(out, {
         download,
@@ -817,7 +969,9 @@ export async function mountDevLayoutPanel(
     for (const [path, m] of metas) {
       if (!m.readonly) {
         const curVal = (m.target as Record<string, number>)[m.key];
-        const baseVal = getPathValue(base, path);
+        const baseVal = path.startsWith('assault.')
+          ? (getPathValue(baseAssault, path.slice('assault.'.length)) as number)
+          : (getPathValue(base, path) as number);
         if (typeof baseVal === 'number' && curVal !== baseVal) {
           batch.push({ path, before: curVal, after: baseVal });
         }
@@ -827,7 +981,8 @@ export async function mountDevLayoutPanel(
       history.push(batch);
     }
     resetLayoutTo(UI_LAYOUT, base);
-    saveLayoutDiff(storage, UI_LAYOUT, base);
+    resetLayoutTo(ASSAULT_VISUAL, baseAssault);
+    saveDiff();
     pane.refresh();
     updateButtons();
   });
@@ -854,6 +1009,21 @@ export async function mountDevLayoutPanel(
       nudgeContext,
     );
   }
+
+  // [DEVUI-008] ASSAULT_VISUAL 다중 소스 폴더 바인딩
+  const assaultFolder = pane.addFolder({
+    title: 'assault',
+    expanded: sections.has('assault') || sections.has('ASSAULT_VISUAL'),
+  });
+  sectionFolders.set('assault', assaultFolder);
+  addLayoutFolder(
+    assaultFolder,
+    ASSAULT_VISUAL as Obj,
+    'assault',
+    metas,
+    onChange,
+    nudgeContext,
+  );
 
   const lockedRoot = pane.addFolder({ title: '판정 연동 좌표 (읽기 전용)', expanded: false });
   for (const source of getDevUiLockedSources()) {
@@ -887,7 +1057,7 @@ export async function mountDevLayoutPanel(
               (m.target as Record<string, number>)[m.key] = next;
               history.endDrag(path, next);
               pane.refresh();
-              saveLayoutDiff(storage, UI_LAYOUT, base);
+              saveDiff();
               updateButtons();
               if ('value' in active) {
                 (active as any).value = String(next);
