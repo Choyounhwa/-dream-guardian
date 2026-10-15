@@ -137,6 +137,8 @@ export interface StartDevUiOptions {
   schedule?: (fn: () => void) => void;
   /** [DEVUI-006] 레이아웃 패널 마운트 (테스트 주입용). 기본은 DevLayoutPanel 동적 import */
   mountLayoutPanel?: (app: unknown, doc: Document) => void;
+  /** [DEVUI-007] 인스펙터 오버레이 마운트 (테스트 주입용). 기본은 DevInspectorOverlay 동적 import */
+  mountInspectorOverlay?: (app: unknown, doc: Document) => void;
 }
 
 /** [DEVUI-006] 기본 레이아웃 패널 마운트: 브라우저에서만 tweakpane 패널을 동적 로드한다 */
@@ -145,6 +147,14 @@ function defaultMountLayoutPanel(app: unknown, doc: Document): void {
   import('./DevLayoutPanel.js')
     .then((m) => m.mountDevLayoutPanel(app, doc))
     .catch((err) => console.warn('[DEV UI] 레이아웃 패널 로드 실패:', err));
+}
+
+/** [DEVUI-007] 기본 인스펙터 오버레이 마운트: 브라우저에서만 오버레이를 동적 로드한다 */
+export function defaultMountInspectorOverlay(app: unknown, doc: Document): void {
+  if (typeof window === 'undefined') return;
+  import('./DevInspectorOverlay.js')
+    .then((m) => m.mountDevInspectorOverlay(app, doc))
+    .catch((err) => console.warn('[DEV UI] 인스펙터 오버레이 로드 실패:', err));
 }
 
 function mountSceneJumper(
@@ -278,6 +288,9 @@ export function startDevUi(
     // [DEVUI-006] 부팅(ui-layout.json 적용) 이후 레이아웃 패널을 붙인다.
     const mountLayoutPanel = opts.mountLayoutPanel ?? defaultMountLayoutPanel;
     (opts.schedule ?? defaultSchedule(app))(() => mountLayoutPanel(app, doc));
+    // [DEVUI-007] 인스펙터 오버레이를 붙인다.
+    const mountInspectorOverlay = opts.mountInspectorOverlay ?? defaultMountInspectorOverlay;
+    (opts.schedule ?? defaultSchedule(app))(() => mountInspectorOverlay(app, doc));
   }
   return badge;
 }
