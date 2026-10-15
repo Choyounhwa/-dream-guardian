@@ -34,7 +34,7 @@
 | 14 | [#575 LAYOUT-008](https://github.com/Choyounhwa/-dream-guardian/issues/575) | 장애물·판정 피드백 이전 (레인 잠금, +글자 `textScale`) | `[✔]` 833b430 (TDD 100% Pass) |
 | 15 | [#576 LAYOUT-009](https://github.com/Choyounhwa/-dream-guardian/issues/576) | 보스·결전 이전 (+글자 `textScale`) | `[✔]` d615a55 (TDD 100% Pass) |
 | 16 | [#567 DEVUI-007](https://github.com/Choyounhwa/-dream-guardian/issues/567) | 인스펙터 오버레이 (클릭 선택·드래그) | `[✔]` 8723c7f (TDD 100% Pass) |
-| 17 | [#577 DEVUI-008](https://github.com/Choyounhwa/-dream-guardian/issues/577) | 보스 접근전 화면 프리셋, `assault-visual.config` 편집 (다중 소스) | 대기 (BOSS-ASSAULT G3 및 #505·#521·#522·#545 완료 후) |
+| 17 | [#577 DEVUI-008](https://github.com/Choyounhwa/-dream-guardian/issues/577) | 보스 접근전 화면 프리셋, `assault-visual.config` 편집 (다중 소스) | `[✔]` acac4c8 (TDD 100% Pass) |
 
 **2026-10-13 추가 카드 (#578~#583, 사용자 결정)**: #570 앞에 끼워 넣는다. 내보내기는 (B) 브라우저 저장 대화상자 + `public/layouts/`. 글자 크기는 **모든 글자** 대상이며 요소별 `textScale`(0.5~3.0, 기본 1.0, 접근성 `fontScale`과 별개)로 둔다. 미세 조정은 1px / Shift 10px (`textScale`은 0.01 / Shift 0.1). #570~#576에는 "+글자 `textScale`" 범위를 이슈 코멘트로 추가했다. 기존 `public/ui-layout.json`은 #578 완료 후 사용자가 `public/layouts/`로 옮긴다.
 
