@@ -87,9 +87,12 @@ export interface AssaultSessionPlan {
 export type AssaultRoundPhase =
   | 'idle'
   | 'ready'
+  | 'throw_in'
   | 'question_reading'
   | 'choice_window'
+  | 'encounters'
   | 'strike_resolve'
+  | 'round_resolve'
   | 'round_clear'
   | 'round_failed';
 
@@ -172,6 +175,19 @@ export interface AssaultPresentationDTO {
   readonly comboCount: number;
   readonly remainingTimeSeconds: number;
   readonly warningActive: boolean;
+}
+
+/** 라운드 런타임 표시 DTO */
+export interface AssaultRoundPresentation {
+  readonly sessionId: SessionId;
+  readonly roundId: RoundId;
+  readonly phase: AssaultRoundPhase;
+  readonly questionText: string;
+  readonly currentEncounterIndex: number;
+  readonly totalEncounters: number;
+  readonly activeSeconds: number;
+  readonly readingProgress: number;
+  readonly isPaused: boolean;
 }
 
 /** 표시 스냅샷 타입 별칭 */
