@@ -24,3 +24,14 @@ export type {
   ArmReachAnswerState,
   ArmReachSelectCallback,
 } from './ArmReachAnswerSelector.js';
+export {
+  AssaultPunchAdapter,
+  type AssaultHand,
+  type HandPunchState,
+  type AssaultPunchHandInput,
+  type AssaultPunchFrameInput,
+  type AssaultPunchEvent,
+  type AssaultHandSnapshot,
+  type AssaultPunchAdapterOptions,
+} from './AssaultPunchAdapter.js';
+
