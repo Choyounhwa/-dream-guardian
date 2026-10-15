@@ -50,6 +50,28 @@ export function getSubmenuBackSlot(): BottomBarSlot {
 }
 
 /**
+ * 보스 배치 위치 및 반지름 조회 (매 호출마다 UI_LAYOUT.boss 재참조, 캐시 금지)
+ * [LAYOUT-009 / Issue #576]
+ */
+export function getBossPlacement(
+  vw: number = 1080,
+  vh: number = 2160,
+): { x: number; y: number; radius: number } {
+  const bossLayout = UI_LAYOUT.boss;
+  const scaleX = vw / 1080;
+  const scaleY = vh / 2160;
+  const x = (bossLayout?.x ?? 540) * scaleX;
+  const y = (bossLayout?.y ?? 1209.6) * scaleY;
+  const maxRadius = (bossLayout?.maxRadius ?? 180) * scaleX;
+  const radiusRatio = bossLayout?.radiusRatio ?? 0.12;
+  const radius =
+    bossLayout?.radius !== undefined && bossLayout.radius !== 129.6
+      ? bossLayout.radius * scaleX
+      : Math.min(maxRadius, vw * radiusRatio);
+  return { x, y, radius };
+}
+
+/**
  * 하단바 submenu customActionSlot 등 Core의 액션 버튼 seam 검증 geometry 조회
  * [UI-VIS-041 / Issue #471]
  */
@@ -1126,9 +1148,9 @@ export class SceneDirector<TContext = any> {
     const vw = ctx.canvasManager.virtualWidth;
     const vh = ctx.canvasManager.virtualHeight;
 
-    const bossX = vw * 0.5;
-    const bossY = vh * HORIZON_RATIO;
-    const bossRadius = Math.min(180, vw * 0.12);
+    const vanishingX = vw * 0.5;
+    const vanishingY = vh * HORIZON_RATIO;
+    const { x: bossX, y: bossY, radius: bossRadius } = getBossPlacement(vw, vh);
 
     let gridColor = CHAPTER_COLORS[ctx.state.currentChapter] || '#28E6FF';
     if (ctx.state.gamePhase === 'running') {
@@ -1140,8 +1162,8 @@ export class SceneDirector<TContext = any> {
     const beatProg = ctx.beatCoordinator?.rhythmEngine?.beatProgress ?? undefined;
 
     ctx.dreamGrid.render(context2d, vw, vh, {
-      vanishingX: bossX,
-      vanishingY: bossY,
+      vanishingX,
+      vanishingY,
       color: gridColor,
       bgImage: gameBg,
       beatProgress: beatProg,
@@ -1154,7 +1176,7 @@ export class SceneDirector<TContext = any> {
       const mode = ctx.locomotionModal?.selectedMode ?? 'run';
       const view = isRunQuestion ? (RunningMatPresenter as any).present(snapshot, mode) : null;
       ctx.runningMatRenderer.render(context2d, view, vw, vh, {
-        vanishingPoint: { x: bossX, y: bossY },
+        vanishingPoint: { x: vanishingX, y: vanishingY },
         elapsedTime: ctx.engine?.elapsedTime ?? 0,
         beatProgress: beatProg,
       });
@@ -1171,8 +1193,8 @@ export class SceneDirector<TContext = any> {
         target: ctx.starNoteScheduler.currentTarget,
         targets: ctx.starNoteScheduler.activeNotes,
         elapsedTime: ctx.engine?.elapsedTime ?? 0,
-        vanishingX: bossX,
-        vanishingY: bossY,
+        vanishingX,
+        vanishingY,
         isPaused: ctx.engine?.paused || ctx.starNoteScheduler.isPaused,
         ...(isPhaseAStarCollect
           ? {
@@ -1209,8 +1231,8 @@ export class SceneDirector<TContext = any> {
         barrageActive: ctx.state.climaxBarrageTimer > 0,
         barrageProgress: ctx.state.climaxBarrageTimer > 0 ? 1 - (ctx.state.climaxBarrageTimer / CLIMAX_BARRAGE_DURATION) : 0,
         elapsedTime: ctx.engine?.elapsedTime ?? 0,
-        vanishingX: bossX,
-        vanishingY: bossY,
+        vanishingX,
+        vanishingY,
       });
     }
 
@@ -1228,8 +1250,8 @@ export class SceneDirector<TContext = any> {
         activeHazardPattern: null,
         hazardBeatProgress: 0,
         questionApproachProgress: ctx.beatCoordinator.questionApproachProgress,
-        vanishingX: bossX,
-        vanishingY: bossY,
+        vanishingX,
+        vanishingY,
       });
 
       // Issue #322: 러닝 페이즈 문제 수식을 QuestionRenderer 단일 뷰(SSOT)로 일원화
@@ -1238,8 +1260,8 @@ export class SceneDirector<TContext = any> {
         questionVisible: true,
         selectedChoiceIndex: null,
         questionApproachProgress: ctx.beatCoordinator.questionApproachProgress,
-        vanishingX: bossX,
-        vanishingY: bossY,
+        vanishingX,
+        vanishingY,
         headerOnly: true,
         answerSelectable: false,
         showAnswerTime: false,
@@ -1257,8 +1279,8 @@ export class SceneDirector<TContext = any> {
           questionVisible: true,
           selectedChoiceIndex: null,
           answerApproachProgress: ctx.beatCoordinator.answerApproachProgress,
-          vanishingX: bossX,
-          vanishingY: bossY,
+          vanishingX,
+          vanishingY,
           buttonsOnly: true,
           answerSelectable: false,
           showAnswerTime: false,
@@ -1309,8 +1331,8 @@ export class SceneDirector<TContext = any> {
         questionVisible: ctx.state.questionVisible ?? true,
         selectedChoiceIndex: selectedIndex,
         answerApproachProgress: 1.0,
-        vanishingX: bossX,
-        vanishingY: bossY,
+        vanishingX,
+        vanishingY,
         choiceProgress: [choiceProgress0, choiceProgress1],
         activeHoverIndex,
         answerSelectable: ctx.beatCoordinator.isAnswerOpen,
@@ -1333,8 +1355,8 @@ export class SceneDirector<TContext = any> {
       ctx.presentationAdapter.renderHazardEvade(context2d, vw, vh, {
         activePattern: ctx.phaseAHazardController.activePattern,
         beatProgress: ctx.phaseAHazardController.beatProgress,
-        vanishingX: bossX,
-        vanishingY: bossY,
+        vanishingX,
+        vanishingY,
         isEvaded: ctx.phaseAHazardController.isEvaded,
         isResolved: ctx.phaseAHazardController.isResolved,
         performedAction: ctx.phaseAHazardController.performedAction,

@@ -386,6 +386,44 @@ export interface UILayoutConfig {
     };
     textScale?: number;
   };
+  boss: UILayoutSlot & {
+    radius: number;
+    maxRadius?: number;
+    radiusRatio?: number;
+    textScale?: number;
+  };
+  bossClimax: UILayoutSlot & {
+    gauge: UILayoutSlot & {
+      textScale: number;
+      enragedTextScale?: number;
+    };
+    guardian: UILayoutSlot & {
+      textScale: number;
+    };
+    jumpGuide: {
+      offsetY: number;
+      textScale: number;
+    };
+    stepGuide: {
+      targetY: number;
+      offsetY: number;
+      textScale: number;
+    };
+    feedback: {
+      offsetY: number;
+      textScale: number;
+    };
+    fever: UILayoutSlot & {
+      textScale: number;
+    };
+    troopBadge: UILayoutSlot & {
+      textScale: number;
+    };
+    stardustBadge: UILayoutSlot & {
+      textScale: number;
+    };
+    textScale?: number;
+  };
 }
 
 export const UI_LAYOUT: UILayoutConfig = {
@@ -738,6 +776,72 @@ export const UI_LAYOUT: UILayoutConfig = {
       h: 40,
       offsetY: 14,
       fontSize: 26,
+      textScale: 1.0,
+    },
+    textScale: 1.0,
+  },
+  boss: {
+    x: 540,
+    y: 1209.6,
+    w: 259.2,
+    h: 259.2,
+    radius: 129.6,
+    maxRadius: 180,
+    radiusRatio: 0.12,
+    textScale: 1.0,
+  },
+  bossClimax: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    gauge: {
+      x: 50,
+      y: 20,
+      w: 980,
+      h: 60,
+      textScale: 1.0,
+      enragedTextScale: 1.0,
+    },
+    guardian: {
+      x: 540,
+      y: 1814.4,
+      w: 80,
+      h: 80,
+      textScale: 1.0,
+    },
+    jumpGuide: {
+      offsetY: 28,
+      textScale: 1.0,
+    },
+    stepGuide: {
+      targetY: 1900.8,
+      offsetY: 50,
+      textScale: 1.0,
+    },
+    feedback: {
+      offsetY: 40,
+      textScale: 1.0,
+    },
+    fever: {
+      x: 140,
+      y: 100,
+      w: 200,
+      h: 50,
+      textScale: 1.0,
+    },
+    troopBadge: {
+      x: 40,
+      y: 1663.2,
+      w: 200,
+      h: 50,
+      textScale: 1.0,
+    },
+    stardustBadge: {
+      x: 840,
+      y: 1663.2,
+      w: 200,
+      h: 50,
       textScale: 1.0,
     },
     textScale: 1.0,

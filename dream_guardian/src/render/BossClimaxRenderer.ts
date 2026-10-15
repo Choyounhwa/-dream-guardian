@@ -22,6 +22,12 @@ import { createDefaultPainterRegistry } from './note-painters/NotePainters.js';
 import { DEFAULT_NOTE_PROFILES } from '../../config/motion-note-profile.config.js';
 import { bossHazardToRenderItem } from '../game/adapters/bossHazardAdapter.js';
 import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
+
+function clampTextScale(scale: number | undefined, fallback: number = 1.0): number {
+  const val = typeof scale === 'number' && !Number.isNaN(scale) ? scale : fallback;
+  return Math.max(0.5, Math.min(3.0, val));
+}
 
 export const BOSS_CLIMAX_SLOT_IDS = [
   'boss_hud',
@@ -269,10 +275,13 @@ export class BossClimaxRenderer {
     vh: number,
     vanishingPoint?: { x: number; y: number },
   ): BossClimaxBounds {
-    const vx = vanishingPoint?.x ?? vw * 0.5;
-    const vy = vanishingPoint?.y ?? vh * HORIZON_RATIO;
     const scale = vw / 1080;
-    const size = 180 * scale;
+    const bossLayout = UI_LAYOUT.boss;
+    const defaultVx = (bossLayout?.x ?? 540) * scale;
+    const defaultVy = (bossLayout?.y ?? 1209.6) * (vh / 2160);
+    const vx = vanishingPoint?.x ?? defaultVx;
+    const vy = vanishingPoint?.y ?? defaultVy;
+    const size = (bossLayout?.maxRadius ?? 180) * scale;
     return {
       x: vx - size / 2,
       y: vy - size / 2,
@@ -290,7 +299,8 @@ export class BossClimaxRenderer {
   getGuardianBounds(vw: number, vh: number): BossClimaxBounds {
     const pos = this.getGuardianPosition(vw, vh);
     const scale = vw / 1080;
-    const size = 80 * scale;
+    const guardianLayout = UI_LAYOUT.bossClimax?.guardian;
+    const size = (guardianLayout?.w ?? 80) * scale;
     return {
       x: pos.x - size / 2,
       y: pos.y - size / 2,
@@ -307,11 +317,56 @@ export class BossClimaxRenderer {
    */
   getHudBounds(vw: number, _vh?: number): BossClimaxBounds {
     const scaleX = vw / 1080;
+    const gaugeLayout = UI_LAYOUT.bossClimax?.gauge;
     const override = this._presentationContext?.bossHud;
-    const x = override?.x ?? 50 * scaleX;
-    const y = override?.y ?? 20 * scaleX;
-    const w = override?.w ?? 980 * scaleX;
-    const h = override?.h ?? 60 * scaleX;
+    const x = override?.x ?? (gaugeLayout?.x ?? 50) * scaleX;
+    const y = override?.y ?? (gaugeLayout?.y ?? 20) * scaleX;
+    const w = override?.w ?? (gaugeLayout?.w ?? 980) * scaleX;
+    const h = override?.h ?? (gaugeLayout?.h ?? 60) * scaleX;
+    return {
+      x,
+      y,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: false,
+    };
+  }
+
+  /**
+   * 아군 군단 배지 바운딩 박스 조회
+   */
+  getTroopBadgeBounds(vw: number, vh: number): BossClimaxBounds {
+    const scaleX = vw / 1080;
+    const scaleY = vh / 2160;
+    const troopLayout = UI_LAYOUT.bossClimax?.troopBadge;
+    const x = (troopLayout?.x ?? 40) * scaleX;
+    const y = (troopLayout?.y ?? 1663.2) * scaleY;
+    const w = (troopLayout?.w ?? 200) * scaleX;
+    const h = (troopLayout?.h ?? 50) * scaleX;
+    return {
+      x,
+      y,
+      w,
+      h,
+      width: w,
+      height: h,
+      isProtected: false,
+    };
+  }
+
+  /**
+   * 별가루 배지 바운딩 박스 조회
+   */
+  getStardustBadgeBounds(vw: number, vh: number): BossClimaxBounds {
+    const scaleX = vw / 1080;
+    const scaleY = vh / 2160;
+    const stardustLayout = UI_LAYOUT.bossClimax?.stardustBadge;
+    const w = (stardustLayout?.w ?? 200) * scaleX;
+    const h = (stardustLayout?.h ?? 50) * scaleX;
+    const x = stardustLayout?.x !== undefined ? stardustLayout.x * scaleX : vw - 40 * scaleX - w;
+    const y = (stardustLayout?.y ?? 1663.2) * scaleY;
     return {
       x,
       y,
@@ -510,9 +565,14 @@ export class BossClimaxRenderer {
    * 전경 중앙 수호신 기준 좌표
    */
   getGuardianPosition(vw: number, vh: number): { x: number; y: number } {
+    const scaleX = vw / 1080;
+    const scaleY = vh / 2160;
+    const guardianLayout = UI_LAYOUT.bossClimax?.guardian;
+    const defaultX = vw * 0.5;
+    const defaultY = vh * 0.84;
     return {
-      x: vw * 0.5,
-      y: vh * 0.84,
+      x: guardianLayout?.x !== undefined ? guardianLayout.x * scaleX : defaultX,
+      y: guardianLayout?.y !== undefined ? guardianLayout.y * scaleY : defaultY,
     };
   }
 
@@ -692,7 +752,7 @@ export class BossClimaxRenderer {
     ctx.save();
 
     if (hazard.activePattern === 'dual_slam') {
-      this._renderDualSlamShockwave(ctx, vw, vx, frontY, depthRatio, p, time, scaleX);
+      this._renderDualSlamShockwave(ctx, vw, vx, frontY, depthRatio, p, time, scaleX, vh);
     } else if (
       hazard.activePattern === 'alternating_stomp_left' ||
       hazard.activePattern === 'alternating_stomp_right'
@@ -703,7 +763,7 @@ export class BossClimaxRenderer {
 
     // 해결(Resolved) 시 회피 성공 / 피격 피드백 텍스트
     if (hazard.isResolved) {
-      this._renderResolvedFeedback(ctx, vx, frontY, hazard.isEvaded === true, scaleX);
+      this._renderResolvedFeedback(ctx, vx, frontY, hazard.isEvaded === true, scaleX, vh);
     }
 
     // MRN-11: 상공 비행 장판/충격파 투사체 MotionNoteRenderer 위임
@@ -756,6 +816,7 @@ export class BossClimaxRenderer {
     p: number,
     time: number,
     scaleX: number = vw / 1080,
+    vh: number = 2160,
   ): void {
     const rx = vw * (0.18 + 0.46 * depthRatio);
     const ry = rx * 0.26; // 3D 바닥 평면 투영 타원비
@@ -791,10 +852,13 @@ export class BossClimaxRenderer {
     // 점프 안내 가이드 (미해결 시)
     const alertAlpha = 0.7 + 0.3 * Math.sin(time * 12);
     ctx.fillStyle = `rgba(255, 230, 100, ${alertAlpha})`;
-    ctx.font = UIText.getFont('body', scaleX, 'bold');
+    const jumpLayout = UI_LAYOUT.bossClimax?.jumpGuide;
+    const jumpScale = clampTextScale(jumpLayout?.textScale ?? UI_LAYOUT.bossClimax?.textScale, 1.0);
+    ctx.font = UIText.getFont('body', scaleX * jumpScale, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('⬆️ JUMP! 양발을 뛰어 충격파 회피!', vx, frontY - ry - 28);
+    const jumpOffsetY = (jumpLayout?.offsetY ?? 28) * (vh / 2160);
+    ctx.fillText('⬆️ JUMP! 양발을 뛰어 충격파 회피!', vx, frontY - ry - jumpOffsetY);
 
     ctx.restore();
   }
@@ -814,9 +878,12 @@ export class BossClimaxRenderer {
     time: number,
     scaleX: number = vw / 1080,
   ): void {
+    const stepLayout = UI_LAYOUT.bossClimax?.stepGuide;
+    const scaleY = vh / 2160;
     const laneOffset = isLeft ? -vw * 0.26 : vw * 0.26;
     const targetX = vx + laneOffset;
-    const targetY = vh * 0.88;
+    const defaultTargetY = vh * 0.88;
+    const targetY = stepLayout?.targetY !== undefined ? stepLayout.targetY * scaleY : defaultTargetY;
 
     // 레일 궤적을 따른 원근 진행 좌표
     const mx = vx + (targetX - vx) * Math.pow(p, 1.4);
@@ -881,10 +948,12 @@ export class BossClimaxRenderer {
     // 3. 발 짓밟기 격퇴 유도 안내 문구
     const stepLabel = isLeft ? '🦶 왼발 짓밟기! (Zone 9)' : '🦶 오른발 짓밟기! (Zone 11)';
     ctx.fillStyle = '#FFF066';
-    ctx.font = UIText.getFont('body', scaleX, 'bold');
+    const stepScale = clampTextScale(stepLayout?.textScale ?? UI_LAYOUT.bossClimax?.textScale, 1.0);
+    ctx.font = UIText.getFont('body', scaleX * stepScale, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(stepLabel, mx, my - 50 * scale);
+    const stepOffsetY = (stepLayout?.offsetY ?? 50) * scale;
+    ctx.fillText(stepLabel, mx, my - stepOffsetY);
 
     ctx.restore();
   }
@@ -898,29 +967,38 @@ export class BossClimaxRenderer {
     frontY: number,
     isEvaded: boolean,
     scaleX: number = 1.0,
+    vh: number = 2160,
   ): void {
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
+    const feedbackLayout = UI_LAYOUT.bossClimax?.feedback;
+    const feedbackScale = clampTextScale(
+      feedbackLayout?.textScale ?? UI_LAYOUT.bossClimax?.textScale,
+      1.0,
+    );
+    const feedbackFont = UIText.getFont('body', scaleX * feedbackScale, 'bold');
+    const feedbackOffsetY = (feedbackLayout?.offsetY ?? 40) * (vh / 2160);
+
     if (isEvaded) {
       ctx.fillStyle = '#00FF88';
       ctx.strokeStyle = 'rgba(0, 255, 136, 0.8)';
       ctx.lineWidth = 4;
-      ctx.font = UIText.getFont('body', scaleX, 'bold');
+      ctx.font = feedbackFont;
       ctx.shadowColor = '#00FF88';
       ctx.shadowBlur = 16;
-      ctx.strokeText('✨ EVADED! (회피 성공) ✨', vx, frontY - 40);
-      ctx.fillText('✨ EVADED! (회피 성공) ✨', vx, frontY - 40);
+      ctx.strokeText('✨ EVADED! (회피 성공) ✨', vx, frontY - feedbackOffsetY);
+      ctx.fillText('✨ EVADED! (회피 성공) ✨', vx, frontY - feedbackOffsetY);
     } else {
       ctx.fillStyle = '#FF2244';
       ctx.strokeStyle = 'rgba(255, 34, 68, 0.8)';
       ctx.lineWidth = 4;
-      ctx.font = UIText.getFont('body', scaleX, 'bold');
+      ctx.font = feedbackFont;
       ctx.shadowColor = '#FF2244';
       ctx.shadowBlur = 16;
-      ctx.strokeText('💥 HIT! -15 HP (피격) 💥', vx, frontY - 40);
-      ctx.fillText('💥 HIT! -15 HP (피격) 💥', vx, frontY - 40);
+      ctx.strokeText('💥 HIT! -15 HP (피격) 💥', vx, frontY - feedbackOffsetY);
+      ctx.fillText('💥 HIT! -15 HP (피격) 💥', vx, frontY - feedbackOffsetY);
     }
 
     ctx.restore();
@@ -1042,7 +1120,12 @@ export class BossClimaxRenderer {
 
       // 수호신 명칭 라벨
       ctx.fillStyle = '#FFCB4D';
-      ctx.font = UIText.getFont('badge', scaleX, 'bold');
+      const guardianLayout = UI_LAYOUT.bossClimax?.guardian;
+      const guardianScale = clampTextScale(
+        guardianLayout?.textScale ?? UI_LAYOUT.bossClimax?.textScale,
+        1.0,
+      );
+      ctx.font = UIText.getFont('badge', scaleX * guardianScale, 'bold');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.shadowBlur = 8;
@@ -1193,8 +1276,13 @@ export class BossClimaxRenderer {
     }
 
     // HP 수치 텍스트 (순수 상태값만 렌더, 외부 오버라이드 불가)
+    const gaugeLayout = UI_LAYOUT.bossClimax?.gauge;
+    const gaugeScale = clampTextScale(
+      gaugeLayout?.textScale ?? UI_LAYOUT.bossClimax?.textScale,
+      1.0,
+    );
     ctx.fillStyle = hudOverride?.textColor ?? '#FFFFFF';
-    ctx.font = UIText.getFont('caption', scaleX, 'bold');
+    ctx.font = UIText.getFont('caption', scaleX * gaugeScale, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = '#000000';
@@ -1203,9 +1291,13 @@ export class BossClimaxRenderer {
 
     // 광폭화 배지
     if (state.isEnraged) {
+      const enrageScale = clampTextScale(
+        gaugeLayout?.enragedTextScale ?? gaugeScale,
+        1.0,
+      );
       const enrageAlpha = 0.8 + 0.2 * Math.sin(time * 10);
       ctx.fillStyle = `rgba(255, 34, 68, ${enrageAlpha})`;
-      ctx.font = UIText.getFont('badge', scaleX, 'bold');
+      ctx.font = UIText.getFont('badge', scaleX * enrageScale, 'bold');
       ctx.fillText('⚠️ 광폭화 (ENRAGED) ⚠️', vw / 2, barY - 18);
     }
 
@@ -1213,14 +1305,21 @@ export class BossClimaxRenderer {
     if (state.feverCombo > 0) {
       ctx.save();
       const comboPulse = 1.0 + Math.sin(time * 8) * 0.05;
-      ctx.translate(140, 100);
+      const feverLayout = UI_LAYOUT.bossClimax?.fever;
+      const feverX = feverLayout?.x !== undefined ? feverLayout.x * scaleX : 140;
+      const feverY = feverLayout?.y !== undefined ? feverLayout.y * (vh / 2160) : 100;
+      ctx.translate(feverX, feverY);
       ctx.scale(comboPulse, comboPulse);
 
       const feverOverride = this._presentationContext?.feverTextStyle;
       ctx.fillStyle = feverOverride?.color ?? feverOverride?.textColor ?? '#FFCB4D';
       ctx.strokeStyle = feverOverride?.borderColor ?? '#FF865E';
       ctx.lineWidth = feverOverride?.borderWidth ?? 2;
-      ctx.font = UIText.getFont('body', scaleX, 'bold');
+      const feverScale = clampTextScale(
+        feverLayout?.textScale ?? UI_LAYOUT.bossClimax?.textScale,
+        1.0,
+      );
+      ctx.font = UIText.getFont('body', scaleX * feverScale, 'bold');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.shadowColor = feverOverride?.glowColor ?? '#FF865E';
@@ -1233,38 +1332,57 @@ export class BossClimaxRenderer {
     }
 
     // C. 하단: 아군 군단 & 별가루 상태 배지 (중앙 레일 미침범, 좌우 분리)
+    const scaleY = vh / 2160;
+    const troopLayout = UI_LAYOUT.bossClimax?.troopBadge;
+    const stardustLayout = UI_LAYOUT.bossClimax?.stardustBadge;
+
+    const badgeW = (troopLayout?.w ?? 200) * scaleX;
+    const badgeH = (troopLayout?.h ?? 50) * scaleX;
+    const badgeY = (troopLayout?.y ?? 1663.2) * scaleY;
+
     // 좌측: 아군 군단 수량 배지
+    const troopX = (troopLayout?.x ?? 40) * scaleX;
     ctx.fillStyle = 'rgba(20, 30, 50, 0.8)';
     ctx.strokeStyle = '#28E6FF';
     ctx.lineWidth = 2;
-    const badgeW = 200;
-    const badgeH = 50;
-    const badgeY = vh * 0.77;
-
     ctx.beginPath();
-    this._drawRectPath(ctx, 40, badgeY, badgeW, badgeH, 10);
+    this._drawRectPath(ctx, troopX, badgeY, badgeW, badgeH, 10);
     ctx.fill();
     ctx.stroke();
 
+    const troopScale = clampTextScale(
+      troopLayout?.textScale ?? UI_LAYOUT.bossClimax?.textScale,
+      1.0,
+    );
     ctx.fillStyle = '#28E6FF';
-    ctx.font = UIText.getFont('badge', scaleX, 'bold');
+    ctx.font = UIText.getFont('badge', scaleX * troopScale, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`👥 군단: ${state.minionCount} / 13`, 40 + badgeW / 2, badgeY + badgeH / 2);
+    ctx.fillText(`👥 군단: ${state.minionCount} / 13`, troopX + badgeW / 2, badgeY + badgeH / 2);
 
     // 우측: 별가루 잔량 배지
+    const stardustW = (stardustLayout?.w ?? 200) * scaleX;
+    const stardustH = (stardustLayout?.h ?? 50) * scaleX;
+    const stardustY = (stardustLayout?.y ?? 1663.2) * scaleY;
+    const defaultStardustX = vw - 40 * scaleX - stardustW;
+    const stardustX = stardustLayout?.x !== undefined ? stardustLayout.x * scaleX : defaultStardustX;
+
     ctx.fillStyle = 'rgba(20, 30, 50, 0.8)';
     ctx.strokeStyle = '#FFCB4D';
     ctx.beginPath();
-    this._drawRectPath(ctx, vw - 40 - badgeW, badgeY, badgeW, badgeH, 10);
+    this._drawRectPath(ctx, stardustX, stardustY, stardustW, stardustH, 10);
     ctx.fill();
     ctx.stroke();
 
+    const stardustScale = clampTextScale(
+      stardustLayout?.textScale ?? UI_LAYOUT.bossClimax?.textScale,
+      1.0,
+    );
     ctx.fillStyle = '#FFCB4D';
-    ctx.font = UIText.getFont('badge', scaleX, 'bold');
+    ctx.font = UIText.getFont('badge', scaleX * stardustScale, 'bold');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`★ 별가루: ${state.stardust}`, vw - 40 - badgeW / 2, badgeY + badgeH / 2);
+    ctx.fillText(`★ 별가루: ${state.stardust}`, stardustX + stardustW / 2, stardustY + stardustH / 2);
 
     ctx.restore();
   }
