@@ -383,6 +383,23 @@ export class MotionNoteTimeline {
   }
 
   /**
+   * noteId로 런타임 인스턴스 조회 (additive)
+   */
+  getRuntime(noteId: string): MotionNoteRuntime | undefined {
+    return this._runtimes.find((r) => r.note.id === noteId);
+  }
+
+  /**
+   * noteId로 런타임 노트 강제/수동 판정 확정 (additive)
+   */
+  resolveNote(noteId: string, result: MotionNoteResult): boolean {
+    const rt = this.getRuntime(noteId);
+    if (!rt || rt.state === 'resolved') return false;
+    this.resolveRuntime(rt, result);
+    return true;
+  }
+
+  /**
    * 런타임 노트 강제/수동 판정 확정
    */
   resolveRuntime(rt: MotionNoteRuntime, result: MotionNoteResult): void {
