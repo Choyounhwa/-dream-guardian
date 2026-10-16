@@ -155,7 +155,7 @@
 | BOSS-ASSAULT-39 | https://github.com/Choyounhwa/-dream-guardian/issues/542 | DONE (문항 적격성 필터 및 읽기 시간 분류 완료) |
 | BOSS-ASSAULT-40 | https://github.com/Choyounhwa/-dream-guardian/issues/543 | DONE (ASSAULT_ROUND 동작 소유권 config 완료) |
 | BOSS-ASSAULT-41 | https://github.com/Choyounhwa/-dream-guardian/issues/544 | OPEN / 승인 대기 (v0.3) |
-| BOSS-ASSAULT-42 | https://github.com/Choyounhwa/-dream-guardian/issues/545 | OPEN / 승인 대기 (v0.3) |
+| BOSS-ASSAULT-42 | https://github.com/Choyounhwa/-dream-guardian/issues/545 | DONE (접근 진행도 연출 렌더러 구현 완료) |
 | BOSS-ASSAULT-43 | https://github.com/Choyounhwa/-dream-guardian/issues/546 | OPEN / 승인 대기 (v0.3) |
 | BOSS-ASSAULT-44 | https://github.com/Choyounhwa/-dream-guardian/issues/547 | OPEN / 승인 대기 (v0.3) |
 | BOSS-ASSAULT-45 | https://github.com/Choyounhwa/-dream-guardian/issues/548 | OPEN / 승인 대기 (v0.3) |
@@ -1372,15 +1372,15 @@
 
 ### [BOSS-ASSAULT-42]
 제목: 접근 진행도 연출 렌더러
-상태: OPEN / 계획 / 개별 승인 대기.
+상태: DONE (완료)
 책임 레이어: Render. snapshot 읽기 전용.
 목적: 제자리 운동에서 보스에게 다가가는 감각을 보스 스케일·배경 시차로 표현한다.
 수정 대상:
-- `dream_guardian/src/render/AssaultApproachRenderer.ts` — 신규 제안.
+- `dream_guardian/src/render/AssaultApproachRenderer.ts` — 신규 생성 완료.
 
 파일 수: `src/` 및 `config/` 합계 1개.
 테스트 파일(별도):
-- `dream_guardian/tests/unit/assault-approach-render.test.ts` — 신규 제안.
+- `dream_guardian/tests/unit/assault-approach-render.test.ts` — 신규 생성 완료.
 구현 내용:
 1. 18의 진행도(0~1)를 visual config의 보스 스케일/배경 오프셋 곡선으로 변환한다.
 2. 라운드 완료 시점에만 전진 애니메이션을 시작하고 문제/답 영역을 가리지 않는다.
@@ -1389,9 +1389,9 @@
 유지 사항: 기존 BossRenderer·배경 렌더러.
 변경 금지: 진행도 계산, HP 변경.
 완료 조건:
-- [ ] 진행도 0/중간/1의 스케일이 config와 일치하고 문제·답 라벨과 겹치지 않는다.
-- [ ] 반복 render의 상태 변경 0회.
-- [ ] Red→Green·전체 npm test/build, 실제 브라우저 스크린샷 및 이슈 코멘트/HANDOVER 기록.
+- [x] 진행도 0/중간/1의 스케일이 config와 일치하고 문제·답 라벨과 겹치지 않는다.
+- [x] 반복 render의 상태 변경 0회.
+- [x] Red→Green·전체 npm test/build, 실제 브라우저 스크린샷 및 이슈 코멘트/HANDOVER 기록.
 테스트: Canvas spy Red + 실제 스크린샷. npm test Baseline → 대상 Red → 별도 구현 Green → 전체 npm test/npm run build.
 관련 파일: DOC-14 §§10.1,15.3-C3.
 선행 카드: [18 #520](https://github.com/Choyounhwa/-dream-guardian/issues/520), [19 #521](https://github.com/Choyounhwa/-dream-guardian/issues/521) 실제 완료.
