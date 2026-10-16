@@ -22,6 +22,8 @@ import {
   type AssaultEnvLike,
 } from './AssaultSessionFactory.js';
 import type { QuestionCandidate } from '../question/AssaultQuestionEligibility.js';
+import type { AssaultHandoverSnapshot } from '../game/assault/AssaultProgressController.js';
+import type { SessionId } from '../types/assault.js';
 import { GameEngine } from './GameEngine.js';
 import { StateMachine } from './StateMachine.js';
 import { SessionLifecycle } from './SessionLifecycle.js';
@@ -396,6 +398,7 @@ export class AppBootstrap {
   private _isDisposed = false;
   private _options: AppBootstrapOptions;
   private _assaultSession: AssaultSession | null = null;
+  private _lastAssaultSessionOptions?: Partial<AssaultSessionOptions>;
 
   private _onResize: () => void;
   private _onKeyDown: (e: KeyboardEvent) => void;
@@ -433,6 +436,7 @@ export class AppBootstrap {
   }
 
   public assembleAssaultSession(options?: Partial<AssaultSessionOptions>): AssaultSession {
+    this._lastAssaultSessionOptions = options;
     const rawSession = AssaultSessionFactory.createSession({
       battleState: this.battle,
       bossController: this.boss,
@@ -453,16 +457,30 @@ export class AppBootstrap {
       };
     }
 
+    const self = this;
     const session: any = {
       ...rawSession,
       clockAdapter: rawSession.clock,
       get isDisposed() { return rawSession.isDisposed; },
       createRoundController: (roundId: any, qData: any) => rawSession.createRoundController(roundId, qData),
-      dispose: () => rawSession.dispose(),
+      dispose: () => {
+        rawSession.dispose();
+        if (self._assaultSession === session) {
+          self._assaultSession = null;
+        }
+      },
+      handleIntent: (intent: string, snapshot?: AssaultHandoverSnapshot | null) => {
+        return self.handleAssaultIntent(intent, snapshot, rawSession.sessionId);
+      },
       update(dt: number, ctx?: any) {
+        if (rawSession.isDisposed) return;
         rawSession.clock?.update(dt, ctx?.engine?.elapsedTime !== undefined ? ctx.engine.elapsedTime * 1000 : undefined);
+        if (self.battle.hp <= 0) {
+          self.handleAssaultIntent('game_over', null, rawSession.sessionId);
+        }
       },
       handlePose(_sourceLandmarks: any[], normalizedLandmarks?: any[], _dt?: number) {
+        if (rawSession.isDisposed) return;
         const timestampMs = performance.now();
         if (rawSession.punchAdapter && normalizedLandmarks) {
           rawSession.punchAdapter.update({ timestampMs, landmarks: normalizedLandmarks });
@@ -472,6 +490,7 @@ export class AppBootstrap {
         }
       },
       handleKeyboard(event: KeyboardEvent) {
+        if (rawSession.isDisposed) return;
         if (rawSession.fallbackAdapter) {
           rawSession.fallbackAdapter.handleKeyDown({
             key: event.key,
@@ -483,6 +502,7 @@ export class AppBootstrap {
         }
       },
       handleKeyUp(event: KeyboardEvent) {
+        if (rawSession.isDisposed) return;
         if (rawSession.fallbackAdapter) {
           rawSession.fallbackAdapter.handleKeyUp({
             key: event.key,
@@ -496,8 +516,80 @@ export class AppBootstrap {
     };
 
     this._assaultSession = session;
+    this.sessionLifecycle.setActiveAssaultSessionToken(rawSession.sessionId);
+    this.sessionLifecycle.setTestSession(true);
     this.sessionContext?.setMode('boss_assault');
     this.motionIntentBus?.setPhase('ASSAULT_ROUND');
+    return session;
+  }
+
+  public handleAssaultIntent(
+    intent: string,
+    snapshot?: AssaultHandoverSnapshot | null,
+    sessionToken?: SessionId | string | number | null,
+  ): boolean {
+    const token = sessionToken ?? this._assaultSession?.sessionId;
+    const accepted = this.sessionLifecycle.handleAssaultIntent(intent, snapshot, token);
+    if (!accepted) {
+      return false;
+    }
+
+    if (this.sessionContext) {
+      this.sessionContext.setActive(false);
+    }
+    this.beatCoordinator?.pause();
+    this.engine?.pauseGame();
+
+    if (intent === 'game_over') {
+      const sm = this.stateMachine;
+      if (sm) {
+        if (!sm.canTransition('GAMEOVER')) {
+          if (sm.currentState === 'READY_POSITION') {
+            sm.changeState('RUN_QUESTION');
+          }
+          if (!sm.canTransition('GAMEOVER')) {
+            sm.changeState('ROUND_RESOLVE');
+          }
+        }
+        if (sm.canTransition('GAMEOVER')) {
+          sm.changeState('GAMEOVER');
+        }
+      }
+    } else if (intent === 'handover_climax') {
+      const sm = this.stateMachine;
+      if (sm) {
+        if (!sm.canTransition('RESULT')) {
+          if (sm.currentState === 'READY_POSITION') {
+            sm.changeState('RUN_QUESTION');
+          }
+          if (!sm.canTransition('RESULT')) {
+            sm.changeState('ROUND_RESOLVE');
+          }
+        }
+        if (sm.canTransition('RESULT')) {
+          sm.changeState('RESULT');
+        }
+      }
+    }
+    return true;
+  }
+
+  public restartAssaultSession(options?: Partial<AssaultSessionOptions>): AssaultSession {
+    this.goToMenu();
+    this.battle.reset();
+    if (this.boss) {
+      this.boss.reset();
+    }
+    const session = this.assembleAssaultSession(options ?? this._lastAssaultSessionOptions);
+    (this.mainSceneContext.state as any).screenMode = 'game';
+    if (this.stateMachine.canTransition('READY_POSITION')) {
+      this.stateMachine.changeState('READY_POSITION');
+    }
+    if (this.stateMachine.canTransition('ASSAULT_ROUND')) {
+      this.stateMachine.changeState('ASSAULT_ROUND');
+    } else if (this.stateMachine.canTransition('RUN_QUESTION')) {
+      this.stateMachine.changeState('RUN_QUESTION');
+    }
     return session;
   }
 
@@ -2022,6 +2114,11 @@ function goToMenu(): void {
   flushPendingUIPresentation();
   sessionLifecycle.cancelAllReservations();
   sessionLifecycle.endSession();
+  speech.cancel();
+  if (self._assaultSession) {
+    self._assaultSession.dispose();
+    self._assaultSession = null;
+  }
   contentLoadService.cancelCurrentRequest();
   if (sessionContext) {
     sessionContext.resetContent();
@@ -2282,6 +2379,10 @@ engine = new GameEngine({
 // ─── 이벤트 ───
 
     const restartGame = () => {
+      if (self.isAssaultMode() || self._assaultSession || self._lastAssaultSessionOptions) {
+        self.restartAssaultSession();
+        return;
+      }
       goToMenu();
       const nextPack = (sessionContext as any)?.stagedBundle?.sourcePackHash
         ? activePublishedPack
