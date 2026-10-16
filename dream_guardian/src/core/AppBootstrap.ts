@@ -13,6 +13,15 @@
  */
 
 import { DEFAULT_CONFIG } from './Config.js';
+import {
+  AssaultSessionFactory,
+  isAssaultModeRequested,
+  type AssaultSession,
+  type AssaultSessionOptions,
+  type AssaultLocationLike,
+  type AssaultEnvLike,
+} from './AssaultSessionFactory.js';
+import type { QuestionCandidate } from '../question/AssaultQuestionEligibility.js';
 import { GameEngine } from './GameEngine.js';
 import { StateMachine } from './StateMachine.js';
 import { SessionLifecycle } from './SessionLifecycle.js';
@@ -173,6 +182,9 @@ export interface AppBootstrapOptions {
   staticManifestOptions?: StaticManifestLoadOptions;
   avatarRenderer?: IAvatarRenderer;
   answerRestBeats?: number;
+  location?: AssaultLocationLike;
+  env?: AssaultEnvLike;
+  mode?: string;
 }
 
 // ─── roundRect 폴리필 ───
@@ -383,6 +395,7 @@ export class AppBootstrap {
   private _isRunning = false;
   private _isDisposed = false;
   private _options: AppBootstrapOptions;
+  private _assaultSession: AssaultSession | null = null;
 
   private _onResize: () => void;
   private _onKeyDown: (e: KeyboardEvent) => void;
@@ -393,6 +406,33 @@ export class AppBootstrap {
   get isDisposed(): boolean { return this._isDisposed; }
   get currentChapter(): number { return this.mainSceneContext?.state?.currentChapter ?? 1; }
   get currentQuestion(): GeneratedQuestion | null { return (this.mainSceneContext?.state?.currentQuestion ?? null) as GeneratedQuestion | null; }
+  get assaultSession(): AssaultSession | null { return this._assaultSession; }
+
+  public isAssaultMode(): boolean {
+    return isAssaultModeRequested(
+      this._options.location ?? (typeof window !== 'undefined' ? window.location : undefined),
+      this._options.env ?? (typeof import.meta !== 'undefined' ? import.meta.env : undefined),
+      this._options.mode,
+    );
+  }
+
+  public assembleAssaultSession(options?: Partial<AssaultSessionOptions>): AssaultSession {
+    const session = AssaultSessionFactory.createSession({
+      battleState: this.battle,
+      bossController: this.boss,
+      speech: this.speech,
+      questions: options?.questions ?? ((this.questionBank as any)._allRecords as QuestionCandidate[]) ?? [],
+      pattern: options?.pattern,
+      config: options?.config,
+      questionConfig: options?.questionConfig,
+      targetRounds: options?.targetRounds,
+      bpm: options?.bpm,
+      sfxPlayer: options?.sfxPlayer ?? this.sfx,
+      ...options,
+    });
+    this._assaultSession = session;
+    return session;
+  }
 
   constructor(options?: AppBootstrapOptions) {
     this._options = options ?? {};
@@ -2838,6 +2878,11 @@ engine = new GameEngine({
   public dispose(): void {
     if (this._isDisposed) return;
     this.engine.stop();
+
+    if (this._assaultSession) {
+      this._assaultSession.dispose();
+      this._assaultSession = null;
+    }
 
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', this._onResize);
