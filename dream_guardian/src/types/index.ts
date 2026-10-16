@@ -1,6 +1,6 @@
 import type { FeverConfig, BossHazardConfig, TroopCombatConfig } from '../../config/battle.config.js';
 
-// ─── Game State (Canonical FSM 14 states / Issue #214) ───
+// ─── Game State (Canonical FSM 14 states + ASSAULT_ROUND / Issue #214, #523) ───
 export type GameState =
   | 'LOADING'
   | 'MENU_MAIN'
@@ -15,7 +15,11 @@ export type GameState =
   | 'BOSS_CLIMAX'
   | 'RESULT'
   | 'GAMEOVER'
-  | 'ENDING_CUTSCENE';
+  | 'ENDING_CUTSCENE'
+  | 'ASSAULT_ROUND';
+
+// ─── Session Mode (DOC-14 / BOSS-ASSAULT-21 / Issue #523) ───
+export type SessionMode = 'legacy' | 'boss_assault';
 
 // ─── Event Map ───
 export interface EventMap {

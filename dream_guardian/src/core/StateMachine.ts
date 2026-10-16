@@ -11,13 +11,13 @@
 
 import type { GameState, IStateHandler } from '../types/index.js';
 
-/** 허용된 상태 전환 맵 (현행 14개 Canonical 상태 전이 계약) */
+/** 허용된 상태 전환 맵 (현행 14개 Canonical 상태 + ASSAULT_ROUND 전이 계약 / Issue #523) */
 const ALLOWED_TRANSITIONS: Record<GameState, readonly GameState[]> = {
   LOADING:         ['MENU_MAIN'],
   MENU_MAIN:       ['MENU_SUB', 'READY_POSITION', 'STORY_INTRO', 'RUN_QUESTION', 'LOADING'],
   MENU_SUB:        ['MENU_MAIN', 'READY_POSITION', 'STORY_INTRO', 'RUN_QUESTION'],
   STORY_INTRO:     ['READY_POSITION', 'RUN_QUESTION', 'MENU_MAIN'],
-  READY_POSITION:  ['RUN_QUESTION', 'MENU_MAIN'],
+  READY_POSITION:  ['RUN_QUESTION', 'MENU_MAIN', 'ASSAULT_ROUND'],
   RUN_QUESTION:    ['ANSWER_SELECT', 'ROUND_RESOLVE', 'GAMEOVER', 'MENU_MAIN'],
   ANSWER_SELECT:   ['STAR_COLLECT', 'HAZARD_EVADE', 'ROUND_RESOLVE', 'GAMEOVER', 'MENU_MAIN'],
   STAR_COLLECT:    ['ROUND_RESOLVE', 'GAMEOVER', 'MENU_MAIN'],
@@ -27,6 +27,7 @@ const ALLOWED_TRANSITIONS: Record<GameState, readonly GameState[]> = {
   RESULT:          ['MENU_MAIN', 'MENU_SUB', 'ENDING_CUTSCENE', 'RUN_QUESTION'],
   GAMEOVER:        ['MENU_MAIN', 'MENU_SUB', 'RUN_QUESTION'],
   ENDING_CUTSCENE: ['MENU_MAIN', 'RESULT'],
+  ASSAULT_ROUND:   ['RESULT', 'GAMEOVER', 'MENU_MAIN'],
 };
 
 export class StateMachine {
@@ -217,6 +218,11 @@ export class StateMachine {
   /** 스테이지 진입 준비(화각 정렬 및 카운트다운) 상태인지 여부 */
   isReadyPosition(): boolean {
     return this._currentState === 'READY_POSITION';
+  }
+
+  /** 보스 어설트 라운드 진행 중 여부 (Issue #523) */
+  isAssaultRound(): boolean {
+    return this._currentState === 'ASSAULT_ROUND';
   }
 
   /** 허용된 전환 목록의 읽기 전용 접근 (테스트용) */

@@ -20,8 +20,10 @@ import { ContentProvider } from '../game/ContentProvider.js';
 import type { SessionStageBundle } from '../game/SessionContent.js';
 import type { CompiledStarNote, PublishedContentPack } from '../data/PublishedContentPack.js';
 import type { Keynote, KeynoteInstrument, KeynotePart } from '../types/keynote.js';
+import type { GameState, SessionMode } from '../types/index.js';
 
 export type ContentMode = 'default_csv' | 'custom_pack';
+export type { SessionMode };
 
 /**
  * CompiledStarNote를 런타임 Keynote 모델로 변환
@@ -62,13 +64,27 @@ export class GameSessionContext {
   // Issue #391: 테스트 플레이 세션 격리 플래그
   private _isTestSession = false;
 
-  constructor(options?: GameSessionContextOptions) {
+  // Issue #523: 세션 모드 및 모드 잠금 불변성 상태
+  private _sessionMode: SessionMode = 'legacy';
+  private _isModeLocked = false;
+  private _sessionId = 0;
+
+  constructor(options?: GameSessionContextOptions & { mode?: SessionMode; sessionMode?: SessionMode }) {
     this._isTestSession = Boolean((options as any)?.isTestSession);
+    const explicitMode = (options as any)?.sessionMode ?? (options as any)?.mode;
+    if (explicitMode === 'boss_assault' || explicitMode === 'legacy') {
+      this._sessionMode = explicitMode;
+    } else if (options?.metadata?.gameMode === 'boss_assault') {
+      this._sessionMode = 'boss_assault';
+    } else {
+      this._sessionMode = 'legacy';
+    }
+
     this._metadata = {
       chapterId: options?.metadata?.chapterId ?? 1,
       subLevel: options?.metadata?.subLevel,
       difficulty: options?.metadata?.difficulty ?? 'normal',
-      gameMode: options?.metadata?.gameMode ?? 'story',
+      gameMode: options?.metadata?.gameMode ?? (this._sessionMode === 'boss_assault' ? 'boss_assault' : 'story'),
       score: options?.metadata?.score ?? 0,
       elapsedTime: options?.metadata?.elapsedTime ?? 0,
       phase: options?.metadata?.phase ?? 'IDLE',
@@ -99,6 +115,60 @@ export class GameSessionContext {
   /** 현재 세션 활성 여부 */
   get isActive(): boolean {
     return this._isActive;
+  }
+
+  /** 세션 모드 조회 ('legacy' | 'boss_assault' / Issue #523) */
+  get sessionMode(): SessionMode {
+    return this._sessionMode;
+  }
+
+  /** 세션 모드 축약 getter (Issue #523) */
+  get mode(): SessionMode {
+    return this._sessionMode;
+  }
+
+  /** 모드 잠금(고정) 여부 (Issue #523) */
+  get isModeLocked(): boolean {
+    return this._isModeLocked;
+  }
+
+  /** 현재 세션 ID 조회 (SessionLifecycle이 있으면 동기화, 없으면 내부 ID 반환) */
+  get sessionId(): number {
+    return this._systems.sessionLifecycle?.sessionId ?? this._sessionId;
+  }
+
+  /**
+   * 세션 모드 잠금 및 고정 (Issue #523)
+   * 이미 잠긴 상태에서 다른 모드를 설정하려 하면 예외 발생
+   */
+  lockMode(mode?: SessionMode): void {
+    if (this._isModeLocked) {
+      if (mode !== undefined && mode !== this._sessionMode) {
+        throw new Error(
+          `[GameSessionContext] Cannot change mode while locked: current=${this._sessionMode}, requested=${mode}`
+        );
+      }
+      return;
+    }
+    if (mode !== undefined) {
+      this._sessionMode = mode;
+    }
+    this._isModeLocked = true;
+  }
+
+  /**
+   * 세션 모드 설정 (Issue #523)
+   * 이미 잠겨있거나 세션 진행 중(isActive)일 때 다른 모드로의 변경은 거부(false 반환)
+   */
+  setMode(mode: SessionMode): boolean {
+    if (this._sessionMode === mode) {
+      return true;
+    }
+    if (this._isModeLocked || this._isActive) {
+      return false;
+    }
+    this._sessionMode = mode;
+    return true;
   }
 
   /** 현재 콘텐츠 모드 (default_csv vs custom_pack) */
@@ -248,6 +318,7 @@ export class GameSessionContext {
     this._metadata.elapsedTime = 0;
     this._metadata.phase = 'IDLE';
     this._isActive = false;
+    this._isModeLocked = false;
 
     this._metrics.totalSteps = 0;
     this._metrics.totalJumps = 0;
@@ -268,13 +339,28 @@ export class GameSessionContext {
     this._controllers.beatRoundResolver?.reset?.();
   }
 
-  /** 챕터 시작 시 세션 상태 갱신 및 컨트롤러 초기화 */
-  startChapter(chapterId: number, subLevel?: number, options?: { isTestSession?: boolean }): void {
+  /** 챕터 시작 시 세션 상태 갱신 및 컨트롤러 초기화 (Issue #523: 모드 고정 및 불변성 확립) */
+  startChapter(
+    chapterId: number,
+    subLevel?: number,
+    options?: { isTestSession?: boolean; mode?: SessionMode; sessionMode?: SessionMode }
+  ): void {
+    const requestedMode = options?.sessionMode ?? options?.mode;
+
     this.resetSession();
+
+    if (requestedMode) {
+      this._sessionMode = requestedMode;
+    }
+    this._isModeLocked = true;
+    this._sessionId++;
 
     this._metadata.chapterId = chapterId;
     this._metadata.subLevel = subLevel;
     this._metadata.phase = 'READY';
+    if (this._sessionMode === 'boss_assault') {
+      this._metadata.gameMode = 'boss_assault';
+    }
     this._isActive = true;
     this._isTestSession = Boolean(options?.isTestSession);
 
@@ -290,6 +376,66 @@ export class GameSessionContext {
       eventPayload.isTestSession = true;
     }
     this._systems.eventBus?.emit?.('session:start', eventPayload);
+  }
+
+  /**
+   * 현재 모드에서 유효한 상태인지 판정 (Issue #523: 모드별 혼합 상태 차단)
+   */
+  isValidStateForMode(state: GameState): boolean {
+    if (this._sessionMode === 'legacy') {
+      // legacy 모드에서는 신규 ASSAULT_ROUND 진입 불가
+      return state !== 'ASSAULT_ROUND';
+    }
+    if (this._sessionMode === 'boss_assault') {
+      // boss_assault 모드에서는 레거시 전용 인게임 전투 상태(Phase A, Phase B) 진입 불가
+      const legacyCombatStates: readonly GameState[] = [
+        'RUN_QUESTION',
+        'ANSWER_SELECT',
+        'STAR_COLLECT',
+        'HAZARD_EVADE',
+        'ROUND_RESOLVE',
+        'BOSS_CLIMAX',
+      ];
+      return !legacyCombatStates.includes(state);
+    }
+    return true;
+  }
+
+  /**
+   * 상태 전환 가능 여부 확인
+   */
+  canTransitionToState(targetState: GameState, sessionId?: number): boolean {
+    if (sessionId !== undefined && sessionId !== this.sessionId) {
+      return false;
+    }
+    if (!this.isValidStateForMode(targetState)) {
+      return false;
+    }
+    const sm = this._systems.stateMachine;
+    if (!sm) {
+      return false;
+    }
+    return sm.canTransition(targetState);
+  }
+
+  /**
+   * 상태 전환 요청 검증 및 실행 (A16: 이전 세션 전환 거부, 혼합 상태 차단, 현재 세션 보존)
+   */
+  requestStateTransition(targetState: GameState, sessionId?: number): boolean {
+    if (sessionId !== undefined && sessionId !== this.sessionId) {
+      return false;
+    }
+    if (!this.isValidStateForMode(targetState)) {
+      return false;
+    }
+    const sm = this._systems.stateMachine;
+    if (!sm) {
+      return false;
+    }
+    if (!sm.canTransition(targetState)) {
+      return false;
+    }
+    return sm.changeState(targetState);
   }
 
   /** 테스트 플레이 세션 시작 (Issue #391) */

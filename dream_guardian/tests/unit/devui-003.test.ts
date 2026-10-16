@@ -151,8 +151,8 @@ describe('DEVUI-003 URL screen 파라미터 → 상태 매핑', () => {
     expect(parseDevScreen('?dev=ui&screen=result&mode=boss_assault')).toBe('RESULT');
     // dev=ui 없이 mode 만 있으면 화면 강제 이동은 일어나지 않는다.
     expect(parseDevScreen('?mode=boss_assault&screen=menu_sub')).toBeNull();
-    // 아직 존재하지 않는 상태(ASSAULT_ROUND)는 무시된다. 상태가 추가되면 자동으로 매핑된다.
-    expect(parseDevScreen('?mode=boss_assault&dev=ui&screen=assault_round')).toBeNull();
+    // 상태가 추가되면 자동으로 매핑된다 (Issue #523: ASSAULT_ROUND 추가).
+    expect(parseDevScreen('?mode=boss_assault&dev=ui&screen=assault_round')).toBe('ASSAULT_ROUND');
   });
 
   it('자동 freeze 는 기본 on, ?freeze=0 이면 off', () => {
