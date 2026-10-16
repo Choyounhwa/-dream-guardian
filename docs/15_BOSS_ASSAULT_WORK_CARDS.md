@@ -137,7 +137,7 @@
 | BOSS-ASSAULT-21 | https://github.com/Choyounhwa/-dream-guardian/issues/523 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-22 | https://github.com/Choyounhwa/-dream-guardian/issues/524 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-23 | https://github.com/Choyounhwa/-dream-guardian/issues/525 | OPEN / 승인 대기 |
-| BOSS-ASSAULT-24 | https://github.com/Choyounhwa/-dream-guardian/issues/526 | OPEN / 승인 대기 |
+| BOSS-ASSAULT-24 | https://github.com/Choyounhwa/-dream-guardian/issues/526 | CLOSED / 완료 (commit 349437b) |
 | BOSS-ASSAULT-25 | https://github.com/Choyounhwa/-dream-guardian/issues/527 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-26 | https://github.com/Choyounhwa/-dream-guardian/issues/528 | OPEN / 승인 대기 |
 | BOSS-ASSAULT-27 | https://github.com/Choyounhwa/-dream-guardian/issues/529 | OPEN / 승인 대기 |
@@ -837,7 +837,7 @@
 
 ### [BOSS-ASSAULT-24]
 제목: 세션 종료·재시작·인계 수명주기 연결
-상태: OPEN / 계획 / 구현·테스트 미착수, 개별 승인 대기.
+상태: CLOSED / 완료 (commit 349437b).
 책임 레이어: Core 수명주기. config/콘텐츠 보존, runtime 정리만 수행하고 판정/보상/effects 정책은 소유하지 않는다.
 목적: 종료 권위 한 곳과 이전 세션 이벤트 차단을 보장한다.
 수정 대상:
@@ -846,7 +846,7 @@
 
 파일 수: `src/` 및 `config/` 합계 2개.
 테스트 파일(별도):
-- `dream_guardian/tests/unit/assault-lifecycle.test.ts` — 신규 제안.
+- `dream_guardian/tests/unit/assault-lifecycle.test.ts` — 신규 완료.
 구현 내용:
 1. 18의 사망/인계 의도를 기존 SessionLifecycle 단일 종료 권위에 연결한다.
 2. 종료·메뉴·재시작에서 세션 토큰, 구독, 입력 버퍼, 기존 예약을 정리하고 이전 이벤트를 무시한다.
@@ -856,9 +856,9 @@
 유지 사항: 기존 결과 권위와 legacy 수명주기.
 변경 금지: 새 종료 소유자·신규 공격 setTimeout·이전 세션 콜백 허용.
 완료 조건:
-- [ ] 중복 사망/종료·마지막 라운드 HP0에서 종료 1회, 다음 문제/결전/저장 0회다(A14,A15,A22).
-- [ ] 재시작 뒤 이전 입력/TTS/예약은 무시되고 현재 세션/원본 계획은 보존된다(A16).
-- [ ] 브라우저 메뉴→재시작 및 Red→Green·전체 npm test/build 증거를 #526 코멘트/HANDOVER에 기록한다.
+- [x] 중복 사망/종료·마지막 라운드 HP0에서 종료 1회, 다음 문제/결전/저장 0회다(A14,A15,A22).
+- [x] 재시작 뒤 이전 입력/TTS/예약은 무시되고 현재 세션/원본 계획은 보존된다(A16).
+- [x] 브라우저 메뉴→재시작 및 Red→Green·전체 npm test/build 증거를 #526 코멘트/HANDOVER에 기록한다.
 테스트: 종료 두 번, 메뉴 후 늦은 콜백, 새 세션과 같은 attackId, 인계/사망 동시 경계를 Red로 검증한다. npm test Baseline → 대상 Red → 별도 구현 Green → 전체 npm test/npm run build. 브라우저 재시작 증거는 별도 확보하고 환경 부재는 미검증으로 남긴다.
 관련 파일: DOC-14 §§3.2,4,10.1.
 선행 카드: [18 #520](https://github.com/Choyounhwa/-dream-guardian/issues/520), [23 #525](https://github.com/Choyounhwa/-dream-guardian/issues/525) 실제 완료 및 본 카드 승인.
