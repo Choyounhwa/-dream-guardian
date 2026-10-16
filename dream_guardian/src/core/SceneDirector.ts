@@ -18,6 +18,7 @@ import { LOCOMOTION_MODES, type BottomBarSlot } from '../ui/index.js';
 import { toNormalizedLandmarks } from '../utils/index.js';
 import type { Keynote } from '../types/keynote.js';
 import type { PhaseAHazardPattern } from '../game/PhaseAHazardController.js';
+import { AssaultSceneRenderer } from '../render/AssaultSceneRenderer.js';
 
 // Polyfill static present on RunningMatPresenter for #373 if needed
 if (typeof (RunningMatPresenter as any).present !== 'function') {
@@ -254,6 +255,9 @@ export interface MainSceneContext {
   toNormalizedLandmarks?: any;
   actions: MainSceneActions;
   state: MainSceneState;
+  assaultSession?: any;
+  assaultSceneRenderer?: any;
+  assaultPresentationSnapshot?: any;
 }
 
 export class SceneDirector<TContext = any> {
@@ -266,6 +270,28 @@ export class SceneDirector<TContext = any> {
   // 메인 루프 임시 프레임 캐시
   private _frameHoverTarget: { x: number; y: number } | null = null;
   private _currentKneeFraming: any = null;
+  private readonly _assaultSceneRenderer = new AssaultSceneRenderer();
+
+  private _isAssaultMode(ctx?: MainSceneContext): boolean {
+    const sContext = this._sessionContext ?? ctx?.sessionContext;
+    if (sContext?.sessionMode === 'boss_assault') return true;
+    const assaultSession = (ctx as any)?.assaultSession;
+    if (assaultSession && !assaultSession.isDisposed) return true;
+    const contextAssault = (sContext as any)?.assaultSession;
+    if (contextAssault && !contextAssault.isDisposed) return true;
+    return false;
+  }
+
+  private _getAssaultSession(ctx?: MainSceneContext): any | null {
+    if ((ctx as any)?.assaultSession && !(ctx as any).assaultSession.isDisposed) {
+      return (ctx as any).assaultSession;
+    }
+    const sContext = this._sessionContext ?? ctx?.sessionContext;
+    if ((sContext as any)?.assaultSession && !(sContext as any).assaultSession.isDisposed) {
+      return (sContext as any).assaultSession;
+    }
+    return null;
+  }
 
   constructor(options?: SceneDirectorOptions<TContext>) {
     this._options = options ?? {};
@@ -524,8 +550,8 @@ export class SceneDirector<TContext = any> {
     ctx.skeletonEffect.setHp(ctx.battle.hp, ctx.battle.maxHp);
     ctx.skeletonEffect.update(dt);
 
-    // 3. 저시력 모드 음성 피드백 (HP 50% 이하 알림)
-    if (ctx.state.screenMode === 'game' && ctx.battle.isAlive && ctx.battle.hp <= ctx.battle.maxHp * 0.5) {
+    // 3. 저시력 모드 음성 피드백 (HP 50% 이하 알림 - DEC-B2: assault 모드 억제)
+    if (!this._isAssaultMode(ctx) && ctx.state.screenMode === 'game' && ctx.battle.isAlive && ctx.battle.hp <= ctx.battle.maxHp * 0.5) {
       ctx.speech.speakFeedback('low_hp');
     }
 
@@ -580,13 +606,13 @@ export class SceneDirector<TContext = any> {
         );
       }
 
-      // Issue #171 & #172: X자 교차 제스처 갱신 (서브메뉴 뒤로가기 & 인게임 일시정지)
+      // Issue #171 & #172: X자 교차 제스처 갱신 (서브메뉴 뒤로가기 & 인게임 일시정지 - DEC-B4: assault 모드 억제)
       if (sourceLandmarks.length >= 17) {
         const xResult = ctx.xGestureDetector.update(sourceLandmarks, dt);
         if (xResult.triggered) {
           if (ctx.state.screenMode === 'menu' && ctx.state.menuMode === 'sub') {
             ctx.actions.selectSubLevel(-1);
-          } else if (ctx.state.screenMode === 'game') {
+          } else if (ctx.state.screenMode === 'game' && !this._isAssaultMode(ctx)) {
             ctx.pauseModal.toggle();
             ctx.sfx.play('hover');
           }
@@ -632,7 +658,15 @@ export class SceneDirector<TContext = any> {
         isPaused: ctx.pauseModal.isOpen,
       });
 
-      if (stepped && ctx.state.screenMode === 'game' && ctx.state.gamePhase === 'running' && !ctx.pauseModal.isOpen) {
+      // 공통 포즈 입력을 assault 세션 어댑터에 라우팅
+      if (this._isAssaultMode(ctx)) {
+        const session = this._getAssaultSession(ctx);
+        if (session && typeof session.handlePose === 'function') {
+          session.handlePose(sourceLandmarks, undefined, dt);
+        }
+      }
+
+      if (stepped && !this._isAssaultMode(ctx) && ctx.state.screenMode === 'game' && ctx.state.gamePhase === 'running' && !ctx.pauseModal.isOpen) {
         ctx.state.totalSteps++;
         ctx.beatCoordinator.recordStep();
         ctx.runningMatRenderer?.triggerMotionHit?.();
@@ -645,7 +679,7 @@ export class SceneDirector<TContext = any> {
         });
       }
 
-      if (jumped && ctx.state.screenMode === 'game' && !ctx.pauseModal.isOpen) {
+      if (jumped && !this._isAssaultMode(ctx) && ctx.state.screenMode === 'game' && !ctx.pauseModal.isOpen) {
         ctx.state.totalJumps++;
         if (ctx.stateMachine.currentState === 'HAZARD_EVADE') {
           if (ctx.phaseAHazardController.activePattern === 'jump') {
@@ -855,8 +889,48 @@ export class SceneDirector<TContext = any> {
     }
   }
 
+  /** 보스 접근전(Boss Assault) 전용 씬 루프 업데이트 (DEC-B1) */
+  updateAssaultGameScene(dt: number, ctx: MainSceneContext): void {
+    const session = this._getAssaultSession(ctx);
+    if (session?.clock) {
+      session.clock.setPaused(Boolean(ctx.pauseModal?.isOpen));
+    }
+    if (ctx.pauseModal?.isOpen) {
+      ctx.dreamGrid?.update(dt, 0.8);
+      ctx.effectManager?.update(dt);
+      return;
+    }
+
+    if (session) {
+      if (typeof session.update === 'function') {
+        session.update(dt, ctx);
+      } else if (session.clock && typeof session.clock.update === 'function') {
+        session.clock.update(dt, ctx.engine?.elapsedTime !== undefined ? ctx.engine.elapsedTime * 1000 : undefined);
+      }
+    }
+
+    if (ctx.state.feedbackTimer > 0) {
+      ctx.state.feedbackTimer -= dt;
+      if (ctx.state.feedbackTimer <= 0) {
+        ctx.state.feedbackCustomText = null;
+        ctx.state.feedbackCustomColor = null;
+      }
+    }
+    if (ctx.state.castingFlash > 0) ctx.state.castingFlash -= dt;
+    ctx.guardian?.update(dt);
+    ctx.bossRenderer?.update(dt);
+    ctx.effectManager?.update(dt);
+    ctx.boss?.update(dt);
+    ctx.dialogueOverlayRenderer?.update(dt);
+    // DEC-B1: 단일 종료 권위(SessionLifecycle) 원칙에 따라 HP 0 시 showResult 중복 호출 차단
+  }
+
   /** 게임 씬 루프 업데이트 */
   updateGameScene(dt: number, ctx: MainSceneContext): void {
+    if (this._isAssaultMode(ctx)) {
+      this.updateAssaultGameScene(dt, ctx);
+      return;
+    }
     if (ctx.pauseModal.isOpen) {
       ctx.engine?.pauseGame?.();
       ctx.beatCoordinator.pause();
@@ -1143,7 +1217,48 @@ export class SceneDirector<TContext = any> {
     ctx.effectManager.render(context2d, vw, vh);
   }
 
+  /** 보스 접근전(Boss Assault) 전용 씬 렌더링 */
+  renderAssaultScene(ctx: MainSceneContext): void {
+    const context2d = ctx.canvasManager.ctx;
+    const vw = ctx.canvasManager.virtualWidth;
+    const vh = ctx.canvasManager.virtualHeight;
+
+    const vanishingX = vw * 0.5;
+    const vanishingY = vh * HORIZON_RATIO;
+    const chapterKey = `ch${ctx.state.currentChapter}`;
+    const gameBg = !ctx.cameraLayer?.isActive ? ctx.imageLoader?.get?.('bg', chapterKey) : null;
+
+    if (ctx.dreamGrid) {
+      ctx.dreamGrid.render(context2d, vw, vh, {
+        vanishingX,
+        vanishingY,
+        color: '#FF8844',
+        bgImage: gameBg,
+      });
+    }
+
+    const session = this._getAssaultSession(ctx);
+    const snapshot = (session as any)?.presentation ??
+                     (session as any)?.activeRoundController?.presentation ??
+                     (session as any)?.snapshot ??
+                     (ctx as any)?.assaultPresentationSnapshot ??
+                     null;
+
+    if (snapshot) {
+      const assaultRenderer = (ctx as any)?.assaultSceneRenderer ?? this._assaultSceneRenderer;
+      assaultRenderer.render(context2d, snapshot, { width: vw, height: vh });
+    }
+
+    if (session?.hud && typeof session.hud.render === 'function') {
+      session.hud.render(context2d, vw, vh);
+    }
+  }
+
   renderGameScene(ctx: MainSceneContext): void {
+    if (this._isAssaultMode(ctx)) {
+      this.renderAssaultScene(ctx);
+      return;
+    }
     const context2d = ctx.canvasManager.ctx;
     const vw = ctx.canvasManager.virtualWidth;
     const vh = ctx.canvasManager.virtualHeight;
@@ -1399,6 +1514,18 @@ export class SceneDirector<TContext = any> {
     const context2d = ctx.canvasManager.ctx;
     const vw = ctx.canvasManager.virtualWidth;
     const vh = ctx.canvasManager.virtualHeight;
+
+    if (this._isAssaultMode(ctx)) {
+      if (ctx.state.screenMode === 'game' && ctx.bottomBar) {
+        ctx.bottomBar.render(context2d, vw, vh, {
+          actionLabel: '정지',
+          actionColor: '#FF4444',
+          pageId: 'pause',
+          actionHoverProgress: ctx.state.actionHoverTimer / MENU_HOVER_DWELL_TIME,
+        });
+      }
+      return;
+    }
 
     let actionLabel: string | undefined;
     let actionColor: string | undefined;

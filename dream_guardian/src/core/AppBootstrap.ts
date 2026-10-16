@@ -399,7 +399,9 @@ export class AppBootstrap {
 
   private _onResize: () => void;
   private _onKeyDown: (e: KeyboardEvent) => void;
+  private _onKeyUp: (e: KeyboardEvent) => void;
   private _onCanvasClick: (e: MouseEvent) => void;
+  private _onVisibilityChange: () => void;
 
   get isInitialized(): boolean { return this._isInitialized; }
   get isRunning(): boolean { return this._isRunning; }
@@ -416,8 +418,22 @@ export class AppBootstrap {
     );
   }
 
+  public handleVisibilityChange(hidden?: boolean): void {
+    const isHidden = hidden ?? (typeof document !== 'undefined' ? document.hidden : false);
+    if (this._assaultSession) {
+      const clock = (this._assaultSession as any).clockAdapter ?? this._assaultSession.clock;
+      if (clock) {
+        if (typeof clock.handleVisibilityChange === 'function') {
+          clock.handleVisibilityChange(isHidden);
+        } else if (typeof clock.setHidden === 'function') {
+          clock.setHidden(isHidden);
+        }
+      }
+    }
+  }
+
   public assembleAssaultSession(options?: Partial<AssaultSessionOptions>): AssaultSession {
-    const session = AssaultSessionFactory.createSession({
+    const rawSession = AssaultSessionFactory.createSession({
       battleState: this.battle,
       bossController: this.boss,
       speech: this.speech,
@@ -430,12 +446,64 @@ export class AppBootstrap {
       sfxPlayer: options?.sfxPlayer ?? this.sfx,
       ...options,
     });
+
+    if (rawSession.clock && typeof (rawSession.clock as any).handleVisibilityChange !== 'function') {
+      (rawSession.clock as any).handleVisibilityChange = (hidden: boolean) => {
+        rawSession.clock.setHidden(hidden);
+      };
+    }
+
+    const session: any = {
+      ...rawSession,
+      clockAdapter: rawSession.clock,
+      get isDisposed() { return rawSession.isDisposed; },
+      createRoundController: (roundId: any, qData: any) => rawSession.createRoundController(roundId, qData),
+      dispose: () => rawSession.dispose(),
+      update(dt: number, ctx?: any) {
+        rawSession.clock?.update(dt, ctx?.engine?.elapsedTime !== undefined ? ctx.engine.elapsedTime * 1000 : undefined);
+      },
+      handlePose(_sourceLandmarks: any[], normalizedLandmarks?: any[], _dt?: number) {
+        const timestampMs = performance.now();
+        if (rawSession.punchAdapter && normalizedLandmarks) {
+          rawSession.punchAdapter.update({ timestampMs, landmarks: normalizedLandmarks });
+        }
+        if (rawSession.squatAdapter && normalizedLandmarks) {
+          rawSession.squatAdapter.update({ timestampMs, landmarks: normalizedLandmarks });
+        }
+      },
+      handleKeyboard(event: KeyboardEvent) {
+        if (rawSession.fallbackAdapter) {
+          rawSession.fallbackAdapter.handleKeyDown({
+            key: event.key,
+            code: event.code,
+            repeat: event.repeat,
+            timestampMs: performance.now(),
+            sessionId: rawSession.sessionId,
+          });
+        }
+      },
+      handleKeyUp(event: KeyboardEvent) {
+        if (rawSession.fallbackAdapter) {
+          rawSession.fallbackAdapter.handleKeyUp({
+            key: event.key,
+            code: event.code,
+            repeat: event.repeat,
+            timestampMs: performance.now(),
+            sessionId: rawSession.sessionId,
+          });
+        }
+      },
+    };
+
     this._assaultSession = session;
+    this.sessionContext?.setMode('boss_assault');
+    this.motionIntentBus?.setPhase('ASSAULT_ROUND');
     return session;
   }
 
   constructor(options?: AppBootstrapOptions) {
     this._options = options ?? {};
+    const self = this;
 
     const canvas = this._options.canvas
       ?? (typeof document !== 'undefined' ? (document.getElementById('game-canvas') as HTMLCanvasElement) : undefined)
@@ -2084,6 +2152,7 @@ const stateRef: any = {
 };
 
 sessionContext = new GameSessionContext({
+  mode: this.isAssaultMode() ? 'boss_assault' : 'legacy',
   systems: {
     eventBus,
     sessionLifecycle,
@@ -2190,6 +2259,9 @@ const mainSceneContext: MainSceneContext = {
     showResult,
   },
   state: stateRef,
+  get assaultSession() {
+    return self._assaultSession;
+  },
 };
 
 sceneDirector.setupMainPipelines(mainSceneContext);
@@ -2696,6 +2768,23 @@ engine = new GameEngine({
     }
   }
 
+  // BOSS-ASSAULT-23 (#525): assault 모드 활성화 시 키보드 입력을 assault 어댑터로 배타 라우팅
+  if (this._assaultSession) {
+    const session = this._assaultSession as any;
+    if (typeof session.handleKeyboard === 'function') {
+      session.handleKeyboard(e);
+    } else if (session.fallbackAdapter && typeof session.fallbackAdapter.handleKeyDown === 'function') {
+      session.fallbackAdapter.handleKeyDown({
+        key: e.key,
+        code: e.code,
+        repeat: e.repeat,
+        timestampMs: performance.now(),
+        sessionId: session.sessionId,
+      });
+    }
+    return;
+  }
+
   // Issue #137: 튜토리얼 스킵 지원
   if (tutorial.isVisible) {
     if (e.code === 'Space' || e.key === 'Enter' || e.key === 'Escape') {
@@ -2825,6 +2914,32 @@ engine = new GameEngine({
   }
 
     };
+
+    this._onKeyUp = (e: KeyboardEvent) => {
+      if (this._assaultSession) {
+        const session = this._assaultSession as any;
+        if (typeof session.handleKeyUp === 'function') {
+          session.handleKeyUp(e);
+        } else if (session.fallbackAdapter && typeof session.fallbackAdapter.handleKeyUp === 'function') {
+          session.fallbackAdapter.handleKeyUp({
+            key: e.key,
+            code: e.code,
+            repeat: e.repeat,
+            timestampMs: performance.now(),
+            sessionId: session.sessionId,
+          });
+        }
+      }
+    };
+
+    this._onVisibilityChange = () => {
+      this.handleVisibilityChange();
+    };
+
+    if (this.isAssaultMode()) {
+      sessionContext.setMode('boss_assault');
+      motionIntentBus.setPhase('ASSAULT_ROUND');
+    }
   }
 
   public async init(): Promise<void> {
@@ -2858,6 +2973,8 @@ engine = new GameEngine({
     }
     if (typeof document !== 'undefined') {
       document.addEventListener('keydown', this._onKeyDown);
+      document.addEventListener('keyup', this._onKeyUp);
+      document.addEventListener('visibilitychange', this._onVisibilityChange);
     }
     if (this.canvas && typeof this.canvas.addEventListener === 'function') {
       this.canvas.addEventListener('click', this._onCanvasClick);
@@ -2889,6 +3006,8 @@ engine = new GameEngine({
     }
     if (typeof document !== 'undefined') {
       document.removeEventListener('keydown', this._onKeyDown);
+      document.removeEventListener('keyup', this._onKeyUp);
+      document.removeEventListener('visibilitychange', this._onVisibilityChange);
     }
     if (this.canvas && typeof this.canvas.removeEventListener === 'function') {
       this.canvas.removeEventListener('click', this._onCanvasClick);
