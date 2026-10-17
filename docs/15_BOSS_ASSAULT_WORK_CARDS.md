@@ -158,7 +158,7 @@
 | BOSS-ASSAULT-42 | https://github.com/Choyounhwa/-dream-guardian/issues/545 | DONE (접근 진행도 연출 렌더러 구현 완료) |
 | BOSS-ASSAULT-43 | https://github.com/Choyounhwa/-dream-guardian/issues/546 | OPEN / 승인 대기 (v0.3) |
 | BOSS-ASSAULT-44 | https://github.com/Choyounhwa/-dream-guardian/issues/547 | OPEN / 승인 대기 (v0.3) |
-| BOSS-ASSAULT-45 | https://github.com/Choyounhwa/-dream-guardian/issues/548 | OPEN / 승인 대기 (v0.3) |
+| BOSS-ASSAULT-45 | https://github.com/Choyounhwa/-dream-guardian/issues/548 | DONE (접근전 3단계 튜토리얼 구현 완료) |
 | BOSS-ASSAULT-46 | https://github.com/Choyounhwa/-dream-guardian/issues/549 | OPEN / 선택 카드, DEC-B3 대안 채택 시만 (v0.3) |
 
 (#540은 TTS-VOICE-003으로 이 트랙과 무관하다.)
@@ -1453,7 +1453,7 @@
 
 ### [BOSS-ASSAULT-45]
 제목: 접근전 3단계 튜토리얼
-상태: OPEN / 계획 / G3 인수 후 개별 승인 대기.
+상태: DONE (3단계 튜토리얼 데이터 및 진행 컨트롤러 구현 완료).
 책임 레이어: Game 진행(튜토리얼 시퀀스 데이터 + 진행). UI 표시는 기존 snapshot 경로 재사용.
 목적: 첫 플레이어가 펀치 → 스쿼트 → 느린 1라운드를 익힌 뒤 본 세션에 들어가게 한다.
 수정 대상:
@@ -1471,8 +1471,8 @@
 유지 사항: legacy 튜토리얼(`dream_guardian_tutorial_done`) 키.
 변경 금지: HP 변경, 저장, legacy 튜토리얼 수정.
 완료 조건:
-- [ ] 단계별 성공/건너뛰기/재시작 경계가 일치하고 자원 호출 0회.
-- [ ] Red→Green·전체 npm test/build 및 이슈 코멘트/HANDOVER 기록.
+- [x] 단계별 성공/건너뛰기/재시작 경계가 일치하고 자원 호출 0회.
+- [x] Red→Green·전체 npm test/build 및 이슈 코멘트/HANDOVER 기록.
 테스트: npm test Baseline → 대상 Red → 별도 구현 Green → 전체 npm test/npm run build.
 관련 파일: DOC-14 §15.3-C8.
 선행 카드: [25 #527](https://github.com/Choyounhwa/-dream-guardian/issues/527) G3 인수 승인.
