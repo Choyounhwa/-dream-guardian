@@ -67,7 +67,7 @@ import {
   computePublishedPackHash,
 } from '../data/PublishedContentPack.js';
 import type { Keynote } from '../types/keynote.js';
-import type { GeneratedQuestion } from '../question/QuestionEvaluator.js';
+import { generateQuestion, type GeneratedQuestion } from '../question/QuestionEvaluator.js';
 import { QuestionSpeech } from '../question/QuestionSpeech.js';
 import { EventBus } from './EventBus.js';
 import { BattleState } from '../game/BattleState.js';
@@ -377,6 +377,7 @@ export class AppBootstrap {
   public readonly abortTestSession: () => void;
   public readonly startReadyPhase: () => void;
   public readonly startRunningPhase: () => void;
+  public readonly startAssaultPhase: () => void;
   public readonly enterQuestionPhase: () => void;
   public readonly handleAnswer: (idx: number, status: RoundAnswerStatus, res: RoundResolveResult) => void;
   public readonly showResult: (victory: boolean) => void;
@@ -445,11 +446,50 @@ export class AppBootstrap {
 
   public assembleAssaultSession(options?: Partial<AssaultSessionOptions>): AssaultSession {
     this._lastAssaultSessionOptions = options;
+    let questions = options?.questions;
+    if (questions === undefined) {
+      const records = (this.questionBank as any)._allRecords?.length > 0
+        ? (this.questionBank as any)._allRecords
+        : (this.questionBank as any)._pool?.length > 0
+          ? (this.questionBank as any)._pool
+          : [];
+      const candidates: QuestionCandidate[] = [];
+      for (const rec of records) {
+        if (typeof (rec as any).questionText === 'string' && (rec as any).correctAnswer !== undefined) {
+          candidates.push(rec as QuestionCandidate);
+        } else if (rec.questionTemplate) {
+          const generated = generateQuestion(rec);
+          if (generated && typeof generated.correctAnswer === 'number') {
+            candidates.push({
+              level: (rec as any).level,
+              subLevel: (rec as any).subLevel,
+              questionText: generated.questionText,
+              correctAnswer: generated.correctAnswer,
+              wrongAnswer: typeof generated.choices[1 - generated.correctIndex] === 'number'
+                ? (generated.choices[1 - generated.correctIndex] as number)
+                : undefined,
+              choices: generated.choices as [number, number],
+            });
+          }
+        }
+      }
+      if (candidates.length === 0) {
+        candidates.push(
+          { level: 1, subLevel: 1, questionText: '3 + 4 = ?', correctAnswer: 7, wrongAnswer: 8, choices: [7, 8] },
+          { level: 1, subLevel: 1, questionText: '5 + 2 = ?', correctAnswer: 7, wrongAnswer: 6, choices: [7, 6] },
+          { level: 1, subLevel: 1, questionText: '8 - 3 = ?', correctAnswer: 5, wrongAnswer: 4, choices: [5, 4] },
+          { level: 2, subLevel: 1, questionText: '4 × 3 = ?', correctAnswer: 12, wrongAnswer: 15, choices: [12, 15] },
+          { level: 2, subLevel: 1, questionText: '10 - 6 = ?', correctAnswer: 4, wrongAnswer: 3, choices: [4, 3] },
+        );
+      }
+      questions = candidates;
+    }
+
     const rawSession = AssaultSessionFactory.createSession({
       battleState: this.battle,
       bossController: this.boss,
       speech: this.speech,
-      questions: options?.questions ?? ((this.questionBank as any)._allRecords as QuestionCandidate[]) ?? [],
+      questions,
       pattern: options?.pattern,
       config: options?.config,
       questionConfig: options?.questionConfig,
@@ -469,15 +509,24 @@ export class AppBootstrap {
     const session: any = {
       ...rawSession,
       clockAdapter: rawSession.clock,
+      activeRoundController: null,
       get isDisposed() { return rawSession.isDisposed; },
       get jumpAdapter() { return (rawSession as any).jumpAdapter; },
       get finaleController() { return (rawSession as any).finaleController ?? self._finaleController; },
       get isFinaleActive() { return Boolean((rawSession as any).isFinaleActive || self._finaleController); },
+      get presentation() {
+        return session.activeRoundController?.getPresentationSnapshot?.() ?? (session.activeRoundController as any)?.presentation ?? null;
+      },
+      get snapshot() {
+        return session.presentation;
+      },
       createRoundController: (roundId: any, qData: any) => {
         if ((rawSession as any).isFinaleActive || self._finaleController) {
           throw new Error('Cannot create round controller while finale is active');
         }
-        return rawSession.createRoundController(roundId, qData);
+        const rc = rawSession.createRoundController(roundId, qData);
+        session.activeRoundController = rc;
+        return rc;
       },
       startFinale: (handoff: AssaultHandoverSnapshot, options?: AssaultFinaleOptions) => {
         return self.startAssaultFinale(handoff, options);
@@ -485,6 +534,7 @@ export class AppBootstrap {
       dispose: () => {
         rawSession.dispose();
         self._finaleController = null;
+        session.activeRoundController = null;
         if (self._assaultSession === session) {
           self._assaultSession = null;
         }
@@ -497,6 +547,18 @@ export class AppBootstrap {
         rawSession.clock?.update(dt, ctx?.engine?.elapsedTime !== undefined ? ctx.engine.elapsedTime * 1000 : undefined);
 
         const finale = (rawSession as any).finaleController ?? self._finaleController;
+        const activeRound = session.activeRoundController;
+        if (activeRound && !activeRound.isCompleted && !finale) {
+          const activeSeconds = rawSession.clock?.activeSeconds ?? 0;
+          activeRound.update(activeSeconds, dt);
+          const pendingCmds = activeRound.drainSettlementCommands();
+          if (pendingCmds && pendingCmds.length > 0 && rawSession.settlement) {
+            for (const cmd of pendingCmds) {
+              rawSession.settlement.settle(cmd);
+            }
+          }
+        }
+
         if (finale) {
           const activeSeconds = rawSession.clock?.activeSeconds ?? 0;
           const timestampMs = ctx?.engine?.elapsedTime !== undefined ? ctx.engine.elapsedTime * 1000 : performance.now();
@@ -529,6 +591,7 @@ export class AppBootstrap {
         const timestampMs = performance.now();
         const activeSeconds = rawSession.clock?.activeSeconds ?? 0;
         const finale = (rawSession as any).finaleController ?? self._finaleController;
+        const activeRound = session.activeRoundController;
 
         if (rawSession.punchAdapter && normalizedLandmarks) {
           const punchEvents = rawSession.punchAdapter.update({ timestampMs, landmarks: normalizedLandmarks });
@@ -536,12 +599,18 @@ export class AppBootstrap {
             for (const pe of punchEvents) {
               finale.handlePunch({ hand: pe.hand, timestampMs, activeSeconds });
             }
+          } else if (activeRound && !activeRound.isCompleted && punchEvents && punchEvents.length > 0) {
+            for (const pe of punchEvents) {
+              activeRound.submitPunch(pe.hand, timestampMs, { activeSeconds });
+            }
           }
         }
         if (rawSession.squatAdapter && normalizedLandmarks) {
           const squatResult = rawSession.squatAdapter.update({ timestampMs, landmarks: normalizedLandmarks });
           if (finale && squatResult && (squatResult.isDucking || squatResult.posture === 'ducking')) {
             finale.handleSquat({ posture: squatResult.posture, isDucking: squatResult.isDucking, timestampMs, activeSeconds });
+          } else if (activeRound && !activeRound.isCompleted && squatResult && (squatResult.isDucking || squatResult.posture === 'ducking')) {
+            activeRound.submitSquat(squatResult.posture, timestampMs, { activeSeconds });
           }
         }
         const jumpAdapter = (rawSession as any).jumpAdapter;
@@ -563,6 +632,7 @@ export class AppBootstrap {
             sessionId: rawSession.sessionId,
           });
           const finale = (rawSession as any).finaleController ?? self._finaleController;
+          const activeRound = session.activeRoundController;
           if (finale && fbEvent) {
             const activeSeconds = rawSession.clock?.activeSeconds ?? 0;
             if (fbEvent.action === 'left_punch') {
@@ -573,6 +643,15 @@ export class AppBootstrap {
               finale.handleSquat({ posture: 'squatting', isDucking: true, timestampMs: fbEvent.timestampMs, activeSeconds });
             } else if (fbEvent.action === 'jump') {
               finale.handleJump({ isJumping: true, isLowImpact: false, posture: 'jumping', timestampMs: fbEvent.timestampMs, activeSeconds });
+            }
+          } else if (activeRound && !activeRound.isCompleted && fbEvent) {
+            const activeSeconds = rawSession.clock?.activeSeconds ?? 0;
+            if (fbEvent.action === 'left_punch') {
+              activeRound.submitPunch('left', fbEvent.timestampMs, { activeSeconds });
+            } else if (fbEvent.action === 'right_punch') {
+              activeRound.submitPunch('right', fbEvent.timestampMs, { activeSeconds });
+            } else if (fbEvent.action === 'squat') {
+              activeRound.submitSquat('ducking', fbEvent.timestampMs, { activeSeconds });
             }
           }
         }
@@ -1114,8 +1193,13 @@ const readyPositionController = new ReadyPositionController({
   startDisplayDuration: 0.4,
   sfx,
   onComplete: () => {
-    console.log('[DG] READY_POSITION 완료 → 본 게임(RUN_QUESTION) 시작');
-    startRunningPhase();
+    if (self.isAssaultMode()) {
+      console.log('[DG] READY_POSITION 완료 → 보스 접근전(ASSAULT_ROUND) 시작');
+      startAssaultPhase();
+    } else {
+      console.log('[DG] READY_POSITION 완료 → 본 게임(RUN_QUESTION) 시작');
+      startRunningPhase();
+    }
   },
 });
 
@@ -1254,7 +1338,7 @@ starNoteScheduler.onRating((starResult) => {
 // ─── 상태 머신 및 게임 상태 (Issue #214 / REFACTOR-FSM-001) ───
 type ScreenMode = 'menu' | 'game' | 'result';
 type MenuMode = 'main' | 'sub';
-type GamePhase = 'running' | 'question' | 'answer_select' | 'star_collect' | 'hazard_evade' | 'boss_climax' | 'ready_frame';
+type GamePhase = 'running' | 'question' | 'answer_select' | 'star_collect' | 'hazard_evade' | 'boss_climax' | 'ready_frame' | 'assault_round';
 
 const stateMachine = new StateMachine('MENU_MAIN');
 let screenMode: ScreenMode = 'menu';
@@ -1347,7 +1431,8 @@ stateMachine.onTransition((from, to) => {
     to === 'STAR_COLLECT' ||
     to === 'HAZARD_EVADE' ||
     to === 'ROUND_RESOLVE' ||
-    to === 'BOSS_CLIMAX'
+    to === 'BOSS_CLIMAX' ||
+    to === 'ASSAULT_ROUND'
   ) {
     screenMode = 'game';
     if (to === 'READY_POSITION') {
@@ -1362,6 +1447,8 @@ stateMachine.onTransition((from, to) => {
       gamePhase = 'hazard_evade';
     } else if (to === 'BOSS_CLIMAX') {
       gamePhase = 'boss_climax';
+    } else if (to === 'ASSAULT_ROUND') {
+      gamePhase = 'assault_round';
     }
   }
   motionIntentBus.setPhase(to);
@@ -1506,6 +1593,15 @@ stateMachine.registerState('BOSS_CLIMAX', {
       bossHazardController.stop();
     }
     beatRoundResolver.resourceManager.troopManager.stop();
+  },
+});
+
+stateMachine.registerState('ASSAULT_ROUND', {
+  enter: () => {
+    questionVisible = false;
+    answerLocked = true;
+    feedbackTimer = 0;
+    console.log('[DG] ASSAULT_ROUND 진입 (보스 접근전 실행)');
   },
 });
 
@@ -1910,6 +2006,26 @@ function startRunningPhase(): void {
   beatCoordinator.startRound({ chapter: currentChapter, subLevel: selectedSubLevel });
   currentQuestion = beatCoordinator.currentQuestion;
   console.log(`[DG] ${beatCoordinator.exerciseBeats}박 문제 라운드 시작: ${currentQuestion?.questionText}`);
+}
+
+function startAssaultPhase(): void {
+  if (!self.assaultSession || self.assaultSession.isDisposed) {
+    self.assembleAssaultSession();
+  }
+  const session = self.assaultSession as any;
+  if (session && !session.activeRoundController && session.eligibleQuestions?.length > 0) {
+    session.createRoundController('round_01', session.eligibleQuestions[0]);
+  }
+  questionVisible = false;
+  answerLocked = true;
+  playedNoteAudioIds.clear();
+  starCollectionInput.reset();
+  starNoteScheduler.reset();
+  Object.values(locomotionDetectors).forEach((d) => d.reset());
+  jumpDetector.reset();
+  if (stateMachine.canTransition('ASSAULT_ROUND')) {
+    stateMachine.changeState('ASSAULT_ROUND');
+  }
 }
 
 // Issue #213: Phase B 보스 결전 및 연속 별모으기 피버 컨트롤러 인스턴스화
@@ -2676,6 +2792,7 @@ engine = new GameEngine({
     this.abortTestSession = abortSession;
     this.startReadyPhase = startReadyPhase;
     this.startRunningPhase = startRunningPhase;
+    this.startAssaultPhase = startAssaultPhase;
     this.enterQuestionPhase = enterQuestionPhase;
     this.handleAnswer = handleAnswer;
     this.showResult = showResult;
