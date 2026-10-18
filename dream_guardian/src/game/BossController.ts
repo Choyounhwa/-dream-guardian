@@ -11,6 +11,11 @@ import { DEFAULT_CONFIG } from '../core/Config.js';
 
 export type BossPhase = 'idle' | 'warning' | 'attacking' | 'defeated';
 
+export interface BossInitOptions {
+  maxHp?: number;
+  initialHp?: number;
+}
+
 export class BossController {
   private _hp: number;
   private _maxHp: number;
@@ -20,13 +25,13 @@ export class BossController {
 
   /**
    * @param chapter 챕터 번호 (1~5)
+   * @param options 선택적 초기 체력 주입 옵션 (Issue #539)
    */
-  constructor(chapter = 1) {
+  constructor(chapter = 1, options?: BossInitOptions) {
+    const { maxHp, hp } = this._resolveHp(chapter, options);
     this._chapter = chapter;
-    this._maxHp = chapter === 5
-      ? DEFAULT_CONFIG.battle.bossHpNightmare
-      : DEFAULT_CONFIG.battle.bossHpNormal;
-    this._hp = this._maxHp;
+    this._maxHp = maxHp;
+    this._hp = hp;
   }
 
   get hp(): number { return this._hp; }
@@ -101,14 +106,45 @@ export class BossController {
     this.takeDamage(amount, { minHp });
   }
 
-  /** 초기화 */
-  reset(chapter?: number): void {
-    if (chapter !== undefined) this._chapter = chapter;
-    this._maxHp = this._chapter === 5
-      ? DEFAULT_CONFIG.battle.bossHpNightmare
-      : DEFAULT_CONFIG.battle.bossHpNormal;
-    this._hp = this._maxHp;
+  /**
+   * 초기화
+   * @param chapter 변경할 챕터 번호 (생략 시 현재 챕터 유지)
+   * @param options 선택적 초기 체력 주입 옵션 (Issue #539)
+   */
+  reset(chapter?: number, options?: BossInitOptions): void {
+    const nextChapter = chapter !== undefined ? chapter : this._chapter;
+    const { maxHp, hp } = this._resolveHp(nextChapter, options);
+    this._chapter = nextChapter;
+    this._maxHp = maxHp;
+    this._hp = hp;
     this._phase = 'idle';
     this._attackDurationTimer = 0;
+  }
+
+  /**
+   * 챕터 및 옵션에 따른 HP/maxHp 결정 및 유효성 검증
+   */
+  private _resolveHp(chapter: number, options?: BossInitOptions): { maxHp: number; hp: number } {
+    if (options !== undefined) {
+      if (options.maxHp !== undefined) {
+        if (typeof options.maxHp !== 'number' || !Number.isFinite(options.maxHp) || options.maxHp <= 0) {
+          throw new Error(`[BossController] Invalid maxHp: ${options.maxHp}. Must be a positive finite number.`);
+        }
+      }
+      if (options.initialHp !== undefined) {
+        if (typeof options.initialHp !== 'number' || !Number.isFinite(options.initialHp) || options.initialHp <= 0) {
+          throw new Error(`[BossController] Invalid initialHp: ${options.initialHp}. Must be a positive finite number.`);
+        }
+      }
+    }
+
+    const defaultMaxHp = chapter === 5
+      ? DEFAULT_CONFIG.battle.bossHpNightmare
+      : DEFAULT_CONFIG.battle.bossHpNormal;
+
+    const maxHp = options?.maxHp !== undefined ? options.maxHp : defaultMaxHp;
+    const hp = options?.initialHp !== undefined ? Math.min(options.initialHp, maxHp) : maxHp;
+
+    return { maxHp, hp };
   }
 }
