@@ -138,6 +138,36 @@ export function buildLayoutDiff(current: object, base: object, pinned: ReadonlyS
   return (walk(current, base, '') as Obj | undefined) ?? {};
 }
 
+/**
+ * [BUG-DEVUI-001] (Issue #585) 객체/배열 내 모든 숫자 리프 경로를 점(.) 표기법으로 추출한다.
+ * 기존 파일 오버라이드에 정의된 모든 키를 누락 없이 pinned 집합으로 보존하기 위해 사용된다.
+ */
+export function extractLayoutLeafPaths(root: unknown, prefix = ''): string[] {
+  if (!root || typeof root !== 'object') return [];
+  const paths: string[] = [];
+  const walk = (val: unknown, curPath: string) => {
+    if (typeof val === 'number') {
+      if (curPath) paths.push(curPath);
+      return;
+    }
+    if (Array.isArray(val)) {
+      val.forEach((item, idx) => {
+        const next = curPath ? `${curPath}.${idx}` : String(idx);
+        walk(item, next);
+      });
+      return;
+    }
+    if (typeof val === 'object' && val !== null) {
+      for (const k of Object.keys(val)) {
+        const next = curPath ? `${curPath}.${k}` : k;
+        walk((val as Record<string, unknown>)[k], next);
+      }
+    }
+  };
+  walk(root, prefix);
+  return paths;
+}
+
 export interface LayoutExport {
   json: string;
   filename: string;
@@ -834,16 +864,10 @@ export async function mountDevLayoutPanel(
   if (fileOverride && typeof fileOverride === 'object') {
     const fo = fileOverride as Record<string, unknown>;
     if ('ui' in fo || 'assault' in fo) {
-      const res = applyMultiLayoutOverride(
-        { ui: snapshotLayout(base), assault: snapshotLayout(baseAssault) },
-        fileOverride,
-      );
-      pinned = new Set(res.applied.filter((p) => p.startsWith('ui.')).map((p) => p.slice(3)));
-      pinnedAssault = new Set(
-        res.applied.filter((p) => p.startsWith('assault.')).map((p) => p.slice(8)),
-      );
+      pinned = new Set(extractLayoutLeafPaths(fo.ui));
+      pinnedAssault = new Set(extractLayoutLeafPaths(fo.assault));
     } else {
-      pinned = new Set(applyLayoutOverride(snapshotLayout(base), fileOverride).applied);
+      pinned = new Set(extractLayoutLeafPaths(fileOverride));
       pinnedAssault = new Set();
     }
   } else {
