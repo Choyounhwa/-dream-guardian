@@ -1136,6 +1136,11 @@ export async function mountDevLayoutPanel(
   for (const section of Object.keys(UI_LAYOUT)) {
     const folder = pane.addFolder({ title: section, expanded: sections.has(section) });
     sectionFolders.set(section, folder);
+    if (folder?.element && typeof folder.element.addEventListener === 'function') {
+      const titleBtn = folder.element.querySelector?.('.tp-fldv_t') || folder.element.querySelector?.('button') || folder.element;
+      titleBtn.addEventListener?.('mouseenter', () => notifyHover(section));
+      titleBtn.addEventListener?.('mouseleave', () => notifyHover(null));
+    }
     addLayoutFolder(
       folder,
       (UI_LAYOUT as unknown as Obj)[section] as Obj,
@@ -1153,6 +1158,11 @@ export async function mountDevLayoutPanel(
     expanded: sections.has('assault') || sections.has('ASSAULT_VISUAL'),
   });
   sectionFolders.set('assault', assaultFolder);
+  if (assaultFolder?.element && typeof assaultFolder.element.addEventListener === 'function') {
+    const titleBtn = assaultFolder.element.querySelector?.('.tp-fldv_t') || assaultFolder.element.querySelector?.('button') || assaultFolder.element;
+    titleBtn.addEventListener?.('mouseenter', () => notifyHover('assault'));
+    titleBtn.addEventListener?.('mouseleave', () => notifyHover(null));
+  }
   addLayoutFolder(
     assaultFolder,
     ASSAULT_VISUAL as Obj,

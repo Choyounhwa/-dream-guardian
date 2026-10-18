@@ -242,6 +242,63 @@ export function setLayoutCoordinates(
 }
 
 /**
+ * [BUG-DEVUI-002] 화면 요소 목록에 없더라도 UI_LAYOUT 슬롯 좌표로부터 Fallback InspectableElement를 생성한다.
+ */
+export function createFallbackElement(rawPath: string): InspectableElement | null {
+  if (!rawPath) return null;
+
+  const parts = rawPath.split('.');
+  for (let len = parts.length; len >= 1; len--) {
+    const curPath = parts.slice(0, len).join('.');
+    const node = resolvePath(curPath, UI_LAYOUT);
+    if (node && typeof node === 'object') {
+      const boundsSlot: Bounds | null =
+        typeof node.x === 'number' && typeof node.y === 'number' && typeof node.w === 'number' && typeof node.h === 'number'
+          ? { x: node.x, y: node.y, w: node.w, h: node.h }
+          : node.modal && typeof node.modal.x === 'number' && typeof node.modal.y === 'number' && typeof node.modal.w === 'number' && typeof node.modal.h === 'number'
+          ? { x: node.modal.x, y: node.modal.y, w: node.modal.w, h: node.modal.h }
+          : null;
+
+      if (boundsSlot) {
+        let label = curPath;
+        if (curPath.startsWith('settings.buttons.')) {
+          const btnKey = curPath.replace('settings.buttons.', '');
+          const settingLabels: Record<string, string> = {
+            camera: '카메라 설정 버튼',
+            fullscreen: '전체화면 설정 버튼',
+            skeleton: '스켈레톤 설정 버튼',
+            sound: '사운드 설정 버튼',
+            locomotion: '운동 모드 설정 버튼',
+            fontScale: '글자 크기 설정 버튼',
+            highContrast: '고대비 설정 버튼',
+            stickmanScale: '졸라맨 크기 설정 버튼',
+            webcamVideo: '웹캠 배경 설정 버튼',
+          };
+          label = settingLabels[btnKey] ?? `${btnKey} 버튼`;
+        } else if (curPath === 'settings.closeBtn') {
+          label = '설정 닫기 버튼';
+        } else if (curPath === 'settings' || curPath === 'settings.modal') {
+          label = '설정 모달';
+        } else if (curPath === 'locomotion' || curPath === 'locomotion.modal') {
+          label = '이동 모드 모달';
+        } else if (curPath === 'locomotion.closeBtn') {
+          label = '이동 모드 닫기 버튼';
+        }
+
+        return {
+          id: curPath,
+          label,
+          path: curPath,
+          isProtected: isProtectedPath(curPath),
+          getBounds: (w, h) => virtualRectToScreen(boundsSlot, w, h),
+        };
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * [DEVUI-012] 주어진 경로(예: 'menu.title.x', 'menu.title', 'zone1.x', 'fitnessZones.zone1.x')에
  * 해당하는 InspectableElement를 찾는다.
  */
@@ -249,58 +306,63 @@ export function findElementByPath(
   elements: readonly InspectableElement[],
   rawPath: string,
 ): InspectableElement | null {
-  if (!rawPath || !elements || elements.length === 0) return null;
+  if (!rawPath) return null;
 
-  // 1. 정확한 path 일치 우선
-  const exact = elements.find((el) => el.path === rawPath);
-  if (exact) return exact;
+  if (elements && elements.length > 0) {
+    // 1. 정확한 path 일치 우선
+    const exact = elements.find((el) => el.path === rawPath);
+    if (exact) return exact;
 
-  // 2. 판정 연동 zone 매칭 (예: 'zone1.x' -> 'zone.zone_1', 'fitnessZones.zone1.x' -> 'zone.zone_1')
-  const zoneMatch = rawPath.match(/zone(\d+)/i);
-  if (zoneMatch) {
-    const zoneId = zoneMatch[1];
-    const zoneEl = elements.find(
-      (el) => el.id === `zone.zone_${zoneId}` || el.path === `zone.zone_${zoneId}`,
-    );
-    if (zoneEl) return zoneEl;
-  }
-
-  // 3. 바닥 판정선 / 회피 레인 매칭
-  if (rawPath.includes('strikeLine') || rawPath.includes('floorLine')) {
-    const lineEl = elements.find((el) => el.id.includes('strikeLine') || el.path.includes('strikeLine'));
-    if (lineEl) return lineEl;
-  }
-  if (rawPath.includes('lane') || rawPath.includes('Lane')) {
-    const laneEl = elements.find((el) => el.id.includes('lane') || el.path.includes('lane'));
-    if (laneEl) return laneEl;
-  }
-
-  // 4. 하위 속성 경로 접두사 매칭
-  // 긴 경로 일치(가장 구체적인 매칭)를 찾기 위해 길이 내림차순 검사
-  let bestMatch: InspectableElement | null = null;
-  let bestLen = 0;
-
-  for (const el of elements) {
-    if (rawPath === el.path || rawPath.startsWith(`${el.path}.`)) {
-      if (el.path.length > bestLen) {
-        bestMatch = el;
-        bestLen = el.path.length;
-      }
+    // 2. 판정 연동 zone 매칭 (예: 'zone1.x' -> 'zone.zone_1', 'fitnessZones.zone1.x' -> 'zone.zone_1')
+    const zoneMatch = rawPath.match(/zone(\d+)/i);
+    if (zoneMatch) {
+      const zoneId = zoneMatch[1];
+      const zoneEl = elements.find(
+        (el) => el.id === `zone.zone_${zoneId}` || el.path === `zone.zone_${zoneId}`,
+      );
+      if (zoneEl) return zoneEl;
     }
-  }
 
-  // 역으로, rawPath가 el.path의 상위 경로인 경우 (예: 폴더 'menu.title' 호버 시 'menu.title')
-  if (!bestMatch) {
+    // 3. 바닥 판정선 / 회피 레인 매칭
+    if (rawPath.includes('strikeLine') || rawPath.includes('floorLine')) {
+      const lineEl = elements.find((el) => el.id.includes('strikeLine') || el.path.includes('strikeLine'));
+      if (lineEl) return lineEl;
+    }
+    if (rawPath.includes('lane') || rawPath.includes('Lane')) {
+      const laneEl = elements.find((el) => el.id.includes('lane') || el.path.includes('lane'));
+      if (laneEl) return laneEl;
+    }
+
+    // 4. 하위 속성 경로 접두사 매칭
+    // 긴 경로 일치(가장 구체적인 매칭)를 찾기 위해 길이 내림차순 검사
+    let bestMatch: InspectableElement | null = null;
+    let bestLen = 0;
+
     for (const el of elements) {
-      if (el.path.startsWith(`${rawPath}.`)) {
-        if (!bestMatch || el.path.length < bestMatch.path.length) {
+      if (rawPath === el.path || rawPath.startsWith(`${el.path}.`)) {
+        if (el.path.length > bestLen) {
           bestMatch = el;
+          bestLen = el.path.length;
         }
       }
     }
+
+    // 역으로, rawPath가 el.path의 상위 경로인 경우 (예: 폴더 'menu.title' 호버 시 'menu.title')
+    if (!bestMatch) {
+      for (const el of elements) {
+        if (el.path.startsWith(`${rawPath}.`)) {
+          if (!bestMatch || el.path.length < bestMatch.path.length) {
+            bestMatch = el;
+          }
+        }
+      }
+    }
+
+    if (bestMatch) return bestMatch;
   }
 
-  return bestMatch;
+  // 5. Fallback: 현재 화면 목록에 없더라도 UI_LAYOUT 슬롯 좌표로부터 영역 탐색
+  return createFallbackElement(rawPath);
 }
 
 /**
@@ -803,6 +865,69 @@ export function getInspectableElements(
         app?.pauseModal?.getButtonLayout
           ? app.pauseModal.getButtonLayout('quit', w, h)
           : virtualRectToScreen(UI_LAYOUT.pause.quitBtn, w, h),
+    });
+  }
+
+  // 6. 설정 모달 열림 감지 (열려있거나 해당 상태인 경우)
+  if (app?.settingsModal?.isOpen || normState === 'SETTINGS') {
+    add({
+      id: 'settings.modal',
+      label: '설정 모달',
+      path: 'settings.modal',
+      getBounds: (w, h) =>
+        app?.settingsModal?.getModalBounds
+          ? app.settingsModal.getModalBounds(w, h)
+          : virtualRectToScreen(UI_LAYOUT.settings.modal ?? UI_LAYOUT.settings, w, h),
+    });
+
+    add({
+      id: 'settings.closeBtn',
+      label: '설정 닫기 버튼',
+      path: 'settings.closeBtn',
+      getBounds: (w, h) => virtualRectToScreen(UI_LAYOUT.settings.closeBtn, w, h),
+    });
+
+    const settingLabels: Record<string, string> = {
+      camera: '카메라 설정 버튼',
+      fullscreen: '전체화면 설정 버튼',
+      skeleton: '스켈레톤 설정 버튼',
+      sound: '사운드 설정 버튼',
+      locomotion: '운동 모드 설정 버튼',
+      fontScale: '글자 크기 설정 버튼',
+      highContrast: '고대비 설정 버튼',
+      stickmanScale: '졸라맨 크기 설정 버튼',
+      webcamVideo: '웹캠 배경 설정 버튼',
+    };
+
+    if (UI_LAYOUT.settings?.buttons) {
+      for (const [btnKey, slot] of Object.entries(UI_LAYOUT.settings.buttons)) {
+        add({
+          id: `settings.buttons.${btnKey}`,
+          label: settingLabels[btnKey] ?? `${btnKey} 버튼`,
+          path: `settings.buttons.${btnKey}`,
+          getBounds: (w, h) => virtualRectToScreen(slot as Bounds, w, h),
+        });
+      }
+    }
+  }
+
+  // 7. 이동 모드 모달 열림 감지
+  if (app?.locomotionModal?.isOpen || normState === 'LOCOMOTION') {
+    add({
+      id: 'locomotion.modal',
+      label: '이동 모드 모달',
+      path: 'locomotion.modal',
+      getBounds: (w, h) =>
+        app?.locomotionModal?.getModalBounds
+          ? app.locomotionModal.getModalBounds(w, h)
+          : virtualRectToScreen(UI_LAYOUT.locomotion.modal ?? UI_LAYOUT.locomotion, w, h),
+    });
+
+    add({
+      id: 'locomotion.closeBtn',
+      label: '이동 모드 닫기 버튼',
+      path: 'locomotion.closeBtn',
+      getBounds: (w, h) => virtualRectToScreen(UI_LAYOUT.locomotion.closeBtn, w, h),
     });
   }
 
