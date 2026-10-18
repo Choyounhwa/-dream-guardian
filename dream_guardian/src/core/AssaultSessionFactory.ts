@@ -55,6 +55,20 @@ import {
   type AssaultRoundQuestionData,
 } from '../game/assault/AssaultRoundController.js';
 import type { SessionId, RoundId } from '../types/assault.js';
+import {
+  DEFAULT_ASSAULT_FINALE_CONFIG,
+  type AssaultFinaleConfig,
+} from '../../config/assault-finale.config.js';
+import {
+  DEFAULT_FINALE_PATTERN,
+  type AssaultFinalePattern,
+} from '../data/assault/finalePatterns.js';
+import {
+  AssaultFinaleController,
+  type AssaultFinaleHandoffSnapshot,
+} from '../game/assault/AssaultFinaleController.js';
+import { AssaultJumpAdapter } from '../motion/AssaultJumpAdapter.js';
+import type { AssaultHandoverSnapshot } from '../game/assault/AssaultProgressController.js';
 
 // ─── 1. URL 파라미터 및 진입 판정 계약 ───
 
@@ -168,6 +182,13 @@ export interface AssaultSessionOptions {
   readonly targetRounds?: number;
   readonly bpm?: number;
   readonly sfxPlayer?: ISFXPlayer;
+  readonly jumpAdapter?: AssaultJumpAdapter;
+}
+
+export interface AssaultFinaleOptions {
+  readonly pattern?: AssaultFinalePattern;
+  readonly config?: AssaultFinaleConfig;
+  readonly jumpAdapter?: AssaultJumpAdapter;
 }
 
 export interface AssaultSession {
@@ -186,6 +207,9 @@ export interface AssaultSession {
   readonly squatAdapter: AssaultSquatAdapter;
   readonly guardAdapter: AssaultGuardAdapter;
   readonly fallbackAdapter: AssaultFallbackAdapter;
+  readonly jumpAdapter?: AssaultJumpAdapter;
+  readonly finaleController?: AssaultFinaleController | null;
+  readonly isFinaleActive?: boolean;
   readonly hud: AssaultHUD;
   readonly soundCue: AssaultSoundCue | null;
   readonly battleState: PlayerResourceTarget;
@@ -193,6 +217,7 @@ export interface AssaultSession {
   readonly ttsPort: AssaultTtsRequestPort;
   readonly isDisposed: boolean;
   createRoundController(roundId: RoundId, questionData: AssaultRoundQuestionData | string): AssaultRoundController;
+  startFinale?(handoff: AssaultHandoverSnapshot, options?: AssaultFinaleOptions): AssaultFinaleController;
   dispose(): void;
 }
 
@@ -298,10 +323,16 @@ export class AssaultSessionFactory {
     const squatAdapter = new AssaultSquatAdapter();
     const guardAdapter = new AssaultGuardAdapter();
     const fallbackAdapter = new AssaultFallbackAdapter();
+    let sessionJumpAdapter: AssaultJumpAdapter = options.jumpAdapter ?? new AssaultJumpAdapter();
+    if (typeof (sessionJumpAdapter as any).reset === 'function') {
+      sessionJumpAdapter.reset(String(sessionId));
+    }
     const hud = new AssaultHUD();
     const soundCue = options.sfxPlayer ? new AssaultSoundCue({ sfxPlayer: options.sfxPlayer }) : null;
 
     let isDisposed = false;
+    let finaleController: AssaultFinaleController | null = null;
+    let isFinaleActive = false;
 
     const session: AssaultSession = {
       sessionId,
@@ -319,6 +350,15 @@ export class AssaultSessionFactory {
       squatAdapter,
       guardAdapter,
       fallbackAdapter,
+      get jumpAdapter(): AssaultJumpAdapter {
+        return sessionJumpAdapter;
+      },
+      get finaleController(): AssaultFinaleController | null {
+        return finaleController;
+      },
+      get isFinaleActive(): boolean {
+        return isFinaleActive;
+      },
       hud,
       soundCue,
       battleState: options.battleState,
@@ -330,6 +370,9 @@ export class AssaultSessionFactory {
       createRoundController(roundId: RoundId, questionData: AssaultRoundQuestionData | string): AssaultRoundController {
         if (isDisposed) {
           throw new Error('Cannot create round controller on a disposed session');
+        }
+        if (isFinaleActive) {
+          throw new Error('Cannot create round controller while finale is active');
         }
         return new AssaultRoundController({
           sessionId,
@@ -343,6 +386,9 @@ export class AssaultSessionFactory {
           onSettlementCommand: (cmd) => settlement.settle(cmd),
         });
       },
+      startFinale(handoff: AssaultHandoverSnapshot, finaleOptions?: AssaultFinaleOptions): AssaultFinaleController {
+        return AssaultSessionFactory.startFinale(session, handoff, finaleOptions);
+      },
       dispose() {
         if (isDisposed) return;
         isDisposed = true;
@@ -350,6 +396,81 @@ export class AssaultSessionFactory {
       },
     };
 
+    (session as any).__setFinale = (controller: AssaultFinaleController, jAdapter: AssaultJumpAdapter) => {
+      finaleController = controller;
+      sessionJumpAdapter = jAdapter;
+      isFinaleActive = true;
+    };
+
     return Object.freeze(session);
+  }
+
+  /**
+   * 근접 결전(AssaultFinaleController) 가동 및 배타 연결 (#532 / BOSS-ASSAULT-30)
+   * #539 계약 준수: BossController.reset 포트를 통한 명시적 HP 주입
+   */
+  public static startFinale(
+    session: AssaultSession,
+    handoff: AssaultHandoverSnapshot,
+    options?: AssaultFinaleOptions,
+  ): AssaultFinaleController {
+    if (!session || session.isDisposed) {
+      throw new Error('Cannot start finale on a disposed session');
+    }
+    if (!handoff || typeof handoff !== 'object') {
+      throw new Error('Invalid handover snapshot');
+    }
+    if (handoff.sessionId !== session.sessionId) {
+      throw new Error(`Session ID mismatch: expected ${session.sessionId}, got ${handoff.sessionId}`);
+    }
+
+    const config = options?.config ?? DEFAULT_ASSAULT_FINALE_CONFIG;
+    const pattern = options?.pattern ?? DEFAULT_FINALE_PATTERN;
+
+    // #539 계약 준수: BossController.reset 포트를 통한 명시적 HP 주입
+    if (session.bossController) {
+      if (typeof (session.bossController as any).reset === 'function') {
+        (session.bossController as any).reset(undefined, {
+          maxHp: config.bossInitialHp,
+          initialHp: config.bossInitialHp,
+        });
+      } else {
+        session.bossController.hp = config.bossInitialHp;
+      }
+    }
+
+    const bossHp = session.bossController ? session.bossController.hp : config.bossInitialHp;
+    const playerHp = handoff.finalHp ?? session.battleState.hp;
+    if (session.battleState && typeof (session.battleState as any)._hp === 'number') {
+      (session.battleState as any)._hp = playerHp;
+    }
+
+    const finaleHandoff: AssaultFinaleHandoffSnapshot = {
+      sessionId: String(handoff.sessionId),
+      playerHp,
+      bossHp,
+      rulesVersion: handoff.rulesVersion ?? config.rulesVersion,
+      timingProfileId: config.profileId,
+    };
+
+    const jumpAdapter = options?.jumpAdapter ?? session.jumpAdapter ?? new AssaultJumpAdapter();
+    if (typeof (jumpAdapter as any).reset === 'function') {
+      jumpAdapter.reset(String(handoff.sessionId));
+    }
+
+    const controller = new AssaultFinaleController(finaleHandoff, pattern, config);
+
+    if (typeof (session as any).__setFinale === 'function') {
+      (session as any).__setFinale(controller, jumpAdapter);
+    }
+    try {
+      (session as any)._finaleController = controller;
+      (session as any)._isFinaleActive = true;
+      (session as any)._jumpAdapter = jumpAdapter;
+    } catch {
+      // In case session object is strictly frozen without setter
+    }
+
+    return controller;
   }
 }

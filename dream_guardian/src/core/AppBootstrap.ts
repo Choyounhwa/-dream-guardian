@@ -18,9 +18,11 @@ import {
   isAssaultModeRequested,
   type AssaultSession,
   type AssaultSessionOptions,
+  type AssaultFinaleOptions,
   type AssaultLocationLike,
   type AssaultEnvLike,
 } from './AssaultSessionFactory.js';
+import type { AssaultFinaleController } from '../game/assault/AssaultFinaleController.js';
 import type { QuestionCandidate } from '../question/AssaultQuestionEligibility.js';
 import type { AssaultHandoverSnapshot } from '../game/assault/AssaultProgressController.js';
 import type { SessionId } from '../types/assault.js';
@@ -187,6 +189,7 @@ export interface AppBootstrapOptions {
   location?: AssaultLocationLike;
   env?: AssaultEnvLike;
   mode?: string;
+  enableAssaultFinale?: boolean;
 }
 
 // ─── roundRect 폴리필 ───
@@ -399,6 +402,8 @@ export class AppBootstrap {
   private _options: AppBootstrapOptions;
   private _assaultSession: AssaultSession | null = null;
   private _lastAssaultSessionOptions?: Partial<AssaultSessionOptions>;
+  private _finaleController: AssaultFinaleController | null = null;
+  public enableAssaultFinale = false;
 
   private _onResize: () => void;
   private _onKeyDown: (e: KeyboardEvent) => void;
@@ -412,6 +417,9 @@ export class AppBootstrap {
   get currentChapter(): number { return this.mainSceneContext?.state?.currentChapter ?? 1; }
   get currentQuestion(): GeneratedQuestion | null { return (this.mainSceneContext?.state?.currentQuestion ?? null) as GeneratedQuestion | null; }
   get assaultSession(): AssaultSession | null { return this._assaultSession; }
+  get bossController(): BossController { return this.boss; }
+  get finaleController(): AssaultFinaleController | null { return (this._assaultSession as any)?.finaleController ?? this._finaleController ?? null; }
+  get isFinaleActive(): boolean { return Boolean((this._assaultSession as any)?.isFinaleActive || this._finaleController); }
 
   public isAssaultMode(): boolean {
     return isAssaultModeRequested(
@@ -462,43 +470,111 @@ export class AppBootstrap {
       ...rawSession,
       clockAdapter: rawSession.clock,
       get isDisposed() { return rawSession.isDisposed; },
-      createRoundController: (roundId: any, qData: any) => rawSession.createRoundController(roundId, qData),
+      get jumpAdapter() { return (rawSession as any).jumpAdapter; },
+      get finaleController() { return (rawSession as any).finaleController ?? self._finaleController; },
+      get isFinaleActive() { return Boolean((rawSession as any).isFinaleActive || self._finaleController); },
+      createRoundController: (roundId: any, qData: any) => {
+        if ((rawSession as any).isFinaleActive || self._finaleController) {
+          throw new Error('Cannot create round controller while finale is active');
+        }
+        return rawSession.createRoundController(roundId, qData);
+      },
+      startFinale: (handoff: AssaultHandoverSnapshot, options?: AssaultFinaleOptions) => {
+        return self.startAssaultFinale(handoff, options);
+      },
       dispose: () => {
         rawSession.dispose();
+        self._finaleController = null;
         if (self._assaultSession === session) {
           self._assaultSession = null;
         }
       },
-      handleIntent: (intent: string, snapshot?: AssaultHandoverSnapshot | null) => {
-        return self.handleAssaultIntent(intent, snapshot, rawSession.sessionId);
+      handleIntent: (intent: string, snapshot?: AssaultHandoverSnapshot | null, options?: any) => {
+        return self.handleAssaultIntent(intent, snapshot, rawSession.sessionId, options);
       },
       update(dt: number, ctx?: any) {
         if (rawSession.isDisposed) return;
         rawSession.clock?.update(dt, ctx?.engine?.elapsedTime !== undefined ? ctx.engine.elapsedTime * 1000 : undefined);
-        if (self.battle.hp <= 0) {
-          self.handleAssaultIntent('game_over', null, rawSession.sessionId);
+
+        const finale = (rawSession as any).finaleController ?? self._finaleController;
+        if (finale) {
+          const activeSeconds = rawSession.clock?.activeSeconds ?? 0;
+          const timestampMs = ctx?.engine?.elapsedTime !== undefined ? ctx.engine.elapsedTime * 1000 : performance.now();
+          finale.update(timestampMs, activeSeconds);
+
+          // 멱등 정산 명령(Settlement Command) 처리
+          const pendingCmds = finale.getPendingSettlementCommands();
+          if (pendingCmds && pendingCmds.length > 0) {
+            for (const cmd of pendingCmds) {
+              const receipt = rawSession.settlement.settle(cmd);
+              finale.applySettlementReceipt(receipt);
+            }
+          }
+
+          // A14 & A22: 결전 종료 판정 및 동시 HP 0 시 플레이어 패배 최우선
+          const snap = finale.getSnapshot();
+          if (snap.isDefeat || snap.phase === 'defeat' || (snap.playerHp <= 0 && snap.bossHp <= 0) || self.battle.hp <= 0) {
+            self.handleAssaultIntent('game_over', null, rawSession.sessionId);
+          } else if (snap.isVictory || snap.phase === 'victory' || snap.bossHp <= 0 || (self.bossController && self.bossController.hp <= 0)) {
+            self.handleAssaultIntent('victory', null, rawSession.sessionId);
+          }
+        } else {
+          if (self.battle.hp <= 0) {
+            self.handleAssaultIntent('game_over', null, rawSession.sessionId);
+          }
         }
       },
       handlePose(_sourceLandmarks: any[], normalizedLandmarks?: any[], _dt?: number) {
         if (rawSession.isDisposed) return;
         const timestampMs = performance.now();
+        const activeSeconds = rawSession.clock?.activeSeconds ?? 0;
+        const finale = (rawSession as any).finaleController ?? self._finaleController;
+
         if (rawSession.punchAdapter && normalizedLandmarks) {
-          rawSession.punchAdapter.update({ timestampMs, landmarks: normalizedLandmarks });
+          const punchEvents = rawSession.punchAdapter.update({ timestampMs, landmarks: normalizedLandmarks });
+          if (finale && punchEvents && punchEvents.length > 0) {
+            for (const pe of punchEvents) {
+              finale.handlePunch({ hand: pe.hand, timestampMs, activeSeconds });
+            }
+          }
         }
         if (rawSession.squatAdapter && normalizedLandmarks) {
-          rawSession.squatAdapter.update({ timestampMs, landmarks: normalizedLandmarks });
+          const squatResult = rawSession.squatAdapter.update({ timestampMs, landmarks: normalizedLandmarks });
+          if (finale && squatResult && (squatResult.isDucking || squatResult.posture === 'ducking')) {
+            finale.handleSquat({ posture: squatResult.posture, isDucking: squatResult.isDucking, timestampMs, activeSeconds });
+          }
+        }
+        const jumpAdapter = (rawSession as any).jumpAdapter;
+        if (jumpAdapter && normalizedLandmarks && typeof jumpAdapter.update === 'function') {
+          const jumpResult = jumpAdapter.update({ timestampMs, landmarks: normalizedLandmarks });
+          if (finale && jumpResult && (jumpResult.isJumping || jumpResult.isLowImpact)) {
+            finale.handleJump({ isJumping: jumpResult.isJumping, isLowImpact: jumpResult.isLowImpact, posture: jumpResult.posture, timestampMs, activeSeconds });
+          }
         }
       },
       handleKeyboard(event: KeyboardEvent) {
         if (rawSession.isDisposed) return;
         if (rawSession.fallbackAdapter) {
-          rawSession.fallbackAdapter.handleKeyDown({
+          const fbEvent = rawSession.fallbackAdapter.handleKeyDown({
             key: event.key,
             code: event.code,
             repeat: event.repeat,
             timestampMs: performance.now(),
             sessionId: rawSession.sessionId,
           });
+          const finale = (rawSession as any).finaleController ?? self._finaleController;
+          if (finale && fbEvent) {
+            const activeSeconds = rawSession.clock?.activeSeconds ?? 0;
+            if (fbEvent.action === 'left_punch') {
+              finale.handlePunch({ hand: 'left', timestampMs: fbEvent.timestampMs, activeSeconds });
+            } else if (fbEvent.action === 'right_punch') {
+              finale.handlePunch({ hand: 'right', timestampMs: fbEvent.timestampMs, activeSeconds });
+            } else if (fbEvent.action === 'squat') {
+              finale.handleSquat({ posture: 'squatting', isDucking: true, timestampMs: fbEvent.timestampMs, activeSeconds });
+            } else if (fbEvent.action === 'jump') {
+              finale.handleJump({ isJumping: true, isLowImpact: false, posture: 'jumping', timestampMs: fbEvent.timestampMs, activeSeconds });
+            }
+          }
         }
       },
       handleKeyUp(event: KeyboardEvent) {
@@ -523,13 +599,107 @@ export class AppBootstrap {
     return session;
   }
 
+  public startAssaultFinale(
+    snapshot?: AssaultHandoverSnapshot | null,
+    options?: AssaultFinaleOptions,
+  ): AssaultFinaleController | null {
+    if (!this._assaultSession || this._assaultSession.isDisposed) {
+      return null;
+    }
+
+    const handover: AssaultHandoverSnapshot = snapshot ?? (this.sessionLifecycle.lastHandoverSnapshot as AssaultHandoverSnapshot) ?? {
+      sessionId: String(this._assaultSession.sessionId),
+      mode: 'boss_assault',
+      rulesVersion: 'v0.3',
+      finalHp: this.battle.hp,
+      targetRounds: 10,
+      completedRounds: 10,
+      stats: {
+        totalCompletedQuestions: 10,
+        totalCorrectHits: 10,
+        totalWrongHits: 0,
+        totalTimeoutHits: 0,
+        totalEvadeSuccessCount: 10,
+        totalSquatFailCount: 0,
+        totalEncounters: 20,
+        totalAttemptedAnswerHits: 10,
+        ratingCounts: { Perfect: 10, Good: 0, Late: 0, Miss: 0 },
+        maxCombo: 0,
+        totalPlayerDamage: 0,
+        totalBossDamage: 0,
+        totalActualDamage: 0,
+        totalRequestedDamage: 0,
+        totalActiveDurationSeconds: 0,
+        processedRoundIds: [],
+      },
+      timestampMs: Date.now(),
+    };
+
+    if (this.battle && typeof (this.battle as any)._hp === 'number' && typeof handover.finalHp === 'number') {
+      (this.battle as any)._hp = handover.finalHp;
+    }
+    const controller = AssaultSessionFactory.startFinale(this._assaultSession, handover, options);
+    this._finaleController = controller;
+    (this.sessionLifecycle as any)._lastHandoverSnapshot = handover;
+    (this.sessionLifecycle as any)._hasResultShown = false;
+    this.motionIntentBus?.setPhase('ASSAULT_FINALE');
+    return controller;
+  }
+
+  public assembleAssaultFinaleSession(
+    snapshot: AssaultHandoverSnapshot,
+    options?: AssaultFinaleOptions,
+  ): AssaultFinaleController | null {
+    return this.startAssaultFinale(snapshot, options);
+  }
+
   public handleAssaultIntent(
     intent: string,
     snapshot?: AssaultHandoverSnapshot | null,
     sessionToken?: SessionId | string | number | null,
+    options?: { startFinale?: boolean; enableFinale?: boolean; finaleOptions?: AssaultFinaleOptions },
   ): boolean {
     const token = sessionToken ?? this._assaultSession?.sessionId;
-    const accepted = this.sessionLifecycle.handleAssaultIntent(intent, snapshot, token);
+    if (!this.sessionLifecycle.isValidAssaultToken(token)) {
+      return false;
+    }
+
+    // 결전 진입 의도 분기
+    const shouldStartFinale =
+      intent === 'handover_climax' &&
+      (options?.startFinale === true || options?.enableFinale === true || this.enableAssaultFinale === true);
+
+    if (shouldStartFinale) {
+      if (this.sessionLifecycle.hasResultShown) {
+        return false;
+      }
+      if (this.sessionContext) {
+        this.sessionContext.setActive(false);
+      }
+      this.beatCoordinator?.pause();
+      this.engine?.pauseGame();
+
+      const controller = this.startAssaultFinale(snapshot, options?.finaleOptions);
+      return controller !== null;
+    }
+
+    // 결전 승리 의도 분기 (A14/A22: 보스 격파 시 단일 승리 전환)
+    if (intent === 'victory') {
+      if (!this.sessionLifecycle.claimResultTransition()) {
+        return false;
+      }
+      if (this.sessionContext) {
+        this.sessionContext.setActive(false);
+      }
+      this.beatCoordinator?.pause();
+      this.engine?.pauseGame();
+      this._transitionToState('RESULT');
+      return true;
+    }
+
+    // 단일 패배/종료 권위 (SessionLifecycle)
+    const normalizedIntent = intent === 'defeat' ? 'game_over' : intent;
+    const accepted = this.sessionLifecycle.handleAssaultIntent(normalizedIntent, snapshot, token);
     if (!accepted) {
       return false;
     }
@@ -540,38 +710,33 @@ export class AppBootstrap {
     this.beatCoordinator?.pause();
     this.engine?.pauseGame();
 
-    if (intent === 'game_over') {
-      const sm = this.stateMachine;
-      if (sm) {
-        if (!sm.canTransition('GAMEOVER')) {
-          if (sm.currentState === 'READY_POSITION') {
-            sm.changeState('RUN_QUESTION');
-          }
-          if (!sm.canTransition('GAMEOVER')) {
-            sm.changeState('ROUND_RESOLVE');
-          }
-        }
-        if (sm.canTransition('GAMEOVER')) {
-          sm.changeState('GAMEOVER');
-        }
+    if (normalizedIntent === 'game_over') {
+      this._transitionToState('GAMEOVER');
+    } else if (normalizedIntent === 'handover_climax') {
+      this._transitionToState('RESULT');
+    }
+
+    return true;
+  }
+
+  private _transitionToState(targetState: 'GAMEOVER' | 'RESULT'): void {
+    const sm = this.stateMachine;
+    if (!sm) return;
+    if (!sm.canTransition(targetState)) {
+      if (
+        sm.currentState === 'MENU_MAIN' ||
+        sm.currentState === 'MENU_SUB' ||
+        sm.currentState === 'READY_POSITION'
+      ) {
+        sm.changeState('RUN_QUESTION');
       }
-    } else if (intent === 'handover_climax') {
-      const sm = this.stateMachine;
-      if (sm) {
-        if (!sm.canTransition('RESULT')) {
-          if (sm.currentState === 'READY_POSITION') {
-            sm.changeState('RUN_QUESTION');
-          }
-          if (!sm.canTransition('RESULT')) {
-            sm.changeState('ROUND_RESOLVE');
-          }
-        }
-        if (sm.canTransition('RESULT')) {
-          sm.changeState('RESULT');
-        }
+      if (!sm.canTransition(targetState)) {
+        sm.changeState('ROUND_RESOLVE');
       }
     }
-    return true;
+    if (sm.canTransition(targetState)) {
+      sm.changeState(targetState);
+    }
   }
 
   public restartAssaultSession(options?: Partial<AssaultSessionOptions>): AssaultSession {
@@ -595,6 +760,7 @@ export class AppBootstrap {
 
   constructor(options?: AppBootstrapOptions) {
     this._options = options ?? {};
+    this.enableAssaultFinale = Boolean(this._options.enableAssaultFinale);
     const self = this;
 
     const canvas = this._options.canvas

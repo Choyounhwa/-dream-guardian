@@ -1238,7 +1238,11 @@ export class SceneDirector<TContext = any> {
     }
 
     const session = this._getAssaultSession(ctx);
-    const snapshot = (session as any)?.presentation ??
+    const finaleController = (session as any)?.finaleController;
+    const finaleSnapshot = finaleController?.getSnapshot?.() ?? null;
+    const snapshot = (session as any)?.finalePresentationSnapshot ??
+                     (finaleSnapshot ? { ...finaleSnapshot, questionText: '' } : null) ??
+                     (session as any)?.presentation ??
                      (session as any)?.activeRoundController?.presentation ??
                      (session as any)?.snapshot ??
                      (ctx as any)?.assaultPresentationSnapshot ??
