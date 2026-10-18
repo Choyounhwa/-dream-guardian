@@ -28,6 +28,7 @@ import {
   DevLayoutHistory,
   type LayoutChangeItem,
 } from './DevLayoutHistory.js';
+import { getActiveInspectorOverlay } from './DevInspectorOverlay.js';
 
 /**
  * [DEVUI-008] (Issue #577) 보스 접근전(Boss Assault) 변경 가능한 레이아웃 싱글턴
@@ -41,6 +42,12 @@ export const DEV_LAYOUT_STORAGE_KEY = 'dg-dev-ui-layout-diff';
 export const DEV_LAYOUT_EXPORT_DIR = 'public/layouts/';
 export const DEV_LAYOUT_EXPORT_FILENAME = 'ui-layout.json';
 export const DEV_LAYOUT_LOAD_URL = UI_LAYOUT_OVERRIDE_URL;
+
+export const DEV_ACTION_MENU_ID = 'dg-dev-action-menu';
+export const DEV_UNDO_BTN_ID = 'dg-dev-undo-btn';
+export const DEV_REDO_BTN_ID = 'dg-dev-redo-btn';
+export const DEV_EXPORT_BTN_ID = 'dg-dev-export-btn';
+export const DEV_RESET_BTN_ID = 'dg-dev-reset-btn';
 
 type Obj = Record<string, unknown>;
 
@@ -330,6 +337,7 @@ interface ApiLike {
 
 export interface FolderLike {
   expanded?: boolean;
+  element?: HTMLElement;
   addFolder(params: { title: string; expanded?: boolean }): FolderLike;
   addBinding(obj: object, key: string, params: Record<string, unknown>): ApiLike;
   addButton(params: { title: string; disabled?: boolean }): ApiLike;
@@ -434,6 +442,8 @@ export interface MountLayoutPanelOptions {
   history?: DevLayoutHistory;
   /** [DEVUI-008] 다중 소스 네임스페이스 내보내기 강제 활성화 */
   multiSource?: boolean;
+  /** [DEVUI-012] 메뉴 항목 마우스 오버 시 경로 전달 콜백 (미지정 시 활성 인스펙터 오버레이에 자동 연동) */
+  onHoverPath?: (path: string | null) => void;
 }
 
 export interface DevLayoutPanelHandle {
@@ -441,6 +451,13 @@ export interface DevLayoutPanelHandle {
   history?: DevLayoutHistory;
   undo?: () => void;
   redo?: () => void;
+  actionMenu?: HTMLElement;
+  buttons?: {
+    undo: any;
+    redo: any;
+    export: any;
+    reset: any;
+  };
   dispose(): void;
 }
 
@@ -731,6 +748,7 @@ function addLayoutFolder(
     doc?: Document;
     updateButtons?: () => void;
   },
+  onHoverPath?: (path: string | null) => void,
 ): void {
   for (const key of Object.keys(node)) {
     const p = path ? `${path}.${key}` : key;
@@ -740,6 +758,10 @@ function addLayoutFolder(
       const params: Record<string, unknown> = { label: key, readonly: m.readonly };
       if (!m.readonly) Object.assign(params, { min: m.min, max: m.max, step: m.step ?? 1 });
       const api = parent.addBinding(node as object, key, params);
+      if (api?.element && typeof api.element.addEventListener === 'function' && onHoverPath) {
+        api.element.addEventListener('mouseenter', () => onHoverPath(p));
+        api.element.addEventListener('mouseleave', () => onHoverPath(null));
+      }
       if (!m.readonly) {
         api.on('change', (ev?: any) => {
           const isLast = ev ? (ev.last !== false) : true;
@@ -761,7 +783,14 @@ function addLayoutFolder(
         }
       }
     } else if (isContainer(v)) {
-      addLayoutFolder(parent.addFolder({ title: key, expanded: false }), v, p, metas, onChange, nudgeContext);
+      const folder = parent.addFolder({ title: key, expanded: false });
+      const folderEl = (folder as any)?.element;
+      if (folderEl && typeof folderEl.addEventListener === 'function' && onHoverPath) {
+        const titleBtn = folderEl.querySelector?.('.tp-fldv_t') || folderEl.querySelector?.('button') || folderEl;
+        titleBtn.addEventListener?.('mouseenter', () => onHoverPath(p));
+        titleBtn.addEventListener?.('mouseleave', () => onHoverPath(null));
+      }
+      addLayoutFolder(folder, v, p, metas, onChange, nudgeContext, onHoverPath);
     }
   }
 }
@@ -859,12 +888,92 @@ export async function mountDevLayoutPanel(
     }
   }
 
-  const undoBtn = pane.addButton({ title: '↶ Undo', disabled: true });
-  const redoBtn = pane.addButton({ title: '↷ Redo', disabled: true });
+  let actionMenu = doc.getElementById(DEV_ACTION_MENU_ID);
+  if (!actionMenu) {
+    const jumper = doc.getElementById('dg-dev-scene-jumper');
+    if (jumper) {
+      actionMenu = doc.createElement('div');
+      actionMenu.id = DEV_ACTION_MENU_ID;
+      Object.assign(actionMenu.style, {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        gap: '4px',
+        marginTop: '6px',
+      });
+      jumper.appendChild(actionMenu);
+    } else {
+      actionMenu = doc.createElement('div');
+      actionMenu.id = DEV_ACTION_MENU_ID;
+      Object.assign(actionMenu.style, {
+        position: 'fixed',
+        top: '72px',
+        left: '0px',
+        zIndex: '99999',
+        padding: '4px 6px',
+        background: 'rgba(20,20,40,0.85)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        gap: '4px',
+      });
+      doc.body.appendChild(actionMenu);
+    }
+  }
+
+  const createActionButton = (title: string, id: string, disabled = false) => {
+    const btn = doc.createElement('button') as any;
+    btn.id = id;
+    btn.textContent = title;
+    btn.title = title;
+    btn.disabled = disabled;
+    btn.handlers = {} as Record<string, Function>;
+    Object.assign(btn.style, {
+      background: '#2A2A48',
+      color: '#FFFFFF',
+      border: '1px solid #4A4A70',
+      borderRadius: '3px',
+      padding: '3px 8px',
+      font: '11px monospace',
+      textAlign: 'center',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      opacity: disabled ? '0.45' : '1.0',
+    });
+    btn.on = (ev: string, fn: Function) => {
+      btn.handlers[ev] = fn;
+      return btn;
+    };
+    const onClick = (e?: any) => {
+      if (!btn.disabled && btn.handlers.click) {
+        btn.handlers.click(e);
+      }
+    };
+    btn.onclick = onClick;
+    btn.click = onClick;
+    btn.addEventListener?.('click', onClick);
+    actionMenu!.appendChild(btn);
+    return btn;
+  };
+
+  const undoBtn = createActionButton('↶ Undo', DEV_UNDO_BTN_ID, true);
+  const redoBtn = createActionButton('↷ Redo', DEV_REDO_BTN_ID, true);
+  const exportBtn = createActionButton(
+    `내보내기 (${DEV_LAYOUT_EXPORT_DIR}${DEV_LAYOUT_EXPORT_FILENAME})`,
+    DEV_EXPORT_BTN_ID,
+    false,
+  );
+  const resetBtn = createActionButton('전체 초기화', DEV_RESET_BTN_ID, false);
 
   const updateButtons = () => {
-    undoBtn.disabled = !history.canUndo();
-    redoBtn.disabled = !history.canRedo();
+    const canUndo = history.canUndo();
+    const canRedo = history.canRedo();
+    undoBtn.disabled = !canUndo;
+    undoBtn.style.opacity = canUndo ? '1.0' : '0.45';
+    undoBtn.style.cursor = canUndo ? 'pointer' : 'not-allowed';
+
+    redoBtn.disabled = !canRedo;
+    redoBtn.style.opacity = canRedo ? '1.0' : '0.45';
+    redoBtn.style.cursor = canRedo ? 'pointer' : 'not-allowed';
   };
 
   const saveDiff = () => {
@@ -946,25 +1055,23 @@ export async function mountDevLayoutPanel(
     }
   };
 
-  pane
-    .addButton({ title: `내보내기 (${DEV_LAYOUT_EXPORT_DIR}${DEV_LAYOUT_EXPORT_FILENAME})` })
-    .on('click', async () => {
-      const isMulti =
-        opts.multiSource || Object.keys(buildLayoutDiff(ASSAULT_VISUAL, baseAssault)).length > 0;
-      const out = isMulti
-        ? buildMultiLayoutExport({
-            ui: { current: UI_LAYOUT, base, pinned },
-            assault: { current: ASSAULT_VISUAL, base: baseAssault, pinned: pinnedAssault },
-          })
-        : buildLayoutExport(UI_LAYOUT, base, pinned);
-      if (out.warnings.length > 0) console.warn('[DEV UI] 내보내기 검증 경고:', out.warnings);
-      await saveLayoutExport(out, {
-        download,
-        showSaveFilePicker: opts.showSaveFilePicker,
-      });
+  exportBtn.on('click', async () => {
+    const isMulti =
+      opts.multiSource || Object.keys(buildLayoutDiff(ASSAULT_VISUAL, baseAssault)).length > 0;
+    const out = isMulti
+      ? buildMultiLayoutExport({
+          ui: { current: UI_LAYOUT, base, pinned },
+          assault: { current: ASSAULT_VISUAL, base: baseAssault, pinned: pinnedAssault },
+        })
+      : buildLayoutExport(UI_LAYOUT, base, pinned);
+    if (out.warnings.length > 0) console.warn('[DEV UI] 내보내기 검증 경고:', out.warnings);
+    await saveLayoutExport(out, {
+      download,
+      showSaveFilePicker: opts.showSaveFilePicker,
     });
+  });
 
-  pane.addButton({ title: '전체 초기화' }).on('click', () => {
+  resetBtn.on('click', () => {
     const batch: LayoutChangeItem[] = [];
     for (const [path, m] of metas) {
       if (!m.readonly) {
@@ -996,6 +1103,11 @@ export async function mountDevLayoutPanel(
     updateButtons,
   };
 
+  const notifyHover = (p: string | null) => {
+    opts.onHoverPath?.(p);
+    getActiveInspectorOverlay()?.setHighlightedPath(p);
+  };
+
   const sectionFolders = new Map<string, FolderLike>();
   for (const section of Object.keys(UI_LAYOUT)) {
     const folder = pane.addFolder({ title: section, expanded: sections.has(section) });
@@ -1007,6 +1119,7 @@ export async function mountDevLayoutPanel(
       metas,
       onChange,
       nudgeContext,
+      notifyHover,
     );
   }
 
@@ -1023,13 +1136,19 @@ export async function mountDevLayoutPanel(
     metas,
     onChange,
     nudgeContext,
+    notifyHover,
   );
 
   const lockedRoot = pane.addFolder({ title: '판정 연동 좌표 (읽기 전용)', expanded: false });
   for (const source of getDevUiLockedSources()) {
     const folder = lockedRoot.addFolder({ title: source.title, expanded: false });
     for (const key of Object.keys(source.values)) {
-      folder.addBinding(source.values, key, { label: key, readonly: true });
+      const api = folder.addBinding(source.values, key, { label: key, readonly: true });
+      if (api?.element && typeof api.element.addEventListener === 'function') {
+        const lockedPath = `${source.id}.${key}`;
+        api.element.addEventListener('mouseenter', () => notifyHover(lockedPath));
+        api.element.addEventListener('mouseleave', () => notifyHover(null));
+      }
     }
   }
 
@@ -1111,11 +1230,20 @@ export async function mountDevLayoutPanel(
     history,
     undo: performUndo,
     redo: performRedo,
+    actionMenu,
+    buttons: {
+      undo: undoBtn,
+      redo: redoBtn,
+      export: exportBtn,
+      reset: resetBtn,
+    },
     dispose() {
+      notifyHover(null);
       if (typeof doc?.removeEventListener === 'function') {
         doc.removeEventListener('keydown', handleKeyDown);
       }
       if (timer) clearInterval(timer);
+      actionMenu?.remove?.();
       pane.dispose();
     },
   };

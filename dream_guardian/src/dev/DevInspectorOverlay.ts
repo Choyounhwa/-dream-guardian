@@ -17,11 +17,18 @@ import {
   cycleInspectable,
   getLayoutCoordinates,
   setLayoutCoordinates,
+  findElementByPath,
   type InspectableElement,
 } from './LayoutRegistry.js';
 import type { DevLayoutHistory } from './DevLayoutHistory.js';
 
 export const DEV_INSPECTOR_OVERLAY_ID = 'dg-dev-inspector-overlay';
+
+let activeInspectorOverlay: DevInspectorOverlay | null = null;
+
+export function getActiveInspectorOverlay(): DevInspectorOverlay | null {
+  return activeInspectorOverlay;
+}
 
 export interface PaneLike {
   refresh(): void;
@@ -51,6 +58,8 @@ export class DevInspectorOverlay {
 
   private selectedElement: InspectableElement | null = null;
   private hoveredElement: InspectableElement | null = null;
+  private highlightedPath: string | null = null;
+  private highlightedElement: InspectableElement | null = null;
   private isDragging = false;
   private dragRejected = false;
   private dragStart: {
@@ -141,6 +150,7 @@ export class DevInspectorOverlay {
     }
 
     this.render();
+    activeInspectorOverlay = this;
   }
 
   private getCurrentState(): string {
@@ -384,6 +394,28 @@ export class DevInspectorOverlay {
     return this.hoveredElement;
   }
 
+  /**
+   * [DEVUI-012] 레이아웃 패널 등 외부에서 특정 경로 호버 시 해당 UI 요소를 하이라이트한다.
+   */
+  public setHighlightedPath(path: string | null): void {
+    this.highlightedPath = path;
+    if (!path) {
+      this.highlightedElement = null;
+    } else {
+      const elements = this.getElements();
+      this.highlightedElement = findElementByPath(elements, path);
+    }
+    this.render();
+  }
+
+  public getHighlightedPath(): string | null {
+    return this.highlightedPath;
+  }
+
+  public getHighlightedElement(): InspectableElement | null {
+    return this.highlightedElement;
+  }
+
   public isDragRejected(): boolean {
     return this.dragRejected;
   }
@@ -429,6 +461,30 @@ export class DevInspectorOverlay {
         b.x,
         b.y - 18,
         this.hoveredElement.isProtected ? 'rgba(255, 77, 79, 0.85)' : 'rgba(40, 230, 255, 0.85)',
+        '#000000',
+      );
+      this.ctx.restore();
+    }
+
+    // 1.5 외부 패널 호버 하이라이트 렌더링
+    if (this.highlightedElement && this.highlightedElement.id !== this.selectedElement?.id) {
+      const b = this.highlightedElement.getBounds(vw, vh);
+      const isProt = !!this.highlightedElement.isProtected;
+      this.ctx.save();
+      this.ctx.setLineDash([6, 3]);
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeStyle = isProt ? '#ff4d4f' : '#00f5d4';
+      this.ctx.fillStyle = isProt ? 'rgba(255, 77, 79, 0.15)' : 'rgba(0, 245, 212, 0.15)';
+      this.ctx.fillRect(b.x, b.y, b.w, b.h);
+      this.ctx.strokeRect(b.x, b.y, b.w, b.h);
+
+      const label = isProt ? `🔒 ${this.highlightedElement.label}` : `🔍 ${this.highlightedElement.label}`;
+      this.drawBadge(
+        this.ctx,
+        label,
+        b.x,
+        b.y - 18,
+        isProt ? 'rgba(255, 77, 79, 0.9)' : 'rgba(0, 245, 212, 0.9)',
         '#000000',
       );
       this.ctx.restore();
@@ -527,6 +583,10 @@ export class DevInspectorOverlay {
     const parent = this.canvas.parentElement ?? (this.canvas as any).parentNode;
     if (parent && parent.removeChild) {
       parent.removeChild(this.canvas);
+    }
+
+    if (activeInspectorOverlay === this) {
+      activeInspectorOverlay = null;
     }
   }
 }

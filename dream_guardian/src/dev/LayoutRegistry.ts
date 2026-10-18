@@ -242,6 +242,68 @@ export function setLayoutCoordinates(
 }
 
 /**
+ * [DEVUI-012] 주어진 경로(예: 'menu.title.x', 'menu.title', 'zone1.x', 'fitnessZones.zone1.x')에
+ * 해당하는 InspectableElement를 찾는다.
+ */
+export function findElementByPath(
+  elements: readonly InspectableElement[],
+  rawPath: string,
+): InspectableElement | null {
+  if (!rawPath || !elements || elements.length === 0) return null;
+
+  // 1. 정확한 path 일치 우선
+  const exact = elements.find((el) => el.path === rawPath);
+  if (exact) return exact;
+
+  // 2. 판정 연동 zone 매칭 (예: 'zone1.x' -> 'zone.zone_1', 'fitnessZones.zone1.x' -> 'zone.zone_1')
+  const zoneMatch = rawPath.match(/zone(\d+)/i);
+  if (zoneMatch) {
+    const zoneId = zoneMatch[1];
+    const zoneEl = elements.find(
+      (el) => el.id === `zone.zone_${zoneId}` || el.path === `zone.zone_${zoneId}`,
+    );
+    if (zoneEl) return zoneEl;
+  }
+
+  // 3. 바닥 판정선 / 회피 레인 매칭
+  if (rawPath.includes('strikeLine') || rawPath.includes('floorLine')) {
+    const lineEl = elements.find((el) => el.id.includes('strikeLine') || el.path.includes('strikeLine'));
+    if (lineEl) return lineEl;
+  }
+  if (rawPath.includes('lane') || rawPath.includes('Lane')) {
+    const laneEl = elements.find((el) => el.id.includes('lane') || el.path.includes('lane'));
+    if (laneEl) return laneEl;
+  }
+
+  // 4. 하위 속성 경로 접두사 매칭
+  // 긴 경로 일치(가장 구체적인 매칭)를 찾기 위해 길이 내림차순 검사
+  let bestMatch: InspectableElement | null = null;
+  let bestLen = 0;
+
+  for (const el of elements) {
+    if (rawPath === el.path || rawPath.startsWith(`${el.path}.`)) {
+      if (el.path.length > bestLen) {
+        bestMatch = el;
+        bestLen = el.path.length;
+      }
+    }
+  }
+
+  // 역으로, rawPath가 el.path의 상위 경로인 경우 (예: 폴더 'menu.title' 호버 시 'menu.title')
+  if (!bestMatch) {
+    for (const el of elements) {
+      if (el.path.startsWith(`${rawPath}.`)) {
+        if (!bestMatch || el.path.length < bestMatch.path.length) {
+          bestMatch = el;
+        }
+      }
+    }
+  }
+
+  return bestMatch;
+}
+
+/**
  * 현재 GameState 및 App 인스턴스에 따라 검사 가능한 UI 요소 목록 반환
  */
 export function getInspectableElements(
