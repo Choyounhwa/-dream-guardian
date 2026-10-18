@@ -119,6 +119,7 @@
   - `[✔ 완료]` [#525 BOSS-ASSAULT-23](https://github.com/Choyounhwa/-dream-guardian/issues/525) 프레임·입력·표시 배타 라우팅 (TDD 100% Pass, build 성공, commit ae1c9e8).
   - `[✔ 완료]` [#526 BOSS-ASSAULT-24](https://github.com/Choyounhwa/-dream-guardian/issues/526) 세션 종료·재시작·인계 수명주기 연결 (TDD 100% Pass, build 성공, commit 349437b).
   - `[✔ 완료]` [#528 BOSS-ASSAULT-26](https://github.com/Choyounhwa/-dream-guardian/issues/528) 근접 결전 조정 프로필 데이터 (TDD 100% Pass, build 성공, commit 93e62c4).
+  - `[✔ 완료]` [#587 BUG-ASSAULT-BOOT](https://github.com/Choyounhwa/-dream-guardian/issues/587) boss_assault 모드 초기 부팅 시 화면 렌더링 미작동 (3중 결함) 수정 (TDD 100% Pass, build 성공, commit 999793f).
 - **후속 검토 대상**: G2 진행 ([#544 BOSS-ASSAULT-41](https://github.com/Choyounhwa/-dream-guardian/issues/544) 등 G2 카드군). 자동 진행하지 않는다. **기존 모든 SSOT/진행 표시와 순서를 그대로 유지하며 이 트랙을 다음 실행 카드로 지정하지 않는다.**
 
 ### BOSS-ASSAULT v0.3 보완 (2026-10-11) 및 독립 트랙 진행 표
