@@ -223,8 +223,8 @@ describe('DEVUI-009 DevLayoutPanel 패널 버튼 라벨 및 연동', () => {
 
   it('내보내기 버튼 라벨에 public/layouts/ 경로 안내가 포함되어 있다', async () => {
     const doc = fakeDoc();
-    const { pane, buttons } = fakeCreatePane();
-    await mountDevLayoutPanel(
+    const { pane } = fakeCreatePane();
+    const handle = await mountDevLayoutPanel(
       { stateMachine: { currentState: 'MENU_MAIN' } },
       doc as unknown as Document,
       {
@@ -235,7 +235,7 @@ describe('DEVUI-009 DevLayoutPanel 패널 버튼 라벨 및 연동', () => {
       }
     );
 
-    const exportBtn = buttons.find((b: any) => /내보내기|export/i.test(b.title));
+    const exportBtn = handle?.buttons?.export;
     expect(exportBtn).toBeTruthy();
     expect(exportBtn.title).toContain('public/layouts/');
     expect(exportBtn.title).toContain(DEV_LAYOUT_EXPORT_FILENAME);
@@ -253,8 +253,8 @@ describe('DEVUI-009 DevLayoutPanel 패널 버튼 라벨 및 연동', () => {
     const pickerMock = vi.fn(async () => fakeHandle);
 
     const doc = fakeDoc();
-    const { pane, buttons } = fakeCreatePane();
-    await mountDevLayoutPanel(
+    const { pane } = fakeCreatePane();
+    const panelHandle = await mountDevLayoutPanel(
       { stateMachine: { currentState: 'MENU_MAIN' } },
       doc as unknown as Document,
       {
@@ -266,7 +266,7 @@ describe('DEVUI-009 DevLayoutPanel 패널 버튼 라벨 및 연동', () => {
       }
     );
 
-    const exportBtn = buttons.find((b: any) => /내보내기|export/i.test(b.title));
+    const exportBtn = panelHandle?.buttons?.export;
     UI_LAYOUT.menu.title.y = 205;
     await exportBtn.handlers.click();
 

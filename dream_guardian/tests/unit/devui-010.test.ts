@@ -243,10 +243,10 @@ describe('DEVUI-010 패널 마운트 및 Undo/Redo 연동 (모의 Pane)', () => 
   }
 
   it('상단에 Undo/Redo 버튼이 배치되고 초기에는 둘 다 비활성화(disabled) 상태이다', async () => {
-    const { root } = await mount();
-    const buttons = walk(root).filter((n) => n.kind === 'button');
-    const undoBtn = buttons.find((b) => /undo/i.test(b.title));
-    const redoBtn = buttons.find((b) => /redo/i.test(b.title));
+    const { root, handle } = await mount();
+    expect(walk(root).filter((n) => n.kind === 'button').length).toBe(0); // 설정 메뉴와 분리
+    const undoBtn = handle?.buttons?.undo;
+    const redoBtn = handle?.buttons?.redo;
 
     expect(undoBtn).toBeDefined();
     expect(redoBtn).toBeDefined();
@@ -255,11 +255,10 @@ describe('DEVUI-010 패널 마운트 및 Undo/Redo 연동 (모의 Pane)', () => 
   });
 
   it('값 변경 시 Undo 버튼이 활성화되고, Undo 클릭 시 값이 복원되며 Redo 가 활성화된다', async () => {
-    const { root } = await mount();
+    const { root, handle } = await mount();
     const b = walk(root).find((n) => n.kind === 'binding' && n.obj === UI_LAYOUT.menu.title && n.key === 'y')!;
-    const buttons = walk(root).filter((n) => n.kind === 'button');
-    const undoBtn = buttons.find((b) => /undo/i.test(b.title))!;
-    const redoBtn = buttons.find((b) => /redo/i.test(b.title))!;
+    const undoBtn = handle?.buttons?.undo!;
+    const redoBtn = handle?.buttons?.redo!;
 
     const originalY = UI_LAYOUT.menu.title.y;
     b.obj.y = 250;
@@ -283,12 +282,11 @@ describe('DEVUI-010 패널 마운트 및 Undo/Redo 연동 (모의 Pane)', () => 
   });
 
   it('전체 초기화 시 변경 사항이 batch 로 기록되어 Undo 로 일괄 복원된다', async () => {
-    const { root } = await mount();
+    const { root, handle } = await mount();
     const titleY = walk(root).find((n) => n.kind === 'binding' && n.obj === UI_LAYOUT.menu.title && n.key === 'y')!;
     const titleX = walk(root).find((n) => n.kind === 'binding' && n.obj === UI_LAYOUT.menu.title && n.key === 'x')!;
-    const buttons = walk(root).filter((n) => n.kind === 'button');
-    const resetBtn = buttons.find((b) => /초기화|reset/i.test(b.title))!;
-    const undoBtn = buttons.find((b) => /undo/i.test(b.title))!;
+    const resetBtn = handle?.buttons?.reset!;
+    const undoBtn = handle?.buttons?.undo!;
 
     titleY.obj.y = 333;
     titleY.handlers.change({ value: 333, last: true });

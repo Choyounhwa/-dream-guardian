@@ -302,12 +302,12 @@ describe('DEVUI-006 패널 마운트 (모의 Pane)', () => {
 
   it('내보내기 버튼은 diff JSON 을 내려받고, 전체 초기화는 기준값으로 되돌린다', async () => {
     const exported: string[] = [];
-    const { root } = await mount('MENU_MAIN', exported);
+    const { root, handle } = await mount('MENU_MAIN', exported);
+    expect(walk(root).filter((n) => n.kind === 'button').length).toBe(0); // 설정 메뉴와 분리
     UI_LAYOUT.menu.title.y = 205;
-    const buttons = walk(root).filter((n) => n.kind === 'button');
-    buttons.find((b) => /내보내기|export/i.test(b.title))!.handlers.click();
+    handle?.buttons?.export?.handlers?.click();
     expect(JSON.parse(exported[0])).toEqual({ menu: { title: { y: 205 } } });
-    buttons.find((b) => /초기화|reset/i.test(b.title))!.handlers.click();
+    handle?.buttons?.reset?.handlers?.click();
     expect(UI_LAYOUT.menu.title.y).toBe(PRISTINE.menu.title.y);
     expect(storage.getItem(DEV_LAYOUT_STORAGE_KEY)).toBeNull();
   });

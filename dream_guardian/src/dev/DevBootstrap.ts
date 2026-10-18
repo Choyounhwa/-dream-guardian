@@ -14,6 +14,9 @@ import { DEV_PRESET_IDS, applyDevPreset, parseDevPreset, type DevPresetId } from
 export const DEV_UI_BADGE_ID = 'dg-dev-ui-badge';
 export const DEV_UI_BADGE_TEXT = 'DEV UI';
 export const DEV_SCENE_JUMPER_ID = 'dg-dev-scene-jumper';
+export const DEV_SELECT_ROW_ID = 'dg-dev-select-row';
+export const DEV_FREEZE_ROW_ID = 'dg-dev-freeze-row';
+export const DEV_ACTION_MENU_ID = 'dg-dev-action-menu';
 
 /** DevBootstrap만 보유하는 강제 전환 토큰 (모듈 밖으로 노출하지 않는다) */
 const DEV_FORCE_TOKEN: unique symbol = Symbol('dg-dev-force');
@@ -232,9 +235,42 @@ function mountSceneJumper(
     if (presetSelect.value) runPreset(presetSelect.value as DevPresetId);
   });
 
-  panel.appendChild(select);
-  panel.appendChild(presetSelect);
-  panel.appendChild(freezeLabel);
+  // 1. Select bar row (상태 드롭다운 + 프리셋 드롭다운)
+  const selectRow = doc.createElement('div');
+  selectRow.id = DEV_SELECT_ROW_ID;
+  Object.assign(selectRow.style, {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  });
+  selectRow.appendChild(select);
+  selectRow.appendChild(presetSelect);
+  panel.appendChild(selectRow);
+
+  // 2. Freeze row (select바 아래로 이동)
+  const freezeRow = doc.createElement('div');
+  freezeRow.id = DEV_FREEZE_ROW_ID;
+  Object.assign(freezeRow.style, {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    marginTop: '4px',
+  });
+  freezeRow.appendChild(freezeLabel);
+  panel.appendChild(freezeRow);
+
+  // 3. Action menu row (freeze 아래로 이동 - undo/redo/내보내기/초기화 컨테이너, 세로 정렬)
+  const actionMenu = doc.createElement('div');
+  actionMenu.id = DEV_ACTION_MENU_ID;
+  Object.assign(actionMenu.style, {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: '4px',
+    marginTop: '6px',
+  });
+  panel.appendChild(actionMenu);
+
   doc.body.appendChild(panel);
 
   const preset = parseDevPreset(search);

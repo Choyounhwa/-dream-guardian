@@ -394,7 +394,7 @@ describe('DEVUI-008 (3) DevLayoutPanel 다중 소스 바인딩, Export 및 Undo/
     const doc = fakeDoc();
     const app = { stateMachine: { currentState: 'MENU_MAIN' } };
 
-    await mountDevLayoutPanel(app, doc as unknown as Document, {
+    const handle = await mountDevLayoutPanel(app, doc as unknown as Document, {
       createPane: () => { root = makeNode('pane'); return root; },
       storage: new MemStorage(),
       fileOverride: null,
@@ -408,8 +408,7 @@ describe('DEVUI-008 (3) DevLayoutPanel 다중 소스 바인딩, Export 및 Undo/
     UI_LAYOUT.menu.title.w = origUiW + 50;
     (ASSAULT_VISUAL as any).visualScale = origAssaultScale + 0.5;
 
-    const buttons = walkNodes(root).filter((n) => n.kind === 'button');
-    const resetBtn = buttons.find((b) => /초기화|reset/i.test(b.title!))!;
+    const resetBtn = handle?.buttons?.reset;
     expect(resetBtn).toBeDefined();
 
     resetBtn.handlers.click();
