@@ -9,8 +9,9 @@
 - **테스트 결과**: 이번 세션 통과한 실행 테스트 없음(테스트/빌드/브라우저/서버 모두 미실행). src/config/tests 수정0, 커밋/푸시0. 기존 Pass 기록은 아래 역사 기록이며 이번 복구 증거 아님.
 - **등록 검증**: 원격 27개 ID 중복0·본문 필수 항목/실제 선행번호·OPEN/라벨 재조회 확인, `git diff --check` 공백 오류 없음(LF→CRLF 경고만). 문서 변경은 미커밋/신규 미추적으로 남겼다.
 - **잔여 정책 결정 완료 (#588 REC-00)**: #503 MVP 확정치(130ms/170ms·HP100·피해10/5) 유지. targetRounds=10(단일 config SSOT 확정), 읽기시간 누적 가산(Additive: base+length+level+tts clamp) 확정. G4 결전 복구(REC-18~24)는 별도 승인 증거 부재로 **차단 유지 (BLOCKED)** 확정. 결전 피해 명령 정산 계약도 결정 보류(BLOCKED 유지).
+- **선택 문항 풀 읽기 전용 공급 포트 완료 (#589 REC-01)**: `QuestionBank.getPoolSnapshot()`, `QuestionPoolSnapshot`, `QuestionPoolRecord` 포트 구현 완료. 원본 메타데이터(id, level, subLevel, shapeCode, template, eval 등) 불변 동결 보존, `source: 'loaded' | 'fallback'` 및 `isFallback` 구분 제공. (TDD 100% Pass, build 성공)
 - **다음 검토 카드(복구 트랙 선행 해제군)**:
-  - [#589 REC-01 선택 문항 풀 읽기 전용 공급 포트](https://github.com/Choyounhwa/-dream-guardian/issues/589) (선행 #542 기완료)
+  - [#592 REC-02 문항 정규화와 원자적 진입 복구](https://github.com/Choyounhwa/-dream-guardian/issues/592) (선행 REC-01 완료로 착수 가능)
   - [#593 REC-03 승인 목표 라운드 설정 단일화](https://github.com/Choyounhwa/-dream-guardian/issues/593) (선행 REC-00 완료로 착수 가능)
   - [#594 REC-05 읽기 시간 입력·소비 계약](https://github.com/Choyounhwa/-dream-guardian/issues/594) (선행 REC-00 완료로 착수 가능)
 - **범위 보존**: #533~#537는 G5 보상/저장 원래 작업이며 복구 렌더·HUD·음향으로 재사용하지 않는다. 기존 해당 행의 잘못된 설명만 실제 GitHub 제목으로 정정했다. #538 최종 결전·기록 인수는 유지하고 #613은 복구 범위 QA만 담당한다. 미재현 의심은 카드에 검증→수정 조건으로 명시했다.
