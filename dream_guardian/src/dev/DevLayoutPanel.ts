@@ -29,6 +29,23 @@ import {
   type LayoutChangeItem,
 } from './DevLayoutHistory.js';
 import { getActiveInspectorOverlay } from './DevInspectorOverlay.js';
+import {
+  DevPanelInteractionHandler,
+  nudgeValue,
+  attachNudgeControls,
+  NUDGE_LONG_PRESS_DELAY_MS,
+  NUDGE_REPEAT_INTERVAL_MS,
+  type AttachNudgeOptions,
+} from './DevPanelInteractionHandler.js';
+
+export {
+  DevPanelInteractionHandler,
+  nudgeValue,
+  attachNudgeControls,
+  NUDGE_LONG_PRESS_DELAY_MS,
+  NUDGE_REPEAT_INTERVAL_MS,
+  type AttachNudgeOptions,
+};
 
 /**
  * [DEVUI-008] (Issue #577) 보스 접근전(Boss Assault) 변경 가능한 레이아웃 싱글턴
@@ -316,49 +333,6 @@ export function getSectionsForState(state: string): string[] {
 
 // ─── 패널 마운트 ───
 
-export const NUDGE_LONG_PRESS_DELAY_MS = 400;
-export const NUDGE_REPEAT_INTERVAL_MS = 60;
-
-/**
- * [DEVUI-011] 숫자 미세 조정 순수 함수 (export)
- * @param value 현재 숫자 값
- * @param dir 증감 방향 (1: 증가, -1: 감소)
- * @param shift Shift 키 활성화 여부 (true 이면 기본 단위의 10배)
- * @param step 기본 증감 단위 (기본값 1)
- * @param min 최솟값 (지정 시 클램프)
- * @param max 최댓값 (지정 시 클램프)
- */
-export function nudgeValue(
-  value: number,
-  dir: 1 | -1,
-  shift: boolean,
-  step = 1,
-  min?: number,
-  max?: number,
-): number {
-  const mult = shift ? 10 : 1;
-  const delta = dir * step * mult;
-
-  const getDecimals = (n: number) => {
-    const s = n.toString();
-    const e = s.indexOf('e-');
-    if (e !== -1) return parseInt(s.slice(e + 2), 10);
-    const d = s.indexOf('.');
-    return d === -1 ? 0 : s.length - d - 1;
-  };
-
-  const decimals = Math.max(getDecimals(value), getDecimals(step));
-  let result = Number((value + delta).toFixed(Math.min(decimals, 10)));
-
-  if (min !== undefined && result < min) {
-    result = min;
-  }
-  if (max !== undefined && result > max) {
-    result = max;
-  }
-  return result;
-}
-
 interface ApiLike {
   element?: HTMLElement;
   on(event: string, fn: (ev?: unknown) => void): unknown;
@@ -531,237 +505,6 @@ async function fetchFileOverride(): Promise<unknown> {
   } catch {
     return null;
   }
-}
-
-export interface AttachNudgeOptions {
-  path: string;
-  node: Obj;
-  key: string;
-  meta: LayoutBinding;
-  history: DevLayoutHistory;
-  pane: PaneLike;
-  storage: StorageLike | null;
-  base: object;
-  doc?: Document;
-  updateButtons?: () => void;
-}
-
-/**
- * [DEVUI-011] 편집 가능한 숫자 바인딩 행에 ▲ / ▼ 버튼을 주입하고, 클릭/롱프레스 및 키보드 이벤트를 바인딩한다.
- */
-export function attachNudgeControls(
-  api: ApiLike,
-  opts: AttachNudgeOptions,
-): { upBtn: HTMLElement; downBtn: HTMLElement; container: HTMLElement } | null {
-  if (!api || !api.element || opts.meta.readonly) {
-    return null;
-  }
-
-  const el = api.element;
-  const existingContainer = el.querySelector?.('.dg-nudge-container') as HTMLElement | null;
-  if (existingContainer) {
-    const upBtn = existingContainer.querySelector?.('.dg-nudge-up') as HTMLElement | null;
-    const downBtn = existingContainer.querySelector?.('.dg-nudge-down') as HTMLElement | null;
-    if (upBtn && downBtn) return { upBtn, downBtn, container: existingContainer };
-  }
-
-  const doc = opts.doc ?? el.ownerDocument ?? (typeof document !== 'undefined' ? document : null);
-  if (!doc) return null;
-
-  const container = doc.createElement('div');
-  container.className = 'dg-nudge-container dg-nudge-group';
-  container.setAttribute('data-dg-nudge-path', opts.path);
-  el.setAttribute?.('data-dg-nudge-path', opts.path);
-
-  Object.assign(container.style, {
-    display: 'inline-flex',
-    flexDirection: 'column',
-    marginLeft: '4px',
-    verticalAlign: 'middle',
-    gap: '1px',
-  });
-
-  const upBtn = doc.createElement('button');
-  upBtn.type = 'button';
-  upBtn.className = 'dg-nudge-btn dg-nudge-up';
-  upBtn.textContent = '▲';
-  upBtn.setAttribute('data-dir', 'up');
-  upBtn.setAttribute('data-path', opts.path);
-  upBtn.setAttribute('aria-label', `${opts.path} 증가`);
-  Object.assign(upBtn.style, {
-    height: '10px',
-    lineHeight: '8px',
-    fontSize: '8px',
-    padding: '0 4px',
-    cursor: 'pointer',
-    border: '1px solid rgba(255,255,255,0.2)',
-    background: 'rgba(255,255,255,0.1)',
-    color: '#fff',
-    borderRadius: '2px',
-  });
-
-  const downBtn = doc.createElement('button');
-  downBtn.type = 'button';
-  downBtn.className = 'dg-nudge-btn dg-nudge-down';
-  downBtn.textContent = '▼';
-  downBtn.setAttribute('data-dir', 'down');
-  downBtn.setAttribute('data-path', opts.path);
-  downBtn.setAttribute('aria-label', `${opts.path} 감소`);
-  Object.assign(downBtn.style, {
-    height: '10px',
-    lineHeight: '8px',
-    fontSize: '8px',
-    padding: '0 4px',
-    cursor: 'pointer',
-    border: '1px solid rgba(255,255,255,0.2)',
-    background: 'rgba(255,255,255,0.1)',
-    color: '#fff',
-    borderRadius: '2px',
-  });
-
-  container.appendChild(upBtn);
-  container.appendChild(downBtn);
-
-  const valEl = el.querySelector?.('.tp-lblv_v') ?? el;
-  valEl.appendChild(container);
-
-  const step = opts.meta.step ?? 1;
-
-  const bindButton = (btn: HTMLElement, dir: 1 | -1) => {
-    let delayTimer: any = null;
-    let intervalTimer: any = null;
-    let isPressed = false;
-    let justFinishedMousedown = false;
-    let lastShift = false;
-
-    const stepOnce = (shift: boolean) => {
-      const cur = (opts.node as Obj)[opts.key] as number;
-      const next = nudgeValue(cur, dir, shift, step, opts.meta.min, opts.meta.max);
-      if (next !== cur) {
-        (opts.node as Obj)[opts.key] = next;
-        opts.history.setValue(opts.path, next);
-        opts.pane.refresh();
-        saveLayoutDiff(opts.storage, UI_LAYOUT, opts.base);
-        opts.updateButtons?.();
-      }
-    };
-
-    const cleanup = () => {
-      if (delayTimer !== null) {
-        clearTimeout(delayTimer);
-        delayTimer = null;
-      }
-      if (intervalTimer !== null) {
-        clearInterval(intervalTimer);
-        intervalTimer = null;
-      }
-      if (isPressed) {
-        isPressed = false;
-        justFinishedMousedown = true;
-        const endVal = (opts.node as Obj)[opts.key] as number;
-        opts.history.endDrag(opts.path, endVal);
-        opts.updateButtons?.();
-      }
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('mouseup', handleGlobalMouseUp);
-        window.removeEventListener('pointerup', handleGlobalMouseUp);
-      }
-    };
-
-    const handleGlobalMouseUp = () => {
-      cleanup();
-    };
-
-    btn.addEventListener('mousedown', (ev: any) => {
-      if (ev.button !== undefined && ev.button !== 0) return;
-      ev.preventDefault?.();
-      ev.stopPropagation?.();
-
-      cleanup();
-
-      isPressed = true;
-      lastShift = !!ev.shiftKey;
-      const startVal = (opts.node as Obj)[opts.key] as number;
-      opts.history.beginDrag(opts.path, startVal);
-
-      stepOnce(lastShift);
-
-      if (typeof window !== 'undefined') {
-        window.addEventListener('mouseup', handleGlobalMouseUp);
-        window.addEventListener('pointerup', handleGlobalMouseUp);
-      }
-
-      delayTimer = setTimeout(() => {
-        intervalTimer = setInterval(() => {
-          stepOnce(lastShift);
-        }, NUDGE_REPEAT_INTERVAL_MS);
-      }, NUDGE_LONG_PRESS_DELAY_MS);
-    });
-
-    btn.addEventListener('mouseup', (ev: any) => {
-      if (isPressed) {
-        ev.preventDefault?.();
-        cleanup();
-      }
-    });
-
-    btn.addEventListener('mouseleave', () => {
-      if (isPressed) {
-        cleanup();
-      }
-    });
-
-    btn.addEventListener('click', (ev: any) => {
-      ev.preventDefault?.();
-      ev.stopPropagation?.();
-      if (justFinishedMousedown) {
-        justFinishedMousedown = false;
-        return;
-      }
-      const cur = (opts.node as Obj)[opts.key] as number;
-      const next = nudgeValue(cur, dir, !!ev.shiftKey, step, opts.meta.min, opts.meta.max);
-      if (next !== cur) {
-        opts.history.beginDrag(opts.path, cur);
-        (opts.node as Obj)[opts.key] = next;
-        opts.history.endDrag(opts.path, next);
-        opts.pane.refresh();
-        saveLayoutDiff(opts.storage, UI_LAYOUT, opts.base);
-        opts.updateButtons?.();
-      }
-    });
-  };
-
-  bindButton(upBtn, 1);
-  bindButton(downBtn, -1);
-
-  const inputEl = el.querySelector?.('input') as HTMLInputElement | null;
-  if (inputEl) {
-    inputEl.setAttribute?.('data-dg-layout-path', opts.path);
-    inputEl.addEventListener('keydown', (ev: any) => {
-      if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
-        if ((ev as any).__dgNudgeHandled) return;
-        (ev as any).__dgNudgeHandled = true;
-        ev.preventDefault?.();
-        ev.stopPropagation?.();
-        const dir: 1 | -1 = ev.key === 'ArrowUp' ? 1 : -1;
-        const cur = (opts.node as Obj)[opts.key] as number;
-        const next = nudgeValue(cur, dir, !!ev.shiftKey, step, opts.meta.min, opts.meta.max);
-        if (next !== cur) {
-          opts.history.beginDrag(opts.path, cur);
-          (opts.node as Obj)[opts.key] = next;
-          opts.history.endDrag(opts.path, next);
-          opts.pane.refresh();
-          saveLayoutDiff(opts.storage, UI_LAYOUT, opts.base);
-          opts.updateButtons?.();
-          if ('value' in inputEl) {
-            inputEl.value = String(next);
-          }
-        }
-      }
-    });
-  }
-
-  return { upBtn, downBtn, container };
 }
 
 function addLayoutFolder(
@@ -962,37 +705,7 @@ export async function mountDevLayoutPanel(
   }
 
   const createActionButton = (title: string, id: string, disabled = false) => {
-    const btn = doc.createElement('button') as any;
-    btn.id = id;
-    btn.textContent = title;
-    btn.title = title;
-    btn.disabled = disabled;
-    btn.handlers = {} as Record<string, Function>;
-    Object.assign(btn.style, {
-      background: '#2A2A48',
-      color: '#FFFFFF',
-      border: '1px solid #4A4A70',
-      borderRadius: '3px',
-      padding: '3px 8px',
-      font: '11px monospace',
-      textAlign: 'center',
-      cursor: disabled ? 'not-allowed' : 'pointer',
-      opacity: disabled ? '0.45' : '1.0',
-    });
-    btn.on = (ev: string, fn: Function) => {
-      btn.handlers[ev] = fn;
-      return btn;
-    };
-    const onClick = (e?: any) => {
-      if (!btn.disabled && btn.handlers.click) {
-        btn.handlers.click(e);
-      }
-    };
-    btn.onclick = onClick;
-    btn.click = onClick;
-    btn.addEventListener?.('click', onClick);
-    actionMenu!.appendChild(btn);
-    return btn;
+    return DevPanelInteractionHandler.createActionButton(doc, actionMenu!, title, id, disabled) as any;
   };
 
   const undoBtn = createActionButton('↶ Undo', DEV_UNDO_BTN_ID, true);
@@ -1148,24 +861,13 @@ export async function mountDevLayoutPanel(
     getActiveInspectorOverlay()?.setHighlightedPath(p);
   };
 
+  const interactionHandler = new DevPanelInteractionHandler();
+
   const sectionFolders = new Map<string, FolderLike>();
   for (const section of Object.keys(UI_LAYOUT)) {
     const folder = pane.addFolder({ title: section, expanded: sections.has(section) });
     sectionFolders.set(section, folder);
-    const folderEl = (folder as any)?.element as HTMLElement | undefined;
-    if (folderEl) {
-      const btn = folderEl.querySelector?.('.tp-fldv_b') || folderEl.querySelector?.('button');
-      const txt = folderEl.querySelector?.('.tp-fldv_t');
-      const attach = (target: any) => {
-        if (target && typeof target.addEventListener === 'function') {
-          target.addEventListener('mouseenter', () => notifyHover(section));
-          target.addEventListener('mouseleave', () => notifyHover(null));
-        }
-      };
-      attach(btn);
-      attach(txt);
-      if (!btn && !txt) attach(folderEl);
-    }
+    interactionHandler.attachFolderHover((folder as any)?.element, section, notifyHover);
     addLayoutFolder(
       folder,
       (UI_LAYOUT as unknown as Obj)[section] as Obj,
@@ -1183,20 +885,7 @@ export async function mountDevLayoutPanel(
     expanded: sections.has('assault') || sections.has('ASSAULT_VISUAL'),
   });
   sectionFolders.set('assault', assaultFolder);
-  const assaultEl = (assaultFolder as any)?.element as HTMLElement | undefined;
-  if (assaultEl) {
-    const btn = assaultEl.querySelector?.('.tp-fldv_b') || assaultEl.querySelector?.('button');
-    const txt = assaultEl.querySelector?.('.tp-fldv_t');
-    const attach = (target: any) => {
-      if (target && typeof target.addEventListener === 'function') {
-        target.addEventListener('mouseenter', () => notifyHover('assault'));
-        target.addEventListener('mouseleave', () => notifyHover(null));
-      }
-    };
-    attach(btn);
-    attach(txt);
-    if (!btn && !txt) attach(assaultEl);
-  }
+  interactionHandler.attachFolderHover((assaultFolder as any)?.element, 'assault', notifyHover);
   addLayoutFolder(
     assaultFolder,
     ASSAULT_VISUAL as Obj,
@@ -1212,74 +901,37 @@ export async function mountDevLayoutPanel(
     const folder = lockedRoot.addFolder({ title: source.title, expanded: false });
     for (const key of Object.keys(source.values)) {
       const api = folder.addBinding(source.values, key, { label: key, readonly: true });
-      if (api?.element && typeof api.element.addEventListener === 'function') {
-        const lockedPath = `${source.id}.${key}`;
-        api.element.addEventListener('mouseenter', () => notifyHover(lockedPath));
-        api.element.addEventListener('mouseleave', () => notifyHover(null));
+      if (api?.element) {
+        interactionHandler.attachHoverHighlight(api.element, `${source.id}.${key}`, notifyHover);
       }
     }
   }
 
-  const handleKeyDown = (ev: KeyboardEvent) => {
-    const active = doc.activeElement as HTMLElement | null;
-    if (active) {
-      const tag = active.tagName?.toUpperCase();
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || active.isContentEditable) {
-        if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
-          if ((ev as any).__dgNudgeHandled) return;
-          const path =
-            active.getAttribute?.('data-dg-layout-path') ??
-            active.closest?.('[data-dg-nudge-path]')?.getAttribute?.('data-dg-nudge-path') ??
-            active.closest?.('.tp-lblv')?.querySelector?.('[data-dg-nudge-path]')?.getAttribute?.('data-dg-nudge-path');
-          if (path && metas.has(path) && !metas.get(path)!.readonly) {
-            (ev as any).__dgNudgeHandled = true;
-            ev.preventDefault?.();
-            ev.stopPropagation?.();
-            const m = metas.get(path)!;
-            const dir: 1 | -1 = ev.key === 'ArrowUp' ? 1 : -1;
-            const cur = (m.target as Record<string, number>)[m.key];
-            const next = nudgeValue(cur, dir, !!ev.shiftKey, 1, m.min, m.max);
-            if (next !== cur) {
-              history.beginDrag(path, cur);
-              (m.target as Record<string, number>)[m.key] = next;
-              history.endDrag(path, next);
-              pane.refresh();
-              saveDiff();
-              updateButtons();
-              if ('value' in active) {
-                (active as any).value = String(next);
-              }
-            }
-            return;
-          }
-        }
-        return;
-      }
-    }
-
-    const isCtrlOrMeta = ev.ctrlKey || ev.metaKey;
-    if (!isCtrlOrMeta) return;
-
-    const key = ev.key ? ev.key.toLowerCase() : '';
-    if (key === 'z' && !ev.shiftKey) {
-      if (history.canUndo()) {
-        ev.preventDefault?.();
-        performUndo();
-      }
-      return;
-    }
-
-    if (key === 'y' || (key === 'z' && ev.shiftKey)) {
-      if (history.canRedo()) {
-        ev.preventDefault?.();
-        performRedo();
-      }
-      return;
-    }
-  };
-
   if (typeof doc?.addEventListener === 'function') {
-    doc.addEventListener('keydown', handleKeyDown);
+    interactionHandler.attachGlobalKeyboard(doc, {
+      metas,
+      history,
+      pane,
+      storage,
+      base,
+      baseAssault,
+      updateButtons,
+      getValue: (path) => {
+        const m = metas.get(path);
+        return m ? (m.target as Record<string, number>)[m.key] : undefined;
+      },
+      setValue: (path, val) => {
+        const m = metas.get(path);
+        if (m) (m.target as Record<string, number>)[m.key] = val;
+        saveDiff();
+      },
+      onUndo: () => {
+        if (history.canUndo()) performUndo();
+      },
+      onRedo: () => {
+        if (history.canRedo()) performRedo();
+      },
+    });
   }
 
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -1307,9 +959,7 @@ export async function mountDevLayoutPanel(
     },
     dispose() {
       notifyHover(null);
-      if (typeof doc?.removeEventListener === 'function') {
-        doc.removeEventListener('keydown', handleKeyDown);
-      }
+      interactionHandler.dispose();
       if (timer) clearInterval(timer);
       actionMenu?.remove?.();
       pane.dispose();
