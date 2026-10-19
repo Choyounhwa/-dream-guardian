@@ -13,10 +13,11 @@
 - **문항 정규화와 원자적 진입 복구 완료 (#592 REC-02)**: Factory `createRoundController`의 `{id, text}` 정규화로 text undefined 방지, AppBootstrap 템플릿 1회 생성 및 가짜 예제 대체 제거, 적격 0개 시 원자적 오류 발생 및 `ASSAULT_ROUND` 비전이 보존. (TDD 100% Pass, build 성공)
 - **승인 목표 라운드 설정 단일화 완료 (#593 REC-03)**: `assault.config.ts`의 `DEFAULT_ASSAULT_CONFIG.targetRounds = 10` 추가 및 불변성 보장. 단일 SSOT 확정. (TDD 100% Pass, build 성공)
 - **읽기 시간 입력·소비 계약 복구 완료 (#594 REC-05)**: `AssaultRoundController`의 REC-00 누적 가산 조합식 구현(유형하한 + minReadSeconds + 글자수당 추정TTS 상한 클램프), 최소 8박 및 박자 경계(Beat Boundary) 올림 정렬 보장, 투척 시간 제외 및 TTS 1회 비대기 요청 보장. (TDD 100% Pass, build 성공)
+- **답 쌍 조우 판정·도착 생명주기 복구 완료 (#591 REC-06)**: `AssaultRoundController`의 정답 방향(`correctSide`) 소비 및 무조건적 left 폴백 제거, 정답 시 0피해 및 오답 시 1회 피해/wrong_locked 보장, 미선택 시 deadline 초과 시점 timeout 정산, 동시 타격(50ms) 롤백/재시도 보장. (TDD 100% Pass, build 성공)
 - **다음 검토 카드(복구 트랙 선행 해제군)**:
-  - [#591 REC-06 답 쌍 조우 판정·도착 생명주기](https://github.com/Choyounhwa/-dream-guardian/issues/591) (선행 #514, #517 기완료)
+  - [#597 REC-04 시드 보기 공급·목표 설정 조립](https://github.com/Choyounhwa/-dream-guardian/issues/597) (선행 REC-02, 03, 05, 06 전원 완료로 즉시 착수 가능)
   - [#614 REC-26 스쿼트 직립 복귀·가드 판정 상태 계약](https://github.com/Choyounhwa/-dream-guardian/issues/614) (선행 #515, #517 기완료)
-  - [#597 REC-04 시드 보기 공급·목표 설정 조립](https://github.com/Choyounhwa/-dream-guardian/issues/597) (선행 REC-02,03,05 완료, REC-06 완료 후 착수)
+  - [#604 REC-07 입력 공통 활성시계·원점 정규화](https://github.com/Choyounhwa/-dream-guardian/issues/604) (선행 REC-04, 06)
 - **범위 보존**: #533~#537는 G5 보상/저장 원래 작업이며 복구 렌더·HUD·음향으로 재사용하지 않는다. 기존 해당 행의 잘못된 설명만 실제 GitHub 제목으로 정정했다. #538 최종 결전·기록 인수는 유지하고 #613은 복구 범위 QA만 담당한다. 미재현 의심은 카드에 검증→수정 조건으로 명시했다.
 
 ## 인게임 UI 개발 모드 트랙 (DEVUI / LAYOUT, 2026-10-11, 등록만)

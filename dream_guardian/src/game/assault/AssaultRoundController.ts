@@ -526,17 +526,31 @@ export class AssaultRoundController {
     };
 
     if (def.kind === 'answer_pair') {
+      const explicitSide =
+        def.correctSide ??
+        def.correctAnswerSide ??
+        (this._options as any).pairs?.[def.pairId ?? def.id]?.correctSide ??
+        (this._question as any).correctSide ??
+        (this._question as any).correctAnswerSide;
+
+      if (!explicitSide && (this._options as any).strictCorrectSide) {
+        throw new Error(
+          `Encounter ${def.id} of kind 'answer_pair' requires explicit correctSide ('left' | 'right'). Blind left fallback is prohibited.`
+        );
+      }
+
       enc.pairJudge = new AssaultPairJudge(
         {
           sessionId: this.sessionId,
           roundId: this.roundId,
           attackId: def.id,
           pairId: def.pairId ?? def.id,
-          correctSide: def.correctSide ?? def.correctAnswerSide ?? 'left',
+          correctSide: explicitSide ?? 'left',
           arrivalMs: Math.round(enc.arrivalSeconds * 1000),
         },
         {
           lateGraceMs: Math.round(enc.lateGraceSeconds * 1000),
+          simultaneousToleranceMs: this._config.simultaneousPunchGraceMs,
         },
       );
     } else if (def.kind === 'squat') {
@@ -701,10 +715,7 @@ export class AssaultRoundController {
                 inputId: input.inputId ?? `input_${input.timestampMs}`,
               });
               this._collectCommands(cmds);
-              if (
-                enc.pairJudge.state.status === 'correct' ||
-                enc.pairJudge.state.status === 'wrong_locked'
-              ) {
+              if (enc.pairJudge.state.status === 'correct') {
                 enc.isResolved = true;
               }
             } else if (input.type === 'squat' && enc.def.kind === 'squat' && enc.squatJudge) {
@@ -749,8 +760,11 @@ export class AssaultRoundController {
             enc.deadlineFired = true;
             if (!enc.isResolved) {
               if (enc.def.kind === 'answer_pair' && enc.pairJudge) {
-                const cmds = enc.pairJudge.tick(Math.round(enc.deadlineSeconds * 1000) + 1);
-                this._collectCommands(cmds);
+                // wrong_locked 상태인 경우 이미 오답 피해가 발생했으므로 추가 tick/timeout을 발행하지 않음
+                if (enc.pairJudge.state.status === 'pending') {
+                  const cmds = enc.pairJudge.tick(Math.round(enc.deadlineSeconds * 1000) + 1);
+                  this._collectCommands(cmds);
+                }
                 enc.isResolved = true;
               } else if (enc.def.kind === 'squat' && enc.squatJudge) {
                 const cmds = enc.squatJudge.tick(Math.round(enc.deadlineSeconds * 1000) + 1);
