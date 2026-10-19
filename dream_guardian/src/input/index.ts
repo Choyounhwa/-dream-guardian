@@ -17,6 +17,14 @@ export type {
   StarCollectionResult,
 } from './StarCollectionInput.js';
 export { ArmReachAnswerSelector } from './ArmReachAnswerSelector.js';
+export {
+  ArmReachGateEvaluator,
+  type ArmEvaluationResult,
+  type ArmGateEvaluationInput,
+  type ArmGateEvaluationOptions,
+  type CandidateArbitrationResult,
+  type ArmReachGateEvaluatorOptions,
+} from './arm/ArmReachGateEvaluator.js';
 export type {
   ArmHandType,
   ArmCandidateStatus,
