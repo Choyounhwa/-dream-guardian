@@ -23,6 +23,7 @@ import {
   type MenuMode,
   type GamePhase,
 } from './bootstrap/BootstrapStateMachineBuilder.js';
+import { BootstrapSubsystemFactory } from './bootstrap/BootstrapSubsystemFactory.js';
 import type { AssaultFinaleController } from '../game/assault/AssaultFinaleController.js';
 import type { AssaultHandoverSnapshot } from '../game/assault/AssaultProgressController.js';
 import type { SessionId } from '../types/assault.js';
@@ -38,7 +39,6 @@ import { JointRenderer } from '../skeleton/JointRenderer.js';
 import { SkeletonAnimation } from '../skeleton/SkeletonAnimation.js';
 import { SkeletonEffect } from '../skeleton/SkeletonEffect.js';
 import type { IAvatarRenderer } from '../skeleton/IAvatarRenderer.js';
-import { StickmanRenderer } from '../skeleton/StickmanRenderer.js';
 import { QuestionBank } from '../question/QuestionBank.js';
 import { parseCSV } from '../question/CSVLoader.js';
 import { parseFitnessPatternCSV, createKeynoteSequence } from '../data/index.js';
@@ -107,9 +107,6 @@ import {
   RunDetector,
   JumpDetector,
   CalibrationHelper,
-  HipBounceDetector,
-  HipSwayDetector,
-  ArmCrossDetector,
   XGestureDetector,
   KneeFramingValidator,
   FootKeynoteDetector,
@@ -139,7 +136,7 @@ import {
 import { getAnswerButtonLayouts, DEFAULT_FITNESS_ZONES } from '../../config/zone.config.js';
 import { DEFAULT_PHASE_A_HAZARD_CONFIG } from '../../config/phase-a-hazard.config.js';
 import { HORIZON_RATIO } from '../../config/grid.config.js';
-import { CHAPTER_TRACK_PRESETS, DEFAULT_BEAT_MOTION_CONFIG } from '../../config/beat-motion.config.js';
+import { CHAPTER_TRACK_PRESETS } from '../../config/beat-motion.config.js';
 import { RUNNING_MAT_CONFIG } from '../../config/running-mat.config.js';
 import type { RoundAnswerStatus, RoundResolveResult } from '../types/result.js';
 
@@ -462,91 +459,74 @@ export class AppBootstrap {
       ?? createFallbackCanvas();
     this.canvas = canvas;
 
-// ─── 시스템 ───
-const canvasManager = new CanvasManager(canvas);
-const cameraLayer = new CameraLayer({ width: 1280, height: 720, dimAlpha: 0.35, mirror: true });
-const poseManager = new PoseManager({
-  virtualWidth: canvasManager.virtualWidth,
-  virtualHeight: canvasManager.virtualHeight,
-  visibilityThreshold: 0.5,
-  mirror: true,
-  projectFn: (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
-});
-const boneRenderer = new BoneRenderer({ renderHandBones: true });
-const jointRenderer = new JointRenderer();
-const skeletonAnimation = new SkeletonAnimation({ lerpFactor: 0.3, breathCycle: 3.0, breathAmplitude: 0.02 });
-const skeletonEffect = new SkeletonEffect();
-const stickmanRenderer = this._options.avatarRenderer ?? new StickmanRenderer();
-
-const questionBank = new QuestionBank();
-const speech = new QuestionSpeech();
-const battle = new BattleState();
-const boss = new BossController(1);
-const guardian = new GuardianSystem();
-const hudLayer = new HUDLayer();
-const menuRenderer = new MenuRenderer();
-const resultRenderer = new ResultRenderer();
-const bossRenderer = new BossRenderer();
-const dreamGrid = new DreamGrid({ speed: 1.2, hasCeiling: true });
-const runningMatRenderer = new RunningMatRenderer();
-const effectManager = new EffectManager(15);
-effectManager.setViewport(canvasManager.virtualWidth, canvasManager.virtualHeight);
-const runDetector = new RunDetector();
-const jumpDetector = new JumpDetector();
-const calibrationHelper = new CalibrationHelper(1.0);
-const locomotionDetectors: Record<LocomotionMode, ILocomotionDetector> = {
-  run: runDetector,
-  hip_bounce: new HipBounceDetector(),
-  hip_sway: new HipSwayDetector(),
-  arm_cross: new ArmCrossDetector(),
-};
-
-function getActiveLocomotionDetector(): ILocomotionDetector {
-  const mode = locomotionModal.selectedMode;
-  return locomotionDetectors[mode] ?? locomotionDetectors.run;
-}
-const answerSelector = new AnswerSelector();
-answerSelector.setViewport(
-  canvasManager.virtualWidth,
-  canvasManager.virtualHeight,
-  (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
-);
-const motionIntentBus = new MotionIntentBus();
-const armReachAnswerSelector = new ArmReachAnswerSelector({ isMirrored: false });
-armReachAnswerSelector.attachIntentBus(motionIntentBus);
-armReachAnswerSelector.setViewport(
-  canvasManager.virtualWidth,
-  canvasManager.virtualHeight,
-  (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
-);
-const answerSelectionRenderer = new AnswerSelectionRenderer();
-const menuInput = new MenuInput();
-const sfx = new SFXSynth();
-const bandSynth = new BandSynthesizer({ audioContext: sfx.audioContext ?? undefined });
-const stageBgm = new StageBGMSynthesizer({ audioContext: sfx.audioContext ?? undefined });
-const bgmManager = new BGMManager({ audioContext: sfx.audioContext ?? undefined });
-const tutorial = new TutorialOverlay();
-const bottomBar = new BottomBar();
-const settingsModal = new SettingsModal();
-cameraLayer.renderVideo = settingsModal.renderVideoEnabled;
-settingsModal.onRenderVideoChange = (enabled) => {
-  cameraLayer.renderVideo = enabled;
-};
-speech.enabled = settingsModal.soundEnabled;
-stageBgm.setMuted(!settingsModal.soundEnabled);
-bgmManager.setMuted(!settingsModal.soundEnabled);
-const locomotionModal = new LocomotionModal();
-const pauseModal = new PauseModal();
-const xGestureDetector = new XGestureDetector();
-const questionRenderer = new QuestionRenderer();
-const beatHUDRenderer = new BeatHUDRenderer();
-const presentationAdapter = new PhasePresentationAdapter(beatHUDRenderer.hazardRenderer);
-const starNoteRenderer = new StarNoteRenderer();
-const bossClimaxRenderer = new BossClimaxRenderer();
-const dialogueOverlayRenderer = new DialogueOverlayRenderer();
-const gestureFeedbackOverlay = new GestureFeedbackOverlay();
-const transitionManager = new TransitionManager();
-const sessionLifecycle = new SessionLifecycle();
+    // ─── [REFACTOR-CORE-003] (Issue #618): 핵심 서브시스템 인스턴스 팩토리 ───
+    const subsystems = BootstrapSubsystemFactory.create({
+      canvas,
+      avatarRenderer: this._options.avatarRenderer,
+    });
+    const {
+      canvasManager,
+      cameraLayer,
+      poseManager,
+      boneRenderer,
+      jointRenderer,
+      skeletonAnimation,
+      skeletonEffect,
+      stickmanRenderer,
+      questionBank,
+      speech,
+      eventBus,
+      battle,
+      boss,
+      guardian,
+      hudLayer,
+      menuRenderer,
+      resultRenderer,
+      bossRenderer,
+      dreamGrid,
+      runningMatRenderer,
+      effectManager,
+      runDetector,
+      jumpDetector,
+      calibrationHelper,
+      locomotionDetectors,
+      getActiveLocomotionDetector,
+      answerSelector,
+      motionIntentBus,
+      armReachAnswerSelector,
+      answerSelectionRenderer,
+      menuInput,
+      sfx,
+      bandSynth,
+      stageBgm,
+      bgmManager,
+      tutorial,
+      bottomBar,
+      settingsModal,
+      locomotionModal,
+      pauseModal,
+      xGestureDetector,
+      questionRenderer,
+      beatHUDRenderer,
+      presentationAdapter,
+      starNoteRenderer,
+      bossClimaxRenderer,
+      dialogueOverlayRenderer,
+      gestureFeedbackOverlay,
+      transitionManager,
+      sessionLifecycle,
+      kneeFramingValidator,
+      kneeFramingGuideRenderer,
+      footKeynoteDetector,
+      footKeynoteInput,
+      starCollectionInput,
+      starNoteScheduler,
+      contentLoadService,
+      contentProvider,
+      uiPresentationLoadService,
+      readyPositionRenderer,
+    } = subsystems;
+    const defaultSecondsPerBeat = starNoteScheduler.timeline.spb;
 
 // ─── BEAT MOTION / 키노트 / 프레이밍 시스템 (Issue #206) ───
 const beatRoundResolver = new BeatRoundResolver({
@@ -589,34 +569,7 @@ const beatRoundResolver = new BeatRoundResolver({
   },
 });
 
-const kneeFramingValidator = new KneeFramingValidator();
-const kneeFramingGuideRenderer = new KneeFramingGuideRenderer();
-
-const footKeynoteDetector = new FootKeynoteDetector({ isMirrored: false });
-const footKeynoteInput = new FootKeynoteInput();
-const starCollectionInput = new StarCollectionInput();
-starCollectionInput.attachIntentBus(motionIntentBus);
-starCollectionInput.setViewport(
-  canvasManager.virtualWidth,
-  canvasManager.virtualHeight,
-  (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
-);
-
-// Issue #235 & #319: 별모으기 7개 노트 스케줄러 & 기본 BPM 환산 박 시간 연동
-const defaultSecondsPerBeat = 60 / DEFAULT_BEAT_MOTION_CONFIG.bpm;
-const starNoteScheduler = new StarNoteScheduler({ secondsPerBeat: defaultSecondsPerBeat });
-starNoteScheduler.setViewport(
-  canvasManager.virtualWidth,
-  canvasManager.virtualHeight,
-  (lm, vw, vh) => cameraLayer.landmarkToCanvas(lm, vw, vh),
-);
-
-// Issue #390 (CONTENT-BOOT-STAR): 게시본 콘텐츠 팩 주입 및 로드 수명 관리
-const contentLoadService = new ContentLoadService();
-const contentProvider = new ContentProvider();
-
 // [UI-VIS-041 / Issue #471]: UI 표시 스냅샷 런타임 주입·입력 일치·안전 롤백 관리
-const uiPresentationLoadService = new UIPresentationLoadService();
 let activeUIPresentation: Readonly<UIPresentationDocument> | null = null;
 let activeUIArtifact: Readonly<UIPresentationArtifact> | null = null;
 let pendingUIArtifact: Readonly<UIPresentationArtifact> | null = null;
@@ -796,13 +749,11 @@ const getPhaseAHazardPattern = (roundIndex?: number): PhaseAHazardPattern => {
   return pool[idx] ?? 'jump';
 };
 
-// Issue #213 & #193 & #194: 전역 이벤트 버스 및 Phase B 컨트롤러 인스턴스 참조 선언
-const eventBus = new EventBus();
+// Issue #213 & #193 & #194: Phase B 컨트롤러 인스턴스 참조 선언
 let bossFeverController: BossFeverController;
 let bossHazardController: BossHazardController;
 
 // Issue #202 (FEAT-READY-001): 스테이지 첫 진입 신체 프레임 정렬 가이드 및 3초 카운트다운
-const readyPositionRenderer = new ReadyPositionRenderer();
 const readyPositionController = new ReadyPositionController({
   countdownDuration: 3.0,
   startDisplayDuration: 0.4,

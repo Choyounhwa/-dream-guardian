@@ -36,4 +36,10 @@ export {
   type MenuMode,
   type GamePhase,
 } from './bootstrap/BootstrapStateMachineBuilder.js';
+export {
+  BootstrapSubsystemFactory,
+  type BootstrapSubsystemFactoryOptions,
+  type BootstrapSubsystems,
+  createFallbackCanvas,
+} from './bootstrap/BootstrapSubsystemFactory.js';
 
