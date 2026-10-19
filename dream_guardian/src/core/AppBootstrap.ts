@@ -16,6 +16,13 @@ import type {
   AssaultEnvLike,
 } from './AssaultSessionFactory.js';
 import { AssaultSessionWireHelper } from './bootstrap/AssaultSessionWireHelper.js';
+import {
+  BootstrapStateMachineBuilder,
+  type BootstrapStateMachineHost,
+  type ScreenMode,
+  type MenuMode,
+  type GamePhase,
+} from './bootstrap/BootstrapStateMachineBuilder.js';
 import type { AssaultFinaleController } from '../game/assault/AssaultFinaleController.js';
 import type { AssaultHandoverSnapshot } from '../game/assault/AssaultProgressController.js';
 import type { SessionId } from '../types/assault.js';
@@ -393,6 +400,7 @@ export class AppBootstrap {
   private _isDisposed = false;
   private _options: AppBootstrapOptions;
   private _assaultWireHelper!: AssaultSessionWireHelper;
+  private _stateMachineBuilder!: BootstrapStateMachineBuilder;
   public enableAssaultFinale = false;
 
   private _onResize: () => void;
@@ -412,6 +420,7 @@ export class AppBootstrap {
   get bossController(): BossController { return this.boss; }
   get finaleController(): AssaultFinaleController | null { return this._assaultWireHelper?.finaleController ?? null; }
   get isFinaleActive(): boolean { return Boolean(this._assaultWireHelper?.isFinaleActive); }
+  get stateMachineBuilder(): BootstrapStateMachineBuilder { return this._stateMachineBuilder; }
 
   public isAssaultMode(): boolean {
     return this._assaultWireHelper?.isAssaultMode?.() ?? false;
@@ -942,10 +951,6 @@ starNoteScheduler.onRating((starResult) => {
 });
 
 // ─── 상태 머신 및 게임 상태 (Issue #214 / REFACTOR-FSM-001) ───
-type ScreenMode = 'menu' | 'game' | 'result';
-type MenuMode = 'main' | 'sub';
-type GamePhase = 'running' | 'question' | 'answer_select' | 'star_collect' | 'hazard_evade' | 'boss_climax' | 'ready_frame' | 'assault_round';
-
 const stateMachine = new StateMachine('MENU_MAIN');
 let screenMode: ScreenMode = 'menu';
 let menuMode: MenuMode = 'main';
@@ -1019,250 +1024,53 @@ function persistSessionHighScore(result: any): void {
   }
 }
 
-// StateMachine 단방향 전환 통지 및 상태 동기화
-stateMachine.onTransition((from, to) => {
-  console.log(`[DG] StateMachine 전환: ${from} → ${to}`);
-  if (to === 'MENU_MAIN') {
-    screenMode = 'menu';
-    menuMode = 'main';
-  } else if (to === 'MENU_SUB') {
-    screenMode = 'menu';
-    menuMode = 'sub';
-  } else if (to === 'RESULT' || to === 'GAMEOVER') {
-    screenMode = 'result';
-  } else if (
-    to === 'READY_POSITION' ||
-    to === 'RUN_QUESTION' ||
-    to === 'ANSWER_SELECT' ||
-    to === 'STAR_COLLECT' ||
-    to === 'HAZARD_EVADE' ||
-    to === 'ROUND_RESOLVE' ||
-    to === 'BOSS_CLIMAX' ||
-    to === 'ASSAULT_ROUND'
-  ) {
-    screenMode = 'game';
-    if (to === 'READY_POSITION') {
-      gamePhase = 'ready_frame';
-    } else if (to === 'RUN_QUESTION' || to === 'ROUND_RESOLVE') {
-      gamePhase = 'running';
-    } else if (to === 'ANSWER_SELECT') {
-      gamePhase = 'answer_select';
-    } else if (to === 'STAR_COLLECT') {
-      gamePhase = 'star_collect';
-    } else if (to === 'HAZARD_EVADE') {
-      gamePhase = 'hazard_evade';
-    } else if (to === 'BOSS_CLIMAX') {
-      gamePhase = 'boss_climax';
-    } else if (to === 'ASSAULT_ROUND') {
-      gamePhase = 'assault_round';
-    }
-  }
-  motionIntentBus.setPhase(to);
-});
+// ─── StateMachine 상태 핸들러 및 전환 리스너 조립 (REFACTOR-CORE-002 / Issue #617) ───
+const stateMachineHost: BootstrapStateMachineHost = {
+  stateMachine,
+  motionIntentBus,
+  setScreenMode: (m) => { screenMode = m; },
+  setMenuMode: (m) => { menuMode = m; },
+  setGamePhase: (p) => { gamePhase = p; },
+  setQuestionVisible: (v) => { questionVisible = v; },
+  setAnswerLocked: (l) => { answerLocked = l; },
+  setFeedbackTimer: (t) => { feedbackTimer = t; },
+  setRhythmStarCombo: (c) => { rhythmStarCombo = c; },
 
-// 상태별 enter/exit 생명주기 및 리소스 정리 등록 (입력·타겟·장판 정리 1회 보장)
-stateMachine.registerState('READY_POSITION', {
-  enter: () => {
-    questionVisible = false;
-    answerLocked = true;
-    if (!bgmManager.isPlaying && !bgmManager.isPaused) {
-      bgmManager.fadeIn(0.5);
-    }
-    if (!stageBgm.isPlaying) {
-      stageBgm.start();
-    }
-  },
-});
+  get bgmManager() { return bgmManager; },
+  get stageBgm() { return stageBgm; },
+  get sfx() { return sfx; },
+  get effectManager() { return effectManager; },
+  get canvasManager() { return canvasManager; },
+  get resultRenderer() { return resultRenderer; },
+  get menuInput() { return menuInput; },
+  get pauseModal() { return pauseModal; },
+  get armReachAnswerSelector() { return armReachAnswerSelector; },
+  get playedNoteAudioIds() { return playedNoteAudioIds; },
+  get starNoteScheduler() { return starNoteScheduler; },
+  get starCollectionInput() { return starCollectionInput; },
+  get phaseAHazardController() { return phaseAHazardController; },
+  get bossFeverController() { return bossFeverController; },
+  get bossHazardController() { return bossHazardController; },
+  get stageProgressController() { return stageProgressController; },
+  get beatRoundResolver() { return beatRoundResolver; },
+  get beatCoordinator() { return beatCoordinator; },
+  get engine() { return engine; },
+  get sessionContext() { return sessionContext; },
+  get assaultWireHelper() { return self._assaultWireHelper; },
 
-stateMachine.registerState('RUN_QUESTION', {
-  enter: () => {
-    questionVisible = true;
-    answerLocked = true;
-    bgmManager.setPhase('RUN_QUESTION');
-    if (!bgmManager.isPlaying && !bgmManager.isPaused) {
-      bgmManager.play();
-    }
-    if (!stageBgm.isPlaying && !stageBgm.isPaused) {
-      stageBgm.start();
-    }
-  },
-});
+  getPhaseAStarNotes: () => getPhaseAStarNotes(),
+  getPhaseAHazardPattern: (idx) => getPhaseAHazardPattern(idx),
+  flushPendingUIPresentation: () => flushPendingUIPresentation(),
+  getResultData: () => resultData,
+  calcStars: (c, t, e) => calcStars(c, t, e),
+};
 
-stateMachine.registerState('ANSWER_SELECT', {
-  enter: () => {
-    questionVisible = true;
-    answerLocked = false;
-  },
-  exit: () => {
-    answerLocked = true;
-    armReachAnswerSelector.closeWindow();
-  },
-});
-
-stateMachine.registerState('STAR_COLLECT', {
-  enter: () => {
-    questionVisible = false;
-    answerLocked = true;
-    playedNoteAudioIds.clear();
-    if (!starNoteScheduler.isStarted) {
-      const branchClock = beatCoordinator.getBranchClock();
-      const startTime = engine ? engine.elapsedTime : 0;
-      starNoteScheduler.start(startTime, {
-        roundId: beatRoundResolver.currentRoundIndex,
-        notes: getPhaseAStarNotes(),
-        ...(branchClock
-          ? { branchClock, secondsPerBeat: branchClock.secondsPerBeat }
-          : { secondsPerBeat: beatCoordinator.rhythmEngine.secondsPerBeat }),
-      });
-    }
-  },
-  exit: () => {
-    starNoteScheduler.reset();
-    starCollectionInput.reset();
-    playedNoteAudioIds.clear();
-    rhythmStarCombo = 0;
-  },
-});
-
-stateMachine.registerState('HAZARD_EVADE', {
-  enter: () => {
-    questionVisible = false;
-    answerLocked = true;
-    if (!phaseAHazardController.isActive) {
-      const branchClock = beatCoordinator.getBranchClock();
-      const roundIndex = beatRoundResolver.currentRoundIndex;
-      const bundle = sessionContext?.activeStageBundle ?? (sessionContext as any)?.stageBundle ?? null;
-      const pattern = bundle
-        ? bundle.getPhaseAHazardPattern(roundIndex)
-        : getPhaseAHazardPattern(roundIndex);
-      const attackId = bundle
-        ? `${bundle.getRoundExecutionId(roundIndex)}_hazard`
-        : (roundIndex ? `hazard_r${roundIndex}` : undefined);
-      phaseAHazardController.start({
-        roundIndex,
-        pattern,
-        bundle: bundle ?? undefined,
-        attackId,
-        ...(branchClock
-          ? { branchClock, secondsPerBeat: branchClock.secondsPerBeat }
-          : { secondsPerBeat: beatCoordinator.rhythmEngine.secondsPerBeat }),
-      });
-    }
-  },
-  exit: () => {
-    phaseAHazardController.stop();
-  },
-});
-
-stateMachine.registerState('ROUND_RESOLVE', {
-  enter: () => {
-    questionVisible = false;
-    answerLocked = true;
-  },
-  exit: () => {
-    feedbackTimer = 0;
-  },
-});
-
-stateMachine.registerState('BOSS_CLIMAX', {
-  enter: () => {
-    questionVisible = false;
-    answerLocked = true;
-    feedbackTimer = 0;
-    armReachAnswerSelector.closeWindow();
-    phaseAHazardController.stop();
-
-    // Issue #402: Phase A와 동일한 stageBundle(동일 hash/ruleset)을 피버 및 보스 공격 컨트롤러에 일치 주입
-    const bundle = sessionContext?.activeStageBundle ?? (sessionContext as any)?.stageBundle ?? null;
-    if (bundle) {
-      bossFeverController?.setStageBundle(bundle);
-      bossHazardController?.setStageBundle(bundle);
-    }
-
-    const snapshot = beatRoundResolver?.getResourceSnapshot?.();
-    if (!beatRoundResolver.resourceManager.troopManager.isActive) {
-      beatRoundResolver.resourceManager.troopManager.startPhaseB(snapshot);
-    }
-    if (bossFeverController && !bossFeverController.isActive) {
-      bossFeverController.start(engine.elapsedTime, snapshot);
-    }
-    if (bossHazardController && !bossHazardController.isActive) {
-      bossHazardController.start();
-    }
-    console.log('[DG] BOSS_CLIMAX 진입 (Phase B 결전 실행)');
-  },
-  exit: () => {
-    if (bossFeverController) {
-      bossFeverController.stop();
-    }
-    if (bossHazardController) {
-      bossHazardController.stop();
-    }
-    beatRoundResolver.resourceManager.troopManager.stop();
-  },
-});
-
-stateMachine.registerState('ASSAULT_ROUND', {
-  enter: () => {
-    questionVisible = false;
-    answerLocked = true;
-    feedbackTimer = 0;
-    console.log('[DG] ASSAULT_ROUND 진입 (보스 접근전 실행)');
-  },
-});
-
-stateMachine.registerState('MENU_MAIN', {
-  enter: () => {
-    flushPendingUIPresentation();
-    sfx.stopDwellCharge();
-    stageBgm.stop();
-    bgmManager.stop();
-    menuInput.reset();
-    pauseModal.close();
-  },
-});
-
-stateMachine.registerState('MENU_SUB', {
-  enter: () => {
-    flushPendingUIPresentation();
-    menuInput.reset();
-  },
-});
-
-stateMachine.registerState('RESULT', {
-  enter: () => {
-    stageBgm.fadeOut(0.4);
-    bgmManager.fadeOut(0.4);
-    resultRenderer.resetAnimation();
-    const vw = canvasManager.virtualWidth;
-    const vh = canvasManager.virtualHeight;
-    const stars = resultData ? calcStars(resultData.correctCount, resultData.totalQuestions, resultData.elapsedTime) : 3;
-    effectManager.playVictoryCelebration(vw, vh, stars);
-  },
-});
-
-stateMachine.registerState('GAMEOVER', {
-  enter: () => {
-    stageBgm.fadeOut(0.4);
-    bgmManager.fadeOut(0.4);
-    resultRenderer.resetAnimation();
-    const vw = canvasManager.virtualWidth;
-    const vh = canvasManager.virtualHeight;
-    effectManager.playDefeatDarken(vw, vh);
-  },
-});
+const stateMachineBuilder = new BootstrapStateMachineBuilder(stateMachineHost);
+stateMachineBuilder.registerAll();
+self._stateMachineBuilder = stateMachineBuilder;
 
 function enterQuestionPhase(): void {
-  if (
-    stateMachine.currentState === 'ANSWER_SELECT' ||
-    stateMachine.currentState === 'BOSS_CLIMAX' ||
-    stageProgressController.hasEnteredBossClimax
-  ) {
-    return;
-  }
-  stateMachine.changeState('ANSWER_SELECT');
-  questionVisible = true;
-  answerLocked = false;
+  stateMachineBuilder.enterQuestionPhase();
 }
 
 const beatCoordinator = new BeatRunCoordinator({
@@ -1280,24 +1088,7 @@ const beatCoordinator = new BeatRunCoordinator({
     (eventBus as any).emit?.('beat:tick', event);
   },
   onPhaseChange: (phase) => {
-    if (phase === 'RUN_QUESTION') {
-      bgmManager.setPhase('RUN_QUESTION');
-      stateMachine.changeState('RUN_QUESTION');
-    } else if (phase === 'REST_READY') {
-      bgmManager.setPhase('REST_READY');
-      stateMachine.changeState('RUN_QUESTION');
-    } else if (phase === 'KEYNOTE_PERFORMANCE') {
-      bgmManager.setPhase('KEYNOTE_PERFORMANCE');
-      enterQuestionPhase();
-    } else if (phase === 'ANSWER_SELECT') {
-      enterQuestionPhase();
-    } else if (phase === 'STAR_COLLECT') {
-      stateMachine.changeState('STAR_COLLECT');
-    } else if (phase === 'HAZARD_EVADE') {
-      stateMachine.changeState('HAZARD_EVADE');
-    } else if (phase === 'ROUND_RESOLVE') {
-      stateMachine.changeState('ROUND_RESOLVE');
-    }
+    stateMachineBuilder.handleBeatPhaseChange(phase);
   },
   onTimeout: () => {
     // Issue #283: 답안 선택 4박 타임아웃 발생 즉시 명확한 인과관계 알림 ("시간 초과!")

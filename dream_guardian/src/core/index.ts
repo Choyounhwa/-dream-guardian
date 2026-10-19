@@ -29,4 +29,11 @@ export type {
   GameControllers,
   GameSessionContextOptions,
 } from './types.js';
+export {
+  BootstrapStateMachineBuilder,
+  type BootstrapStateMachineHost,
+  type ScreenMode,
+  type MenuMode,
+  type GamePhase,
+} from './bootstrap/BootstrapStateMachineBuilder.js';
 
