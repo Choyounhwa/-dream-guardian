@@ -57,6 +57,8 @@ export interface AssaultTimingAndBalanceConfig {
   readonly labelMaxLength: number;
   /** 보기 라벨 최소 폰트 크기 (px, DEC-C9) */
   readonly labelMinFontSizePx: number;
+  /** 접근전 목표 라운드 수 (REC-00 / #588 승인값, DEC-A11) */
+  readonly targetRounds: number;
 }
 
 function deepFreeze<T extends object>(obj: T): Readonly<T> {
@@ -95,4 +97,5 @@ export const DEFAULT_ASSAULT_CONFIG: Readonly<AssaultTimingAndBalanceConfig> = d
   },
   labelMaxLength: 6,
   labelMinFontSizePx: 20,
+  targetRounds: 10,
 });
