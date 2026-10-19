@@ -51,7 +51,7 @@
 |---|---|---|---|
 | REC-00 | 잔여 정책·G4 승인 증거 결정 | #503 | [#588](https://github.com/Choyounhwa/-dream-guardian/issues/588) / 결정 완료 (DONE) |
 | REC-01 | 선택 문항 풀 읽기 전용 공급 포트 | #542 | [#589](https://github.com/Choyounhwa/-dream-guardian/issues/589) / 완료 (DONE) |
-| REC-02 | 문항 정규화와 원자적 진입 | REC-01 | [#592](https://github.com/Choyounhwa/-dream-guardian/issues/592) / 승인 대기 |
+| REC-02 | 문항 정규화와 원자적 진입 | REC-01 | [#592](https://github.com/Choyounhwa/-dream-guardian/issues/592) / 완료 (DONE) |
 | REC-03 | 승인 목표 라운드 설정 단일화 | REC-00 | [#593](https://github.com/Choyounhwa/-dream-guardian/issues/593) / 승인 대기 |
 | REC-04 | 시드 보기 공급·목표 설정 조립 | REC-02,03,05,06 | [#597](https://github.com/Choyounhwa/-dream-guardian/issues/597) / 승인 대기 |
 | REC-05 | 읽기 시간 입력·소비 계약 | REC-00 | [#594](https://github.com/Choyounhwa/-dream-guardian/issues/594) / 승인 대기 |

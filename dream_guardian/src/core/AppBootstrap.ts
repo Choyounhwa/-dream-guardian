@@ -416,6 +416,7 @@ export class AppBootstrap {
   get isRunning(): boolean { return this._isRunning; }
   get isDisposed(): boolean { return this._isDisposed; }
   get currentChapter(): number { return this.mainSceneContext?.state?.currentChapter ?? 1; }
+  get selectedSubLevel(): number | undefined { return this.mainSceneContext?.state?.selectedSubLevel; }
   get currentQuestion(): GeneratedQuestion | null { return (this.mainSceneContext?.state?.currentQuestion ?? null) as GeneratedQuestion | null; }
   get assaultSession(): AssaultSession | null { return this._assaultSession; }
   get bossController(): BossController { return this.boss; }
@@ -448,11 +449,10 @@ export class AppBootstrap {
     this._lastAssaultSessionOptions = options;
     let questions = options?.questions;
     if (questions === undefined) {
-      const records = (this.questionBank as any)._allRecords?.length > 0
-        ? (this.questionBank as any)._allRecords
-        : (this.questionBank as any)._pool?.length > 0
-          ? (this.questionBank as any)._pool
-          : [];
+      const chapter = (options as any)?.chapter ?? (this.questionBank.currentLevel || this.currentChapter || 1);
+      const subLevel = (options as any)?.subLevel ?? (this.questionBank.currentSubLevel ?? this.selectedSubLevel);
+      const snapshot = this.questionBank.getPoolSnapshot(chapter, subLevel);
+      const records = snapshot.questions;
       const candidates: QuestionCandidate[] = [];
       for (const rec of records) {
         if (typeof (rec as any).questionText === 'string' && (rec as any).correctAnswer !== undefined) {
@@ -461,26 +461,24 @@ export class AppBootstrap {
           const generated = generateQuestion(rec);
           if (generated && typeof generated.correctAnswer === 'number') {
             candidates.push({
-              level: (rec as any).level,
-              subLevel: (rec as any).subLevel,
+              id: (rec as any).id,
+              level: rec.level,
+              subLevel: rec.subLevel,
+              levelTitle: rec.levelTitle,
+              subLevelTitle: rec.subLevelTitle,
+              questionTemplate: rec.questionTemplate,
               questionText: generated.questionText,
               correctAnswer: generated.correctAnswer,
               wrongAnswer: typeof generated.choices[1 - generated.correctIndex] === 'number'
                 ? (generated.choices[1 - generated.correctIndex] as number)
                 : undefined,
               choices: generated.choices as [number, number],
+              shapeCode: rec.shapeCode || generated.shapeCode,
+              answerEval: rec.answerEval,
+              wrongEval: rec.wrongEval,
             });
           }
         }
-      }
-      if (candidates.length === 0) {
-        candidates.push(
-          { level: 1, subLevel: 1, questionText: '3 + 4 = ?', correctAnswer: 7, wrongAnswer: 8, choices: [7, 8] },
-          { level: 1, subLevel: 1, questionText: '5 + 2 = ?', correctAnswer: 7, wrongAnswer: 6, choices: [7, 6] },
-          { level: 1, subLevel: 1, questionText: '8 - 3 = ?', correctAnswer: 5, wrongAnswer: 4, choices: [5, 4] },
-          { level: 2, subLevel: 1, questionText: '4 × 3 = ?', correctAnswer: 12, wrongAnswer: 15, choices: [12, 15] },
-          { level: 2, subLevel: 1, questionText: '10 - 6 = ?', correctAnswer: 4, wrongAnswer: 3, choices: [4, 3] },
-        );
       }
       questions = candidates;
     }
@@ -2010,10 +2008,19 @@ function startRunningPhase(): void {
 
 function startAssaultPhase(): void {
   if (!self.assaultSession || self.assaultSession.isDisposed) {
-    self.assembleAssaultSession();
+    try {
+      self.assembleAssaultSession();
+    } catch (err) {
+      console.error('[DG] 보스 접근전 세션 조립 실패 (적격 문항 부족 또는 유효성 검증 실패):', err);
+      return;
+    }
   }
   const session = self.assaultSession as any;
-  if (session && !session.activeRoundController && session.eligibleQuestions?.length > 0) {
+  if (!session || !session.eligibleQuestions || session.eligibleQuestions.length === 0) {
+    console.error('[DG] 보스 접근전 적격 문항이 없어 ASSAULT_ROUND 진입이 차단되었습니다.');
+    return;
+  }
+  if (!session.activeRoundController && session.eligibleQuestions.length > 0) {
     session.createRoundController('round_01', session.eligibleQuestions[0]);
   }
   questionVisible = false;

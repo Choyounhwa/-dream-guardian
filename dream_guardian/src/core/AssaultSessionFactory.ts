@@ -367,17 +367,35 @@ export class AssaultSessionFactory {
       get isDisposed() {
         return isDisposed;
       },
-      createRoundController(roundId: RoundId, questionData: AssaultRoundQuestionData | string): AssaultRoundController {
+      createRoundController(roundId: RoundId, questionData: AssaultRoundQuestionData | QuestionCandidate | string): AssaultRoundController {
         if (isDisposed) {
           throw new Error('Cannot create round controller on a disposed session');
         }
         if (isFinaleActive) {
           throw new Error('Cannot create round controller while finale is active');
         }
+
+        let normalizedQuestion: AssaultRoundQuestionData;
+        if (typeof questionData === 'string') {
+          normalizedQuestion = {
+            id: `q_${roundId}`,
+            text: questionData,
+          };
+        } else {
+          const raw = questionData as any;
+          const text = raw.text ?? raw.questionText ?? '';
+          const id = raw.id ?? `q_${roundId}`;
+          normalizedQuestion = {
+            ...raw,
+            id,
+            text,
+          };
+        }
+
         return new AssaultRoundController({
           sessionId,
           roundId,
-          question: questionData,
+          question: normalizedQuestion,
           plan: compiledPlan,
           bpm,
           config,
