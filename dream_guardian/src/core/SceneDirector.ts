@@ -19,6 +19,7 @@ import { toNormalizedLandmarks } from '../utils/index.js';
 import type { Keynote } from '../types/keynote.js';
 import type { PhaseAHazardPattern } from '../game/PhaseAHazardController.js';
 import { AssaultSceneRenderer } from '../render/AssaultSceneRenderer.js';
+import { AssaultSceneHandler } from './director/AssaultSceneHandler.js';
 
 // Polyfill static present on RunningMatPresenter for #373 if needed
 if (typeof (RunningMatPresenter as any).present !== 'function') {
@@ -133,6 +134,7 @@ export interface RenderLayer<TContext = any> {
 export interface SceneDirectorOptions<TContext = any> {
   sessionContext?: GameSessionContext;
   initialScene?: SceneId;
+  assaultHandler?: AssaultSceneHandler;
   onSceneChange?: (from: SceneId, to: SceneId) => void;
   onError?: (error: Error, phase: 'update' | 'render' | 'transition', scene: SceneId) => void;
   beforeUpdate?: (dt: number, context?: TContext) => void;
@@ -266,37 +268,39 @@ export class SceneDirector<TContext = any> {
   private readonly _scenes = new Map<SceneId, SceneHandler<TContext>>();
   private _layers: RenderLayer<TContext>[] = [];
   private readonly _options: SceneDirectorOptions<TContext>;
+  private readonly _assaultHandler: AssaultSceneHandler;
 
   // 메인 루프 임시 프레임 캐시
   private _frameHoverTarget: { x: number; y: number } | null = null;
   private _currentKneeFraming: any = null;
   private readonly _assaultSceneRenderer = new AssaultSceneRenderer();
 
-  private _isAssaultMode(ctx?: MainSceneContext): boolean {
-    const sContext = this._sessionContext ?? ctx?.sessionContext;
-    if (sContext?.sessionMode === 'boss_assault') return true;
-    const assaultSession = (ctx as any)?.assaultSession;
-    if (assaultSession && !assaultSession.isDisposed) return true;
-    const contextAssault = (sContext as any)?.assaultSession;
-    if (contextAssault && !contextAssault.isDisposed) return true;
-    return false;
+  public isAssaultMode(ctx?: MainSceneContext): boolean {
+    return this._assaultHandler.isAssaultMode(ctx, this._sessionContext);
   }
 
-  private _getAssaultSession(ctx?: MainSceneContext): any | null {
-    if ((ctx as any)?.assaultSession && !(ctx as any).assaultSession.isDisposed) {
-      return (ctx as any).assaultSession;
-    }
-    const sContext = this._sessionContext ?? ctx?.sessionContext;
-    if ((sContext as any)?.assaultSession && !(sContext as any).assaultSession.isDisposed) {
-      return (sContext as any).assaultSession;
-    }
-    return null;
+  private _isAssaultMode(ctx?: MainSceneContext): boolean {
+    return this.isAssaultMode(ctx);
+  }
+
+  public getAssaultSession(ctx?: MainSceneContext): any | null {
+    return this._assaultHandler.getAssaultSession(ctx, this._sessionContext);
+  }
+
+  public _getAssaultSession(ctx?: MainSceneContext): any | null {
+    return this.getAssaultSession(ctx);
   }
 
   constructor(options?: SceneDirectorOptions<TContext>) {
     this._options = options ?? {};
     this._sessionContext = this._options.sessionContext;
     this._currentScene = this._options.initialScene ?? 'menu';
+    this._assaultHandler =
+      this._options.assaultHandler ??
+      new AssaultSceneHandler({
+        sessionContextProvider: () => this._sessionContext,
+        assaultSceneRenderer: this._assaultSceneRenderer,
+      });
   }
 
   /** 현재 활성 씬 식별자 */
@@ -661,10 +665,7 @@ export class SceneDirector<TContext = any> {
 
       // 공통 포즈 입력을 assault 세션 어댑터에 라우팅
       if (this._isAssaultMode(ctx)) {
-        const session = this._getAssaultSession(ctx);
-        if (session && typeof session.handlePose === 'function') {
-          session.handlePose(sourceLandmarks, undefined, dt);
-        }
+        this._assaultHandler.handlePose(sourceLandmarks, ctx, dt);
       }
 
       if (stepped && !this._isAssaultMode(ctx) && ctx.state.screenMode === 'game' && ctx.state.gamePhase === 'running' && !ctx.pauseModal.isOpen) {
@@ -892,38 +893,7 @@ export class SceneDirector<TContext = any> {
 
   /** 보스 접근전(Boss Assault) 전용 씬 루프 업데이트 (DEC-B1) */
   updateAssaultGameScene(dt: number, ctx: MainSceneContext): void {
-    const session = this._getAssaultSession(ctx);
-    if (session?.clock) {
-      session.clock.setPaused(Boolean(ctx.pauseModal?.isOpen));
-    }
-    if (ctx.pauseModal?.isOpen) {
-      ctx.dreamGrid?.update(dt, 0.8);
-      ctx.effectManager?.update(dt);
-      return;
-    }
-
-    if (session) {
-      if (typeof session.update === 'function') {
-        session.update(dt, ctx);
-      } else if (session.clock && typeof session.clock.update === 'function') {
-        session.clock.update(dt, ctx.engine?.elapsedTime !== undefined ? ctx.engine.elapsedTime * 1000 : undefined);
-      }
-    }
-
-    if (ctx.state.feedbackTimer > 0) {
-      ctx.state.feedbackTimer -= dt;
-      if (ctx.state.feedbackTimer <= 0) {
-        ctx.state.feedbackCustomText = null;
-        ctx.state.feedbackCustomColor = null;
-      }
-    }
-    if (ctx.state.castingFlash > 0) ctx.state.castingFlash -= dt;
-    ctx.guardian?.update(dt);
-    ctx.bossRenderer?.update(dt);
-    ctx.effectManager?.update(dt);
-    ctx.boss?.update(dt);
-    ctx.dialogueOverlayRenderer?.update(dt);
-    // DEC-B1: 단일 종료 권위(SessionLifecycle) 원칙에 따라 HP 0 시 showResult 중복 호출 차단
+    this._assaultHandler.update(dt, ctx);
   }
 
   /** 게임 씬 루프 업데이트 */
@@ -1220,43 +1190,7 @@ export class SceneDirector<TContext = any> {
 
   /** 보스 접근전(Boss Assault) 전용 씬 렌더링 */
   renderAssaultScene(ctx: MainSceneContext): void {
-    const context2d = ctx.canvasManager.ctx;
-    const vw = ctx.canvasManager.virtualWidth;
-    const vh = ctx.canvasManager.virtualHeight;
-
-    const vanishingX = vw * 0.5;
-    const vanishingY = vh * HORIZON_RATIO;
-    const chapterKey = `ch${ctx.state.currentChapter}`;
-    const gameBg = !ctx.cameraLayer?.isActive ? ctx.imageLoader?.get?.('bg', chapterKey) : null;
-
-    if (ctx.dreamGrid) {
-      ctx.dreamGrid.render(context2d, vw, vh, {
-        vanishingX,
-        vanishingY,
-        color: '#FF8844',
-        bgImage: gameBg,
-      });
-    }
-
-    const session = this._getAssaultSession(ctx);
-    const finaleController = (session as any)?.finaleController;
-    const finaleSnapshot = finaleController?.getSnapshot?.() ?? null;
-    const snapshot = (session as any)?.finalePresentationSnapshot ??
-                     (finaleSnapshot ? { ...finaleSnapshot, questionText: '' } : null) ??
-                     (session as any)?.presentation ??
-                     (session as any)?.activeRoundController?.presentation ??
-                     (session as any)?.snapshot ??
-                     (ctx as any)?.assaultPresentationSnapshot ??
-                     null;
-
-    if (snapshot) {
-      const assaultRenderer = (ctx as any)?.assaultSceneRenderer ?? this._assaultSceneRenderer;
-      assaultRenderer.render(context2d, snapshot, { width: vw, height: vh });
-    }
-
-    if (session?.hud && typeof session.hud.render === 'function') {
-      session.hud.render(context2d, vw, vh);
-    }
+    this._assaultHandler.render(ctx);
   }
 
   renderGameScene(ctx: MainSceneContext): void {
@@ -1521,14 +1455,7 @@ export class SceneDirector<TContext = any> {
     const vh = ctx.canvasManager.virtualHeight;
 
     if (this._isAssaultMode(ctx)) {
-      if (ctx.state.screenMode === 'game' && ctx.bottomBar) {
-        ctx.bottomBar.render(context2d, vw, vh, {
-          actionLabel: '정지',
-          actionColor: '#FF4444',
-          pageId: 'pause',
-          actionHoverProgress: ctx.state.actionHoverTimer / MENU_HOVER_DWELL_TIME,
-        });
-      }
+      this._assaultHandler.renderHUD(ctx);
       return;
     }
 
@@ -1670,3 +1597,17 @@ export class SceneDirector<TContext = any> {
     }
   }
 }
+
+/**
+ * 메인 게임 씬 디렉터 팩토리 함수
+ */
+export function createMainGameDirector<TContext = MainSceneContext>(
+  options?: SceneDirectorOptions<TContext>,
+  ctx?: MainSceneContext
+): SceneDirector<TContext> {
+  const director = new SceneDirector<TContext>(options);
+  director.setupMainPipelines(ctx);
+  return director;
+}
+
+export { AssaultSceneHandler };
