@@ -56,6 +56,13 @@ export interface StickmanAngles {
   rightLowerLeg: number;
 }
 
+export interface StickmanUpdateOptions {
+  mirror?: boolean;
+  virtualWidth?: number;
+  virtualHeight?: number;
+  breathScale?: number;
+}
+
 export interface StickmanRenderOptions {
   alpha?: number;
   showGroundRing?: boolean;
@@ -173,8 +180,8 @@ export class StickmanRenderer implements IAvatarRenderer {
   update(
     dt: number,
     landmarks?: readonly NormalizedLandmark[] | null,
-    breathScale: number | { mirror?: boolean; breathScale?: number } = 1.0,
-    options?: { mirror?: boolean },
+    breathScale: number | StickmanUpdateOptions = 1.0,
+    options?: StickmanUpdateOptions,
   ): void {
     let actualBreath = 1.0;
     let actualOptions = options;
@@ -182,7 +189,7 @@ export class StickmanRenderer implements IAvatarRenderer {
       actualBreath = breathScale;
     } else if (breathScale && typeof breathScale === 'object') {
       actualBreath = breathScale.breathScale ?? 1.0;
-      actualOptions = breathScale;
+      actualOptions = { ...breathScale, ...options };
     }
 
     this._animTimer += dt;
@@ -219,16 +226,18 @@ export class StickmanRenderer implements IAvatarRenderer {
 
     this._hasValidPose = true;
 
-    // Issue #489 & #496 [BUG-AVATAR-002]: 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화
+    // Issue #489 & #496 [BUG-AVATAR-002] & #615 [BUG-AVATAR-003]: 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화
     let rawHipX = 0.5;
     if (hasHips) {
       rawHipX = (lh.x + rh.x) / 2;
     } else if (hasShoulders) {
       rawHipX = (ls.x + rs.x) / 2;
     }
-    // 픽셀 좌표계(rawHipX > 2.0)인 경우 가상 너비(1920) 등으로 정규화 가정 방지 -> 0~1 사이로 정규화
+    // 픽셀 좌표계(rawHipX > 2.0)인 경우 가상 너비(vw, 기본 1080)로 정규화
+    const defaultVw = rawHipX > 1080 ? 1920 : 1080;
+    const vw = actualOptions?.virtualWidth ?? defaultVw;
     if (rawHipX > 2.0) {
-      rawHipX = rawHipX / 1920;
+      rawHipX = rawHipX / vw;
     }
 
     // 랜드마크가 이미 미러링된 화면 좌표계인지 판단:
@@ -266,6 +275,8 @@ export class StickmanRenderer implements IAvatarRenderer {
 
     // 2. 스쿼트 / 점프 수직 변위 계산
     const currentHipY = (lh.y + rh.y) / 2;
+    const defaultVh = currentHipY > 1000 ? 2160 : 1080;
+    const vh = actualOptions?.virtualHeight ?? defaultVh;
     if (!this._initialized) {
       this._baselineHipY = currentHipY;
       this._initialized = true;
@@ -274,8 +285,8 @@ export class StickmanRenderer implements IAvatarRenderer {
       this._baselineHipY += (currentHipY - this._baselineHipY) * 0.01;
     }
     const hipDiff = currentHipY - this._baselineHipY;
-    // 픽셀 좌표계(currentHipY > 2.0)인 경우 1080(기준 가상 높이)으로 정규화하여 오프셋 폭주 방지
-    const normalizedHipDiff = currentHipY > 2.0 ? hipDiff / 1080 : hipDiff;
+    // 픽셀 좌표계(currentHipY > 2.0)인 경우 vh(기준 가상 높이)으로 정규화하여 오프셋 폭주 방지
+    const normalizedHipDiff = currentHipY > 2.0 ? hipDiff / vh : hipDiff;
     const targetOffset = normalizedHipDiff * this._config.squatSensitivity;
     this._verticalOffset += (targetOffset - this._verticalOffset) * 0.25;
 
@@ -288,9 +299,9 @@ export class StickmanRenderer implements IAvatarRenderer {
     const midShoulder = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
     const midHip = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 };
 
-    // Issue #304 [BUG-SKEL-006]: 무릎·종아리 프레이밍에서 잘린 다리 각도 폭주 방지
-    // 무릎/발목 visibility가 부족하거나 화면 하단(정규화 1 또는 가상 높이 1080)을 넘으면 수직 기본 자세로 폴백
-    const maxY = currentHipY > 2.0 ? 1080 : 1.0;
+    // Issue #304 [BUG-SKEL-006] & #615 [BUG-AVATAR-003]: 무릎·종아리 프레이밍에서 잘린 다리 각도 폭주 방지
+    // 무릎/발목 visibility가 부족하거나 화면 하단(정규화 1 또는 가상 높이 vh)을 넘으면 수직 기본 자세로 폴백
+    const maxY = currentHipY > 2.0 ? vh : 1.0;
     const isLegLandmarkValid = (p?: NormalizedLandmark): boolean => {
       if (!p) return false;
       if ((p.visibility ?? 0) < minVis) return false;

@@ -584,6 +584,7 @@ export class SceneDirector<TContext = any> {
         dt,
         sourceLandmarks,
         ctx.skeletonAnimation.breathScale,
+        { virtualWidth: vw, virtualHeight: vh },
       );
 
       // Issue #140: 모든 장면(메뉴·달리기·문제·결과)에서 4색 커서가 상시 유지되도록 매 프레임 커서 트래커 갱신

@@ -766,5 +766,53 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       r.updateFallback(0.016);
       expect(r.currentAnchorXRatio).toBeLessThan(beforeFallback);
     });
+
+    describe('10. Issue #615 [BUG-AVATAR-003] 1080x2160 가상 해상도 랜드마크 정규화 및 가로 앵커 정합성 검증', () => {
+      it('가상 해상도(vw=1080) 픽셀 좌표계에서 중앙(x=540) 인입 시 currentAnchorXRatio가 0.5가 되고 fk.pelvis.x가 540이 된다', () => {
+        const r = new StickmanRenderer();
+        const pose = createSamplePoseLandmarks();
+        // 1080px 가상 해상도 기준 중앙 골반 (540px)
+        pose[POSE_LANDMARKS.LEFT_HIP] = { x: 500, y: 1200, z: 0, visibility: 0.95 };
+        pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 580, y: 1200, z: 0, visibility: 0.95 };
+        pose[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 490, y: 700, z: 0, visibility: 0.95 };
+        pose[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 590, y: 700, z: 0, visibility: 0.95 };
+
+        r.update(0.016, pose, 1.0, { virtualWidth: 1080, virtualHeight: 2160 });
+        expect(r.currentAnchorXRatio).toBeCloseTo(0.5, 2);
+
+        const fk = r.calculateFKPositions(1080, 2160);
+        expect(fk.pelvis.x).toBeCloseTo(540, 1);
+      });
+
+      it('options에 virtualWidth를 명시하지 않더라도 기본 1080 해상도로 정규화되어 중앙(540px)이 0.5가 된다', () => {
+        const r = new StickmanRenderer();
+        const pose = createSamplePoseLandmarks();
+        pose[POSE_LANDMARKS.LEFT_HIP] = { x: 500, y: 1200, z: 0, visibility: 0.95 };
+        pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 580, y: 1200, z: 0, visibility: 0.95 };
+        pose[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 490, y: 700, z: 0, visibility: 0.95 };
+        pose[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 590, y: 700, z: 0, visibility: 0.95 };
+
+        r.update(0.016, pose);
+        expect(r.currentAnchorXRatio).toBeCloseTo(0.5, 2);
+
+        const fk = r.calculateFKPositions(1080, 2160);
+        expect(fk.pelvis.x).toBeCloseTo(540, 1);
+      });
+
+      it('커스텀 가상 해상도(vw=1920) 전달 시 해당 너비 기준으로 정규화된다 (x=960 -> 0.5)', () => {
+        const r = new StickmanRenderer();
+        const pose = createSamplePoseLandmarks();
+        pose[POSE_LANDMARKS.LEFT_HIP] = { x: 900, y: 600, z: 0, visibility: 0.95 };
+        pose[POSE_LANDMARKS.RIGHT_HIP] = { x: 1020, y: 600, z: 0, visibility: 0.95 };
+        pose[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 890, y: 350, z: 0, visibility: 0.95 };
+        pose[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 1030, y: 350, z: 0, visibility: 0.95 };
+
+        r.update(0.016, pose, 1.0, { virtualWidth: 1920, virtualHeight: 1080 });
+        expect(r.currentAnchorXRatio).toBeCloseTo(0.5, 2);
+
+        const fk = r.calculateFKPositions(1920, 1080);
+        expect(fk.pelvis.x).toBeCloseTo(960, 1);
+      });
+    });
   });
 });
