@@ -129,7 +129,9 @@ export class DevInspectorOverlay {
 
     if (container && container.appendChild) {
       container.appendChild(this.canvas);
-      (this.canvas as any).parentElement = container;
+      if (!(this.canvas as any).parentElement && !(this.canvas as any).parentNode) {
+        (this.canvas as any).parentNode = container;
+      }
     }
 
     this.syncCanvasSize();
@@ -602,6 +604,8 @@ export class DevInspectorOverlay {
     const parent = this.canvas.parentElement ?? (this.canvas as any).parentNode;
     if (parent && parent.removeChild) {
       parent.removeChild(this.canvas);
+    } else if (typeof (this.canvas as any).remove === 'function') {
+      (this.canvas as any).remove();
     }
 
     if (activeInspectorOverlay === this) {
