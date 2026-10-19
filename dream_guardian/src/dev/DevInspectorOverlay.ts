@@ -27,7 +27,17 @@ export const DEV_INSPECTOR_OVERLAY_ID = 'dg-dev-inspector-overlay';
 let activeInspectorOverlay: DevInspectorOverlay | null = null;
 
 export function getActiveInspectorOverlay(): DevInspectorOverlay | null {
-  return activeInspectorOverlay;
+  if (activeInspectorOverlay) return activeInspectorOverlay;
+  if (typeof window !== 'undefined' && (window as any).__dg_inspector_overlay) {
+    return (window as any).__dg_inspector_overlay;
+  }
+  if (typeof document !== 'undefined') {
+    const canvas = document.getElementById(DEV_INSPECTOR_OVERLAY_ID) as any;
+    if (canvas?.__dg_inspector_overlay) {
+      return canvas.__dg_inspector_overlay;
+    }
+  }
+  return null;
 }
 
 export interface PaneLike {
@@ -151,6 +161,12 @@ export class DevInspectorOverlay {
 
     this.render();
     activeInspectorOverlay = this;
+    if (typeof window !== 'undefined') {
+      (window as any).__dg_inspector_overlay = this;
+    }
+    if (this.canvas) {
+      (this.canvas as any).__dg_inspector_overlay = this;
+    }
   }
 
   private getCurrentState(): string {
@@ -404,6 +420,9 @@ export class DevInspectorOverlay {
     } else {
       const elements = this.getElements();
       this.highlightedElement = findElementByPath(elements, path);
+      if (typeof console !== 'undefined' && console.log) {
+        console.log('[DEV UI] Hover highlight:', path, '->', this.highlightedElement?.label);
+      }
     }
     this.render();
   }
@@ -587,6 +606,9 @@ export class DevInspectorOverlay {
 
     if (activeInspectorOverlay === this) {
       activeInspectorOverlay = null;
+    }
+    if (typeof window !== 'undefined' && (window as any).__dg_inspector_overlay === this) {
+      (window as any).__dg_inspector_overlay = null;
     }
   }
 }

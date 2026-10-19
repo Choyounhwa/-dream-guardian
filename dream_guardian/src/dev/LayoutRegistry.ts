@@ -10,9 +10,8 @@
  */
 
 import { UI_LAYOUT } from '../../config/ui.config.js';
-import { DEV_UI_LOCKED_LAYOUT_PATHS } from '../../config/dev-ui.config.js';
+import { DEV_UI_LOCKED_LAYOUT_PATHS, isLockedPath } from '../../config/dev-ui.config.js';
 import { DEFAULT_FITNESS_ZONES } from '../../config/zone.config.js';
-import { isLockedPath } from './DevLayoutPanel.js';
 
 export interface Bounds {
   x: number;

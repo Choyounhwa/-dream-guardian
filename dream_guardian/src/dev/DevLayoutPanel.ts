@@ -788,9 +788,17 @@ function addLayoutFolder(
       const params: Record<string, unknown> = { label: key, readonly: m.readonly };
       if (!m.readonly) Object.assign(params, { min: m.min, max: m.max, step: m.step ?? 1 });
       const api = parent.addBinding(node as object, key, params);
-      if (api?.element && typeof api.element.addEventListener === 'function' && onHoverPath) {
-        api.element.addEventListener('mouseenter', () => onHoverPath(p));
-        api.element.addEventListener('mouseleave', () => onHoverPath(null));
+      if (api?.element && onHoverPath) {
+        const rowEl = api.element;
+        const lblEl = rowEl.querySelector?.('.tp-lblv_l') as HTMLElement | null;
+        if (typeof rowEl.addEventListener === 'function') {
+          rowEl.addEventListener('mouseenter', () => onHoverPath(p));
+          rowEl.addEventListener('mouseleave', () => onHoverPath(null));
+        }
+        if (lblEl && typeof lblEl.addEventListener === 'function') {
+          lblEl.addEventListener('mouseenter', () => onHoverPath(p));
+          lblEl.addEventListener('mouseleave', () => onHoverPath(null));
+        }
       }
       if (!m.readonly) {
         api.on('change', (ev?: any) => {
@@ -814,11 +822,19 @@ function addLayoutFolder(
       }
     } else if (isContainer(v)) {
       const folder = parent.addFolder({ title: key, expanded: false });
-      const folderEl = (folder as any)?.element;
-      if (folderEl && typeof folderEl.addEventListener === 'function' && onHoverPath) {
-        const titleBtn = folderEl.querySelector?.('.tp-fldv_t') || folderEl.querySelector?.('button') || folderEl;
-        titleBtn.addEventListener?.('mouseenter', () => onHoverPath(p));
-        titleBtn.addEventListener?.('mouseleave', () => onHoverPath(null));
+      const folderEl = (folder as any)?.element as HTMLElement | undefined;
+      if (folderEl && onHoverPath) {
+        const btn = folderEl.querySelector?.('.tp-fldv_b') || folderEl.querySelector?.('button');
+        const txt = folderEl.querySelector?.('.tp-fldv_t');
+        const attach = (target: any) => {
+          if (target && typeof target.addEventListener === 'function') {
+            target.addEventListener('mouseenter', () => onHoverPath(p));
+            target.addEventListener('mouseleave', () => onHoverPath(null));
+          }
+        };
+        attach(btn);
+        attach(txt);
+        if (!btn && !txt) attach(folderEl);
       }
       addLayoutFolder(folder, v, p, metas, onChange, nudgeContext, onHoverPath);
     }
@@ -1136,10 +1152,19 @@ export async function mountDevLayoutPanel(
   for (const section of Object.keys(UI_LAYOUT)) {
     const folder = pane.addFolder({ title: section, expanded: sections.has(section) });
     sectionFolders.set(section, folder);
-    if (folder?.element && typeof folder.element.addEventListener === 'function') {
-      const titleBtn = folder.element.querySelector?.('.tp-fldv_t') || folder.element.querySelector?.('button') || folder.element;
-      titleBtn.addEventListener?.('mouseenter', () => notifyHover(section));
-      titleBtn.addEventListener?.('mouseleave', () => notifyHover(null));
+    const folderEl = (folder as any)?.element as HTMLElement | undefined;
+    if (folderEl) {
+      const btn = folderEl.querySelector?.('.tp-fldv_b') || folderEl.querySelector?.('button');
+      const txt = folderEl.querySelector?.('.tp-fldv_t');
+      const attach = (target: any) => {
+        if (target && typeof target.addEventListener === 'function') {
+          target.addEventListener('mouseenter', () => notifyHover(section));
+          target.addEventListener('mouseleave', () => notifyHover(null));
+        }
+      };
+      attach(btn);
+      attach(txt);
+      if (!btn && !txt) attach(folderEl);
     }
     addLayoutFolder(
       folder,
@@ -1158,10 +1183,19 @@ export async function mountDevLayoutPanel(
     expanded: sections.has('assault') || sections.has('ASSAULT_VISUAL'),
   });
   sectionFolders.set('assault', assaultFolder);
-  if (assaultFolder?.element && typeof assaultFolder.element.addEventListener === 'function') {
-    const titleBtn = assaultFolder.element.querySelector?.('.tp-fldv_t') || assaultFolder.element.querySelector?.('button') || assaultFolder.element;
-    titleBtn.addEventListener?.('mouseenter', () => notifyHover('assault'));
-    titleBtn.addEventListener?.('mouseleave', () => notifyHover(null));
+  const assaultEl = (assaultFolder as any)?.element as HTMLElement | undefined;
+  if (assaultEl) {
+    const btn = assaultEl.querySelector?.('.tp-fldv_b') || assaultEl.querySelector?.('button');
+    const txt = assaultEl.querySelector?.('.tp-fldv_t');
+    const attach = (target: any) => {
+      if (target && typeof target.addEventListener === 'function') {
+        target.addEventListener('mouseenter', () => notifyHover('assault'));
+        target.addEventListener('mouseleave', () => notifyHover(null));
+      }
+    };
+    attach(btn);
+    attach(txt);
+    if (!btn && !txt) attach(assaultEl);
   }
   addLayoutFolder(
     assaultFolder,

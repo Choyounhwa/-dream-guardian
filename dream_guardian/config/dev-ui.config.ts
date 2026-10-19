@@ -38,6 +38,16 @@ export const DEV_UI_LOCKED_LAYOUT_PATHS: readonly string[] = [
   'menu.chapterCards.*.chapter',
 ];
 
+/** '*' 는 한 단계 와일드카드. 패턴이 경로의 접두(세그먼트 단위)와 일치하면 잠금 */
+export function isLockedPath(path: string, patterns: readonly string[]): boolean {
+  const segs = path.split('.');
+  return patterns.some((pattern) => {
+    const ps = pattern.split('.');
+    if (ps.length > segs.length) return false;
+    return ps.every((p, i) => p === '*' || p === segs[i]);
+  });
+}
+
 export interface DevUiLockedSource {
   id: string;
   title: string;
