@@ -2,6 +2,19 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 2026-10-19 카드 등록 인계 — BOSS-ASSAULT 런타임 복구 (구현 승인 아님)
+
+- **등록 완료 ID**: BOSS-ASSAULT-REC-00~26, 실제 GitHub **#588~#614 27개**, 전부 OPEN / 개별 실행 승인 대기. 번호·정확한 제목·URL·직접 선행/차단: [DOC-16 원장](../docs/16_BOSS_ASSAULT_RUNTIME_RECOVERY_CARDS.md), [본문 원본](../docs/assault-runtime-recovery/). 기존 #502 트랙과 연관되지만 독립 복구 트랙이며 새 NEXT를 지정하지 않는다.
+- **수행**: 시작 main/clean 확인, DOC-14 v0.3/DOC-15/본 문서/issues·실제 소스 타입/포트·열린/전체 원격 이슈·#503 승인/#528~#532 완료 코멘트 대조 후 표준 카드 작성·등록·문서 동기화만 수행.
+- **테스트 결과**: 이번 세션 통과한 실행 테스트 없음(테스트/빌드/브라우저/서버 모두 미실행). src/config/tests 수정0, 커밋/푸시0. 기존 Pass 기록은 아래 역사 기록이며 이번 복구 증거 아님.
+- **등록 검증**: 원격 27개 ID 중복0·본문 필수 항목/실제 선행번호·OPEN/라벨 재조회 확인, `git diff --check` 공백 오류 없음(LF→CRLF 경고만). 문서 변경은 미커밋/신규 미추적으로 남겼다.
+- **잔여 정책 결정 완료 (#588 REC-00)**: #503 MVP 확정치(130ms/170ms·HP100·피해10/5) 유지. targetRounds=10(단일 config SSOT 확정), 읽기시간 누적 가산(Additive: base+length+level+tts clamp) 확정. G4 결전 복구(REC-18~24)는 별도 승인 증거 부재로 **차단 유지 (BLOCKED)** 확정. 결전 피해 명령 정산 계약도 결정 보류(BLOCKED 유지).
+- **다음 검토 카드(복구 트랙 선행 해제군)**:
+  - [#589 REC-01 선택 문항 풀 읽기 전용 공급 포트](https://github.com/Choyounhwa/-dream-guardian/issues/589) (선행 #542 기완료)
+  - [#593 REC-03 승인 목표 라운드 설정 단일화](https://github.com/Choyounhwa/-dream-guardian/issues/593) (선행 REC-00 완료로 착수 가능)
+  - [#594 REC-05 읽기 시간 입력·소비 계약](https://github.com/Choyounhwa/-dream-guardian/issues/594) (선행 REC-00 완료로 착수 가능)
+- **범위 보존**: #533~#537는 G5 보상/저장 원래 작업이며 복구 렌더·HUD·음향으로 재사용하지 않는다. 기존 해당 행의 잘못된 설명만 실제 GitHub 제목으로 정정했다. #538 최종 결전·기록 인수는 유지하고 #613은 복구 범위 QA만 담당한다. 미재현 의심은 카드에 검증→수정 조건으로 명시했다.
+
 ## 인게임 UI 개발 모드 트랙 (DEVUI / LAYOUT, 2026-10-11, 등록만)
 
 - **배경**: iframe 기반 ui-editor는 화면을 다시 조립하고, 요소 이름을 변환하고, 메시지를 주고받는 구조라 실제 게임과 계속 어긋났다. 이를 대신해 실제 게임 화면에서 `UI_LAYOUT`을 직접 편집한다(Tweakpane + 화면 강제 이동 + 시간 정지).
@@ -135,11 +148,13 @@
 | G2 | #510~#522, [#544 41](https://github.com/Choyounhwa/-dream-guardian/issues/544), [#546 43](https://github.com/Choyounhwa/-dream-guardian/issues/546), [#547 44](https://github.com/Choyounhwa/-dream-guardian/issues/547) | `[✔ 완료]` #510 (08 공통 활성 시각 및 안전 정지 어댑터) → `[✔ 완료]` #511 (09 회수 기반 반복 펀치 입력 어댑터) → `[✔ 완료]` #512 (10 보정 단위 일치 스쿼트 자세 어댑터) → `[✔ 완료]` #513 (11 폴백 입력) → `[✔ 완료]` [#514 12 답 쌍 순수 판정 reducer](https://github.com/Choyounhwa/-dream-guardian/issues/514) → `[✔ 완료]` [#515 13 스쿼트 순수 판정 reducer](https://github.com/Choyounhwa/-dream-guardian/issues/515) → `[✔ 완료]` [#516 14 MotionNote 논리 공격 생명주기 어댑터](https://github.com/Choyounhwa/-dream-guardian/issues/516) → `[✔ 완료]` [#517 15 투척·생각·교대 라운드 순수 진행](https://github.com/Choyounhwa/-dream-guardian/issues/517) → `[✔ 완료]` [#518 16 멱등 피해 정산 단일 경로](https://github.com/Choyounhwa/-dream-guardian/issues/518) → `[✔ 완료]` [#519 17 불변 라운드 요약 집계](https://github.com/Choyounhwa/-dream-guardian/issues/519) → `[✔ 완료]` [#520 18 접근 진행 및 종료 의도 판정](https://github.com/Choyounhwa/-dream-guardian/issues/520) → `[✔ 완료]` [#521 19 읽기 전용 공격 장면 렌더링](https://github.com/Choyounhwa/-dream-guardian/issues/521) → `[✔ 완료]` [#522 20 HUD](https://github.com/Choyounhwa/-dream-guardian/issues/522) → `[✔ 완료]` [#544 41 게임 시계 기반 박자·연출 효과음 큐](https://github.com/Choyounhwa/-dream-guardian/issues/544) → `[✔ 완료]` [#546 43 접근전 운동량 실측 집계](https://github.com/Choyounhwa/-dream-guardian/issues/546) → `[✔ 완료]` [#547 44](https://github.com/Choyounhwa/-dream-guardian/issues/547) (G2 완료) |
 | G3 | #523~#526, [#545 42](https://github.com/Choyounhwa/-dream-guardian/issues/545) → #527 인수 → [#548 45](https://github.com/Choyounhwa/-dream-guardian/issues/548) | `[✔ 완료]` #523 (모드 고정 및 상태 전환 계약 연결) → `[✔ 완료]` #524 (내부 테스트 세션 조립과 배타 진입) → `[✔ 완료]` [#525 23 프레임·입력·표시 배타 라우팅](https://github.com/Choyounhwa/-dream-guardian/issues/525) → `[✔ 완료]` [#526 24 세션 종료·재시작·인계 수명주기 연결](https://github.com/Choyounhwa/-dream-guardian/issues/526) → `[✔ 완료]` [#545 42 접근 진행도 연출 렌더러](https://github.com/Choyounhwa/-dream-guardian/issues/545) → `[✔ 완료]` [#527 25 MVP core loop 통합 게이트 인수 검증](https://github.com/Choyounhwa/-dream-guardian/issues/527) → `[✔ 완료]` [#548 45 3단계 튜토리얼](https://github.com/Choyounhwa/-dream-guardian/issues/548) (G3 완료) |
 | G4 | #528 → #539 → #529~#532 | `[✔ 완료]` [#528 26 근접 결전 조정 프로필 데이터](https://github.com/Choyounhwa/-dream-guardian/issues/528) → `[✔ 완료]` [#539 37 기존 보스 HP 소유자의 명시적 초기화 옵션](https://github.com/Choyounhwa/-dream-guardian/issues/539) → `[✔ 완료]` [#529 27 근접 결전 선언형 패턴 콘텐츠](https://github.com/Choyounhwa/-dream-guardian/issues/529) → `[✔ 완료]` [#530 28 점프·저충격 대체 동작 어댑터](https://github.com/Choyounhwa/-dream-guardian/issues/530) → `[✔ 완료]` [#531 29 근접 패턴 순수 진행 및 정산 요청](https://github.com/Choyounhwa/-dream-guardian/issues/531) → `[✔ 완료]` [#532 30 결전 core 인계](https://github.com/Choyounhwa/-dream-guardian/issues/532) (G4 완료) |
-| G5 | #533~#537 | `[▶ NEXT: BOSS-ASSAULT G5 트랙]` [#533 31 근접 결전 씬 렌더링](https://github.com/Choyounhwa/-dream-guardian/issues/533) → [#534 32 HUD/결전 표시](https://github.com/Choyounhwa/-dream-guardian/issues/534) → [#535 33 결전 음향 큐](https://github.com/Choyounhwa/-dream-guardian/issues/535) → [#536 34 점수/기록 반영](https://github.com/Choyounhwa/-dream-guardian/issues/536) → [#537 35 최종 게이트 인수](https://github.com/Choyounhwa/-dream-guardian/issues/537) |
+| G5 | #533~#537 | `[▶ NEXT: BOSS-ASSAULT G5 트랙]` [#533 31 별도 승인된 보상 정책 데이터](https://github.com/Choyounhwa/-dream-guardian/issues/533) → [#534 32 라운드 보상 순수 계산 및 멱등 지급 요청](https://github.com/Choyounhwa/-dream-guardian/issues/534) → [#535 33 신규 기록·보상 영수증 격리 저장 어댑터](https://github.com/Choyounhwa/-dream-guardian/issues/535) → [#536 34 실측 결과·보상 영수증 읽기 전용 화면](https://github.com/Choyounhwa/-dream-guardian/issues/536) → [#537 35 결과·보상·저장 종료 포트 배선](https://github.com/Choyounhwa/-dream-guardian/issues/537) |
 | G6 | #538 | 대기 |
 | 선택 | [#549 46](https://github.com/Choyounhwa/-dream-guardian/issues/549) TTS 콜백 | 제외 (DEC-B3 시간 기반 비대기 확정) |
 
 이 표의 NEXT는 BOSS-ASSAULT 트랙 내부 표시이며 다른 트랙의 NEXT와 메인 SSOT 순서를 변경하지 않는다.
+
+> 2026-10-19 사실 정정: 기존 G5 행은 #533~#537를 결전 씬/HUD/음향/점수/최종인수로 잘못 설명했다. `gh issue view` 실제 제목으로 설명만 교정했다. 이슈 ID·제목(원격)·상태·NEXT #533·순서·G0~G4 완료 이력은 변경하지 않았다. G5의 NEXT 표시는 별도 보상 정책 승인이나 구현 승인이 아니며 #503/DOC-15의 미결 차단은 계속 적용한다.
 
 > **DEVUI/LAYOUT 트랙과 병행 시 (2026-10-11)**: G3(#523~#527) 착수 전에 DEVUI-002 #562, DEVUI-003 #563, LAYOUT-002 #569의 완료 여부를 확인한다. 이 카드들과 `StateMachine.ts`·`AppBootstrap.ts`·`SceneDirector.ts`가 겹친다. 22 #524의 `?mode=boss_assault`는 `?dev=ui&screen=` 파라미터와 함께 쓰여도 충돌하지 않아야 한다. 두 트랙은 한 번에 한 카드씩 번갈아 진행한다. 상세는 상단 "BOSS-ASSAULT 병행 규칙"을 따른다.
 
