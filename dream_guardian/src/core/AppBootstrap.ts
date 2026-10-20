@@ -24,6 +24,10 @@ import {
   type GamePhase,
 } from './bootstrap/BootstrapStateMachineBuilder.js';
 import { BootstrapSubsystemFactory } from './bootstrap/BootstrapSubsystemFactory.js';
+import {
+  AppEventListenerManager,
+  type AppEventListenerHost,
+} from './bootstrap/AppEventListenerManager.js';
 import type { AssaultFinaleController } from '../game/assault/AssaultFinaleController.js';
 import type { AssaultHandoverSnapshot } from '../game/assault/AssaultProgressController.js';
 import type { SessionId } from '../types/assault.js';
@@ -56,7 +60,6 @@ import {
 } from './UIPresentationLoadService.js';
 import type { UIPresentationDocument } from '../data/UIPresentation.js';
 import { computeContentHash } from '../data/ContentCanonical.js';
-import { resolveBottomBarActionSlot } from './SceneDirector.js';
 import { loadUiLayoutOverride } from './UILayoutOverride.js';
 import { ContentProvider } from '../game/ContentProvider.js';
 import {
@@ -398,13 +401,14 @@ export class AppBootstrap {
   private _options: AppBootstrapOptions;
   private _assaultWireHelper!: AssaultSessionWireHelper;
   private _stateMachineBuilder!: BootstrapStateMachineBuilder;
+  private _eventListenerManager!: AppEventListenerManager;
   public enableAssaultFinale = false;
 
-  private _onResize: () => void;
-  private _onKeyDown: (e: KeyboardEvent) => void;
-  private _onKeyUp: (e: KeyboardEvent) => void;
-  private _onCanvasClick: (e: MouseEvent) => void;
-  private _onVisibilityChange: () => void;
+  public _onResize!: () => void;
+  public _onKeyDown!: (e: KeyboardEvent) => void;
+  public _onKeyUp!: (e: KeyboardEvent) => void;
+  public _onCanvasClick!: (e: MouseEvent) => void;
+  public _onVisibilityChange!: () => void;
 
   get isInitialized(): boolean { return this._isInitialized; }
   get isRunning(): boolean { return this._isRunning; }
@@ -418,6 +422,7 @@ export class AppBootstrap {
   get finaleController(): AssaultFinaleController | null { return this._assaultWireHelper?.finaleController ?? null; }
   get isFinaleActive(): boolean { return Boolean(this._assaultWireHelper?.isFinaleActive); }
   get stateMachineBuilder(): BootstrapStateMachineBuilder { return this._stateMachineBuilder; }
+  get eventListenerManager(): AppEventListenerManager { return this._eventListenerManager; }
 
   public isAssaultMode(): boolean {
     return this._assaultWireHelper?.isAssaultMode?.() ?? false;
@@ -2208,424 +2213,66 @@ engine = new GameEngine({
     this.loadStaticManifest = loadStaticManifest;
     this.loadLocalTestOverride = loadLocalTestOverride;
 
-    // Browser event listeners
-    this._onResize = () => {
-      canvasManager.resize();
-    };
-
-    this._onCanvasClick = (e: MouseEvent) => {
-      bgmManager.unlock();
-
-  // 브라우저 사용자 제스처 시 카메라 미시작 상태면 자동 재요청
-  if (!cameraLayer.isActive && cameraLayer.status !== 'requesting') {
-    ensureCameraStarted().catch(() => {});
-  }
-
-  const rect = canvas.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) return;
-  const px = (e.clientX - rect.left) / rect.width * canvas.width;
-  const py = (e.clientY - rect.top) / rect.height * canvas.height;
-  const { x, y } = canvasManager.toVirtual(px, py);
-
-  const vw = canvasManager.virtualWidth;
-  const vh = canvasManager.virtualHeight;
-
-  // Issue #137: 튜토리얼 노출 중 탭/클릭 시 다음 단계 진행 또는 닫기
-  if (tutorial.isVisible) {
-    tutorial.nextStep();
-    return;
-  }
-
-  // Issue #172: 일시정지 모달 열림 상태 시 클릭 우선 처리
-  if (pauseModal.isOpen) {
-    const action = pauseModal.hitTest(x, y, vw, vh);
-    if (action === 'resume') {
-      pauseModal.close();
-      stageBgm.resume();
-      bgmManager.resume();
-      sfx.play('correct');
-    } else if (action === 'quit') {
-      pauseModal.close();
-      stageBgm.stop();
-      bgmManager.stop();
-      goToMenu();
-      sfx.play('hover');
-    } else if (action === 'backdrop') {
-      pauseModal.close();
-      stageBgm.resume();
-      bgmManager.resume();
-      sfx.play('hover');
-    }
-    return;
-  }
-
-  // Issue #154: 운동 모드(이동 방식 4종) 모달 열림 상태 시 클릭 우선 처리
-  if (locomotionModal.isOpen) {
-    const res = locomotionModal.handleClick(x, y, vw, vh);
-    if (res) {
-      sfx.play('hover');
-      if (res.action === 'select') {
-        updateLocomotionLabel();
-      }
-    }
-    return;
-  }
-
-  // Issue #141: 설정 모달 열림 상태 시 모달 클릭 우선 처리
-  if (settingsModal.isOpen) {
-    const action = settingsModal.handleClick(x, y, vw, vh);
-    if (action === 'close' || action === 'backdrop-close') {
-      settingsModal.close();
-      sfx.play('hover');
-    } else if (action === 'locomotion') {
-      settingsModal.close();
-      locomotionModal.open();
-      sfx.play('hover');
-    } else if (action === 'camera') {
-      if (cameraLayer.isActive) {
-        cameraLayer.stop();
-        settingsModal.cameraEnabled = false;
-      } else {
-        ensureCameraStarted().catch(() => {});
-        settingsModal.cameraEnabled = true;
-      }
-      sfx.play('hover');
-    } else if (action === 'fullscreen') {
-      const container = document.getElementById('container') || canvas;
-      if (!document.fullscreenElement) {
-        container.requestFullscreen().catch(() => {});
-      } else {
-        document.exitFullscreen().catch(() => {});
-      }
-      sfx.play('hover');
-    } else if (action === 'skeleton') {
-      settingsModal.skeletonEnabled = !settingsModal.skeletonEnabled;
-      sfx.play('hover');
-    } else if (action === 'sound') {
-      settingsModal.soundEnabled = !settingsModal.soundEnabled;
-      sfx.setMuted(!settingsModal.soundEnabled);
-      bandSynth.setMuted(!settingsModal.soundEnabled);
-      stageBgm.setMuted(!settingsModal.soundEnabled);
-      bgmManager.setMuted(!settingsModal.soundEnabled);
-      speech.enabled = settingsModal.soundEnabled;
-      if (settingsModal.soundEnabled) sfx.play('correct');
-    } else if (action === 'fontScale' || action === 'highContrast') {
-      sfx.play('hover');
-    } else if (action === 'webcamVideo') {
-      cameraLayer.renderVideo = settingsModal.renderVideoEnabled;
-      sfx.play('hover');
-    }
-    return;
-  }
-
-  // Issue #141: 공통 하단 바 클릭 (설정 버튼)
-  if (bottomBar.hitTestSettings(x, y, vw, vh)) {
-    settingsModal.open();
-    sfx.play('hover');
-    return;
-  }
-
-  // Issue #141 & #471: 공통 하단 바 클릭 (우측 액션 버튼 - seam geometry 조회 통일)
-  const actionSlot = resolveBottomBarActionSlot(bottomBar, vw, vh, screenMode, menuMode);
-  const hasAction = actionSlot !== undefined;
-
-  if (hasAction && bottomBar.hitTestAction(x, y, vw, vh, 0, actionSlot)) {
-    if (screenMode === 'menu' && menuMode === 'sub') {
-      selectSubLevel(-1);
-    } else if (screenMode === 'game') {
-      stageBgm.pause();
-      bgmManager.pause();
-      pauseModal.open();
-      sfx.play('hover');
-    } else if (screenMode === 'result') {
-      goToMenu();
-    }
-    return;
-  }
-
-  if (screenMode === 'menu') {
-    if (menuMode === 'main') {
-      if (menuRenderer.hitTestLocomotion(x, y, vw, vh)) {
-        locomotionModal.open();
-        sfx.play('hover');
-        return;
-      }
-      const ch = menuRenderer.hitTest(x, y, vw, vh);
-      selectChapter(ch);
-    } else {
-      const subLevels = questionBank.getSubLevels(selectedChapter);
-      const chosen = menuRenderer.hitTestSub(x, y, vw, vh, selectedChapter, subLevels);
-      selectSubLevel(chosen);
-    }
-  } else if (screenMode === 'game') {
-    // Issue #202: READY_POSITION 진행 중 화면 클릭/터치 시 3초 카운트다운 즉시 건너뛰기
-    if (stateMachine.currentState === 'READY_POSITION' && readyPositionController.isActive) {
-      readyPositionController.skip();
-      return;
-    }
-    if (gamePhase === 'running' && !pauseModal.isOpen) {
-      totalSteps++;
-      beatCoordinator.recordStep();
-      runningMatRenderer.triggerMotionHit();
-      effectManager.playBurst({
-        x: vw * 0.5,
-        y: vh * 0.65,
-        count: 8,
-        colors: ['#28E6FF', '#FFCB4D'],
-        duration: 0.3,
-      });
-      currentQuestion = beatCoordinator.currentQuestion;
-      return;
-    }
-    if (!pauseModal.isOpen && presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked, beatCoordinator.isAnswerOpen) && currentQuestion) {
-      const buttonLayouts = getAnswerButtonLayouts(vw, vh);
-
-      for (let i = 0; i < 2; i++) {
-        const btn = buttonLayouts[i];
-        if (x >= btn.x && x <= btn.x + btn.width && y >= btn.y && y <= btn.y + btn.height) {
-          if (beatCoordinator.isAnswerOpen) {
-            sfx.play('hover');
-            beatCoordinator.confirmAnswerByFallback(i);
-          }
-          break;
-        }
-      }
-    }
-
-    // 가상 페달 (Zone 9, 10, 11) 터치/클릭 fallback (Issue #237 & #427: 1/3 균등 전폭 확장 및 바닥 밀착)
-    const normX = x / vw;
-    const normY = y / vh;
-    if (normY >= 0.76 && normY <= 1.0) {
-      let pedalZone: 9 | 10 | 11 | null = null;
-      if (normX < 1 / 3) pedalZone = 9;
-      else if (normX < 2 / 3) pedalZone = 10;
-      else pedalZone = 11;
-      if (pedalZone) {
-        const ev = footKeynoteInput.fromVirtualPedal(pedalZone, engine.elapsedTime);
-        if (ev) {
-          sfx.play('hover');
-        }
-      }
-    }
-
-    // Issue #235 & #213: STAR_COLLECT 및 BOSS_CLIMAX 중 피트니스 존 터치/클릭 입력
-    if (
-      stateMachine.currentState === 'STAR_COLLECT' ||
-      stateMachine.currentState === 'BOSS_CLIMAX' ||
-      beatCoordinator.phase === 'STAR_COLLECT' ||
-      beatCoordinator.phase === 'KEYNOTE_PERFORMANCE'
-    ) {
-      const hitZone = DEFAULT_FITNESS_ZONES.find(
-        (z) => normX >= z.x && normX <= z.x + z.width && normY >= z.y && normY <= z.y + z.height,
-      );
-      if (hitZone) {
-        starNoteScheduler.fromTouch(hitZone.id, engine.elapsedTime);
-        if (stateMachine.currentState === 'BOSS_CLIMAX' && bossHazardController && !pauseModal.isOpen) {
-          if (hitZone.id === 9) {
-            bossHazardController.recordAction('step_left');
-          } else if (hitZone.id === 11) {
-            bossHazardController.recordAction('step_right');
-          } else if (hitZone.id === 10) {
-            bossHazardController.recordAction('jump');
-          }
-        }
-      }
-    }
-
-    // Issue #236: HAZARD_EVADE 중 터치/클릭 회피 fallback (좌: 왼발, 우: 오른발, 중앙: 점프)
-    if (stateMachine.currentState === 'HAZARD_EVADE' && !pauseModal.isOpen) {
-      const target = phaseAHazardController.activePattern;
-      if (target) {
-        if (normX < 0.35) {
-          phaseAHazardController.recordAction(target === 'balance_right' ? 'balance_right' : 'left_step');
-        } else if (normX > 0.65) {
-          phaseAHazardController.recordAction(target === 'balance_left' ? 'balance_left' : 'right_step');
-        } else {
-          phaseAHazardController.recordAction('jump');
-        }
-        sfx.play('hover');
-      }
-    }
-  } else if (screenMode === 'result') {
-    goToMenu();
-  }
-
-    };
-
-    this._onKeyDown = (e: KeyboardEvent) => {
-
-  // Issue #141 / #154 / #172: 모달 열림 상태 시 Escape 또는 P로 토글/닫기
-  if (e.key === 'Escape' || e.code === 'KeyP') {
-    if (pauseModal.isOpen) {
-      pauseModal.close();
-      stageBgm.resume();
-      bgmManager.resume();
-      sfx.play('hover');
-      return;
-    }
-    if (locomotionModal.isOpen) {
-      locomotionModal.close();
-      return;
-    }
-    if (settingsModal.isOpen) {
-      settingsModal.close();
-      return;
-    }
-    if (screenMode === 'game') {
-      stageBgm.pause();
-      bgmManager.pause();
-      pauseModal.open();
-      sfx.play('hover');
-      return;
-    }
-    if (screenMode === 'menu' && menuMode === 'sub') {
-      selectSubLevel(-1);
-      return;
-    }
-  }
-
-  // BOSS-ASSAULT-23 (#525): assault 모드 활성화 시 키보드 입력을 assault 어댑터로 배타 라우팅
-  if (this._assaultWireHelper.handleKeyDown(e)) {
-    return;
-  }
-
-  // Issue #137: 튜토리얼 스킵 지원
-  if (tutorial.isVisible) {
-    if (e.code === 'Space' || e.key === 'Enter' || e.key === 'Escape') {
-      tutorial.nextStep();
-      return;
-    }
-  }
-
-  if (e.code === 'Space') {
-    if (e.repeat) return;
-    // Issue #202: READY_POSITION 진행 중 Space 입력 시 3초 카운트다운 즉시 건너뛰기
-    if (stateMachine.currentState === 'READY_POSITION' && readyPositionController.isActive) {
-      readyPositionController.skip();
-      return;
-    }
-    if (screenMode === 'game' && gamePhase === 'running' && !pauseModal.isOpen) {
-      totalSteps++;
-      beatCoordinator.recordStep();
-      runningMatRenderer.triggerMotionHit();
-      effectManager.playBurst({
-        x: canvasManager.virtualWidth * 0.5,
-        y: canvasManager.virtualHeight * 0.65,
-        count: 8,
-        colors: ['#28E6FF', '#FFCB4D'],
-        duration: 0.3,
-      });
-      currentQuestion = beatCoordinator.currentQuestion;
-      return;
-    } else if (
-      screenMode === 'game' &&
-      stateMachine.currentState === 'HAZARD_EVADE' &&
-      !pauseModal.isOpen
-    ) {
-      const target = phaseAHazardController.activePattern;
-      if (target === 'jump') {
-        phaseAHazardController.recordAction('jump');
-        sfx.play('jump_whoosh');
-      } else if (target) {
-        phaseAHazardController.recordAction(target);
-      }
-      effectManager.playBurst({
-        x: canvasManager.virtualWidth * 0.5,
-        y: canvasManager.virtualHeight * 0.65,
-        count: 8,
-        colors: ['#28E6FF', '#FFFFFF'],
-        duration: 0.3,
-      });
-      return;
-    } else if (
-      screenMode === 'game' &&
-      (beatCoordinator.phase === 'KEYNOTE_PERFORMANCE' ||
-        beatCoordinator.phase === 'STAR_COLLECT' ||
-        stateMachine.currentState === 'STAR_COLLECT' ||
-        stateMachine.currentState === 'BOSS_CLIMAX')
-    ) {
-      // Issue #235 & #213: Space 키보드 입력 시 StarNoteScheduler 단일 결과 라우터 연동
-      starNoteScheduler.fromKeyboard(engine.elapsedTime);
-      if (stateMachine.currentState === 'BOSS_CLIMAX' && bossHazardController && !pauseModal.isOpen) {
+    // Browser event listeners [REFACTOR-SRP-001] (Issue #632)
+    const listenerHost: AppEventListenerHost = {
+      canvas: this.canvas,
+      canvasManager,
+      bgmManager,
+      stageBgm,
+      sfx,
+      bandSynth,
+      speech,
+      cameraLayer,
+      ensureCameraStarted,
+      tutorial,
+      pauseModal,
+      locomotionModal,
+      updateLocomotionLabel,
+      settingsModal,
+      bottomBar,
+      get screenMode() { return screenMode; },
+      get menuMode() { return menuMode; },
+      get gamePhase() { return gamePhase; },
+      get selectedChapter() { return selectedChapter; },
+      get currentQuestion() { return currentQuestion; },
+      selectChapter,
+      selectSubLevel,
+      goToMenu,
+      menuRenderer,
+      questionBank,
+      poseManager,
+      presentationAdapter,
+      stateMachine,
+      get answerLocked() { return answerLocked; },
+      beatCoordinator,
+      starNoteScheduler,
+      engine,
+      bossHazardController,
+      phaseAHazardController,
+      assaultWireHelper: this._assaultWireHelper,
+      readyPositionController,
+      runningMatRenderer,
+      effectManager,
+      footKeynoteInput,
+      onRunningStep: () => {
+        totalSteps++;
+        currentQuestion = beatCoordinator.currentQuestion;
+      },
+      onJumpAction: () => {
         totalJumps++;
-        bossHazardController.recordAction('jump');
-      }
-      return;
-    }
-  }
-
-  // C: 카메라 켜기/끄기 단축키
-  if (e.key.toLowerCase() === 'c') {
-    if (cameraLayer.isActive) {
-      cameraLayer.stop();
-      settingsModal.cameraEnabled = false;
-    } else {
-      ensureCameraStarted().catch(() => {});
-      settingsModal.cameraEnabled = true;
-    }
-  }
-
-  // F: 전체화면 전환 단축키
-  if (e.key.toLowerCase() === 'f') {
-    const container = document.getElementById('container') || canvas;
-    if (!document.fullscreenElement) {
-      container.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen().catch(() => {});
-    }
-  }
-
-  if (screenMode === 'game') {
-    // 발 키노트 키보드 fallback (Z: 왼발 9, X: 중앙발 10, V: 오른발 11) - Issue #237: 공통 라우터 경유
-    if (e.key === 'z' || e.key === 'Z') {
-      footKeynoteInput.fromKeyboard('leftFoot', engine.elapsedTime);
-    } else if (e.key === 'x' || e.key === 'X') {
-      footKeynoteInput.fromKeyboard('centerFoot', engine.elapsedTime);
-    } else if (e.key === 'v' || e.key === 'V') {
-      footKeynoteInput.fromKeyboard('rightFoot', engine.elapsedTime);
-    }
-
-    if (!pauseModal.isOpen && presentationAdapter.isAnswerInputAllowed(stateMachine.currentState, answerLocked, beatCoordinator.isAnswerOpen)) {
-      if (e.key === '1') {
-        sfx.play('hover');
-        beatCoordinator.confirmAnswerByFallback(0);
-      } else if (e.key === '2') {
-        sfx.play('hover');
-        beatCoordinator.confirmAnswerByFallback(1);
-      }
-    }
-  } else if (screenMode === 'menu') {
-    if (menuMode === 'main') {
-      const n = parseInt(e.key, 10);
-      if (n >= 1 && n <= 5) {
-        selectChapter(n);
-      }
-    } else {
-      if (e.key === 'Escape' || e.key === 'Backspace' || e.key === '0' || e.key.toLowerCase() === 'b') {
-        selectSubLevel(-1);
-      } else if (e.key.toLowerCase() === 'a') {
-        selectSubLevel(0);
-      } else {
-        const n = parseInt(e.key, 10);
-        const subLevels = questionBank.getSubLevels(selectedChapter);
-        if (n >= 1 && n <= subLevels.length) {
-          selectSubLevel(n);
-        }
-      }
-    }
-  } else if (screenMode === 'result') {
-    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') goToMenu();
-  }
-
+      },
+      handleVisibilityChange: (hidden?: boolean) => {
+        this.handleVisibilityChange(hidden);
+      },
     };
 
-    this._onKeyUp = (e: KeyboardEvent) => {
-      this._assaultWireHelper.handleKeyUp(e);
-    };
+    this._eventListenerManager = new AppEventListenerManager(listenerHost);
+    this._onResize = this._eventListenerManager.onResize;
+    this._onCanvasClick = this._eventListenerManager.onCanvasClick;
 
-    this._onVisibilityChange = () => {
-      this.handleVisibilityChange();
-    };
+    this._onKeyDown = this._eventListenerManager.onKeyDown;
+    this._onKeyUp = this._eventListenerManager.onKeyUp;
+    this._onVisibilityChange = this._eventListenerManager.onVisibilityChange;
 
     this._assaultWireHelper.initAssaultMode();
   }
@@ -2656,17 +2303,7 @@ engine = new GameEngine({
       });
     }
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('resize', this._onResize);
-    }
-    if (typeof document !== 'undefined') {
-      document.addEventListener('keydown', this._onKeyDown);
-      document.addEventListener('keyup', this._onKeyUp);
-      document.addEventListener('visibilitychange', this._onVisibilityChange);
-    }
-    if (this.canvas && typeof this.canvas.addEventListener === 'function') {
-      this.canvas.addEventListener('click', this._onCanvasClick);
-    }
+    this._eventListenerManager.attachListeners(this.canvas);
 
     this._isInitialized = true;
   }
@@ -2685,18 +2322,7 @@ engine = new GameEngine({
     this.engine.stop();
 
     this._assaultWireHelper.dispose();
-
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('resize', this._onResize);
-    }
-    if (typeof document !== 'undefined') {
-      document.removeEventListener('keydown', this._onKeyDown);
-      document.removeEventListener('keyup', this._onKeyUp);
-      document.removeEventListener('visibilitychange', this._onVisibilityChange);
-    }
-    if (this.canvas && typeof this.canvas.removeEventListener === 'function') {
-      this.canvas.removeEventListener('click', this._onCanvasClick);
-    }
+    this._eventListenerManager.detachListeners();
 
     this.cameraLayer.stop();
     this._isRunning = false;
