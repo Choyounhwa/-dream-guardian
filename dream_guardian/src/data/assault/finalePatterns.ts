@@ -16,6 +16,7 @@ import type {
   AssaultEncounterDef,
   ProfileId,
 } from '../../types/assault.js';
+import { deepFreeze } from '../../utils/deepFreeze.js';
 
 /**
  * 근접 결전 패턴 인터페이스 (Assault Approach Pattern 호환)
@@ -29,18 +30,6 @@ export interface AssaultFinalePattern {
   readonly balanceProfileId?: ProfileId;
   readonly totalBeats: number;
   readonly encounters: readonly AssaultEncounterDef[];
-}
-
-/**
- * 깊은 동결 헬퍼 (Deep Freeze)
- */
-function deepFreeze<T extends object>(obj: T): Readonly<T> {
-  for (const value of Object.values(obj)) {
-    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-      deepFreeze(value);
-    }
-  }
-  return Object.freeze(obj);
 }
 
 /**

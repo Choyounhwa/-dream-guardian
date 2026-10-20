@@ -35,6 +35,7 @@ import {
   validateAssaultPlan,
   type AssaultValidationError,
 } from './AssaultPlanValidator.js';
+import { deepFreeze } from '../../utils/deepFreeze.js';
 
 /** 기본 표준 컴파일 BPM */
 export const DEFAULT_ASSAULT_BPM = 120;
@@ -226,20 +227,6 @@ export function secondsToBeat(seconds: number, bpm: number): number {
     return 0;
   }
   return (seconds * bpm) / 60;
-}
-
-/**
- * 재귀적 객체 동결 유틸리티 (Deep Freeze)
- */
-function deepFreeze<T extends object>(obj: T): Readonly<T> {
-  const propNames = Object.getOwnPropertyNames(obj) as (keyof T)[];
-  for (const name of propNames) {
-    const value = obj[name];
-    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-      deepFreeze(value);
-    }
-  }
-  return Object.freeze(obj);
 }
 
 /**

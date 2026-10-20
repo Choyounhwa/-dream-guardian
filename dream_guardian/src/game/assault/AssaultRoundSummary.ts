@@ -29,6 +29,8 @@ import type {
   AssaultEncounterKind,
 } from '../../types/assault.js';
 import type { AssaultSettlementReceipt } from './AssaultSettlement.js';
+import { deepFreeze } from '../../utils/deepFreeze.js';
+export { deepFreeze };
 
 // ─── 1. 타입 및 인터페이스 정의 ───
 
@@ -98,21 +100,6 @@ export interface AssaultRoundSummaryData {
   readonly processedAttackIds: readonly AttackId[];
   /** 집계된 고유 receiptId 목록 */
   readonly processedReceiptIds: readonly string[];
-}
-
-/** 깊은 동결 헬퍼 함수 */
-export function deepFreeze<T>(obj: T): Readonly<T> {
-  if (obj === null || typeof obj !== 'object') {
-    return obj;
-  }
-  Object.freeze(obj);
-  for (const key of Object.getOwnPropertyNames(obj)) {
-    const val = (obj as Record<string, unknown>)[key];
-    if (val !== null && (typeof val === 'object' || typeof val === 'function') && !Object.isFrozen(val)) {
-      deepFreeze(val);
-    }
-  }
-  return obj as Readonly<T>;
 }
 
 // ─── 2. 불변 라운드 요약 클래스 ───

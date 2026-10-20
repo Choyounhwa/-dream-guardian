@@ -16,6 +16,7 @@
 
 import type { AssaultAnswerSide } from '../types/assault.js';
 import type { GeneratedQuestion } from '../types/index.js';
+import { deepFreeze } from '../utils/deepFreeze.js';
 
 // ─── 1. 에러 클래스 ───
 
@@ -64,18 +65,6 @@ export interface CreateAnswerPairsOptions {
 }
 
 // ─── 3. 내부 유틸리티 및 PRNG ───
-
-/** 깊은 불변화 헬퍼 */
-function deepFreeze<T extends object>(obj: T): Readonly<T> {
-  Object.freeze(obj);
-  for (const key of Object.keys(obj)) {
-    const value = (obj as any)[key];
-    if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
-      deepFreeze(value);
-    }
-  }
-  return obj;
-}
 
 /** 결정론적 32비트 PRNG (Mulberry32) */
 function createMulberry32(seed: number): () => number {

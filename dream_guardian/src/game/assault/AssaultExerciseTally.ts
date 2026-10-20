@@ -23,6 +23,8 @@
  */
 
 import type { InputId } from '../../types/assault.js';
+import { deepFreeze } from '../../utils/deepFreeze.js';
+export { deepFreeze };
 
 // ─── 1. 상수 정의 ───
 
@@ -102,23 +104,6 @@ export interface AssaultLegacyResultPatch {
 /** 집계기 생성 옵션 */
 export interface AssaultExerciseTallyOptions {
   readonly initialActiveDurationSeconds?: number;
-}
-
-// ─── 3. 헬퍼 함수 ───
-
-/** 깊은 동결 불변화 함수 */
-export function deepFreeze<T>(obj: T): Readonly<T> {
-  if (obj === null || typeof obj !== 'object') {
-    return obj;
-  }
-  Object.freeze(obj);
-  for (const key of Object.getOwnPropertyNames(obj)) {
-    const val = (obj as Record<string, unknown>)[key];
-    if (val !== null && (typeof val === 'object' || typeof val === 'function') && !Object.isFrozen(val)) {
-      deepFreeze(val);
-    }
-  }
-  return obj as Readonly<T>;
 }
 
 // ─── 4. 실측 운동량 순수 집계 클래스 ───

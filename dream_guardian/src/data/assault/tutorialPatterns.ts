@@ -11,18 +11,7 @@
  */
 
 import type { AssaultApproachPattern } from './approachPatterns.js';
-
-/**
- * 객체 깊은 동결 헬퍼 (Deep Freeze)
- */
-function deepFreeze<T extends object>(obj: T): Readonly<T> {
-  for (const value of Object.values(obj)) {
-    if (value && typeof value === 'object') {
-      deepFreeze(value);
-    }
-  }
-  return Object.freeze(obj);
-}
+import { deepFreeze } from '../../utils/deepFreeze.js';
 
 /** 3단계 느린 실전 라운드 기준 BPM */
 export const TUTORIAL_SLOW_ROUND_BPM = 60;

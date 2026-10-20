@@ -25,6 +25,7 @@ import {
   SUPPORTED_RUNTIME_VERSIONS,
   V2_PUBLISHABLE_CAPABILITY_PROFILE,
 } from '../data/ContentCapabilities.js';
+import { deepFreeze } from '../utils/deepFreeze.js';
 
 const EXPECTED_RULESET_HASH = computeContentHash(V2_PUBLISHABLE_CAPABILITY_PROFILE);
 
@@ -106,20 +107,6 @@ export interface ContentLoadServiceConfig {
   defaultStore?: IPublishedContentStore;
   allowedOrigin?: string;
   defaultFallbackPack?: PublishedContentPack;
-}
-
-function deepFreeze<T>(obj: T): T {
-  if (obj === null || typeof obj !== 'object' || Object.isFrozen(obj)) {
-    return obj;
-  }
-  Object.freeze(obj);
-  for (const key of Object.keys(obj)) {
-    const val = (obj as Record<string, unknown>)[key];
-    if (typeof val === 'object' && val !== null) {
-      deepFreeze(val);
-    }
-  }
-  return obj;
 }
 
 /**

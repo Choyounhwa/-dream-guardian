@@ -28,6 +28,7 @@ import {
   UI_DESIGN_CANVAS,
 } from '../data/UIPresentation.js';
 import { validateUIPresentationDocument } from '../data/UIPresentationValidator.js';
+import { deepFreeze } from '../utils/deepFreeze.js';
 import { computeContentHash } from '../data/ContentCanonical.js';
 
 export const DEFAULT_RENDERER_CAPABILITY = 'menu-renderer-v1' as const;
@@ -248,20 +249,6 @@ function cleanUndefined<T>(value: T): T {
     return out as T;
   }
   return value;
-}
-
-function deepFreeze<T>(obj: T): Readonly<T> {
-  if (obj === null || typeof obj !== 'object' || Object.isFrozen(obj)) {
-    return obj as Readonly<T>;
-  }
-  Object.freeze(obj);
-  for (const key of Object.keys(obj)) {
-    const val = (obj as any)[key];
-    if (val !== null && typeof val === 'object' && !Object.isFrozen(val)) {
-      deepFreeze(val);
-    }
-  }
-  return obj as Readonly<T>;
 }
 
 function deepClone<T>(obj: T): T {
