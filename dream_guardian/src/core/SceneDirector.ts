@@ -15,11 +15,11 @@ import { drawJoinedHandsCursor, PostureGuideRenderer } from '../render/index.js'
 import type { RunningMatRenderer } from '../render/RunningMatRenderer.js';
 import { RunningMatPresenter, presentRunningMat } from '../render/RunningMatPresenter.js';
 import { LOCOMOTION_MODES, type BottomBarSlot } from '../ui/index.js';
-import { toNormalizedLandmarks } from '../utils/index.js';
 import type { Keynote } from '../types/keynote.js';
 import type { PhaseAHazardPattern } from '../game/PhaseAHazardController.js';
 import { AssaultSceneRenderer } from '../render/AssaultSceneRenderer.js';
 import { AssaultSceneHandler } from './director/AssaultSceneHandler.js';
+import { SceneMotionCoordinator } from './director/SceneMotionCoordinator.js';
 
 // Polyfill static present on RunningMatPresenter for #373 if needed
 if (typeof (RunningMatPresenter as any).present !== 'function') {
@@ -135,6 +135,7 @@ export interface SceneDirectorOptions<TContext = any> {
   sessionContext?: GameSessionContext;
   initialScene?: SceneId;
   assaultHandler?: AssaultSceneHandler;
+  motionCoordinator?: SceneMotionCoordinator;
   onSceneChange?: (from: SceneId, to: SceneId) => void;
   onError?: (error: Error, phase: 'update' | 'render' | 'transition', scene: SceneId) => void;
   beforeUpdate?: (dt: number, context?: TContext) => void;
@@ -269,11 +270,20 @@ export class SceneDirector<TContext = any> {
   private _layers: RenderLayer<TContext>[] = [];
   private readonly _options: SceneDirectorOptions<TContext>;
   private readonly _assaultHandler: AssaultSceneHandler;
+  private readonly _motionCoordinator: SceneMotionCoordinator;
 
   // 메인 루프 임시 프레임 캐시
   private _frameHoverTarget: { x: number; y: number } | null = null;
   private _currentKneeFraming: any = null;
   private readonly _assaultSceneRenderer = new AssaultSceneRenderer();
+
+  public get motionCoordinator(): SceneMotionCoordinator {
+    return this._motionCoordinator;
+  }
+
+  public get currentKneeFraming(): any {
+    return this._motionCoordinator.currentKneeFraming ?? this._currentKneeFraming;
+  }
 
   public isAssaultMode(ctx?: MainSceneContext): boolean {
     return this._assaultHandler.isAssaultMode(ctx, this._sessionContext);
@@ -301,6 +311,7 @@ export class SceneDirector<TContext = any> {
         sessionContextProvider: () => this._sessionContext,
         assaultSceneRenderer: this._assaultSceneRenderer,
       });
+    this._motionCoordinator = this._options.motionCoordinator ?? new SceneMotionCoordinator();
   }
 
   /** 현재 활성 씬 식별자 */
@@ -568,181 +579,13 @@ export class SceneDirector<TContext = any> {
 
   /** 모션 & 카메라 파이프라인 처리 */
   private _processMotionPipeline(dt: number, ctx: MainSceneContext): void {
-    const vw = ctx.canvasManager.virtualWidth;
-    const vh = ctx.canvasManager.virtualHeight;
-
-    if (ctx.cameraLayer.isActive && ctx.cameraLayer.videoElement) {
-      ctx.poseManager.send(ctx.cameraLayer.videoElement, performance.now()).catch(() => {});
-    }
-
-    let sourceLandmarks: any[] = [];
-
-    if (ctx.poseManager.hasPose) {
-      ctx.skeletonAnimation.update(dt, ctx.poseManager.virtualLandmarks);
-      sourceLandmarks =
-        ctx.skeletonAnimation.smoothedLandmarks.length >= 25
-          ? ctx.skeletonAnimation.smoothedLandmarks
-          : ctx.poseManager.virtualLandmarks;
-
-      ctx.stickmanRenderer.update(
-        dt,
-        sourceLandmarks,
-        ctx.skeletonAnimation.breathScale,
-        { virtualWidth: vw, virtualHeight: vh },
-      );
-
-      // Issue #140: 모든 장면(메뉴·달리기·문제·결과)에서 4색 커서가 상시 유지되도록 매 프레임 커서 트래커 갱신
-      if (sourceLandmarks.length >= 25) {
-        const jointMap: Record<number, { x: number; y: number }> = {};
-        for (let i = 0; i < sourceLandmarks.length; i++) {
-          const lm = sourceLandmarks[i];
-          if ((lm.visibility ?? 0) >= 0.3) {
-            jointMap[i] = { x: lm.x, y: lm.y };
-          }
-        }
-        ctx.skeletonEffect.recordJointPositions(jointMap);
-
-        const tracker = ctx.answerSelector?.cursorTracker ?? ctx.cursorTracker;
-        tracker?.update(
-          sourceLandmarks,
-          undefined,
-          false,
-          { isVirtual: true, virtualWidth: vw, virtualHeight: vh },
-        );
-      }
-
-      // Issue #171 & #172: X자 교차 제스처 갱신 (서브메뉴 뒤로가기 & 인게임 일시정지 - DEC-B4: assault 모드 억제)
-      if (sourceLandmarks.length >= 17) {
-        const xResult = ctx.xGestureDetector.update(sourceLandmarks, dt);
-        if (xResult.triggered) {
-          if (ctx.state.screenMode === 'menu' && ctx.state.menuMode === 'sub') {
-            ctx.actions.selectSubLevel(-1);
-          } else if (ctx.state.screenMode === 'game' && !this._isAssaultMode(ctx)) {
-            ctx.pauseModal.toggle();
-            ctx.sfx.play('hover');
-          }
-        }
-      }
-
-      // 사용자 신체 기준선 자동 보정 (Issue #238 / BUG-JUMP-BASELINE-001)
-      if (sourceLandmarks.length >= 25 && !ctx.calibrationHelper.isDone) {
-        ctx.calibrationHelper.update(dt, sourceLandmarks);
-      }
-
-      const userBaselineY = ctx.calibrationHelper.isDone
-        ? ctx.calibrationHelper.baselineShoulderY
-        : vh * 0.28;
-
-      const isSafetyGuarded = ctx.menuInput.isActive || ctx.pauseModal.isOpen;
-      const activeDetector = ctx.getActiveLocomotionDetector
-        ? ctx.getActiveLocomotionDetector()
-        : (ctx.locomotionDetectors[ctx.locomotionModal.selectedMode] ?? ctx.runDetector);
-
-      const time = performance.now() / 1000;
-      const stepped = activeDetector.update(
-        sourceLandmarks,
-        userBaselineY,
-        time,
-        vh,
-      );
-      const jumped = ctx.jumpDetector.update(
-        sourceLandmarks,
-        userBaselineY,
-        vh,
-        dt,
-        {
-          isPaused: ctx.pauseModal.isOpen,
-          isSafetyGuarded,
-          isCalibrated: ctx.calibrationHelper.isDone,
-        },
-      );
-
-      ctx.motionIntentBus.processLandmarks(sourceLandmarks, dt, time, {
-        baselineY: userBaselineY,
-        virtualHeight: vh,
-        isPaused: ctx.pauseModal.isOpen,
-      });
-
-      // 공통 포즈 입력을 assault 세션 어댑터에 라우팅
-      if (this._isAssaultMode(ctx)) {
-        this._assaultHandler.handlePose(sourceLandmarks, ctx, dt);
-      }
-
-      if (stepped && !this._isAssaultMode(ctx) && ctx.state.screenMode === 'game' && ctx.state.gamePhase === 'running' && !ctx.pauseModal.isOpen) {
-        ctx.state.totalSteps++;
-        ctx.beatCoordinator.recordStep();
-        ctx.runningMatRenderer?.triggerMotionHit?.();
-        ctx.effectManager.playBurst({
-          x: vw * 0.5,
-          y: vh * 0.65,
-          count: 8,
-          colors: ['#28E6FF', '#4DFFAA'],
-          duration: 0.3,
-        });
-      }
-
-      if (jumped && !this._isAssaultMode(ctx) && ctx.state.screenMode === 'game' && !ctx.pauseModal.isOpen) {
-        ctx.state.totalJumps++;
-        if (ctx.stateMachine.currentState === 'HAZARD_EVADE') {
-          if (ctx.phaseAHazardController.activePattern === 'jump') {
-            ctx.phaseAHazardController.recordAction('jump');
-            ctx.sfx.play('jump_whoosh');
-          }
-        } else if (ctx.stateMachine.currentState === 'BOSS_CLIMAX' && ctx.bossHazardController) {
-          if (ctx.bossHazardController.recordAction('jump')) {
-            ctx.sfx.play('jump_whoosh');
-          }
-        }
-        ctx.effectManager.playBurst({
-          x: vw * 0.5,
-          y: vh * 0.65,
-          count: 10,
-          colors: ['#28E6FF', '#FFFFFF'],
-          duration: 0.3,
-        });
-      }
-    } else {
-      ctx.skeletonAnimation.reset();
-      const isRunning = ctx.state.screenMode === 'game' && ctx.state.gamePhase === 'running' && !ctx.pauseModal.isOpen;
-      ctx.stickmanRenderer.updateFallback(dt, isRunning);
-      ctx.motionIntentBus.reset();
-      Object.values(ctx.locomotionDetectors).forEach((d: any) => d.reset());
-      ctx.jumpDetector.reset();
-      ctx.menuInput.reset();
-      ctx.xGestureDetector.reset();
-      ctx.state.menuHoverItem = null;
-      ctx.state.menuHoverTimer = 0;
-    }
-
-    const tracker = ctx.answerSelector?.cursorTracker ?? ctx.cursorTracker;
-    const leftHand = tracker?.getCursor('leftHand');
-    const rightHand = tracker?.getCursor('rightHand');
-
-    // Issue #169 & #172: 전 화면(menu, game, result) 공통 매 프레임 양손 합장 제스처 갱신 및 문제선택/모달 일시정지 동기화
-    if (leftHand && rightHand) {
-      ctx.menuInput.update(leftHand.x, leftHand.y, rightHand.x, rightHand.y);
-    } else {
-      ctx.menuInput.reset();
-    }
-    if (ctx.answerSelector) {
-      ctx.answerSelector.paused = ctx.menuInput.isActive || ctx.pauseModal.isOpen;
-    }
-
-    let hoverTarget: { x: number; y: number } | null = null;
-
-    if (ctx.menuInput.isActive) {
-      hoverTarget = { x: ctx.menuInput.cursorX * vw, y: ctx.menuInput.cursorY * vh };
-    } else if (leftHand || rightHand) {
-      if (leftHand && rightHand) {
-        hoverTarget = leftHand.y > rightHand.y
-          ? { x: leftHand.x, y: leftHand.y }
-          : { x: rightHand.x, y: rightHand.y };
-      } else {
-        const h = leftHand || rightHand!;
-        hoverTarget = { x: h.x, y: h.y };
-      }
-    }
-    this._frameHoverTarget = hoverTarget;
+    const isAssault = this._isAssaultMode(ctx);
+    const result = this._motionCoordinator.process(dt, ctx, {
+      isAssaultMode: isAssault,
+      assaultHandler: this._assaultHandler,
+    });
+    this._frameHoverTarget = result.frameHoverTarget;
+    this._currentKneeFraming = result.kneeFraming;
   }
 
   /** 모달 및 하단 바 호버 처리 */
@@ -933,58 +776,10 @@ export class SceneDirector<TContext = any> {
         ? ctx.skeletonAnimation.smoothedLandmarks
         : ctx.poseManager.virtualLandmarks;
 
-    // Issue #206 & #246: 무릎 프레이밍 유효성 검사 및 정렬 가이드 시각화
-    const currentKneeFraming = ctx.kneeFramingValidator
-      ? ctx.kneeFramingValidator.update(
-          dt,
-          sourceLandmarks,
-          ctx.canvasManager.virtualWidth,
-          ctx.canvasManager.virtualHeight,
-        )
-      : (ctx.kneeFraming ? ctx.kneeFraming.update(sourceLandmarks, ctx.canvasManager.virtualHeight) : { isFootKeynotePoseInputAllowed: true, status: 'ready' as const });
-    this._currentKneeFraming = currentKneeFraming;
-
-    if (ctx.kneeFramingGuideRenderer) {
-      ctx.kneeFramingGuideRenderer.update(dt);
-    }
-
-    if (ctx.stateMachine.currentState === 'READY_POSITION') {
-      ctx.readyPositionController.setPaused(ctx.pauseModal.isOpen);
-      const isAligned =
-        currentKneeFraming.status === 'ready' ||
-        ctx.readyPositionController.checkAlignment(
-          sourceLandmarks,
-          ctx.canvasManager.virtualWidth,
-          ctx.canvasManager.virtualHeight,
-        );
-      ctx.readyPositionController.setAligned(isAligned);
-      ctx.readyPositionController.update(dt);
-    }
-
-    // Issue #205 & #237: 가상 픽셀 좌표(0~1080 / 0~2160)를 정규화 좌표계(0~1)로 비파괴 변환하여 전달
-    const normalizedLandmarks =
-      sourceLandmarks.length >= 25
-        ? (ctx.toNormalizedLandmarks
-            ? ctx.toNormalizedLandmarks(sourceLandmarks, ctx.canvasManager.virtualWidth, ctx.canvasManager.virtualHeight)
-            : toNormalizedLandmarks(sourceLandmarks, ctx.canvasManager.virtualWidth, ctx.canvasManager.virtualHeight))
-        : null;
-
-    // 발 키노트 감지 (Issue #197, #206, #237: 정규화 좌표 전달, 프레이밍/합장/pause 안전 가드 및 공통 라우터 경유)
-    const isSafetyGuarded = ctx.menuInput.isActive || ctx.pauseModal.isOpen;
-    ctx.footKeynoteInput.setSafetyGuarded(isSafetyGuarded);
-    const footEvents = ctx.footKeynoteDetector.update(
-      dt,
-      normalizedLandmarks,
-      ctx.engine?.elapsedTime ?? 0,
-      {
-        isSafetyGuarded,
-        isPoseInputAllowed: currentKneeFraming.isFootKeynotePoseInputAllowed,
-        virtualHeight: 1,
-      },
-    );
-    for (const event of footEvents) {
-      ctx.footKeynoteInput.routeEvent(event);
-    }
+    // Issue #206 & #246 & #635: 무릎 프레이밍 유효성 검사, 정렬 가이드 및 발 키노트 감지 위임
+    const framingResult = this._motionCoordinator.processFramingAndFootKeynotes(dt, ctx, sourceLandmarks);
+    this._currentKneeFraming = framingResult.kneeFraming;
+    const normalizedLandmarks = framingResult.normalizedLandmarks;
 
     const sampleTime = ctx.engine?.elapsedTime ?? 0;
     const stampedLandmarks = normalizedLandmarks
