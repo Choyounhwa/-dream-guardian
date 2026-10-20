@@ -2,6 +2,25 @@
 
 본 문서는 사용자가 이후 작업을 바로 이어서 진행할 수 있도록 프로젝트의 전체 맥락, 파일 구성, 구현 완료 현황, 실행 방법 및 다음 개발 과제를 정리한 문서입니다.
 
+## 🧭 전체 소스 코드 중복 제거(DRY) 및 단일 책임(SRP) 모듈화 로드맵 (SSOT)
+
+| 작업 ID | GitHub Issue | 카드 제목 | 대상 파일 | 우선순위 | 진행 상태 |
+|---|---|---|---|---|---|
+| **REFACTOR-DRY-001** | [#628](https://github.com/Choyounhwa/-dream-guardian/issues/628) | `deepFreeze` 유틸리티 단일화 및 11개 파일 중복 제거 | `src/utils/deepFreeze.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-DRY-002** | [#629](https://github.com/Choyounhwa/-dream-guardian/issues/629) | SHA-256 암호화 해시 및 16진수 변환 유틸리티 단일화 | `src/utils/crypto.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-DRY-003** | [#630](https://github.com/Choyounhwa/-dream-guardian/issues/630) | Web AudioContext 팩토리 및 사운드 합성기 공통 로직 추출 | `src/audio/AudioContextFactory.ts` (신규) | P2-Medium | `[▶ NEXT]` |
+| **REFACTOR-DRY-004** | [#631](https://github.com/Choyounhwa/-dream-guardian/issues/631) | 프레젠테이션 슬롯 오버라이드 베이스 인터페이스 공통화 | `src/types/presentation.ts` (신규) | P2-Medium | `대기` |
+| **REFACTOR-SRP-001** | [#632](https://github.com/Choyounhwa/-dream-guardian/issues/632) | `AppBootstrap` 전역 DOM/윈도우 이벤트 리스너 관리자 분리 | `src/core/bootstrap/AppEventListenerManager.ts` (신규) | P1-High | `대기` |
+| **REFACTOR-SRP-002** | [#633](https://github.com/Choyounhwa/-dream-guardian/issues/633) | `AppBootstrap` 전투·스펠·보스 피격 애니메이션 이벤트 바인더 분리 | `src/core/bootstrap/AppBattleEventBinder.ts` (신규) | P1-High | `대기` |
+| **REFACTOR-SRP-003** | [#634](https://github.com/Choyounhwa/-dream-guardian/issues/634) | `AppBootstrap` 스테이지 진행도 및 하이스코어 영속성 관리자 분리 | `src/core/bootstrap/AppPersistenceManager.ts` (신규) | P1-High | `대기` |
+| **REFACTOR-SRP-004** | [#635](https://github.com/Choyounhwa/-dream-guardian/issues/635) | `SceneDirector` 모션 인식 파이프라인 및 신체 프레이밍 처리기 분리 | `src/core/director/SceneMotionCoordinator.ts` (신규) | P1-High | `대기` |
+| **REFACTOR-SRP-005** | [#636](https://github.com/Choyounhwa/-dream-guardian/issues/636) | `SceneDirector` 7계층 캔버스 레이어 렌더링 디스패처 분리 | `src/core/director/SceneRenderOrchestrator.ts` (신규) | P1-High | `대기` |
+| **REFACTOR-SRP-006** | [#637](https://github.com/Choyounhwa/-dream-guardian/issues/637) | `ContentLoadService` 스키마 무결성 검증기 및 캐시 관리자 분리 | `src/core/content/ContentPackValidator.ts` (신규) | P1-High | `대기` |
+| **REFACTOR-SRP-007** | [#638](https://github.com/Choyounhwa/-dream-guardian/issues/638) | `MenuRenderer` 3대 메뉴 서브 렌더러 및 충돌 판정기(HitTester) 분리 | `src/ui/menu/MenuHitTester.ts` (신규) 등 | P1-High | `대기` |
+| **REFACTOR-SRP-008** | [#639](https://github.com/Choyounhwa/-dream-guardian/issues/639) | `HazardZoneRenderer` 3D 원근 투영 기하 계산기 분리 | `src/render/hazard/HazardGeometryCalculator.ts` (신규) | P1-High | `대기` |
+| **REFACTOR-SRP-009** | [#640](https://github.com/Choyounhwa/-dream-guardian/issues/640) | `BeatRunCoordinator` 비트 동기화 및 모션 노트 평가 오케스트레이터 분리 | `src/game/beat/BeatTimelineSynchronizer.ts` (신규) | P1-High | `대기` |
+
+
 ## 2026-10-19 카드 등록 인계 — BOSS-ASSAULT 런타임 복구 (구현 승인 아님)
 
 - **등록 완료 ID**: BOSS-ASSAULT-REC-00~26, 실제 GitHub **#588~#614 27개**, 전부 OPEN / 개별 실행 승인 대기. 번호·정확한 제목·URL·직접 선행/차단: [DOC-16 원장](../docs/16_BOSS_ASSAULT_RUNTIME_RECOVERY_CARDS.md), [본문 원본](../docs/assault-runtime-recovery/). 기존 #502 트랙과 연관되지만 독립 복구 트랙이며 새 NEXT를 지정하지 않는다.
