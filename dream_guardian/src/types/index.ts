@@ -299,6 +299,7 @@ export * from './motion-intent.js';
 export * from './motion-note.js';
 export * from './story.js';
 export * from './track.js';
+export * from './presentation.js';
 
 // ─── UI Design Tokens & Layout Types (Issue #256 / UI-TOKEN-001) ───
 export type {

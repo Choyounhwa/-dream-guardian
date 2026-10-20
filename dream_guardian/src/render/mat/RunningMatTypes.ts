@@ -9,6 +9,7 @@ import type {
   UIPresentationDocument,
   UIPresentationPageId,
 } from '../../data/UIPresentation.js';
+import type { BaseSlotOverride } from '../../types/presentation.js';
 
 export interface Point2D {
   x: number;
@@ -25,20 +26,9 @@ export interface RunningMatBounds {
   isProtected?: boolean;
 }
 
-export interface RunningMatSlotOverride {
-  x?: number;
-  y?: number;
-  w?: number;
-  h?: number;
-  color?: string;
-  borderColor?: string;
-  borderWidth?: number;
+export interface RunningMatSlotOverride extends BaseSlotOverride {
   backgroundColor?: string;
-  glowColor?: string;
   glowWidth?: number;
-  text?: string;
-  fontSize?: number;
-  visible?: boolean;
 }
 
 export interface RunningMatPresentationContext {

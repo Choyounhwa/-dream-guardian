@@ -12,6 +12,7 @@
 
 import type { PhaseAHazardPattern } from '../../config/phase-a-hazard.config.js';
 import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
+import type { BaseSlotOverride } from '../types/presentation.js';
 import { UI_LAYOUT } from '../../config/ui.config.js';
 import { depthRatioFromY, laneToScreenX } from './GridProjection.js';
 import { MotionNoteRenderer } from './MotionNoteRenderer.js';
@@ -32,22 +33,7 @@ export interface HazardBounds {
   isProtected?: boolean;
 }
 
-export interface HazardSlotOverride {
-  text?: string;
-  color?: string;
-  textColor?: string;
-  fillColor?: string;
-  borderColor?: string;
-  borderWidth?: number;
-  glowColor?: string;
-  fontSize?: number;
-  visible?: boolean;
-  opacity?: number;
-  x?: number;
-  y?: number;
-  w?: number;
-  h?: number;
-}
+export interface HazardSlotOverride extends BaseSlotOverride {}
 
 export interface HazardPresentationContext {
   presentationDocument?: UIPresentationDocument;

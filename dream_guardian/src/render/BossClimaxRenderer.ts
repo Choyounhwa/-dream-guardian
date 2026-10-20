@@ -20,6 +20,7 @@ import { createDefaultPainterRegistry } from './note-painters/NotePainters.js';
 import { DEFAULT_NOTE_PROFILES } from '../../config/motion-note-profile.config.js';
 import { BossClimaxEffectRenderer } from './climax/BossClimaxEffectRenderer.js';
 import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
+import type { BaseSlotOverride } from '../types/presentation.js';
 import { UI_LAYOUT } from '../../config/ui.config.js';
 
 function clampTextScale(scale: number | undefined, fallback: number = 1.0): number {
@@ -59,22 +60,7 @@ export interface BossClimaxBounds {
   isProtected?: boolean;
 }
 
-export interface BossClimaxSlotOverride {
-  text?: string;
-  color?: string;
-  textColor?: string;
-  fillColor?: string;
-  borderColor?: string;
-  borderWidth?: number;
-  glowColor?: string;
-  fontSize?: number;
-  visible?: boolean;
-  opacity?: number;
-  x?: number;
-  y?: number;
-  w?: number;
-  h?: number;
-}
+export interface BossClimaxSlotOverride extends BaseSlotOverride {}
 
 export interface BossClimaxPresentationContext {
   presentationDocument?: UIPresentationDocument;
