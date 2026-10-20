@@ -38,17 +38,23 @@ import {
   ReplaceProjectCommand,
   UpdateMetadataCommand,
   deepClone,
+  type CommandExecutionResult,
 } from './ProjectCommands.js';
+import {
+  EditorHistoryManager,
+  type EditorHistoryHost,
+  type StageCoverageStatusKind,
+  type StageCoverageItem,
+  type StageCoverageReport,
+  type ProjectPublicationStatus,
+  type BindingValidationResult,
+  type BossClimaxDiagnosisResult,
+  DEFAULT_EDITOR_BINDINGS,
+} from './EditorHistoryManager.js';
 import type {
   EditorProject,
-  EditorPattern,
   EditorSequence,
   EditorBinding,
-  StarNoteEvent,
-  FeverNoteEvent,
-  MotionCueEvent,
-  PhaseAHazardEvent,
-  PhaseBHazardEvent,
   EditorProjectMetadata,
 } from '../data/EditorProject.js';
 import {
@@ -118,40 +124,14 @@ export interface PhaseAHazardScheduleDisplay {
   totalDurationBeats: number;
 }
 
-export type StageCoverageStatusKind = 'bound' | 'builtin' | 'missing' | 'partial';
-
-export interface StageCoverageItem {
-  chapterId: string;
-  status: StageCoverageStatusKind;
-  isComplete: boolean;
-  builtinProfile: string | null;
-  boundPhases: string[];
-  bindingCount: number;
-}
-
-export interface StageCoverageReport {
-  isComplete: boolean;
-  stages: StageCoverageItem[];
-  boundStages: string[];
-  builtinStages: string[];
-  missingStages: string[];
-  partialStages: string[];
-}
-
-export interface ProjectPublicationStatus {
-  isDraft: boolean;
-  savedRevision: number;
-  currentRevision: number;
-  isPublished: boolean;
-  isClean: boolean;
-}
-
-export interface BindingValidationResult {
-  valid: boolean;
-  errors: string[];
-  diagnosticCode?: string;
-  compoundKey?: string;
-}
+export type {
+  StageCoverageStatusKind,
+  StageCoverageItem,
+  StageCoverageReport,
+  ProjectPublicationStatus,
+  BindingValidationResult,
+  BossClimaxDiagnosisResult,
+};
 
 export type StarSlotLockCode =
   | 'LOCKED_INPUT_CAPABILITY'
@@ -240,13 +220,7 @@ export interface FeverSlotItem {
   isStandard?: boolean;
 }
 
-export interface BossClimaxDiagnosisResult {
-  chapterId: string;
-  isComplete: boolean;
-  hasFeverNotes: boolean;
-  hasHazard: boolean;
-  missingRoles: string[];
-}
+
 
 export interface PatternApplicationDiff {
   targetPhase: PhaseType;
@@ -279,7 +253,7 @@ export interface EditorListener {
   onDocumentChange?: () => void;
 }
 
-export class EditorState {
+export class EditorState implements EditorHistoryHost {
   private _bpm: number = 95;
   private _selectedPatternId: string = 'CAT_LOW_BOUNCE';
   private _selectedPhase: PhaseType = 'RUN_QUESTION';
@@ -305,57 +279,7 @@ export class EditorState {
   private _phaseBHazardSequenceId: string = 'seq_phaseB_hazard';
   private _phaseBHazardAttacks: PhaseBHazardAttackItem[] = [];
   private _phaseBHazardAttackCounter: number = 1;
-  private _bindings: EditorBinding[] = [
-    {
-      chapterId: 'ch1',
-      subLevelId: 'star_collect',
-      phase: 'phaseA',
-      sequenceId: 'seq_phaseA_star',
-      role: 'starNotes',
-    },
-    {
-      chapterId: 'ch1',
-      subLevelId: 'run_question',
-      phase: 'phaseA',
-      sequenceId: 'seq_phaseA_motion',
-      role: 'motionGuide',
-    },
-    {
-      chapterId: 'ch1',
-      subLevelId: 'answer_select',
-      phase: 'phaseA',
-      sequenceId: 'seq_phaseA_answer',
-      role: 'motionGuide',
-    },
-    {
-      chapterId: 'ch1',
-      subLevelId: 'fever_phase_b',
-      phase: 'phaseB',
-      sequenceId: 'seq_phaseB_motion',
-      role: 'motionGuide',
-    },
-    {
-      chapterId: 'ch1',
-      subLevelId: 'fever_phase_b',
-      phase: 'phaseB',
-      sequenceId: 'seq_phaseB_fever',
-      role: 'feverNotes',
-    },
-    {
-      chapterId: 'ch1',
-      subLevelId: null,
-      phase: 'phaseA',
-      sequenceId: 'seq_phaseA_hazard',
-      role: 'hazard',
-    },
-    {
-      chapterId: 'ch1',
-      subLevelId: null,
-      phase: 'phaseB',
-      sequenceId: 'seq_phaseB_hazard',
-      role: 'hazard',
-    },
-  ];
+  private _bindings: EditorBinding[] = DEFAULT_EDITOR_BINDINGS.map((b) => ({ ...b }));
   private _customSequences: EditorSequence[] = [];
   private _stageBuiltinProfiles: Record<string, string> = {};
   private _rulesetId: string = 'dg-ruleset-v2';
@@ -372,7 +296,7 @@ export class EditorState {
   private readonly _sequenceEditor: PhaseSequenceEditor;
   private readonly _simulator: ChoreoPoseSimulator = choreoPoseSimulator;
   private readonly _listeners: Set<EditorListener> = new Set();
-  private _commandManager?: ProjectCommandManager;
+  private readonly _historyManager: EditorHistoryManager;
 
   constructor(
     initialRegistry?: DancePatternRegistry,
@@ -383,14 +307,7 @@ export class EditorState {
     this._sequenceEditor = initialSequenceEditor ?? new PhaseSequenceEditor();
     this.initDefaultFeverSlots();
     this.initDefaultPhaseBHazardAttacks();
-    if (commandManager) {
-      this._commandManager = commandManager;
-      this._commandManager.addListener((newProj) => {
-        this.applyProject(newProj, { skipCommand: true });
-        this.notifyDocumentChange();
-        this.notifyStateChange();
-      });
-    }
+    this._historyManager = new EditorHistoryManager(this, commandManager);
     this._sequenceEditor.addListener(() => {
       if (this._isApplyingProject) return;
       this.notifyDocumentChange();
@@ -407,7 +324,7 @@ export class EditorState {
   }
 
   get revision(): number {
-    return this.commandManager.revision;
+    return this.hasCommandManager ? this.commandManager.revision : this._revision;
   }
 
   get currentRevision(): number {
@@ -416,6 +333,10 @@ export class EditorState {
 
   get metadata(): EditorProjectMetadata {
     return deepClone(this._metadata);
+  }
+
+  get projectTitle(): string {
+    return this._metadata.title;
   }
 
   setProjectTitle(title: string): void {
@@ -433,528 +354,159 @@ export class EditorState {
     this.commandManager.executeCommand(new UpdateMetadataCommand(meta));
   }
 
+  get historyManager(): EditorHistoryManager {
+    return this._historyManager;
+  }
+
+  get hasCommandManager(): boolean {
+    return this._historyManager.hasCommandManager;
+  }
+
+  get commandManager(): ProjectCommandManager {
+    return this._historyManager.commandManager;
+  }
+
+  undo(): CommandExecutionResult {
+    return this._historyManager.undo();
+  }
+
+  redo(): CommandExecutionResult {
+    return this._historyManager.redo();
+  }
+
+  canUndo(): boolean {
+    return this._historyManager.canUndo();
+  }
+
+  canRedo(): boolean {
+    return this._historyManager.canRedo();
+  }
+
   getBindings(): EditorBinding[] {
-    return this._bindings.map((b) => ({ ...b }));
+    return this._historyManager.getBindings();
   }
 
   setBindings(bindings: EditorBinding[]): void {
-    this._bindings = bindings.map((b) => ({ ...b }));
-    this.notifyDocumentChange();
-    this.notifyStateChange();
+    this._historyManager.setBindings(bindings);
   }
 
   getSequences(): EditorSequence[] {
-    return this.toEditorProject().sequences;
+    return this._historyManager.getSequences();
   }
 
   addCustomSequence(seq: EditorSequence): void {
-    const existingIdx = this._customSequences.findIndex((s) => s.id === seq.id);
-    if (existingIdx >= 0) {
-      this._customSequences[existingIdx] = deepClone(seq);
-    } else {
-      this._customSequences.push(deepClone(seq));
-    }
-    this.notifyDocumentChange();
-    this.notifyStateChange();
+    this._historyManager.addCustomSequence(seq);
   }
 
   buildExportProject(): EditorProject {
-    return this.toEditorProject();
+    return this._historyManager.buildExportProject();
   }
 
   validateBinding(
     binding: EditorBinding,
     options?: { excludeIndex?: number }
   ): BindingValidationResult {
-    if (!binding || typeof binding !== 'object') {
-      return { valid: false, errors: ['Binding must be an object'], diagnosticCode: 'invalid-binding' };
-    }
-
-    if (typeof binding.chapterId !== 'string' || binding.chapterId.trim().length === 0) {
-      return { valid: false, errors: ['chapterId must be a non-empty string'], diagnosticCode: 'invalid-binding-chapter' };
-    }
-
-    if (binding.subLevelId !== null && binding.subLevelId !== undefined && typeof binding.subLevelId !== 'string') {
-      return { valid: false, errors: ['subLevelId must be a string or null'], diagnosticCode: 'invalid-binding-sublevel' };
-    }
-
-    if (binding.phase !== 'phaseA' && binding.phase !== 'phaseB') {
-      return { valid: false, errors: ['phase must be "phaseA" or "phaseB"'], diagnosticCode: 'invalid-binding-phase' };
-    }
-
-    if (typeof binding.sequenceId !== 'string' || binding.sequenceId.trim().length === 0) {
-      return { valid: false, errors: ['sequenceId must be a non-empty string'], diagnosticCode: 'invalid-binding-sequence-id' };
-    }
-
-    const allSequences = this.getSequences();
-    const targetSeq = allSequences.find((s) => s.id === binding.sequenceId);
-    if (!targetSeq) {
-      return {
-        valid: false,
-        errors: [`Binding references unknown sequence "${binding.sequenceId}"`],
-        diagnosticCode: 'broken-sequence-reference',
-      };
-    }
-
-    if (targetSeq.phase !== binding.phase) {
-      return {
-        valid: false,
-        errors: [
-          `Sequence phase mismatch: sequence "${targetSeq.id}" is "${targetSeq.phase}" but binding specifies "${binding.phase}"`,
-        ],
-        diagnosticCode: 'phase-mismatch',
-      };
-    }
-
-    if (binding.role && typeof binding.role === 'string' && binding.role.trim().length > 0) {
-      if (binding.role !== targetSeq.kind) {
-        return {
-          valid: false,
-          errors: [
-            `Role mismatch: sequence kind is "${targetSeq.kind}" but binding specifies role "${binding.role}"`,
-          ],
-          diagnosticCode: 'role-mismatch',
-        };
-      }
-    }
-
-    const role =
-      typeof binding.role === 'string' && binding.role.trim().length > 0
-        ? binding.role
-        : targetSeq.kind;
-    const subLevel = binding.subLevelId ?? 'all';
-    const compoundKey = `${binding.chapterId}::${subLevel}::${binding.phase}::${role}`;
-
-    for (let i = 0; i < this._bindings.length; i++) {
-      if (options?.excludeIndex !== undefined && options.excludeIndex === i) {
-        continue;
-      }
-      const existing = this._bindings[i];
-      const existingSeq = allSequences.find((s) => s.id === existing.sequenceId);
-      const existingRole =
-        typeof existing.role === 'string' && existing.role.trim().length > 0
-          ? existing.role
-          : existingSeq?.kind || 'motionGuide';
-      const existingSubLevel = existing.subLevelId ?? 'all';
-      const existingKey = `${existing.chapterId}::${existingSubLevel}::${existing.phase}::${existingRole}`;
-
-      if (existingKey === compoundKey) {
-        return {
-          valid: false,
-          errors: [`Duplicate binding for compound key "${compoundKey}"`],
-          diagnosticCode: 'duplicate-binding',
-          compoundKey,
-        };
-      }
-    }
-
-    return {
-      valid: true,
-      errors: [],
-      compoundKey,
-    };
+    return this._historyManager.validateBinding(binding, options);
   }
 
   addBinding(binding: EditorBinding): { success: boolean; error?: string; errors?: string[]; diagnosticCode?: string } {
-    const result = this.validateBinding(binding);
-    if (!result.valid) {
-      return {
-        success: false,
-        error: result.errors[0],
-        errors: result.errors,
-        diagnosticCode: result.diagnosticCode,
-      };
-    }
-
-    this._bindings.push({
-      chapterId: binding.chapterId,
-      subLevelId: binding.subLevelId ?? null,
-      phase: binding.phase,
-      sequenceId: binding.sequenceId,
-      role: binding.role,
-    });
-
-    const proj = this.toEditorProject();
-    this.commandManager.executeCommand(new ReplaceProjectCommand(proj));
-
-    return { success: true };
+    return this._historyManager.addBinding(binding);
   }
 
   updateBinding(
     index: number,
     updated: EditorBinding
   ): { success: boolean; error?: string; errors?: string[]; diagnosticCode?: string } {
-    if (index < 0 || index >= this._bindings.length) {
-      return { success: false, error: `Invalid binding index ${index}` };
-    }
-    const result = this.validateBinding(updated, { excludeIndex: index });
-    if (!result.valid) {
-      return {
-        success: false,
-        error: result.errors[0],
-        errors: result.errors,
-        diagnosticCode: result.diagnosticCode,
-      };
-    }
-
-    this._bindings[index] = {
-      chapterId: updated.chapterId,
-      subLevelId: updated.subLevelId ?? null,
-      phase: updated.phase,
-      sequenceId: updated.sequenceId,
-      role: updated.role,
-    };
-
-    const proj = this.toEditorProject();
-    this.commandManager.executeCommand(new ReplaceProjectCommand(proj));
-
-    return { success: true };
+    return this._historyManager.updateBinding(index, updated);
   }
 
   removeBinding(target: number | string | Partial<EditorBinding>): boolean {
-    let removeIndex = -1;
-    if (typeof target === 'number') {
-      removeIndex = target;
-    } else if (typeof target === 'string') {
-      const allSequences = this.getSequences();
-      removeIndex = this._bindings.findIndex((b) => {
-        const seq = allSequences.find((s) => s.id === b.sequenceId);
-        const role = b.role || seq?.kind || 'motionGuide';
-        const key = `${b.chapterId}::${b.subLevelId ?? 'all'}::${b.phase}::${role}`;
-        return key === target || b.sequenceId === target;
-      });
-    } else if (typeof target === 'object' && target !== null) {
-      removeIndex = this._bindings.findIndex((b) => {
-        return (
-          (!target.chapterId || b.chapterId === target.chapterId) &&
-          (target.subLevelId === undefined || b.subLevelId === target.subLevelId) &&
-          (!target.phase || b.phase === target.phase) &&
-          (!target.sequenceId || b.sequenceId === target.sequenceId)
-        );
-      });
-    }
-
-    if (removeIndex >= 0 && removeIndex < this._bindings.length) {
-      this._bindings.splice(removeIndex, 1);
-      const proj = this.toEditorProject();
-      this.commandManager.executeCommand(new ReplaceProjectCommand(proj));
-      return true;
-    }
-    return false;
+    return this._historyManager.removeBinding(target);
   }
 
   cloneProject(newProjectId?: string): EditorProject {
-    const baseProject = this.buildExportProject();
-    const nextProjectId = newProjectId || `${baseProject.projectId}_copy_${Date.now()}`;
-
-    // Remap patterns
-    const patternIdMap = new Map<string, string>();
-    const clonedPatterns: EditorPattern[] = baseProject.patterns.map((p, idx) => {
-      const newId = `pat_${nextProjectId}_${idx + 1}_${Math.random().toString(36).slice(2, 6)}`;
-      patternIdMap.set(p.id, newId);
-      return {
-        ...deepClone(p),
-        id: newId,
-      };
-    });
-
-    // Remap sequences
-    const seqIdMap = new Map<string, string>();
-    const clonedSequences: EditorSequence[] = baseProject.sequences.map((s, idx) => {
-      const newSeqId = `seq_${nextProjectId}_${idx + 1}_${Math.random().toString(36).slice(2, 6)}`;
-      seqIdMap.set(s.id, newSeqId);
-
-      const remappedEvents = s.events.map((ev, evIdx) => {
-        const clonedEv = deepClone(ev) as any;
-        if (clonedEv.id) {
-          clonedEv.id = `ev_${nextProjectId}_${evIdx + 1}_${Math.random().toString(36).slice(2, 5)}`;
-        }
-        if (clonedEv.sourcePatternId && patternIdMap.has(clonedEv.sourcePatternId)) {
-          clonedEv.sourcePatternId = patternIdMap.get(clonedEv.sourcePatternId)!;
-        }
-        return clonedEv;
-      });
-
-      return {
-        ...deepClone(s),
-        id: newSeqId,
-        events: remappedEvents,
-      };
-    });
-
-    // Remap bindings
-    const clonedBindings: EditorBinding[] = baseProject.bindings.map((b) => {
-      const remappedSeqId = seqIdMap.get(b.sequenceId) ?? b.sequenceId;
-      return {
-        ...deepClone(b),
-        sequenceId: remappedSeqId,
-      };
-    });
-
-    const now = new Date().toISOString();
-    const clonedProject: EditorProject = {
-      ...deepClone(baseProject),
-      projectId: nextProjectId,
-      revision: 1,
-      metadata: {
-        ...deepClone(baseProject.metadata),
-        title: `${baseProject.metadata.title} (복제본)`,
-        createdAt: now,
-        updatedAt: now,
-      },
-      patterns: clonedPatterns,
-      sequences: clonedSequences,
-      bindings: clonedBindings,
-    };
-
-    return clonedProject;
+    return this._historyManager.cloneProject(newProjectId);
   }
 
   newProject(options?: { title?: string; projectId?: string }): EditorProject {
-    const now = new Date().toISOString();
-    this._currentProjectId = options?.projectId || `proj_${Date.now()}`;
-    this._metadata = {
-      title: options?.title || 'New Dance Project',
-      createdAt: now,
-      updatedAt: now,
-    };
-    this._bpm = 95;
-    this._registry.clear();
-    for (const pat of EXTENDED_CAT_CHOREO_PATTERNS) {
-      this._registry.register(pat);
-    }
-    this._sequenceEditor.resetPhase('RUN_QUESTION');
-    this._sequenceEditor.resetPhase('ANSWER_SELECT');
-    this._sequenceEditor.resetPhase('STAR_COLLECT');
-    this._sequenceEditor.resetPhase('FEVER_PHASE_B');
-    this._customSequences = [];
-    this._bindings = [
-      {
-        chapterId: 'ch1',
-        subLevelId: 'star_collect',
-        phase: 'phaseA',
-        sequenceId: 'seq_phaseA_star',
-        role: 'starNotes',
-      },
-      {
-        chapterId: 'ch1',
-        subLevelId: 'run_question',
-        phase: 'phaseA',
-        sequenceId: 'seq_phaseA_motion',
-        role: 'motionGuide',
-      },
-      {
-        chapterId: 'ch1',
-        subLevelId: 'answer_select',
-        phase: 'phaseA',
-        sequenceId: 'seq_phaseA_answer',
-        role: 'motionGuide',
-      },
-      {
-        chapterId: 'ch1',
-        subLevelId: 'fever_phase_b',
-        phase: 'phaseB',
-        sequenceId: 'seq_phaseB_motion',
-        role: 'motionGuide',
-      },
-      {
-        chapterId: 'ch1',
-        subLevelId: 'fever_phase_b',
-        phase: 'phaseB',
-        sequenceId: 'seq_phaseB_fever',
-        role: 'feverNotes',
-      },
-      {
-        chapterId: 'ch1',
-        subLevelId: null,
-        phase: 'phaseA',
-        sequenceId: 'seq_phaseA_hazard',
-        role: 'hazard',
-      },
-      {
-        chapterId: 'ch1',
-        subLevelId: null,
-        phase: 'phaseB',
-        sequenceId: 'seq_phaseB_hazard',
-        role: 'hazard',
-      },
-    ];
-    this._hazardSequenceId = 'seq_phaseA_hazard';
-    this._hazardEventId = 'evt_phaseA_hazard_1';
-    this._phaseAHazardPattern = 'left_step';
-    this._feverSequenceId = 'seq_phaseB_fever';
-    this.initDefaultFeverSlots();
-    this._phaseBHazardSequenceId = 'seq_phaseB_hazard';
-    this.initDefaultPhaseBHazardAttacks();
-    this._stageBuiltinProfiles = {};
-    this._lastSavedRevision = 0;
-    this._isPublished = false;
-    this._publishedRevision = null;
-    this._revision = 1;
-
-    const freshProject = this.toEditorProject();
-    freshProject.revision = 1;
-    this._commandManager = this.createDefaultCommandManager();
-    this.notifyDocumentChange();
-    this.notifyStateChange();
-    return freshProject;
+    return this._historyManager.newProject(options);
   }
 
   getProjectPublicationStatus(): ProjectPublicationStatus {
-    const currentRevision = this.commandManager.revision;
-    const savedRevision = this._lastSavedRevision;
-    const isClean = savedRevision === currentRevision;
-    const isPublished =
-      this._isPublished &&
-      this._publishedRevision !== null &&
-      this._publishedRevision >= currentRevision;
-    const isDraft = !isClean || !isPublished;
-    return {
-      isDraft,
-      savedRevision,
-      currentRevision,
-      isPublished,
-      isClean,
-    };
+    return this._historyManager.getProjectPublicationStatus();
   }
 
   markSaved(revision?: number): void {
-    const rev = revision ?? this.commandManager.revision;
-    this._lastSavedRevision = rev;
+    this._historyManager.markSaved(revision);
   }
 
   markPublished(revision?: number): void {
-    const rev = revision ?? this.commandManager.revision;
-    this._isPublished = true;
-    this._publishedRevision = rev;
+    this._historyManager.markPublished(revision);
   }
 
   markUnpublished(): void {
-    this._isPublished = false;
-    this._publishedRevision = null;
+    this._historyManager.markUnpublished();
   }
 
   getStageBuiltinProfiles(): Record<string, string> {
-    return { ...this._stageBuiltinProfiles };
-  }
-
-  diagnoseBossClimaxBindings(chapterId: string): BossClimaxDiagnosisResult {
-    const stageBindings = this._bindings.filter(
-      (b) =>
-        b.chapterId === chapterId &&
-        b.phase === 'phaseB' &&
-        (b.subLevelId === 'boss_climax' || b.subLevelId === null || b.subLevelId === 'fever_phase_b'),
-    );
-    const hasFeverNotes = stageBindings.some((b) => b.role === 'feverNotes');
-    const hasHazard = stageBindings.some((b) => b.role === 'hazard');
-    const missingRoles: string[] = [];
-    if (!hasFeverNotes) missingRoles.push('feverNotes');
-    if (!hasHazard) missingRoles.push('hazard');
-
-    return {
-      chapterId,
-      isComplete: hasFeverNotes && hasHazard,
-      hasFeverNotes,
-      hasHazard,
-      missingRoles,
-    };
+    return this._historyManager.getStageBuiltinProfiles();
   }
 
   setStageBuiltinProfile(chapterId: string, profileId: string | null): void {
-    if (profileId === null || profileId.trim().length === 0) {
-      delete this._stageBuiltinProfiles[chapterId];
-    } else {
-      this._stageBuiltinProfiles[chapterId] = profileId.trim();
-    }
-    this.notifyDocumentChange();
-    this.notifyStateChange();
+    this._historyManager.setStageBuiltinProfile(chapterId, profileId);
   }
 
-  getStageCoverageStatus(
-    requiredStages: string[] = ['ch1', 'ch2', 'ch3', 'ch4', 'ch5']
-  ): StageCoverageReport {
-    const stages: StageCoverageItem[] = [];
-    const boundStages: string[] = [];
-    const builtinStages: string[] = [];
-    const missingStages: string[] = [];
-    const partialStages: string[] = [];
-
-    for (const ch of requiredStages) {
-      const stageBindings = this._bindings.filter((b) => b.chapterId === ch);
-      const builtinProfile = this._stageBuiltinProfiles[ch] ?? null;
-      const hasBuiltin = typeof builtinProfile === 'string' && builtinProfile.trim().length > 0;
-      const boundPhases = Array.from(new Set(stageBindings.map((b) => b.phase)));
-      const hasPhaseA = boundPhases.includes('phaseA');
-      const hasPhaseB = boundPhases.includes('phaseB');
-
-      let status: StageCoverageStatusKind;
-      let isComplete = false;
-
-      if (stageBindings.length > 0) {
-        if (hasPhaseA && hasPhaseB) {
-          status = 'bound';
-          isComplete = true;
-          boundStages.push(ch);
-        } else if (hasBuiltin) {
-          status = 'builtin';
-          isComplete = true;
-          builtinStages.push(ch);
-        } else {
-          status = 'partial';
-          isComplete = false;
-          partialStages.push(ch);
-        }
-      } else {
-        if (hasBuiltin) {
-          status = 'builtin';
-          isComplete = true;
-          builtinStages.push(ch);
-        } else {
-          status = 'missing';
-          isComplete = false;
-          missingStages.push(ch);
-        }
-      }
-
-      stages.push({
-        chapterId: ch,
-        status,
-        isComplete,
-        builtinProfile,
-        boundPhases,
-        bindingCount: stageBindings.length,
-      });
-    }
-
-    const isComplete = stages.every((s) => s.isComplete);
-
-    return {
-      isComplete,
-      stages,
-      boundStages,
-      builtinStages,
-      missingStages,
-      partialStages,
-    };
+  diagnoseBossClimaxBindings(chapterId: string): BossClimaxDiagnosisResult {
+    return this._historyManager.diagnoseBossClimaxBindings(chapterId);
   }
 
-  get commandManager(): ProjectCommandManager {
-    if (!this._commandManager) {
-      this._commandManager = this.createDefaultCommandManager();
-    }
-    return this._commandManager;
+  getStageCoverageReport(requiredStages?: string[]): StageCoverageReport {
+    return this._historyManager.getStageCoverageReport(requiredStages);
   }
 
-  private createDefaultCommandManager(): ProjectCommandManager {
-    const proj = this.toEditorProject();
-    return new ProjectCommandManager(proj, {
-      onDocumentChange: (newProj) => {
-        this.applyProject(newProj, { skipCommand: true });
-        this.notifyDocumentChange();
-        this.notifyStateChange();
-      },
-    });
+  getStageCoverageStatus(requiredStages?: string[]): StageCoverageReport {
+    return this._historyManager.getStageCoverageStatus(requiredStages);
   }
+
+  get starSequenceId(): string { return this._starSequenceId; }
+  get hazardSequenceId(): string { return this._hazardSequenceId; }
+  get hazardEventId(): string { return this._hazardEventId; }
+  get phaseAHazardPattern(): PhaseAHazardPattern { return this._phaseAHazardPattern; }
+  get feverSequenceId(): string { return this._feverSequenceId; }
+  get feverSlots(): FeverSlotItem[] { return this._feverSlots; }
+  get phaseBHazardSequenceId(): string { return this._phaseBHazardSequenceId; }
+  get phaseBHazardAttacks(): PhaseBHazardAttackItem[] { return this._phaseBHazardAttacks; }
+  get phaseBHazardAttackCounter(): number { return this._phaseBHazardAttackCounter; }
+  get bindings(): EditorBinding[] { return this._bindings; }
+  get customSequences(): EditorSequence[] { return this._customSequences; }
+  get stageBuiltinProfiles(): Record<string, string> { return this._stageBuiltinProfiles; }
+  get lastSavedRevision(): number { return this._lastSavedRevision; }
+  get isPublished(): boolean { return this._isPublished; }
+  get publishedRevision(): number | null { return this._publishedRevision; }
+  get rulesetId(): string { return this._rulesetId; }
+
+  setCurrentProjectId(id: string): void { this._currentProjectId = id; }
+  setRawBpm(bpm: number): void { this._bpm = bpm; }
+  setRulesetId(id: string): void { this._rulesetId = id; }
+  setMetadata(meta: EditorProjectMetadata): void { this._metadata = meta; }
+  setRevision(rev: number): void { this._revision = rev; }
+  setLastSavedRevision(rev: number): void { this._lastSavedRevision = rev; }
+  setIsPublished(pub: boolean): void { this._isPublished = pub; }
+  setPublishedRevision(rev: number | null): void { this._publishedRevision = rev; }
+  setStarSequenceId(id: string): void { this._starSequenceId = id; }
+  setHazardSequenceId(id: string): void { this._hazardSequenceId = id; }
+  setHazardEventId(id: string): void { this._hazardEventId = id; }
+  setRawPhaseAHazardPattern(pattern: PhaseAHazardPattern): void { this._phaseAHazardPattern = pattern; }
+  setFeverSequenceId(id: string): void { this._feverSequenceId = id; }
+  setFeverSlots(slots: FeverSlotItem[]): void { this._feverSlots = slots; }
+  setRawPhaseBHazardSequenceId(id: string): void { this._phaseBHazardSequenceId = id; }
+  setRawPhaseBHazardAttacks(attacks: PhaseBHazardAttackItem[]): void { this._phaseBHazardAttacks = attacks; }
+  setPhaseBHazardAttackCounter(cnt: number): void { this._phaseBHazardAttackCounter = cnt; }
+  setRawBindings(bindings: EditorBinding[]): void { this._bindings = bindings; }
+  setCustomSequences(sequences: EditorSequence[]): void { this._customSequences = sequences; }
+  setStageBuiltinProfiles(profiles: Record<string, string>): void { this._stageBuiltinProfiles = profiles; }
+  setIsApplyingProject(applying: boolean): void { this._isApplyingProject = applying; }
+  clearFormBuffers(): void { this._formBuffer.clear(); this._feverFormBuffer.clear(); }
 
   get sequenceEditor(): PhaseSequenceEditor {
     return this._sequenceEditor;
@@ -2033,8 +1585,8 @@ export class EditorState {
     }
     this._phaseAHazardPattern = pattern as PhaseAHazardPattern;
     const proj = this.toEditorProject();
-    if (this._commandManager) {
-      this._commandManager.executeCommand(new ReplaceProjectCommand(proj));
+    if (this._historyManager.hasCommandManager) {
+      this.commandManager.executeCommand(new ReplaceProjectCommand(proj));
     }
     this.notifyDocumentChange();
     this.notifyStateChange();
@@ -2094,8 +1646,8 @@ export class EditorState {
       this._bindings.push(newBinding);
     }
     const proj = this.toEditorProject();
-    if (this._commandManager) {
-      this._commandManager.executeCommand(new ReplaceProjectCommand(proj));
+    if (this._historyManager.hasCommandManager) {
+      this.commandManager.executeCommand(new ReplaceProjectCommand(proj));
     }
     this.notifyDocumentChange();
     this.notifyStateChange();
@@ -2154,8 +1706,8 @@ export class EditorState {
       this._phaseBHazardAttacks.push(newItem);
     }
 
-    if (this._commandManager) {
-      this._commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
+    if (this._historyManager.hasCommandManager) {
+      this.commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
     }
     this.notifyDocumentChange();
     this.notifyStateChange();
@@ -2167,8 +1719,8 @@ export class EditorState {
       return { success: false, error: `유효하지 않은 공격 인덱스입니다: ${index}` };
     }
     this._phaseBHazardAttacks.splice(index, 1);
-    if (this._commandManager) {
-      this._commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
+    if (this._historyManager.hasCommandManager) {
+      this.commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
     }
     this.notifyDocumentChange();
     this.notifyStateChange();
@@ -2186,8 +1738,8 @@ export class EditorState {
     }
     const [moved] = this._phaseBHazardAttacks.splice(fromIndex, 1);
     this._phaseBHazardAttacks.splice(toIndex, 0, moved);
-    if (this._commandManager) {
-      this._commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
+    if (this._historyManager.hasCommandManager) {
+      this.commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
     }
     this.notifyDocumentChange();
     this.notifyStateChange();
@@ -2206,8 +1758,8 @@ export class EditorState {
       requiredAction: src.requiredAction,
     };
     this._phaseBHazardAttacks.splice(index + 1, 0, newItem);
-    if (this._commandManager) {
-      this._commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
+    if (this._historyManager.hasCommandManager) {
+      this.commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
     }
     this.notifyDocumentChange();
     this.notifyStateChange();
@@ -2235,8 +1787,8 @@ export class EditorState {
       });
     }
     this._phaseBHazardAttacks = newAttacks;
-    if (this._commandManager) {
-      this._commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
+    if (this._historyManager.hasCommandManager) {
+      this.commandManager.executeCommand(new ReplaceProjectCommand(this.toEditorProject()));
     }
     this.notifyDocumentChange();
     this.notifyStateChange();
@@ -2562,25 +2114,25 @@ export class EditorState {
     this._listeners.delete(listener);
   }
 
-  private notifyDocumentChange(): void {
+  notifyDocumentChange(): void {
     for (const listener of this._listeners) {
       listener.onDocumentChange?.();
     }
   }
 
-  private notifyStateChange(): void {
+  notifyStateChange(): void {
     for (const listener of this._listeners) {
       listener.onStateChange?.();
     }
   }
 
-  private notifyPatternChange(pattern: CatChoreoPattern | null): void {
+  notifyPatternChange(pattern: CatChoreoPattern | null): void {
     for (const listener of this._listeners) {
       listener.onPatternChange?.(pattern);
     }
   }
 
-  private notifyPhaseChange(phase: PhaseType): void {
+  notifyPhaseChange(phase: PhaseType): void {
     for (const listener of this._listeners) {
       listener.onPhaseChange?.(phase);
     }
@@ -2601,500 +2153,13 @@ export class EditorState {
   getCurrentProject(): EditorProject {
     return this.commandManager.project;
   }
-
   toEditorProject(): EditorProject {
-    const starNotes = this._sequenceEditor.getNotesForPhase('STAR_COLLECT');
-    const runNotes = this._sequenceEditor.getNotesForPhase('RUN_QUESTION');
-    const ansNotes = this._sequenceEditor.getNotesForPhase('ANSWER_SELECT');
-    const feverNotes = this._sequenceEditor.getNotesForPhase('FEVER_PHASE_B');
-
-    const patterns: EditorPattern[] = this._registry.getAll().map((p) => ({
-      id: p.id,
-      name: p.name,
-      target: {
-        leftHand: p.leftHand ?? null,
-        rightHand: p.rightHand ?? null,
-        head: p.head ?? null,
-        hip: p.hip ?? null,
-      },
-      description: p.description,
-    }));
-
-    const starEvents: StarNoteEvent[] = starNotes.map((n, idx) => {
-      const landingTick = Math.max(0, Math.round((n.startBeat - 1) * 480));
-      const rawPart = n.payload?.part;
-      const isFoot =
-        rawPart === 'foot' ||
-        n.payload?.targetType === 'foot' ||
-        (rawPart === 'hip' && n.targetZones[0] !== undefined && n.targetZones[0] >= 9);
-      const cursorPart: BodyCursorPart =
-        rawPart === 'leftHand' || rawPart === 'rightHand' || rawPart === 'head' || rawPart === 'hip'
-          ? rawPart
-          : n.targetZones[0] >= 6
-          ? 'hip'
-          : 'leftHand';
-      const zoneId = n.targetZones[0] ?? 4;
-      const footKind = zoneId === 9 ? 'leftFoot' : zoneId === 11 ? 'rightFoot' : 'centerFoot';
-      const footZone = (zoneId >= 9 && zoneId <= 11 ? zoneId : 10) as 9 | 10 | 11;
-
-      return {
-        id: n.id || `star_evt_${idx + 1}`,
-        landingTick,
-        target: isFoot
-          ? {
-              type: 'foot' as const,
-              foot: footKind,
-              zoneId: footZone,
-            }
-          : {
-              type: 'cursor' as const,
-              part: cursorPart,
-              zoneId,
-            },
-        sourcePatternId: n.payload?.patternId,
-      };
-    });
-
-    const runEvents: MotionCueEvent[] = runNotes.map((n, idx) => {
-      const startTick = Math.max(0, Math.round((n.startBeat - 1) * 480));
-      const durationTicks = Math.max(480, Math.round((n.durationBeats || 1) * 480));
-      return {
-        id: n.id || `mot_run_${idx + 1}`,
-        startTick,
-        durationTicks,
-        target: {
-          leftHand: n.payload?.leftHand ?? (n.targetZones[0] <= 5 ? n.targetZones[0] : null),
-          rightHand: n.payload?.rightHand ?? null,
-          head: n.payload?.head ?? null,
-          hip: n.payload?.hip ?? (n.payload?.action === 'dip' ? (n.targetZones[0] ?? 8) : null),
-        },
-        sourcePatternId: n.payload?.patternId,
-      };
-    });
-
-    const ansEvents: MotionCueEvent[] = ansNotes.map((n, idx) => {
-      const startTick = Math.max(0, Math.round((n.startBeat - 1) * 480));
-      const durationTicks = Math.max(480, Math.round((n.durationBeats || 1) * 480));
-      return {
-        id: n.id || `mot_ans_${idx + 1}`,
-        startTick,
-        durationTicks,
-        target: {
-          leftHand: n.targetZones[0] === 4 ? 4 : null,
-          rightHand: n.targetZones[0] === 5 ? 5 : null,
-          head: null,
-          hip: null,
-        },
-        sourcePatternId: n.payload?.patternId,
-      };
-    });
-
-    const feverEvents: MotionCueEvent[] = feverNotes.map((n, idx) => {
-      const startTick = Math.max(0, Math.round((n.startBeat - 1) * 480));
-      const durationTicks = Math.max(480, Math.round((n.durationBeats || 1) * 480));
-      return {
-        id: (n.id && !n.id.startsWith('NOTE_F_')) ? n.id : `mot_fever_${idx + 1}`,
-        startTick,
-        durationTicks,
-        target: {
-          leftHand: n.payload?.leftHand ?? null,
-          rightHand: n.payload?.rightHand ?? null,
-          head: n.payload?.head ?? null,
-          hip: n.payload?.hip ?? null,
-        },
-        sourcePatternId: n.payload?.patternId,
-      };
-    });
-
-    const feverSlots = this.getFeverSlots();
-    const feverNoteEvents: FeverNoteEvent[] = feverSlots.map((s, idx) => {
-      const isFoot = s.part === 'foot';
-      const zoneId = s.zoneId;
-      const footKind = zoneId === 9 ? 'leftFoot' : (zoneId === 11 ? 'rightFoot' : 'centerFoot');
-      const footZone = (zoneId >= 9 && zoneId <= 11 ? zoneId : 10) as 9 | 10 | 11;
-      return {
-        id: s.noteId || `evt_fever_${idx + 1}`,
-        kind: 'feverNote',
-        landingTick: s.tick,
-        target: isFoot
-          ? {
-              type: 'foot' as const,
-              foot: footKind,
-              zoneId: footZone,
-            }
-          : {
-              type: 'cursor' as const,
-              part: s.part as BodyCursorPart,
-              zoneId,
-            },
-        sourcePatternId: s.patternId,
-      };
-    });
-
-    const sequences: EditorSequence[] = [
-      {
-        id: this._starSequenceId || 'seq_phaseA_star',
-        phase: 'phaseA',
-        kind: 'starNotes',
-        events: starEvents,
-      },
-      {
-        id: 'seq_phaseA_motion',
-        phase: 'phaseA',
-        kind: 'motionGuide',
-        events: runEvents,
-      },
-      {
-        id: 'seq_phaseA_answer',
-        phase: 'phaseA',
-        kind: 'motionGuide',
-        events: ansEvents,
-      },
-      {
-        id: 'seq_phaseB_motion',
-        phase: 'phaseB',
-        kind: 'motionGuide',
-        events: feverEvents,
-      },
-      {
-        id: this._feverSequenceId || 'seq_phaseB_fever',
-        phase: 'phaseB',
-        kind: 'feverNotes',
-        events: feverNoteEvents,
-      },
-      {
-        id: this._hazardSequenceId || 'seq_phaseA_hazard',
-        phase: 'phaseA',
-        kind: 'hazard',
-        events: [
-          {
-            id: this._hazardEventId || 'evt_phaseA_hazard_1',
-            kind: 'hazard',
-            hazardType: this._phaseAHazardPattern,
-          },
-        ],
-      },
-      {
-        id: this._phaseBHazardSequenceId || 'seq_phaseB_hazard',
-        phase: 'phaseB',
-        kind: 'hazard',
-        events: this._phaseBHazardAttacks.map((item) => ({
-          id: item.id,
-          kind: 'phaseBHazard',
-          attackType: item.attackType,
-        })),
-      },
-      ...this._customSequences,
-    ];
-
-    const hasHazardBinding = this._bindings.some(
-      (b) =>
-        b.phase === 'phaseA' &&
-        (b.sequenceId === (this._hazardSequenceId || 'seq_phaseA_hazard') || b.role === 'hazard'),
-    );
-    const hasFeverNotesBinding = this._bindings.some(
-      (b) =>
-        b.phase === 'phaseB' &&
-        (b.sequenceId === (this._feverSequenceId || 'seq_phaseB_fever') || b.role === 'feverNotes'),
-    );
-    const hasPhaseBHazardBinding = this._bindings.some(
-      (b) =>
-        b.phase === 'phaseB' &&
-        (b.sequenceId === (this._phaseBHazardSequenceId || 'seq_phaseB_hazard') || b.role === 'hazard'),
-    );
-    const bindings: EditorBinding[] = this._bindings.map((b) => ({ ...b }));
-    if (!hasHazardBinding) {
-      bindings.push({
-        chapterId: 'ch1',
-        subLevelId: null,
-        phase: 'phaseA',
-        sequenceId: this._hazardSequenceId || 'seq_phaseA_hazard',
-        role: 'hazard',
-      });
-    }
-    if (!hasFeverNotesBinding) {
-      bindings.push({
-        chapterId: 'ch1',
-        subLevelId: 'fever_phase_b',
-        phase: 'phaseB',
-        sequenceId: this._feverSequenceId || 'seq_phaseB_fever',
-        role: 'feverNotes',
-      });
-    }
-    if (!hasPhaseBHazardBinding) {
-      bindings.push({
-        chapterId: 'ch1',
-        subLevelId: null,
-        phase: 'phaseB',
-        sequenceId: this._phaseBHazardSequenceId || 'seq_phaseB_hazard',
-        role: 'hazard',
-      });
-    }
-
-    const now = new Date().toISOString();
-    return {
-      kind: 'dream-guardian-authoring-project',
-      schemaVersion: 2,
-      projectId: this._currentProjectId,
-      revision: this._commandManager ? this._commandManager.revision : this._revision,
-      rulesetId: this._rulesetId || 'dg-ruleset-v2',
-      metadata: {
-        ...this._metadata,
-        updatedAt: now,
-      },
-      previewTempo: {
-        bpm: this._bpm,
-        beatsPerBar: 4,
-      },
-      patterns,
-      sequences,
-      bindings,
-    };
+    return this._historyManager.toEditorProject();
   }
 
   applyProject(project: EditorProject, options?: { skipCommand?: boolean }): void {
-    this._isApplyingProject = true;
-    try {
-      this._currentProjectId = project.projectId;
-      this._bpm = project.previewTempo?.bpm ?? 95;
-      if (project.rulesetId) {
-        this._rulesetId = project.rulesetId;
-      }
-      if (project.metadata) {
-        this._metadata = {
-          title: project.metadata.title || 'Dream Guardian Dance Editor',
-          description: project.metadata.description,
-          author: project.metadata.author,
-          createdAt: project.metadata.createdAt || new Date().toISOString(),
-          updatedAt: project.metadata.updatedAt || new Date().toISOString(),
-        };
-      }
-      if (project.bindings && Array.isArray(project.bindings)) {
-        this._bindings = project.bindings.map((b) => ({ ...b }));
-      }
-      const handledSeqIds = new Set<string>([
-        'seq_phaseA_star',
-        this._starSequenceId,
-        'seq_phaseA_motion',
-        'seq_phaseA_answer',
-        'seq_phaseB_motion',
-        'seq_phaseB_fever',
-        this._feverSequenceId,
-        'seq_phaseA_hazard',
-        this._hazardSequenceId,
-        'seq_phaseB_hazard',
-        this._phaseBHazardSequenceId,
-      ]);
-      for (const seq of project.sequences || []) {
-        if (
-          (seq.phase === 'phaseA' &&
-            (seq.kind === 'starNotes' || seq.kind === 'motionGuide' || seq.kind === 'hazard')) ||
-          (seq.phase === 'phaseB' && (seq.kind === 'motionGuide' || seq.kind === 'feverNotes' || seq.kind === 'hazard'))
-        ) {
-          handledSeqIds.add(seq.id);
-        }
-      }
-      this._customSequences = (project.sequences || [])
-        .filter((s) => !handledSeqIds.has(s.id))
-        .map((s) => deepClone(s));
-
-      // 1. Patterns replacement
-      this._registry.clear();
-      for (const p of project.patterns) {
-        const choreo: CatChoreoPattern = {
-          id: p.id,
-          name: p.name || p.id,
-          description: p.description || '',
-          motionType: 'center_clasp',
-          leftHand: p.target.leftHand ?? null,
-          rightHand: p.target.rightHand ?? null,
-          head: p.target.head ?? null,
-          hip: p.target.hip ?? null,
-          footZones: [],
-          partZoneMap: {},
-        };
-        this._registry.register(choreo);
-      }
-      if (project.patterns.length > 0) {
-        this._selectedPatternId = project.patterns[0].id;
-      } else {
-        this._selectedPatternId = '';
-      }
-      this._draftEdits = {};
-
-      // 2. Sequences replacement
-      const newStarNotes: TimelineTrackNote[] = [];
-      const newRunNotes: TimelineTrackNote[] = [];
-      const newAnsNotes: TimelineTrackNote[] = [];
-      const newFeverNotes: TimelineTrackNote[] = [];
-
-      for (const seq of project.sequences) {
-        if (seq.phase === 'phaseA' && seq.kind === 'starNotes') {
-          if (seq.id) {
-            this._starSequenceId = seq.id;
-          }
-          for (let idx = 0; idx < seq.events.length; idx++) {
-            const ev = seq.events[idx] as StarNoteEvent;
-            const landingTick = ev.landingTick ?? ev.tick ?? 480;
-            const startBeat = Math.round(((landingTick / 480) + 1) * 1000) / 1000;
-            const isFoot = ev.target?.type === 'foot';
-            const part = isFoot ? 'foot' : (ev.target?.type === 'cursor' ? ev.target.part : undefined);
-            const rawZone = (ev.target as any)?.zoneId ?? (ev.target as any)?.zone;
-            const targetZones = rawZone !== undefined && rawZone !== null ? [rawZone] : [];
-            newStarNotes.push({
-              id: ev.id || `star_evt_${idx + 1}`,
-              lane: 'keynote',
-              startBeat,
-              durationBeats: 1,
-              label: isFoot ? 'Star (발)' : `Star (${part ?? 'note'})`,
-              color: isFoot ? '#10B981' : (part === 'hip' ? '#FF865E' : (part === 'rightHand' ? '#FFCB4D' : '#28E6FF')),
-              targetZones,
-              payload: {
-                part: isFoot ? 'foot' : part,
-                targetType: isFoot ? 'foot' : 'cursor',
-                patternId: ev.sourcePatternId,
-              },
-            });
-          }
-        } else if (seq.phase === 'phaseA' && seq.kind === 'motionGuide') {
-          const isAnswer = seq.id.toLowerCase().includes('answer');
-          for (let idx = 0; idx < seq.events.length; idx++) {
-            const ev = seq.events[idx] as MotionCueEvent;
-            const startTick = ev.startTick ?? ev.tick ?? 0;
-            const startBeat = Math.round(((startTick / 480) + 1) * 100) / 100;
-            const durTicks = ev.durationTicks ?? ev.duration ?? 480;
-            const durationBeats = Math.round((durTicks / 480) * 100) / 100;
-            const targetZones: number[] = [];
-            if (ev.target?.leftHand) targetZones.push(ev.target.leftHand);
-            if (ev.target?.rightHand) targetZones.push(ev.target.rightHand);
-            if (ev.target?.hip) targetZones.push(ev.target.hip);
-            if (ev.target?.head) targetZones.push(ev.target.head);
-
-            const noteItem: TimelineTrackNote = {
-              id: ev.id || `${isAnswer ? 'ans' : 'mot'}_evt_${idx + 1}`,
-              lane: isAnswer ? 'answer' : 'motion',
-              startBeat,
-              durationBeats,
-              label: isAnswer ? '답안 선택' : '모션 가이드',
-              color: isAnswer ? '#FFCB4D' : '#28E6FF',
-              targetZones,
-              payload: {
-                ...ev.target,
-                patternId: ev.sourcePatternId,
-              },
-            };
-            if (isAnswer) {
-              newAnsNotes.push(noteItem);
-            } else {
-              newRunNotes.push(noteItem);
-            }
-          }
-        } else if (seq.phase === 'phaseB' && seq.kind === 'motionGuide') {
-          for (let idx = 0; idx < seq.events.length; idx++) {
-            const ev = seq.events[idx] as MotionCueEvent;
-            const startTick = ev.startTick ?? ev.tick ?? 0;
-            const startBeat = Math.round(((startTick / 480) + 1) * 100) / 100;
-            const durTicks = ev.durationTicks ?? ev.duration ?? 480;
-            const durationBeats = Math.round((durTicks / 480) * 100) / 100;
-            const targetZones: number[] = [];
-            if (ev.target?.leftHand) targetZones.push(ev.target.leftHand);
-            if (ev.target?.rightHand) targetZones.push(ev.target.rightHand);
-            if (ev.target?.hip) targetZones.push(ev.target.hip);
-            if (ev.target?.head) targetZones.push(ev.target.head);
-
-            newFeverNotes.push({
-              id: ev.id || `fever_evt_${idx + 1}`,
-              lane: 'motion',
-              startBeat,
-              durationBeats,
-              label: '피버 모션',
-              color: '#C889FF',
-              targetZones,
-              payload: {
-                ...ev.target,
-                patternId: ev.sourcePatternId,
-              },
-            });
-          }
-        } else if (seq.phase === 'phaseA' && seq.kind === 'hazard') {
-          if (seq.id) {
-            this._hazardSequenceId = seq.id;
-          }
-          if (seq.events && seq.events.length > 0) {
-            const ev = seq.events[0] as PhaseAHazardEvent;
-            if (ev.id) {
-              this._hazardEventId = ev.id;
-            }
-            if (
-              ev.hazardType &&
-              (PHASE_A_ACTIVE_HAZARD_PATTERNS as readonly string[]).includes(ev.hazardType)
-            ) {
-              this._phaseAHazardPattern = ev.hazardType as PhaseAHazardPattern;
-            }
-          }
-        } else if (seq.phase === 'phaseB' && seq.kind === 'feverNotes') {
-          if (seq.id) {
-            this._feverSequenceId = seq.id;
-          }
-          const loadedSlots: FeverSlotItem[] = [];
-          for (let idx = 0; idx < seq.events.length; idx++) {
-            const ev = seq.events[idx] as FeverNoteEvent;
-            const landingTick = ev.landingTick ?? ev.tick ?? ((idx + 1) * 480);
-            const beat = Math.round(((landingTick / 480)) * 100) / 100;
-            const rawPart = (ev.target as any).part;
-            const rawFoot = (ev.target as any).foot;
-            const isFoot = ev.target.type === 'foot' || rawFoot !== undefined;
-            const zoneId = ev.target.zoneId;
-            loadedSlots.push({
-              slotIndex: idx,
-              slotNumber: idx + 1,
-              beat,
-              tick: landingTick,
-              noteId: ev.id || `NOTE_F_${idx + 1}`,
-              part: isFoot ? 'foot' : (rawPart || 'leftHand'),
-              zoneId,
-              foot: isFoot ? (rawFoot || (zoneId === 9 ? 'leftFoot' : zoneId === 11 ? 'rightFoot' : 'centerFoot')) : undefined,
-              patternId: ev.sourcePatternId,
-              label: isFoot ? '피버 발 스텝' : (rawPart === 'rightHand' ? '피버 우도달' : '피버 좌도달'),
-              color: isFoot ? '#10B981' : (rawPart === 'rightHand' ? '#FFCB4D' : '#28E6FF'),
-              isStandard: landingTick === (idx + 1) * 480,
-            });
-          }
-          if (loadedSlots.length > 0) {
-            this._feverSlots = loadedSlots;
-          }
-        } else if (seq.phase === 'phaseB' && seq.kind === 'hazard') {
-          if (seq.id) {
-            this._phaseBHazardSequenceId = seq.id;
-          }
-          const loadedAttacks: PhaseBHazardAttackItem[] = [];
-          for (let idx = 0; idx < (seq.events || []).length; idx++) {
-            const ev = seq.events[idx] as PhaseBHazardEvent;
-            const attack = (ev.attackType ?? ev.hazardType ?? '') as PhaseBPublishableAttack;
-            if ((PHASE_B_PUBLISHABLE_ATTACKS as readonly string[]).includes(attack)) {
-              loadedAttacks.push({
-                id: ev.id || `evt_phaseB_hz_${idx + 1}`,
-                attackType: attack,
-                requiredAction: getRequiredActionForPhaseBAttack(attack),
-              });
-            }
-          }
-          this._phaseBHazardAttacks = loadedAttacks;
-        }
-      }
-
-      this._sequenceEditor.replaceNotesForPhase('RUN_QUESTION', newRunNotes);
-      this._sequenceEditor.replaceNotesForPhase('ANSWER_SELECT', newAnsNotes);
-      this._sequenceEditor.replaceNotesForPhase('STAR_COLLECT', newStarNotes);
-      this._sequenceEditor.replaceNotesForPhase('FEVER_PHASE_B', newFeverNotes);
-
-      this.notifyPatternChange(this.getSelectedPattern());
-
-      if (!options?.skipCommand && this._commandManager) {
-        this._commandManager.executeCommand(new ReplaceProjectCommand(project));
-      }
-    } finally {
-      this._isApplyingProject = false;
-    }
+    this._historyManager.applyProject(project, options);
   }
+
+
 }
