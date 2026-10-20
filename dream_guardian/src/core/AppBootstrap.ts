@@ -32,6 +32,13 @@ import {
   AppBattleEventBinder,
   bindBattleEvents,
 } from './bootstrap/AppBattleEventBinder.js';
+import {
+  AppPersistenceManager,
+  STORAGE_KEY_STAGE_PROGRESS,
+  STORAGE_KEY_HIGH_SCORES,
+  STORAGE_KEY_REWARDS,
+  STORAGE_KEY_TUTORIAL_DONE,
+} from './bootstrap/AppPersistenceManager.js';
 import type { AssaultFinaleController } from '../game/assault/AssaultFinaleController.js';
 import type { AssaultHandoverSnapshot } from '../game/assault/AssaultProgressController.js';
 import type { SessionId } from '../types/assault.js';
@@ -192,6 +199,8 @@ export interface AppBootstrapOptions {
   env?: AssaultEnvLike;
   mode?: string;
   enableAssaultFinale?: boolean;
+  persistence?: AppPersistenceManager;
+  storage?: Storage | null;
 }
 
 // ─── roundRect 폴리필 ───
@@ -214,10 +223,14 @@ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D
   };
 }
 
-// Issue #391: 영속성 저장 키 정의
-export const STORAGE_KEY_STAGE_PROGRESS = 'dg_stage_progress';
-export const STORAGE_KEY_HIGH_SCORES = 'dg_high_scores';
-export const STORAGE_KEY_REWARDS = 'dg_rewards';
+// Issue #391 / Issue #634: 영속성 관리자 및 저장 키 재내보내기
+export {
+  AppPersistenceManager,
+  STORAGE_KEY_STAGE_PROGRESS,
+  STORAGE_KEY_HIGH_SCORES,
+  STORAGE_KEY_REWARDS,
+  STORAGE_KEY_TUTORIAL_DONE,
+};
 export type ExtendedResultData = ResultData & { isTestSession?: boolean };
 
 /**
@@ -261,6 +274,7 @@ export interface DevPlayStateParams {
 }
 
 export class AppBootstrap {
+  public readonly persistence: AppPersistenceManager;
   public readonly canvas: HTMLCanvasElement;
   public readonly canvasManager: CanvasManager;
   public readonly cameraLayer: CameraLayer;
@@ -461,6 +475,7 @@ export class AppBootstrap {
 
   constructor(options?: AppBootstrapOptions) {
     this._options = options ?? {};
+    this.persistence = this._options.persistence ?? new AppPersistenceManager({ storage: this._options.storage });
     this.enableAssaultFinale = Boolean(this._options.enableAssaultFinale);
     this._assaultWireHelper = new AssaultSessionWireHelper(this);
     const self = this;
@@ -867,58 +882,24 @@ let questionVisible = false;
 let answerLocked = false; // 답 연속 입력 방지
 let resultData: ExtendedResultData | null = null;
 let unlockedChapter = 5;
-let starsMap: Record<number, number> = {};
+let starsMap: Record<number, number> = self.persistence.loadProgress();
 let castingFlash = 0;
 let consecutiveWrongCount = 0;
 
-// Issue #391: 진행도/하이스코어/보상 영속화 헬퍼 (테스트 세션 격리)
+// Issue #391 / Issue #634: 진행도/하이스코어/보상 영속화 헬퍼 (AppPersistenceManager 위임)
 function persistSessionProgress(chapter: number, stars: number): void {
-  if (sessionLifecycle.isTestSession || sessionContext?.isTestSession) {
-    return;
-  }
-  starsMap[chapter] = Math.max(starsMap[chapter] ?? 0, stars);
-  if (typeof localStorage !== 'undefined') {
-    try {
-      localStorage.setItem(STORAGE_KEY_STAGE_PROGRESS, JSON.stringify(starsMap));
-    } catch {
-      // localStorage 불가 환경 무시
-    }
-  }
+  const isTest = Boolean(sessionLifecycle.isTestSession || sessionContext?.isTestSession);
+  starsMap = self.persistence.saveProgress(chapter, stars, { isTestSession: isTest });
 }
 
 function persistSessionRewards(chapter: number, stars: number): void {
-  if (sessionLifecycle.isTestSession || sessionContext?.isTestSession) {
-    return;
-  }
-  if (typeof localStorage !== 'undefined') {
-    try {
-      const existingRewards = JSON.parse(localStorage.getItem(STORAGE_KEY_REWARDS) || '[]');
-      existingRewards.push({ chapter, stars, unlockedAt: Date.now() });
-      localStorage.setItem(STORAGE_KEY_REWARDS, JSON.stringify(existingRewards));
-    } catch {
-      // 무시
-    }
-  }
+  const isTest = Boolean(sessionLifecycle.isTestSession || sessionContext?.isTestSession);
+  self.persistence.saveReward(chapter, stars, { isTestSession: isTest });
 }
 
 function persistSessionHighScore(result: any): void {
-  if (sessionLifecycle.isTestSession || sessionContext?.isTestSession) {
-    return;
-  }
-  if (typeof localStorage !== 'undefined') {
-    try {
-      const record = {
-        chapter: result.chapter,
-        correctCount: result.correctCount,
-        maxCombo: result.maxCombo,
-        score: result.correctCount * 100,
-        recordedAt: Date.now(),
-      };
-      localStorage.setItem(STORAGE_KEY_HIGH_SCORES, JSON.stringify(record));
-    } catch {
-      // 무시
-    }
-  }
+  const isTest = Boolean(sessionLifecycle.isTestSession || sessionContext?.isTestSession);
+  self.persistence.saveHighScore(result, { isTestSession: isTest });
 }
 
 // ─── StateMachine 상태 핸들러 및 전환 리스너 조립 (REFACTOR-CORE-002 / Issue #617) ───
@@ -1481,8 +1462,8 @@ function startChapter(
     dialogueOverlayRenderer.show(startDialogue);
   }
 
-  // Issue #137: 첫 플레이 시 튜토리얼 자동 표시 (테스트 세션에서는 팝업 및 저장 억제)
-  if (!isTest && typeof localStorage !== 'undefined' && !localStorage.getItem('dream_guardian_tutorial_done')) {
+  // Issue #137 / Issue #634: 첫 플레이 시 튜토리얼 자동 표시 (테스트 세션에서는 팝업 및 저장 억제)
+  if (!isTest && typeof localStorage !== 'undefined' && !self.persistence.isTutorialCompleted()) {
     tutorial.show();
   }
 
