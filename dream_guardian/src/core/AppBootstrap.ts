@@ -28,6 +28,10 @@ import {
   AppEventListenerManager,
   type AppEventListenerHost,
 } from './bootstrap/AppEventListenerManager.js';
+import {
+  AppBattleEventBinder,
+  bindBattleEvents,
+} from './bootstrap/AppBattleEventBinder.js';
 import type { AssaultFinaleController } from '../game/assault/AssaultFinaleController.js';
 import type { AssaultHandoverSnapshot } from '../game/assault/AssaultProgressController.js';
 import type { SessionId } from '../types/assault.js';
@@ -105,7 +109,7 @@ import {
 } from '../render/index.js';
 import { RunningMatRenderer } from '../render/RunningMatRenderer.js';
 import { dialogueManager } from '../story/index.js';
-import { EffectManager, wireAnswerVFX, wireGuardianVFX, TransitionManager } from '../effects/index.js';
+import { EffectManager, TransitionManager } from '../effects/index.js';
 import {
   RunDetector,
   JumpDetector,
@@ -402,6 +406,7 @@ export class AppBootstrap {
   private _assaultWireHelper!: AssaultSessionWireHelper;
   private _stateMachineBuilder!: BootstrapStateMachineBuilder;
   private _eventListenerManager!: AppEventListenerManager;
+  private _battleEventBinder!: AppBattleEventBinder;
   public enableAssaultFinale = false;
 
   public _onResize!: () => void;
@@ -423,6 +428,7 @@ export class AppBootstrap {
   get isFinaleActive(): boolean { return Boolean(this._assaultWireHelper?.isFinaleActive); }
   get stateMachineBuilder(): BootstrapStateMachineBuilder { return this._stateMachineBuilder; }
   get eventListenerManager(): AppEventListenerManager { return this._eventListenerManager; }
+  get battleEventBinder(): AppBattleEventBinder { return this._battleEventBinder; }
 
   public isAssaultMode(): boolean {
     return this._assaultWireHelper?.isAssaultMode?.() ?? false;
@@ -533,45 +539,37 @@ export class AppBootstrap {
     } = subsystems;
     const defaultSecondsPerBeat = starNoteScheduler.timeline.spb;
 
+    const battleEventBinder = bindBattleEvents({
+      eventBus,
+      canvasManager,
+      effectManager,
+      bossRenderer,
+      skeletonEffect,
+      sfx,
+      speech,
+      battle,
+      boss,
+      getIsEnraged: () => (bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3)),
+      dialogueManager,
+      dialogueOverlayRenderer,
+      sessionLifecycle,
+      getSessionContext: () => sessionContext,
+      getCurrentChapter: () => currentChapter,
+      getStarsMap: () => starsMap,
+      onShowResult: (victory: boolean) => showResult(victory),
+      onCastingFlash: (flash: number) => { castingFlash = flash; },
+      onClimaxBarrageTimer: (duration: number) => { climaxBarrageTimer = duration; },
+    });
+    this._battleEventBinder = battleEventBinder;
+
 // ─── BEAT MOTION / 키노트 / 프레이밍 시스템 (Issue #206) ───
 const beatRoundResolver = new BeatRoundResolver({
   battle,
   boss,
   guardian,
-  onSpellCast: (spellDmg: number) => {
-    const manaX = canvasManager.virtualWidth * 0.5;
-    const manaY = canvasManager.virtualHeight * 0.95;
-    effectManager.playManaFullEffect(manaX, manaY);
-    eventBus.emit('mana:full', { mana: 100 });
-
-    const damage = spellDmg ?? DEFAULT_CONFIG.battle.spellDamage;
-    eventBus.emit('guardian:cast', { damage });
-
-    const bx = canvasManager.virtualWidth * 0.5;
-    const by = canvasManager.virtualHeight * HORIZON_RATIO;
-    const isEnraged = bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3);
-    bossRenderer.triggerHit();
-    effectManager.playBossHitImpact(bx, by, isEnraged);
-    eventBus.emit('boss:hit', { bossHp: boss.hp });
-
-    effectManager.playPreset('cast', bx, by);
-    castingFlash = 0.6;
-    console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);
-  },
-  onBossDefeated: () => {
-    if (sessionLifecycle.claimResultTransition()) {
-      if (!sessionLifecycle.isTestSession && !sessionContext?.isTestSession) {
-        const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
-        starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
-      }
-      sessionLifecycle.schedule(() => showResult(true), 600);
-    }
-  },
-  onPlayerDefeated: () => {
-    if (sessionLifecycle.claimResultTransition()) {
-      sessionLifecycle.schedule(() => showResult(false), 600);
-    }
-  },
+  onSpellCast: (spellDmg: number) => battleEventBinder.handleSpellCast(spellDmg),
+  onBossDefeated: () => battleEventBinder.handleBossDefeated(),
+  onPlayerDefeated: () => battleEventBinder.handlePlayerDefeated(),
 });
 
 // [UI-VIS-041 / Issue #471]: UI 표시 스냅샷 런타임 주입·입력 일치·안전 롤백 관리
@@ -776,66 +774,9 @@ const readyPositionController = new ReadyPositionController({
 
 // Issue #194 & #195: 미니언 군단 매니저 의존성 주입 및 탄막 발사 연출 연결
 let climaxBarrageTimer = 0;
-const CLIMAX_BARRAGE_DURATION = 0.8;
 
 beatRoundResolver.resourceManager.troopManager.setEventBus(eventBus);
 beatRoundResolver.resourceManager.troopManager.setBossController(boss);
-eventBus.on('troop:barrage', (info) => {
-  climaxBarrageTimer = CLIMAX_BARRAGE_DURATION;
-  const isEnraged = bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3);
-  const bx = canvasManager.virtualWidth * 0.5;
-  const by = canvasManager.virtualHeight * 0.35;
-  bossRenderer.triggerHit();
-  effectManager.playBossHitImpact(bx, by, isEnraged);
-  eventBus.emit('boss:hit', { bossHp: boss.hp });
-  effectManager.playPreset(
-    info.isEnhanced ? 'cast' : 'correct',
-    bx,
-    by,
-  );
-  sfx.play('correct');
-});
-
-// Issue #265 (A11Y-004): 보스 광폭화 시 TTS 음성 경고 연동
-eventBus.on('boss:enrage', () => {
-  speech.speakFeedback('boss_enrage');
-});
-
-// Issue #274 (VFX-002): 정답/오답/타임아웃 판정 이펙트 이벤트 연동
-wireAnswerVFX(eventBus, effectManager, {
-  getCoordinates: () => ({
-    x: canvasManager.virtualWidth * 0.5,
-    y: canvasManager.virtualHeight * 0.5,
-  }),
-});
-
-// Issue #275 (VFX-003): 수호신 스펠 캐스트 및 보스 피격 이펙트 이벤트 연동
-wireGuardianVFX(eventBus, effectManager, {
-  getManaCoordinates: () => ({
-    x: canvasManager.virtualWidth * 0.5,
-    y: canvasManager.virtualHeight * 0.95,
-  }),
-  getGuardianCoordinates: () => ({
-    x: canvasManager.virtualWidth * 0.5,
-    y: canvasManager.virtualHeight * 0.84,
-  }),
-  getBossCoordinates: () => ({
-    x: canvasManager.virtualWidth * 0.5,
-    y: canvasManager.virtualHeight * HORIZON_RATIO,
-  }),
-  getIsEnraged: () => (bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3)),
-});
-
-// Issue #276 (VFX-004): 스켈레톤 시각 이펙트 이벤트 연동 (정답 펄스 / 피격 플래시)
-eventBus.on('answer:correct', (info) => {
-  skeletonEffect.triggerCorrect(info.combo);
-});
-eventBus.on('answer:wrong', () => {
-  skeletonEffect.triggerHit();
-});
-eventBus.on('player:hurt', () => {
-  skeletonEffect.triggerHit();
-});
 
 
 // Issue #191: 노트결과 ID 기준 중복 방지 (1회 재생 보장)
@@ -1088,16 +1029,9 @@ const beatCoordinator = new BeatRunCoordinator({
       sfx.play('correct');
       effectManager.playAnswerEffect('correct', bx, by, battle.combo + 1);
       effectManager.playPreset('correct', bx, by);
-      const isEnraged = bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3);
-      bossRenderer.triggerHit();
-      effectManager.playBossHitImpact(
-        canvasManager.virtualWidth * 0.5,
-        canvasManager.virtualHeight * HORIZON_RATIO,
-        isEnraged,
-      );
+      battleEventBinder.triggerBossHitImpact(HORIZON_RATIO);
       // Issue #540: 정답 TTS 낭독 삭제 (SFX 효과음으로 대체)
       eventBus.emit('answer:correct', { mana: battle.mana, combo: battle.combo + 1 });
-      eventBus.emit('boss:hit', { bossHp: boss.hp });
     } else {
       sfx.play('wrong');
       effectManager.playAnswerEffect('wrong', bx, by);
@@ -1383,32 +1317,14 @@ bossFeverController = new BossFeverController({
   secondsPerBeat: defaultSecondsPerBeat,
   onVictory: (stats) => {
     console.log('[DG] Phase B 보스 격파 승리! 통계:', stats);
-    const purifyDialogue = dialogueManager.getDialogue({
-      trigger: 'boss_purified',
-      chapter: currentChapter,
-      force: true,
-    });
-    if (purifyDialogue) {
-      dialogueOverlayRenderer.show(purifyDialogue);
-    }
-    showResult(true);
+    battleEventBinder.handleBossDefeated(stats, true);
   },
   onGameOver: (stats) => {
     console.log('[DG] Phase B 플레이어 패배... 통계:', stats);
-    showResult(false);
+    battleEventBinder.handlePlayerDefeated(stats, true);
   },
   onDamageDealt: () => {
-    const isEnraged = bossHazardController ? bossHazardController.isEnraged : (boss.hp / boss.maxHp <= 0.3);
-    const bx = canvasManager.virtualWidth * 0.5;
-    const by = canvasManager.virtualHeight * 0.35;
-    bossRenderer.triggerHit();
-    effectManager.playBossHitImpact(bx, by, isEnraged);
-    eventBus.emit('boss:hit', { bossHp: boss.hp });
-    effectManager.playPreset(
-      'correct',
-      bx,
-      by,
-    );
+    battleEventBinder.triggerBossHitImpact(0.35, true, false, 'correct');
   },
 });
 
@@ -1424,13 +1340,7 @@ bossHazardController = new BossHazardController({
     console.log(`[DG] Phase B 보스 패턴 공격 개시: ${attackType}`);
   },
   onHazardResolved: (result) => {
-    if (result.evaded) {
-      console.log(`[DG] 보스 공격 회피 성공! (${result.attackType})`);
-      sfx.play('posture_complete');
-    } else {
-      console.log(`[DG] 보스 공격 피격! (${result.attackType}) 피해: ${result.damage}, 잔여 미니언: ${result.remainingMinions}`);
-      sfx.play('wrong');
-    }
+    battleEventBinder.handleHazardResolved(result);
   },
 });
 
@@ -1594,36 +1504,11 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
   if (correct) {
     consecutiveWrongCount = 0;
     if (resolveResult.spellCast) {
-      const manaX = canvasManager.virtualWidth * 0.5;
-      const manaY = canvasManager.virtualHeight * 0.95;
-      effectManager.playManaFullEffect(manaX, manaY);
-      eventBus.emit('mana:full', { mana: 100 });
-      eventBus.emit('guardian:cast', { damage: DEFAULT_CONFIG.battle.spellDamage });
-
-      effectManager.playPreset('cast', canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * HORIZON_RATIO);
-      castingFlash = 0.6;
-      console.log(`[DG] 캐스팅! 보스 HP: ${boss.hp}/${boss.maxHp}`);
+      battleEventBinder.handleSpellCast(DEFAULT_CONFIG.battle.spellDamage);
     }
 
     if (resolveResult.bossDefeated) {
-      // Issue #219 (STORY-RENDER-001): 보스 격파/정화 시 boss_purified 대사 발화
-      const purifyDialogue = dialogueManager.getDialogue({
-        trigger: 'boss_purified',
-        chapter: currentChapter,
-        force: true,
-      });
-      if (purifyDialogue) {
-        dialogueOverlayRenderer.show(purifyDialogue);
-      }
-      if (sessionLifecycle.claimResultTransition()) {
-        if (!sessionLifecycle.isTestSession && !sessionContext?.isTestSession) {
-          const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
-          starsMap[currentChapter] = Math.max(starsMap[currentChapter] ?? 0, stars);
-        }
-        sessionLifecycle.schedule(() => {
-          showResult(true);
-        }, 600);
-      }
+      battleEventBinder.handleBossDefeated();
       return;
     }
 
@@ -1655,11 +1540,7 @@ function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: Rou
 
     if (resolveResult.playerDefeated) {
       stageProgressController.handleRoundSettled(resolveResult, { immediate: true });
-      if (sessionLifecycle.claimResultTransition()) {
-        sessionLifecycle.schedule(() => {
-          showResult(false);
-        }, 600);
-      }
+      battleEventBinder.handlePlayerDefeated();
       return;
     }
   }
@@ -2323,6 +2204,7 @@ engine = new GameEngine({
 
     this._assaultWireHelper.dispose();
     this._eventListenerManager.detachListeners();
+    this._battleEventBinder?.dispose();
 
     this.cameraLayer.stop();
     this._isRunning = false;
