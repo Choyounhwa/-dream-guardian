@@ -12,9 +12,11 @@
  *
  * @see Issue #191 [AUDIO-BAND-001]
  * @see Issue #229 [SPEC-ROUTINE-VERIFY-001]
+ * @see Issue #630 [REFACTOR-DRY-003]
  */
 
 import { DEFAULT_BAND_AUDIO_CONFIG, type BandAudioConfig } from '../../config/audio.config.js';
+import { createAudioContext, createDistortionCurve } from './AudioContextFactory.js';
 
 export type BandTimingQuality = 'sync' | 'stumble' | 'miss';
 
@@ -28,18 +30,6 @@ export const GUITAR_ZONE_FREQUENCIES: Record<number, number> = {
   ...DEFAULT_BAND_AUDIO_CONFIG.guitarFrequencies,
 };
 
-function makeDistortionCurve(amount: number = 28): Float32Array {
-  const k = amount;
-  const nSamples = 256;
-  const curve = new Float32Array(nSamples);
-  const deg = Math.PI / 180;
-  for (let i = 0; i < nSamples; ++i) {
-    const x = (i * 2) / nSamples - 1;
-    curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
-  }
-  return curve;
-}
-
 export class BandSynthesizer {
   private _audioCtx: AudioContext | null = null;
   private _muted: boolean;
@@ -49,7 +39,7 @@ export class BandSynthesizer {
   constructor(options?: BandSynthesizerOptions) {
     this._muted = options?.muted ?? false;
     this._config = options?.config ?? DEFAULT_BAND_AUDIO_CONFIG;
-    this._distortionCurve = makeDistortionCurve(this._config.distortionAmount);
+    this._distortionCurve = createDistortionCurve(this._config.distortionAmount);
 
     if (options?.audioContext) {
       this._audioCtx = options.audioContext;
@@ -59,17 +49,7 @@ export class BandSynthesizer {
   }
 
   private _initContext(): void {
-    if (typeof window === 'undefined') return;
-    try {
-      const AudioCtxClass =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioCtxClass) {
-        this._audioCtx = new AudioCtxClass();
-      }
-    } catch {
-      // AudioContext 미지원 환경 무시
-    }
+    this._audioCtx = createAudioContext();
   }
 
   get audioContext(): AudioContext | null {

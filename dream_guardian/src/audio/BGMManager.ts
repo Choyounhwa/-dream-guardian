@@ -6,7 +6,10 @@
  * TTS 오디오 더킹, 일시정지 및 볼륨 슬라이더 연동을 전담합니다.
  *
  * @see Issue #223 [AUDIO-SAMPLE-001]
+ * @see Issue #630 [REFACTOR-DRY-003]
  */
+
+import { createAudioContext } from './AudioContextFactory.js';
 
 export type BGMPhase = 'DEFAULT' | 'RUN_QUESTION' | 'REST_READY' | 'KEYNOTE_PERFORMANCE';
 
@@ -90,17 +93,8 @@ export class BGMManager {
    * 브라우저 AudioContext 준비 및 노드 초기화
    */
   private _ensureAudioContext(): AudioContext | null {
-    if (!this._audioCtx && typeof window !== 'undefined') {
-      const AudioCtxClass =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioCtxClass) {
-        try {
-          this._audioCtx = new AudioCtxClass();
-        } catch {
-          // 환경 미지원 시 안전 무시
-        }
-      }
+    if (!this._audioCtx) {
+      this._audioCtx = createAudioContext();
     }
     if (this._audioCtx && !this._masterGain) {
       this._initNodes();
