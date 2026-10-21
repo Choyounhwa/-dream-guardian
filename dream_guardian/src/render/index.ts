@@ -58,6 +58,16 @@ export type {
 } from './QuestionApproachRenderer.js';
 export { HazardZoneRenderer } from './HazardZoneRenderer.js';
 export type { HazardRenderState } from './HazardZoneRenderer.js';
+export { HazardGeometryCalculator } from './hazard/HazardGeometryCalculator.js';
+export type {
+  Point2D,
+  Quad2D,
+  StepLaneQuad,
+  BalancePlatformGeometry,
+  HazardTargetGeometry,
+  HazardBounds,
+  LaneTrapezoidOptions,
+} from './hazard/HazardGeometryCalculator.js';
 export { StarNoteRenderer } from './StarNoteRenderer.js';
 export type {
   StarNoteRenderOptions,
