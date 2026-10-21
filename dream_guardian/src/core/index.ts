@@ -11,6 +11,7 @@ export { AppBootstrap } from './AppBootstrap.js';
 export type { AppBootstrapOptions } from './AppBootstrap.js';
 export { SceneDirector, RENDER_LAYER_ORDER, createMainGameDirector } from './SceneDirector.js';
 export { AssaultSceneHandler, type AssaultSceneHandlerOptions } from './director/AssaultSceneHandler.js';
+export { SceneRenderOrchestrator, type SceneRenderOrchestratorOptions } from './director/SceneRenderOrchestrator.js';
 export type {
   SceneId,
   SceneHandler,
