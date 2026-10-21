@@ -1,33 +1,36 @@
 /**
  * ContentLoadService.ts - 로컬 게시본 수신·호환 재검증·요청 수명 관리 서비스
  *
- * Issue #389 / CONTENT-LOAD:
+ * Issue #389 / CONTENT-LOAD & Issue #637 / REFACTOR-SRP-006:
  * - 책임 레이어: Core (src/core/)
  * - 중요 규칙: src/editor/ 모듈 절대 import 금지
  * - 명시 요청된 동일 origin 로컬 게시본(PublishedContentPack / IndexedDB or 로컬 provider) 로드 수명 관리
  * - Request generation(생성 번호) 및 AbortController를 통한 요청 취소 / 응답 역전(Race Condition) 방지
  * - 최신 요청보다 오래된 비동기 응답은 폐기 (Out-of-order response 방지)
- * - 런타임 지원 rulesetVersion/rulesetHash 및 contentHash 재검증
+ * - 런타임 지원 rulesetVersion/rulesetHash 및 contentHash 재검증 (ContentPackValidator 위임)
+ * - 활성 팩, 이전 정상본, 메모리 캐시 수명 관리 (ContentCacheManager 위임)
  * - 조작된 팩, 불완전 팩 거부 및 fallback 반환
  * - 편집 원본 초안(EditorProject kind)이나 UIX 파일, 레거시 V1 키 수신 차단
  * - 로드 결과: success, fallback, cancelled 반환
  * - 타 포트/외부 저장소 공유 및 원격 네트워크 업로드 없음
  */
 
+import { type PublishedContentPack } from '../data/PublishedContentPack.js';
 import {
-  type PublishedContentPack,
-  PUBLISHED_PACK_KIND,
-  validatePublishedContentPack,
-} from '../data/PublishedContentPack.js';
-import { computeContentHash } from '../data/ContentCanonical.js';
-import {
-  SUPPORTED_RULESET_IDS,
-  SUPPORTED_RUNTIME_VERSIONS,
-  V2_PUBLISHABLE_CAPABILITY_PROFILE,
-} from '../data/ContentCapabilities.js';
-import { deepFreeze } from '../utils/deepFreeze.js';
+  ContentPackValidator,
+  STATIC_MANIFEST_KIND,
+  STATIC_MANIFEST_VERSION,
+  DEFAULT_STATIC_MANIFEST_URL,
+  type StaticContentManifest,
+} from './content/ContentPackValidator.js';
+import { ContentCacheManager } from './content/ContentCacheManager.js';
 
-const EXPECTED_RULESET_HASH = computeContentHash(V2_PUBLISHABLE_CAPABILITY_PROFILE);
+export {
+  STATIC_MANIFEST_KIND,
+  STATIC_MANIFEST_VERSION,
+  DEFAULT_STATIC_MANIFEST_URL,
+  type StaticContentManifest,
+};
 
 /**
  * 게시본 스토어 인터페이스 (IndexedDB 등 로컬 스토어 어댑터)
@@ -65,30 +68,6 @@ export type ContentLoadResult =
   | ContentLoadFallbackResult
   | ContentLoadCancelledResult;
 
-export const STATIC_MANIFEST_KIND = 'dream-guardian-static-manifest' as const;
-export const STATIC_MANIFEST_VERSION = 1 as const;
-export const DEFAULT_STATIC_MANIFEST_URL = 'content/manifest.json' as const;
-
-export interface StaticContentManifest {
-  kind?: string;
-  manifestVersion: number;
-  contentHash: string;
-  rulesetId: string;
-  rulesetHash: string;
-  runtimeContractVersion: string;
-  packPath?: string;
-  packUrl?: string;
-  pack?: PublishedContentPack;
-  stages?: string[];
-  metadata?: {
-    title?: string;
-    description?: string;
-    deployedAt?: string;
-    version?: string;
-    author?: string;
-  };
-}
-
 export interface ContentLoadOptions {
   store?: IPublishedContentStore;
   fallbackPack?: PublishedContentPack;
@@ -107,6 +86,8 @@ export interface ContentLoadServiceConfig {
   defaultStore?: IPublishedContentStore;
   allowedOrigin?: string;
   defaultFallbackPack?: PublishedContentPack;
+  validator?: ContentPackValidator;
+  cacheManager?: ContentCacheManager;
 }
 
 /**
@@ -115,31 +96,32 @@ export interface ContentLoadServiceConfig {
 export class ContentLoadService {
   private _currentGeneration = 0;
   private _activeAbortController: AbortController | null = null;
-  private _currentPack: PublishedContentPack | null = null;
-  private _previousHealthyPack: PublishedContentPack | null = null;
-  private _lastResult: ContentLoadResult | null = null;
   private readonly _defaultStore?: IPublishedContentStore;
   private readonly _allowedOrigin?: string;
   private readonly _defaultFallbackPack?: PublishedContentPack;
+  private readonly _validator: ContentPackValidator;
+  private readonly _cacheManager: ContentCacheManager;
 
   constructor(config?: ContentLoadServiceConfig) {
     this._defaultStore = config?.defaultStore;
     this._allowedOrigin = config?.allowedOrigin ?? (typeof window !== 'undefined' ? window.location?.origin : undefined);
     this._defaultFallbackPack = config?.defaultFallbackPack;
+    this._validator = config?.validator ?? new ContentPackValidator();
+    this._cacheManager = config?.cacheManager ?? new ContentCacheManager();
   }
 
   /**
    * 현재 활성화된(검증 통과된) 팩
    */
   get currentPack(): PublishedContentPack | null {
-    return this._currentPack;
+    return this._cacheManager.currentPack;
   }
 
   /**
    * 이전에 검증 통과된 최근 정상 팩 (오프라인/에러 시 whole-pack fallback 대상)
    */
   get previousHealthyPack(): PublishedContentPack | null {
-    return this._previousHealthyPack;
+    return this._cacheManager.previousHealthyPack;
   }
 
   /**
@@ -153,7 +135,21 @@ export class ContentLoadService {
    * 가장 최근에 완료된 로드 결과
    */
   get lastResult(): ContentLoadResult | null {
-    return this._lastResult;
+    return this._cacheManager.lastResult;
+  }
+
+  /**
+   * 연결된 검증기 인스턴스
+   */
+  get validator(): ContentPackValidator {
+    return this._validator;
+  }
+
+  /**
+   * 연결된 캐시 관리자 인스턴스
+   */
+  get cacheManager(): ContentCacheManager {
+    return this._cacheManager;
   }
 
   /**
@@ -171,9 +167,7 @@ export class ContentLoadService {
    */
   reset(): void {
     this.cancelCurrentRequest('Service reset');
-    this._currentPack = null;
-    this._previousHealthyPack = null;
-    this._lastResult = null;
+    this._cacheManager.clear();
   }
 
   /**
@@ -185,6 +179,7 @@ export class ContentLoadService {
   ): Promise<ContentLoadResult> {
     const generation = this.beginRequest();
     const abortController = this._activeAbortController!;
+    const fallbackPack = this.resolveFallback(options);
 
     if (this.isAborted(abortController, options?.signal)) {
       return this.createCancelledResult('cancelled', 'Request was cancelled before execution', generation);
@@ -192,7 +187,7 @@ export class ContentLoadService {
 
     try {
       const parsed = typeof rawInput === 'string' ? this.tryParseJson(rawInput) : rawInput;
-      const verifyResult = this.verifyPackContent(parsed, options);
+      const verifyResult = this.verifyPackContent(parsed, fallbackPack, generation);
 
       if (this.isStaleOrAborted(generation, abortController, options?.signal)) {
         return this.createCancelledResult('superseded', `Request generation ${generation} was superseded or aborted`, generation);
@@ -207,7 +202,7 @@ export class ContentLoadService {
         status: 'fallback',
         reason: 'unexpected-error',
         diagnostic: err instanceof Error ? err.message : String(err),
-        fallbackPack: options?.fallbackPack ?? this._defaultFallbackPack,
+        fallbackPack,
         generation,
       });
     }
@@ -223,13 +218,14 @@ export class ContentLoadService {
     const generation = this.beginRequest();
     const abortController = this._activeAbortController!;
     const store = options?.store ?? this._defaultStore;
+    const fallbackPack = this.resolveFallback(options);
 
     if (!store) {
       return this.finalizeResult({
         status: 'fallback',
         reason: 'store-unavailable',
         diagnostic: 'No IPublishedContentStore provided',
-        fallbackPack: options?.fallbackPack ?? this._defaultFallbackPack,
+        fallbackPack,
         generation,
       });
     }
@@ -250,12 +246,12 @@ export class ContentLoadService {
           status: 'fallback',
           reason: 'pack-not-found',
           diagnostic: `Pack not found in store for hash: ${contentHash}`,
-          fallbackPack: options?.fallbackPack ?? this._defaultFallbackPack,
+          fallbackPack,
           generation,
         });
       }
 
-      const verifyResult = this.verifyPackContent(pack, options);
+      const verifyResult = this.verifyPackContent(pack, fallbackPack, generation);
       return this.finalizeResult(verifyResult);
     } catch (err) {
       if (this.isStaleOrAborted(generation, abortController, options?.signal)) {
@@ -265,7 +261,7 @@ export class ContentLoadService {
         status: 'fallback',
         reason: 'store-error',
         diagnostic: err instanceof Error ? err.message : String(err),
-        fallbackPack: options?.fallbackPack ?? this._defaultFallbackPack,
+        fallbackPack,
         generation,
       });
     }
@@ -281,13 +277,14 @@ export class ContentLoadService {
     const generation = this.beginRequest();
     const abortController = this._activeAbortController!;
     const store = options?.store ?? this._defaultStore;
+    const fallbackPack = this.resolveFallback(options);
 
     if (!store || typeof store.getActivePack !== 'function') {
       return this.finalizeResult({
         status: 'fallback',
         reason: 'store-unavailable',
         diagnostic: 'Store does not support getActivePack',
-        fallbackPack: options?.fallbackPack ?? this._defaultFallbackPack,
+        fallbackPack,
         generation,
       });
     }
@@ -308,12 +305,12 @@ export class ContentLoadService {
           status: 'fallback',
           reason: 'pack-not-found',
           diagnostic: `No active pack found for project: ${projectId}`,
-          fallbackPack: options?.fallbackPack ?? this._defaultFallbackPack,
+          fallbackPack,
           generation,
         });
       }
 
-      const verifyResult = this.verifyPackContent(pack, options);
+      const verifyResult = this.verifyPackContent(pack, fallbackPack, generation);
       return this.finalizeResult(verifyResult);
     } catch (err) {
       if (this.isStaleOrAborted(generation, abortController, options?.signal)) {
@@ -323,7 +320,7 @@ export class ContentLoadService {
         status: 'fallback',
         reason: 'store-error',
         diagnostic: err instanceof Error ? err.message : String(err),
-        fallbackPack: options?.fallbackPack ?? this._defaultFallbackPack,
+        fallbackPack,
         generation,
       });
     }
@@ -338,17 +335,17 @@ export class ContentLoadService {
   ): Promise<ContentLoadResult> {
     const generation = this.beginRequest();
     const abortController = this._activeAbortController!;
-
     const allowedOrigin = options?.allowedOrigin ?? this._allowedOrigin;
+    const fallbackPack = this.resolveFallback(options);
 
     // Origin 검증: 상대 경로는 허용, 절대 URL인 경우 origin 일치 확인
-    const originCheck = this.validateUrlOrigin(url, allowedOrigin);
+    const originCheck = this._validator.validateUrlOrigin(url, allowedOrigin);
     if (!originCheck.valid) {
       return this.finalizeResult({
         status: 'fallback',
         reason: 'cross-origin-forbidden',
         diagnostic: originCheck.error ?? 'Forbidden cross-origin or invalid URL',
-        fallbackPack: options?.fallbackPack ?? this._defaultFallbackPack,
+        fallbackPack,
         generation,
       });
     }
@@ -363,7 +360,7 @@ export class ContentLoadService {
         status: 'fallback',
         reason: 'fetch-unavailable',
         diagnostic: 'Fetch function is not available',
-        fallbackPack: options?.fallbackPack ?? this._defaultFallbackPack,
+        fallbackPack,
         generation,
       });
     }
@@ -380,7 +377,7 @@ export class ContentLoadService {
           status: 'fallback',
           reason: 'fetch-failed',
           diagnostic: `HTTP ${response.status}: ${response.statusText}`,
-          fallbackPack: options?.fallbackPack ?? this._defaultFallbackPack,
+          fallbackPack,
           generation,
         });
       }
@@ -391,7 +388,7 @@ export class ContentLoadService {
         return this.createCancelledResult('superseded', `Request generation ${generation} superseded`, generation);
       }
 
-      const verifyResult = this.verifyPackContent(raw, options);
+      const verifyResult = this.verifyPackContent(raw, fallbackPack, generation);
       return this.finalizeResult(verifyResult);
     } catch (err) {
       if (this.isStaleOrAborted(generation, abortController, options?.signal)) {
@@ -401,28 +398,10 @@ export class ContentLoadService {
         status: 'fallback',
         reason: 'fetch-error',
         diagnostic: err instanceof Error ? err.message : String(err),
-        fallbackPack: options?.fallbackPack ?? this._defaultFallbackPack,
+        fallbackPack,
         generation,
       });
     }
-  }
-
-  /**
-   * 명시적 테스트 모드(?mode=test 또는 options.isTestMode) 여부 판정
-   */
-  private isTestModeActive(options?: ContentLoadOptions): boolean {
-    if (options?.isTestMode !== undefined) {
-      return Boolean(options.isTestMode);
-    }
-    if (typeof window !== 'undefined' && typeof window.location?.search === 'string') {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        return params.get('mode') === 'test';
-      } catch {
-        return false;
-      }
-    }
-    return false;
   }
 
   /**
@@ -434,11 +413,7 @@ export class ContentLoadService {
   ): Promise<ContentLoadResult> {
     const generation = this.beginRequest();
     const abortController = this._activeAbortController!;
-    const fallbackPack =
-      options?.previousHealthyPack ??
-      this._previousHealthyPack ??
-      options?.fallbackPack ??
-      this._defaultFallbackPack;
+    const fallbackPack = this.resolveFallback(options);
 
     // 명시적 test mode 검증: 일반 운영 환경에서는 로컬 팩 오버라이드 차단
     if (!this.isTestModeActive(options)) {
@@ -489,7 +464,7 @@ export class ContentLoadService {
         });
       }
 
-      const verifyResult = this.verifyPackContent(pack, options);
+      const verifyResult = this.verifyPackContent(pack, fallbackPack, generation);
       return this.finalizeResult(verifyResult);
     } catch (err) {
       if (this.isStaleOrAborted(generation, abortController, options?.signal)) {
@@ -520,16 +495,11 @@ export class ContentLoadService {
   ): Promise<ContentLoadResult> {
     const generation = this.beginRequest();
     const abortController = this._activeAbortController!;
-    const fallbackPack =
-      options?.previousHealthyPack ??
-      this._previousHealthyPack ??
-      options?.fallbackPack ??
-      this._defaultFallbackPack;
-
+    const fallbackPack = this.resolveFallback(options);
     const allowedOrigin = options?.allowedOrigin ?? this._allowedOrigin;
 
-    // Origin 검증
-    const originCheck = this.validateUrlOrigin(manifestUrl, allowedOrigin);
+    // 1. Origin 검증
+    const originCheck = this._validator.validateUrlOrigin(manifestUrl, allowedOrigin);
     if (!originCheck.valid) {
       return this.finalizeResult({
         status: 'fallback',
@@ -555,6 +525,7 @@ export class ContentLoadService {
       });
     }
 
+    // 2. Manifest 파일 fetch
     let manifestRaw: unknown;
     try {
       const res = await fetchImpl(manifestUrl, { signal: abortController.signal });
@@ -565,7 +536,7 @@ export class ContentLoadService {
         return this.finalizeResult({
           status: 'fallback',
           reason: res.status === 404 ? 'manifest-not-found' : 'fetch-failed',
-          diagnostic: `Manifest request failed with status: ${res.status} (${res.statusText || 'Error'})`,
+          diagnostic: `HTTP ${res.status}: ${res.statusText || 'Failed to fetch manifest'}`,
           fallbackPack,
           generation,
         });
@@ -597,76 +568,20 @@ export class ContentLoadService {
       return this.createCancelledResult('superseded', `Request generation ${generation} superseded`, generation);
     }
 
-    // 1. Manifest 기본 스키마 검증
-    if (!manifestRaw || typeof manifestRaw !== 'object') {
+    // 3. Manifest 스키마 및 호환성 검증
+    const manifestValidation = this._validator.validateManifest(manifestRaw);
+    if (!manifestValidation.valid) {
       return this.finalizeResult({
         status: 'fallback',
-        reason: 'invalid-manifest-schema',
-        diagnostic: 'Manifest payload must be an object',
+        reason: manifestValidation.reason,
+        diagnostic: manifestValidation.diagnostic,
         fallbackPack,
         generation,
       });
     }
+    const manifest = manifestValidation.manifest;
 
-    const manifest = manifestRaw as Partial<StaticContentManifest>;
-
-    if (manifest.manifestVersion !== STATIC_MANIFEST_VERSION) {
-      return this.finalizeResult({
-        status: 'fallback',
-        reason: 'unsupported-manifest-version',
-        diagnostic: `Unsupported manifest version: ${manifest.manifestVersion}, expected: ${STATIC_MANIFEST_VERSION}`,
-        fallbackPack,
-        generation,
-      });
-    }
-
-    if (typeof manifest.contentHash !== 'string' || manifest.contentHash.length !== 64) {
-      return this.finalizeResult({
-        status: 'fallback',
-        reason: 'invalid-manifest-hash',
-        diagnostic: 'Manifest contentHash must be a 64-character hex string',
-        fallbackPack,
-        generation,
-      });
-    }
-
-    if (
-      typeof manifest.rulesetId !== 'string' ||
-      !(SUPPORTED_RULESET_IDS as readonly string[]).includes(manifest.rulesetId)
-    ) {
-      return this.finalizeResult({
-        status: 'fallback',
-        reason: 'unsupported-ruleset-id',
-        diagnostic: `Unsupported manifest rulesetId: ${String(manifest.rulesetId)}`,
-        fallbackPack,
-        generation,
-      });
-    }
-
-    if (manifest.rulesetHash !== EXPECTED_RULESET_HASH) {
-      return this.finalizeResult({
-        status: 'fallback',
-        reason: 'unsupported-ruleset-hash',
-        diagnostic: `Manifest rulesetHash mismatch. Expected: ${EXPECTED_RULESET_HASH}, got: ${manifest.rulesetHash}`,
-        fallbackPack,
-        generation,
-      });
-    }
-
-    if (
-      typeof manifest.runtimeContractVersion !== 'string' ||
-      !(SUPPORTED_RUNTIME_VERSIONS as readonly string[]).includes(manifest.runtimeContractVersion)
-    ) {
-      return this.finalizeResult({
-        status: 'fallback',
-        reason: 'unsupported-runtime-version',
-        diagnostic: `Unsupported manifest runtimeContractVersion: ${String(manifest.runtimeContractVersion)}`,
-        fallbackPack,
-        generation,
-      });
-    }
-
-    // 2. 팩 획득 (inline pack 또는 packPath/packUrl fetch)
+    // 4. 팩 획득 (inline pack 또는 packPath/packUrl fetch)
     let packRaw: unknown;
     if (manifest.pack && typeof manifest.pack === 'object') {
       packRaw = manifest.pack;
@@ -682,47 +597,14 @@ export class ContentLoadService {
         });
       }
 
-      // Pack URL 상대 경로 해석
-      let packFullUrl = rawPackPath;
-      if (manifestUrl.startsWith('http://') || manifestUrl.startsWith('https://')) {
-        try {
-          const baseObj = new URL(manifestUrl);
-          if (rawPackPath.startsWith('/')) {
-            packFullUrl = new URL(rawPackPath, baseObj.origin).toString();
-          } else if (rawPackPath.startsWith('./') || rawPackPath.startsWith('../')) {
-            packFullUrl = new URL(rawPackPath, manifestUrl).toString();
-          } else {
-            // e.g. 'content/pack.json' vs manifest at '/content/manifest.json'
-            const manifestDir = baseObj.pathname.substring(0, baseObj.pathname.lastIndexOf('/') + 1);
-            const firstSegment = rawPackPath.split('/')[0];
-            if (manifestDir.includes(`/${firstSegment}/`)) {
-              packFullUrl = new URL(rawPackPath, baseObj.origin).toString();
-            } else {
-              packFullUrl = new URL(rawPackPath, manifestUrl).toString();
-            }
-          }
-        } catch {
-          packFullUrl = rawPackPath;
-        }
-      } else if (
-        rawPackPath.startsWith('/') ||
-        rawPackPath.startsWith('./') ||
-        rawPackPath.startsWith('../') ||
-        !rawPackPath.includes('://')
-      ) {
-        const lastSlash = manifestUrl.lastIndexOf('/');
-        if (lastSlash >= 0) {
-          const baseDir = manifestUrl.substring(0, lastSlash + 1);
-          packFullUrl = rawPackPath.startsWith('/') ? rawPackPath : `${baseDir}${rawPackPath}`;
-        }
-      }
+      const packFullUrl = this.resolvePackUrl(manifestUrl, rawPackPath);
 
-      const packOriginCheck = this.validateUrlOrigin(packFullUrl, allowedOrigin);
+      const packOriginCheck = this._validator.validateUrlOrigin(packFullUrl, allowedOrigin);
       if (!packOriginCheck.valid) {
         return this.finalizeResult({
           status: 'fallback',
           reason: 'cross-origin-forbidden',
-          diagnostic: packOriginCheck.error ?? 'Forbidden cross-origin pack URL',
+          diagnostic: packOriginCheck.error ?? 'Pack asset URL forbidden cross-origin',
           fallbackPack,
           generation,
         });
@@ -766,77 +648,34 @@ export class ContentLoadService {
       }
     }
 
-    // 3. 팩 콘텐츠 무결성 및 호환성 검증
-    const verifyResult = this.verifyPackContent(packRaw, { ...options, fallbackPack });
+    // 5. 팩 콘텐츠 무결성 및 호환성 검증
+    const verifyResult = this.verifyPackContent(packRaw, fallbackPack, generation);
     if (verifyResult.status !== 'success') {
       return this.finalizeResult(verifyResult);
     }
 
     const verifiedPack = verifyResult.pack;
 
-    // 4. Stale cache 및 Manifest <-> Pack 일관성 검증
-    if (verifiedPack.contentHash !== manifest.contentHash) {
+    // 6. Stale cache 및 Manifest <-> Pack 일관성 검증
+    const matchValidation = this._validator.validatePackAgainstManifest(verifiedPack, manifest, {
+      mismatchReason: 'stale-cache',
+    });
+    if (!matchValidation.valid) {
       return this.finalizeResult({
         status: 'fallback',
-        reason: 'stale-cache',
-        diagnostic: `Manifest contentHash (${manifest.contentHash}) does not match pack contentHash (${verifiedPack.contentHash})`,
+        reason: matchValidation.reason,
+        diagnostic: matchValidation.diagnostic,
         fallbackPack,
         generation,
       });
     }
 
-    if (verifiedPack.rulesetHash !== manifest.rulesetHash) {
-      return this.finalizeResult({
-        status: 'fallback',
-        reason: 'stale-cache',
-        diagnostic: `Manifest rulesetHash (${manifest.rulesetHash}) does not match pack rulesetHash (${verifiedPack.rulesetHash})`,
-        fallbackPack,
-        generation,
-      });
-    }
-
-    if (verifiedPack.runtimeContractVersion !== manifest.runtimeContractVersion) {
-      return this.finalizeResult({
-        status: 'fallback',
-        reason: 'stale-cache',
-        diagnostic: `Manifest runtimeContractVersion (${manifest.runtimeContractVersion}) does not match pack runtimeContractVersion (${verifiedPack.runtimeContractVersion})`,
-        fallbackPack,
-        generation,
-      });
-    }
-
-    if (verifiedPack.rulesetId !== manifest.rulesetId) {
-      return this.finalizeResult({
-        status: 'fallback',
-        reason: 'stale-cache',
-        diagnostic: `Manifest rulesetId (${manifest.rulesetId}) does not match pack rulesetId (${verifiedPack.rulesetId})`,
-        fallbackPack,
-        generation,
-      });
-    }
-
-    // 5. Manifest 바인딩 커버리지 검증
-    if (Array.isArray(manifest.stages)) {
-      for (const requiredStageId of manifest.stages) {
-        if (!verifiedPack.stages || !verifiedPack.stages[requiredStageId]) {
-          return this.finalizeResult({
-            status: 'fallback',
-            reason: 'incomplete-pack',
-            diagnostic: `Pack is missing declared stage binding from manifest: "${requiredStageId}"`,
-            fallbackPack,
-            generation,
-          });
-        }
-      }
-    }
-
-    // 6. 정상 통과: immutable snapshot 생성 및 previousHealthyPack 등록
-    const frozenPack = deepFreeze(structuredClone(verifiedPack));
-    this._previousHealthyPack = frozenPack;
+    // 7. 정상 통과: previousHealthyPack 갱신 및 반환
+    this._cacheManager.setPreviousHealthyPack(verifiedPack);
 
     return this.finalizeResult({
       status: 'success',
-      pack: frozenPack,
+      pack: verifiedPack,
       generation,
     });
   }
@@ -868,11 +707,17 @@ export class ContentLoadService {
   }
 
   private finalizeResult(result: ContentLoadResult): ContentLoadResult {
-    this._lastResult = result;
-    if (result.status === 'success') {
-      this._currentPack = result.pack;
-    }
+    this._cacheManager.setLastResult(result);
     return result;
+  }
+
+  private resolveFallback(options?: ContentLoadOptions): PublishedContentPack | undefined {
+    return (
+      options?.previousHealthyPack ??
+      this._cacheManager.previousHealthyPack ??
+      options?.fallbackPack ??
+      this._defaultFallbackPack
+    );
   }
 
   private tryParseJson(text: string): unknown {
@@ -883,202 +728,76 @@ export class ContentLoadService {
     }
   }
 
-  private validateUrlOrigin(url: string, allowedOrigin?: string): { valid: boolean; error?: string } {
-    if (url.startsWith('javascript:') || url.startsWith('data:') || url.startsWith('vbscript:')) {
-      return { valid: false, error: 'Disallowed URL protocol' };
+  private isTestModeActive(options?: ContentLoadOptions): boolean {
+    if (options?.isTestMode !== undefined) {
+      return Boolean(options.isTestMode);
     }
-
-    // 상대 경로 (/api/...)는 동일 origin으로 간주
-    if (url.startsWith('/') && !url.startsWith('//')) {
-      return { valid: true };
-    }
-
-    try {
-      const parsed = new URL(url, allowedOrigin ?? 'http://localhost');
-      if (allowedOrigin) {
-        const allowed = new URL(allowedOrigin);
-        if (parsed.origin !== allowed.origin) {
-          return {
-            valid: false,
-            error: `Cross-origin request to ${parsed.origin} not allowed (expected ${allowed.origin})`,
-          };
-        }
+    if (typeof window !== 'undefined' && typeof window.location?.search === 'string') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('mode') === 'test';
+      } catch {
+        return false;
       }
-      return { valid: true };
-    } catch {
-      return { valid: false, error: `Malformed URL: ${url}` };
     }
+    return false;
   }
 
-  /**
-   * 팩 콘텐츠 무결성 및 호환성 상세 검증
-   */
   private verifyPackContent(
     input: unknown,
-    options?: ContentLoadOptions,
+    fallbackPack?: PublishedContentPack,
+    generation: number = this._currentGeneration,
   ): ContentLoadResult {
-    const generation = this._currentGeneration;
-    const fallbackPack = options?.fallbackPack ?? this._defaultFallbackPack;
-
-    if (!input || typeof input !== 'object') {
+    const result = this._validator.validatePackContent(input);
+    if (!result.valid) {
       return {
         status: 'fallback',
-        reason: 'invalid-input-type',
-        diagnostic: `Expected object, got ${typeof input}`,
+        reason: result.reason,
+        diagnostic: result.diagnostic,
         fallbackPack,
         generation,
       };
     }
-
-    const record = input as Record<string, unknown>;
-
-    // 1. 초안(EditorProject kind) 차단
-    if (record.kind === 'dream-guardian-authoring-project') {
-      return {
-        status: 'fallback',
-        reason: 'rejected-authoring-project',
-        diagnostic: 'Editor draft ("dream-guardian-authoring-project") cannot be loaded as runtime executable pack',
-        fallbackPack,
-        generation,
-      };
-    }
-
-    // 2. UIX 파일 차단
-    if (
-      typeof record.kind === 'string' &&
-      (record.kind === 'dream-guardian-ui-project' ||
-        record.kind === 'dream-guardian-ui-transfer' ||
-        record.kind.startsWith('dream-guardian-ui-'))
-    ) {
-      return {
-        status: 'fallback',
-        reason: 'rejected-uix-content',
-        diagnostic: `UIX content ("${record.kind}") cannot be loaded as game content pack`,
-        fallbackPack,
-        generation,
-      };
-    }
-
-    // 3. 레거시 V1 포맷 차단
-    if (
-      record.version === '1.0.0' &&
-      (record.sequences !== undefined || record.patterns !== undefined)
-    ) {
-      return {
-        status: 'fallback',
-        reason: 'rejected-legacy-v1',
-        diagnostic: 'Legacy V1 format cannot be loaded directly as runtime pack',
-        fallbackPack,
-        generation,
-      };
-    }
-
-    // 4. Kind 일치 여부 확인
-    if (record.kind !== PUBLISHED_PACK_KIND) {
-      return {
-        status: 'fallback',
-        reason: 'invalid-pack-kind',
-        diagnostic: `Pack kind must be "${PUBLISHED_PACK_KIND}", got "${String(record.kind)}"`,
-        fallbackPack,
-        generation,
-      };
-    }
-
-    const pack = record as unknown as PublishedContentPack;
-
-    // 5. 런타임 버전 호환성 검증
-    if (
-      typeof pack.runtimeContractVersion !== 'string' ||
-      !(SUPPORTED_RUNTIME_VERSIONS as readonly string[]).includes(pack.runtimeContractVersion)
-    ) {
-      return {
-        status: 'fallback',
-        reason: 'unsupported-runtime-version',
-        diagnostic: `Runtime version "${String(pack.runtimeContractVersion)}" is not supported`,
-        fallbackPack,
-        generation,
-      };
-    }
-
-    // 6. rulesetId 검증
-    if (
-      typeof pack.rulesetId !== 'string' ||
-      !(SUPPORTED_RULESET_IDS as readonly string[]).includes(pack.rulesetId as any)
-    ) {
-      return {
-        status: 'fallback',
-        reason: 'unsupported-ruleset',
-        diagnostic: `Ruleset "${String(pack.rulesetId)}" is not supported`,
-        fallbackPack,
-        generation,
-      };
-    }
-
-    // 7. rulesetHash 검증
-    if (pack.rulesetHash !== EXPECTED_RULESET_HASH) {
-      return {
-        status: 'fallback',
-        reason: 'unsupported-ruleset-hash',
-        diagnostic: `Ruleset hash mismatch: expected ${EXPECTED_RULESET_HASH}, got ${pack.rulesetHash}`,
-        fallbackPack,
-        generation,
-      };
-    }
-
-    // 8. 구조 및 tamper(변조) 검증
-    const validation = validatePublishedContentPack(pack);
-    if (!validation.valid) {
-      const isTampered = validation.errors.some((e) => e.code === 'tampered-content-hash');
-      const isIncomplete = validation.errors.some((e) => e.code === 'incomplete-stage-bundle');
-
-      const reason = isTampered
-        ? 'tampered-content-hash'
-        : isIncomplete
-          ? 'incomplete-pack'
-          : 'invalid-pack-structure';
-
-      return {
-        status: 'fallback',
-        reason,
-        diagnostic: validation.errors.map((e) => e.message).join('; '),
-        fallbackPack,
-        generation,
-      };
-    }
-
-    // 9. 페이즈 완전성 재검사 (각 스테이지별 최소 1개 페이즈 또는 builtinProfile 필수)
-    if (!pack.stages || Object.keys(pack.stages).length === 0) {
-      return {
-        status: 'fallback',
-        reason: 'incomplete-pack',
-        diagnostic: 'Pack has no stages defined',
-        fallbackPack,
-        generation,
-      };
-    }
-
-    for (const [stageKey, stage] of Object.entries(pack.stages)) {
-      const hasBuiltin = typeof stage.builtinProfile === 'string' && stage.builtinProfile.trim().length > 0;
-      const hasPhaseA = stage.phaseA != null;
-      const hasPhaseB = stage.phaseB != null;
-
-      if (!hasBuiltin && (!hasPhaseA || !hasPhaseB)) {
-        return {
-          status: 'fallback',
-          reason: 'incomplete-pack',
-          diagnostic: `Stage "${stageKey}" is incomplete (requires both phaseA and phaseB or builtinProfile)`,
-          fallbackPack,
-          generation,
-        };
-      }
-    }
-
-    // 10. deepFreeze 적용 및 성공 반환
-    const frozenPack = deepFreeze(structuredClone(pack));
     return {
       status: 'success',
-      pack: frozenPack,
+      pack: result.pack,
       generation,
     };
+  }
+
+  private resolvePackUrl(manifestUrl: string, rawPackPath: string): string {
+    let packFullUrl = rawPackPath;
+    if (manifestUrl.startsWith('http://') || manifestUrl.startsWith('https://')) {
+      try {
+        const baseObj = new URL(manifestUrl);
+        if (rawPackPath.startsWith('/')) {
+          packFullUrl = new URL(rawPackPath, baseObj.origin).toString();
+        } else if (rawPackPath.startsWith('./') || rawPackPath.startsWith('../')) {
+          packFullUrl = new URL(rawPackPath, manifestUrl).toString();
+        } else {
+          const manifestDir = baseObj.pathname.substring(0, baseObj.pathname.lastIndexOf('/') + 1);
+          const firstSegment = rawPackPath.split('/')[0];
+          if (manifestDir.includes(`/${firstSegment}/`)) {
+            packFullUrl = new URL(rawPackPath, baseObj.origin).toString();
+          } else {
+            packFullUrl = new URL(rawPackPath, manifestUrl).toString();
+          }
+        }
+      } catch {
+        packFullUrl = rawPackPath;
+      }
+    } else if (
+      rawPackPath.startsWith('/') ||
+      rawPackPath.startsWith('./') ||
+      rawPackPath.startsWith('../') ||
+      !rawPackPath.includes('://')
+    ) {
+      const lastSlash = manifestUrl.lastIndexOf('/');
+      if (lastSlash >= 0) {
+        const baseDir = manifestUrl.substring(0, lastSlash + 1);
+        packFullUrl = rawPackPath.startsWith('/') ? rawPackPath : `${baseDir}${rawPackPath}`;
+      }
+    }
+    return packFullUrl;
   }
 }
