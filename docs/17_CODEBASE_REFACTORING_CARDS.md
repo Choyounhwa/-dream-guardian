@@ -3,7 +3,7 @@
 - **브랜치**: `refactor/modularize-large-files`
 - **작성일**: 2026-10-20
 - **근거 규정**: `docs/Dream_Guardian_개발_규칙.md` 제14조(작업카드 규격), 제15조(1,000줄 초과 대형 파일 금지 및 SRP 분리), 제16조(중복 코드 작성 금지 DRY 원칙)
-- **상태**: 전체 카드 **OPEN / 개별 구현 승인 대기** (사전 승인 전 코드 수정 금지)
+- **상태**: 전체 카드 **COMPLETED / 전 카드 구현 및 TDD 100% Pass 완료**
 - **전체 목표**:
   1. 11개 이상 파일에 분산된 동일 유틸리티 및 암호화/사운드 로직을 `src/utils/` 및 `src/audio/`의 단일 진실 공급원(SSOT)으로 통합 (DRY 준수)
   2. 1,000줄을 초과하는 6개 거대 파일(총 8,487줄)을 서브 모듈 및 헬퍼 컴포넌트로 분리하여 전 소스 파일 1,000줄 이하 유지 (SRP 준수)
@@ -65,9 +65,9 @@
 - 동결 대상 객체의 내부 프로퍼티 구조나 비즈니스 로직 수정 금지
 
 **완료 조건**:
-- [ ] `src/utils/deepFreeze.ts`가 생성되고 11개 파일에서 로컬 중복 함수가 완전히 제거된다.
-- [ ] 단위 테스트 `tests/unit/deep-freeze.test.ts` 작성 및 100% Pass.
-- [ ] 전체 단위 테스트 100% Pass 및 `npm run build` 통과.
+- [x] `src/utils/deepFreeze.ts`가 생성되고 11개 파일에서 로컬 중복 함수가 완전히 제거된다.
+- [x] 단위 테스트 `tests/unit/deep-freeze.test.ts` 작성 및 100% Pass.
+- [x] 전체 단위 테스트 100% Pass 및 `npm run build` 통과.
 
 **테스트**:
 - `npx vitest run tests/unit/deep-freeze.test.ts`
@@ -111,9 +111,9 @@
 - 기존 해시 규격(canonical JSON 정렬 방식 및 UTF-8 인코딩) 수정 금지
 
 **완료 조건**:
-- [ ] `crypto.ts` 신규 생성 및 기존 2개 파일의 약 180줄 중복 해시 로직 제거.
-- [ ] 표준 SHA-256 테스트 벡터(빈 문자열, 특정 텍스트, 바이트열) 검증 테스트 100% Pass.
-- [ ] 기존 콘텐츠 해시 및 무결성 검증 테스트 100% Pass.
+- [x] `crypto.ts` 신규 생성 및 기존 2개 파일의 약 180줄 중복 해시 로직 제거.
+- [x] 표준 SHA-256 테스트 벡터(빈 문자열, 특정 텍스트, 바이트열) 검증 테스트 100% Pass.
+- [x] 기존 콘텐츠 해시 및 무결성 검증 테스트 100% Pass.
 
 **테스트**:
 - `npx vitest run tests/unit/crypto.test.ts`
@@ -155,8 +155,8 @@
 - 사운드 생성 주파수, 오실레이터 타입, 엔벨로프 파라미터 변경 금지
 
 **완료 조건**:
-- [ ] 4개 오디오 클래스에서 `AudioContext` 중복 검사 로직이 제거된다.
-- [ ] 사운드 재생 및 Web Audio 단위 테스트 100% Pass.
+- [x] 4개 오디오 클래스에서 `AudioContext` 중복 검사 로직이 제거된다.
+- [x] 사운드 재생 및 Web Audio 단위 테스트 100% Pass.
 
 **테스트**:
 - `npx vitest run tests/unit/audio-bgm-manager.test.ts`
@@ -196,8 +196,8 @@
 - 기존 렌더러들의 슬롯 프로퍼티 접근성 및 타입 체킹 100% 유지
 
 **완료 조건**:
-- [ ] 중복 인터페이스 선언이 `BaseSlotOverride` 상속으로 정리된다.
-- [ ] `npm run build` tsc 타입 검사 100% 통과.
+- [x] 중복 인터페이스 선언이 `BaseSlotOverride` 상속으로 정리된다.
+- [x] `npm run build` tsc 타입 검사 100% 통과.
 
 **테스트**:
 - `npm run build`
@@ -234,9 +234,9 @@
 - 게임 엔진 루프(`GameEngine`) 및 상태 머신 전이 규칙 변경 금지
 
 **완료 조건**:
-- [ ] `AppBootstrap.ts`의 라인 수가 300줄 이상 감축된다.
-- [ ] `AppEventListenerManager.ts`가 500줄 이하로 작성된다.
-- [ ] 키보드 및 마우스 입력 관련 단위 테스트 100% 통과.
+- [x] `AppBootstrap.ts`의 라인 수가 300줄 이상 감축된다.
+- [x] `AppEventListenerManager.ts`가 500줄 이하로 작성된다.
+- [x] 키보드 및 마우스 입력 관련 단위 테스트 100% 통과.
 
 **테스트**:
 - `npx vitest run tests/unit/app-bootstrap.test.ts`
@@ -265,8 +265,8 @@
 - 수호신 스펠 데미지 산출, 보스 체력 차감, 타격 사운드/이펙트 재생 타이밍 100% 보존
 
 **완료 조건**:
-- [ ] `AppBootstrap.ts`의 인라인 전투 콜백이 분리되어 250줄 이상 감축된다.
-- [ ] 전투 시스템 연동 단위 테스트 100% 통과.
+- [x] `AppBootstrap.ts`의 인라인 전투 콜백이 분리되어 250줄 이상 감축된다.
+- [x] 전투 시스템 연동 단위 테스트 100% 통과.
 
 **테스트**:
 - `npx vitest run tests/unit/battle-state.test.ts`
@@ -296,8 +296,8 @@
 - 브라우저에 저장되는 로컬 스토리지 키 명칭 및 저장 데이터 구조 100% 호환 보존
 
 **완료 조건**:
-- [ ] `AppBootstrap.ts`가 **1,000줄 이하**로 최종 슬림화 완료된다.
-- [ ] 영속성 관리 단위 테스트 작성 및 100% 통과.
+- [x] `AppBootstrap.ts`가 **1,000줄 이하**로 최종 슬림화 완료된다.
+- [x] 영속성 관리 단위 테스트 작성 및 100% 통과.
 
 **테스트**:
 - `npx vitest run tests/unit/app-persistence.test.ts`
@@ -326,8 +326,8 @@
 - 웹캠 기반 신체 인식, 4색 커서 위치 추적, 무릎 프레이밍 감지 주기 100% 동일 유지
 
 **완료 조건**:
-- [ ] `SceneDirector.ts`에서 모션 파이프라인 세부 구현이 분리되어 350줄 이상 감축된다.
-- [ ] 모션 및 제스처 연동 단위 테스트 100% 통과.
+- [x] `SceneDirector.ts`에서 모션 파이프라인 세부 구현이 분리되어 350줄 이상 감축된다.
+- [x] 모션 및 제스처 연동 단위 테스트 100% 통과.
 
 **테스트**:
 - `npx vitest run tests/unit/pose-manager.test.ts`
@@ -357,8 +357,8 @@
 - 7개 레이어 렌더링 순서(`RENDER_LAYER_ORDER`), 블렌딩 모드, 시각적 출력 100% 동일 유지
 
 **완료 조건**:
-- [ ] `SceneDirector.ts`가 **1,000줄 이하**로 최종 슬림화된다.
-- [ ] 씬 렌더링 통합 테스트 100% 통과.
+- [x] `SceneDirector.ts`가 **1,000줄 이하**로 최종 슬림화된다.
+- [x] 씬 렌더링 통합 테스트 100% 통과.
 
 **테스트**:
 - `npx vitest run tests/unit/scene-director.test.ts`
@@ -389,8 +389,8 @@
 - 게시본 로컬 스토리지 로드, 무결성 검증, fallback 반환 로직 100% 동일 보존
 
 **완료 조건**:
-- [ ] `ContentLoadService.ts`가 **1,000줄 이하**로 감축된다.
-- [ ] 콘텐츠 로드 단위/통합 테스트 100% 통과.
+- [x] `ContentLoadService.ts`가 **1,000줄 이하**로 감축된다.
+- [x] 콘텐츠 로드 단위/통합 테스트 100% 통과.
 
 **테스트**:
 - `npx vitest run tests/integration/content-manifest-load.test.ts`
@@ -421,8 +421,8 @@
 - 메뉴 버튼 클릭 및 호버 애니메이션, 사운드 인디케이터, 챕터 선택 동작 100% 동일 유지
 
 **완료 조건**:
-- [ ] `MenuRenderer.ts`가 **1,000줄 이하**로 감축된다.
-- [ ] 메뉴 렌더링 및 UI 단위 테스트 100% 통과.
+- [x] `MenuRenderer.ts`가 **1,000줄 이하**로 감축된다.
+- [x] 메뉴 렌더링 및 UI 단위 테스트 100% 통과.
 
 **테스트**:
 - `npx vitest run tests/unit/menu-renderer.test.ts`
@@ -450,8 +450,8 @@
 - 3D 위험 구역 레인 시각적 원근감, 위험 경고 펄스 및 파티클 연출 100% 동일 유지
 
 **완료 조건**:
-- [ ] `HazardZoneRenderer.ts`가 **1,000줄 이하**로 감축된다.
-- [ ] 해저드 렌더러 단위 테스트 100% 통과.
+- [x] `HazardZoneRenderer.ts`가 **1,000줄 이하**로 감축된다.
+- [x] 해저드 렌더러 단위 테스트 100% 통과.
 
 **테스트**:
 - `npx vitest run tests/unit/hazard-zone-renderer.test.ts`
@@ -479,8 +479,8 @@
 - 비트 동기화 음악 재생 타이밍, 별 노트 생성 주기, 판정 적중 윈도우 100% 동일 유지
 
 **완료 조건**:
-- [ ] `BeatRunCoordinator.ts`가 **1,000줄 이하**로 감축된다.
-- [ ] 비트 러닝 관련 단위/통합 테스트 100% 통과.
+- [x] `BeatRunCoordinator.ts`가 **1,000줄 이하**로 감축된다.
+- [x] 비트 러닝 관련 단위/통합 테스트 100% 통과.
 
 **테스트**:
 - `npx vitest run tests/unit/beat-run-coordinator.test.ts`
@@ -513,9 +513,9 @@
 - 상태머신 상태 식별자 및 기존 사운드/이펙트 발동 시퀀스 변경 금지
 
 **완료 조건**:
-- [ ] `AppSessionFlowCoordinator.ts`가 독립 모듈로 구현되고 500줄 이하를 유지한다.
-- [ ] `AppBootstrap.ts`에서 400줄 이상 감축된다.
-- [ ] 세션 흐름 및 결과 처리 관련 단위 테스트 100% Pass.
+- [x] `AppSessionFlowCoordinator.ts`가 독립 모듈로 구현되고 500줄 이하를 유지한다.
+- [x] `AppBootstrap.ts`에서 400줄 이상 감축된다.
+- [x] 세션 흐름 및 결과 처리 관련 단위 테스트 100% Pass.
 
 **테스트**:
 - `npx vitest run tests/unit/app-session-flow-coordinator.test.ts`
@@ -549,9 +549,9 @@
 - 컨트롤러 간 이벤트 전파 순서 변경 금지
 
 **완료 조건**:
-- [ ] `AppRoundEventBinder.ts`가 500줄 이하로 작성된다.
-- [ ] `AppBootstrap.ts`에서 300줄 이상 감축된다.
-- [ ] 라운드 이벤트 및 모션 입력 연동 테스트 100% Pass.
+- [x] `AppRoundEventBinder.ts`가 500줄 이하로 작성된다.
+- [x] `AppBootstrap.ts`에서 300줄 이상 감축된다.
+- [x] 라운드 이벤트 및 모션 입력 연동 테스트 100% Pass.
 
 **테스트**:
 - `npx vitest run tests/unit/app-round-event-binder.test.ts`

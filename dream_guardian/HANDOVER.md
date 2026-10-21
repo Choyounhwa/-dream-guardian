@@ -24,6 +24,12 @@
 | **REFACTOR-SRP-012** | [#643](https://github.com/Choyounhwa/-dream-guardian/issues/643) | `AppBootstrap` UI 프레젠테이션 동기화 및 콘텐츠 프리로더(`AppUIPresentationSyncManager`) 분리 | `src/core/bootstrap/AppUIPresentationSyncManager.ts` (신규) | P1-High | `[✔] 완료` |
 
 
+## 2026-10-21 설계 인계 — 보스 접근전 챌린지 출제 시스템 (DOC-18, 구현 승인 아님)
+
+- **문서**: [DOC-18 챌린지 출제 시스템 설계서](../docs/18_ASSAULT_CHALLENGE_QUESTION_SYSTEM.md). A·B·C·D 4계열 14유형 채택(E 제외). 카드 CH-01~19 계획만 작성, **GitHub 미등록**.
+- **기존 카드 수정 메모(본문 미수정)**: REC-04 #597(RoundSource 포트·pairId 순서 매핑), REC-12 #607(WireHelper allowlist 재대조), REC-13 #590(pairPromptText 선택 포함), #533/#535(기록 스키마 계열 필드), REC-25 #613(A32~A35). 상세 DOC-18 §7.3.
+- **테스트 결과**: 문서 작업만 수행. 테스트/빌드/서버 미실행, src/config/tests 수정 0, 커밋 0. 새 NEXT 지정 없음.
+
 ## 2026-10-19 카드 등록 인계 — BOSS-ASSAULT 런타임 복구 (구현 승인 아님)
 
 - **등록 완료 ID**: BOSS-ASSAULT-REC-00~26, 실제 GitHub **#588~#614 27개**, 전부 OPEN / 개별 실행 승인 대기. 번호·정확한 제목·URL·직접 선행/차단: [DOC-16 원장](../docs/16_BOSS_ASSAULT_RUNTIME_RECOVERY_CARDS.md), [본문 원본](../docs/assault-runtime-recovery/). 기존 #502 트랙과 연관되지만 독립 복구 트랙이며 새 NEXT를 지정하지 않는다.
