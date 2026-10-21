@@ -18,7 +18,10 @@
 | **REFACTOR-SRP-006** | [#637](https://github.com/Choyounhwa/-dream-guardian/issues/637) | `ContentLoadService` 스키마 무결성 검증기 및 캐시 관리자 분리 | `src/core/content/ContentPackValidator.ts` (신규) | P1-High | `[✔] 완료` |
 | **REFACTOR-SRP-007** | [#638](https://github.com/Choyounhwa/-dream-guardian/issues/638) | `MenuRenderer` 3대 메뉴 서브 렌더러 및 충돌 판정기(HitTester) 분리 | `src/ui/menu/MenuHitTester.ts` (신규) 등 | P1-High | `[✔] 완료` |
 | **REFACTOR-SRP-008** | [#639](https://github.com/Choyounhwa/-dream-guardian/issues/639) | `HazardZoneRenderer` 3D 원근 투영 기하 계산기 분리 | `src/render/hazard/HazardGeometryCalculator.ts` (신규) | P1-High | `[✔] 완료` |
-| **REFACTOR-SRP-009** | [#640](https://github.com/Choyounhwa/-dream-guardian/issues/640) | `BeatRunCoordinator` 비트 동기화 및 모션 노트 평가 오케스트레이터 분리 | `src/game/beat/BeatTimelineSynchronizer.ts` (신규) | P1-High | `[▶ NEXT]` |
+| **REFACTOR-SRP-009** | [#640](https://github.com/Choyounhwa/-dream-guardian/issues/640) | `BeatRunCoordinator` 비트 동기화 및 모션 노트 평가 오케스트레이터 분리 | `src/game/beat/BeatTimelineSynchronizer.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-010** | [#641](https://github.com/Choyounhwa/-dream-guardian/issues/641) | `AppBootstrap` 게임 세션 진행 및 라운드 전환 흐름(`AppSessionFlowCoordinator`) 분리 | `src/core/bootstrap/AppSessionFlowCoordinator.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-011** | [#642](https://github.com/Choyounhwa/-dream-guardian/issues/642) | `AppBootstrap` 인게임 라운드 이벤트 바인더 및 모션 입력 라우터(`AppRoundEventBinder`) 분리 | `src/core/bootstrap/AppRoundEventBinder.ts` (신규) | P1-High | `[▶ NEXT]` |
+| **REFACTOR-SRP-012** | [#643](https://github.com/Choyounhwa/-dream-guardian/issues/643) | `AppBootstrap` UI 프레젠테이션 동기화 및 콘텐츠 프리로더(`AppUIPresentationSyncManager`) 분리 | `src/core/bootstrap/AppUIPresentationSyncManager.ts` (신규) | P1-High | `대기` |
 
 
 ## 2026-10-19 카드 등록 인계 — BOSS-ASSAULT 런타임 복구 (구현 승인 아님)

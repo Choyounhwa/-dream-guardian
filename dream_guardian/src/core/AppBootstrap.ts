@@ -39,6 +39,11 @@ import {
   STORAGE_KEY_REWARDS,
   STORAGE_KEY_TUTORIAL_DONE,
 } from './bootstrap/AppPersistenceManager.js';
+import {
+  AppSessionFlowCoordinator,
+  type ExtendedResultData,
+  type DevPlayStateParams,
+} from './bootstrap/AppSessionFlowCoordinator.js';
 import type { AssaultFinaleController } from '../game/assault/AssaultFinaleController.js';
 import type { AssaultHandoverSnapshot } from '../game/assault/AssaultProgressController.js';
 import type { SessionId } from '../types/assault.js';
@@ -73,11 +78,7 @@ import type { UIPresentationDocument } from '../data/UIPresentation.js';
 import { computeContentHash } from '../data/ContentCanonical.js';
 import { loadUiLayoutOverride } from './UILayoutOverride.js';
 import { ContentProvider } from '../game/ContentProvider.js';
-import {
-  type PublishedContentPack,
-  validatePublishedContentPack,
-  computePublishedPackHash,
-} from '../data/PublishedContentPack.js';
+import { type PublishedContentPack } from '../data/PublishedContentPack.js';
 import type { Keynote } from '../types/keynote.js';
 import type { GeneratedQuestion } from '../question/QuestionEvaluator.js';
 import { QuestionSpeech } from '../question/QuestionSpeech.js';
@@ -100,7 +101,6 @@ import { PHASE_A_ACTIVE_HAZARD_PATTERNS } from '../game/PhaseAHazardController.j
 import { HUDLayer } from '../ui/HUDLayer.js';
 import { MenuRenderer } from '../ui/MenuRenderer.js';
 import { ResultRenderer, calcStars } from '../ui/ResultRenderer.js';
-import type { ResultData } from '../ui/ResultRenderer.js';
 import { PhasePresentationAdapter } from '../ui/PhasePresentationAdapter.js';
 import {
   BossRenderer,
@@ -150,7 +150,6 @@ import {
 import { getAnswerButtonLayouts, DEFAULT_FITNESS_ZONES } from '../../config/zone.config.js';
 import { DEFAULT_PHASE_A_HAZARD_CONFIG } from '../../config/phase-a-hazard.config.js';
 import { HORIZON_RATIO } from '../../config/grid.config.js';
-import { CHAPTER_TRACK_PRESETS } from '../../config/beat-motion.config.js';
 import { RUNNING_MAT_CONFIG } from '../../config/running-mat.config.js';
 import type { RoundAnswerStatus, RoundResolveResult } from '../types/result.js';
 
@@ -231,47 +230,13 @@ export {
   STORAGE_KEY_REWARDS,
   STORAGE_KEY_TUTORIAL_DONE,
 };
-export type ExtendedResultData = ResultData & { isTestSession?: boolean };
-
-/**
- * 팩 유효성 및 contentHash 무결성 검증 (Issue #391)
- */
-export function isVerifiedPublishedPack(
-  pack: unknown,
-  expectedHash?: string,
-): pack is PublishedContentPack {
-  if (!pack || typeof pack !== 'object') {
-    return false;
-  }
-  const validation = validatePublishedContentPack(pack);
-  if (!validation.valid) {
-    return false;
-  }
-  const typedPack = pack as PublishedContentPack;
-  const computedHash = computePublishedPackHash(typedPack);
-  if (typedPack.contentHash !== computedHash) {
-    return false;
-  }
-  if (expectedHash && typedPack.contentHash !== expectedHash) {
-    return false;
-  }
-  return true;
-}
+export {
+  isVerifiedPublishedPack,
+  type ExtendedResultData,
+  type DevPlayStateParams,
+} from './bootstrap/AppSessionFlowCoordinator.js';
 
 let activePublishedPack: PublishedContentPack | null = null;
-
-export interface DevPlayStateParams {
-  chapter?: number;
-  playerHp?: number;
-  playerMaxHp?: number;
-  playerMana?: number;
-  combo?: number;
-  bossHp?: number;
-  bossMaxHp?: number;
-  bossPhase?: 'idle' | 'warning' | 'attacking' | 'defeated';
-  question?: GeneratedQuestion | null;
-  hazardPattern?: PhaseAHazardPattern;
-}
 
 export class AppBootstrap {
   public readonly persistence: AppPersistenceManager;
@@ -417,6 +382,7 @@ export class AppBootstrap {
   private _isRunning = false;
   private _isDisposed = false;
   private _options: AppBootstrapOptions;
+  private _sessionFlowCoordinator!: AppSessionFlowCoordinator;
   private _assaultWireHelper!: AssaultSessionWireHelper;
   private _stateMachineBuilder!: BootstrapStateMachineBuilder;
   private _eventListenerManager!: AppEventListenerManager;
@@ -443,6 +409,7 @@ export class AppBootstrap {
   get stateMachineBuilder(): BootstrapStateMachineBuilder { return this._stateMachineBuilder; }
   get eventListenerManager(): AppEventListenerManager { return this._eventListenerManager; }
   get battleEventBinder(): AppBattleEventBinder { return this._battleEventBinder; }
+  get sessionFlowCoordinator(): AppSessionFlowCoordinator { return this._sessionFlowCoordinator; }
 
   public isAssaultMode(): boolean {
     return this._assaultWireHelper?.isAssaultMode?.() ?? false;
@@ -886,22 +853,6 @@ let starsMap: Record<number, number> = self.persistence.loadProgress();
 let castingFlash = 0;
 let consecutiveWrongCount = 0;
 
-// Issue #391 / Issue #634: 진행도/하이스코어/보상 영속화 헬퍼 (AppPersistenceManager 위임)
-function persistSessionProgress(chapter: number, stars: number): void {
-  const isTest = Boolean(sessionLifecycle.isTestSession || sessionContext?.isTestSession);
-  starsMap = self.persistence.saveProgress(chapter, stars, { isTestSession: isTest });
-}
-
-function persistSessionRewards(chapter: number, stars: number): void {
-  const isTest = Boolean(sessionLifecycle.isTestSession || sessionContext?.isTestSession);
-  self.persistence.saveReward(chapter, stars, { isTestSession: isTest });
-}
-
-function persistSessionHighScore(result: any): void {
-  const isTest = Boolean(sessionLifecycle.isTestSession || sessionContext?.isTestSession);
-  self.persistence.saveHighScore(result, { isTestSession: isTest });
-}
-
 // ─── StateMachine 상태 핸들러 및 전환 리스너 조립 (REFACTOR-CORE-002 / Issue #617) ───
 const stateMachineHost: BootstrapStateMachineHost = {
   stateMachine,
@@ -1151,41 +1102,7 @@ updateLocomotionLabel();
 let menuHoverItem: { type: 'chapter' | 'sublevel'; id: number } | null = null;
 let menuHoverTimer = 0;
 let resultReturnTimer = 0; // Issue #134: 결과 화면 양손 모으기 복귀 타이머
-
-function selectChapter(ch: number): void {
-  if (ch > 0 && ch <= unlockedChapter) {
-    selectedChapter = ch;
-    stateMachine.changeState('MENU_SUB');
-    menuHoverItem = null;
-    menuHoverTimer = 0;
-    menuInput.reset();
-    sfx.play('hover');
-    effectManager.playBurst({
-      x: canvasManager.virtualWidth * 0.5,
-      y: canvasManager.virtualHeight * 0.45,
-      count: 12,
-      colors: ['#28E6FF', '#4DFFAA'],
-      duration: 0.35,
-    });
-  }
-}
-
-function selectSubLevel(sub: number | null): void {
-  if (sub === null) return;
-  menuHoverItem = null;
-  menuHoverTimer = 0;
-  menuInput.reset();
-  if (sub === -1) {
-    sfx.play('hover');
-    stateMachine.changeState('MENU_MAIN');
-  } else if (sub === 0) {
-    sfx.play('start');
-    startChapter(selectedChapter, undefined);
-  } else {
-    sfx.play('start');
-    startChapter(selectedChapter, sub);
-  }
-}
+let lastFrameDt = 0.016;
 
 // ─── CSV ───
 async function loadQuestions(): Promise<void> {
@@ -1243,51 +1160,7 @@ async function ensureCameraStarted(): Promise<void> {
   }
 }
 
-// ─── 게임 플로우 ───
-// Issue #202 (FEAT-READY-001): 챕터 첫 진입 2단계 분리 구조 - 카메라 프레임 정렬 및 3초 카운트다운
-function startReadyPhase(): void {
-  stateMachine.changeState('READY_POSITION');
-  questionVisible = false;
-  answerLocked = true;
-  playedNoteAudioIds.clear();
-  starCollectionInput.reset();
-  starNoteScheduler.reset();
-  Object.values(locomotionDetectors).forEach((d) => d.reset());
-  jumpDetector.reset();
-  readyPositionController.start();
-  console.log('[DG] READY_POSITION 시작 (신체 정렬 가이드 및 3초 카운트다운)');
-}
-
-function startRunningPhase(): void {
-  if (stateMachine.currentState === 'BOSS_CLIMAX' || stageProgressController.hasEnteredBossClimax) {
-    console.warn('[DG] Phase B 진행 중 신규 문제 출제 차단');
-    return;
-  }
-  stateMachine.changeState('RUN_QUESTION');
-  questionVisible = true;
-  answerLocked = true;
-  playedNoteAudioIds.clear();
-  starCollectionInput.reset();
-  starNoteScheduler.reset();
-  Object.values(locomotionDetectors).forEach((d) => d.reset());
-  jumpDetector.reset();
-  beatCoordinator.startRound({ chapter: currentChapter, subLevel: selectedSubLevel });
-  currentQuestion = beatCoordinator.currentQuestion;
-  console.log(`[DG] ${beatCoordinator.exerciseBeats}박 문제 라운드 시작: ${currentQuestion?.questionText}`);
-}
-
-function startAssaultPhase(): void {
-  self._assaultWireHelper.startAssaultPhase(() => {
-    questionVisible = false;
-    answerLocked = true;
-    playedNoteAudioIds.clear();
-    starCollectionInput.reset();
-    starNoteScheduler.reset();
-    Object.values(locomotionDetectors).forEach((d) => d.reset());
-    jumpDetector.reset();
-  });
-}
-
+// ─── Phase B 및 스테이지 진행도 컨트롤러 인스턴스화 ───
 // Issue #213: Phase B 보스 결전 및 연속 별모으기 피버 컨트롤러 인스턴스화
 bossFeverController = new BossFeverController({
   battleState: battle,
@@ -1361,285 +1234,119 @@ const stageProgressController = new StageProgressController({
   },
 });
 
-function startChapter(
+// ─── 메인 루프 컨텍스트 및 씬 디렉터 상태 참조 ───
+const stateRef: any = {
+  get screenMode() { return screenMode; }, set screenMode(v) { screenMode = v; },
+  get menuMode() { return menuMode; }, set menuMode(v) { menuMode = v; },
+  get gamePhase() { return gamePhase; }, set gamePhase(v) { gamePhase = v; },
+  get currentChapter() { return currentChapter; }, set currentChapter(v) { currentChapter = v; },
+  get selectedChapter() { return selectedChapter; }, set selectedChapter(v) { selectedChapter = v; },
+  get selectedSubLevel() { return selectedSubLevel; }, set selectedSubLevel(v) { selectedSubLevel = v; },
+  get unlockedChapter() { return unlockedChapter; },
+  get starsMap() { return starsMap; },
+  get currentQuestion() { return currentQuestion; }, set currentQuestion(v) { currentQuestion = v; },
+  get resultData() { return resultData; }, set resultData(v) { resultData = v; },
+  get totalSteps() { return totalSteps; }, set totalSteps(v) { totalSteps = v; },
+  get totalJumps() { return totalJumps; }, set totalJumps(v) { totalJumps = v; },
+  get totalDwellTime() { return totalDwellTime; }, set totalDwellTime(v) { totalDwellTime = v; },
+  get consecutiveWrongCount() { return consecutiveWrongCount; }, set consecutiveWrongCount(v) { consecutiveWrongCount = v; },
+  get settingsHoverTimer() { return settingsHoverTimer; }, set settingsHoverTimer(v) { settingsHoverTimer = v; },
+  get actionHoverTimer() { return actionHoverTimer; }, set actionHoverTimer(v) { actionHoverTimer = v; },
+  get menuHoverItem() { return menuHoverItem; }, set menuHoverItem(v) { menuHoverItem = v; },
+  get menuHoverTimer() { return menuHoverTimer; }, set menuHoverTimer(v) { menuHoverTimer = v; },
+  get resultReturnTimer() { return resultReturnTimer; }, set resultReturnTimer(v) { resultReturnTimer = v; },
+  get feedbackTimer() { return feedbackTimer; }, set feedbackTimer(v) { feedbackTimer = v; },
+  get feedbackCustomText() { return feedbackCustomText; }, set feedbackCustomText(v) { feedbackCustomText = v; },
+  get feedbackCustomColor() { return feedbackCustomColor; }, set feedbackCustomColor(v) { feedbackCustomColor = v; },
+  get feedbackCorrect() { return feedbackCorrect; }, set feedbackCorrect(v) { feedbackCorrect = v; },
+  get castingFlash() { return castingFlash; }, set castingFlash(v) { castingFlash = v; },
+  get climaxBarrageTimer() { return climaxBarrageTimer; }, set climaxBarrageTimer(v) { climaxBarrageTimer = v; },
+  get lastFrameDt() { return lastFrameDt; },
+  get questionVisible() { return questionVisible; }, set questionVisible(v) { questionVisible = v; },
+};
+
+// ─── 게임 세션 진행 및 라운드 전환 흐름 조정자 (Issue #641 / REFACTOR-SRP-010) ───
+const flowCoordinator = new AppSessionFlowCoordinator({
+  stateMachine,
+  transitionManager,
+  sessionLifecycle,
+  get sessionContext() { return sessionContext; },
+  sfx,
+  speech,
+  stageBgm,
+  bgmManager,
+  canvasManager,
+  effectManager,
+  get engine() { return engine; },
+  menuInput,
+  starCollectionInput,
+  starNoteScheduler,
+  hudLayer,
+  armReachAnswerSelector,
+  pauseModal,
+  locomotionModal,
+  tutorial,
+  xGestureDetector,
+  ensureCameraStarted,
+  dialogueManager,
+  dialogueOverlayRenderer,
+  battle,
+  boss,
+  guardian,
+  beatCoordinator,
+  beatRoundResolver,
+  stageProgressController,
+  bossFeverController,
+  get bossHazardController() { return bossHazardController; },
+  phaseAHazardController,
+  readyPositionController,
+  get assaultWireHelper() { return self._assaultWireHelper; },
+  battleEventBinder,
+  contentLoadService,
+  questionBank,
+  persistence: self.persistence,
+  state: stateRef,
+  getActivePublishedPack: () => activePublishedPack,
+  flushPendingUIPresentation,
+  clearPlayedNoteAudioIds: () => playedNoteAudioIds.clear(),
+  resetLocomotionDetectors: () => {
+    Object.values(locomotionDetectors).forEach((d) => d.reset());
+    jumpDetector.reset();
+  },
+  persistSessionProgress: (ch, stars) => {
+    starsMap = self.persistence.saveProgress(ch, stars, {
+      isTestSession: Boolean(sessionLifecycle.isTestSession || sessionContext?.isTestSession),
+    });
+  },
+  persistSessionRewards: (ch, stars) => {
+    self.persistence.saveReward(ch, stars, {
+      isTestSession: Boolean(sessionLifecycle.isTestSession || sessionContext?.isTestSession),
+    });
+  },
+  persistSessionHighScore: (result) => {
+    self.persistence.saveHighScore(result, {
+      isTestSession: Boolean(sessionLifecycle.isTestSession || sessionContext?.isTestSession),
+    });
+  },
+});
+this._sessionFlowCoordinator = flowCoordinator;
+
+const startChapter = (
   ch: number,
   subLevel?: number,
   options?: { pack?: PublishedContentPack | null; isTestSession?: boolean; contentHash?: string },
-): void {
-  flushPendingUIPresentation();
-  if (ch < 1 || ch > 5) return;
-  const isTest = Boolean(options?.isTestSession);
+) => flowCoordinator.startChapter(ch, subLevel, options);
+const startRunningPhase = () => flowCoordinator.startRunningPhase();
+const startAssaultPhase = () => flowCoordinator.startAssaultPhase();
+const startReadyPhase = () => flowCoordinator.startReadyPhase();
+const selectChapter = (ch: number) => flowCoordinator.selectChapter(ch);
+const selectSubLevel = (sub: number | null) => flowCoordinator.selectSubLevel(sub);
 
-  // Issue #391: URL 쿼리나 외부 입력으로 전달된 임의 미검증 데이터의 직접 실행 금지
-  if (isTest) {
-    if (!options?.pack || !isVerifiedPublishedPack(options.pack, options.contentHash)) {
-      console.warn('[DG] 미검증 팩으로 테스트 세션 진입 차단');
-      return;
-    }
-  }
-
-  console.log(`[DG] Ch.${ch} SubLevel ${subLevel ?? 'ALL'} 시작${isTest ? ' (테스트 세션)' : ''}`);
-  // Issue #278 (VFX-006): 메뉴 -> 게임 원형 와이프 트랜지션 (0.6초)
-  transitionManager.start('circleWipe', 0.6);
-  sessionLifecycle.startSession(isTest);
-  contentLoadService.cancelCurrentRequest();
-
-  // Issue #390 & #391: 스테이지 시작 전 콘텐츠 모드 및 테스트 세션 확정
-  const stageKey = `ch${ch}`;
-  const targetPack = options && 'pack' in options ? options.pack : activePublishedPack;
-  const resolvedContent = sessionContext
-    ? sessionContext.setStageContent({
-        stageId: stageKey,
-        pack: targetPack,
-        isTestSession: isTest,
-        force: true,
-      })
-    : { contentMode: 'default_csv' as const, bundle: null, starNotes: BEGINNER_PHASE_A_STAR_NOTES };
-
-  if (sessionContext) {
-    sessionContext.setActive(true);
-  }
-
-  engine.resumeGame();
-  currentChapter = ch;
-  selectedSubLevel = subLevel;
-  battle.reset();
-  boss.reset(ch);
-  guardian.reset();
-  beatRoundResolver.reset();
-  stageProgressController.reset();
-  bossFeverController.reset();
-  if (bossHazardController) {
-    bossHazardController.reset();
-  }
-  if (resolvedContent.bundle) {
-    bossFeverController?.setStageBundle(resolvedContent.bundle);
-    bossHazardController?.setStageBundle(resolvedContent.bundle);
-  }
-  climaxBarrageTimer = 0;
-  starCollectionInput.reset();
-  starNoteScheduler.reset();
-  hudLayer.reset();
-  questionBank.setLevel(ch, subLevel);
-  feedbackTimer = 0;
-  feedbackCustomText = null;
-  feedbackCustomColor = null;
-
-  if (resolvedContent.contentMode === 'custom_pack' && resolvedContent.bundle) {
-    beatCoordinator.setKeynotes(resolvedContent.starNotes);
-    beatCoordinator.setTrackConfig({
-      bpm: resolvedContent.bundle.bpm,
-    });
-  } else {
-    const trackPreset = CHAPTER_TRACK_PRESETS[ch];
-    if (trackPreset) {
-      beatCoordinator.setTrackConfig(trackPreset);
-    }
-    beatCoordinator.setKeynotes(sessionContext ? sessionContext.starNotes : BEGINNER_PHASE_A_STAR_NOTES);
-  }
-  questionVisible = false;
-  answerLocked = true;
-  castingFlash = 0;
-  totalSteps = 0;
-  totalJumps = 0;
-  totalDwellTime = 0;
-  phaseAHazardController.reset();
-  pauseModal.close();
-  xGestureDetector.reset();
-  speech.resetFeedbackState();
-  ensureCameraStarted().catch(() => {});
-
-  // Issue #219 (STORY-RENDER-001): 챕터 진입 시 보스 battle_start 대사 발화
-  consecutiveWrongCount = 0;
-  dialogueManager.reset();
-  dialogueOverlayRenderer.clear();
-  const startDialogue = dialogueManager.getDialogue({
-    trigger: 'battle_start',
-    chapter: ch,
-    force: true,
-  });
-  if (startDialogue) {
-    dialogueOverlayRenderer.show(startDialogue);
-  }
-
-  // Issue #137 / Issue #634: 첫 플레이 시 튜토리얼 자동 표시 (테스트 세션에서는 팝업 및 저장 억제)
-  if (!isTest && typeof localStorage !== 'undefined' && !self.persistence.isTutorialCompleted()) {
-    tutorial.show();
-  }
-
-  // Issue #202: 챕터 진입 시 READY_POSITION(정렬 가이드 & 3초 카운트다운) 선행
-  startReadyPhase();
-}
-
-function handleAnswer(idx: number, status: RoundAnswerStatus, resolveResult: RoundResolveResult): void {
-  sfx.stopDwellCharge();
-  if (screenMode !== 'game') return;
-  if (!currentQuestion) return;
-
-  answerLocked = true; // 연속 입력 방지
-  const correct = status === 'correct';
-  questionVisible = false;
-
-  console.log(`[DG] 라운드 정산 완료: 답 ${idx} (${correct ? '정답' : '오답'}) [${status}]`);
-
-  if (correct) {
-    consecutiveWrongCount = 0;
-    if (resolveResult.spellCast) {
-      battleEventBinder.handleSpellCast(DEFAULT_CONFIG.battle.spellDamage);
-    }
-
-    if (resolveResult.bossDefeated) {
-      battleEventBinder.handleBossDefeated();
-      return;
-    }
-
-    // Issue #219 (STORY-RENDER-001): 정답/연속 정답 대사 발화
-    const correctDialogue = dialogueManager.getDialogue({
-      trigger: 'answer_correct',
-      chapter: currentChapter,
-      consecutiveCount: battle.combo,
-    });
-    if (correctDialogue) {
-      dialogueOverlayRenderer.show(correctDialogue);
-    }
-  } else {
-    consecutiveWrongCount++;
-    // Issue #283: 타임아웃 및 오답 피드백은 이미 ANSWER_SELECT 단계(onTimeout / onAnswerSelected)에서
-    // 즉시 표출되었으므로, 장판 페이즈 종료 후 ROUND_RESOLVE 시점에 뒤늦게 중복으로 "오답..." 텍스트나
-    // "틀렸습니다!" 음성을 뒷북 발화하지 않도록 억제한다.
-    console.log(`[DG] ${status === 'timeout' ? '타임아웃' : '오답'} 정산 완료! 플레이어 HP: ${battle.hp}/${battle.maxHp}`);
-
-    // Issue #219 (STORY-RENDER-001): 오답/연속 오답 시 깨비 위로 대사 발화
-    const wrongDialogue = dialogueManager.getDialogue({
-      trigger: 'answer_wrong',
-      chapter: currentChapter,
-      consecutiveCount: consecutiveWrongCount,
-    });
-    if (wrongDialogue) {
-      dialogueOverlayRenderer.show(wrongDialogue);
-    }
-
-    if (resolveResult.playerDefeated) {
-      stageProgressController.handleRoundSettled(resolveResult, { immediate: true });
-      battleEventBinder.handlePlayerDefeated();
-      return;
-    }
-  }
-
-  // Phase A 라운드 진행 및 10번째 라운드 후 Phase B 단일 인계 (Issue #241)
-  stageProgressController.handleRoundSettled(resolveResult);
-}
-
-function showResult(victory: boolean): void {
-  sessionLifecycle.cancelAllReservations();
-  sfx.stopDwellCharge();
-  if (victory) sfx.play('posture_complete');
-  else sfx.play('wrong');
-  console.log(`[DG] ${victory ? '승리' : '패배'}`);
-  resultReturnTimer = 0;
-  answerLocked = true;
-  questionVisible = false;
-  armReachAnswerSelector.closeWindow();
-  phaseAHazardController.stop();
-  if (bossHazardController) {
-    bossHazardController.stop();
-  }
-  if (bossFeverController) {
-    bossFeverController.stop();
-  }
-  if (sessionContext) {
-    sessionContext.setActive(false);
-  }
-  beatCoordinator.pause();
-  engine.pauseGame();
-  const isTest = sessionLifecycle.isTestSession || Boolean(sessionContext?.isTestSession);
-  resultData = {
-    victory,
-    chapter: currentChapter,
-    correctCount: battle.correctCount,
-    totalQuestions: battle.totalQuestions,
-    maxCombo: battle.maxCombo,
-    // Issue #193: BATTLE-BOSS-001 보스 충격파 회피/짓밟기 실제 steps/jumps 카운트 연동
-    steps: totalSteps,
-    squats: 0,
-    jumps: totalJumps,
-    elapsedTime: 60,
-    dwellTime: totalDwellTime,
-    locomotionMode: locomotionModal.selectedMode,
-    rhythmStats: { ...beatRoundResolver.rhythmStats },
-    isTestSession: isTest,
-  };
-
-  // Issue #391: 일반 승리 시 진행도/하이스코어/보상 영속화 (테스트 세션 제외)
-  if (victory && !isTest) {
-    const stars = calcStars(battle.correctCount, battle.totalQuestions, 60);
-    persistSessionProgress(currentChapter, stars);
-    persistSessionRewards(currentChapter, stars);
-    persistSessionHighScore(resultData);
-  }
-
-  // Issue #278 (VFX-006): 게임 -> 결과 전환: fadeToBlack (0.4초)
-  const targetState = victory ? 'RESULT' : 'GAMEOVER';
-  if (!stateMachine.canTransition(targetState)) {
-    if (stateMachine.currentState === 'READY_POSITION') {
-      stateMachine.changeState('RUN_QUESTION');
-    }
-    if (!stateMachine.canTransition(targetState)) {
-      if (
-        stateMachine.currentState === 'RUN_QUESTION' ||
-        stateMachine.currentState === 'ANSWER_SELECT' ||
-        stateMachine.currentState === 'STAR_COLLECT' ||
-        stateMachine.currentState === 'HAZARD_EVADE'
-      ) {
-        stateMachine.changeState('ROUND_RESOLVE');
-      }
-    }
-  }
-  transitionManager.start('fadeToBlack', 0.4);
-  stateMachine.changeState(targetState);
-}
-
-function goToMenu(): void {
-  flushPendingUIPresentation();
-  sessionLifecycle.cancelAllReservations();
-  sessionLifecycle.endSession();
-  speech.cancel();
-  self._assaultWireHelper.dispose();
-  contentLoadService.cancelCurrentRequest();
-  if (sessionContext) {
-    sessionContext.resetContent();
-    sessionContext.resetSession();
-    sessionContext.setTestSession(false);
-  }
-  stageProgressController.reset();
-  bossFeverController.reset();
-  if (bossHazardController) {
-    bossHazardController.reset();
-  }
-  phaseAHazardController.reset();
-  climaxBarrageTimer = 0;
-  consecutiveWrongCount = 0;
-  dialogueOverlayRenderer.clear();
-  sfx.stopDwellCharge();
-  stageBgm.stop();
-  bgmManager.stop();
-  pauseModal.close(true);
-  starCollectionInput.reset();
-  starNoteScheduler.reset();
-  beatCoordinator.pause();
-  feedbackTimer = 0;
-  feedbackCustomText = null;
-  feedbackCustomColor = null;
-  engine.resumeGame();
-  console.log('[DG] 메뉴 복귀');
-  // Issue #278 (VFX-006): 결과 -> 메뉴 전환: fadeIn (0.3초)
-  transitionManager.start('fadeIn', 0.3);
-  stateMachine.changeState('MENU_MAIN');
-}
-
-function abortSession(): void {
-  goToMenu();
-}
+const handleAnswer = (idx: number, status: RoundAnswerStatus, resolveResult: RoundResolveResult) =>
+  flowCoordinator.handleAnswer(idx, status, resolveResult);
+const showResult = (victory: boolean) => flowCoordinator.showResult(victory);
+const goToMenu = () => flowCoordinator.goToMenu();
+const abortSession = () => flowCoordinator.abortSession();
 
 // ─── 피드백 렌더링 ───
 function renderFeedback(ctx: CanvasRenderingContext2D, w: number, h: number): void {
@@ -1683,56 +1390,6 @@ function getHUDData() {
     guardianStage: guardian.stage,
   };
 }
-
-
-let lastFrameDt = 0.016;
-
-// ─── 메인 루프 컨텍스트 및 씬 디렉터 (Issue #301 / REFACTOR-MAIN-001) ───
-const stateRef: any = {
-  get screenMode() { return screenMode; },
-  set screenMode(v) { screenMode = v; },
-  get menuMode() { return menuMode; },
-  set menuMode(v) { menuMode = v; },
-  get gamePhase() { return gamePhase; },
-  set gamePhase(v) { gamePhase = v; },
-  get currentChapter() { return currentChapter; },
-  get selectedChapter() { return selectedChapter; },
-  get selectedSubLevel() { return selectedSubLevel; },
-  get unlockedChapter() { return unlockedChapter; },
-  get starsMap() { return starsMap; },
-  get currentQuestion() { return currentQuestion; },
-  set currentQuestion(v) { currentQuestion = v; },
-  get resultData() { return resultData; },
-  get totalSteps() { return totalSteps; },
-  set totalSteps(v) { totalSteps = v; },
-  get totalJumps() { return totalJumps; },
-  set totalJumps(v) { totalJumps = v; },
-  get settingsHoverTimer() { return settingsHoverTimer; },
-  set settingsHoverTimer(v) { settingsHoverTimer = v; },
-  get actionHoverTimer() { return actionHoverTimer; },
-  set actionHoverTimer(v) { actionHoverTimer = v; },
-  get menuHoverItem() { return menuHoverItem; },
-  set menuHoverItem(v) { menuHoverItem = v; },
-  get menuHoverTimer() { return menuHoverTimer; },
-  set menuHoverTimer(v) { menuHoverTimer = v; },
-  get resultReturnTimer() { return resultReturnTimer; },
-  set resultReturnTimer(v) { resultReturnTimer = v; },
-  get feedbackTimer() { return feedbackTimer; },
-  set feedbackTimer(v) { feedbackTimer = v; },
-  get feedbackCustomText() { return feedbackCustomText; },
-  set feedbackCustomText(v) { feedbackCustomText = v; },
-  get feedbackCustomColor() { return feedbackCustomColor; },
-  set feedbackCustomColor(v) { feedbackCustomColor = v; },
-  get feedbackCorrect() { return feedbackCorrect; },
-  set feedbackCorrect(v) { feedbackCorrect = v; },
-  get castingFlash() { return castingFlash; },
-  set castingFlash(v) { castingFlash = v; },
-  get climaxBarrageTimer() { return climaxBarrageTimer; },
-  set climaxBarrageTimer(v) { climaxBarrageTimer = v; },
-  get lastFrameDt() { return lastFrameDt; },
-  get questionVisible() { return questionVisible; },
-  set questionVisible(v) { questionVisible = v; },
-};
 
 sessionContext = new GameSessionContext({
   mode: this.isAssaultMode() ? 'boss_assault' : 'legacy',
@@ -1860,25 +1517,6 @@ engine = new GameEngine({
   },
 });
 
-// ─── 이벤트 ───
-
-    const restartGame = () => {
-      if (self.isAssaultMode() || self.assaultSession) {
-        self.restartAssaultSession();
-        return;
-      }
-      goToMenu();
-      startChapter(selectedChapter, selectedSubLevel, { pack: activePublishedPack });
-    };
-
-    const answerCurrentQuestion = (idx: number) => {
-      if (pauseModal.isOpen) return;
-      if (beatCoordinator.isAnswerOpen) {
-        sfx.play('hover');
-        beatCoordinator.confirmAnswerByFallback(idx);
-      }
-    };
-
     // Systems assignment
     this.canvasManager = canvasManager;
     this.cameraLayer = cameraLayer;
@@ -1969,24 +1607,7 @@ engine = new GameEngine({
     this.selectChapter = selectChapter;
     this.selectSubLevel = selectSubLevel;
     this.startChapter = startChapter;
-    this.startTestPlaySession = (
-      ch: number,
-      options: { pack: PublishedContentPack; contentHash?: string; subLevel?: number },
-    ): boolean => {
-      if (!options || !options.pack) {
-        return false;
-      }
-      if (!isVerifiedPublishedPack(options.pack, options.contentHash)) {
-        console.warn('[DG] 미검증 팩으로 테스트 세션 진입 차단');
-        return false;
-      }
-      startChapter(ch, options.subLevel, {
-        pack: options.pack,
-        isTestSession: true,
-        contentHash: options.contentHash,
-      });
-      return true;
-    };
+    this.startTestPlaySession = (ch, options) => flowCoordinator.startTestPlaySession(ch, options);
     this.abortSession = abortSession;
     this.abortTestSession = abortSession;
     this.startReadyPhase = startReadyPhase;
@@ -1996,46 +1617,18 @@ engine = new GameEngine({
     this.handleAnswer = handleAnswer;
     this.showResult = showResult;
     this.goToMenu = goToMenu;
-    this.restartGame = restartGame;
-    this.answerCurrentQuestion = answerCurrentQuestion;
+    this.restartGame = () => {
+      if (self.isAssaultMode() || self.assaultSession) {
+        self.restartAssaultSession();
+        return;
+      }
+      flowCoordinator.restartGame();
+    };
+    this.answerCurrentQuestion = (idx) => flowCoordinator.answerCurrentQuestion(idx);
     this.ensureCameraStarted = ensureCameraStarted;
     this.loadQuestions = loadQuestions;
     this.loadFitnessPatterns = loadFitnessPatterns;
-
-    this.applyDevPlayState = (params: DevPlayStateParams): void => {
-      if (params.chapter !== undefined && params.chapter >= 1 && params.chapter <= 5) {
-        currentChapter = params.chapter;
-        selectedChapter = params.chapter;
-        boss.reset(params.chapter);
-      }
-      if (params.playerHp !== undefined) {
-        battle.setHp(params.playerHp);
-      }
-      if (params.playerMana !== undefined) {
-        (battle as any)._mana = params.playerMana;
-      }
-      if (params.combo !== undefined) {
-        (battle as any)._combo = params.combo;
-      }
-      if (params.bossHp !== undefined) {
-        (boss as any)._hp = params.bossHp;
-      }
-      if (params.bossMaxHp !== undefined) {
-        (boss as any)._maxHp = params.bossMaxHp;
-      }
-      if (params.bossPhase !== undefined) {
-        (boss as any)._phase = params.bossPhase;
-      }
-      if (params.question !== undefined) {
-        currentQuestion = params.question;
-        (beatCoordinator as any)._currentQuestion = params.question;
-        questionVisible = true;
-      }
-      if (params.hazardPattern !== undefined) {
-        (phaseAHazardController as any)._activePattern = params.hazardPattern;
-        (phaseAHazardController as any)._active = true;
-      }
-    };
+    this.applyDevPlayState = (params) => flowCoordinator.applyDevPlayState(params);
 
     const loadStaticManifest = async (
       manifestUrl?: string,
