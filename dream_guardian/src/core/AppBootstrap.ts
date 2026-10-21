@@ -7,7 +7,6 @@
  * - 코어 시스템 인스턴스화 및 씬 디렉터 통합 생명주기 관리
  */
 
-import { DEFAULT_CONFIG } from './Config.js';
 import type {
   AssaultSession,
   AssaultSessionOptions,
@@ -32,6 +31,10 @@ import {
   AppBattleEventBinder,
   bindBattleEvents,
 } from './bootstrap/AppBattleEventBinder.js';
+import {
+  AppRoundEventBinder,
+  type AppRoundEventHost,
+} from './bootstrap/AppRoundEventBinder.js';
 import {
   AppPersistenceManager,
   STORAGE_KEY_STAGE_PROGRESS,
@@ -62,7 +65,6 @@ import type { IAvatarRenderer } from '../skeleton/IAvatarRenderer.js';
 import { QuestionBank } from '../question/QuestionBank.js';
 import { parseCSV } from '../question/CSVLoader.js';
 import { parseFitnessPatternCSV, createKeynoteSequence } from '../data/index.js';
-import { BEGINNER_PHASE_A_STAR_NOTES } from '../data/beginnerRhythmRoutine.js';
 import {
   ContentLoadService,
   type StaticManifestLoadOptions,
@@ -97,7 +99,6 @@ import {
   BossHazardController,
   ReadyPositionController,
 } from '../game/index.js';
-import { PHASE_A_ACTIVE_HAZARD_PATTERNS } from '../game/PhaseAHazardController.js';
 import { HUDLayer } from '../ui/HUDLayer.js';
 import { MenuRenderer } from '../ui/MenuRenderer.js';
 import { ResultRenderer, calcStars } from '../ui/ResultRenderer.js';
@@ -136,7 +137,7 @@ import {
 } from '../input/index.js';
 import { toNormalizedLandmarks, imageLoader } from '../utils/index.js';
 import { MenuInput } from '../input/MenuInput.js';
-import { SFXSynth, BandSynthesizer, type BandTimingQuality, BGMManager } from '../audio/index.js';
+import { SFXSynth, BandSynthesizer, BGMManager } from '../audio/index.js';
 import { StageBGMSynthesizer } from '../audio/StageBGMSynthesizer.js';
 import {
   BottomBar,
@@ -147,10 +148,6 @@ import {
   GestureFeedbackOverlay,
   LOCOMOTION_MODES,
 } from '../ui/index.js';
-import { getAnswerButtonLayouts, DEFAULT_FITNESS_ZONES } from '../../config/zone.config.js';
-import { DEFAULT_PHASE_A_HAZARD_CONFIG } from '../../config/phase-a-hazard.config.js';
-import { HORIZON_RATIO } from '../../config/grid.config.js';
-import { RUNNING_MAT_CONFIG } from '../../config/running-mat.config.js';
 import type { RoundAnswerStatus, RoundResolveResult } from '../types/result.js';
 
 // Fallback canvas for Node/test environment
@@ -229,6 +226,10 @@ export {
   STORAGE_KEY_HIGH_SCORES,
   STORAGE_KEY_REWARDS,
   STORAGE_KEY_TUTORIAL_DONE,
+};
+export {
+  AppRoundEventBinder,
+  type AppRoundEventHost,
 };
 export {
   isVerifiedPublishedPack,
@@ -387,6 +388,7 @@ export class AppBootstrap {
   private _stateMachineBuilder!: BootstrapStateMachineBuilder;
   private _eventListenerManager!: AppEventListenerManager;
   private _battleEventBinder!: AppBattleEventBinder;
+  private _roundEventBinder!: AppRoundEventBinder;
   public enableAssaultFinale = false;
 
   public _onResize!: () => void;
@@ -409,6 +411,7 @@ export class AppBootstrap {
   get stateMachineBuilder(): BootstrapStateMachineBuilder { return this._stateMachineBuilder; }
   get eventListenerManager(): AppEventListenerManager { return this._eventListenerManager; }
   get battleEventBinder(): AppBattleEventBinder { return this._battleEventBinder; }
+  get roundEventBinder(): AppRoundEventBinder { return this._roundEventBinder; }
   get sessionFlowCoordinator(): AppSessionFlowCoordinator { return this._sessionFlowCoordinator; }
 
   public isAssaultMode(): boolean {
@@ -720,114 +723,77 @@ function getPendingUIArtifact(): Readonly<UIPresentationArtifact> | null {
 
 // Issue #411 & #390: Phase A 7노트 단일 공급원 (커스텀 팩 또는 기본 입문 루틴)
 let sessionContext: GameSessionContext;
-const getPhaseAStarNotes = (): readonly Keynote[] =>
-  sessionContext ? sessionContext.starNotes : BEGINNER_PHASE_A_STAR_NOTES;
-
-// Issue #397 (BOOT-HAZARD-A-CONTENT): Phase A 장판 패턴 단일 공급원 (커스텀 팩 또는 기본 풀)
-const getPhaseAHazardPattern = (roundIndex?: number): PhaseAHazardPattern => {
-  const bundle = sessionContext?.activeStageBundle ?? (sessionContext as any)?.stageBundle ?? null;
-  if (bundle) {
-    return bundle.getPhaseAHazardPattern(roundIndex);
-  }
-  const pool = PHASE_A_ACTIVE_HAZARD_PATTERNS;
-  const idx = roundIndex !== undefined ? Math.abs(roundIndex - 1) % pool.length : 0;
-  return pool[idx] ?? 'jump';
-};
+let rhythmStarCombo = 0;
+let feedbackTimer = 0;
+let feedbackCorrect = false;
+let feedbackCustomText: string | null = null;
+let feedbackCustomColor: string | null = null;
+let answerLocked = false;
 
 // Issue #213 & #193 & #194: Phase B 컨트롤러 인스턴스 참조 선언
 let bossFeverController: BossFeverController;
 let bossHazardController: BossHazardController;
 
-// Issue #202 (FEAT-READY-001): 스테이지 첫 진입 신체 프레임 정렬 가이드 및 3초 카운트다운
-const readyPositionController = new ReadyPositionController({
-  countdownDuration: 3.0,
-  startDisplayDuration: 0.4,
-  sfx,
-  onComplete: () => {
-    if (self.isAssaultMode()) {
-      console.log('[DG] READY_POSITION 완료 → 보스 접근전(ASSAULT_ROUND) 시작');
-      startAssaultPhase();
-    } else {
-      console.log('[DG] READY_POSITION 완료 → 본 게임(RUN_QUESTION) 시작');
-      startRunningPhase();
-    }
-  },
-});
+// ─── 인게임 라운드 이벤트 바인더 및 모션 라우터 조립 (REFACTOR-SRP-011 / Issue #642) ───
+const roundEventHost: AppRoundEventHost = {
+  getScreenMode: () => screenMode,
+  isPaused: () => pauseModal.isOpen,
+  setFeedbackCustomText: (t) => { feedbackCustomText = t; },
+  setFeedbackCustomColor: (c) => { feedbackCustomColor = c; },
+  setFeedbackCorrect: (c) => { feedbackCorrect = c; },
+  setFeedbackTimer: (t) => { feedbackTimer = t; },
+  setAnswerLocked: (l) => { answerLocked = l; },
+  setRhythmStarCombo: (c) => { rhythmStarCombo = c; },
+  getRhythmStarCombo: () => rhythmStarCombo,
+  getFeedbackTimer: () => feedbackTimer,
+  getFeedbackCustomColor: () => feedbackCustomColor,
+  getFeedbackCorrect: () => feedbackCorrect,
+  getFeedbackCustomText: () => feedbackCustomText,
+  get guardian() { return guardian; },
+  get bgmManager() { return bgmManager; },
+  get speech() { return speech; },
+  get sfx() { return sfx; },
+  get bandSynth() { return bandSynth; },
+  get eventBus() { return eventBus; },
+  get stateMachine() { return stateMachine; },
+  get stateMachineBuilder() { return stateMachineBuilder; },
+  get canvasManager() { return canvasManager; },
+  get skeletonEffect() { return skeletonEffect; },
+  get effectManager() { return effectManager; },
+  get runningMatRenderer() { return runningMatRenderer; },
+  get battle() { return battle; },
+  get battleEventBinder() { return battleEventBinder; },
+  get beatRoundResolver() { return beatRoundResolver; },
+  handleAnswer: (idx, status, res) => handleAnswer(idx, status, res),
+  showResult: (isVictory) => showResult(isVictory),
+  get beatCoordinator() { return beatCoordinator; },
+  get phaseAHazardController() { return phaseAHazardController; },
+  get bossHazardController() { return bossHazardController; },
+  get bossFeverController() { return bossFeverController; },
+  get starNoteScheduler() { return starNoteScheduler; },
+  get motionIntentBus() { return motionIntentBus; },
+  get engine() { return engine; },
+  get pauseModal() { return pauseModal; },
+  get sessionLifecycle() { return sessionLifecycle; },
+  get sessionContext() { return sessionContext; },
+  getSessionContext: () => sessionContext,
+  startRunningPhase: () => startRunningPhase(),
+  startAssaultPhase: () => startAssaultPhase(),
+  isAssaultMode: () => self.isAssaultMode(),
+};
+const roundEventBinder = new AppRoundEventBinder(roundEventHost);
+self._roundEventBinder = roundEventBinder;
+
+const getPhaseAStarNotes = (): readonly Keynote[] => roundEventBinder.getPhaseAStarNotes();
+const getPhaseAHazardPattern = (roundIndex?: number): PhaseAHazardPattern =>
+  roundEventBinder.getPhaseAHazardPattern(roundIndex);
+const readyPositionController = roundEventBinder.createReadyPositionController();
 
 // Issue #194 & #195: 미니언 군단 매니저 의존성 주입 및 탄막 발사 연출 연결
 let climaxBarrageTimer = 0;
-
 beatRoundResolver.resourceManager.troopManager.setEventBus(eventBus);
 beatRoundResolver.resourceManager.troopManager.setBossController(boss);
-
-
-// Issue #191: 노트결과 ID 기준 중복 방지 (1회 재생 보장)
-const playedNoteAudioIds = new Set<string>();
-let rhythmStarCombo = 0;
-
-starNoteScheduler.onRating((starResult) => {
-  const noteId = starResult.target
-    ? (starResult.target as any).id
-    : `note_${starResult.timestamp}_${starResult.zoneId}`;
-  if (noteId) {
-    if (playedNoteAudioIds.has(noteId)) {
-      return;
-    }
-    playedNoteAudioIds.add(noteId);
-  }
-
-  // Issue #213 & #240 & #194: Phase A(별가루 축적)와 Phase B(피버 타격 및 군단 게이지 충전) 연동
-  if (
-    stateMachine.currentState === 'BOSS_CLIMAX' ||
-    (bossFeverController && bossFeverController.isActive)
-  ) {
-    bossFeverController.recordRating(starResult, noteId);
-    beatRoundResolver.resourceManager.troopManager.recordStarRating(
-      starResult.rating,
-      starResult.zoneId,
-    );
-  } else {
-    beatRoundResolver.recordStarRating(starResult.rating, noteId);
-  }
-
-  // Issue #284 (VFX-JUDGMENT-001): 리듬 판정 플로팅 텍스트(PERFECT/GOOD/LATE/MISS) 및 콤보 팝업 연동
-  if (starResult.rating === 'Miss') {
-    rhythmStarCombo = 0;
-  } else {
-    rhythmStarCombo++;
-  }
-
-  const currentFeverCombo = (bossFeverController && bossFeverController.isActive)
-    ? bossFeverController.feverCombo
-    : rhythmStarCombo;
-
-  const targetZone = DEFAULT_FITNESS_ZONES.find((z) => z.id === starResult.zoneId);
-  const jx = targetZone
-    ? (targetZone.x + targetZone.width * 0.5) * canvasManager.virtualWidth
-    : canvasManager.virtualWidth * 0.5;
-  const jy = targetZone
-    ? (targetZone.y + targetZone.height * 0.5) * canvasManager.virtualHeight
-    : canvasManager.virtualHeight * 0.5;
-
-  effectManager.playJudgmentText(jx, jy, starResult.rating, currentFeverCombo);
-
-  if (starResult.collected) {
-    const quality: BandTimingQuality = starResult.rating === 'Perfect' ? 'sync' : 'stumble';
-    bandSynth.playZoneSound(starResult.zoneId, quality);
-    sfx.play('correct');
-    if (targetZone) {
-      effectManager.playBurst({
-        x: (targetZone.x + targetZone.width * 0.5) * canvasManager.virtualWidth,
-        y: (targetZone.y + targetZone.height * 0.5) * canvasManager.virtualHeight,
-        count: 8,
-        colors: ['#FFCB4D', '#FFFFFF'],
-        duration: 0.25,
-      });
-    }
-  } else if (starResult.rating === 'Miss') {
-    bandSynth.playZoneSound(starResult.zoneId, 'miss');
-  }
-});
+roundEventBinder.bindStarNotes(starNoteScheduler);
 
 // ─── 상태 머신 및 게임 상태 (Issue #214 / REFACTOR-FSM-001) ───
 const stateMachine = new StateMachine('MENU_MAIN');
@@ -841,12 +807,7 @@ let totalJumps = 0;
 let totalDwellTime = 0; // Issue #135: 누적 자세 유지 시간 (초)
 let currentChapter = 1;
 let currentQuestion: GeneratedQuestion | null = null;
-let feedbackTimer = 0;
-let feedbackCorrect = false;
-let feedbackCustomText: string | null = null;
-let feedbackCustomColor: string | null = null;
 let questionVisible = false;
-let answerLocked = false; // 답 연속 입력 방지
 let resultData: ExtendedResultData | null = null;
 let unlockedChapter = 5;
 let starsMap: Record<number, number> = self.persistence.loadProgress();
@@ -874,7 +835,7 @@ const stateMachineHost: BootstrapStateMachineHost = {
   get menuInput() { return menuInput; },
   get pauseModal() { return pauseModal; },
   get armReachAnswerSelector() { return armReachAnswerSelector; },
-  get playedNoteAudioIds() { return playedNoteAudioIds; },
+  get playedNoteAudioIds() { return roundEventBinder.playedNoteAudioIds; },
   get starNoteScheduler() { return starNoteScheduler; },
   get starCollectionInput() { return starCollectionInput; },
   get phaseAHazardController() { return phaseAHazardController; },
@@ -902,190 +863,18 @@ function enterQuestionPhase(): void {
   stateMachineBuilder.enterQuestionPhase();
 }
 
-const beatCoordinator = new BeatRunCoordinator({
+const beatCoordinator = roundEventBinder.createBeatCoordinator({
   questionBank,
   battle,
   armReachAnswerSelector,
   answerRestBeats: options?.answerRestBeats ?? (options?.canvas ? 0 : 2),
   sfx,
-  speakFn: (text) => {
-    bgmManager.setDucking(true);
-    speech.speakRunPhase(text);
-    setTimeout(() => bgmManager.setDucking(false), 2600);
-  },
-  onBeat: (event) => {
-    (eventBus as any).emit?.('beat:tick', event);
-  },
-  onPhaseChange: (phase) => {
-    stateMachineBuilder.handleBeatPhaseChange(phase);
-  },
-  onTimeout: () => {
-    // Issue #283: 답안 선택 4박 타임아웃 발생 즉시 명확한 인과관계 알림 ("시간 초과!")
-    feedbackCustomText = '시간 초과!';
-    feedbackCustomColor = '#FFAA33';
-    feedbackCorrect = false;
-    feedbackTimer = Math.max(0.8, beatCoordinator.rhythmEngine.secondsPerBeat * beatCoordinator.answerRestBeats);
-    sfx.play('wrong');
-    speech.speak('시간 초과!');
-    skeletonEffect.triggerHit();
-    effectManager.playFade({
-      x: canvasManager.virtualWidth * 0.5,
-      y: canvasManager.virtualHeight * 0.22 - 30,
-      text: '시간 초과!',
-      color: '#FFAA33',
-      fontSize: 36,
-      duration: 0.8,
-    });
-    effectManager.playAnswerEffect(
-      'timeout',
-      canvasManager.virtualWidth * 0.5,
-      canvasManager.virtualHeight * 0.5,
-    );
-    (eventBus as any).emit('answer:timeout');
-  },
-  onAnswerSelected: (idx) => {
-    feedbackCustomText = null;
-    feedbackCustomColor = null;
-    sfx.play('hover');
-    answerLocked = true;
-    const correct = idx === beatCoordinator.currentQuestion?.correctIndex;
-    feedbackCorrect = correct;
-    feedbackTimer = Math.max(0.8, beatCoordinator.rhythmEngine.secondsPerBeat * beatCoordinator.answerRestBeats);
-
-    const buttonLayouts = getAnswerButtonLayouts(canvasManager.virtualWidth, canvasManager.virtualHeight);
-    const targetBtn = (idx === 0 || idx === 1) ? buttonLayouts[idx] : null;
-    const bx = targetBtn ? targetBtn.centerX : canvasManager.virtualWidth * 0.5;
-    const by = targetBtn ? targetBtn.y + targetBtn.height / 2 : canvasManager.virtualHeight * 0.5;
-
-    if (correct) {
-      sfx.play('correct');
-      effectManager.playAnswerEffect('correct', bx, by, battle.combo + 1);
-      effectManager.playPreset('correct', bx, by);
-      battleEventBinder.triggerBossHitImpact(HORIZON_RATIO);
-      // Issue #540: 정답 TTS 낭독 삭제 (SFX 효과음으로 대체)
-      eventBus.emit('answer:correct', { mana: battle.mana, combo: battle.combo + 1 });
-    } else {
-      sfx.play('wrong');
-      effectManager.playAnswerEffect('wrong', bx, by);
-      effectManager.playPreset('wrong', bx, by);
-      // Issue #540: 오답 TTS 낭독 삭제 (SFX 효과음으로 대체)
-      eventBus.emit('answer:wrong', { hp: battle.hp });
-    }
-  },
-  onAnswerConfirmed: (idx, _correct, status) => {
-    stateMachine.changeState('ROUND_RESOLVE');
-    const resolveResult = beatRoundResolver.resolveRound(status, beatRoundResolver.currentRoundIndex);
-    handleAnswer(idx, status, resolveResult);
-  },
 });
-const phaseAHazardController = new PhaseAHazardController({
-  intentBus: motionIntentBus,
-  onBeatResolved: ({ evaded, damage }) => {
-    if (evaded) {
-      sfx.play('shield_deflect');
-      effectManager.playBurst({
-        x: canvasManager.virtualWidth * 0.5,
-        y: canvasManager.virtualHeight * 0.76,
-        count: 10,
-        colors: ['#4DFFAA', '#FFFFFF'],
-        duration: 0.28,
-      });
-      return;
-    }
 
-    const appliedDamage = damage ?? DEFAULT_PHASE_A_HAZARD_CONFIG.damagePerMiss;
-    battle.applyHazardDamage(appliedDamage);
-    sfx.play('player_hurt');
-    skeletonEffect.triggerHit();
-    // Issue #283: 오답 프리셋('wrong') 대신 장판 피격 전용 이펙트('HIT! -25 HP') 적용
-    effectManager.playHazardHit(canvasManager.virtualWidth * 0.5, canvasManager.virtualHeight * 0.76, appliedDamage);
-    if (!battle.isAlive) {
-      showResult(false);
-    }
-  },
-});
+const phaseAHazardController = roundEventBinder.createPhaseAHazardController();
 
 // ─── 발 키노트 공통 라우터 (Issue #237 / BUG-MOTION-COORDINATE-001) ───
-footKeynoteInput.onEvent((event) => {
-  console.log(`[DG] 발 키노트 수신: ${event.source} ${event.foot} (Zone ${event.zoneId})`);
-  if (screenMode === 'game') {
-    // Issue #425: RUN_QUESTION 페이즈 발 키노트 입력 시 스텝 기록 및 리듬 판정 피드백 연동
-    if (
-      (stateMachine.currentState === 'RUN_QUESTION' || beatCoordinator.phase === 'RUN_QUESTION') &&
-      !pauseModal.isOpen
-    ) {
-      beatCoordinator.recordStep();
-      runningMatRenderer.triggerMotionHit();
-      const spb = beatCoordinator.rhythmEngine?.secondsPerBeat || 0.5;
-      const beatProg = beatCoordinator.rhythmEngine?.beatProgress ?? 0;
-      const distToBeat = Math.min(beatProg, 1.0 - beatProg) * spb;
-      let rating = 'GOOD';
-      if (distToBeat <= 0.12) {
-        rating = 'PERFECT';
-      } else if (distToBeat <= 0.25) {
-        rating = 'GOOD';
-      } else {
-        rating = 'LATE';
-      }
-
-      const targetZone = DEFAULT_FITNESS_ZONES.find((z) => z.id === event.zoneId);
-      const jx = targetZone
-        ? (targetZone.x + targetZone.width * 0.5) * canvasManager.virtualWidth
-        : canvasManager.virtualWidth * 0.5;
-      const jy = canvasManager.virtualHeight * (RUNNING_MAT_CONFIG.strikeLineYRatio ?? 0.86);
-
-      effectManager.playJudgmentText(jx, jy - 35, rating);
-      if (rating === 'PERFECT') {
-        sfx.play('crystal_pickup');
-      } else {
-        sfx.play('step_beat');
-      }
-    }
-
-    // Issue #235 & #213: STAR_COLLECT 및 BOSS_CLIMAX 페이즈 발 키노트 단일 결과 라우팅 연동
-    if (
-      stateMachine.currentState === 'STAR_COLLECT' ||
-      stateMachine.currentState === 'BOSS_CLIMAX' ||
-      beatCoordinator.phase === 'STAR_COLLECT' ||
-      beatCoordinator.phase === 'KEYNOTE_PERFORMANCE'
-    ) {
-      starNoteScheduler.fromFoot(event, engine.elapsedTime);
-    }
-
-    if (stateMachine.currentState === 'HAZARD_EVADE' && !pauseModal.isOpen) {
-      const target = phaseAHazardController.activePattern;
-      if (event.foot === 'leftFoot') {
-        phaseAHazardController.recordAction(target === 'balance_right' ? 'balance_right' : 'left_step');
-      } else if (event.foot === 'rightFoot') {
-        phaseAHazardController.recordAction(target === 'balance_left' ? 'balance_left' : 'right_step');
-      } else if (event.foot === 'centerFoot') {
-        phaseAHazardController.recordAction('jump');
-      }
-    }
-
-    // Issue #193: BOSS_CLIMAX 중 발 키노트 입력 시 보스 공격(교대 짓밟기/충격파) 회피 판정 연동
-    if (stateMachine.currentState === 'BOSS_CLIMAX' && !pauseModal.isOpen && bossHazardController) {
-      if (event.foot === 'leftFoot') {
-        bossHazardController.recordAction('step_left');
-      } else if (event.foot === 'rightFoot') {
-        bossHazardController.recordAction('step_right');
-      } else if (event.foot === 'centerFoot') {
-        bossHazardController.recordAction('jump');
-      }
-    }
-
-    const targetZone = DEFAULT_FITNESS_ZONES.find((z) => z.id === event.zoneId);
-    if (targetZone) {
-      effectManager.playBurst({
-        x: (targetZone.x + targetZone.width * 0.5) * canvasManager.virtualWidth,
-        y: (targetZone.y + targetZone.height * 0.5) * canvasManager.virtualHeight,
-        count: 6,
-        colors: ['#28E6FF', '#FFCB4D'],
-        duration: 0.25,
-      });
-    }
-  }
-});
+roundEventBinder.bindFootKeynote(footKeynoteInput);
 
 let settingsHoverTimer = 0;
 let actionHoverTimer = 0;
@@ -1161,78 +950,9 @@ async function ensureCameraStarted(): Promise<void> {
 }
 
 // ─── Phase B 및 스테이지 진행도 컨트롤러 인스턴스화 ───
-// Issue #213: Phase B 보스 결전 및 연속 별모으기 피버 컨트롤러 인스턴스화
-bossFeverController = new BossFeverController({
-  battleState: battle,
-  bossController: boss,
-  stateMachine,
-  scheduler: starNoteScheduler,
-  config: DEFAULT_CONFIG.battle.fever,
-  secondsPerBeat: defaultSecondsPerBeat,
-  onVictory: (stats) => {
-    console.log('[DG] Phase B 보스 격파 승리! 통계:', stats);
-    battleEventBinder.handleBossDefeated(stats, true);
-  },
-  onGameOver: (stats) => {
-    console.log('[DG] Phase B 플레이어 패배... 통계:', stats);
-    battleEventBinder.handlePlayerDefeated(stats, true);
-  },
-  onDamageDealt: () => {
-    battleEventBinder.triggerBossHitImpact(0.35, true, false, 'correct');
-  },
-});
-
-// Issue #193: Phase B 전용 보스 공격·충격파·광폭화 컨트롤러 인스턴스화
-bossHazardController = new BossHazardController({
-  battleState: battle,
-  bossController: boss,
-  bossFeverController,
-  minionTroopManager: beatRoundResolver.resourceManager.troopManager,
-  eventBus,
-  config: DEFAULT_CONFIG.battle.bossHazard,
-  onAttackStart: (attackType) => {
-    console.log(`[DG] Phase B 보스 패턴 공격 개시: ${attackType}`);
-  },
-  onHazardResolved: (result) => {
-    battleEventBinder.handleHazardResolved(result);
-  },
-});
-
-const stageProgressController = new StageProgressController({
-  maxRounds: DEFAULT_CONFIG.battle.phaseAQuestionCount ?? 10,
-  stateMachine,
-  sessionLifecycle,
-  resourceProvider: beatRoundResolver,
-  advanceDelayMs: 800,
-  onAdvanceToNextRound: (nextRound) => {
-    beatRoundResolver.startNewRound(nextRound);
-    startRunningPhase();
-  },
-  onEnterBossClimax: (snapshot) => {
-    console.log('[DG] Phase B (BOSS_CLIMAX) 진입 완료! 단일 자원 인계:', snapshot);
-    const bundle = sessionContext?.activeStageBundle ?? (sessionContext as any)?.stageBundle ?? null;
-    if (bundle) {
-      bossFeverController?.setStageBundle(bundle);
-      bossHazardController?.setStageBundle(bundle);
-    }
-    if (!beatRoundResolver.resourceManager.troopManager.isActive) {
-      beatRoundResolver.resourceManager.troopManager.startPhaseB(snapshot);
-    }
-    if (bossFeverController && !bossFeverController.isActive) {
-      bossFeverController.start(engine.elapsedTime, snapshot);
-    }
-    if (bossHazardController && !bossHazardController.isActive) {
-      bossHazardController.start();
-    }
-  },
-  onGameOver: () => {
-    if (sessionLifecycle.claimResultTransition()) {
-      sessionLifecycle.schedule(() => {
-        showResult(false);
-      }, 600);
-    }
-  },
-});
+bossFeverController = roundEventBinder.createBossFeverController(boss, { secondsPerBeat: defaultSecondsPerBeat });
+bossHazardController = roundEventBinder.createBossHazardController(boss, bossFeverController);
+const stageProgressController = roundEventBinder.createStageProgressController();
 
 // ─── 메인 루프 컨텍스트 및 씬 디렉터 상태 참조 ───
 const stateRef: any = {
@@ -1308,7 +1028,7 @@ const flowCoordinator = new AppSessionFlowCoordinator({
   state: stateRef,
   getActivePublishedPack: () => activePublishedPack,
   flushPendingUIPresentation,
-  clearPlayedNoteAudioIds: () => playedNoteAudioIds.clear(),
+  clearPlayedNoteAudioIds: () => roundEventBinder.playedNoteAudioIds.clear(),
   resetLocomotionDetectors: () => {
     Object.values(locomotionDetectors).forEach((d) => d.reset());
     jumpDetector.reset();
@@ -1349,34 +1069,8 @@ const goToMenu = () => flowCoordinator.goToMenu();
 const abortSession = () => flowCoordinator.abortSession();
 
 // ─── 피드백 렌더링 ───
-function renderFeedback(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-  if (feedbackTimer <= 0) return;
-  const alpha = Math.min(1, feedbackTimer * 2);
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `bold ${Math.min(84, w * 0.075)}px sans-serif`;
-  const color = feedbackCustomColor ?? (feedbackCorrect ? '#4DFFAA' : '#FF4444');
-  ctx.fillStyle = color;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 30;
-  const text = feedbackCustomText ?? (feedbackCorrect ? '정답!' : '오답...');
-  ctx.fillText(text, w / 2, h * 0.22);
-  ctx.shadowBlur = 0;
-
-  if (castingFlash > 0) {
-    ctx.globalAlpha = castingFlash * 0.25;
-    ctx.fillStyle = '#C889FF';
-    ctx.fillRect(0, 0, w, h);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.min(28, w * 0.024)}px sans-serif`;
-    ctx.fillText(`수호신 캐스팅! (${guardian.stageName})`, w / 2, h * 0.55);
-  }
-
-  ctx.restore();
-}
+const renderFeedback = (ctx: CanvasRenderingContext2D, w: number, h: number) =>
+  roundEventBinder.renderFeedback(ctx, w, h, castingFlash);
 
 // ─── HUD 데이터 헬퍼 ───
 function getHUDData() {
@@ -1779,6 +1473,7 @@ engine = new GameEngine({
     this._assaultWireHelper.dispose();
     this._eventListenerManager.detachListeners();
     this._battleEventBinder?.dispose();
+    this._roundEventBinder?.dispose();
 
     this.cameraLayer.stop();
     this._isRunning = false;
