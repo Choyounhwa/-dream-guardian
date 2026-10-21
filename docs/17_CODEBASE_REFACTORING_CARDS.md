@@ -16,18 +16,21 @@
 | 작업 ID | GitHub Issue | 카드 제목 | 대상 파일 | 우선순위 | 진행 상태 |
 |---|---|---|---|---|---|
 | **REFACTOR-DRY-001** | [#628](https://github.com/Choyounhwa/-dream-guardian/issues/628) | `deepFreeze` 유틸리티 단일화 및 11개 파일 중복 제거 | `src/utils/deepFreeze.ts` (신규) | P1-High | `[✔] 완료` |
-| **REFACTOR-DRY-002** | [#629](https://github.com/Choyounhwa/-dream-guardian/issues/629) | SHA-256 암호화 해시 및 16진수 변환 유틸리티 단일화 | `src/utils/crypto.ts` (신규) | P1-High | `[▶ NEXT]` |
-| **REFACTOR-DRY-003** | [#630](https://github.com/Choyounhwa/-dream-guardian/issues/630) | Web AudioContext 팩토리 및 사운드 합성기 공통 로직 추출 | `src/audio/AudioContextFactory.ts` (신규) | P2-Medium | `대기` |
-| **REFACTOR-DRY-004** | [#631](https://github.com/Choyounhwa/-dream-guardian/issues/631) | 프레젠테이션 슬롯 오버라이드 베이스 인터페이스 공통화 | `src/types/presentation.ts` (신규) | P2-Medium | `대기` |
-| **REFACTOR-SRP-001** | [#632](https://github.com/Choyounhwa/-dream-guardian/issues/632) | `AppBootstrap` 전역 DOM/윈도우 이벤트 리스너 관리자 분리 | `src/core/bootstrap/AppEventListenerManager.ts` (신규) | P1-High | `대기` |
-| **REFACTOR-SRP-002** | [#633](https://github.com/Choyounhwa/-dream-guardian/issues/633) | `AppBootstrap` 전투·스펠·보스 피격 애니메이션 이벤트 바인더 분리 | `src/core/bootstrap/AppBattleEventBinder.ts` (신규) | P1-High | `대기` |
-| **REFACTOR-SRP-003** | [#634](https://github.com/Choyounhwa/-dream-guardian/issues/634) | `AppBootstrap` 스테이지 진행도 및 하이스코어 영속성 관리자 분리 | `src/core/bootstrap/AppPersistenceManager.ts` (신규) | P1-High | `대기` |
-| **REFACTOR-SRP-004** | [#635](https://github.com/Choyounhwa/-dream-guardian/issues/635) | `SceneDirector` 모션 인식 파이프라인 및 신체 프레이밍 처리기 분리 | `src/core/director/SceneMotionCoordinator.ts` (신규) | P1-High | `대기` |
-| **REFACTOR-SRP-005** | [#636](https://github.com/Choyounhwa/-dream-guardian/issues/636) | `SceneDirector` 7계층 캔버스 레이어 렌더링 디스패처 분리 | `src/core/director/SceneRenderOrchestrator.ts` (신규) | P1-High | `대기` |
-| **REFACTOR-SRP-006** | [#637](https://github.com/Choyounhwa/-dream-guardian/issues/637) | `ContentLoadService` 스키마 무결성 검증기 및 캐시 관리자 분리 | `src/core/content/ContentPackValidator.ts` (신규) | P1-High | `대기` |
-| **REFACTOR-SRP-007** | [#638](https://github.com/Choyounhwa/-dream-guardian/issues/638) | `MenuRenderer` 3대 메뉴 서브 렌더러 및 충돌 판정기(HitTester) 분리 | `src/ui/menu/MenuHitTester.ts` (신규) 등 | P1-High | `대기` |
-| **REFACTOR-SRP-008** | [#639](https://github.com/Choyounhwa/-dream-guardian/issues/639) | `HazardZoneRenderer` 3D 원근 투영 기하 계산기 분리 | `src/render/hazard/HazardGeometryCalculator.ts` (신규) | P1-High | `대기` |
-| **REFACTOR-SRP-009** | [#640](https://github.com/Choyounhwa/-dream-guardian/issues/640) | `BeatRunCoordinator` 비트 동기화 및 모션 노트 평가 오케스트레이터 분리 | `src/game/beat/BeatTimelineSynchronizer.ts` (신규) | P1-High | `대기` |
+| **REFACTOR-DRY-002** | [#629](https://github.com/Choyounhwa/-dream-guardian/issues/629) | SHA-256 암호화 해시 및 16진수 변환 유틸리티 단일화 | `src/utils/crypto.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-DRY-003** | [#630](https://github.com/Choyounhwa/-dream-guardian/issues/630) | Web AudioContext 팩토리 및 사운드 합성기 공통 로직 추출 | `src/audio/AudioContextFactory.ts` (신규) | P2-Medium | `[✔] 완료` |
+| **REFACTOR-DRY-004** | [#631](https://github.com/Choyounhwa/-dream-guardian/issues/631) | 프레젠테이션 슬롯 오버라이드 베이스 인터페이스 공통화 | `src/types/presentation.ts` (신규) | P2-Medium | `[✔] 완료` |
+| **REFACTOR-SRP-001** | [#632](https://github.com/Choyounhwa/-dream-guardian/issues/632) | `AppBootstrap` 전역 DOM/윈도우 이벤트 리스너 관리자 분리 | `src/core/bootstrap/AppEventListenerManager.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-002** | [#633](https://github.com/Choyounhwa/-dream-guardian/issues/633) | `AppBootstrap` 전투·스펠·보스 피격 애니메이션 이벤트 바인더 분리 | `src/core/bootstrap/AppBattleEventBinder.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-003** | [#634](https://github.com/Choyounhwa/-dream-guardian/issues/634) | `AppBootstrap` 스테이지 진행도 및 하이스코어 영속성 관리자 분리 | `src/core/bootstrap/AppPersistenceManager.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-004** | [#635](https://github.com/Choyounhwa/-dream-guardian/issues/635) | `SceneDirector` 모션 인식 파이프라인 및 신체 프레이밍 처리기 분리 | `src/core/director/SceneMotionCoordinator.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-005** | [#636](https://github.com/Choyounhwa/-dream-guardian/issues/636) | `SceneDirector` 7계층 캔버스 레이어 렌더링 디스패처 분리 | `src/core/director/SceneRenderOrchestrator.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-006** | [#637](https://github.com/Choyounhwa/-dream-guardian/issues/637) | `ContentLoadService` 스키마 무결성 검증기 및 캐시 관리자 분리 | `src/core/content/ContentPackValidator.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-007** | [#638](https://github.com/Choyounhwa/-dream-guardian/issues/638) | `MenuRenderer` 3대 메뉴 서브 렌더러 및 충돌 판정기(HitTester) 분리 | `src/ui/menu/MenuHitTester.ts` (신규) 등 | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-008** | [#639](https://github.com/Choyounhwa/-dream-guardian/issues/639) | `HazardZoneRenderer` 3D 원근 투영 기하 계산기 분리 | `src/render/hazard/HazardGeometryCalculator.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-009** | [#640](https://github.com/Choyounhwa/-dream-guardian/issues/640) | `BeatRunCoordinator` 비트 동기화 및 모션 노트 평가 오케스트레이터 분리 | `src/game/beat/BeatTimelineSynchronizer.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-010** | [#641](https://github.com/Choyounhwa/-dream-guardian/issues/641) | `AppBootstrap` 게임 세션 진행 및 라운드 전환 흐름(`AppSessionFlowCoordinator`) 분리 | `src/core/bootstrap/AppSessionFlowCoordinator.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-011** | [#642](https://github.com/Choyounhwa/-dream-guardian/issues/642) | `AppBootstrap` 인게임 라운드 이벤트 바인더 및 모션 입력 라우터(`AppRoundEventBinder`) 분리 | `src/core/bootstrap/AppRoundEventBinder.ts` (신규) | P1-High | `[✔] 완료` |
+| **REFACTOR-SRP-012** | [#643](https://github.com/Choyounhwa/-dream-guardian/issues/643) | `AppBootstrap` UI 프레젠테이션 동기화 및 콘텐츠 프리로더(`AppUIPresentationSyncManager`) 분리 | `src/core/bootstrap/AppUIPresentationSyncManager.ts` (신규) | P1-High | `[✔] 완료` |
 
 ---
 
@@ -481,6 +484,114 @@
 
 **테스트**:
 - `npx vitest run tests/unit/beat-run-coordinator.test.ts`
+- `npm test`
+
+---
+
+### [REFACTOR-SRP-010]
+
+**제목**: `AppBootstrap` 게임 세션 진행 및 라운드 전환 흐름(`AppSessionFlowCoordinator`) 분리
+
+**목적**:
+`AppBootstrap.ts` (현재 2,043줄) 내에 결합된 챕터/스테이지 시작(`startChapter`), 챕터 선택(`selectChapter`, `selectSubLevel`), 정답/오답/타임아웃 정산 및 대사 발화 연동(`handleAnswer`), 결과 화면 전이(`showResult`), 메뉴 복귀/중단(`goToMenu`, `abortSession`), 준비/러닝 페이즈 전환(`startReadyPhase`, `startRunningPhase`) 로직을 `AppSessionFlowCoordinator`로 분리하여 약 450줄을 감축한다.
+
+**수정 대상**:
+- `dream_guardian/src/core/bootstrap/AppSessionFlowCoordinator.ts` (Core/Bootstrap, 신규)
+- `dream_guardian/src/core/AppBootstrap.ts` (Core, 수정)
+- `dream_guardian/tests/unit/app-session-flow-coordinator.test.ts` (Tests, 신규)
+
+**구현 내용**:
+1. `AppSessionFlowCoordinator.ts` 신규 구현:
+   - `startChapter()`, `selectChapter()`, `selectSubLevel()`, `handleAnswer()`, `showResult()`, `goToMenu()`, `abortSession()` 캡슐화
+   - 세션 라이프사이클(`sessionLifecycle`), 대사 오버레이(`dialogueOverlayRenderer`), BGM/전환 효과 연동
+2. `AppBootstrap.ts`에서 세션 흐름 로직을 `AppSessionFlowCoordinator` 호출로 위임.
+
+**유지 사항**:
+- 챕터 시작, 문제 출제, 결과 화면 표시, 오답 카운트 및 대사 발화 등 모든 인게임 플로우 100% 동일 유지
+
+**변경 금지**:
+- 상태머신 상태 식별자 및 기존 사운드/이펙트 발동 시퀀스 변경 금지
+
+**완료 조건**:
+- [ ] `AppSessionFlowCoordinator.ts`가 독립 모듈로 구현되고 500줄 이하를 유지한다.
+- [ ] `AppBootstrap.ts`에서 400줄 이상 감축된다.
+- [ ] 세션 흐름 및 결과 처리 관련 단위 테스트 100% Pass.
+
+**테스트**:
+- `npx vitest run tests/unit/app-session-flow-coordinator.test.ts`
+- `npx vitest run tests/unit/app-bootstrap.test.ts`
+- `npm test`
+
+---
+
+### [REFACTOR-SRP-011]
+
+**제목**: `AppBootstrap` 인게임 라운드 이벤트 바인더 및 모션 입력 라우터(`AppRoundEventBinder`) 분리
+
+**목적**:
+`AppBootstrap.ts`에서 `BeatRoundResolver` 이벤트 결합, `ArmReachAnswerSelector` 정답 확정 및 체류 콜백, `PhaseAHazardController` 피격/회피 처리, `StageProgressController` 라운드 진행/보스 클라이맥스 진입 콜백, `footKeynoteInput` 발 키노트 라우팅 로직을 `AppRoundEventBinder`로 분리하여 약 350줄을 감축한다.
+
+**수정 대상**:
+- `dream_guardian/src/core/bootstrap/AppRoundEventBinder.ts` (Core/Bootstrap, 신규)
+- `dream_guardian/src/core/AppBootstrap.ts` (Core, 수정)
+- `dream_guardian/tests/unit/app-round-event-binder.test.ts` (Tests, 신규)
+
+**구현 내용**:
+1. `AppRoundEventBinder.ts` 신규 구현:
+   - `bindRoundEvents(host: AppRoundEventHost): void`
+   - 비트 리졸버, 암리치 셀렉터, 장판 컨트롤러, 스테이지 프로그레스 컨트롤러, 발 키노트 라우터 바인딩 로직 분리
+2. `AppBootstrap.ts`의 생성자 내 컨트롤러 콜백 및 라우터 코드를 헬퍼 호출로 대체.
+
+**유지 사항**:
+- 발 키노트 및 팔 뻗기 입력 반응, 장판 피격 시 HP 감소 및 콤보 초기화 100% 동일 유지
+
+**변경 금지**:
+- 컨트롤러 간 이벤트 전파 순서 변경 금지
+
+**완료 조건**:
+- [ ] `AppRoundEventBinder.ts`가 500줄 이하로 작성된다.
+- [ ] `AppBootstrap.ts`에서 300줄 이상 감축된다.
+- [ ] 라운드 이벤트 및 모션 입력 연동 테스트 100% Pass.
+
+**테스트**:
+- `npx vitest run tests/unit/app-round-event-binder.test.ts`
+- `npx vitest run tests/unit/beat-motion-round.test.ts`
+- `npm test`
+
+---
+
+### [REFACTOR-SRP-012]
+
+**제목**: `AppBootstrap` UI 프레젠테이션 동기화 및 콘텐츠 프리로더(`AppUIPresentationSyncManager`) 분리
+
+**목적**:
+`AppBootstrap.ts`에 포함된 UI 프리젠테이션 문서 적용/롤백(`applyUIPresentation`, `rollbackUIPresentation`, `flushPendingUIPresentation`, `setUIPresentationArtifact`, `computeContentHash`) 및 정적 매니페스트/테스트 오버라이드 로더(`loadQuestions`, `loadFitnessPatterns`, `loadStaticManifest`, `loadLocalTestOverride`)를 분리하여 `AppBootstrap.ts`를 **최종 1,000줄 이하**로 슬림화 완료한다.
+
+**수정 대상**:
+- `dream_guardian/src/core/bootstrap/AppUIPresentationSyncManager.ts` (Core/Bootstrap, 신규)
+- `dream_guardian/src/core/AppBootstrap.ts` (Core, 수정)
+- `dream_guardian/tests/unit/app-ui-presentation-sync-manager.test.ts` (Tests, 신규)
+
+**구현 내용**:
+1. `AppUIPresentationSyncManager.ts` 신규 구현:
+   - UI 표시 스냅샷 런타임 주입, 캐시/롤백, 콘텐츠 해시 연산 로직 캡슐화
+   - 질문 및 피트니스 CSV 로드, 정적 매니페스트 로드 위임
+2. `AppBootstrap.ts`에서 UI 프레젠테이션 및 콘텐츠 로드 인터페이스를 위임 관리자로 연결.
+
+**유지 사항**:
+- UI 레이아웃 핫 리로드, 롤백 안전망, CSV 문제/피트니스 패턴 로드 동작 100% 보존
+
+**변경 금지**:
+- UI 프리젠테이션 아티팩트 스키마 및 해시 검증 로직 변경 금지
+
+**완료 조건**:
+- [x] `AppBootstrap.ts`가 **최종 1,000줄 이하**로 슬림화 완료된다. (전체 프로젝트 소스 파일 1,000줄 이하 달성)
+- [x] UI 프레젠테이션 동기화 및 콘텐츠 로더 단위 테스트 100% Pass.
+- [x] 전체 빌드(`npm run build`) 및 전체 테스트(`npm test`) 100% 통과.
+
+**테스트**:
+- `npx vitest run tests/unit/app-ui-presentation-sync-manager.test.ts`
+- `npx vitest run tests/integration/content-manifest-load.test.ts`
 - `npm test`
 
 ---
