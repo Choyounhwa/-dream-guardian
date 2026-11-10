@@ -333,6 +333,41 @@ describe('QuestionEvaluator - generateQuestion', () => {
     expect(q!.choices[q!.correctIndex]).toBe(8);
   });
 
+  it('소수 연산 시 부동소수점 오차(0.30000000000000004)가 0.3으로 정규화된다 [BUG-QUESTION-FLOAT-001]', () => {
+    const record: QuestionRecord = {
+      level: 4, subLevel: 1,
+      levelTitle: '소수', subLevelTitle: '크기비교',
+      questionTemplate: '{A} 와 {B} 중 큰 수는? ({A+B})',
+      answerEval: 'A+B',
+      wrongEval: 'A+B+0.1',
+      varA: '0.1', varB: '0.2',
+      varC: '0', varD: '0', shapeCode: '',
+    };
+
+    const q = generateQuestion(record);
+    expect(q).not.toBeNull();
+    expect(q!.correctAnswer).toBe(0.3);
+    expect(q!.questionText).toBe('0.1 와 0.2 중 큰 수는? (0.3)');
+  });
+
+  it('Ch.4 4-1 L138 소수 크기비교에서 부동소수점 오차 없는 정답/오답/지문 생성 [BUG-QUESTION-FLOAT-001]', () => {
+    const record: QuestionRecord = {
+      level: 4, subLevel: 1,
+      levelTitle: '소수', subLevelTitle: '크기비교',
+      questionTemplate: '{A} 와 {B} 중 큰 수는?',
+      answerEval: 'A>B? A : B',
+      wrongEval: 'A<B? A : B',
+      varA: '0.1', varB: 'A+0.2',
+      varC: '0', varD: '0', shapeCode: '',
+    };
+
+    const q = generateQuestion(record);
+    expect(q).not.toBeNull();
+    expect(q!.questionText).toBe('0.1 와 0.3 중 큰 수는?');
+    expect(q!.correctAnswer).toBe(0.3);
+    expect(q!.wrongAnswer).toBe(0.1);
+  });
+
   it('정답과 오답이 같으면 보정된다', () => {
     const record: QuestionRecord = {
       level: 1, subLevel: 1,

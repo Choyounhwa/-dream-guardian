@@ -28,6 +28,15 @@ import {
 } from '../utils/PoseGeometry.js';
 import { POSE_LANDMARKS, type NormalizedLandmark } from '../types/index.js';
 import type { InputId, PairId } from '../types/assault.js';
+import type { PoseFrame } from '../types/pose-frame.js';
+import { diffAngle } from '../skeleton/pose/angleMath.js';
+import {
+  armPoseFromPoints,
+  createStrokeHandMemory,
+  evaluateStrokeHand,
+  type StickmanArmPose,
+  type StrokeHandMemory,
+} from './StickmanPunchStroke.js';
 
 export type AssaultHand = 'left' | 'right';
 
@@ -51,6 +60,16 @@ export interface AssaultPunchFrameInput {
   readonly landmarks?: readonly NormalizedLandmark[] | null;
   readonly leftHand?: AssaultPunchHandInput;
   readonly rightHand?: AssaultPunchHandInput;
+  readonly poseFrame?: PoseFrame | null;
+}
+
+/** 미리 뻗고 멈춤 감지 이벤트 (#726) */
+export interface AssaultPreExtendedHoldEvent {
+  readonly hand: AssaultHand;
+  readonly side: AssaultHand;
+  readonly timestampMs: number;
+  readonly holdMs: number;
+  readonly pairId?: PairId;
 }
 
 /** 정규화된 펀치 발화 이벤트 */
@@ -87,24 +106,29 @@ export class AssaultPunchAdapter {
   private readonly _minVisibility: number;
   private readonly _idPrefix: string;
 
-  private _leftState: HandPunchState = 'READY';
-  private _rightState: HandPunchState = 'READY';
+  private _leftState: HandPunchState = 'IDLE';
+  private _rightState: HandPunchState = 'IDLE';
   private _isTrackingLost = false;
-  private _wasTrackingLost = false;
+  private _wasLeftTrackingLost = false;
+  private _wasRightTrackingLost = false;
+
+  private _leftStroke: StrokeHandMemory = createStrokeHandMemory();
+  private _rightStroke: StrokeHandMemory = createStrokeHandMemory();
 
   private _leftSnapshot: AssaultHandSnapshot = {
-    state: 'READY',
+    state: 'IDLE',
     reachRatio: 0,
     inTargetBox: false,
   };
   private _rightSnapshot: AssaultHandSnapshot = {
-    state: 'READY',
+    state: 'IDLE',
     reachRatio: 0,
     inTargetBox: false,
   };
 
   private static _globalInputCounter = 0;
   private readonly _listeners = new Set<(event: AssaultPunchEvent) => void>();
+  private readonly _preExtendedHoldListeners = new Set<(event: AssaultPreExtendedHoldEvent) => void>();
 
   constructor(
     config: AssaultInputConfig = DEFAULT_ASSAULT_INPUT_CONFIG,
@@ -143,14 +167,38 @@ export class AssaultPunchAdapter {
   }
 
   /**
+   * 미리 뻗고 멈춤 감지 리스너 등록 (#726)
+   * @returns 리스너 해제(unsubscribe) 함수
+   */
+  public onPreExtendedHold(listener: (event: AssaultPreExtendedHoldEvent) => void): () => void {
+    this._preExtendedHoldListeners.add(listener);
+    return () => {
+      this._preExtendedHoldListeners.delete(listener);
+    };
+  }
+
+  private _notifyPreExtendedHold(event: AssaultPreExtendedHoldEvent): void {
+    for (const listener of this._preExtendedHoldListeners) {
+      try {
+        listener(event);
+      } catch (err) {
+        console.error('[AssaultPunchAdapter] onPreExtendedHold listener error:', err);
+      }
+    }
+  }
+
+  /**
    * 상태 초기화 (세션 재시작/재준비)
    * 기존 inputId 채번 카운터는 유지하여 중복 방지 보장.
    */
   public reset(): void {
     this._leftState = 'IDLE';
     this._rightState = 'IDLE';
+    this._leftStroke = createStrokeHandMemory();
+    this._rightStroke = createStrokeHandMemory();
     this._isTrackingLost = false;
-    this._wasTrackingLost = false;
+    this._wasLeftTrackingLost = false;
+    this._wasRightTrackingLost = false;
     this._leftSnapshot = { state: 'IDLE', reachRatio: 0, inTargetBox: false };
     this._rightSnapshot = { state: 'IDLE', reachRatio: 0, inTargetBox: false };
   }
@@ -165,20 +213,63 @@ export class AssaultPunchAdapter {
     const trackingLost = this._determineTrackingLost(input);
     if (trackingLost) {
       this._isTrackingLost = true;
-      this._wasTrackingLost = true;
+      this._wasLeftTrackingLost = true;
+      this._wasRightTrackingLost = true;
       return [];
     }
-
-    const justRecovered = this._wasTrackingLost;
-    this._isTrackingLost = false;
-    this._wasTrackingLost = false;
 
     // 2. 좌우 손 정보 추출
     const { leftHand, rightHand, shoulderWidth } = this._extractHands(input);
 
+    // 3. 손별 추적 상태 및 복구 판정
+    let leftJustRecovered = false;
+    let rightJustRecovered = false;
+
+    if (input.landmarks !== undefined && input.landmarks && input.landmarks.length >= 33) {
+      const lm = input.landmarks as readonly NormalizedLandmark[];
+      const lWrist = lm[POSE_LANDMARKS.LEFT_WRIST];
+      const rWrist = lm[POSE_LANDMARKS.RIGHT_WRIST];
+      const lVis = lWrist?.visibility ?? 0;
+      const rVis = rWrist?.visibility ?? 0;
+
+      if (lVis < this._minVisibility) {
+        this._wasLeftTrackingLost = true;
+      } else {
+        leftJustRecovered = this._wasLeftTrackingLost;
+        this._wasLeftTrackingLost = false;
+      }
+
+      if (rVis < this._minVisibility) {
+        this._wasRightTrackingLost = true;
+      } else {
+        rightJustRecovered = this._wasRightTrackingLost;
+        this._wasRightTrackingLost = false;
+      }
+
+      this._isTrackingLost = lVis < this._minVisibility && rVis < this._minVisibility;
+    } else {
+      if (input.leftHand) {
+        if ((input.leftHand.visibility ?? 1) < this._minVisibility) {
+          this._wasLeftTrackingLost = true;
+        } else {
+          leftJustRecovered = this._wasLeftTrackingLost;
+          this._wasLeftTrackingLost = false;
+        }
+      }
+      if (input.rightHand) {
+        if ((input.rightHand.visibility ?? 1) < this._minVisibility) {
+          this._wasRightTrackingLost = true;
+        } else {
+          rightJustRecovered = this._wasRightTrackingLost;
+          this._wasRightTrackingLost = false;
+        }
+      }
+      this._isTrackingLost = false;
+    }
+
     const emittedEvents: AssaultPunchEvent[] = [];
 
-    // 3. 왼손 상태 머신 평가 (DEC-A4: left hand -> left box)
+    // 4. 왼손 상태 머신 평가 (DEC-A4: left hand -> left box)
     const leftEvent = this._evaluateHand({
       hand: 'left',
       handInput: leftHand,
@@ -187,13 +278,14 @@ export class AssaultPunchAdapter {
       timestampMs,
       activeSeconds,
       pairId,
-      justRecovered,
+      justRecovered: leftJustRecovered,
+      poseFrame: input.poseFrame,
     });
     if (leftEvent) {
       emittedEvents.push(leftEvent);
     }
 
-    // 4. 오른손 상태 머신 평가 (DEC-A4: right hand -> right box)
+    // 5. 오른손 상태 머신 평가 (DEC-A4: right hand -> right box)
     const rightEvent = this._evaluateHand({
       hand: 'right',
       handInput: rightHand,
@@ -202,7 +294,8 @@ export class AssaultPunchAdapter {
       timestampMs,
       activeSeconds,
       pairId,
-      justRecovered,
+      justRecovered: rightJustRecovered,
+      poseFrame: input.poseFrame,
     });
     if (rightEvent) {
       emittedEvents.push(rightEvent);
@@ -322,8 +415,9 @@ export class AssaultPunchAdapter {
       if (!input.landmarks || input.landmarks.length < 33) {
         return true;
       }
-      const lWrist = input.landmarks[POSE_LANDMARKS.LEFT_WRIST];
-      const rWrist = input.landmarks[POSE_LANDMARKS.RIGHT_WRIST];
+      const lm = input.landmarks as readonly NormalizedLandmark[];
+      const lWrist = lm[POSE_LANDMARKS.LEFT_WRIST];
+      const rWrist = lm[POSE_LANDMARKS.RIGHT_WRIST];
       const lVis = lWrist?.visibility ?? 0;
       const rVis = rWrist?.visibility ?? 0;
       if (lVis < this._minVisibility && rVis < this._minVisibility) {
@@ -344,7 +438,7 @@ export class AssaultPunchAdapter {
     let shoulderWidth = DEFAULT_SHOULDER_WIDTH_FALLBACK;
 
     if (input.landmarks && input.landmarks.length >= 33) {
-      const lm = input.landmarks;
+      const lm = input.landmarks as readonly NormalizedLandmark[];
       const lShoulder = lm[POSE_LANDMARKS.LEFT_SHOULDER];
       const rShoulder = lm[POSE_LANDMARKS.RIGHT_SHOULDER];
       const lElbow = lm[POSE_LANDMARKS.LEFT_ELBOW];
@@ -387,6 +481,7 @@ export class AssaultPunchAdapter {
     activeSeconds?: number;
     pairId?: PairId;
     justRecovered: boolean;
+    poseFrame?: PoseFrame | null;
   }): AssaultPunchEvent | null {
     const {
       hand,
@@ -397,128 +492,274 @@ export class AssaultPunchAdapter {
       activeSeconds,
       pairId,
       justRecovered,
+      poseFrame,
     } = params;
 
-    if (!handInput) {
+    // ─── legacy_box 모드: 기존 사각 박스 접촉 기반 판정 ───
+    if (this._config.punchDetectionMode === 'legacy_box') {
+      if (!handInput) {
+        if (hand === 'left') {
+          this._wasLeftTrackingLost = true;
+        } else {
+          this._wasRightTrackingLost = true;
+        }
+        return null;
+      }
+
+      const { wrist, elbow, shoulder } = handInput;
+
+      // 1. 손목-어깨 거리 및 도달 비율(reachRatio) 산출
+      let reachDistance = 0;
+      let reachRatio = 0;
+      if (shoulder) {
+        reachDistance = calcDistance(wrist, shoulder);
+        reachRatio = reachDistance / shoulderWidth;
+      }
+
+      // 2. 팔꿈치 각도 산출 (shoulder, elbow, wrist 모두 존재 시)
+      let elbowAngleDeg: number | undefined;
+      if (shoulder && elbow) {
+        elbowAngleDeg = calcJointAngle(shoulder, elbow, wrist, true);
+      }
+
+      // 3. 타깃 박스 진입 여부 판정 (DEC-A4: 같은 쪽 박스만 검사)
+      const inTargetBox =
+        wrist.x >= targetBox.xMin &&
+        wrist.x <= targetBox.xMax &&
+        wrist.y >= targetBox.yMin &&
+        wrist.y <= targetBox.yMax;
+
+      // 4. 팔 신전 만족 여부 검사 (DEC-A3: 타깃 박스 + 도달 비율 + 팔꿈치 각도)
+      // 어깨나 팔꿈치가 없거나 visibility 부족 시 신전 판정을 하지 않음 (타격 0, 상태 유지/보류)
+      const hasRequiredJoints = Boolean(shoulder && elbow);
+      const isReachSatisfied = hasRequiredJoints && reachRatio >= this._config.punchReachRatio;
+      const isAngleSatisfied =
+        hasRequiredJoints &&
+        elbowAngleDeg !== undefined &&
+        elbowAngleDeg >= this._config.elbowExtensionAngleDeg;
+      const isFullyExtended = inTargetBox && isReachSatisfied && isAngleSatisfied;
+
+      // 5. 회수 만족 여부 검사 (DEC-A3, #722: 회수 임계치 이하 도달 또는 타깃 박스 하단 바깥 가슴 대기 시 복귀)
+      // 어깨가 존재할 때만 회수 판정 유효
+      const isRetracted =
+        Boolean(shoulder) &&
+        (reachRatio <= this._config.punchRetractRatio || wrist.y > targetBox.yMax);
+
+      let currentState = hand === 'left' ? this._leftState : this._rightState;
+      let eventToEmit: AssaultPunchEvent | null = null;
+
+      // 6. 추적 복구 직후 가짜 타격 방지 (A10, A19)
+      if (justRecovered) {
+        if (isRetracted) {
+          currentState = 'READY';
+        } else {
+          // 이미 뻗어있는 상태로 복구된 경우, 타격을 발화하지 않고 회수를 대기하도록 강제
+          currentState = 'EXTENDED';
+        }
+      } else {
+        // 7. 상태 머신 전이
+        switch (currentState) {
+          case 'IDLE': {
+            if (isRetracted) {
+              currentState = 'READY';
+            } else if (isFullyExtended) {
+              // [BUG-ASSAULT-PUNCH-001 / #722] IDLE 상태에서 즉시 완전 신전 시 1회 타격 발화 후 EXTENDED로 전이
+              currentState = 'EXTENDED';
+              eventToEmit = this._buildPunchEvent({
+                hand,
+                timestampMs,
+                activeSeconds,
+                reachRatio,
+                elbowAngleDeg,
+                wristPoint: { x: wrist.x, y: wrist.y },
+                targetBox,
+                pairId,
+              });
+            }
+            break;
+          }
+
+          case 'READY': {
+            if (isFullyExtended) {
+              // 타격 진입: 이벤트 1회 발화 후 EXTENDED로 전이
+              currentState = 'EXTENDED';
+              eventToEmit = this._buildPunchEvent({
+                hand,
+                timestampMs,
+                activeSeconds,
+                reachRatio,
+                elbowAngleDeg,
+                wristPoint: { x: wrist.x, y: wrist.y },
+                targetBox,
+                pairId,
+              });
+            }
+            break;
+          }
+
+          case 'EXTENDED': {
+            // 손을 뻗은 채 머무름, 타깃 박스 경계 떨림, pair 변경 시에는 계속 EXTENDED 유지 (추가 발화 0회)
+            if (isRetracted) {
+              currentState = 'READY'; // 회수 완료 확인 시 READY로 복귀
+            }
+            break;
+          }
+
+          case 'RETRACTED': {
+            currentState = 'READY';
+            break;
+          }
+        }
+      }
+
+      // 상태 및 스냅샷 갱신
+      if (hand === 'left') {
+        this._leftState = currentState;
+        this._leftSnapshot = {
+          state: currentState,
+          reachRatio,
+          inTargetBox,
+          elbowAngleDeg,
+        };
+      } else {
+        this._rightState = currentState;
+        this._rightSnapshot = {
+          state: currentState,
+          reachRatio,
+          inTargetBox,
+          elbowAngleDeg,
+        };
+      }
+
+      return eventToEmit;
+    }
+
+    // ─── stickman_stroke 모드 (#726) ───
+    if (!handInput && (!poseFrame || !poseFrame.hasPose)) {
+      if (hand === 'left') {
+        this._wasLeftTrackingLost = true;
+      } else {
+        this._wasRightTrackingLost = true;
+      }
       return null;
     }
 
-    const { wrist, elbow, shoulder } = handInput;
-
-    // 1. 손목-어깨 거리 및 도달 비율(reachRatio) 산출
-    let reachDistance = 0;
-    if (shoulder) {
-      reachDistance = calcDistance(wrist, shoulder);
-    } else {
-      // shoulder 부재 시 손목 y좌표 기준으로 대략 추정하지 않고 targetBox 기반 fallback
-      reachDistance = shoulderWidth * this._config.punchReachRatio;
-    }
-    const reachRatio = reachDistance / shoulderWidth;
-
-    // 2. 팔꿈치 각도 산출 (shoulder, elbow, wrist 모두 존재 시)
-    let elbowAngleDeg: number | undefined;
-    if (shoulder && elbow) {
-      elbowAngleDeg = calcJointAngle(shoulder, elbow, wrist, true);
-    }
-
-    // 3. 타깃 박스 진입 여부 판정 (DEC-A4: 같은 쪽 박스만 검사)
-    const inTargetBox =
-      wrist.x >= targetBox.xMin &&
-      wrist.x <= targetBox.xMax &&
-      wrist.y >= targetBox.yMin &&
-      wrist.y <= targetBox.yMax;
-
-    // 4. 팔 신전 만족 여부 검사 (DEC-A3: 타깃 박스 + 도달 비율 + 팔꿈치 각도)
-    const isReachSatisfied = reachRatio >= this._config.punchReachRatio;
-    const isAngleSatisfied =
-      elbowAngleDeg === undefined || elbowAngleDeg >= this._config.elbowExtensionAngleDeg;
-    const isFullyExtended = inTargetBox && isReachSatisfied && isAngleSatisfied;
-
-    // 5. 회수 만족 여부 검사 (punchRetractRatio 이하)
-    const isRetracted = reachRatio <= this._config.punchRetractRatio;
-
-    let currentState = hand === 'left' ? this._leftState : this._rightState;
-    let eventToEmit: AssaultPunchEvent | null = null;
-
-    // 6. 추적 복구 직후 가짜 타격 방지 (A10, A19)
-    if (justRecovered) {
-      if (isRetracted) {
-        currentState = 'READY';
-      } else {
-        // 이미 뻗어있는 상태로 복구된 경우, 타격을 발화하지 않고 회수를 대기하도록 강제
-        currentState = 'EXTENDED';
+    let pose: StickmanArmPose | null = null;
+    if (poseFrame && poseFrame.hasPose) {
+      const boneAngles = poseFrame.boneAngles;
+      const upperArm = hand === 'left' ? boneAngles?.leftUpperArm : boneAngles?.rightUpperArm;
+      const forearm = hand === 'left' ? boneAngles?.leftForearm : boneAngles?.rightForearm;
+      const confidence =
+        hand === 'left'
+          ? (poseFrame.armConfidence?.left ?? 1)
+          : (poseFrame.armConfidence?.right ?? 1);
+      if (upperArm !== undefined && forearm !== undefined) {
+        pose = { upperArm, forearm, confidence };
       }
-    } else {
-      // 7. 상태 머신 전이
-      switch (currentState) {
-        case 'IDLE': {
-          if (isRetracted) {
-            currentState = 'READY';
-          } else if (isFullyExtended) {
-            // 처음부터 뻗은 상태면 타격 없이 회수 대기
-            currentState = 'EXTENDED';
-          }
-          break;
-        }
-
-        case 'READY': {
-          if (isFullyExtended) {
-            // 타격 진입: 이벤트 1회 발화 후 EXTENDED로 전이
-            currentState = 'EXTENDED';
-            const compensatedTimestampMs = Math.max(0, timestampMs - this._config.inputLatencyMs);
-
-            eventToEmit = {
-              inputId: this._generateInputId(hand),
-              hand,
-              targetSide: hand,
-              rawTimestampMs: timestampMs,
-              compensatedTimestampMs,
-              activeTimestampSeconds: activeSeconds,
-              reachRatio,
-              elbowAngleDeg,
-              wristPoint: { x: wrist.x, y: wrist.y },
-              targetBox,
-              pairId,
-            };
-          }
-          break;
-        }
-
-        case 'EXTENDED': {
-          // 손을 뻗은 채 머무름, 타깃 박스 경계 떨림, pair 변경 시에는 계속 EXTENDED 유지 (추가 발화 0회)
-          if (isRetracted) {
-            currentState = 'READY'; // 회수 완료 확인 시 READY로 복귀
-          }
-          break;
-        }
-
-        case 'RETRACTED': {
-          currentState = 'READY';
-          break;
-        }
-      }
+    } else if (handInput && handInput.shoulder && handInput.elbow && handInput.wrist) {
+      pose = armPoseFromPoints(
+        handInput.shoulder,
+        handInput.elbow,
+        handInput.wrist,
+        handInput.visibility,
+      );
     }
 
-    // 상태 및 스냅샷 갱신
+    if (!pose) {
+      // shoulder 또는 elbow가 없으면 해당 손은 이번 프레임 판정 보류 (상태 변화 없음)
+      return null;
+    }
+
+    const strokeMem = hand === 'left' ? this._leftStroke : this._rightStroke;
+    const res = evaluateStrokeHand({
+      memory: strokeMem,
+      hand,
+      pose,
+      timestampMs,
+      justRecovered,
+      cfg: this._config,
+    });
+
     if (hand === 'left') {
-      this._leftState = currentState;
+      this._leftStroke = res.memory;
+      this._leftState = res.memory.state;
+    } else {
+      this._rightStroke = res.memory;
+      this._rightState = res.memory.state;
+    }
+
+    if (res.holdReached) {
+      this._notifyPreExtendedHold({
+        hand,
+        side: res.reach?.side ?? hand,
+        timestampMs,
+        holdMs: res.memory.holdMs,
+        pairId,
+      });
+    }
+
+    const angleDiffRad = Math.abs(diffAngle(pose.forearm, pose.upperArm));
+    const elbowAngleDeg = 180 - (angleDiffRad * 180) / Math.PI;
+    const wristPoint: Point2D = handInput?.wrist ?? { x: 0.5, y: 0.5 };
+
+    if (hand === 'left') {
       this._leftSnapshot = {
-        state: currentState,
-        reachRatio,
-        inTargetBox,
+        state: res.memory.state,
+        reachRatio: res.reach?.extension ?? 0,
+        inTargetBox: res.reach?.directionValid ?? false,
         elbowAngleDeg,
       };
     } else {
-      this._rightState = currentState;
       this._rightSnapshot = {
-        state: currentState,
-        reachRatio,
-        inTargetBox,
+        state: res.memory.state,
+        reachRatio: res.reach?.extension ?? 0,
+        inTargetBox: res.reach?.directionValid ?? false,
         elbowAngleDeg,
       };
     }
 
-    return eventToEmit;
+    if (res.fire) {
+      return this._buildPunchEvent({
+        hand,
+        targetSide: hand,
+        timestampMs,
+        activeSeconds,
+        reachRatio: res.reach?.extension ?? 1.0,
+        elbowAngleDeg,
+        wristPoint,
+        targetBox,
+        pairId,
+      });
+    }
+
+    return null;
+  }
+
+  private _buildPunchEvent(params: {
+    hand: AssaultHand;
+    targetSide?: AssaultHand;
+    timestampMs: number;
+    activeSeconds?: number;
+    reachRatio: number;
+    elbowAngleDeg?: number;
+    wristPoint: Point2D;
+    targetBox: AssaultTargetBox;
+    pairId?: PairId;
+  }): AssaultPunchEvent {
+    const compensatedTimestampMs = Math.max(0, params.timestampMs - this._config.inputLatencyMs);
+    return {
+      inputId: this._generateInputId(params.hand),
+      hand: params.hand,
+      targetSide: params.targetSide ?? params.hand,
+      rawTimestampMs: params.timestampMs,
+      compensatedTimestampMs,
+      activeTimestampSeconds: params.activeSeconds,
+      reachRatio: params.reachRatio,
+      elbowAngleDeg: params.elbowAngleDeg,
+      wristPoint: params.wristPoint,
+      targetBox: params.targetBox,
+      pairId: params.pairId,
+    };
   }
 
   private _generateInputId(hand: AssaultHand): InputId {

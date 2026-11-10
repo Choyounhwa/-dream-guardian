@@ -1,8 +1,8 @@
 # DOC-18 — 보스 접근전 챌린지 출제 시스템 설계서
 
 - **문서 번호**: `DOC-18` (DOC-17은 리팩터링 카드 원장으로 사용 중)
-- **버전 / 작성일**: v0.1 / 2026-10-21
-- **상태**: 설계 초안. 사용자 승인 범위는 **설계 문서 작성 및 기존 카드 수정 메모 정리**이다. 소스·config·tests 변경, 카드 등록, 기존 카드 본문 수정, NEXT 전진을 의미하지 않는다.
+- **버전 / 작성일**: v0.2 / 2026-10-21 (v0.1 / 2026-10-21)
+- **상태**: 설계 초안 + 카드 등록 완료(#645~#668, 전부 OPEN / 개별 구현 승인 대기). v0.2에서 **데이터 우선 방침**(§11) 채택. 소스·config·tests 변경, 기존 카드 본문 수정, 메인 NEXT 전진을 의미하지 않는다.
 - **참조**: DOC-14 v0.3(§§5~7, 11.3, 15), DOC-15, DOC-16(REC-00~26), `../dream_guardian/HANDOVER.md`
 - **채택 범위**: A(규칙 사냥)·B(대결)·C(같은 값 찾기)·D(진행) 4계열 14유형. **E(참인 식 판정) 제외.**
 
@@ -131,9 +131,21 @@ export interface AssaultChallengeRound {           // 생성 결과, 동결
 - 보기 `AssaultChoiceItem.value: number`는 그대로 둔다. 분수/수식 보기는 `value`에 정확값의 수치 근사를 넣고 판정은 `isCorrect`/`correctSide`로만 한다. 정확값 비교는 생성·검증 단계의 `Rational`에서만 수행한다.
 - `pairId`는 **플랜 encounter의 `pairId ?? id` 순서**로 매핑한다(§7.2 REC-04 메모).
 
-## 6. 작업 카드 계획 (CH-01~CH-19, 미등록)
+## 6. 작업 카드 계획 (CH-01~CH-19)
 
 카드당 src/config 최대 3파일·단일 레이어(DOC-16 §3). 2레이어를 건드리는 카드는 등록 시 분리한다(표기 `a/b`).
+
+**GitHub 등록 (2026-10-21)**: 21개, 제목 접두 `[ASSAULT-CHALLENGE-CH-xx]`, 전부 OPEN / 개별 구현 승인 대기.
+
+| CH | Issue | CH | Issue | CH | Issue |
+|---|---|---|---|---|---|
+| 01a | [#645](https://github.com/Choyounhwa/-dream-guardian/issues/645) | 07 | [#652](https://github.com/Choyounhwa/-dream-guardian/issues/652) | 14 | [#659](https://github.com/Choyounhwa/-dream-guardian/issues/659) |
+| 01b | [#646](https://github.com/Choyounhwa/-dream-guardian/issues/646) | 08 | [#653](https://github.com/Choyounhwa/-dream-guardian/issues/653) | 15 | [#660](https://github.com/Choyounhwa/-dream-guardian/issues/660) |
+| 02 | [#647](https://github.com/Choyounhwa/-dream-guardian/issues/647) | 09 | [#654](https://github.com/Choyounhwa/-dream-guardian/issues/654) | 16a | [#661](https://github.com/Choyounhwa/-dream-guardian/issues/661) |
+| 03 | [#648](https://github.com/Choyounhwa/-dream-guardian/issues/648) | 10 | [#655](https://github.com/Choyounhwa/-dream-guardian/issues/655) | 16b | [#662](https://github.com/Choyounhwa/-dream-guardian/issues/662) |
+| 04 | [#649](https://github.com/Choyounhwa/-dream-guardian/issues/649) | 11 | [#656](https://github.com/Choyounhwa/-dream-guardian/issues/656) | 17 | [#663](https://github.com/Choyounhwa/-dream-guardian/issues/663) |
+| 05 | [#650](https://github.com/Choyounhwa/-dream-guardian/issues/650) | 12 | [#657](https://github.com/Choyounhwa/-dream-guardian/issues/657) | 18 | [#664](https://github.com/Choyounhwa/-dream-guardian/issues/664) |
+| 06 | [#651](https://github.com/Choyounhwa/-dream-guardian/issues/651) | 13 | [#658](https://github.com/Choyounhwa/-dream-guardian/issues/658) | 19 | [#665](https://github.com/Choyounhwa/-dream-guardian/issues/665) |
 
 | ID | 대상 파일 | 책임 | 레이어 | 선행 |
 |---|---|---|---|---|
@@ -220,3 +232,48 @@ CH-01b는 REC-04가 쌍 팩토리를 호출만 하므로 직접 충돌은 없으
 | 세션 진입 시 출제 방식 선택 수단 | 개발용 URL 파라미터(예: `&source=challenge`) | CH-15 |
 | 결과·순위의 계열 표시 | 계열별 정답 타격 수 | #533/#535 재검토 시 |
 | 분수 세로 표기 여부 | 6자 이내 가로 `a/b` | CH-17 |
+
+## 11. v0.2 방침 변경 — 데이터 우선 (2026-10-21 사용자 결정)
+
+### 11.1 결정
+
+- 챌린지 유형은 **게임에 즉시 적용하지 않는다.** 먼저 생성기로 문제 데이터를 만들어 CSV로 저장하고 사람이 검수한다.
+- 생성기(CH-07~12)는 **오프라인 전용**이다. 런타임은 추후 검수 승인된 CSV만 읽는다. 런타임 생성 경로는 두지 않는다.
+- 범위: 14유형 전체(Ch.1~5). 이는 `questions.csv`와 같은 "원본 데이터 = CSV" 원칙(AGENTS.md §1-4)을 따른다.
+
+### 11.2 CSV 스키마 (`assault_challenges.csv`, 원본 위치: 저장소 상위 `E:\AIAIAIAIAI\Arithmetic Game\`, 런타임 사본 `dream_guardian/public/`은 연결 단계에서 결정)
+
+한 행 = 한 라운드. 쌍 수 3 고정(D 계열 minPairs 충족, A·B·C는 3쌍 사용).
+
+| 열 | 예 | 설명 |
+|---|---|---|
+| `id` | `A1-0007` | `{variant 접두}-{4자리}` 유일 |
+| `variantId` | `A1_times_table` | 카탈로그 ID |
+| `family` | `rule_hunt` | 계열 |
+| `chapter` | `2` | 1~5 |
+| `level` | `2` | 난도(읽기 시간 산정용) |
+| `questionText` | `6단 숫자를 쳐라!` | 문제 문구 |
+| `params` | `k=6` | `key=value;key=value` 규칙 파라미터(재검증용) |
+| `p{n}_left` / `p{n}_right` | `42` / `44` | 보기 라벨(n=1..3, ≤ maxLabelChars) |
+| `p{n}_correct` | `L` | 정답 쪽 `L`/`R` |
+| `p{n}_prompt` | `3 → ?` | 쌍 보조 문구(D 계열만, 그 외 빈 값) |
+| `seed` | `1007` | 생성 시드 |
+| `rulesVersion` | `1.0.0` | 생성 규칙 버전 |
+| `reviewStatus` | `draft` | `draft` / `approved` / `rejected` |
+
+- 인코딩 UTF-8(BOM 없음), 쉼표 구분, 라벨에 쉼표 포함 금지.
+- 기본 분량: 유형당 20행 × 14유형 = 280행(config `rowsPerVariant`).
+- 검증: CSV 행을 `params`와 라벨로 독립 재계산(라벨 안전 파서, eval 금지)하여 쌍별 유일 정답·`p{n}_correct` 일치·라벨 길이·연속 같은 쪽 ≤ 3·음수/NaN 0을 확인한다. 손으로 수정한 행도 같은 검증을 통과해야 `approved`가 될 수 있다.
+
+### 11.3 카드 조정
+
+| 구분 | 카드 | 조치 |
+|---|---|---|
+| 진행 | #645 CH-01a, #647 CH-02, #648 CH-03, #649 CH-04, #650 CH-05, #653~#657 CH-08~12 | 유지(오프라인 사용) |
+| 범위 확장 | #652 CH-07 | 구조식→라벨/값에 더해 **라벨 문자열 안전 파서**(정수·소수·`a/b`·`a+b`·`a-b`·`a×b`·`a÷b`, eval 금지) |
+| 신규 | CH-20 #666 | 오프라인 내보내기 스크립트 |
+| 신규 | CH-21 #667 | CSV 행 검증기 + 파일 단위 테스트 |
+| 신규 | CH-22 #668 | 280행 데이터 생성·표본 검수 |
+| 보류 | #646 CH-01b, #651 CH-06, #658~#665 CH-13~19 | 게임 연결 단계까지 보류. CH-13은 연결 시 "CSV 행 → 라운드 로더"로 재정의 |
+
+진행 순서: CH-01a → 02 → 03 → 04 → 05 → 07 → 08 → 09 → 10 → 11 → 12 → 20 → 21 → 22. 이 경로는 core/game/render를 수정하지 않으므로 REC 트랙과 파일 충돌이 없다. §9의 v0.1 순서 중 보류 카드는 게임 연결 단계에서 재개한다.

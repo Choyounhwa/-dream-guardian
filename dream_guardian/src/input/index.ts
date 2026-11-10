@@ -41,7 +41,18 @@ export {
   type AssaultPunchEvent,
   type AssaultHandSnapshot,
   type AssaultPunchAdapterOptions,
+  type AssaultPreExtendedHoldEvent,
 } from './AssaultPunchAdapter.js';
+export {
+  calcStickmanArmReach,
+  armPoseFromPoints,
+  createStrokeHandMemory,
+  evaluateStrokeHand,
+  type StickmanArmPose,
+  type StickmanArmReach,
+  type StrokeHandMemory,
+  type StrokeHandResult,
+} from './StickmanPunchStroke.js';
 export {
   AssaultFallbackAdapter,
   DEFAULT_ASSAULT_FALLBACK_CONFIG,

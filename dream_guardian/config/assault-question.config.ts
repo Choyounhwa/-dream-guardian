@@ -10,6 +10,8 @@
  * 3. Math.random 일체 사용 금지.
  */
 
+import { deepFreeze } from '../src/utils/deepFreeze.js';
+
 export interface ReadingLengthThreshold {
   readonly thresholdChars: number;
   readonly additionalSeconds: number;
@@ -28,15 +30,8 @@ export interface AssaultQuestionConfig {
   readonly levelAdditionalSeconds: Readonly<Record<number, number>>;
   /** shapeCode 불허 여부 (기본: true, DEC-A6) */
   readonly disallowShapeCode: boolean;
-}
-
-function deepFreeze<T extends object>(obj: T): Readonly<T> {
-  for (const value of Object.values(obj)) {
-    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-      deepFreeze(value);
-    }
-  }
-  return Object.freeze(obj);
+  /** 단순 분수 정답 허용 여부 (기본: true, #729-②) */
+  readonly allowSimpleFraction?: boolean;
 }
 
 export const DEFAULT_ASSAULT_QUESTION_CONFIG: Readonly<AssaultQuestionConfig> = deepFreeze({
@@ -54,4 +49,5 @@ export const DEFAULT_ASSAULT_QUESTION_CONFIG: Readonly<AssaultQuestionConfig> = 
     4: 1.5,
   },
   disallowShapeCode: true,
+  allowSimpleFraction: true,
 });

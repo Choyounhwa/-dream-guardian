@@ -16,6 +16,8 @@ import { SkeletonAnimation } from '../../skeleton/SkeletonAnimation.js';
 import { SkeletonEffect } from '../../skeleton/SkeletonEffect.js';
 import type { IAvatarRenderer } from '../../skeleton/IAvatarRenderer.js';
 import { StickmanRenderer } from '../../skeleton/StickmanRenderer.js';
+import { CharacterAvatarRenderer } from '../../skeleton/skin/CharacterAvatarRenderer.js';
+import { CharacterRegistry } from '../../data/characters/CharacterRegistry.js';
 import { QuestionBank } from '../../question/QuestionBank.js';
 import { QuestionSpeech } from '../../question/QuestionSpeech.js';
 import { EventBus } from '../EventBus.js';
@@ -80,6 +82,7 @@ import { UIPresentationLoadService } from '../UIPresentationLoadService.js';
 export interface BootstrapSubsystemFactoryOptions {
   canvas?: HTMLCanvasElement;
   avatarRenderer?: IAvatarRenderer;
+  characterRegistry?: CharacterRegistry;
   sfx?: SFXSynth;
   audioContext?: AudioContext;
   eventBus?: EventBus;
@@ -100,6 +103,7 @@ export interface BootstrapSubsystems {
   skeletonAnimation: SkeletonAnimation;
   skeletonEffect: SkeletonEffect;
   stickmanRenderer: IAvatarRenderer;
+  characterRegistry: CharacterRegistry;
   questionBank: QuestionBank;
   speech: QuestionSpeech;
   eventBus: EventBus;
@@ -210,7 +214,17 @@ export class BootstrapSubsystemFactory {
     const jointRenderer = new JointRenderer();
     const skeletonAnimation = new SkeletonAnimation({ lerpFactor: 0.3, breathCycle: 3.0, breathAmplitude: 0.02 });
     const skeletonEffect = new SkeletonEffect();
-    const stickmanRenderer = options?.avatarRenderer ?? new StickmanRenderer();
+    const characterRegistry = options?.characterRegistry ?? CharacterRegistry.getInstance();
+    let avatarRenderer = options?.avatarRenderer;
+    if (!avatarRenderer) {
+      const selected = characterRegistry.getSelected();
+      if (selected && selected.skin) {
+        avatarRenderer = new CharacterAvatarRenderer(selected.rig, selected.skin);
+      } else {
+        avatarRenderer = new StickmanRenderer();
+      }
+    }
+    const stickmanRenderer = avatarRenderer;
 
     // ─── 2. 코어 데이터 및 전투 시스템 ───
     const questionBank = options?.questionBank ?? new QuestionBank();
@@ -336,6 +350,7 @@ export class BootstrapSubsystemFactory {
       skeletonAnimation,
       skeletonEffect,
       stickmanRenderer,
+      characterRegistry,
       questionBank,
       speech,
       eventBus,

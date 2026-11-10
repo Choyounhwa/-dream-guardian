@@ -11,6 +11,7 @@
  */
 
 import type { ProfileId, RulesVersion } from '../src/types/assault.js';
+import { deepFreeze } from '../src/utils/deepFreeze.js';
 
 export interface AssaultTargetBox {
   readonly xMin: number;
@@ -47,15 +48,22 @@ export interface AssaultInputConfig {
   readonly guardWristDistanceRatio: number;
   /** 화면 상단 좌/우 펀치 목표 타깃 박스 정규화 영역 (0~1) */
   readonly targetBoxes: AssaultTargetBoxes;
-}
-
-function deepFreeze<T extends object>(obj: T): Readonly<T> {
-  for (const value of Object.values(obj)) {
-    if (value && typeof value === 'object') {
-      deepFreeze(value);
-    }
-  }
-  return Object.freeze(obj);
+  /** 펀치 판정 방식 (#726). legacy_box는 롤백/회귀 테스트용 */
+  readonly punchDetectionMode: 'stickman_stroke' | 'legacy_box';
+  /** 졸라맨 팔 신전율 발화 임계 (0~1) */
+  readonly strokeTriggerRatio: number;
+  /** 졸라맨 팔 신전율 재장전 임계 (0~1, trigger보다 작아야 함) */
+  readonly strokeRecoverRatio: number;
+  /** |vx|/len 최소값 (좌/우 방향성) */
+  readonly strokeMinLateralRatio: number;
+  /** vy/len 최대값 (아래로 내지르기 제외, 화면 y 아래 +) */
+  readonly strokeMaxDownwardRatio: number;
+  /** 팔 각도 신뢰도 최소값 (#725 armConfidence) */
+  readonly strokeMinArmConfidence: number;
+  /** 미리 뻗고 멈춤 판정 시간 (ms) */
+  readonly preExtendedHoldMs: number;
+  /** 멈춤으로 간주하는 최대 신전율 변화 속도 (1/s) */
+  readonly preExtendedHoldMaxRatePerSec: number;
 }
 
 export const DEFAULT_ASSAULT_INPUT_CONFIG: Readonly<AssaultInputConfig> = deepFreeze({
@@ -64,9 +72,9 @@ export const DEFAULT_ASSAULT_INPUT_CONFIG: Readonly<AssaultInputConfig> = deepFr
   inputLatencyMs: 130,
   lateGraceWindowMs: 170,
   lateGraceMs: 170,
-  punchReachRatio: 1.25,
+  punchReachRatio: 1.00,
   punchRetractRatio: 0.85,
-  elbowExtensionAngleDeg: 140,
+  elbowExtensionAngleDeg: 135,
   squatDropThreshold: 0.065,
   squatStandThreshold: 0.035,
   guardWristDistanceRatio: 0.8,
@@ -84,4 +92,17 @@ export const DEFAULT_ASSAULT_INPUT_CONFIG: Readonly<AssaultInputConfig> = deepFr
       yMax: 0.48,
     },
   },
+  punchDetectionMode: 'stickman_stroke',
+  strokeTriggerRatio: 0.80,
+  strokeRecoverRatio: 0.65,
+  strokeMinLateralRatio: 0.35,
+  strokeMaxDownwardRatio: 0.50,
+  strokeMinArmConfidence: 0.50,
+  preExtendedHoldMs: 400,
+  preExtendedHoldMaxRatePerSec: 0.5,
+});
+
+export const LEGACY_BOX_ASSAULT_INPUT_CONFIG: Readonly<AssaultInputConfig> = deepFreeze({
+  ...DEFAULT_ASSAULT_INPUT_CONFIG,
+  punchDetectionMode: 'legacy_box',
 });

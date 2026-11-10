@@ -17,6 +17,8 @@
 import type { AssaultAnswerSide } from '../types/assault.js';
 import type { GeneratedQuestion } from '../types/index.js';
 import { deepFreeze } from '../utils/deepFreeze.js';
+import { Rational } from '../utils/Rational.js';
+import { SIMPLE_FRACTION_REGEX } from './AssaultQuestionEligibility.js';
 
 // ─── 1. 에러 클래스 ───
 
@@ -62,6 +64,8 @@ export interface CreateAnswerPairsOptions {
   readonly roundId?: string;
   /** 문제 식별자 (선택) */
   readonly questionId?: string;
+  /** 우선 오답 (분수 경로에서만 적용, 선택) */
+  readonly preferredWrong?: string;
 }
 
 // ─── 3. 내부 유틸리티 및 PRNG ───
@@ -104,6 +108,132 @@ function getDigitTranspositions(n: number): number[] {
     }
   }
   return results;
+}
+
+/** 단순 분수 라벨 파싱 (Rational 반환) */
+function parseFractionAnswer(val: string): { label: string; rational: Rational; value: number } {
+  const trimmed = val.trim();
+  if (!SIMPLE_FRACTION_REGEX.test(trimmed)) {
+    throw new AssaultAnswerPairError(`Invalid fraction answer: unsupported format "${val}"`);
+  }
+  const [numStr, denStr] = trimmed.split('/');
+  const num = parseInt(numStr, 10);
+  const den = parseInt(denStr, 10);
+  if (den === 0) {
+    throw new AssaultAnswerPairError(`Invalid fraction answer: denominator must not be 0 in "${val}"`);
+  }
+  const rational = Rational.of(num, den);
+  return {
+    label: trimmed,
+    rational,
+    value: num / den,
+  };
+}
+
+/** 분수 오답 후보군 생성 */
+function generateFractionWrongCandidates(
+  correctLabel: string,
+  correctRational: Rational,
+  requiredCount: number,
+  preferredWrong?: string,
+): { label: string; rational: Rational; value: number }[] {
+  const candidates: { label: string; rational: Rational; value: number }[] = [];
+  const seenRationals: Rational[] = [correctRational];
+  const seenLabels = new Set<string>([correctLabel]);
+
+  // preferredWrong이 제공되었고 유효한 분수이며 정답과 동치가 아닌 경우 최우선 적용
+  if (preferredWrong && typeof preferredWrong === 'string') {
+    const pwTrimmed = preferredWrong.trim();
+    if (SIMPLE_FRACTION_REGEX.test(pwTrimmed)) {
+      try {
+        const parsed = parseFractionAnswer(pwTrimmed);
+        if (!parsed.rational.equals(correctRational) && parsed.label.length <= 6) {
+          // preferredWrong이 유효하면 요구 개수만큼 동일하게 채워서 반환
+          return Array.from({ length: requiredCount }, () => parsed);
+        }
+      } catch {
+        // 무효한 경우 fallback 후보군 생성 진행
+      }
+    }
+  }
+
+  const [numStr, denStr] = correctLabel.split('/');
+  const a = parseInt(numStr, 10);
+  const b = parseInt(denStr, 10);
+
+  const rawPairs: [number, number][] = [
+    // 1. 분자 ±1
+    [a + 1, b],
+    [a - 1, b],
+    // 2. 분모 ±1
+    [a, b + 1],
+    [a, b - 1],
+    // 3. 전위 (a/b -> b/a)
+    [b, a],
+    // 4. 분자 ±2, 분모 ±2
+    [a + 2, b],
+    [a - 2, b],
+    [a, b + 2],
+    [a, b - 2],
+    // 5. 분자 + 분모
+    [a + b, b],
+    [Math.abs(a - b), b],
+    [a, a + b],
+    // 6. 추가 오프셋
+    [a + 3, b],
+    [a - 3, b],
+    [a, b + 3],
+    [a, b - 3],
+    [a + 4, b],
+    [a, b + 4],
+    [a + 5, b],
+    [a, b + 5],
+  ];
+
+  for (const [candNum, candDen] of rawPairs) {
+    if (candDen < 1 || candNum < 0) continue;
+    const label = `${candNum}/${candDen}`;
+    if (label.length > 6) continue;
+    if (seenLabels.has(label)) continue;
+
+    const candRat = Rational.of(candNum, candDen);
+    // 정답 및 기존 후보와 수치 동치(Rational.equals) 배제
+    if (seenRationals.some((r) => r.equals(candRat))) continue;
+
+    seenRationals.push(candRat);
+    seenLabels.add(label);
+    candidates.push({
+      label,
+      rational: candRat,
+      value: candNum / candDen,
+    });
+
+    if (candidates.length >= requiredCount * 2) break;
+  }
+
+  // 풀 고갈 대비 fallback 후보 (b를 증가시키며 생성)
+  let extraDen = b + 10;
+  while (candidates.length < requiredCount) {
+    for (let extraNum = 1; extraNum <= 5; extraNum++) {
+      const label = `${extraNum}/${extraDen}`;
+      if (label.length <= 6 && !seenLabels.has(label)) {
+        const candRat = Rational.of(extraNum, extraDen);
+        if (!seenRationals.some((r) => r.equals(candRat))) {
+          seenRationals.push(candRat);
+          seenLabels.add(label);
+          candidates.push({
+            label,
+            rational: candRat,
+            value: extraNum / extraDen,
+          });
+          if (candidates.length >= requiredCount) break;
+        }
+      }
+    }
+    extraDen++;
+  }
+
+  return candidates;
 }
 
 /** 입력 정답의 엄격한 숫자 파싱 (수식형/비유한값/공백 명시 거부) */
@@ -257,6 +387,70 @@ export function createAssaultAnswerPairs(options: CreateAnswerPairsOptions): rea
     rawCorrect = options.question.correctAnswer;
   } else {
     throw new AssaultAnswerPairError('Missing correctAnswer in options or question');
+  }
+
+  // 4. 분수 정답 여부 판별 (단순 분수 라벨: ^\d+\/\d+$)
+  const isFraction = typeof rawCorrect === 'string' && SIMPLE_FRACTION_REGEX.test(rawCorrect.trim());
+
+  if (isFraction) {
+    const parsedFraction = parseFractionAnswer(rawCorrect as string);
+    const rng = createMulberry32(options.seed);
+
+    const wrongCandidates = generateFractionWrongCandidates(
+      parsedFraction.label,
+      parsedFraction.rational,
+      options.pairCount,
+      options.preferredWrong,
+    );
+
+    const remainingCandidates = [...wrongCandidates];
+    const pairs: AssaultAnswerPair[] = [];
+
+    for (let i = 0; i < options.pairCount; i++) {
+      let wrongChoiceData: { label: string; rational: Rational; value: number };
+      if (options.preferredWrong && remainingCandidates.length === options.pairCount) {
+        wrongChoiceData = remainingCandidates[i];
+      } else {
+        const pickIdx = Math.floor(rng() * remainingCandidates.length);
+        wrongChoiceData = remainingCandidates.splice(pickIdx, 1)[0];
+      }
+
+      const isLeftCorrect = rng() < 0.5;
+      const correctSide: AssaultAnswerSide = isLeftCorrect ? 'left' : 'right';
+
+      const correctChoice: AssaultChoiceItem = {
+        value: parsedFraction.value,
+        text: parsedFraction.label,
+        isCorrect: true,
+      };
+
+      const wrongChoice: AssaultChoiceItem = {
+        value: wrongChoiceData.value,
+        text: wrongChoiceData.label,
+        isCorrect: false,
+      };
+
+      const left = isLeftCorrect ? correctChoice : wrongChoice;
+      const right = isLeftCorrect ? wrongChoice : correctChoice;
+
+      const pairId = options.roundId
+        ? `${options.roundId}-pair-${i + 1}`
+        : options.questionId
+          ? `${options.questionId}-pair-${i + 1}`
+          : `pair-${i + 1}`;
+
+      const pair: AssaultAnswerPair = {
+        pairId,
+        left,
+        right,
+        correctSide,
+        choices: [left, right],
+      };
+
+      pairs.push(pair);
+    }
+
+    return deepFreeze(pairs);
   }
 
   const parsedCorrect = parseNumericAnswer(rawCorrect);

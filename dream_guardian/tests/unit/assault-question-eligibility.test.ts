@@ -144,7 +144,11 @@ describe('[BOSS-ASSAULT-39 / #542] 접근전 문항 적격성 필터 및 읽기 
       }
     });
 
-    it('분수 문자열 정답(\'1/2\', \'3/4\')은 fraction_answer로 제외해야 한다', () => {
+    it('allowSimpleFraction: false 주입 시 분수 문자열 정답(\'1/2\', \'3/4\')은 fraction_answer로 제외해야 한다', () => {
+      const customConfig: AssaultQuestionConfig = {
+        ...DEFAULT_ASSAULT_QUESTION_CONFIG,
+        allowSimpleFraction: false,
+      };
       const fractions = ['1/2', '3/4', '5/10', ' -2/3 '];
       for (const frac of fractions) {
         const q: QuestionCandidate = {
@@ -152,10 +156,44 @@ describe('[BOSS-ASSAULT-39 / #542] 접근전 문항 적격성 필터 및 읽기 
           questionText: `어느 것이 더 클까?`,
           correctAnswer: frac,
         };
-        const result = checkQuestionEligibility(q);
+        const result = checkQuestionEligibility(q, customConfig);
         expect(result.eligible).toBe(false);
         if (!result.eligible) {
           expect(result.reason).toBe('fraction_answer');
+        }
+      }
+    });
+
+    it('allowSimpleFraction: true 기본값에서 단순 분수("1/2", "5/14", "10/24")는 적격이어야 한다 [FEAT-ASSAULT-FRAC-002]', () => {
+      const validFractions = ['1/2', '5/14', '10/24'];
+      for (const frac of validFractions) {
+        const q: QuestionCandidate = {
+          level: 3,
+          questionText: '분수 문제',
+          correctAnswer: frac,
+        };
+        const result = checkQuestionEligibility(q);
+        expect(result.eligible).toBe(true);
+      }
+    });
+
+    it('비정상 분수(" -2/3 ", "1/0", "1과 1/2") 및 7자 이상 분수는 제외되어야 한다 [FEAT-ASSAULT-FRAC-002]', () => {
+      const invalidFractions: [string, string][] = [
+        [' -2/3 ', 'fraction_answer'],
+        ['1/0', 'fraction_answer'],
+        ['1과 1/2', 'fraction_answer'],
+        ['100/200', 'label_length_exceeded'],
+      ];
+      for (const [frac, expectedReason] of invalidFractions) {
+        const q: QuestionCandidate = {
+          level: 3,
+          questionText: '분수 문제',
+          correctAnswer: frac,
+        };
+        const result = checkQuestionEligibility(q);
+        expect(result.eligible).toBe(false);
+        if (!result.eligible) {
+          expect(result.reason).toBe(expectedReason);
         }
       }
     });
@@ -249,14 +287,40 @@ describe('[BOSS-ASSAULT-39 / #542] 접근전 문항 적격성 필터 및 읽기 
       }
     });
 
-    it('L3 분수 문항은 fraction_answer로 제외되어야 한다', () => {
-      const l3Fraction = allRecords.find((r) => r.level === 3 && r.answerEval.includes('/'));
+    it('L3 단순 분수 문항은 기본 설정(allowSimpleFraction: true)에서 적격이어야 한다 [FEAT-ASSAULT-FRAC-002]', () => {
+      const l3Fraction = allRecords.find((r) => r.level === 3 && r.answerEval.includes('/') && !r.answerEval.includes('>') && !r.shapeCode);
       expect(l3Fraction).toBeDefined();
       const result = checkQuestionEligibility(l3Fraction!);
+      expect(result.eligible).toBe(true);
+    });
+
+    it('allowSimpleFraction: false 적용 시 L3 분수 문항은 fraction_answer로 제외되어야 한다', () => {
+      const customConfig: AssaultQuestionConfig = {
+        ...DEFAULT_ASSAULT_QUESTION_CONFIG,
+        allowSimpleFraction: false,
+      };
+      const l3Fraction = allRecords.find((r) => r.level === 3 && r.answerEval.includes('/'));
+      expect(l3Fraction).toBeDefined();
+      const result = checkQuestionEligibility(l3Fraction!, customConfig);
       expect(result.eligible).toBe(false);
       if (!result.eligible) {
         expect(result.reason).toBe('fraction_answer');
       }
+    });
+
+    it('Ch.3 및 4-3 단순 분수 허용 후 적격 문항 수가 정상 증가해야 한다 [FEAT-ASSAULT-FRAC-002]', () => {
+      const countEligible = (level: number, subLevel: number) => {
+        return allRecords.filter(
+          (r) => r.level === level && r.subLevel === subLevel && checkQuestionEligibility(r).eligible
+        ).length;
+      };
+
+      expect(countEligible(3, 1)).toBeGreaterThanOrEqual(10);
+      expect(countEligible(3, 2)).toBeGreaterThanOrEqual(10);
+      expect(countEligible(3, 3)).toBeGreaterThanOrEqual(9);
+      expect(countEligible(3, 4)).toBeGreaterThanOrEqual(12);
+      expect(countEligible(3, 5)).toBeGreaterThanOrEqual(10);
+      expect(countEligible(4, 3)).toBeGreaterThanOrEqual(12);
     });
 
     it('L7 도형 문항은 shape_code_present로 제외되어야 한다', () => {
@@ -287,7 +351,7 @@ describe('[BOSS-ASSAULT-39 / #542] 접근전 문항 적격성 필터 및 읽기 
       const pool: QuestionCandidate[] = [
         { level: 1, questionText: '1 + 1 = ?', correctAnswer: 2 },
         { level: 1, questionText: '비교', correctAnswer: '>' },
-        { level: 1, questionText: '분수', correctAnswer: '1/2' },
+        { level: 1, questionText: '비단순 분수', correctAnswer: '-2/3' },
         { level: 2, questionText: '2 * 3 = ?', correctAnswer: 6 },
         { level: 5, questionText: '2^3 = ?', correctAnswer: 8 },
       ];
@@ -331,7 +395,7 @@ describe('[BOSS-ASSAULT-39 / #542] 접근전 문항 적격성 필터 및 읽기 
     it('입력 데이터가 deepFreeze된 상태에서도 변형 없이 순수하게 동작해야 한다', () => {
       const immutablePool: readonly QuestionCandidate[] = Object.freeze([
         Object.freeze({ level: 1, questionText: '1+1', correctAnswer: 2 }),
-        Object.freeze({ level: 1, questionText: '1/2', correctAnswer: '1/2' }),
+        Object.freeze({ level: 1, questionText: '비단순 분수', correctAnswer: '-2/3' }),
       ]);
 
       const result = filterEligibleQuestions(immutablePool);

@@ -441,12 +441,14 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       }
       const angles = renderer.getSmoothedAngles();
 
-      // 수직 기본 각도 (leftLowerLeg, rightLowerLeg = Math.PI * 0.50) 유지
-      expect(angles.leftLowerLeg).toBeCloseTo(Math.PI * 0.50, 2);
-      expect(angles.rightLowerLeg).toBeCloseTo(Math.PI * 0.50, 2);
+      // Issue #678: 무조건 수직 1자(Math.PI * 0.50)로 굳지 않고, 비정상 발목 좌표(x=0.95)에 폭주하지 않으며 상위 허벅지 각도를 안전하게 계층 추종
+      expect(angles.leftLowerLeg).toBeGreaterThanOrEqual(Math.PI * 0.45);
+      expect(angles.leftLowerLeg).toBeLessThanOrEqual(Math.PI * 0.58);
+      expect(angles.rightLowerLeg).toBeGreaterThanOrEqual(Math.PI * 0.42);
+      expect(angles.rightLowerLeg).toBeLessThanOrEqual(Math.PI * 0.55);
     });
 
-    it('발목이 화면 하단 밖(y >= 1.0 또는 1080)으로 벗어난 경우 종아리 각도가 수직 기본 자세로 폴백된다', () => {
+    it('발목이 화면 하단 밖(y >= 1.0 또는 1080)으로 벗어난 경우 종아리 각도가 상위 허벅지를 계층 추종한다 (#678)', () => {
       const pose = createSamplePoseLandmarks();
       // 화면 밖으로 잘린 발목 (y = 1.05)
       pose[POSE_LANDMARKS.LEFT_ANKLE] = { x: 0.80, y: 1.05, z: 0, visibility: 0.9 };
@@ -457,8 +459,11 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
       }
       const angles = renderer.getSmoothedAngles();
 
-      expect(angles.leftLowerLeg).toBeCloseTo(Math.PI * 0.50, 2);
-      expect(angles.rightLowerLeg).toBeCloseTo(Math.PI * 0.50, 2);
+      // Issue #678: 잘린 발목 좌표 대신 상위 허벅지 각도를 안전하게 계층 추종
+      expect(angles.leftLowerLeg).toBeGreaterThanOrEqual(Math.PI * 0.45);
+      expect(angles.leftLowerLeg).toBeLessThanOrEqual(Math.PI * 0.58);
+      expect(angles.rightLowerLeg).toBeGreaterThanOrEqual(Math.PI * 0.42);
+      expect(angles.rightLowerLeg).toBeLessThanOrEqual(Math.PI * 0.55);
     });
 
     it('무릎이 화면 밖(y >= 1.0)이거나 visibility 부족인 경우 허벅지(upperLeg)와 종아리 모두 기본 자세를 유지한다', () => {
@@ -812,6 +817,45 @@ describe('Issue #203 [FEAT-SKEL-005] 화면 중앙 2/3 높이 메카 졸라맨(M
 
         const fk = r.calculateFKPositions(1920, 1080);
         expect(fk.pelvis.x).toBeCloseTo(960, 1);
+      });
+
+      it('[#678 / FEAT-SKEL-007] 점프 체공 시 지면 그림자/마법진 링이 발목을 따라 공중으로 뜨지 않고 기준 지면에 잔류(디커플링)한다', () => {
+        const r = new StickmanRenderer();
+        const ctx = createMockCtx();
+        const pose = createSamplePoseLandmarks();
+        r.update(0.016, pose);
+
+        // 점프로 높이 도약
+        const jumpPose = createSamplePoseLandmarks();
+        jumpPose[POSE_LANDMARKS.LEFT_HIP].y = 0.35;
+        jumpPose[POSE_LANDMARKS.RIGHT_HIP].y = 0.35;
+        r.update(0.016, jumpPose);
+
+        r.render(ctx, 1000, 1000, { showGroundShadow: true, showGroundRing: true });
+
+        // ctx.ellipse 호출 인자 중 지면 그림자 Y좌표가 도약된 발목 Y보다 아래인 기준 지면(groundBaseY)에 위치하는지 검증
+        const fk = r.calculateFKPositions(1000, 1000);
+        const maxAnkleY = Math.max(fk.leftAnkle.y, fk.rightAnkle.y);
+        const ellipseCalls = (ctx.ellipse as any).mock.calls;
+        expect(ellipseCalls.length).toBeGreaterThan(0);
+        // 그림자/링 타원의 centerY가 도약 높이만큼 지면에 잔류(디커플링)
+        const shadowCenterY = ellipseCalls[0][1];
+        const airHeight = -r.lastPoseFrame!.verticalOffset;
+        expect(airHeight).toBeGreaterThan(10);
+        expect(shadowCenterY).toBeCloseTo(maxAnkleY + 12 * r.scale + airHeight, 1);
+      });
+
+      it('[BUG-AVATAR-003 / #721] updateFallback(dt, isRunning=true) 러닝 폴백 시 종아리(leftLowerLeg, rightLowerLeg)도 연동 스윙된다', () => {
+        const r = new StickmanRenderer();
+        const initialAngles = { ...r.getSmoothedAngles() };
+
+        // 런 사이클 진행
+        r.updateFallback(0.1, true);
+        const runningAngles = r.getSmoothedAngles();
+
+        // 허벅지만 흔들리고 종아리가 굳어있는 결함 없이, 종아리도 러닝 스윙에 연동되어 변화해야 함
+        expect(runningAngles.leftLowerLeg).not.toBeCloseTo(initialAngles.leftLowerLeg, 3);
+        expect(runningAngles.rightLowerLeg).not.toBeCloseTo(initialAngles.rightLowerLeg, 3);
       });
     });
   });

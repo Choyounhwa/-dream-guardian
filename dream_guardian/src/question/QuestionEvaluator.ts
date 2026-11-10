@@ -152,6 +152,14 @@ function isInvalid(val: any): boolean {
   return false;
 }
 
+/** 부동소수점 오차 정규화 헬퍼 (DRY: 10자리 유효숫자 반올림) */
+function normalizeNumeric<T>(val: T): T {
+  if (typeof val === 'number') {
+    return (Math.round(val * 1e10) / 1e10) as unknown as T;
+  }
+  return val;
+}
+
 /** 대체 오답 생성 */
 function generateFallbackWrong(correctAnswer: number | string): number | string {
   if (typeof correctAnswer === 'number') {
@@ -179,14 +187,19 @@ function generateFallbackWrong(correctAnswer: number | string): number | string 
 export function generateQuestion(record: QuestionRecord): GeneratedQuestion | null {
   try {
     // 변수 순차 평가 (B는 A 참조, C는 A/B 참조, D는 A/B/C 참조 가능)
-    const A = safeEval(record.varA);
-    if (isInvalid(A)) return null;
+    const rawA = safeEval(record.varA);
+    if (isInvalid(rawA)) return null;
+    const A = normalizeNumeric(rawA);
 
-    const B = safeEval(record.varB, { A });
-    if (isInvalid(B)) return null;
+    const rawB = safeEval(record.varB, { A });
+    if (isInvalid(rawB)) return null;
+    const B = normalizeNumeric(rawB);
 
-    const C = safeEval(record.varC || '0', { A, B });
-    const D = safeEval(record.varD || '0', { A, B, C });
+    const rawC = safeEval(record.varC || '0', { A, B });
+    const C = normalizeNumeric(rawC);
+
+    const rawD = safeEval(record.varD || '0', { A, B, C });
+    const D = normalizeNumeric(rawD);
 
     const vars = { A, B, C, D };
 
@@ -199,20 +212,22 @@ export function generateQuestion(record: QuestionRecord): GeneratedQuestion | nu
       if (trimmed === 'D') return String(D);
       const evalResult = safeEval(trimmed, vars, { forTemplate: true });
       if (!isInvalid(evalResult)) {
-        return String(evalResult);
+        return String(normalizeNumeric(evalResult));
       }
       return match;
     });
 
     // 정답/오답 계산
-    const correctAnswer = safeEval(record.answerEval, vars);
-    if (isInvalid(correctAnswer)) return null;
+    const rawCorrect = safeEval(record.answerEval, vars);
+    if (isInvalid(rawCorrect)) return null;
+    const correctAnswer = normalizeNumeric(rawCorrect);
 
-    let wrongAnswer = safeEval(record.wrongEval, vars);
+    let rawWrong = safeEval(record.wrongEval, vars);
+    let wrongAnswer = normalizeNumeric(rawWrong);
 
     // 오답이 비정상이거나 정답과 같으면 fallback 보정
     if (isInvalid(wrongAnswer) || wrongAnswer === correctAnswer) {
-      wrongAnswer = generateFallbackWrong(correctAnswer);
+      wrongAnswer = normalizeNumeric(generateFallbackWrong(correctAnswer));
     }
 
     // 2지선다 배치 (랜덤 순서)

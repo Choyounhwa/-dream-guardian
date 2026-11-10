@@ -28,6 +28,9 @@ export type AssaultIneligibilityReason =
   | 'non_numeric_answer'
   | 'label_length_exceeded';
 
+/** 단순 분수 라벨 정규식 (분자/분모 자연수 형태, 예: 1/2, 5/14) */
+export const SIMPLE_FRACTION_REGEX = /^\d+\/\d+$/;
+
 /** 입력 대상 문항 후보 (QuestionRecord 또는 GeneratedQuestion 등) */
 export interface QuestionCandidate {
   readonly level?: number;
@@ -166,61 +169,85 @@ export function checkQuestionEligibility(
     }
 
     // (2) 분수 문자열 검사 ('1/2', '3/4' 등)
-    if (typeof ans === 'string' && ans.includes('/')) {
-      return Object.freeze({
-        eligible: false,
-        question,
-        reason: 'fraction_answer',
-      });
-    }
+    const isFractionStr = typeof ans === 'string' && ans.includes('/');
+    if (isFractionStr) {
+      const trimmedAns = ans.trim();
+      const isSimpleFraction = SIMPLE_FRACTION_REGEX.test(trimmedAns);
 
-    // (3) 유한 숫자 검사
-    if (typeof ans === 'number') {
-      if (!Number.isFinite(ans)) {
+      if (config.allowSimpleFraction !== false && isSimpleFraction) {
+        const [, denStr] = trimmedAns.split('/');
+        const den = parseInt(denStr, 10);
+        if (den === 0) {
+          return Object.freeze({
+            eligible: false,
+            question,
+            reason: 'fraction_answer',
+          });
+        }
+        if (trimmedAns.length > config.maxLabelChars) {
+          return Object.freeze({
+            eligible: false,
+            question,
+            reason: 'label_length_exceeded',
+          });
+        }
+        // 단순 분수 적격 통과
+      } else {
         return Object.freeze({
           eligible: false,
           question,
-          reason: 'non_numeric_answer',
-        });
-      }
-    } else if (typeof ans === 'string') {
-      const trimmed = ans.trim();
-      if (
-        trimmed === '' ||
-        trimmed.toLowerCase() === 'nan' ||
-        trimmed.toLowerCase() === 'infinity' ||
-        trimmed.toLowerCase() === '-infinity'
-      ) {
-        return Object.freeze({
-          eligible: false,
-          question,
-          reason: 'non_numeric_answer',
-        });
-      }
-      const num = Number(trimmed);
-      if (isNaN(num) || !Number.isFinite(num)) {
-        return Object.freeze({
-          eligible: false,
-          question,
-          reason: 'non_numeric_answer',
+          reason: 'fraction_answer',
         });
       }
     } else {
-      return Object.freeze({
-        eligible: false,
-        question,
-        reason: 'non_numeric_answer',
-      });
-    }
+      // (3) 유한 숫자 검사 (분수가 아닌 경우에만)
+      if (typeof ans === 'number') {
+        if (!Number.isFinite(ans)) {
+          return Object.freeze({
+            eligible: false,
+            question,
+            reason: 'non_numeric_answer',
+          });
+        }
+      } else if (typeof ans === 'string') {
+        const trimmed = ans.trim();
+        if (
+          trimmed === '' ||
+          trimmed.toLowerCase() === 'nan' ||
+          trimmed.toLowerCase() === 'infinity' ||
+          trimmed.toLowerCase() === '-infinity'
+        ) {
+          return Object.freeze({
+            eligible: false,
+            question,
+            reason: 'non_numeric_answer',
+          });
+        }
+        const num = Number(trimmed);
+        if (isNaN(num) || !Number.isFinite(num)) {
+          return Object.freeze({
+            eligible: false,
+            question,
+            reason: 'non_numeric_answer',
+          });
+        }
+      } else {
+        return Object.freeze({
+          eligible: false,
+          question,
+          reason: 'non_numeric_answer',
+        });
+      }
 
-    // (4) 라벨 길이 상한 검사 (DEC-C9: 6자 이내)
-    const label = typeof ans === 'number' ? String(ans) : String(ans).trim();
-    if (label.length > config.maxLabelChars) {
-      return Object.freeze({
-        eligible: false,
-        question,
-        reason: 'label_length_exceeded',
-      });
+      // (4) 라벨 길이 상한 검사 (DEC-C9: 6자 이내)
+      const label = typeof ans === 'number' ? String(ans) : String(ans).trim();
+      if (label.length > config.maxLabelChars) {
+        return Object.freeze({
+          eligible: false,
+          question,
+          reason: 'label_length_exceeded',
+        });
+      }
     }
   } else if (typeof question.answerEval === 'string') {
     // raw QuestionRecord 정적 분석
@@ -248,15 +275,25 @@ export function checkQuestionEligibility(
       /\+'\/'\+/.test(evalStr) ||
       /'\d+\/\d+'/.test(evalStr)
     ) {
-      return Object.freeze({
-        eligible: false,
-        question,
-        reason: 'fraction_answer',
-      });
-    }
+      if (config.allowSimpleFraction === false) {
+        return Object.freeze({
+          eligible: false,
+          question,
+          reason: 'fraction_answer',
+        });
+      }
 
-    // 한글 등 비숫자 텍스트 검사
-    if (/'[가-힣a-zA-Z]{2,}'/.test(evalStr)) {
+      // config.allowSimpleFraction: true인 경우
+      // 비단순 분수식(예: 대분수 '과', 음수 분수 '-', 복합 텍스트)은 제외
+      if (evalStr.includes("'과'") || evalStr.includes("'-'") || /'[가-힣a-zA-Z]{2,}'/.test(evalStr)) {
+        return Object.freeze({
+          eligible: false,
+          question,
+          reason: 'fraction_answer',
+        });
+      }
+    } else if (/'[가-힣a-zA-Z]{2,}'/.test(evalStr)) {
+      // 한글 등 비숫자 텍스트 검사 (분수 수식이 아닌 경우)
       return Object.freeze({
         eligible: false,
         question,
