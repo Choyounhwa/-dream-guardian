@@ -44,3 +44,17 @@ export {
   type FeverPhaseRoutine,
 } from './danceRoutineData.js';
 
+export {
+  CharacterRegistry,
+  characterRegistry,
+  STORAGE_KEY_SELECTED_CHARACTER,
+  type CharacterValidationResult,
+  type CharacterRegistryOptions,
+} from './characters/CharacterRegistry.js';
+
+export {
+  stickmanCharacter,
+  DEFAULT_CHARACTER_ID,
+} from './characters/builtin/stickman.character.js';
+
+

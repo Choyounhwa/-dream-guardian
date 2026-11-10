@@ -10,6 +10,7 @@ describe('[BOSS-ASSAULT-03 / #505] MVP 조정 프로필 데이터', () => {
       const config: AssaultTimingAndBalanceConfig = DEFAULT_ASSAULT_CONFIG;
       expect(config.profileId).toBe('assault_mvp_v1');
       expect(config.rulesVersion).toBe('v0.3');
+      expect(config.defaultBpm).toBe(120);
     });
 
     it('최소 라운드 박자(minRoundBeats)는 8박 이상이어야 한다 (A03 계약)', () => {
@@ -98,13 +99,13 @@ describe('[BOSS-ASSAULT-03 / #505] MVP 조정 프로필 데이터', () => {
       expect(DEFAULT_ASSAULT_INPUT_CONFIG.lateGraceMs).toBe(170);
     });
 
-    it('펀치 뻗기(1.25) 및 회수(0.85) 비율 임계치가 정의되어야 한다 (DEC-A3, #541)', () => {
-      expect(DEFAULT_ASSAULT_INPUT_CONFIG.punchReachRatio).toBe(1.25);
+    it('펀치 뻗기(1.00) 및 회수(0.85) 비율 임계치가 정의되어야 한다 (DEC-A3, #541, #722)', () => {
+      expect(DEFAULT_ASSAULT_INPUT_CONFIG.punchReachRatio).toBe(1.00);
       expect(DEFAULT_ASSAULT_INPUT_CONFIG.punchRetractRatio).toBe(0.85);
       expect(DEFAULT_ASSAULT_INPUT_CONFIG.punchReachRatio).toBeGreaterThan(
         DEFAULT_ASSAULT_INPUT_CONFIG.punchRetractRatio,
       );
-      expect(DEFAULT_ASSAULT_INPUT_CONFIG.elbowExtensionAngleDeg).toBe(140);
+      expect(DEFAULT_ASSAULT_INPUT_CONFIG.elbowExtensionAngleDeg).toBe(135);
     });
 
     it('스쿼트 하강(0.065) 및 직립 복귀(0.035) 임계치가 정의되어야 한다', () => {
@@ -184,6 +185,9 @@ describe('[BOSS-ASSAULT-03 / #505] MVP 조정 프로필 데이터', () => {
       expect(DEFAULT_ASSAULT_VISUAL_CONFIG.labelMinFontSizePx).toBeGreaterThanOrEqual(16);
       expect(DEFAULT_ASSAULT_VISUAL_CONFIG.choiceCard.widthRatio).toBeGreaterThan(0);
       expect(DEFAULT_ASSAULT_VISUAL_CONFIG.choiceCard.heightRatio).toBeGreaterThan(0);
+      expect(DEFAULT_ASSAULT_VISUAL_CONFIG.questionFontSizePx).toBe(100);
+      expect(DEFAULT_ASSAULT_VISUAL_CONFIG.choiceBaseFontSizePx).toBe(100);
+      expect(DEFAULT_ASSAULT_VISUAL_CONFIG.choiceFontScaleRatio).toBe(1.0);
     });
 
     it('피드백 지속시간 및 색상 팔레트가 정의되어야 한다', () => {

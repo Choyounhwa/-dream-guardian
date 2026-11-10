@@ -269,7 +269,7 @@ describe('[BOSS-ASSAULT-07 / #509] 숫자형 반복 보기 쌍 공급 어댑터 
       ).toThrow(AssaultAnswerPairError);
     });
 
-    it('미지원 수식형 문자열("2 + 3", "x = 4", "1/2") 입력 시 명시적 에러를 던져야 한다', () => {
+    it('미지원 수식형 문자열("2 + 3", "x = 4", "formula") 입력 시 명시적 에러를 던져야 한다', () => {
       expect(() =>
         createAssaultAnswerPairs({
           correctAnswer: '2 + 3',
@@ -280,7 +280,7 @@ describe('[BOSS-ASSAULT-07 / #509] 숫자형 반복 보기 쌍 공급 어댑터 
 
       expect(() =>
         createAssaultAnswerPairs({
-          correctAnswer: '1/2',
+          correctAnswer: 'x = 4',
           pairCount: 2,
           seed: 1,
         }),
@@ -423,6 +423,98 @@ describe('[BOSS-ASSAULT-07 / #509] 숫자형 반복 보기 쌍 공급 어댑터 
 
       expect(pairs).toHaveLength(3);
       expect(originalQuestion.correctAnswer).toBe(27);
+    });
+  });
+
+  describe('8. [FEAT-ASSAULT-FRAC-001] 단순 분수 정답 지원 (#729-②)', () => {
+    it('correctAnswer: "5/14", pairCount: 4 요청 시 4쌍 모두 분수 라벨 및 동치 없는 오답 생성', () => {
+      const pairs = createAssaultAnswerPairs({
+        correctAnswer: '5/14',
+        pairCount: 4,
+        seed: 42,
+      });
+
+      expect(pairs).toHaveLength(4);
+      pairs.forEach((pair) => {
+        const correctChoice = pair.choices.find((c) => c.isCorrect);
+        const wrongChoice = pair.choices.find((c) => !c.isCorrect);
+
+        expect(correctChoice).toBeDefined();
+        expect(correctChoice!.text).toBe('5/14');
+        expect(correctChoice!.value).toBeCloseTo(5 / 14, 5);
+
+        expect(wrongChoice).toBeDefined();
+        expect(wrongChoice!.text).toMatch(/^\d+\/\d+$/);
+        expect(wrongChoice!.value).not.toBeCloseTo(5 / 14, 5);
+        expect(wrongChoice!.text).not.toBe('5/14');
+      });
+    });
+
+    it('정답 "1/2"의 오답 후보군에 2/4, 3/6 등 수치 동치 분수가 포함되지 않아야 한다', () => {
+      const pairs = createAssaultAnswerPairs({
+        correctAnswer: '1/2',
+        pairCount: 8,
+        seed: 12345,
+      });
+
+      expect(pairs).toHaveLength(8);
+      const invalidEquivalents = ['1/2', '2/4', '3/6', '4/8', '5/10'];
+      pairs.forEach((pair) => {
+        const wrongChoice = pair.choices.find((c) => !c.isCorrect)!;
+        expect(invalidEquivalents).not.toContain(wrongChoice.text);
+        expect(wrongChoice.value).not.toBeCloseTo(0.5, 5);
+      });
+    });
+
+    it('preferredWrong이 유효한 분수일 때 분수 경로의 모든 쌍 오답으로 사용된다', () => {
+      const pairs = createAssaultAnswerPairs({
+        correctAnswer: '5/14',
+        preferredWrong: '4/14',
+        pairCount: 4,
+        seed: 99,
+      });
+
+      expect(pairs).toHaveLength(4);
+      pairs.forEach((pair) => {
+        const wrongChoice = pair.choices.find((c) => !c.isCorrect)!;
+        expect(wrongChoice.text).toBe('4/14');
+        expect(wrongChoice.value).toBeCloseTo(4 / 14, 5);
+      });
+    });
+
+    it('정수/소수 경로에서는 preferredWrong이 전달되어도 무시되어 기존 출력이 불변해야 한다', () => {
+      const basePairs = createAssaultAnswerPairs({
+        correctAnswer: 12,
+        pairCount: 3,
+        seed: 42,
+      });
+
+      const pairsWithPref = createAssaultAnswerPairs({
+        correctAnswer: 12,
+        preferredWrong: '4/14',
+        pairCount: 3,
+        seed: 42,
+      });
+
+      expect(pairsWithPref).toEqual(basePairs);
+    });
+
+    it('분모 0, 음수 분수 등 비정상 분수 문자열은 AssaultAnswerPairError를 던져야 한다', () => {
+      expect(() =>
+        createAssaultAnswerPairs({
+          correctAnswer: '1/0',
+          pairCount: 2,
+          seed: 1,
+        }),
+      ).toThrow(AssaultAnswerPairError);
+
+      expect(() =>
+        createAssaultAnswerPairs({
+          correctAnswer: '-2/3',
+          pairCount: 2,
+          seed: 1,
+        }),
+      ).toThrow(AssaultAnswerPairError);
     });
   });
 });

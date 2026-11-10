@@ -1,0 +1,281 @@
+id,variantId,family,chapter,level,questionText,params,p1_left,p1_right,p1_correct,p1_prompt,p2_left,p2_right,p2_correct,p2_prompt,p3_left,p3_right,p3_correct,p3_prompt,p4_left,p4_right,p4_correct,p4_prompt,seed,rulesVersion,reviewStatus
+A1-0001,A1_times_table,rule_hunt,2,2,8단 숫자를 쳐라!,k=8,24,22,L,,32,30,L,,62,64,R,,15,16,R,,1007,1.0.0,approved
+A1-0002,A1_times_table,rule_hunt,2,2,8단 숫자를 쳐라!,k=8,65,56,R,,40,47,L,,48,39,L,,80,71,L,,1008,1.0.0,approved
+A1-0003,A1_times_table,rule_hunt,2,2,7단 숫자를 쳐라!,k=7,49,51,L,,57,56,R,,28,26,L,,90,91,R,,1009,1.0.0,approved
+A1-0004,A1_times_table,rule_hunt,2,2,5단 숫자를 쳐라!,k=5,40,34,L,,15,16,L,,59,55,R,,30,3,L,,1010,1.0.0,approved
+A1-0005,A1_times_table,rule_hunt,2,2,9단 숫자를 쳐라!,k=9,55,63,R,,36,38,L,,16,18,R,,83,81,R,,1011,1.0.0,approved
+A1-0006,A1_times_table,rule_hunt,2,2,4단 숫자를 쳐라!,k=4,42,24,R,,36,38,L,,12,7,L,,40,35,L,,1012,1.0.0,approved
+A1-0007,A1_times_table,rule_hunt,2,2,2단 숫자를 쳐라!,k=2,3,6,R,,8,7,L,,19,16,R,,22,19,L,,1013,1.0.0,approved
+A1-0008,A1_times_table,rule_hunt,2,2,3단 숫자를 쳐라!,k=3,22,24,R,,18,16,L,,25,21,R,,7,6,R,,1014,1.0.0,approved
+A1-0009,A1_times_table,rule_hunt,2,2,4단 숫자를 쳐라!,k=4,38,36,R,,16,21,L,,20,25,L,,12,10,L,,1015,1.0.0,approved
+A1-0010,A1_times_table,rule_hunt,2,2,9단 숫자를 쳐라!,k=9,81,82,L,,28,36,R,,99,109,L,,72,71,L,,1016,1.0.0,approved
+A1-0011,A1_times_table,rule_hunt,2,2,3단 숫자를 쳐라!,k=3,7,9,R,,18,16,L,,34,33,R,,10,6,R,,1017,1.0.0,approved
+A1-0012,A1_times_table,rule_hunt,2,2,7단 숫자를 쳐라!,k=7,58,56,R,,63,36,L,,43,42,R,,28,82,L,,1018,1.0.0,approved
+A1-0013,A1_times_table,rule_hunt,2,2,2단 숫자를 쳐라!,k=2,18,15,L,,4,3,L,,15,14,R,,22,23,L,,1019,1.0.0,approved
+A1-0014,A1_times_table,rule_hunt,2,2,2단 숫자를 쳐라!,k=2,18,19,L,,4,1,L,,22,19,L,,17,20,R,,1020,1.0.0,approved
+A1-0015,A1_times_table,rule_hunt,2,2,9단 숫자를 쳐라!,k=9,82,81,R,,82,72,R,,45,37,L,,34,36,R,,1021,1.0.0,approved
+A1-0016,A1_times_table,rule_hunt,2,2,9단 숫자를 쳐라!,k=9,55,45,R,,80,72,R,,90,82,L,,73,81,R,,1022,1.0.0,approved
+A1-0017,A1_times_table,rule_hunt,2,2,6단 숫자를 쳐라!,k=6,54,55,L,,42,35,L,,37,30,R,,17,24,R,,1023,1.0.0,approved
+A1-0018,A1_times_table,rule_hunt,2,2,4단 숫자를 쳐라!,k=4,16,11,L,,36,37,L,,40,35,L,,26,28,R,,1024,1.0.0,approved
+A1-0019,A1_times_table,rule_hunt,2,2,9단 숫자를 쳐라!,k=9,56,54,R,,19,18,R,,36,38,L,,107,108,R,,1025,1.0.0,approved
+A1-0020,A1_times_table,rule_hunt,2,2,3단 숫자를 쳐라!,k=3,22,18,R,,6,4,L,,9,8,L,,24,26,L,,1026,1.0.0,approved
+A2-0001,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,36,33,L,,17,22,R,,76,67,L,,23,28,R,,2007,1.0.0,approved
+A2-0002,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,50,47,L,,27,22,R,,52,49,L,,63,72,R,,2008,1.0.0,approved
+A2-0003,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,5,14,R,,40,45,L,,42,37,L,,32,33,L,,2009,1.0.0,approved
+A2-0004,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,22,25,L,,60,51,L,,42,33,L,,83,80,R,,2010,1.0.0,approved
+A2-0005,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,19,14,R,,39,34,R,,60,69,L,,88,85,L,,2011,1.0.0,approved
+A2-0006,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,43,34,R,,43,50,R,,58,53,L,,18,25,L,,2012,1.0.0,approved
+A2-0007,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,12,11,L,,31,22,R,,38,83,L,,60,67,L,,2013,1.0.0,approved
+A2-0008,A2_parity,rule_hunt,1,1,홀수를 쳐라!,parity=1,60,51,R,,65,60,L,,42,41,R,,33,42,L,,2014,1.0.0,approved
+A2-0009,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,42,35,L,,37,28,R,,37,46,R,,12,13,L,,2015,1.0.0,approved
+A2-0010,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,16,13,L,,67,64,R,,38,33,L,,72,77,L,,2016,1.0.0,approved
+A2-0011,A2_parity,rule_hunt,1,1,홀수를 쳐라!,parity=1,11,20,L,,18,25,R,,44,49,R,,22,31,R,,2017,1.0.0,approved
+A2-0012,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,13,10,R,,64,73,L,,33,38,R,,68,71,L,,2018,1.0.0,approved
+A2-0013,A2_parity,rule_hunt,1,1,홀수를 쳐라!,parity=1,59,50,L,,21,26,L,,35,38,L,,72,27,R,,2019,1.0.0,approved
+A2-0014,A2_parity,rule_hunt,1,1,홀수를 쳐라!,parity=1,41,50,L,,33,28,L,,25,18,L,,10,11,R,,2020,1.0.0,approved
+A2-0015,A2_parity,rule_hunt,1,1,홀수를 쳐라!,parity=1,12,21,R,,56,47,R,,42,45,R,,81,84,L,,2021,1.0.0,approved
+A2-0016,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,63,60,R,,49,52,R,,71,66,R,,16,9,L,,2022,1.0.0,approved
+A2-0017,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,27,36,R,,52,49,L,,74,83,L,,20,27,L,,2023,1.0.0,approved
+A2-0018,A2_parity,rule_hunt,1,1,홀수를 쳐라!,parity=1,38,45,R,,41,34,L,,16,21,R,,65,72,L,,2024,1.0.0,approved
+A2-0019,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,40,37,L,,50,59,L,,54,59,L,,35,28,R,,2025,1.0.0,approved
+A2-0020,A2_parity,rule_hunt,1,1,짝수를 쳐라!,parity=0,19,26,R,,81,18,R,,66,63,L,,14,19,L,,2026,1.0.0,approved
+A3-0001,A3_range,rule_hunt,1,1,48와 59 사이를 쳐라!,hi=59;lo=48,49,61,L,,50,47,L,,57,59,L,,59,51,R,,3007,1.0.0,approved
+A3-0002,A3_range,rule_hunt,1,1,33와 48 사이를 쳐라!,hi=48;lo=33,34,33,L,,44,32,L,,50,39,R,,35,32,L,,3008,1.0.0,approved
+A3-0003,A3_range,rule_hunt,1,1,55와 68 사이를 쳐라!,hi=68;lo=55,55,60,R,,69,67,R,,69,65,R,,61,55,L,,3009,1.0.0,approved
+A3-0004,A3_range,rule_hunt,1,1,79와 97 사이를 쳐라!,hi=97;lo=79,95,97,L,,78,85,R,,99,93,R,,79,81,R,,3010,1.0.0,approved
+A3-0005,A3_range,rule_hunt,1,1,78와 94 사이를 쳐라!,hi=94;lo=78,95,82,R,,90,96,L,,84,96,L,,93,76,L,,3011,1.0.0,approved
+A3-0006,A3_range,rule_hunt,1,1,24와 34 사이를 쳐라!,hi=34;lo=24,36,30,R,,27,34,L,,33,24,L,,29,22,L,,3012,1.0.0,approved
+A3-0007,A3_range,rule_hunt,1,1,30와 46 사이를 쳐라!,hi=46;lo=30,46,31,R,,30,43,R,,46,38,R,,39,46,L,,3013,1.0.0,approved
+A3-0008,A3_range,rule_hunt,1,1,57와 73 사이를 쳐라!,hi=73;lo=57,70,74,L,,63,74,L,,65,57,L,,74,66,R,,3014,1.0.0,approved
+A3-0009,A3_range,rule_hunt,1,1,80와 93 사이를 쳐라!,hi=93;lo=80,79,90,R,,86,78,L,,78,89,R,,93,84,R,,3015,1.0.0,approved
+A3-0010,A3_range,rule_hunt,1,1,47와 60 사이를 쳐라!,hi=60;lo=47,45,55,R,,61,53,R,,54,45,L,,52,47,L,,3016,1.0.0,approved
+A3-0011,A3_range,rule_hunt,1,1,76와 93 사이를 쳐라!,hi=93;lo=76,76,85,R,,76,78,R,,82,95,L,,74,87,R,,3017,1.0.0,approved
+A3-0012,A3_range,rule_hunt,1,1,63와 74 사이를 쳐라!,hi=74;lo=63,68,63,L,,70,76,L,,74,66,R,,65,74,L,,3018,1.0.0,approved
+A3-0013,A3_range,rule_hunt,1,1,38와 53 사이를 쳐라!,hi=53;lo=38,36,47,R,,53,49,R,,41,36,L,,44,54,L,,3019,1.0.0,approved
+A3-0014,A3_range,rule_hunt,1,1,30와 41 사이를 쳐라!,hi=41;lo=30,33,28,L,,36,43,L,,40,41,L,,42,34,R,,3020,1.0.0,approved
+A3-0015,A3_range,rule_hunt,1,1,35와 51 사이를 쳐라!,hi=51;lo=35,35,37,R,,33,44,R,,46,51,L,,45,34,L,,3021,1.0.0,approved
+A3-0016,A3_range,rule_hunt,1,1,17와 31 사이를 쳐라!,hi=31;lo=17,42,24,R,,16,18,R,,16,25,R,,23,33,L,,3022,1.0.0,approved
+A3-0017,A3_range,rule_hunt,1,1,51와 65 사이를 쳐라!,hi=65;lo=51,26,62,R,,85,58,R,,50,60,R,,54,51,L,,3023,1.0.0,approved
+A3-0018,A3_range,rule_hunt,1,1,46와 62 사이를 쳐라!,hi=62;lo=46,48,46,L,,53,62,L,,64,52,R,,64,49,R,,3024,1.0.0,approved
+A3-0019,A3_range,rule_hunt,1,1,61와 76 사이를 쳐라!,hi=76;lo=61,70,77,L,,64,46,L,,73,77,L,,76,62,R,,3025,1.0.0,approved
+A3-0020,A3_range,rule_hunt,1,1,66와 76 사이를 쳐라!,hi=76;lo=66,65,73,R,,64,72,R,,67,77,L,,66,68,R,,3026,1.0.0,approved
+A4-0001,A4_multiple,rule_hunt,2,2,8의 배수를 쳐라!,k=8,24,33,L,,23,32,R,,112,113,L,,72,79,L,,4007,1.0.0,approved
+A4-0002,A4_multiple,rule_hunt,5,5,9의 배수를 쳐라!,k=9,53,54,R,,36,28,L,,145,135,R,,110,108,R,,4008,1.0.0,approved
+A4-0003,A4_multiple,rule_hunt,2,2,5의 배수를 쳐라!,k=5,30,28,L,,40,4,L,,72,70,R,,52,50,R,,4009,1.0.0,approved
+A4-0004,A4_multiple,rule_hunt,5,5,9의 배수를 쳐라!,k=9,45,35,L,,81,82,L,,125,126,R,,54,53,L,,4010,1.0.0,approved
+A4-0005,A4_multiple,rule_hunt,2,2,4의 배수를 쳐라!,k=4,40,38,L,,23,28,R,,56,53,L,,48,46,L,,4011,1.0.0,approved
+A4-0006,A4_multiple,rule_hunt,5,5,8의 배수를 쳐라!,k=8,63,56,R,,64,66,L,,106,104,R,,88,79,L,,4012,1.0.0,approved
+A4-0007,A4_multiple,rule_hunt,2,2,5의 배수를 쳐라!,k=5,45,39,L,,35,39,L,,34,30,R,,25,52,L,,4013,1.0.0,approved
+A4-0008,A4_multiple,rule_hunt,5,5,4의 배수를 쳐라!,k=4,51,48,R,,24,29,L,,50,52,R,,28,27,L,,4014,1.0.0,approved
+A4-0009,A4_multiple,rule_hunt,2,2,9의 배수를 쳐라!,k=9,89,90,R,,98,99,R,,26,27,R,,126,128,L,,4015,1.0.0,approved
+A4-0010,A4_multiple,rule_hunt,5,5,6의 배수를 쳐라!,k=6,67,60,R,,66,61,L,,42,43,L,,108,113,L,,4016,1.0.0,approved
+A4-0011,A4_multiple,rule_hunt,2,2,6의 배수를 쳐라!,k=6,41,42,R,,16,18,R,,72,70,L,,22,24,R,,4017,1.0.0,approved
+A4-0012,A4_multiple,rule_hunt,5,5,6의 배수를 쳐라!,k=6,47,48,R,,37,42,R,,73,66,R,,36,43,L,,4018,1.0.0,approved
+A4-0013,A4_multiple,rule_hunt,2,2,5의 배수를 쳐라!,k=5,40,38,L,,30,28,L,,55,49,L,,48,50,R,,4019,1.0.0,approved
+A4-0014,A4_multiple,rule_hunt,5,5,6의 배수를 쳐라!,k=6,68,66,R,,30,3,L,,60,55,L,,54,47,L,,4020,1.0.0,approved
+A4-0015,A4_multiple,rule_hunt,2,2,3의 배수를 쳐라!,k=3,23,21,R,,27,25,L,,33,31,L,,16,15,R,,4021,1.0.0,approved
+A4-0016,A4_multiple,rule_hunt,5,5,6의 배수를 쳐라!,k=6,30,25,L,,66,68,L,,36,29,L,,20,18,R,,4022,1.0.0,approved
+A4-0017,A4_multiple,rule_hunt,2,2,3의 배수를 쳐라!,k=3,18,20,L,,38,36,R,,31,30,R,,48,50,L,,4023,1.0.0,approved
+A4-0018,A4_multiple,rule_hunt,5,5,4의 배수를 쳐라!,k=4,44,46,L,,52,54,L,,55,60,R,,40,45,L,,4024,1.0.0,approved
+A4-0019,A4_multiple,rule_hunt,2,2,6의 배수를 쳐라!,k=6,66,67,L,,24,22,L,,29,36,R,,42,44,L,,4025,1.0.0,approved
+A4-0020,A4_multiple,rule_hunt,5,5,7의 배수를 쳐라!,k=7,70,62,L,,83,84,R,,105,501,L,,99,98,R,,4026,1.0.0,approved
+B1-0001,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=35,15+9,4+15,L,,12+8,23-4,L,,28-9,31-16,L,,13+10,28-3,R,,5007,1.0.0,approved
+B1-0002,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=24,1+0,21-18,R,,13-6,16-11,L,,23+1,30-3,R,,26-21,8-1,R,,5008,1.0.0,approved
+B1-0003,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=47,11-2,4+3,L,,6-5,6-4,R,,2+3,13-7,R,,65-10,8+49,R,,5009,1.0.0,approved
+B1-0004,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=43,18+5,15+7,L,,16-8,8+1,R,,4-3,38-34,R,,14+10,35-8,R,,5010,1.0.0,approved
+B1-0005,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=49,19-4,46-23,R,,20+13,35-5,L,,17+11,32-2,R,,52-14,37-2,L,,5011,1.0.0,approved
+B1-0006,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=24,13-2,17-7,L,,11+3,18-6,L,,37-5,7+23,L,,23+3,17+11,R,,5012,1.0.0,approved
+B1-0007,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=42,13+4,18-4,L,,21-18,8-7,L,,2+2,4+3,R,,19+5,44-22,L,,105013,1.0.0,approved
+B1-0008,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=41,24-1,16+4,L,,6-1,22-19,L,,29+19,47-1,L,,36-15,26+2,R,,5014,1.0.0,approved
+B1-0009,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=40,14+25,36+2,L,,6+14,45-26,L,,2+23,14+8,L,,37-30,7+1,R,,5015,1.0.0,approved
+B1-0010,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=11,6-4,5-1,R,,2+3,9-6,L,,4+4,14-9,L,,5+11,14-1,L,,5016,1.0.0,approved
+B1-0011,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=28,12-7,4+3,R,,3+29,43-8,R,,15+1,4+13,R,,18+11,29-1,L,,5017,1.0.0,approved
+B1-0012,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=22,1+2,8-7,L,,2+10,1+8,L,,5-3,11-10,L,,2+1,17-12,R,,5018,1.0.0,approved
+B1-0013,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=21,2+6,12-7,L,,5+1,3+5,R,,10-1,1+5,L,,19+11,14+8,L,,5019,1.0.0,approved
+B1-0014,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=30,25-7,18-2,L,,6+18,24+2,R,,28-10,29-14,L,,42-21,2+20,R,,5020,1.0.0,approved
+B1-0015,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=50,11-10,2+1,R,,19+11,13+14,L,,9+26,17+19,R,,23-8,21+3,R,,5021,1.0.0,approved
+B1-0016,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=27,20-3,7+11,R,,2+14,2+12,L,,14+8,12+9,L,,11+8,6+12,L,,5022,1.0.0,approved
+B1-0017,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=12,2+1,1+5,R,,6+1,4+6,R,,14-7,3+5,R,,14-7,9-3,L,,5023,1.0.0,approved
+B1-0018,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=12,18-7,10-1,L,,15-5,1+12,R,,2+8,21-10,R,,16-5,15-5,L,,5024,1.0.0,approved
+B1-0019,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=47,46-19,32-13,L,,31-14,18-2,L,,15-2,46-31,R,,25+22,28+16,L,,5025,1.0.0,approved
+B1-0020,B1_addsub_duel,duel,1,1,더 큰 쪽을 쳐라!,maxVal=36,11-5,13-9,L,,46-9,22+13,L,,34-33,2+1,R,,12+39,59-9,L,,5026,1.0.0,approved
+B2-0001,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=6,2×6,2×3,L,,2×4,4×3,R,,5×3,2×6,L,,3×5,3×4,L,,6007,1.0.0,approved
+B2-0002,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=7,7×5,4×7,L,,2×5,2×2,L,,5×6,5×8,R,,5×2,8×2,R,,106008,1.0.0,approved
+B2-0003,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=8,3×7,4×3,L,,6×4,7×2,L,,6×3,3×8,R,,9×9,8×11,R,,6009,1.0.0,approved
+B2-0004,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=7,5×4,7×4,R,,5×4,7×2,L,,3×8,6×5,R,,10×5,6×7,L,,6010,1.0.0,approved
+B2-0005,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=9,3×5,5×5,R,,8×6,5×10,R,,2×7,4×4,R,,5×6,4×7,L,,6011,1.0.0,approved
+B2-0006,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=5,4×3,3×2,L,,4×3,3×5,R,,2×5,2×2,L,,5×3,4×6,R,,6012,1.0.0,approved
+B2-0007,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=8,4×5,7×3,R,,4×6,7×3,L,,3×7,2×10,L,,2×10,9×3,R,,6013,1.0.0,approved
+B2-0008,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=6,2×2,2×4,R,,2×4,6×2,R,,2×2,3×2,R,,9×7,9×6,L,,6014,1.0.0,approved
+B2-0009,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=7,4×3,4×4,R,,8×4,8×3,L,,2×9,4×6,R,,6×6,4×8,L,,6015,1.0.0,approved
+B2-0010,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=5,2×3,3×3,R,,2×5,4×4,R,,3×6,3×3,L,,2×5,3×4,R,,106016,1.0.0,approved
+B2-0011,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=4,4×3,4×4,R,,2×3,2×2,L,,4×5,4×3,L,,3×4,5×2,L,,6017,1.0.0,approved
+B2-0012,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=5,5×2,4×2,L,,3×3,4×3,R,,2×5,3×6,R,,7×2,5×4,R,,6018,1.0.0,approved
+B2-0013,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=6,5×3,5×5,R,,3×6,2×5,L,,5×2,2×6,R,,2×4,5×2,R,,6019,1.0.0,approved
+B2-0014,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=6,3×6,3×3,L,,2×3,2×6,R,,5×4,6×4,R,,8×5,6×7,R,,6020,1.0.0,approved
+B2-0015,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=8,8×6,7×8,R,,5×8,8×6,R,,8×7,6×10,R,,5×5,2×11,L,,6021,1.0.0,approved
+B2-0016,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=8,3×6,3×4,L,,3×7,3×5,L,,10×5,8×5,L,,5×3,10×2,R,,6022,1.0.0,approved
+B2-0017,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=9,3×4,2×2,L,,6×3,3×5,L,,6×10,10×7,R,,8×5,8×4,L,,6023,1.0.0,approved
+B2-0018,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=6,3×5,2×4,L,,3×2,4×2,R,,7×3,4×6,R,,8×3,5×4,L,,6024,1.0.0,approved
+B2-0019,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=6,5×6,6×4,L,,2×2,3×2,R,,7×2,3×3,L,,5×7,5×5,L,,6025,1.0.0,approved
+B2-0020,B2_mul_duel,duel,2,2,더 큰 쪽을 쳐라!,maxFactor=5,3×3,5×2,R,,4×4,4×2,L,,3×3,4×2,L,,7×3,5×5,R,,106026,1.0.0,approved
+B3-0001,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=8,5/7,3/4,R,,4/9,2/4,R,,1/5,2/3,R,,7/8,3/7,L,,307007,1.0.0,approved
+B3-0002,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=4,1/4,1/2,R,,3/5,4/8,L,,1/2,3/4,R,,2/4,1/3,L,,107008,1.0.0,approved
+B3-0003,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=9,1/6,1/3,R,,4/6,1/3,L,,3/5,2/6,L,,1/3,1/2,R,,407009,1.0.0,approved
+B3-0004,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=10,2/3,3/7,L,,1/5,1/4,R,,1/2,2/6,L,,2/4,3/8,L,,207010,1.0.0,approved
+B3-0005,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=9,2/5,2/4,R,,1/2,2/3,R,,1/3,2/8,L,,6/8,4/5,R,,7011,1.0.0,approved
+B3-0006,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=9,4/5,6/8,L,,1/8,1/5,R,,3/5,3/4,R,,1/5,6/8,R,,107012,1.0.0,approved
+B3-0007,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=8,1/3,6/8,R,,4/7,1/3,L,,2/4,1/4,L,,9/10,3/10,L,,207013,1.0.0,approved
+B3-0008,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=7,2/5,3/4,R,,1/3,1/2,R,,3/7,2/4,R,,3/5,2/6,L,,7014,1.0.0,approved
+B3-0009,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=3,1/3,1/2,R,,1/5,1/3,R,,1/3,2/3,R,,3/4,3/5,L,,107015,1.0.0,approved
+B3-0010,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=3,2/5,2/8,L,,2/3,1/2,L,,2/6,1/2,R,,4/7,3/5,R,,107016,1.0.0,approved
+B3-0011,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=9,1/4,2/3,R,,8/10,3/6,L,,1/6,1/5,R,,1/4,5/9,R,,107017,1.0.0,approved
+B3-0012,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=3,4/7,4/5,R,,3/7,3/5,R,,1/2,1/3,L,,1/2,2/3,R,,207018,1.0.0,approved
+B3-0013,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=7,3/5,3/6,L,,4/5,3/7,L,,2/3,1/7,L,,1/8,3/7,R,,207019,1.0.0,approved
+B3-0014,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=9,3/6,4/5,R,,3/5,5/9,L,,1/3,1/5,L,,2/3,2/5,L,,7020,1.0.0,approved
+B3-0015,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=5,1/4,1/7,L,,1/3,1/5,L,,3/5,1/6,L,,1/3,1/2,R,,7021,1.0.0,approved
+B3-0016,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=8,1/4,1/7,L,,1/2,5/9,R,,1/7,1/3,R,,2/6,2/3,R,,507022,1.0.0,approved
+B3-0017,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=10,7/9,3/8,L,,4/9,3/5,R,,1/3,7/8,R,,1/2,1/4,L,,207023,1.0.0,approved
+B3-0018,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=5,4/5,1/2,L,,2/5,1/2,R,,1/6,1/4,R,,3/5,3/8,L,,107024,1.0.0,approved
+B3-0019,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=4,2/5,2/9,L,,2/3,1/4,L,,3/5,3/6,L,,2/5,3/6,R,,207025,1.0.0,approved
+B3-0020,B3_fraction_duel,duel,3,3,더 큰 쪽을 쳐라!,maxDenom=9,2/4,3/7,L,,2/9,2/5,R,,6/9,4/5,R,,9/10,1/2,L,,7026,1.0.0,approved
+B4-0001,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=2,1.06,0.79,L,,2.50,0.62,L,,2.6,2.54,L,,4.44,4.5,R,,8007,1.0.0,approved
+B4-0002,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=2,2.14,2.2,R,,2.05,5.25,R,,4.98,3.71,L,,7.95,1.27,L,,8008,1.0.0,approved
+B4-0003,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,1.55,1.6,R,,1.8,1.78,L,,6.7,2.3,L,,3.9,0.93,L,,8009,1.0.0,approved
+B4-0004,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,5.1,1.8,L,,4.8,4.1,L,,6.28,6.1,L,,1.04,3.56,R,,8010,1.0.0,approved
+B4-0005,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,5.6,5.75,R,,1.42,2.34,R,,3.30,1.9,L,,2.5,5.18,R,,8011,1.0.0,approved
+B4-0006,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,1.01,1.39,R,,0.52,0.6,R,,3.79,3.8,R,,7.3,6.42,L,,8012,1.0.0,approved
+B4-0007,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,0.3,3.47,R,,0.3,0.26,L,,2.8,2.79,L,,2.70,5.3,R,,8013,1.0.0,approved
+B4-0008,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,3.4,0.38,L,,3.81,0.80,L,,1.47,1.5,R,,0.80,2.5,R,,8014,1.0.0,approved
+B4-0009,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,5.31,1.02,L,,1.23,1.79,R,,5.9,6.77,R,,1.6,1.56,L,,8015,1.0.0,approved
+B4-0010,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=2,0.71,0.8,R,,4.61,4.05,L,,1.8,1.72,L,,4.29,4.3,R,,8016,1.0.0,approved
+B4-0011,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,2.2,2.19,L,,2.4,4.19,R,,0.2,2.87,R,,3.64,3.7,R,,8017,1.0.0,approved
+B4-0012,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=2,1.63,1.7,R,,1.84,5.50,R,,2.58,2.6,R,,0.3,0.25,L,,8018,1.0.0,approved
+B4-0013,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=2,0.3,0.29,L,,2.5,2.49,L,,2.57,2.6,R,,1.8,1.71,L,,8019,1.0.0,approved
+B4-0014,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,3.3,0.6,L,,3.46,3.5,R,,1.7,1.64,L,,2.75,2.8,R,,8020,1.0.0,approved
+B4-0015,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,5.7,2.20,L,,2.2,2.18,L,,0.3,0.25,L,,2.51,2.6,R,,8021,1.0.0,approved
+B4-0016,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,0.7,0.66,L,,1.2,5.79,R,,6.44,4.4,L,,6.82,3.5,L,,8022,1.0.0,approved
+B4-0017,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=2,3.87,3.84,L,,2.34,2.4,R,,2.70,3.25,R,,0.6,0.55,L,,8023,1.0.0,approved
+B4-0018,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=2,3.22,3.3,R,,0.36,0.4,R,,2.34,2.4,R,,3.5,3.41,L,,8024,1.0.0,approved
+B4-0019,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,1.2,1.14,L,,0.69,0.7,R,,4.01,5.4,R,,3.19,3.2,R,,8025,1.0.0,approved
+B4-0020,B4_decimal_duel,duel,4,4,더 큰 쪽을 쳐라!,precision=1,0.49,0.5,R,,1.7,0.51,L,,1.5,1.46,L,,3.8,3.78,L,,8026,1.0.0,approved
+C1-0001,C1_make_target,equivalence,1,1,20을 만들어라!,target=20,8+10,8+12,R,,80÷4,72÷4,L,,15+3,15+5,R,,34-14,32-14,L,,9007,1.0.0,approved
+C1-0002,C1_make_target,equivalence,2,2,49를 만들어라!,target=49,10+37,10+39,R,,16+33,16+31,L,,54-5,52-5,L,,45+2,45+4,R,,9008,1.0.0,approved
+C1-0003,C1_make_target,equivalence,1,1,23을 만들어라!,target=23,27-6,29-6,R,,40-17,38-17,L,,34-13,36-13,R,,10+11,10+13,R,,9009,1.0.0,approved
+C1-0004,C1_make_target,equivalence,2,2,10을 만들어라!,target=10,11-3,13-3,R,,2×5,4×2,L,,14-4,12-4,L,,6+2,6+4,R,,9010,1.0.0,approved
+C1-0005,C1_make_target,equivalence,1,1,50을 만들어라!,target=50,36+12,36+14,R,,12+38,12+36,L,,31+17,31+19,R,,32+18,32+16,L,,9011,1.0.0,approved
+C1-0006,C1_make_target,equivalence,2,2,15를 만들어라!,target=15,29-14,27-14,L,,27-12,25-12,L,,3+10,3+12,R,,18-3,16-3,L,,9012,1.0.0,approved
+C1-0007,C1_make_target,equivalence,1,1,14를 만들어라!,target=14,6×2,7×2,R,,17-5,19-5,R,,6+6,6+8,R,,17-3,15-3,L,,9013,1.0.0,approved
+C1-0008,C1_make_target,equivalence,2,2,26을 만들어라!,target=26,41-17,43-17,R,,1+25,1+23,L,,34-8,32-8,L,,25-1,27-1,R,,9014,1.0.0,approved
+C1-0009,C1_make_target,equivalence,1,1,43을 만들어라!,target=43,47-4,45-4,L,,41+1,41+2,R,,51-8,49-8,L,,86÷2,82÷2,L,,9015,1.0.0,approved
+C1-0010,C1_make_target,equivalence,2,2,31을 만들어라!,target=31,21+8,21+10,R,,49-18,47-18,L,,31-2,33-2,R,,46-15,44-15,L,,9016,1.0.0,approved
+C1-0011,C1_make_target,equivalence,1,1,34를 만들어라!,target=34,136÷4,128÷4,L,,47-13,45-13,L,,51-19,53-19,R,,22+12,22+10,L,,9017,1.0.0,approved
+C1-0012,C1_make_target,equivalence,2,2,36을 만들어라!,target=36,35-1,37-1,R,,8+26,8+28,R,,29+7,29+5,L,,39-5,41-5,R,,9018,1.0.0,approved
+C1-0013,C1_make_target,equivalence,1,1,44를 만들어라!,target=44,6+38,6+36,L,,20+24,20+22,L,,41+1,41+3,R,,51-7,49-7,L,,9019,1.0.0,approved
+C1-0014,C1_make_target,equivalence,2,2,23을 만들어라!,target=23,4+17,4+19,R,,6+15,6+17,R,,2+19,2+21,R,,10+13,10+11,L,,9020,1.0.0,approved
+C1-0015,C1_make_target,equivalence,1,1,43을 만들어라!,target=43,6+35,6+37,R,,48-5,46-5,L,,45-4,47-4,R,,33+10,33+8,L,,9021,1.0.0,approved
+C1-0016,C1_make_target,equivalence,2,2,19를 만들어라!,target=19,29-10,27-10,L,,24-7,26-7,R,,57÷3,51÷3,L,,1+18,1+16,L,,9022,1.0.0,approved
+C1-0017,C1_make_target,equivalence,1,1,19를 만들어라!,target=19,33-14,31-14,L,,23-4,21-4,L,,4+15,4+13,L,,35-18,37-18,R,,9023,1.0.0,approved
+C1-0018,C1_make_target,equivalence,2,2,34를 만들어라!,target=34,26+8,26+6,L,,36-2,34-2,L,,46-14,48-14,R,,3+29,3+31,R,,9024,1.0.0,approved
+C1-0019,C1_make_target,equivalence,1,1,32를 만들어라!,target=32,49-17,47-17,L,,15+17,15+15,L,,4+26,4+28,R,,30+1,30+2,R,,9025,1.0.0,approved
+C1-0020,C1_make_target,equivalence,2,2,36을 만들어라!,target=36,48-12,46-12,L,,20+14,20+16,R,,10+26,10+24,L,,3+33,3+31,L,,9026,1.0.0,approved
+C2-0001,C2_equivalent,equivalence,3,3,1/4과 같은 것!,targetKind=2,12/48,3/10,L,,6/24,3/4,L,,4/17,3/12,R,,4/16,2/7,L,,10007,1.0.0,approved
+C2-0002,C2_equivalent,equivalence,4,4,1/4과 같은 것!,targetKind=2,4/17,10/40,R,,3/10,8/32,R,,6/25,12/48,R,,2/8,5/21,L,,10008,1.0.0,approved
+C2-0003,C2_equivalent,equivalence,3,3,1/4과 같은 것!,targetKind=2,15/60,4/15,L,,5/19,5/20,R,,0.4,0.25,R,,1/3,12/48,R,,10009,1.0.0,approved
+C2-0004,C2_equivalent,equivalence,4,4,1/2과 같은 것!,targetKind=1,10/20,2/5,L,,8/16,3/7,L,,12/24,5/11,L,,6/13,7/14,R,,10010,1.0.0,approved
+C2-0005,C2_equivalent,equivalence,3,3,1/2과 같은 것!,targetKind=1,5/10,2/5,L,,4/9,6/12,R,,12/24,2/3,L,,5/9,7/14,R,,10011,1.0.0,approved
+C2-0006,C2_equivalent,equivalence,4,4,1/2과 같은 것!,targetKind=1,1/4,3/6,R,,6/12,7/15,L,,7/13,11/22,R,,6/13,4/8,R,,10012,1.0.0,approved
+C2-0007,C2_equivalent,equivalence,3,3,1/4과 같은 것!,targetKind=2,11/44,2/9,L,,2/5,9/36,R,,3/11,2/8,R,,4/17,3/12,R,,10013,1.0.0,approved
+C2-0008,C2_equivalent,equivalence,4,4,1/4과 같은 것!,targetKind=2,10/40,6/23,L,,2/9,5/20,R,,3/10,12/48,R,,2/5,6/24,R,,10014,1.0.0,approved
+C2-0009,C2_equivalent,equivalence,3,3,1/4과 같은 것!,targetKind=2,1/3,4/16,R,,15/60,5/21,L,,10/40,4/17,L,,2/5,7/28,R,,10015,1.0.0,approved
+C2-0010,C2_equivalent,equivalence,4,4,3/4과 같은 것!,targetKind=3,9/12,6/7,L,,33/44,9/11,L,,12/16,12/15,L,,18/25,45/60,R,,10016,1.0.0,approved
+C2-0011,C2_equivalent,equivalence,3,3,3/4과 같은 것!,targetKind=3,9/11,45/60,R,,6/9,12/16,R,,21/28,2/3,L,,18/24,4/5,L,,10017,1.0.0,approved
+C2-0012,C2_equivalent,equivalence,4,4,1/4과 같은 것!,targetKind=2,5/20,3/4,L,,8/32,4/17,L,,9/36,4/15,L,,1/3,6/24,R,,10018,1.0.0,approved
+C2-0013,C2_equivalent,equivalence,3,3,1/2과 같은 것!,targetKind=1,4/7,8/16,R,,2/3,5/10,R,,7/13,6/12,R,,4/8,5/11,L,,10019,1.0.0,approved
+C2-0014,C2_equivalent,equivalence,4,4,1/4과 같은 것!,targetKind=2,4/16,5/19,L,,2/8,2/9,L,,0.5,0.25,R,,15/60,3/11,L,,10020,1.0.0,approved
+C2-0015,C2_equivalent,equivalence,3,3,3/4과 같은 것!,targetKind=3,6/7,15/20,R,,21/28,18/25,L,,27/36,9/11,L,,0.75,0.25,L,,10021,1.0.0,approved
+C2-0016,C2_equivalent,equivalence,4,4,3/4과 같은 것!,targetKind=3,33/44,12/15,L,,0.75,0.65,L,,2/4,30/40,R,,15/19,18/24,R,,10022,1.0.0,approved
+C2-0017,C2_equivalent,equivalence,3,3,1/4과 같은 것!,targetKind=2,5/21,4/16,R,,9/36,6/25,L,,5/20,1/3,L,,6/24,2/7,L,,10023,1.0.0,approved
+C2-0018,C2_equivalent,equivalence,4,4,3/4과 같은 것!,targetKind=3,0.8,0.75,R,,24/32,2/4,L,,12/16,3/5,L,,1/2,27/36,R,,10024,1.0.0,approved
+C2-0019,C2_equivalent,equivalence,3,3,1/4과 같은 것!,targetKind=2,6/24,6/23,L,,10/40,1/3,L,,7/28,5/19,L,,0.2,0.25,R,,10025,1.0.0,approved
+C2-0020,C2_equivalent,equivalence,4,4,1/2과 같은 것!,targetKind=1,4/7,2/4,R,,0.5,0.7,L,,5/10,6/13,L,,8/16,2/5,L,,10026,1.0.0,approved
+C3-0001,C3_make_ten,equivalence,1,1,합이 10!,target=10,2+8,2+10,L,,1+10,1+9,R,,4+7,4+6,R,,8+0,10+0,R,,11007,1.0.0,approved
+C3-0002,C3_make_ten,equivalence,1,1,합이 10!,target=10,5+6,5+5,R,,2+10,2+8,R,,9+2,9+1,R,,10+0,10+1,L,,11008,1.0.0,approved
+C3-0003,C3_make_ten,equivalence,1,1,합이 10!,target=10,8+2,8+1,L,,6+3,6+4,R,,0+10,0+12,L,,2+8,2+10,L,,11009,1.0.0,approved
+C3-0004,C3_make_ten,equivalence,1,1,합이 10!,target=10,1+10,1+9,R,,6+4,6+2,L,,4+6,4+8,L,,8+0,8+2,R,,11010,1.0.0,approved
+C3-0005,C3_make_ten,equivalence,1,1,합이 10!,target=10,1+8,1+9,R,,3+6,3+7,R,,0+9,0+10,R,,6+4,6+2,L,,11011,1.0.0,approved
+C3-0006,C3_make_ten,equivalence,1,1,합이 10!,target=10,1+9,1+7,L,,3+9,3+7,R,,0+12,0+10,R,,8+2,8+1,L,,11012,1.0.0,approved
+C3-0007,C3_make_ten,equivalence,1,1,합이 10!,target=10,3+7,3+9,L,,7+1,9+1,R,,2+8,2+9,L,,5+4,5+5,R,,11013,1.0.0,approved
+C3-0008,C3_make_ten,equivalence,1,1,합이 10!,target=10,2+7,2+8,R,,10+0,10+2,L,,6+3,6+4,R,,3+7,3+6,L,,11014,1.0.0,approved
+C3-0009,C3_make_ten,equivalence,1,1,합이 10!,target=10,6+4,6+5,L,,1+9,1+8,L,,5+5,5+4,L,,9+3,9+1,R,,11015,1.0.0,approved
+C3-0010,C3_make_ten,equivalence,1,1,합이 10!,target=10,4+8,4+6,R,,0+8,0+10,R,,10+0,10+2,L,,3+5,3+7,R,,11016,1.0.0,approved
+C3-0011,C3_make_ten,equivalence,1,1,합이 10!,target=10,7+2,7+3,R,,1+8,1+9,R,,7+1,9+1,R,,6+4,6+2,L,,11017,1.0.0,approved
+C3-0012,C3_make_ten,equivalence,1,1,합이 10!,target=10,6+4,6+6,L,,8+2,8+3,L,,1+11,1+9,R,,4+8,4+6,R,,11018,1.0.0,approved
+C3-0013,C3_make_ten,equivalence,1,1,합이 10!,target=10,0+12,0+10,R,,4+6,4+5,L,,9+1,9+0,L,,2+8,2+9,L,,11019,1.0.0,approved
+C3-0014,C3_make_ten,equivalence,1,1,합이 10!,target=10,2+10,2+8,R,,6+4,6+2,L,,8+3,8+2,R,,5+7,5+5,R,,11020,1.0.0,approved
+C3-0015,C3_make_ten,equivalence,1,1,합이 10!,target=10,8+3,8+2,R,,6+6,6+4,R,,2+8,2+10,L,,1+10,1+9,R,,11021,1.0.0,approved
+C3-0016,C3_make_ten,equivalence,1,1,합이 10!,target=10,1+8,1+9,R,,5+3,5+5,R,,10+1,10+0,R,,7+3,7+5,L,,11022,1.0.0,approved
+C3-0017,C3_make_ten,equivalence,1,1,합이 10!,target=10,0+8,0+10,R,,3+7,3+5,L,,7+3,7+2,L,,8+2,8+3,L,,11023,1.0.0,approved
+C3-0018,C3_make_ten,equivalence,1,1,합이 10!,target=10,8+2,8+4,L,,7+2,7+3,R,,2+8,2+10,L,,5+5,5+6,L,,11024,1.0.0,approved
+C3-0019,C3_make_ten,equivalence,1,1,합이 10!,target=10,2+8,2+7,L,,8+1,8+2,R,,4+6,4+4,L,,9+1,9+2,L,,11025,1.0.0,approved
+C3-0020,C3_make_ten,equivalence,1,1,합이 10!,target=10,8+2,8+4,L,,1+9,1+11,L,,7+3,7+1,L,,10+2,10+0,R,,11026,1.0.0,approved
+D1-0001,D1_skip_count,progression,1,1,10부터 3씩 뛰어라!,start=10;step=3,11,13,R,10 → ?,16,15,L,10 → 13 → ?,20,19,R,10 → 13 → 16 → ?,22,26,L,10 → 13 → 16 → 19 → ?,12007,1.0.0,approved
+D1-0002,D1_skip_count,progression,2,2,20부터 5씩 뛰어라!,start=20;step=5,26,25,R,20 → ?,32,30,R,20 → 25 → ?,35,34,L,20 → 25 → 30 → ?,36,40,R,20 → 25 → 30 → 35 → ?,12008,1.0.0,approved
+D1-0003,D1_skip_count,progression,1,1,10부터 3씩 뛰어라!,start=10;step=3,13,16,L,10 → ?,19,16,R,10 → 13 → ?,17,19,R,10 → 13 → 16 → ?,22,26,L,10 → 13 → 16 → 19 → ?,12009,1.0.0,approved
+D1-0004,D1_skip_count,progression,2,2,2부터 2씩 뛰어라!,start=2;step=2,3,4,R,2 → ?,6,8,L,2 → 4 → ?,6,8,R,2 → 4 → 6 → ?,6,10,R,2 → 4 → 6 → 8 → ?,12010,1.0.0,approved
+D1-0005,D1_skip_count,progression,1,1,3부터 3씩 뛰어라!,start=3;step=3,7,6,R,3 → ?,7,9,R,3 → 6 → ?,12,11,L,3 → 6 → 9 → ?,13,15,R,3 → 6 → 9 → 12 → ?,12011,1.0.0,approved
+D1-0006,D1_skip_count,progression,2,2,20부터 5씩 뛰어라!,start=20;step=5,24,25,R,20 → ?,30,28,L,20 → 25 → ?,38,35,R,20 → 25 → 30 → ?,36,40,R,20 → 25 → 30 → 35 → ?,12012,1.0.0,approved
+D1-0007,D1_skip_count,progression,1,1,20부터 6씩 뛰어라!,start=20;step=6,26,28,L,20 → ?,34,32,R,20 → 26 → ?,38,41,L,20 → 26 → 32 → ?,50,44,R,20 → 26 → 32 → 38 → ?,12013,1.0.0,approved
+D1-0008,D1_skip_count,progression,2,2,2부터 3씩 뛰어라!,start=2;step=3,5,6,L,2 → ?,10,8,R,2 → 5 → ?,9,11,R,2 → 5 → 8 → ?,18,14,R,2 → 5 → 8 → 11 → ?,12014,1.0.0,approved
+D1-0009,D1_skip_count,progression,1,1,17부터 6씩 뛰어라!,start=17;step=6,23,22,L,17 → ?,30,29,R,17 → 23 → ?,37,35,R,17 → 23 → 29 → ?,39,41,R,17 → 23 → 29 → 35 → ?,12015,1.0.0,approved
+D1-0010,D1_skip_count,progression,2,2,4부터 7씩 뛰어라!,start=4;step=7,12,11,R,4 → ?,16,18,R,4 → 11 → ?,25,26,L,4 → 11 → 18 → ?,28,32,R,4 → 11 → 18 → 25 → ?,12016,1.0.0,approved
+D1-0011,D1_skip_count,progression,1,1,12부터 3씩 뛰어라!,start=12;step=3,15,12,L,12 → ?,18,19,L,12 → 15 → ?,19,21,R,12 → 15 → 18 → ?,24,21,L,12 → 15 → 18 → 21 → ?,12017,1.0.0,approved
+D1-0012,D1_skip_count,progression,2,2,18부터 2씩 뛰어라!,start=18;step=2,21,20,R,18 → ?,22,24,L,18 → 20 → ?,24,22,L,18 → 20 → 22 → ?,26,24,L,18 → 20 → 22 → 24 → ?,12018,1.0.0,approved
+D1-0013,D1_skip_count,progression,1,1,1부터 4씩 뛰어라!,start=1;step=4,5,4,L,1 → ?,9,5,L,1 → 5 → ?,12,13,R,1 → 5 → 9 → ?,15,17,R,1 → 5 → 9 → 13 → ?,12019,1.0.0,approved
+D1-0014,D1_skip_count,progression,2,2,6부터 4씩 뛰어라!,start=6;step=4,6,10,R,6 → ?,14,18,L,6 → 10 → ?,18,22,L,6 → 10 → 14 → ?,20,22,R,6 → 10 → 14 → 18 → ?,12020,1.0.0,approved
+D1-0015,D1_skip_count,progression,1,1,19부터 5씩 뛰어라!,start=19;step=5,19,24,R,19 → ?,28,29,R,19 → 24 → ?,34,35,L,19 → 24 → 29 → ?,39,41,L,19 → 24 → 29 → 34 → ?,12021,1.0.0,approved
+D1-0016,D1_skip_count,progression,2,2,14부터 5씩 뛰어라!,start=14;step=5,19,18,L,14 → ?,24,29,L,14 → 19 → ?,29,30,L,14 → 19 → 24 → ?,33,34,R,14 → 19 → 24 → 29 → ?,12022,1.0.0,approved
+D1-0017,D1_skip_count,progression,1,1,5부터 6씩 뛰어라!,start=5;step=6,11,5,L,5 → ?,17,23,L,5 → 11 → ?,21,23,R,5 → 11 → 17 → ?,29,25,L,5 → 11 → 17 → 23 → ?,12023,1.0.0,approved
+D1-0018,D1_skip_count,progression,2,2,4부터 6씩 뛰어라!,start=4;step=6,4,10,R,4 → ?,16,15,L,4 → 10 → ?,25,22,R,4 → 10 → 16 → ?,29,28,R,4 → 10 → 16 → 22 → ?,12024,1.0.0,approved
+D1-0019,D1_skip_count,progression,1,1,12부터 5씩 뛰어라!,start=12;step=5,12,17,R,12 → ?,22,17,L,12 → 17 → ?,26,27,R,12 → 17 → 22 → ?,32,33,L,12 → 17 → 22 → 27 → ?,12025,1.0.0,approved
+D1-0020,D1_skip_count,progression,2,2,18부터 5씩 뛰어라!,start=18;step=5,23,24,L,18 → ?,28,27,L,18 → 23 → ?,33,36,L,18 → 23 → 28 → ?,39,38,R,18 → 23 → 28 → 33 → ?,12026,1.0.0,approved
+D2-0001,D2_countdown,progression,1,1,65에서 8씩 빼라!,start=65;step=8,65,57,R,65 → ?,48,49,R,65 → 57 → ?,39,41,R,65 → 57 → 49 → ?,33,34,L,65 → 57 → 49 → 41 → ?,13007,1.0.0,approved
+D2-0002,D2_countdown,progression,5,5,84에서 9씩 빼라!,start=84;step=9,75,74,L,84 → ?,66,68,L,84 → 75 → ?,57,55,L,84 → 75 → 66 → ?,57,48,R,84 → 75 → 66 → 57 → ?,13008,1.0.0,approved
+D2-0003,D2_countdown,progression,1,1,54에서 5씩 빼라!,start=54;step=5,51,49,R,54 → ?,39,44,R,54 → 49 → ?,39,44,L,54 → 49 → 44 → ?,34,32,L,54 → 49 → 44 → 39 → ?,13009,1.0.0,approved
+D2-0004,D2_countdown,progression,5,5,48에서 9씩 빼라!,start=48;step=9,30,39,R,48 → ?,31,30,R,48 → 39 → ?,21,30,L,48 → 39 → 30 → ?,12,13,L,48 → 39 → 30 → 21 → ?,13010,1.0.0,approved
+D2-0005,D2_countdown,progression,1,1,50에서 9씩 빼라!,start=50;step=9,32,41,R,50 → ?,32,23,L,50 → 41 → ?,23,26,L,50 → 41 → 32 → ?,13,14,R,50 → 41 → 32 → 23 → ?,13011,1.0.0,approved
+D2-0006,D2_countdown,progression,5,5,75에서 7씩 빼라!,start=75;step=7,68,67,L,75 → ?,61,68,L,75 → 68 → ?,53,54,R,75 → 68 → 61 → ?,51,47,R,75 → 68 → 61 → 54 → ?,13012,1.0.0,approved
+D2-0007,D2_countdown,progression,1,1,98에서 4씩 빼라!,start=98;step=4,90,94,R,98 → ?,90,89,L,98 → 94 → ?,86,85,L,98 → 94 → 90 → ?,81,82,R,98 → 94 → 90 → 86 → ?,13013,1.0.0,approved
+D2-0008,D2_countdown,progression,5,5,30에서 5씩 빼라!,start=30;step=5,25,27,L,30 → ?,19,20,R,30 → 25 → ?,15,13,L,30 → 25 → 20 → ?,12,10,R,30 → 25 → 20 → 15 → ?,13014,1.0.0,approved
+D2-0009,D2_countdown,progression,1,1,93에서 9씩 빼라!,start=93;step=9,84,85,L,93 → ?,75,84,L,93 → 84 → ?,68,66,R,93 → 84 → 75 → ?,55,57,R,93 → 84 → 75 → 66 → ?,13015,1.0.0,approved
+D2-0010,D2_countdown,progression,5,5,35에서 8씩 빼라!,start=35;step=8,27,19,L,35 → ?,19,11,L,35 → 27 → ?,11,12,L,35 → 27 → 19 → ?,7,3,R,35 → 27 → 19 → 11 → ?,13016,1.0.0,approved
+D2-0011,D2_countdown,progression,1,1,57에서 6씩 빼라!,start=57;step=6,51,53,L,57 → ?,47,45,R,57 → 51 → ?,39,36,L,57 → 51 → 45 → ?,33,31,L,57 → 51 → 45 → 39 → ?,13017,1.0.0,approved
+D2-0012,D2_countdown,progression,5,5,54에서 9씩 빼라!,start=54;step=9,47,45,R,54 → ?,45,36,R,54 → 45 → ?,27,28,L,54 → 45 → 36 → ?,18,14,L,54 → 45 → 36 → 27 → ?,13018,1.0.0,approved
+D2-0013,D2_countdown,progression,1,1,73에서 4씩 빼라!,start=73;step=4,69,65,L,73 → ?,61,65,R,73 → 69 → ?,61,57,L,73 → 69 → 65 → ?,58,57,R,73 → 69 → 65 → 61 → ?,13019,1.0.0,approved
+D2-0014,D2_countdown,progression,5,5,84에서 6씩 빼라!,start=84;step=6,78,72,L,84 → ?,74,72,R,84 → 78 → ?,66,68,L,84 → 78 → 72 → ?,66,60,R,84 → 78 → 72 → 66 → ?,13020,1.0.0,approved
+D2-0015,D2_countdown,progression,1,1,53에서 6씩 빼라!,start=53;step=6,53,47,R,53 → ?,41,39,L,53 → 47 → ?,35,33,L,53 → 47 → 41 → ?,29,25,L,53 → 47 → 41 → 35 → ?,13021,1.0.0,approved
+D2-0016,D2_countdown,progression,5,5,57에서 7씩 빼라!,start=57;step=7,43,50,R,57 → ?,43,45,L,57 → 50 → ?,29,36,R,57 → 50 → 43 → ?,29,22,L,57 → 50 → 43 → 36 → ?,13022,1.0.0,approved
+D2-0017,D2_countdown,progression,1,1,69에서 8씩 빼라!,start=69;step=8,61,59,L,69 → ?,45,53,R,69 → 61 → ?,53,45,R,69 → 61 → 53 → ?,37,29,L,69 → 61 → 53 → 45 → ?,13023,1.0.0,approved
+D2-0018,D2_countdown,progression,5,5,76에서 4씩 빼라!,start=76;step=4,72,76,L,76 → ?,68,72,L,76 → 72 → ?,61,64,R,76 → 72 → 68 → ?,60,58,L,76 → 72 → 68 → 64 → ?,13024,1.0.0,approved
+D2-0019,D2_countdown,progression,1,1,64에서 9씩 빼라!,start=64;step=9,57,55,R,64 → ?,37,46,R,64 → 55 → ?,37,46,L,64 → 55 → 46 → ?,27,28,R,64 → 55 → 46 → 37 → ?,13025,1.0.0,approved
+D2-0020,D2_countdown,progression,5,5,67에서 5씩 빼라!,start=67;step=5,64,62,R,67 → ?,57,58,L,67 → 62 → ?,52,49,L,67 → 62 → 57 → ?,51,47,R,67 → 62 → 57 → 52 → ?,13026,1.0.0,approved
+D3-0001,D3_doubling,progression,2,2,5에서 두 배씩!,start=5,10,8,L,5 → ?,18,20,R,5 → 10 → ?,40,38,L,5 → 10 → 20 → ?,80,40,L,5 → 10 → 20 → 40 → ?,14007,1.0.0,approved
+D3-0002,D3_doubling,progression,5,5,1에서 두 배씩!,start=1,4,2,R,1 → ?,5,4,R,1 → 2 → ?,6,8,R,1 → 2 → 4 → ?,16,32,L,1 → 2 → 4 → 8 → ?,14008,1.0.0,approved
+D3-0003,D3_doubling,progression,2,2,1에서 두 배씩!,start=1,4,2,R,1 → ?,3,4,R,1 → 2 → ?,10,8,R,1 → 2 → 4 → ?,16,15,L,1 → 2 → 4 → 8 → ?,14009,1.0.0,approved
+D3-0004,D3_doubling,progression,5,5,5에서 두 배씩!,start=5,10,15,L,5 → ?,20,15,L,5 → 10 → ?,22,40,R,5 → 10 → 20 → ?,78,80,R,5 → 10 → 20 → 40 → ?,14010,1.0.0,approved
+D3-0005,D3_doubling,progression,2,2,1에서 두 배씩!,start=1,3,2,R,1 → ?,4,8,L,1 → 2 → ?,16,8,R,1 → 2 → 4 → ?,16,9,L,1 → 2 → 4 → 8 → ?,14011,1.0.0,approved
+D3-0006,D3_doubling,progression,5,5,2에서 두 배씩!,start=2,4,2,L,2 → ?,8,7,L,2 → 4 → ?,10,16,R,2 → 4 → 8 → ?,48,32,R,2 → 4 → 8 → 16 → ?,14012,1.0.0,approved
+D3-0007,D3_doubling,progression,2,2,4에서 두 배씩!,start=4,6,8,R,4 → ?,16,24,L,4 → 8 → ?,32,30,L,4 → 8 → 16 → ?,65,64,R,4 → 8 → 16 → 32 → ?,14013,1.0.0,approved
+D3-0008,D3_doubling,progression,5,5,1에서 두 배씩!,start=1,0,2,R,1 → ?,4,6,L,1 → 2 → ?,8,7,L,1 → 2 → 4 → ?,16,10,L,1 → 2 → 4 → 8 → ?,14014,1.0.0,approved
+D3-0009,D3_doubling,progression,2,2,3에서 두 배씩!,start=3,6,3,L,3 → ?,12,6,L,3 → 6 → ?,23,24,R,3 → 6 → 12 → ?,48,49,L,3 → 6 → 12 → 24 → ?,14015,1.0.0,approved
+D3-0010,D3_doubling,progression,5,5,1에서 두 배씩!,start=1,0,2,R,1 → ?,5,4,R,1 → 2 → ?,7,8,R,1 → 2 → 4 → ?,16,8,L,1 → 2 → 4 → 8 → ?,14016,1.0.0,approved
+D3-0011,D3_doubling,progression,2,2,4에서 두 배씩!,start=4,16,8,R,4 → ?,16,10,L,4 → 8 → ?,64,32,R,4 → 8 → 16 → ?,36,64,R,4 → 8 → 16 → 32 → ?,14017,1.0.0,approved
+D3-0012,D3_doubling,progression,5,5,2에서 두 배씩!,start=2,6,4,R,2 → ?,9,8,R,2 → 4 → ?,16,8,L,2 → 4 → 8 → ?,31,32,R,2 → 4 → 8 → 16 → ?,14018,1.0.0,approved
+D3-0013,D3_doubling,progression,2,2,4에서 두 배씩!,start=4,8,6,L,4 → ?,8,16,R,4 → 8 → ?,32,30,L,4 → 8 → 16 → ?,62,64,R,4 → 8 → 16 → 32 → ?,14019,1.0.0,approved
+D3-0014,D3_doubling,progression,5,5,3에서 두 배씩!,start=3,4,6,R,3 → ?,12,24,L,3 → 6 → ?,24,25,L,3 → 6 → 12 → ?,50,48,R,3 → 6 → 12 → 24 → ?,14020,1.0.0,approved
+D3-0015,D3_doubling,progression,2,2,3에서 두 배씩!,start=3,6,4,L,3 → ?,12,9,L,3 → 6 → ?,36,24,R,3 → 6 → 12 → ?,48,26,L,3 → 6 → 12 → 24 → ?,14021,1.0.0,approved
+D3-0016,D3_doubling,progression,5,5,5에서 두 배씩!,start=5,7,10,R,5 → ?,40,20,R,5 → 10 → ?,20,40,R,5 → 10 → 20 → ?,80,79,L,5 → 10 → 20 → 40 → ?,14022,1.0.0,approved
+D3-0017,D3_doubling,progression,2,2,4에서 두 배씩!,start=4,9,8,R,4 → ?,24,16,R,4 → 8 → ?,20,32,R,4 → 8 → 16 → ?,64,96,L,4 → 8 → 16 → 32 → ?,14023,1.0.0,approved
+D3-0018,D3_doubling,progression,5,5,4에서 두 배씩!,start=4,4,8,R,4 → ?,16,12,L,4 → 8 → ?,32,48,L,4 → 8 → 16 → ?,64,63,L,4 → 8 → 16 → 32 → ?,14024,1.0.0,approved
+D3-0019,D3_doubling,progression,2,2,2에서 두 배씩!,start=2,4,8,L,2 → ?,12,8,R,2 → 4 → ?,14,16,R,2 → 4 → 8 → ?,18,32,R,2 → 4 → 8 → 16 → ?,14025,1.0.0,approved
+D3-0020,D3_doubling,progression,5,5,3에서 두 배씩!,start=3,6,12,L,3 → ?,12,18,L,3 → 6 → ?,24,12,L,3 → 6 → 12 → ?,26,48,R,3 → 6 → 12 → 24 → ?,14026,1.0.0,approved

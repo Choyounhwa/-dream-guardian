@@ -191,6 +191,13 @@ export function clamp01(val: number): number {
   return clamp(val, 0, 1);
 }
 
+/** Hermite smoothstep: edge0 이하 0, edge1 이상 1, 사이는 3t²-2t³ (Issue #725) */
+export function smoothstep(edge0: number, edge1: number, x: number): number {
+  if (edge1 <= edge0) return x >= edge1 ? 1 : 0;
+  const t = clamp01((x - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+
 /**
  * 두 스칼라 값 간의 선형 보간 (Lerp)
  */

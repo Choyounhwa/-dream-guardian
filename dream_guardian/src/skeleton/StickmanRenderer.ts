@@ -10,7 +10,6 @@
  */
 
 import type { NormalizedLandmark } from '../types/index.js';
-import { POSE_LANDMARKS } from '../types/index.js';
 import type { IAvatarRenderer } from './IAvatarRenderer.js';
 import type {
   StickmanConfig,
@@ -18,6 +17,8 @@ import type {
   StickmanCapsuleWidth,
 } from '../../config/skeleton.config.js';
 import { STICKMAN_CONFIG } from '../../config/skeleton.config.js';
+import type { BoneAngles, PoseFrame } from '../types/pose-frame.js';
+import { PoseAngleSolver, getDefaultBoneAngles } from './pose/PoseAngleSolver.js';
 
 export interface StickmanPoint2D {
   x: number;
@@ -43,24 +44,14 @@ export interface StickmanJointPositions {
   rightAnkle: StickmanPoint2D;
 }
 
-export interface StickmanAngles {
-  torso: number;
-  head: number;
-  leftUpperArm: number;
-  leftForearm: number;
-  rightUpperArm: number;
-  rightForearm: number;
-  leftUpperLeg: number;
-  leftLowerLeg: number;
-  rightUpperLeg: number;
-  rightLowerLeg: number;
-}
+export type StickmanAngles = BoneAngles;
 
 export interface StickmanUpdateOptions {
   mirror?: boolean;
   virtualWidth?: number;
   virtualHeight?: number;
   breathScale?: number;
+  isRunning?: boolean;
 }
 
 export interface StickmanRenderOptions {
@@ -71,13 +62,6 @@ export interface StickmanRenderOptions {
   showVisor?: boolean;
   scale?: number;
   alwaysRender?: boolean;
-}
-
-function diffAngle(target: number, current: number): number {
-  let diff = (target - current) % (Math.PI * 2);
-  if (diff > Math.PI) diff -= Math.PI * 2;
-  if (diff < -Math.PI) diff += Math.PI * 2;
-  return diff;
 }
 
 export class StickmanRenderer implements IAvatarRenderer {
@@ -91,6 +75,7 @@ export class StickmanRenderer implements IAvatarRenderer {
   private _baselineHipY = 0.60;
   private _initialized = false;
   private _currentAnchorXRatio: number;
+  private _lastPoseFrame?: PoseFrame;
   public isMirrored = true;
 
   constructor(config: StickmanConfig = STICKMAN_CONFIG) {
@@ -117,18 +102,7 @@ export class StickmanRenderer implements IAvatarRenderer {
   }
 
   private _getDefaultAngles(): StickmanAngles {
-    return {
-      torso: -Math.PI / 2,        // 위쪽 방향 (-90도)
-      head: -Math.PI / 2,         // 위쪽 방향 (-90도)
-      leftUpperArm: Math.PI * 0.65,  // 좌하단
-      leftForearm: Math.PI * 0.75,
-      rightUpperArm: Math.PI * 0.35, // 우하단
-      rightForearm: Math.PI * 0.25,
-      leftUpperLeg: Math.PI * 0.48,  // 하단
-      leftLowerLeg: Math.PI * 0.50,
-      rightUpperLeg: Math.PI * 0.52, // 하단
-      rightLowerLeg: Math.PI * 0.50,
-    };
+    return getDefaultBoneAngles();
   }
 
   /** 현재 보간된 관절 회전 각도 조회 */
@@ -140,6 +114,11 @@ export class StickmanRenderer implements IAvatarRenderer {
     return this._hasValidPose;
   }
 
+  /** 가장 최근 계산된 PoseFrame 조회 */
+  get lastPoseFrame(): Readonly<PoseFrame> | undefined {
+    return this._lastPoseFrame;
+  }
+
   /** 상태 초기화 */
   reset(): void {
     this._angles = this._getDefaultAngles();
@@ -149,6 +128,7 @@ export class StickmanRenderer implements IAvatarRenderer {
     this._verticalOffset = 0;
     this._initialized = false;
     this._currentAnchorXRatio = this._config.anchorXRatio;
+    this._lastPoseFrame = undefined;
   }
 
   /** 포즈 미인식 시 대기/러닝 폴백 애니메이션 업데이트 */
@@ -162,6 +142,9 @@ export class StickmanRenderer implements IAvatarRenderer {
       def.rightUpperArm -= runCycle * 0.4;
       def.leftUpperLeg += runCycle * 0.5;
       def.rightUpperLeg -= runCycle * 0.5;
+      // Issue #721: 러닝 폴백 시 종아리가 굳지 않고 허벅지와 연동 스윙
+      def.leftLowerLeg += (runCycle > 0 ? runCycle * 0.45 : runCycle * 0.5);
+      def.rightLowerLeg -= (runCycle < 0 ? -runCycle * 0.45 : -runCycle * 0.5);
       this._verticalOffset = Math.abs(Math.sin(this._animTimer * 8.0)) * -0.015;
     } else {
       this._verticalOffset = Math.sin(this._animTimer * 2.0) * 0.005;
@@ -195,153 +178,43 @@ export class StickmanRenderer implements IAvatarRenderer {
     this._animTimer += dt;
     this._breathScale = actualBreath;
 
-    const smoothing = this._config.horizontalSmoothing ?? 0.2;
-    const clampMin = this._config.horizontalClampMin ?? 0.18;
-    const clampMax = this._config.horizontalClampMax ?? 0.82;
+    const prevFrame: PoseFrame | undefined = this._initialized
+      ? {
+          rootX: this._currentAnchorXRatio,
+          rootY: this._verticalOffset,
+          torsoTilt: this._angles.torso,
+          boneAngles: this._angles,
+          scale: this.scale,
+          confidence: this._hasValidPose ? 1.0 : 0.0,
+          hasPose: this._hasValidPose,
+          baselineHipY: this._baselineHipY,
+          verticalOffset: this._verticalOffset,
+          anchorXRatio: this._currentAnchorXRatio,
+        }
+      : undefined;
 
-    if (!landmarks || landmarks.length < 25) {
-      this._hasValidPose = false;
-      this._currentAnchorXRatio +=
-        (this._config.anchorXRatio - this._currentAnchorXRatio) * (smoothing * 0.5);
+    const frame = PoseAngleSolver.solve(landmarks, prevFrame, this._config, {
+      mirror: actualOptions?.mirror,
+      isMirroredMode: this.isMirrored,
+      virtualWidth: actualOptions?.virtualWidth,
+      virtualHeight: actualOptions?.virtualHeight,
+      dt,
+      isRunning: actualOptions?.isRunning,
+      animTimer: this._animTimer,
+    });
+
+    this._hasValidPose = frame.hasPose;
+    this._currentAnchorXRatio = frame.rootX;
+
+    if (!frame.hasPose) {
       return;
     }
 
-    const ls = landmarks[POSE_LANDMARKS.LEFT_SHOULDER];
-    const rs = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER];
-    const lh = landmarks[POSE_LANDMARKS.LEFT_HIP];
-    const rh = landmarks[POSE_LANDMARKS.RIGHT_HIP];
-
-    const minVis = 0.25;
-    const hasHips =
-      lh && rh && (lh.visibility ?? 0) >= minVis && (rh.visibility ?? 0) >= minVis;
-    const hasShoulders =
-      ls && rs && (ls.visibility ?? 0) >= minVis && (rs.visibility ?? 0) >= minVis;
-
-    if (!hasHips && !hasShoulders) {
-      this._hasValidPose = false;
-      this._currentAnchorXRatio +=
-        (this._config.anchorXRatio - this._currentAnchorXRatio) * (smoothing * 0.5);
-      return;
-    }
-
-    this._hasValidPose = true;
-
-    // Issue #489 & #496 [BUG-AVATAR-002] & #615 [BUG-AVATAR-003]: 유저 카메라 위치 ↔ 졸라맨 가로 위치 실시간 동기화
-    let rawHipX = 0.5;
-    if (hasHips) {
-      rawHipX = (lh.x + rh.x) / 2;
-    } else if (hasShoulders) {
-      rawHipX = (ls.x + rs.x) / 2;
-    }
-    // 픽셀 좌표계(rawHipX > 2.0)인 경우 가상 너비(vw, 기본 1080)로 정규화
-    const defaultVw = rawHipX > 1080 ? 1920 : 1080;
-    const vw = actualOptions?.virtualWidth ?? defaultVw;
-    if (rawHipX > 2.0) {
-      rawHipX = rawHipX / vw;
-    }
-
-    // 랜드마크가 이미 미러링된 화면 좌표계인지 판단:
-    // 거울 화면 뷰에서는 유저의 오른어깨(또는 골반)가 화면 우측(rs.x >= ls.x)에 위치합니다.
-    const isLandmarkMirrored = hasShoulders
-      ? !(rs.x < ls.x)
-      : hasHips
-        ? !(rh.x < lh.x)
-        : true;
-    const isMirrored =
-      actualOptions?.mirror !== undefined ? actualOptions.mirror : isLandmarkMirrored;
-
-    // 미러링 화면 좌표계(isMirrored === true)에서는 rawHipX가 이미 화면 좌표계와 일치하므로 1:1 반영
-    // 원본 비미러 카메라 좌표계(isMirrored === false)인 경우에만 미러 모드(this.isMirrored) 시 1 - rawHipX 반전
-    const shouldInvert = this.isMirrored && !isMirrored;
-    const rawUserX = shouldInvert ? 1.0 - rawHipX : rawHipX;
-    const targetX = Math.max(clampMin, Math.min(clampMax, rawUserX));
-
-    if (!this._initialized) {
-      this._currentAnchorXRatio = targetX;
-    } else {
-      this._currentAnchorXRatio += (targetX - this._currentAnchorXRatio) * smoothing;
-    }
-
-    // 1. 기준 랜드마크
-    const le = landmarks[POSE_LANDMARKS.LEFT_ELBOW];
-    const re = landmarks[POSE_LANDMARKS.RIGHT_ELBOW];
-    const lw = landmarks[POSE_LANDMARKS.LEFT_WRIST];
-    const rw = landmarks[POSE_LANDMARKS.RIGHT_WRIST];
-    const lk = landmarks[POSE_LANDMARKS.LEFT_KNEE];
-    const rk = landmarks[POSE_LANDMARKS.RIGHT_KNEE];
-    const la = landmarks[POSE_LANDMARKS.LEFT_ANKLE];
-    const ra = landmarks[POSE_LANDMARKS.RIGHT_ANKLE];
-    const nose = landmarks[POSE_LANDMARKS.NOSE];
-
-    // 2. 스쿼트 / 점프 수직 변위 계산
-    const currentHipY = (lh.y + rh.y) / 2;
-    const defaultVh = currentHipY > 1000 ? 2160 : 1080;
-    const vh = actualOptions?.virtualHeight ?? defaultVh;
-    if (!this._initialized) {
-      this._baselineHipY = currentHipY;
-      this._initialized = true;
-    } else {
-      // 완만한 기준선 적응
-      this._baselineHipY += (currentHipY - this._baselineHipY) * 0.01;
-    }
-    const hipDiff = currentHipY - this._baselineHipY;
-    // 픽셀 좌표계(currentHipY > 2.0)인 경우 vh(기준 가상 높이)으로 정규화하여 오프셋 폭주 방지
-    const normalizedHipDiff = currentHipY > 2.0 ? hipDiff / vh : hipDiff;
-    const targetOffset = normalizedHipDiff * this._config.squatSensitivity;
-    this._verticalOffset += (targetOffset - this._verticalOffset) * 0.25;
-
-    // 3. 미러링 정합성 판단 및 목표 관절 각도 계산 (Math.atan2)
-    // 카메라 원본 좌표계(비미러)의 경우 사용자의 오른어깨가 카메라 센서 좌측(rs.x < ls.x)에 위치합니다.
-    // 거울 화면 뷰(미러)에서는 좌우 X 변위가 반전되어야 하므로 dx 방향을 보정합니다.
-    const getDx = (p2: { x: number }, p1: { x: number }) =>
-      isMirrored ? p2.x - p1.x : -(p2.x - p1.x);
-
-    const midShoulder = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
-    const midHip = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 };
-
-    // Issue #304 [BUG-SKEL-006] & #615 [BUG-AVATAR-003]: 무릎·종아리 프레이밍에서 잘린 다리 각도 폭주 방지
-    // 무릎/발목 visibility가 부족하거나 화면 하단(정규화 1 또는 가상 높이 vh)을 넘으면 수직 기본 자세로 폴백
-    const maxY = currentHipY > 2.0 ? vh : 1.0;
-    const isLegLandmarkValid = (p?: NormalizedLandmark): boolean => {
-      if (!p) return false;
-      if ((p.visibility ?? 0) < minVis) return false;
-      if (p.y >= maxY) return false;
-      return true;
-    };
-
-    const defaultAngles = this._getDefaultAngles();
-    const isLeftKneeValid = isLegLandmarkValid(lk);
-    const isLeftAnkleValid = isLegLandmarkValid(la);
-    const isRightKneeValid = isLegLandmarkValid(rk);
-    const isRightAnkleValid = isLegLandmarkValid(ra);
-
-    const targetAngles: StickmanAngles = {
-      torso: Math.atan2(midShoulder.y - midHip.y, getDx(midShoulder, midHip)),
-      head: nose ? Math.atan2(nose.y - midShoulder.y, getDx(nose, midShoulder)) : -Math.PI / 2,
-      leftUpperArm: Math.atan2(le.y - ls.y, getDx(le, ls)),
-      leftForearm: Math.atan2(lw.y - le.y, getDx(lw, le)),
-      rightUpperArm: Math.atan2(re.y - rs.y, getDx(re, rs)),
-      rightForearm: Math.atan2(rw.y - re.y, getDx(rw, re)),
-      leftUpperLeg: isLeftKneeValid
-        ? Math.atan2(lk.y - lh.y, getDx(lk, lh))
-        : defaultAngles.leftUpperLeg,
-      leftLowerLeg: isLeftKneeValid && isLeftAnkleValid
-        ? Math.atan2(la.y - lk.y, getDx(la, lk))
-        : defaultAngles.leftLowerLeg,
-      rightUpperLeg: isRightKneeValid
-        ? Math.atan2(rk.y - rh.y, getDx(rk, rh))
-        : defaultAngles.rightUpperLeg,
-      rightLowerLeg: isRightKneeValid && isRightAnkleValid
-        ? Math.atan2(ra.y - rk.y, getDx(ra, rk))
-        : defaultAngles.rightLowerLeg,
-    };
-
-    // 4. 각도 스무딩 (Damping)
-    const factor = this._config.angleSmoothing;
-    for (const key of Object.keys(targetAngles) as Array<keyof StickmanAngles>) {
-      const diff = diffAngle(targetAngles[key], this._angles[key]);
-      this._angles[key] += diff * factor;
-    }
+    this._initialized = true;
+    this._baselineHipY = frame.baselineHipY;
+    this._verticalOffset = frame.verticalOffset;
+    this._angles = frame.boneAngles;
+    this._lastPoseFrame = frame;
   }
 
   /**
@@ -753,11 +626,18 @@ export class StickmanRenderer implements IAvatarRenderer {
     rightAnkle: StickmanPoint2D,
     scale = 1.0,
   ): void {
-    const groundY = Math.max(leftAnkle.y, rightAnkle.y) + 12 * scale;
-    const radiusX = 110 * scale;
-    const radiusY = 24 * scale;
+    // Issue #678: 점프 상승(verticalOffset < 0) 시 지면 그림자 디커플링 (지면에 잔류)
+    const airHeight = this._verticalOffset < 0 ? -this._verticalOffset : 0;
+    const groundY = Math.max(leftAnkle.y, rightAnkle.y) + 12 * scale + airHeight;
+
+    // 체공 높이에 비례하여 그림자 크기 축소 및 페이드아웃
+    const shadowDecay = Math.max(0.35, 1.0 - airHeight / (260 * scale));
+    const shadowAlpha = Math.max(0.20, 1.0 - airHeight / (320 * scale));
+    const radiusX = 110 * scale * shadowDecay;
+    const radiusY = 24 * scale * shadowDecay;
 
     ctx.save();
+    ctx.globalAlpha = ctx.globalAlpha * shadowAlpha;
     const shadowColor = this._config.colors.groundShadow || 'rgba(0, 0, 0, 0.28)';
 
     const gradient = ctx.createRadialGradient(
@@ -787,11 +667,16 @@ export class StickmanRenderer implements IAvatarRenderer {
     rightAnkle: StickmanPoint2D,
     scale = 1.0,
   ): void {
-    const groundY = Math.max(leftAnkle.y, rightAnkle.y) + 12 * scale;
-    const radiusX = 110 * scale;
-    const radiusY = 32 * scale;
+    // Issue #678: 점프 상승(verticalOffset < 0) 시 마법진 링 디커플링 (지면에 잔류)
+    const airHeight = this._verticalOffset < 0 ? -this._verticalOffset : 0;
+    const groundY = Math.max(leftAnkle.y, rightAnkle.y) + 12 * scale + airHeight;
+    const ringDecay = Math.max(0.40, 1.0 - airHeight / (300 * scale));
+    const ringAlpha = Math.max(0.25, 1.0 - airHeight / (350 * scale));
+    const radiusX = 110 * scale * ringDecay;
+    const radiusY = 32 * scale * ringDecay;
 
     ctx.save();
+    ctx.globalAlpha = ctx.globalAlpha * ringAlpha;
     ctx.shadowColor = this._config.colors.groundRing;
     ctx.shadowBlur = 10 * scale;
     ctx.strokeStyle = this._config.colors.groundRing;
@@ -805,7 +690,7 @@ export class StickmanRenderer implements IAvatarRenderer {
 
     // 내부 보조 링
     ctx.lineWidth = 1.2 * scale;
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = ctx.globalAlpha * 0.5;
     ctx.beginPath();
     ctx.ellipse(centerX, groundY, (radiusX + pulse) * 0.7, (radiusY + pulse * 0.3) * 0.7, 0, 0, Math.PI * 2);
     ctx.stroke();

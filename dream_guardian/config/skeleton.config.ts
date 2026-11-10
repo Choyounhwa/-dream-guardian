@@ -105,3 +105,31 @@ export const STICKMAN_CONFIG: StickmanConfig = {
     groundShadow: 'rgba(0, 0, 0, 0.28)',
   },
 };
+
+/** 팔 관절 스냅 방지 설정 (Issue #725 / FEAT-SKEL-LIMIT-001) */
+export interface StickmanArmStabilizerConfig {
+  /** 몸통 하방 기준 위팔 최대 회전 크기 (도) */
+  readonly upperArmMaxDeg: number;
+  /** 위팔 기준 팔꿈치 최대 굽힘 크기 (도) */
+  readonly elbowMaxFlexDeg: number;
+  /** 한계 직전 압축 시작 폭 (도) */
+  readonly softZoneDeg: number;
+  /** 마디길이/어깨너비 비율: 이 값 이하면 가중치 0 */
+  readonly minLengthRatio: number;
+  /** 마디길이/어깨너비 비율: 이 값 이상이면 가중치 1 */
+  readonly fullLengthRatio: number;
+  /** 두 끝점 visibility 최솟값: 이 값 이하면 가중치 0 */
+  readonly minVisibility: number;
+  /** 두 끝점 visibility 최솟값: 이 값 이상이면 가중치 1 */
+  readonly fullVisibility: number;
+}
+
+export const STICKMAN_ARM_STABILIZER_CONFIG: Readonly<StickmanArmStabilizerConfig> = Object.freeze({
+  upperArmMaxDeg: 170,
+  elbowMaxFlexDeg: 165,
+  softZoneDeg: 20,
+  minLengthRatio: 0.15,
+  fullLengthRatio: 0.40,
+  minVisibility: 0.25,
+  fullVisibility: 0.60,
+});
