@@ -30,7 +30,6 @@ import {
   DEFAULT_ARM_DIRECTION_ANSWER_CONFIG,
   type ArmReachJudgmentConfig,
   type ArmReachGateScores,
-  computeWeightedArmScore,
 } from '../../config/judgment.config.js';
 
 export type { ArmReachJudgmentMode };
@@ -46,69 +45,36 @@ import { POSE_LANDMARKS, type NormalizedLandmark } from '../types/index.js';
 import type { MotionIntentBus } from '../motion/MotionIntentBus.js';
 import type { MotionIntent, UnsubscribeFn } from '../types/motion-intent.js';
 import {
-  calcArmExtensionRatio,
-  calcDominanceRatio,
-  calcLateralReach,
-  calcNormalizedZoneDistance,
   calcShoulderWidth,
-  calcVelocity,
   mirrorPoint,
-  normalizeByShoulder,
+  GEOM_EPSILON,
 } from '../utils/PoseGeometry.js';
+import {
+  ArmReachGateEvaluator,
+  type ArmEvaluationResult,
+  type ArmCandidateStatus,
+  type TrackedHandPoint,
+} from './arm/ArmReachGateEvaluator.js';
 
+export type {
+  ArmEvaluationResult,
+  ArmCandidateStatus,
+  TrackedHandPoint,
+};
+export { ArmReachGateEvaluator };
 
 export type ArmHandType = 'left' | 'right' | 'fallback';
 
-export interface ArmCandidateStatus {
-  hand: 'left' | 'right';
-  zoneId: number | null;
-  answerIndex: 0 | 1 | null;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  armExtensionRatio: number;
-  isInside: boolean;
-  isValid: boolean;
-  isDynamicReach: boolean;
-  score?: number;
-  gates?: ArmReachGateScores;
-}
-
-export interface ArmEvaluationResult {
-  isValid: boolean;
-  score: number;
-  gates: ArmReachGateScores;
-  answerIndex: 0 | 1 | null;
-  zoneId: 4 | 5 | null;
-  vx: number;
-  vy: number;
-  armExtensionRatio: number;
-  isInside: boolean;
-  isDynamicReach: boolean;
-  isDirectionSatisfied?: boolean;
-}
-
 export interface ArmReachAnswerResult {
-  /** 선택된 답안 인덱스 (0: Zone 4, 1: Zone 5) */
   answerIndex: 0 | 1;
-  /** 도달한 피트니스 존 ID (4: 좌, 5: 우) */
   zoneId: 4 | 5;
-  /** 선택에 사용된 손 */
   hand: ArmHandType;
-  /** 판정 시점 타임스탬프 (초) */
   timestamp: number;
-  /** 입력 소스 */
   source: 'motion' | 'keyboard' | 'touch';
-  /** 선택 시점 손의 정규화 좌표 */
   position?: { x: number; y: number };
-  /** 선택 시점 손의 속도 */
   velocity?: { vx: number; vy: number };
-  /** 동적 뻗기 여부 */
   isDynamicReach?: boolean;
-  /** 가중 신뢰도 종합 점수 (0~1) */
   score?: number;
-  /** 5개 세부 게이트 점수 */
   gates?: ArmReachGateScores;
 }
 
@@ -128,18 +94,13 @@ export interface ArmReachAnswerState {
 
 export type ArmReachSelectCallback = (result: ArmReachAnswerResult) => void;
 
-interface TrackedHandPoint {
-  x: number;
-  y: number;
-  visibility: number;
-}
-
-const EPSILON = 1e-5;
+const EPSILON = GEOM_EPSILON;
 
 export class ArmReachAnswerSelector {
   private readonly _config: ArmReachAnswerConfig;
   private readonly _judgmentConfig: ArmReachJudgmentConfig;
   private readonly _cursorTracker: CursorTracker;
+  private readonly _gateEvaluator: ArmReachGateEvaluator;
   private readonly _zones: readonly FitnessZone[];
   private readonly _zone4: FitnessZone;
   private readonly _zone5: FitnessZone;
@@ -223,6 +184,12 @@ export class ArmReachAnswerSelector {
     this._zone5 = this._zones.find((z) => z.id === 5) ?? DEFAULT_FITNESS_ZONES.find((z) => z.id === 5)!;
 
     this._cursorTracker = cursorTracker ?? new CursorTracker();
+    this._gateEvaluator = new ArmReachGateEvaluator({
+      config: this._config,
+      judgmentConfig: this._judgmentConfig,
+      zone4: this._zone4,
+      zone5: this._zone5,
+    });
     if (intentBus) {
       this.attachIntentBus(intentBus);
     }
@@ -395,42 +362,26 @@ export class ArmReachAnswerSelector {
     return this._heldHand;
   }
 
-  get state(): ArmReachAnswerState {
-    const leftStatus = this._lastLeftEval
-      ? {
-          hand: 'left' as const,
-          zoneId: this._lastLeftEval.zoneId,
-          answerIndex: this._lastLeftEval.answerIndex,
-          x: this._prevLeftHand?.x ?? 0,
-          y: this._prevLeftHand?.y ?? 0,
-          vx: this._lastLeftEval.vx,
-          vy: this._lastLeftEval.vy,
-          armExtensionRatio: this._lastLeftEval.armExtensionRatio,
-          isInside: this._lastLeftEval.isInside,
-          isValid: this._lastLeftEval.isValid,
-          isDynamicReach: this._lastLeftEval.isDynamicReach,
-          score: this._lastLeftEval.score,
-          gates: this._lastLeftEval.gates,
-        }
-      : this._buildCandidateStatus('left');
+  get gateEvaluator(): ArmReachGateEvaluator {
+    return this._gateEvaluator;
+  }
 
-    const rightStatus = this._lastRightEval
-      ? {
-          hand: 'right' as const,
-          zoneId: this._lastRightEval.zoneId,
-          answerIndex: this._lastRightEval.answerIndex,
-          x: this._prevRightHand?.x ?? 0,
-          y: this._prevRightHand?.y ?? 0,
-          vx: this._lastRightEval.vx,
-          vy: this._lastRightEval.vy,
-          armExtensionRatio: this._lastRightEval.armExtensionRatio,
-          isInside: this._lastRightEval.isInside,
-          isValid: this._lastRightEval.isValid,
-          isDynamicReach: this._lastRightEval.isDynamicReach,
-          score: this._lastRightEval.score,
-          gates: this._lastRightEval.gates,
-        }
-      : this._buildCandidateStatus('right');
+  get state(): ArmReachAnswerState {
+    const leftStatus = this._gateEvaluator.buildCandidateStatus(
+      this._lastLeftEval,
+      'left',
+      this._prevLeftHand,
+      this._prevLeftInside4,
+      this._prevLeftInside5,
+    );
+
+    const rightStatus = this._gateEvaluator.buildCandidateStatus(
+      this._lastRightEval,
+      'right',
+      this._prevRightHand,
+      this._prevRightInside4,
+      this._prevRightInside5,
+    );
 
     let activeAnswerIndex: 0 | 1 | null = null;
     let activeZoneId: 4 | 5 | null = null;
@@ -557,34 +508,37 @@ export class ArmReachAnswerSelector {
     return mirrorPoint(pt, this._config.isMirrored);
   }
 
-  private _buildCandidateStatus(hand: 'left' | 'right'): ArmCandidateStatus {
-    const pt = hand === 'left' ? this._prevLeftHand : this._prevRightHand;
-    const isInside4 = hand === 'left' ? this._prevLeftInside4 : this._prevRightInside4;
-    const isInside5 = hand === 'left' ? this._prevLeftInside5 : this._prevRightInside5;
-
-    let zoneId: number | null = null;
-    let answerIndex: 0 | 1 | null = null;
-    if (isInside4) {
-      zoneId = 4;
-      answerIndex = 0;
-    } else if (isInside5) {
-      zoneId = 5;
-      answerIndex = 1;
+  private _extractTrackedPoint(
+    palm: { x: number; y: number; confidence?: number } | undefined,
+    wristLM: NormalizedLandmark | undefined,
+    elbowLM: NormalizedLandmark | undefined,
+    hardMinVis: number,
+  ): TrackedHandPoint {
+    if (palm && (palm.confidence ?? 1) >= hardMinVis) {
+      const sp = this._toScreenPoint(palm);
+      return { x: sp.x, y: sp.y, visibility: palm.confidence ?? 1 };
     }
+    if (wristLM && (wristLM.visibility ?? 1) >= hardMinVis) {
+      const sp = this._toScreenPoint(wristLM);
+      return { x: sp.x, y: sp.y, visibility: wristLM.visibility ?? 1 };
+    }
+    if (elbowLM && (elbowLM.visibility ?? 1) >= hardMinVis) {
+      const sp = this._toScreenPoint(elbowLM);
+      return { x: sp.x, y: sp.y, visibility: elbowLM.visibility ?? 1 };
+    }
+    return { x: 0.5, y: 0.5, visibility: 0 };
+  }
 
-    return {
-      hand,
-      zoneId,
-      answerIndex,
-      x: pt?.x ?? 0,
-      y: pt?.y ?? 0,
-      vx: 0,
-      vy: 0,
-      armExtensionRatio: 0,
-      isInside: isInside4 || isInside5,
-      isValid: false,
-      isDynamicReach: false,
-    };
+  private _resetHeldState(): void {
+    this._heldDirection = null;
+    this._heldDuration = 0;
+    this._heldHand = null;
+  }
+
+  private _blockMutualExclusion(): null {
+    this._isMutualExclusionBlocked = true;
+    this._resetHeldState();
+    return null;
   }
 
   evaluateArm(
@@ -612,7 +566,7 @@ export class ArmReachAnswerSelector {
   }
 
   private _evaluateArm(
-    _hand: 'left' | 'right',
+    hand: 'left' | 'right',
     pos: TrackedHandPoint,
     prevPos: TrackedHandPoint | null,
     prevInside4: boolean,
@@ -622,251 +576,25 @@ export class ArmReachAnswerSelector {
     shoulderWidth: number,
     isBodyJumping: boolean,
   ): ArmEvaluationResult {
-    // 1. 가시성 최소 하드 가드 (0.30 미만은 완전 미검출 상태로 간주하여 차단)
-    const hardMinVis = this._judgmentConfig.hardMinVisibility;
-    if (pos.visibility < hardMinVis) {
-      return {
-        isValid: false,
-        score: 0,
-        gates: {
-          zonePenetration: 0,
-          armExtension: 0,
-          horizontalDominance: 0,
-          velocity: 0,
-          visibility: pos.visibility,
-        },
-        answerIndex: null,
-        zoneId: null,
-        vx: 0,
-        vy: 0,
-        armExtensionRatio: 0,
-        isInside: false,
-        isDynamicReach: false,
-      };
-    }
-
-    // 2. 존 판정 및 침투 깊이 (zonePenetration)
-    const inZone4 = isInsideZone(pos, this._zone4);
-    const inZone5 = isInsideZone(pos, this._zone5);
-    const isInside = inZone4 || inZone5;
-
-    let targetZone: FitnessZone;
-    let targetZoneId: 4 | 5;
-    let targetAnswerIndex: 0 | 1;
-
-    if (inZone4) {
-      targetZone = this._zone4;
-      targetZoneId = 4;
-      targetAnswerIndex = 0;
-    } else if (inZone5) {
-      targetZone = this._zone5;
-      targetZoneId = 5;
-      targetAnswerIndex = 1;
-    } else {
-      targetZoneId = pos.x < 0.5 ? 4 : 5;
-      targetZone = targetZoneId === 4 ? this._zone4 : this._zone5;
-      targetAnswerIndex = targetZoneId === 4 ? 0 : 1;
-    }
-
-    const normDist = calcNormalizedZoneDistance(pos, targetZone);
-
-    // normDist: 0(중심) -> 1.0, 1.0(경계) -> 0.50, 2.0(외부 1반폭) -> 0.0
-    const zonePenetrationScore = Math.max(0, Math.min(1, 1.0 - 0.5 * normDist));
-
-    // 3. 속도 계산
-    const { vx, vy } = calcVelocity(pos, prevPos, dt);
-
-    // Upward body jump check (Issue #287)
     if (isBodyJumping) {
       this._isJumpBlocked = true;
-      return {
-        isValid: false,
-        score: 0,
-        gates: {
-          zonePenetration: 0,
-          armExtension: 0,
-          horizontalDominance: 0,
-          velocity: 0,
-          visibility: pos.visibility,
-        },
-        answerIndex: null,
-        zoneId: null,
-        vx,
-        vy,
-        armExtensionRatio: 0,
-        isInside: false,
-        isDynamicReach: false,
-      };
     }
-
-    if (this._config.mode !== 'legacy_weighted') {
-      const effectiveShoulderWidth = shoulderWidth > EPSILON ? shoulderWidth : 0.20;
-      // lateral = (어깨X - 손목X) / 어깨너비 (Issue #287)
-      const lateral = calcLateralReach(pos.x, shoulderPos.x, shoulderWidth);
-      const dirConfig = this._judgmentConfig.direction ?? DEFAULT_ARM_DIRECTION_ANSWER_CONFIG;
-      const lateralThreshold = dirConfig.lateralThreshold; // 0.55
-
-      const isLeft = lateral >= lateralThreshold;
-      const isRight = lateral <= -lateralThreshold;
-
-      let targetAnswerIndex: 0 | 1 | null = null;
-      let targetZoneId: 4 | 5 | null = null;
-      if (isLeft) {
-        targetAnswerIndex = 0;
-        targetZoneId = 4;
-      } else if (isRight) {
-        targetAnswerIndex = 1;
-        targetZoneId = 5;
-      }
-
-      // Horizontal dominance: |가로 뻗음| >= 1.6 * |세로 뻗음|
-      const dx = Math.abs(pos.x - shoulderPos.x);
-      const dy = Math.abs(pos.y - shoulderPos.y);
-      const isHorizontalDominant = dx >= dirConfig.horizontalDominanceRatio * dy;
-
-      // Outward travel after window open
-      const baseWristX = _hand === 'left' ? this._baseLeftWristX : this._baseRightWristX;
-      const effectiveBaseX = baseWristX ?? prevPos?.x ?? pos.x;
-
-      let outwardTravel = 0;
-      if (isLeft) {
-        outwardTravel = effectiveBaseX - pos.x;
-      } else if (isRight) {
-        outwardTravel = pos.x - effectiveBaseX;
-      }
-      const minOutwardTravel = dirConfig.outwardTravelRatio * effectiveShoulderWidth;
-      const isOutwardTraveled = outwardTravel >= minOutwardTravel;
-
-      const isDirectionSatisfied = (isLeft || isRight) && isHorizontalDominant && !this._isJumpBlocked && pos.visibility >= hardMinVis;
-      const isValid = isDirectionSatisfied && isOutwardTraveled;
-
-      // Progress metrics
-      const lateralProgress = Math.min(1.0, Math.max(0, Math.abs(lateral) / lateralThreshold));
-      const dominanceProgress = dy > 0 ? Math.min(1.0, (dx / dy) / dirConfig.horizontalDominanceRatio) : 1.0;
-      const travelProgress = minOutwardTravel > 0 ? Math.min(1.0, Math.max(0, outwardTravel / minOutwardTravel)) : 1.0;
-      const visibilityScore = Math.max(0, Math.min(1, pos.visibility));
-      const armExtensionRatio = normalizeByShoulder(dx, effectiveShoulderWidth);
-      const isInside = (targetZoneId === 4 && inZone4) || (targetZoneId === 5 && inZone5);
-
-      const gates: ArmReachGateScores = {
-        zonePenetration: travelProgress,
-        armExtension: lateralProgress,
-        horizontalDominance: dominanceProgress,
-        velocity: travelProgress,
-        visibility: visibilityScore,
-      };
-
-      let score = 0;
-      if (isValid) {
-        const avg = (lateralProgress + dominanceProgress + travelProgress) / 3;
-        score = Math.max(this._judgmentConfig.confirmThreshold, Math.min(1.0, 0.70 + 0.30 * avg));
-      } else {
-        const avg = (lateralProgress * 0.4 + dominanceProgress * 0.3 + travelProgress * 0.3);
-        score = Math.min(this._judgmentConfig.confirmThreshold - 0.01, Math.max(0, avg * 0.69));
-      }
-
-      return {
-        isValid,
-        score,
-        gates,
-        answerIndex: targetAnswerIndex,
-        zoneId: targetZoneId,
-        vx,
-        vy,
-        armExtensionRatio,
-        isInside,
-        isDynamicReach: Math.abs(vx) >= this._config.dynamicMinHorizontalSpeed,
-        isDirectionSatisfied,
-      };
-    }
-
-    // Legacy Weighted Mode (Issue #249)
-    const armExtensionRatio = calcArmExtensionRatio(pos, shoulderPos, shoulderWidth);
-    const baseArmRatio = this._judgmentConfig.baselines.armExtensionRatio; // 0.25
-    const armExtensionScore = Math.max(0, Math.min(1, armExtensionRatio / (2 * baseArmRatio)));
-    const handSpeedY = Math.abs(vy);
-
-    // 6. 정적 손 위치 vs 동적 뻗기 보조 검증 (velocity & horizontalDominance)
-    const wasInZone = targetZoneId === 4 ? prevInside4 : prevInside5;
-    const baseSpeed = this._judgmentConfig.baselines.horizontalSpeed; // 0.25
-    const baseDominance = this._judgmentConfig.baselines.horizontalDominanceRatio; // 1.2
-
-    // Zone 4는 좌측 방향(vx < 0)이 바깥쪽(-vx > 0), Zone 5는 우측 방향(vx > 0)이 바깥쪽(vx > 0)
-    const outwardVx = targetZoneId === 4 ? -vx : vx;
-    const isInwardReturn = wasInZone && (outwardVx < -baseSpeed);
-
-    let isDynamicReach = false;
-    let velocityScore = 0;
-    let dominanceScore = 0;
-
-    if (wasInZone || prevPos === null) {
-      // 정적 손 위치 체류 모드
-      if (isInwardReturn) {
-        velocityScore = 0;
-        dominanceScore = 0;
-      } else if (prevPos === null || Math.hypot(vx, vy) < 0.05) {
-        // 정지 체류 상태: 프레임 간 속도가 거의 없는 정적 자세이므로 기본 기준값(0.50) 부여
-        if (outwardVx > 0) {
-          velocityScore = Math.max(0.5, Math.min(1, outwardVx / (2 * baseSpeed)));
-          const R = calcDominanceRatio(outwardVx, handSpeedY, 1e-4);
-          dominanceScore = Math.max(0.5, Math.min(1, R / (2 * baseDominance)));
-        } else {
-          velocityScore = 0.50;
-          dominanceScore = 0.50;
-        }
-      } else if (outwardVx > 0) {
-        velocityScore = Math.max(0, Math.min(1, outwardVx / (2 * baseSpeed)));
-        const R = outwardVx / (handSpeedY + 1e-4);
-        dominanceScore = Math.max(0, Math.min(1, R / (2 * baseDominance)));
-      } else {
-        // 존 안에서 몸통 방향으로 되돌아오는 이동
-        velocityScore = 0;
-        dominanceScore = 0;
-      }
-    } else {
-      // 동적 뻗기 진입 모드
-      isDynamicReach = true;
-      if (outwardVx > 0) {
-        velocityScore = Math.max(0, Math.min(1, outwardVx / (2 * baseSpeed)));
-        const R = outwardVx / (handSpeedY + 1e-4);
-        dominanceScore = Math.max(0, Math.min(1, R / (2 * baseDominance)));
-      } else {
-        // 역방향(안쪽 방향) 진입은 0점
-        velocityScore = 0;
-        dominanceScore = 0;
-      }
-    }
-
-    // 7. 가시성 점수
-    const visibilityScore = Math.max(0, Math.min(1, pos.visibility));
-
-    // 8. 5개 게이트 가중 신뢰도 종합 점수 계산
-    const gates: ArmReachGateScores = {
-      zonePenetration: zonePenetrationScore,
-      armExtension: armExtensionScore,
-      horizontalDominance: dominanceScore,
-      velocity: velocityScore,
-      visibility: visibilityScore,
-    };
-
-    const score = computeWeightedArmScore(gates, this._judgmentConfig.weights);
-    const effectiveThreshold = this._adaptiveTolerance
-      ? this._judgmentConfig.confirmThreshold / this._adaptiveTolerance.multiplier
-      : this._judgmentConfig.confirmThreshold;
-    const isValid = score >= effectiveThreshold && pos.visibility >= this._judgmentConfig.hardMinVisibility;
-
-    return {
-      isValid,
-      score,
-      gates,
-      answerIndex: targetAnswerIndex,
-      zoneId: targetZoneId,
-      vx,
-      vy,
-      armExtensionRatio,
-      isInside,
-      isDynamicReach,
-    };
+    const baseWristX = hand === 'left' ? this._baseLeftWristX : this._baseRightWristX;
+    const toleranceMultiplier = this._adaptiveTolerance ? this._adaptiveTolerance.multiplier : 1.0;
+    return this._gateEvaluator.evaluateArm({
+      hand,
+      pos,
+      prevPos,
+      prevInside4,
+      prevInside5,
+      dt,
+      shoulderPos,
+      shoulderWidth,
+      isBodyJumping,
+      isJumpBlocked: this._isJumpBlocked,
+      baseWristX,
+      toleranceMultiplier,
+    });
   }
 
   private _confirmAnswer(
@@ -979,33 +707,8 @@ export class ArmReachAnswerSelector {
     const lElbowLM = landmarks[POSE_LANDMARKS.LEFT_ELBOW];
     const rElbowLM = landmarks[POSE_LANDMARKS.RIGHT_ELBOW];
 
-    let leftPt: TrackedHandPoint;
-    if (palms?.leftPalm && (palms.leftPalm.confidence ?? 1) >= hardMinVis) {
-      const sp = this._toScreenPoint(palms.leftPalm);
-      leftPt = { x: sp.x, y: sp.y, visibility: palms.leftPalm.confidence ?? 1 };
-    } else if (lWristLM && (lWristLM.visibility ?? 1) >= hardMinVis) {
-      const sp = this._toScreenPoint(lWristLM);
-      leftPt = { x: sp.x, y: sp.y, visibility: lWristLM.visibility ?? 1 };
-    } else if (lElbowLM && (lElbowLM.visibility ?? 1) >= hardMinVis) {
-      const sp = this._toScreenPoint(lElbowLM);
-      leftPt = { x: sp.x, y: sp.y, visibility: lElbowLM.visibility ?? 1 };
-    } else {
-      leftPt = { x: 0.5, y: 0.5, visibility: 0 };
-    }
-
-    let rightPt: TrackedHandPoint;
-    if (palms?.rightPalm && (palms.rightPalm.confidence ?? 1) >= hardMinVis) {
-      const sp = this._toScreenPoint(palms.rightPalm);
-      rightPt = { x: sp.x, y: sp.y, visibility: palms.rightPalm.confidence ?? 1 };
-    } else if (rWristLM && (rWristLM.visibility ?? 1) >= hardMinVis) {
-      const sp = this._toScreenPoint(rWristLM);
-      rightPt = { x: sp.x, y: sp.y, visibility: rWristLM.visibility ?? 1 };
-    } else if (rElbowLM && (rElbowLM.visibility ?? 1) >= hardMinVis) {
-      const sp = this._toScreenPoint(rElbowLM);
-      rightPt = { x: sp.x, y: sp.y, visibility: rElbowLM.visibility ?? 1 };
-    } else {
-      rightPt = { x: 0.5, y: 0.5, visibility: 0 };
-    }
+    const leftPt = this._extractTrackedPoint(palms?.leftPalm, lWristLM, lElbowLM, hardMinVis);
+    const rightPt = this._extractTrackedPoint(palms?.rightPalm, rWristLM, rElbowLM, hardMinVis);
 
     // 양손 모두 가시성 미달 시 추적 유실
     if (leftPt.visibility < hardMinVis && rightPt.visibility < hardMinVis) {
@@ -1110,34 +813,20 @@ export class ArmReachAnswerSelector {
     if (this._config.mode !== 'legacy_weighted') {
       // Issue #287: Strict Mutual Exclusion (양팔 동시 유효 및 반대 방향 차단)
       if (leftEval.isValid && rightEval.isValid) {
-        this._isMutualExclusionBlocked = true;
-        this._heldDirection = null;
-        this._heldDuration = 0;
-        this._heldHand = null;
-        return null;
+        return this._blockMutualExclusion();
       }
       if (
         leftEval.answerIndex !== null &&
         rightEval.answerIndex !== null &&
         leftEval.answerIndex !== rightEval.answerIndex
       ) {
-        this._isMutualExclusionBlocked = true;
-        this._heldDirection = null;
-        this._heldDuration = 0;
-        this._heldHand = null;
-        return null;
+        return this._blockMutualExclusion();
       }
       if (leftEval.isValid && !rightEval.isValid) {
         if (rightEval.answerIndex !== null && rightEval.answerIndex !== leftEval.answerIndex) {
-          this._isMutualExclusionBlocked = true;
-          this._heldDirection = null;
-          this._heldDuration = 0;
-          this._heldHand = null;
-          return null;
+          return this._blockMutualExclusion();
         }
-        this._heldDirection = null;
-        this._heldDuration = 0;
-        this._heldHand = null;
+        this._resetHeldState();
         this._pendingIntent = null;
         return this._confirmAnswer(
           leftEval.answerIndex!,
@@ -1154,15 +843,10 @@ export class ArmReachAnswerSelector {
       }
       if (rightEval.isValid && !leftEval.isValid) {
         if (leftEval.answerIndex !== null && leftEval.answerIndex !== rightEval.answerIndex) {
-          this._isMutualExclusionBlocked = true;
-          this._heldDirection = null;
-          this._heldDuration = 0;
-          this._heldHand = null;
-          return null;
+          return this._blockMutualExclusion();
         }
-        this._heldDirection = null;
-        this._heldDuration = 0;
-        this._heldHand = null;
+        this._resetHeldState();
+        this._pendingIntent = null;
         return this._confirmAnswer(
           rightEval.answerIndex!,
           rightEval.zoneId!,
@@ -1188,12 +872,7 @@ export class ArmReachAnswerSelector {
 
       if (leftSatisfied && rightSatisfied) {
         if (leftEval.answerIndex !== rightEval.answerIndex) {
-          // 상반된 양팔 방향 -> 상호배제 차단 및 타이머 리셋
-          this._isMutualExclusionBlocked = true;
-          this._heldDirection = null;
-          this._heldDuration = 0;
-          this._heldHand = null;
-          return null;
+          return this._blockMutualExclusion();
         } else if (leftEval.answerIndex !== null) {
           candidateDir = leftEval.answerIndex;
           candidateHand = 'left';
@@ -1202,11 +881,7 @@ export class ArmReachAnswerSelector {
         }
       } else if (leftSatisfied && !rightSatisfied) {
         if (rightEval.answerIndex !== null && rightEval.answerIndex !== leftEval.answerIndex) {
-          this._isMutualExclusionBlocked = true;
-          this._heldDirection = null;
-          this._heldDuration = 0;
-          this._heldHand = null;
-          return null;
+          return this._blockMutualExclusion();
         }
         candidateDir = leftEval.answerIndex;
         candidateHand = 'left';
@@ -1214,11 +889,7 @@ export class ArmReachAnswerSelector {
         candidatePt = leftPt;
       } else if (rightSatisfied && !leftSatisfied) {
         if (leftEval.answerIndex !== null && leftEval.answerIndex !== rightEval.answerIndex) {
-          this._isMutualExclusionBlocked = true;
-          this._heldDirection = null;
-          this._heldDuration = 0;
-          this._heldHand = null;
-          return null;
+          return this._blockMutualExclusion();
         }
         candidateDir = rightEval.answerIndex;
         candidateHand = 'right';
@@ -1255,9 +926,7 @@ export class ArmReachAnswerSelector {
           );
         }
       } else {
-        this._heldDirection = null;
-        this._heldDuration = 0;
-        this._heldHand = null;
+        this._resetHeldState();
       }
 
       return null;
@@ -1267,23 +936,15 @@ export class ArmReachAnswerSelector {
     let selectedHand: 'left' | 'right' | null = null;
     let selectedEval: ArmEvaluationResult | null = null;
 
-    if (leftEval.isValid && rightEval.isValid) {
-      const dominanceRatio = this._judgmentConfig.dominanceRatio;
-      if (leftEval.score >= rightEval.score * dominanceRatio) {
-        selectedHand = 'left';
-        selectedEval = leftEval;
-      } else if (rightEval.score >= leftEval.score * dominanceRatio) {
-        selectedHand = 'right';
-        selectedEval = rightEval;
-      } else {
-        // 1.25배 미만일 때 판정 보류 (양손 동시 유효 상호 배제)
-        this._isMutualExclusionBlocked = true;
-        return null;
-      }
-    } else if (leftEval.isValid) {
+    const arb = this._gateEvaluator.arbitrateWeightedCandidates(leftEval, rightEval);
+    if (arb.isBlocked) {
+      this._isMutualExclusionBlocked = true;
+      return null;
+    }
+    if (arb.winner === 'left') {
       selectedHand = 'left';
       selectedEval = leftEval;
-    } else if (rightEval.isValid) {
+    } else if (arb.winner === 'right') {
       selectedHand = 'right';
       selectedEval = rightEval;
     }
@@ -1309,29 +970,21 @@ export class ArmReachAnswerSelector {
   }
 
   selectByFallback(choice: 0 | 1, currentTime = 0): ArmReachAnswerResult | null {
-    if (this._isConfirmed) {
-      return null;
-    }
+    if (this._isConfirmed) return null;
     const zoneId: 4 | 5 = choice === 0 ? 4 : 5;
     return this._confirmAnswer(choice, zoneId, 'fallback', currentTime, 'keyboard');
   }
 
   fromKeyboard(key: string, currentTime = 0): ArmReachAnswerResult | null {
-    if (key === '1') {
-      return this.selectByFallback(0, currentTime);
-    }
-    if (key === '2') {
-      return this.selectByFallback(1, currentTime);
-    }
+    if (key === '1') return this.selectByFallback(0, currentTime);
+    if (key === '2') return this.selectByFallback(1, currentTime);
     return null;
   }
 
   fromTouch(choiceOrZoneId: 0 | 1 | 4 | 5, currentTime = 0): ArmReachAnswerResult | null {
+    if (this._isConfirmed) return null;
     const choice: 0 | 1 = choiceOrZoneId === 1 || choiceOrZoneId === 5 ? 1 : 0;
     const zoneId: 4 | 5 = choice === 0 ? 4 : 5;
-    if (this._isConfirmed) {
-      return null;
-    }
     return this._confirmAnswer(choice, zoneId, 'fallback', currentTime, 'touch');
   }
 }

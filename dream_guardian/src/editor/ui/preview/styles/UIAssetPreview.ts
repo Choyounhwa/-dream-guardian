@@ -297,3 +297,189 @@ export function registerAssetPreview(): {
   lookupAssetContract();
   return { registered: true, exportEnabled: false, screen: "asset" };
 }
+
+// =========================================================================
+// UI-VIS-034: Preview Asset Cache, Decode Lifecycle & Bridge Validation
+// =========================================================================
+
+export interface AssetPreviewEntry {
+  readonly assetId: string;
+  readonly blobUrl: string;
+  readonly width: number;
+  readonly height: number;
+  readonly decoded: boolean;
+  readonly createdAt: number;
+}
+
+export interface AssetPreviewCacheOptions {
+  previewId?: string;
+  allowedOrigins?: readonly string[];
+  createObjectURL?: (blob: any) => string;
+  revokeObjectURL?: (url: string) => void;
+  imageDecoder?: (blobUrl: string, width?: number, height?: number) => Promise<{ width: number; height: number }>;
+}
+
+export class UIAssetPreviewCache {
+  private readonly _previewId: string;
+  private readonly _allowedOrigins: readonly string[];
+  private readonly _createObjectURL: (blob: any) => string;
+  private readonly _revokeObjectURL: (url: string) => void;
+  private readonly _imageDecoder: (blobUrl: string, width?: number, height?: number) => Promise<{ width: number; height: number }>;
+  private readonly _entries = new Map<string, AssetPreviewEntry>();
+
+  constructor(options?: AssetPreviewCacheOptions) {
+    this._previewId = options?.previewId ?? `preview-cache-${Date.now()}`;
+    this._allowedOrigins = options?.allowedOrigins ?? ["http://localhost:3000", "http://127.0.0.1:3000"];
+
+    this._createObjectURL =
+      options?.createObjectURL ??
+      (typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+        ? URL.createObjectURL.bind(URL)
+        : (_blob: any) => `blob:dg-preview-${Math.random().toString(36).slice(2, 9)}`);
+
+    this._revokeObjectURL =
+      options?.revokeObjectURL ??
+      (typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function"
+        ? URL.revokeObjectURL.bind(URL)
+        : (_url: string) => {});
+
+    this._imageDecoder =
+      options?.imageDecoder ??
+      (async (blobUrl: string, width?: number, height?: number) => {
+        if (typeof Image !== "undefined") {
+          return new Promise<{ width: number; height: number }>((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve({ width: img.naturalWidth || width || 100, height: img.naturalHeight || height || 100 });
+            img.onerror = () => resolve({ width: width || 100, height: height || 100 });
+            img.src = blobUrl;
+          });
+        }
+        return { width: width || 100, height: height || 100 };
+      });
+  }
+
+  get previewId(): string {
+    return this._previewId;
+  }
+
+  get allowedOrigins(): readonly string[] {
+    return this._allowedOrigins;
+  }
+
+  verifyOrigin(origin: string): boolean {
+    return validatePreviewBridgeOrigin(origin, this._allowedOrigins);
+  }
+
+  get activeUrlCount(): number {
+    return this._entries.size;
+  }
+
+  getEntry(assetId: string): AssetPreviewEntry | null {
+    return this._entries.get(assetId) ?? null;
+  }
+
+  has(assetId: string): boolean {
+    return this._entries.has(assetId);
+  }
+
+  async resolveAssetUrl(asset: {
+    id: string;
+    bytes?: Uint8Array | ArrayBuffer;
+    mimeType?: string;
+    width?: number;
+    height?: number;
+  }): Promise<string> {
+    const existing = this._entries.get(asset.id);
+    if (existing) {
+      return existing.blobUrl;
+    }
+
+    let blobUrl = "";
+    if (asset.bytes) {
+      const bytesPart = asset.bytes as any;
+      const blob = typeof Blob !== "undefined"
+        ? new Blob([bytesPart], { type: asset.mimeType || "image/png" })
+        : { size: (asset.bytes as any).byteLength || 0, type: asset.mimeType || "image/png" };
+      blobUrl = this._createObjectURL(blob);
+    } else {
+      blobUrl = `blob:dg-asset-${asset.id}`;
+    }
+
+    const dims = await this._imageDecoder(blobUrl, asset.width, asset.height);
+
+    const entry: AssetPreviewEntry = {
+      assetId: asset.id,
+      blobUrl,
+      width: dims.width,
+      height: dims.height,
+      decoded: true,
+      createdAt: Date.now(),
+    };
+
+    this._entries.set(asset.id, entry);
+    return blobUrl;
+  }
+
+  releaseAsset(assetId: string): boolean {
+    const entry = this._entries.get(assetId);
+    if (!entry) return false;
+    this._revokeObjectURL(entry.blobUrl);
+    this._entries.delete(assetId);
+    return true;
+  }
+
+  clear(): void {
+    for (const entry of this._entries.values()) {
+      this._revokeObjectURL(entry.blobUrl);
+    }
+    this._entries.clear();
+  }
+
+  dispose(): void {
+    this.clear();
+  }
+}
+
+export function createAssetPreviewCache(options?: AssetPreviewCacheOptions): UIAssetPreviewCache {
+  return new UIAssetPreviewCache(options);
+}
+
+export function validatePreviewBridgeOrigin(
+  origin: string,
+  allowedOrigins: readonly string[] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+): boolean {
+  if (!origin || origin === "*" || origin === "null") {
+    return false;
+  }
+  return allowedOrigins.includes(origin);
+}
+
+export function filterSafeAssetBridgePayload(payload: unknown): Record<string, unknown> {
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  const raw = payload as Record<string, unknown>;
+  const safe: Record<string, unknown> = {};
+
+  const allowedKeys = [
+    "assetId",
+    "bytes",
+    "mimeType",
+    "width",
+    "height",
+    "contentHash",
+    "name",
+    "format",
+    "aspectRatio",
+    "byteLength",
+  ];
+
+  for (const key of allowedKeys) {
+    if (raw[key] !== undefined) {
+      safe[key] = raw[key];
+    }
+  }
+
+  return safe;
+}

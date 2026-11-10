@@ -11,6 +11,7 @@
 
 import { imageLoader } from '../utils/UIImageLoader.js';
 import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
+import type { BaseSlotOverride } from '../types/presentation.js';
 
 export const BOSS_SLOT_IDS = [
   'boss_visual',
@@ -38,22 +39,7 @@ export interface BossBounds {
   isProtected?: boolean;
 }
 
-export interface BossSlotOverride {
-  text?: string;
-  color?: string;
-  textColor?: string;
-  fillColor?: string;
-  borderColor?: string;
-  borderWidth?: number;
-  glowColor?: string;
-  fontSize?: number;
-  visible?: boolean;
-  opacity?: number;
-  x?: number;
-  y?: number;
-  w?: number;
-  h?: number;
-}
+export interface BossSlotOverride extends BaseSlotOverride {}
 
 export interface BossPresentationContext {
   presentationDocument?: UIPresentationDocument;

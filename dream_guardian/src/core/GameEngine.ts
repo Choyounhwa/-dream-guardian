@@ -21,6 +21,7 @@ export class GameEngine {
   private _running = false;
   private _paused = false;
   private _gamePaused = false;
+  private _frozen = false;
   private _lastTimestamp = -1;
   private _rafId = 0;
   private _elapsedTime = 0;
@@ -123,6 +124,19 @@ export class GameEngine {
     return this._gamePaused;
   }
 
+  /**
+   * [DEVUI-003] (Issue #563) 개발 모드 시간 정지.
+   * frozen 이면 update(타이머·전투·모션 판정)를 건너뛰고 render만 수행한다.
+   */
+  setFrozen(frozen: boolean): void {
+    this._frozen = frozen;
+  }
+
+  /** 개발 모드 시간 정지 여부 */
+  get frozen(): boolean {
+    return this._frozen;
+  }
+
   /** 누적 시간 및 프레임 카운터 초기화 */
   reset(): void {
     this._elapsedTime = 0;
@@ -161,6 +175,12 @@ export class GameEngine {
     // 음수 방지
     if (deltaMs < 0) {
       deltaMs = 0;
+    }
+
+    // [DEVUI-003] 시간 정지: 기준 타임스탬프만 갱신(해제 시 델타 스파이크 방지)하고 render만 수행
+    if (this._frozen) {
+      this._callbacks.render();
+      return;
     }
 
     const dt = deltaMs / 1000; // 초 단위 변환

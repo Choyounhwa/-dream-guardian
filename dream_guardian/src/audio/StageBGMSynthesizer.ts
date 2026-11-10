@@ -5,12 +5,14 @@
  * 사용하여 4/4 박자 8비트 드럼(Kick, Snare, Hi-hat) 및 드라이빙 베이스 라인을 실시간으로 합성 및 루프 재생합니다.
  *
  * @see Issue #305 [AUDIO-BGM-001]
+ * @see Issue #630 [REFACTOR-DRY-003]
  */
 
 import {
   type BGMAudioConfig,
   DEFAULT_BGM_AUDIO_CONFIG,
 } from '../../config/audio.config.js';
+import { createAudioContext } from './AudioContextFactory.js';
 
 export interface StageBGMSynthesizerOptions {
   audioContext?: AudioContext;
@@ -75,13 +77,8 @@ export class StageBGMSynthesizer {
   }
 
   private _ensureAudioContext(): AudioContext | null {
-    if (!this._audioCtx && typeof window !== 'undefined') {
-      const AudioCtxClass =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioCtxClass) {
-        this._audioCtx = new AudioCtxClass();
-      }
+    if (!this._audioCtx) {
+      this._audioCtx = createAudioContext();
     }
     if (this._audioCtx && !this._masterGain) {
       this._initMasterNodes();

@@ -18,6 +18,7 @@ import {
 import { HazardZoneRenderer } from './HazardZoneRenderer.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
 
 export interface BeatHUDBounds {
   x: number;
@@ -232,14 +233,16 @@ export class BeatHUDRenderer {
   }
 
   getExerciseBadgeBounds(vw: number, vh: number): BeatHUDBounds {
+    const layout = UI_LAYOUT.beatHud?.exerciseBadge;
+    const cyRatio = UI_LAYOUT.beatHud?.cyRatio ?? 0.52;
     const cx = vw / 2;
-    const cy = vh * 0.52;
+    const cy = vh * cyRatio;
     const scaleX = vw / 1080;
     const scaleY = vh / 2160;
-    const w = 480 * scaleX;
-    const h = 100 * scaleY;
-    const x = cx - w / 2;
-    const y = cy - 80 * scaleY;
+    const w = (layout?.w ?? 480) * scaleX;
+    const h = (layout?.h ?? 100) * scaleY;
+    const x = layout?.x !== undefined ? layout.x * scaleX : (cx - w / 2);
+    const y = layout?.y !== undefined ? layout.y * scaleY : (cy - 80 * scaleY);
     const override = this._presentationContext?.exerciseBadge;
     return {
       x: override?.x ?? x,
@@ -252,16 +255,18 @@ export class BeatHUDRenderer {
   }
 
   getBeatDotsBounds(vw: number, vh: number): BeatHUDBounds {
+    const layout = UI_LAYOUT.beatHud?.beatDots;
+    const cyRatio = UI_LAYOUT.beatHud?.cyRatio ?? 0.52;
     const cx = vw / 2;
-    const cy = vh * 0.52;
+    const cy = vh * cyRatio;
     const scaleX = vw / 1080;
     const scaleY = vh / 2160;
-    const dotY = cy + 260 * scaleY;
-    const dotSpacing = 44 * scaleX;
-    const w = (7 * dotSpacing) + 40 * scaleX;
-    const h = 40 * scaleY;
-    const x = cx - w / 2;
-    const y = dotY - h / 2;
+    const dotSpacing = (layout?.dotSpacing ?? 44) * scaleX;
+    const dotY = layout?.dotY !== undefined ? layout.dotY * scaleY : (cy + (layout?.offsetY ?? 260) * scaleY);
+    const w = layout?.w !== undefined ? layout.w * scaleX : ((7 * dotSpacing) + 40 * scaleX);
+    const h = (layout?.h ?? 40) * scaleY;
+    const x = layout?.x !== undefined ? layout.x * scaleX : (cx - w / 2);
+    const y = layout?.y !== undefined ? layout.y * scaleY : (dotY - h / 2);
     const override = this._presentationContext?.beatDots;
     return {
       x: override?.x ?? x,
@@ -274,15 +279,18 @@ export class BeatHUDRenderer {
   }
 
   getStepCounterBounds(vw: number, vh: number): BeatHUDBounds {
+    const layout = UI_LAYOUT.beatHud?.stepCounter;
+    const dotLayout = UI_LAYOUT.beatHud?.beatDots;
+    const cyRatio = UI_LAYOUT.beatHud?.cyRatio ?? 0.52;
     const cx = vw / 2;
-    const cy = vh * 0.52;
+    const cy = vh * cyRatio;
     const scaleX = vw / 1080;
     const scaleY = vh / 2160;
-    const dotY = cy + 260 * scaleY;
-    const y = dotY + 44 * scaleY - 20 * scaleY;
-    const w = 320 * scaleX;
-    const h = 40 * scaleY;
-    const x = cx - w / 2;
+    const dotY = dotLayout?.dotY !== undefined ? dotLayout.dotY * scaleY : (cy + (dotLayout?.offsetY ?? 260) * scaleY);
+    const w = (layout?.w ?? 320) * scaleX;
+    const h = (layout?.h ?? 40) * scaleY;
+    const x = layout?.x !== undefined ? layout.x * scaleX : (cx - w / 2);
+    const y = layout?.y !== undefined ? layout.y * scaleY : (dotY + 44 * scaleY - 20 * scaleY);
     const override = this._presentationContext?.stepCounter;
     return {
       x: override?.x ?? x,
@@ -295,14 +303,16 @@ export class BeatHUDRenderer {
   }
 
   getHazardGuideBounds(vw: number, vh: number): BeatHUDBounds {
+    const layout = UI_LAYOUT.beatHud?.hazardGuide;
+    const cyRatio = UI_LAYOUT.beatHud?.cyRatio ?? 0.52;
     const cx = vw / 2;
-    const cy = vh * 0.52;
+    const cy = vh * cyRatio;
     const scaleX = vw / 1080;
     const scaleY = vh / 2160;
-    const w = 500 * scaleX;
-    const h = 120 * scaleY;
-    const x = cx - w / 2;
-    const y = cy - 80 * scaleY;
+    const w = (layout?.w ?? 500) * scaleX;
+    const h = (layout?.h ?? 120) * scaleY;
+    const x = layout?.x !== undefined ? layout.x * scaleX : (cx - w / 2);
+    const y = layout?.y !== undefined ? layout.y * scaleY : (cy - 80 * scaleY);
     const override = this._presentationContext?.hazardGuide;
     return {
       x: override?.x ?? x,
@@ -360,8 +370,9 @@ export class BeatHUDRenderer {
   }
 
   render(ctx: CanvasRenderingContext2D, vw: number, vh: number, state: BeatHUDState): void {
+    const cyRatio = UI_LAYOUT.beatHud?.cyRatio ?? 0.52;
     const cx = vw / 2;
-    const cy = vh * 0.52;
+    const cy = vh * cyRatio;
 
     ctx.save();
     ctx.textAlign = 'center';
@@ -392,17 +403,24 @@ export class BeatHUDRenderer {
       };
       const guide = hazardGuide[hazard];
 
-      ctx.font = UIText.getFont('subheading', scaleX, 'bold', 'sans-serif', 24);
+      const hazLayout = UI_LAYOUT.beatHud?.hazardGuide;
+      const hazScale = Math.max(0.5, Math.min(3.0, hazLayout?.textScale ?? 1.0));
+      const titleScale = Math.max(0.5, Math.min(3.0, hazLayout?.titleTextScale ?? hazScale));
+      const subtitleScale = Math.max(0.5, Math.min(3.0, hazLayout?.subtitleTextScale ?? hazScale));
+      const titleY = hazLayout?.titleOffsetY !== undefined ? cy + hazLayout.titleOffsetY : (cy - 60);
+      const subtitleY = hazLayout?.subtitleOffsetY !== undefined ? cy + hazLayout.subtitleOffsetY : (cy - 5);
+
+      ctx.font = UIText.getFont('subheading', scaleX * titleScale, 'bold', 'sans-serif', 24);
       ctx.fillStyle = guide.color;
       ctx.shadowColor = guide.color;
       ctx.shadowBlur = 24;
-      ctx.fillText(guide.title, cx, cy - 60);
+      ctx.fillText(guide.title, cx, titleY);
       ctx.shadowBlur = 0;
 
       // Phase A 보스 장판 회피 힌트 (A11Y-001: 최소 24px 하한선 보장)
-      ctx.font = UIText.getFont('label', scaleX, 'bold', 'sans-serif', 24);
+      ctx.font = UIText.getFont('label', scaleX * subtitleScale, 'bold', 'sans-serif', 24);
       ctx.fillStyle = BEAT_HUD_CONFIG.TEXT_COLOR_SUBTITLE;
-      ctx.fillText(guide.subtitle, cx, cy - 5);
+      ctx.fillText(guide.subtitle, cx, subtitleY);
 
       // 3. 3D 원근 그리드 바닥 보스 장판 렌더링 (Issue #228 - RENDER-HAZARD-001)
       this._hazardRenderer.render(ctx, vw, vh, {
@@ -419,29 +437,38 @@ export class BeatHUDRenderer {
       const guideSubtitle = badgeOverride?.subtitle ?? displayConfig.guideSubtitle;
       const titleColor = badgeOverride?.color ?? BEAT_HUD_CONFIG.TITLE_COLOR_CENTER;
 
-      ctx.font = UIText.getFont('subheading', scaleX, 'bold', 'sans-serif', 24);
+      const badgeLayout = UI_LAYOUT.beatHud?.exerciseBadge;
+      const badgeScale = Math.max(0.5, Math.min(3.0, badgeLayout?.textScale ?? 1.0));
+      const titleScale = Math.max(0.5, Math.min(3.0, badgeLayout?.titleTextScale ?? badgeScale));
+      const subtitleScale = Math.max(0.5, Math.min(3.0, badgeLayout?.subtitleTextScale ?? badgeScale));
+      const titleY = badgeLayout?.titleOffsetY !== undefined ? cy + badgeLayout.titleOffsetY : (cy - 60);
+      const subtitleY = badgeLayout?.subtitleOffsetY !== undefined ? cy + badgeLayout.subtitleOffsetY : (cy - 5);
+
+      ctx.font = UIText.getFont('subheading', scaleX * titleScale, 'bold', 'sans-serif', 24);
       ctx.fillStyle = titleColor;
       ctx.shadowColor = titleColor;
       ctx.shadowBlur = 24;
-      ctx.fillText(guideTitle, cx, cy - 60);
+      ctx.fillText(guideTitle, cx, titleY);
       ctx.shadowBlur = 0;
 
-      ctx.font = UIText.getFont('label', scaleX, 'bold', 'sans-serif', 24);
+      ctx.font = UIText.getFont('label', scaleX * subtitleScale, 'bold', 'sans-serif', 24);
       ctx.fillStyle = BEAT_HUD_CONFIG.TEXT_COLOR_SUBTITLE;
-      ctx.fillText(guideSubtitle, cx, cy - 5);
+      ctx.fillText(guideSubtitle, cx, subtitleY);
     }
 
-    const dotY = cy + 260 * scaleY;
+    const dotLayout = UI_LAYOUT.beatHud?.beatDots;
+    const dotY = dotLayout?.dotY !== undefined ? dotLayout.dotY * scaleY : (cy + (dotLayout?.offsetY ?? 260) * scaleY);
 
     // 3.5 원형 인디케이터 (옵션 활성화 시)
     if (this._showBeatDots) {
       const completedBeats = state.completedExerciseBeats ?? 0;
       const totalBeats = state.exerciseBeats ?? BEAT_HUD_CONFIG.TOTAL_BEATS;
       const dotScale = totalBeats > 8 ? 8 / totalBeats : 1.0;
-      const dotRadius = BEAT_HUD_CONFIG.DOT_RADIUS * scaleX * dotScale;
-      const dotGap = BEAT_HUD_CONFIG.DOT_GAP * scaleX * dotScale;
+      const dotRadius = (dotLayout?.dotRadius ?? BEAT_HUD_CONFIG.DOT_RADIUS) * scaleX * dotScale;
+      const dotGap = (dotLayout?.dotSpacing ?? BEAT_HUD_CONFIG.DOT_GAP) * scaleX * dotScale;
       const startX = cx - ((totalBeats - 1) * dotGap) / 2;
       const indicatorY = cy + BEAT_HUD_CONFIG.DOT_OFFSET_Y;
+      const dotTextScale = Math.max(0.5, Math.min(3.0, dotLayout?.textScale ?? 1.0));
 
       // 이미지 에셋 조회 (Issue #291: UI-ASSET-010)
       const activeDotImg = imageLoader.get('hud', 'beatDotActive');
@@ -485,18 +512,21 @@ export class BeatHUDRenderer {
 
         // 인디케이터 번호 (A11Y-001: 최소 24px 하한선 보장)
         const fontMin = totalBeats > 8 ? 16 : 24;
-        ctx.font = UIText.getFont('caption', scaleX * dotScale, 'bold', 'sans-serif', fontMin);
+        ctx.font = UIText.getFont('caption', scaleX * dotScale * dotTextScale, 'bold', 'sans-serif', fontMin);
         ctx.fillStyle = i < completedBeats ? '#000000' : 'rgba(255, 255, 255, 0.5)';
         ctx.fillText(`${i + 1}`, bx, indicatorY);
       }
     }
 
     // 4. 누적 운동 통계 표시 (Issue #368: 4개 모드별 누적 라벨 및 올바른 단위 구분)
+    const stepLayout = UI_LAYOUT.beatHud?.stepCounter;
+    const stepTextScale = Math.max(0.5, Math.min(3.0, stepLayout?.textScale ?? 1.0));
+    const stepTextY = stepLayout?.textY !== undefined ? stepLayout.textY * scaleY : (dotY + (stepLayout?.textOffsetY ?? 60));
     const totalSteps = state.totalSteps ?? 0;
     const stepColor = this._presentationContext?.stepCounter?.color ?? BEAT_HUD_CONFIG.STEP_COUNT_COLOR;
-    ctx.font = UIText.getFont('body', scaleX, 'bold', 'sans-serif', 24);
+    ctx.font = UIText.getFont('body', scaleX * stepTextScale, 'bold', 'sans-serif', 24);
     ctx.fillStyle = stepColor;
-    ctx.fillText(`${displayConfig.cumulativeLabel}: ${totalSteps}${displayConfig.unit}`, cx, dotY + 60);
+    ctx.fillText(`${displayConfig.cumulativeLabel}: ${totalSteps}${displayConfig.unit}`, cx, stepTextY);
 
     ctx.restore();
   }

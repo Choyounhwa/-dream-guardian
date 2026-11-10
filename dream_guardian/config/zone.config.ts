@@ -7,6 +7,8 @@
  * - HEAD_ZONES ∩ HIP_ZONES = ∅ (머리-골반 충돌 원천 차단)
  */
 
+import { UI_LAYOUT } from './ui.config.js';
+
 export interface FitnessZone {
   id: number;
   label: string;
@@ -151,12 +153,15 @@ export function getAnswerButtonLayouts(
   const z5 = DEFAULT_FITNESS_ZONES.find((z) => z.id === 5)!;
 
   const scaleY = virtualHeight / 2160;
+  const cfg = UI_LAYOUT.question?.answerButtons;
+  const buttonHeight = cfg?.height ?? 250;
+  const gapY = cfg?.gapY ?? 26;
 
   // 너비는 4, 5번 존의 실제 픽셀 너비와 일치 (0.26 * 1080 = 281px)
   const width = Math.round(z4.width * virtualWidth);
-  const height = Math.round(250 * scaleY);
+  const height = Math.round(buttonHeight * scaleY);
   // Y축은 4, 5번 존 하단(y: 0.24 + height: 0.16 = 0.40 -> 864px) 바로 아래(890px)
-  const y = Math.round((z4.y + z4.height) * virtualHeight + 26 * scaleY);
+  const y = Math.round((z4.y + z4.height) * virtualHeight + gapY * scaleY);
 
   const x0 = Math.round(z4.x * virtualWidth);
   const x1 = Math.round(z5.x * virtualWidth);

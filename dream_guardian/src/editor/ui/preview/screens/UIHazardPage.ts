@@ -45,11 +45,10 @@ import type {
   UIPresentationDocument,
   UIPresentationPageId,
 } from '../../../../data/UIPresentation.js';
-import {
-  ARTBOARD_WIDTH,
-  ARTBOARD_HEIGHT,
-  defaultPageAdapterRegistry,
-} from '../UIPageAdapters.js';
+import { defaultPageAdapterRegistry } from '../UIPageAdapters.js';
+
+export const ARTBOARD_WIDTH = 1080;
+export const ARTBOARD_HEIGHT = 2160;
 import { DEFAULT_FITNESS_ZONES } from '../../../../../config/zone.config.js';
 import type { PhaseAHazardPattern } from '../../../../../config/phase-a-hazard.config.js';
 

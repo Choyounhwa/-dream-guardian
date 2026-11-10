@@ -59,6 +59,18 @@ import {
   HAZARD_PAGE_ID,
   registerHazardPageAdapter,
 } from './screens/UIHazardPage';
+import {
+  bossPageAdapter,
+  BOSS_BATTLE_PAGE_ID,
+  BOSS_CLIMAX_PAGE_ID,
+  registerBossPageAdapter,
+} from './screens/UIBossPage';
+import {
+  resultPageAdapter,
+  RESULT_PAGE_ID,
+  STAGE_RESULT_PAGE_ID,
+  registerResultPageAdapter,
+} from './screens/UIResultPage';
 
 export const ARTBOARD_WIDTH = 1080;
 export const ARTBOARD_HEIGHT = 2160;
@@ -166,6 +178,7 @@ export interface PageRenderBounds {
   width: number;
   height: number;
   isProtected?: boolean;
+  isSelected?: boolean;
 }
 
 export interface PageRenderContext {
@@ -241,6 +254,8 @@ registerPlayReadyPageAdapter(defaultPageAdapterRegistry);
 registerRunningQuestionPageAdapter(defaultPageAdapterRegistry);
 registerAnswerPageAdapter(defaultPageAdapterRegistry);
 registerHazardPageAdapter(defaultPageAdapterRegistry);
+registerBossPageAdapter(defaultPageAdapterRegistry);
+registerResultPageAdapter(defaultPageAdapterRegistry);
 
 export { homePageAdapter, MAIN_HOME_PAGE_ID, registerHomePageAdapter };
 export {
@@ -284,6 +299,18 @@ export {
   HAZARD_EVADE_PAGE_ID,
   HAZARD_PAGE_ID,
   registerHazardPageAdapter,
+};
+export {
+  bossPageAdapter,
+  BOSS_BATTLE_PAGE_ID,
+  BOSS_CLIMAX_PAGE_ID,
+  registerBossPageAdapter,
+};
+export {
+  resultPageAdapter,
+  RESULT_PAGE_ID,
+  STAGE_RESULT_PAGE_ID,
+  registerResultPageAdapter,
 };
 
 export function registerPageAdapter(pageId: string, adapter: PageAdapter): void {

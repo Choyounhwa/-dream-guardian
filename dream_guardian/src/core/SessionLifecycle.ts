@@ -9,11 +9,15 @@
  * @see Issue #231 [BUG-SESSION-EXIT-001]
  */
 
+import type { AssaultHandoverSnapshot } from '../game/assault/AssaultProgressController.js';
+
 export class SessionLifecycle {
   private _sessionId = 0;
   private readonly _pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
   private _hasResultShown = false;
   private _isTestSession = false;
+  private _activeAssaultSessionToken: string | number | null = null;
+  private _lastHandoverSnapshot: AssaultHandoverSnapshot | null = null;
 
   /** 현재 세션 고유 식별자 (재시작/메뉴복귀 시마다 증가) */
   get sessionId(): number {
@@ -40,6 +44,72 @@ export class SessionLifecycle {
     this._isTestSession = isTest;
   }
 
+  /** 활성 assault 세션 토큰 (문자열 또는 숫자) */
+  get activeAssaultSessionToken(): string | number | null {
+    return this._activeAssaultSessionToken;
+  }
+
+  /** 활성 assault 세션 토큰 등록 */
+  setActiveAssaultSessionToken(token: string | number | null): void {
+    this._activeAssaultSessionToken = token;
+  }
+
+  /** 보관된 최근 결전 인계 스냅샷 */
+  get lastHandoverSnapshot(): AssaultHandoverSnapshot | null {
+    return this._lastHandoverSnapshot;
+  }
+
+  /**
+   * assault 세션 종료 의도 단일 권위 처리 (BOSS-ASSAULT-24 / Issue #526)
+   *
+   * @param intent 종료 의도 ('game_over' | 'handover_climax')
+   * @param snapshot 인계 스냅샷 (handover_climax 시)
+   * @param sessionToken 요청을 보낸 세션 토큰 (이전 세션 검증용)
+   * @returns 처리 성공 여부 (중복, 만료된 토큰, 미지원 의도 시 false)
+   */
+  handleAssaultIntent(
+    intent: string,
+    snapshot?: AssaultHandoverSnapshot | null,
+    sessionToken?: string | number | null,
+  ): boolean {
+    // 1. 세션 토큰 검증: 활성 세션 토큰이 없거나, 전달된 토큰이 활성 토큰과 일치하지 않으면 차단
+    if (
+      this._activeAssaultSessionToken === null ||
+      (sessionToken !== undefined &&
+        sessionToken !== null &&
+        sessionToken !== this._activeAssaultSessionToken)
+    ) {
+      return false;
+    }
+
+    // 2. 지원하는 종료 의도인지 확인
+    if (intent !== 'game_over' && intent !== 'handover_climax') {
+      return false;
+    }
+
+    // 3. 단일 결과 전환 권위 확인 (이미 결과가 표시되었거나 중복 호출 시 false)
+    if (!this.claimResultTransition()) {
+      return false;
+    }
+
+    // 4. 인계 스냅샷 보관 (handover_climax 시)
+    if (intent === 'handover_climax') {
+      this._lastHandoverSnapshot = snapshot ?? null;
+    } else {
+      this._lastHandoverSnapshot = null;
+    }
+
+    return true;
+  }
+
+  /**
+   * 활성 assault 세션 토큰 유효성 검사
+   */
+  isValidAssaultToken(token?: string | number | null): boolean {
+    if (this._activeAssaultSessionToken === null) return false;
+    return this._activeAssaultSessionToken === token;
+  }
+
   /**
    * 새 세션 시작 (startChapter 등)
    * 이전 세션의 모든 예약을 취소하고 세션 ID를 갱신
@@ -48,6 +118,8 @@ export class SessionLifecycle {
     this.cancelAllReservations();
     this._sessionId++;
     this._hasResultShown = false;
+    this._activeAssaultSessionToken = null;
+    this._lastHandoverSnapshot = null;
     if (typeof optionsOrIsTest === 'boolean') {
       this._isTestSession = optionsOrIsTest;
     } else if (optionsOrIsTest && typeof optionsOrIsTest === 'object') {
@@ -74,6 +146,8 @@ export class SessionLifecycle {
     this._sessionId++;
     this._hasResultShown = false;
     this._isTestSession = false;
+    this._activeAssaultSessionToken = null;
+    this._lastHandoverSnapshot = null;
   }
 
   /**

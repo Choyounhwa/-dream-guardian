@@ -17,6 +17,12 @@
 
 import type { ReadyPositionRenderState } from '../game/ReadyPositionController.js';
 import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
+
+function clampTextScale(scale: number | undefined): number {
+  if (scale === undefined || Number.isNaN(scale)) return 1.0;
+  return Math.max(0.5, Math.min(3.0, scale));
+}
 
 export interface ReadyPositionRenderOptions {
   time?: number;
@@ -232,10 +238,11 @@ export class ReadyPositionRenderer {
     const scaleX = width / 1080;
     const scaleY = height / 2160;
     const ctx = this._resolveContext(context);
-    const baseW = 800 * scaleX;
-    const baseH = 100 * scaleY;
-    const baseX = (width - baseW) / 2;
-    const baseY = 180 * scaleY;
+    const layout = UI_LAYOUT.ready?.headerMessage ?? { x: 140, y: 180, w: 800, h: 100, textScale: 1.0 };
+    const baseW = layout.w * scaleX;
+    const baseH = layout.h * scaleY;
+    const baseX = layout.x * scaleX;
+    const baseY = layout.y * scaleY;
 
     const x = ctx?.headerMessage?.x !== undefined ? ctx.headerMessage.x * scaleX : baseX;
     const y = ctx?.headerMessage?.y !== undefined ? ctx.headerMessage.y * scaleY : baseY;
@@ -256,10 +263,11 @@ export class ReadyPositionRenderer {
     const scaleX = width / 1080;
     const scaleY = height / 2160;
     const ctx = this._resolveContext(context);
-    const baseW = 400 * scaleX;
-    const baseH = 400 * scaleY;
-    const baseX = width * 0.5 - baseW / 2;
-    const baseY = height * 0.46 - baseH / 2;
+    const layout = UI_LAYOUT.ready?.countdown ?? { x: 340, y: 794, w: 400, h: 400, textScale: 1.0 };
+    const baseW = layout.w * scaleX;
+    const baseH = layout.h * scaleY;
+    const baseX = layout.x * scaleX;
+    const baseY = layout.y * scaleY;
 
     const x = ctx?.countdown?.x !== undefined ? ctx.countdown.x * scaleX : baseX;
     const y = ctx?.countdown?.y !== undefined ? ctx.countdown.y * scaleY : baseY;
@@ -280,10 +288,11 @@ export class ReadyPositionRenderer {
     const scaleX = width / 1080;
     const scaleY = height / 2160;
     const ctx = this._resolveContext(context);
-    const baseW = 800 * scaleX;
-    const baseH = 80 * scaleY;
-    const baseX = (width - baseW) / 2;
-    const baseY = height * 0.88 - baseH / 2;
+    const layout = UI_LAYOUT.ready?.skipNotice ?? { x: 140, y: 1861, w: 800, h: 80, textScale: 1.0 };
+    const baseW = layout.w * scaleX;
+    const baseH = layout.h * scaleY;
+    const baseX = layout.x * scaleX;
+    const baseY = layout.y * scaleY;
 
     const x = ctx?.skipNotice?.x !== undefined ? ctx.skipNotice.x * scaleX : baseX;
     const y = ctx?.skipNotice?.y !== undefined ? ctx.skipNotice.y * scaleY : baseY;
@@ -588,9 +597,11 @@ export class ReadyPositionRenderer {
     const cx = bounds.x + bounds.w / 2;
     const y = bounds.y + bounds.h / 2;
 
-    const fontSize = override?.fontSize !== undefined
+    const textScale = clampTextScale(UI_LAYOUT.ready?.headerMessage?.textScale);
+    const baseFontSize = override?.fontSize !== undefined
       ? override.fontSize * (width / 1080)
       : Math.max(24, width * 0.032);
+    const fontSize = baseFontSize * textScale;
 
     ctx.save();
     ctx.textAlign = 'center';
@@ -627,6 +638,7 @@ export class ReadyPositionRenderer {
     const cx = bounds.x + bounds.w / 2;
     const cy = bounds.y + bounds.h / 2;
     const isStart = state.currentCount <= 0;
+    const textScale = clampTextScale(UI_LAYOUT.ready?.countdown?.textScale);
 
     ctx.save();
     ctx.textAlign = 'center';
@@ -637,7 +649,8 @@ export class ReadyPositionRenderer {
       const baseFontSize = override?.fontSize !== undefined
         ? override.fontSize * (width / 1080)
         : Math.max(64, width * 0.09);
-      ctx.font = `900 ${baseFontSize}px sans-serif`;
+      const fontSize = baseFontSize * textScale;
+      ctx.font = `900 ${fontSize}px sans-serif`;
       ctx.fillStyle = override?.color ?? '#4DFFAA';
       ctx.shadowColor = override?.shadowColor ?? (override?.color ?? '#4DFFAA');
       ctx.shadowBlur = override?.shadowBlur ?? 32;
@@ -659,7 +672,7 @@ export class ReadyPositionRenderer {
       const baseFontSize = override?.fontSize !== undefined
         ? override.fontSize * (width / 1080)
         : Math.max(90, width * 0.13);
-      const fontSize = baseFontSize * pulseScale;
+      const fontSize = baseFontSize * pulseScale * textScale;
 
       ctx.font = `900 ${fontSize}px sans-serif`;
       ctx.fillStyle = override?.color ?? '#FFCB4D';
@@ -712,11 +725,13 @@ export class ReadyPositionRenderer {
     ctx.textBaseline = 'middle';
 
     const pulse = 0.7 + Math.sin(this._animTime * 3) * 0.3;
+    const textScale = clampTextScale(UI_LAYOUT.ready?.skipNotice?.textScale);
     const baseFontSize = override?.fontSize !== undefined
       ? override.fontSize * (width / 1080)
       : Math.max(18, width * 0.024);
+    const fontSize = baseFontSize * textScale;
 
-    ctx.font = `500 ${baseFontSize}px sans-serif`;
+    ctx.font = `500 ${fontSize}px sans-serif`;
     const defaultColor = `rgba(255, 255, 255, ${0.75 * pulse})`;
     ctx.fillStyle = override?.color ?? defaultColor;
     ctx.shadowColor = override?.shadowColor ?? '#28E6FF';

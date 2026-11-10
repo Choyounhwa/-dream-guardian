@@ -161,8 +161,9 @@ describe('UI Design Token System (Issue #256 / UI-TOKEN-001)', () => {
       expect(UI_LAYOUT.menu.cardHeight).toBe(380);
       expect(UI_LAYOUT.menu.chapterCards).toHaveLength(5);
 
-      expect(UI_LAYOUT.subMenu.cardWidth).toBe(420);
-      expect(UI_LAYOUT.subMenu.cardHeight).toBe(380);
+      // [LAYOUT-002] 미사용 subMenu.cardWidth/cardHeight 제거 → 카드 규격은 grid.w/h
+      expect(UI_LAYOUT.subMenu.grid.w).toBe(420);
+      expect(UI_LAYOUT.subMenu.grid.h).toBe(380);
       expect(UI_LAYOUT.subMenu.backBtn).toEqual({ x: 780, y: 1990, w: 270, h: 140 });
     });
   });

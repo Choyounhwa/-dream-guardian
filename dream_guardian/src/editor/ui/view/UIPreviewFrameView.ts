@@ -17,6 +17,23 @@ export const PREVIEW_FILE_NAME = "ui-preview.html";
 export const SANDBOX_DISCLAIMER_TEXT =
   "iframe은 모듈 분리용이며 보안 샌드박스 보장이 아닙니다 (IFRAME_IS_SECURITY_SANDBOX=false)";
 
+export const EDITOR_TO_GAME_PAGE_MAP: Record<string, string> = Object.freeze({
+  menu_main: "main_home",
+  menu_sub: "submenu",
+  settings: "options",
+  pause: "pause",
+  ready_position: "play_ready",
+  run_question: "running_question",
+  answer_select: "answer_select",
+  hazard_evade: "hazard_evade",
+  boss_climax: "boss_battle",
+  result: "result",
+});
+
+export function toGamePageId(pageId: string): string {
+  return EDITOR_TO_GAME_PAGE_MAP[pageId] ?? pageId;
+}
+
 const DISALLOWED_GAME_PATTERNS = [
   "index.html",
   "camera.html",
@@ -59,6 +76,8 @@ export function resolvePreviewSrc(
 export interface MountPreviewFrameOptions {
   docId?: string;
   pageId?: string;
+  snapshot?: unknown;
+  getSnapshot?: () => unknown;
   sessionId?: string;
   origin?: string;
   allowedOrigins?: readonly string[];
@@ -75,7 +94,9 @@ export interface PreviewFrameInstance {
   readonly status: HTMLElement;
   readonly bridge?: ParentBridge | null;
   getHost(): PreviewHost;
-  updateDocument(docId: string): void;
+  updateDocument(docId: string, pageId?: string, snapshot?: unknown): void;
+  sendSnapshot(snapshot?: unknown, targetPageId?: string): boolean;
+  getCurrentPageId(): string;
   handlePreviewMessage(message: PreviewEnvelope): AcceptDecision;
   getLastStatus(): string;
   unmount(): void;
@@ -171,6 +192,22 @@ export function mountPreviewFrame(
   // Global window postMessage & ParentBridge integration
   const win = (globalThis as any).window;
   let bridge: ParentBridge | null = null;
+  let currentPageId = toGamePageId(options?.pageId ?? options?.docId ?? "menu_main");
+
+  function sendSnapshot(customSnapshot?: unknown, targetPageId?: string): boolean {
+    if (!bridge || bridge.isDisposed()) {
+      return false;
+    }
+    if (targetPageId) {
+      currentPageId = toGamePageId(targetPageId);
+      bridge.updateDocument(host.docId, currentPageId);
+    }
+    const payload =
+      customSnapshot ??
+      options?.snapshot ??
+      (typeof options?.getSnapshot === "function" ? options.getSnapshot() : {});
+    return bridge.send("preview:snapshot", payload);
+  }
 
   if (win && typeof win.addEventListener === "function") {
     try {
@@ -179,7 +216,7 @@ export function mountPreviewFrame(
         iframe,
         targetOrigin: origin,
         docId: host.docId,
-        pageId: options?.pageId ?? "menu_main",
+        pageId: currentPageId,
         sessionId: options?.sessionId ?? `sess-${Date.now()}`,
         initialGeneration: host.generation ?? 1,
         initialRevision: host.latestRevision ?? 0,
@@ -197,6 +234,9 @@ export function mountPreviewFrame(
             sessionId: env.sessionId,
             protocolVersion: env.protocolVersion,
           });
+          if (env.kind === "preview:ready") {
+            sendSnapshot();
+          }
         },
         onError: (err) => {
           setStatus(`미리보기 거부: ${err.reason}`);
@@ -207,14 +247,29 @@ export function mountPreviewFrame(
     }
   }
 
-  function updateDocument(newDocId: string): void {
+  function updateDocument(newDocId: string, newPageId?: string, snapshot?: unknown): void {
     host = replaceDocument(host, newDocId);
-    bridge?.updateDocument(newDocId);
+    currentPageId = toGamePageId(newPageId ?? newDocId);
+    bridge?.updateDocument(newDocId, currentPageId);
     if (host.generation !== undefined) {
       bridge?.advanceGeneration(host.generation);
     }
+    sendSnapshot(snapshot);
     setStatus(`미리보기 문서 갱신: doc=${host.docId} req=${host.requestId}`);
   }
+
+  if (typeof (iframe as any).addEventListener === "function") {
+    try {
+      iframe.addEventListener("load", () => {
+        sendSnapshot();
+      });
+    } catch {
+      // ignore in test stubs
+    }
+  }
+
+  // Attempt initial snapshot transmission immediately
+  sendSnapshot();
 
   const onWindowMessage = (event: any) => {
     if (!event || typeof event !== "object") return;
@@ -264,6 +319,8 @@ export function mountPreviewFrame(
     bridge,
     getHost: () => host,
     updateDocument,
+    sendSnapshot,
+    getCurrentPageId: () => currentPageId,
     handlePreviewMessage,
     getLastStatus: () => lastStatus,
     unmount,

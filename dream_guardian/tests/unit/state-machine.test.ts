@@ -238,7 +238,7 @@ describe('StateMachine - [REFACTOR-FSM-001 / #214]', () => {
     });
   });
 
-  it('14개 canonical 상태 모두 전환 규칙이 정의되어 있다', () => {
+  it('14개 canonical 상태 및 신규 상태 모두 전환 규칙이 정의되어 있다', () => {
     const allStates: GameState[] = [
       'LOADING',
       'MENU_MAIN',
@@ -254,10 +254,11 @@ describe('StateMachine - [REFACTOR-FSM-001 / #214]', () => {
       'RESULT',
       'GAMEOVER',
       'ENDING_CUTSCENE',
+      'ASSAULT_ROUND',
     ];
     const transitions = StateMachine.getAllowedTransitions();
 
-    expect(Object.keys(transitions)).toHaveLength(14);
+    expect(Object.keys(transitions)).toHaveLength(15);
     for (const state of allStates) {
       expect(transitions[state]).toBeDefined();
       expect(Array.isArray(transitions[state])).toBe(true);

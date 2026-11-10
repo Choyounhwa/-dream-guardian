@@ -18,6 +18,7 @@ import {
   type PublishedContentPack,
   validatePublishedContentPack,
 } from '../data/PublishedContentPack.js';
+import { deepFreeze } from '../utils/deepFreeze.js';
 import {
   EditorContentDatabase,
   type IEditorTransaction,
@@ -123,21 +124,6 @@ export interface PublishedPackSummary {
   sourceRevision: number;
   publishedAt: string;
   title: string;
-}
-
-/**
- * 객체 재귀 동결 헬퍼
- */
-function deepFreeze<T>(obj: T): T {
-  if (obj === null || typeof obj !== 'object') return obj;
-  Object.freeze(obj);
-  for (const key of Object.keys(obj)) {
-    const val = (obj as Record<string, unknown>)[key];
-    if (val && typeof val === 'object' && !Object.isFrozen(val)) {
-      deepFreeze(val);
-    }
-  }
-  return obj;
 }
 
 export class PublishedContentStore {

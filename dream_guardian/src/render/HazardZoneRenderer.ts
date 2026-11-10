@@ -12,7 +12,9 @@
 
 import type { PhaseAHazardPattern } from '../../config/phase-a-hazard.config.js';
 import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
-import { depthRatioFromY, laneToScreenX } from './GridProjection.js';
+import type { BaseSlotOverride } from '../types/presentation.js';
+import { UI_LAYOUT } from '../../config/ui.config.js';
+import { depthRatioFromY } from './GridProjection.js';
 import { MotionNoteRenderer } from './MotionNoteRenderer.js';
 import { createDefaultPainterRegistry } from './note-painters/NotePainters.js';
 import {
@@ -20,33 +22,14 @@ import {
   HAZARD_FLOOR_PROFILE,
 } from '../../config/motion-note-profile.config.js';
 import { hazardPatternToRenderItem } from '../game/adapters/hazardAdapter.js';
+import {
+  HazardGeometryCalculator,
+  type HazardBounds,
+} from './hazard/HazardGeometryCalculator.js';
 
-export interface HazardBounds {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  width: number;
-  height: number;
-  isProtected?: boolean;
-}
+export type { HazardBounds };
 
-export interface HazardSlotOverride {
-  text?: string;
-  color?: string;
-  textColor?: string;
-  fillColor?: string;
-  borderColor?: string;
-  borderWidth?: number;
-  glowColor?: string;
-  fontSize?: number;
-  visible?: boolean;
-  opacity?: number;
-  x?: number;
-  y?: number;
-  w?: number;
-  h?: number;
-}
+export interface HazardSlotOverride extends BaseSlotOverride {}
 
 export interface HazardPresentationContext {
   presentationDocument?: UIPresentationDocument;
@@ -144,25 +127,29 @@ export const BALANCE_RIGHT_HAZARD_FIXTURE: HazardFixtureDTO = Object.freeze({
 export interface HazardRenderState {
   activePattern: PhaseAHazardPattern | null;
   beatProgress: number; // 0.0 ~ 1.0
-  vanishingX: number;
-  vanishingY: number;
+  vanishingX?: number;
+  vanishingY?: number;
   isResolved?: boolean;
   isEvaded?: boolean;
 }
 
 export class HazardZoneRenderer {
   public readonly motionNoteRenderer: MotionNoteRenderer;
+  public readonly geometryCalculator: HazardGeometryCalculator;
   private _presentationContext?: HazardPresentationContext;
 
   constructor(
     motionNoteRenderer?: MotionNoteRenderer,
     presentationContext?: HazardPresentationContext,
+    geometryCalculator?: HazardGeometryCalculator,
   ) {
     this.motionNoteRenderer =
       motionNoteRenderer ?? this._createMotionNoteRenderer();
     if (presentationContext) {
       this._presentationContext = presentationContext;
     }
+    this.geometryCalculator =
+      geometryCalculator ?? new HazardGeometryCalculator();
   }
 
   /**
@@ -211,10 +198,7 @@ export class HazardZoneRenderer {
    * @param vh 화면 가상 높이
    */
   computeHazardFrontY(beatProgress: number, vanishingY: number, vh: number): number {
-    const floorH = Math.max(0, vh - vanishingY);
-    const p = Math.max(0, Math.min(1.0, beatProgress));
-    // 원근 가속(p^1.5)을 적용하여 소실점에서 전경(화면 92% 높이)까지 자연스럽게 도달
-    return vanishingY + floorH * 0.92 * Math.pow(p, 1.5);
+    return this.geometryCalculator.computeHazardFrontY(beatProgress, vanishingY, vh);
   }
 
   /**
@@ -222,8 +206,7 @@ export class HazardZoneRenderer {
    * - 진행도 0.0일 때 발판 반경의 2.5배 -> 1.0 도달 시 정확히 1.0배로 수축 (Issue #286)
    */
   computeTimingRingScale(progress: number): number {
-    const p = Math.max(0, Math.min(1.0, progress));
-    return 2.5 - 1.5 * p;
+    return this.geometryCalculator.computeTimingRingScale(progress);
   }
 
   setPresentationContext(context?: HazardPresentationContext): void {
@@ -282,56 +265,7 @@ export class HazardZoneRenderer {
     vh: number,
     vanishingPoint?: { x: number; y: number },
   ): HazardBounds {
-    const vx = vanishingPoint?.x ?? vw / 2;
-    const vy = vanishingPoint?.y ?? vh * 0.24;
-    const floorH = Math.max(1, vh - vy);
-    const targetY = vy + floorH * 0.92;
-    let targetX = vx;
-    let baseRx = vw * 0.40;
-    let baseRy = baseRx * 0.26;
-
-    switch (pattern) {
-      case 'jump':
-        targetX = vx;
-        baseRx = vw * 0.40;
-        baseRy = baseRx * 0.26;
-        break;
-      case 'left_step':
-        targetX = laneToScreenX(vx, -vw * 0.35, 1.0);
-        baseRx = vw * 0.16;
-        baseRy = baseRx * 0.30;
-        break;
-      case 'right_step':
-        targetX = laneToScreenX(vx, vw * 0.35, 1.0);
-        baseRx = vw * 0.16;
-        baseRy = baseRx * 0.30;
-        break;
-      case 'balance_left':
-        targetX = laneToScreenX(vx, vw * 0.35, 1.0);
-        baseRx = vw * 0.18;
-        baseRy = baseRx * 0.28;
-        break;
-      case 'balance_right':
-        targetX = laneToScreenX(vx, -vw * 0.35, 1.0);
-        baseRx = vw * 0.18;
-        baseRy = baseRx * 0.28;
-        break;
-    }
-
-    const x = targetX - baseRx;
-    const y = targetY - baseRy;
-    const w = baseRx * 2;
-    const h = baseRy * 2;
-
-    return {
-      x,
-      y,
-      w,
-      h,
-      width: w,
-      height: h,
-      isProtected: true,
-    };
+    return this.geometryCalculator.computeHazardBounds(pattern, vw, vh, vanishingPoint);
   }
 
   getWarningLabelBounds(
@@ -340,21 +274,16 @@ export class HazardZoneRenderer {
     vh: number,
     vanishingPoint?: { x: number; y: number },
   ): HazardBounds {
-    const hz = this.getHazardZoneBounds(pattern, vw, vh, vanishingPoint);
-    const w = Math.min(vw * 0.8, 432 * (vw / 1080));
-    const h = 80 * (vh / 2160);
-    const x = hz.x + hz.w / 2 - w / 2;
-    const y = Math.max(20, hz.y - h - 30);
+    return this.geometryCalculator.computeWarningLabelBounds(pattern, vw, vh, vanishingPoint);
+  }
 
-    return {
-      x,
-      y,
-      w,
-      h,
-      width: w,
-      height: h,
-      isProtected: false,
-    };
+  getTimingGuideBounds(
+    pattern: PhaseAHazardPattern,
+    vw: number,
+    vh: number,
+    vanishingPoint?: { x: number; y: number },
+  ): HazardBounds {
+    return this.geometryCalculator.computeTimingGuideBounds(pattern, vw, vh, vanishingPoint);
   }
 
   getTimingRingBounds(
@@ -364,59 +293,7 @@ export class HazardZoneRenderer {
     vh: number,
     vanishingPoint?: { x: number; y: number },
   ): HazardBounds {
-    const vx = vanishingPoint?.x ?? vw / 2;
-    const vy = vanishingPoint?.y ?? vh * 0.24;
-    const floorH = Math.max(1, vh - vy);
-    const targetY = vy + floorH * 0.92;
-    let targetX = vx;
-    let baseRx = vw * 0.40;
-    let baseRy = baseRx * 0.26;
-
-    switch (pattern) {
-      case 'jump':
-        targetX = vx;
-        baseRx = vw * 0.40;
-        baseRy = baseRx * 0.26;
-        break;
-      case 'left_step':
-        targetX = laneToScreenX(vx, -vw * 0.35, 1.0);
-        baseRx = vw * 0.16;
-        baseRy = baseRx * 0.30;
-        break;
-      case 'right_step':
-        targetX = laneToScreenX(vx, vw * 0.35, 1.0);
-        baseRx = vw * 0.16;
-        baseRy = baseRx * 0.30;
-        break;
-      case 'balance_left':
-        targetX = laneToScreenX(vx, vw * 0.35, 1.0);
-        baseRx = vw * 0.18;
-        baseRy = baseRx * 0.28;
-        break;
-      case 'balance_right':
-        targetX = laneToScreenX(vx, -vw * 0.35, 1.0);
-        baseRx = vw * 0.18;
-        baseRy = baseRx * 0.28;
-        break;
-    }
-
-    const scale = this.computeTimingRingScale(progress);
-    const ringRx = baseRx * scale;
-    const ringRy = baseRy * scale;
-    const x = targetX - ringRx;
-    const y = targetY - ringRy;
-    const w = ringRx * 2;
-    const h = ringRy * 2;
-
-    return {
-      x,
-      y,
-      w,
-      h,
-      width: w,
-      height: h,
-      isProtected: true,
-    };
+    return this.geometryCalculator.computeTimingRingBounds(pattern, progress, vw, vh, vanishingPoint);
   }
 
   getSafeZoneBounds(
@@ -425,64 +302,7 @@ export class HazardZoneRenderer {
     vh: number,
     vanishingPoint?: { x: number; y: number },
   ): HazardBounds {
-    const vx = vanishingPoint?.x ?? vw / 2;
-    const vy = vanishingPoint?.y ?? vh * 0.24;
-    const floorH = Math.max(1, vh - vy);
-    const targetY = vy + floorH * 0.92;
-
-    let safeX = vx;
-    let safeRx = vw * 0.16;
-    let safeRy = safeRx * 0.30;
-
-    switch (pattern) {
-      case 'jump': {
-        const jb = this.getHazardZoneBounds('jump', vw, vh, vanishingPoint);
-        return {
-          x: jb.x,
-          y: Math.max(0, jb.y - jb.h * 1.5),
-          w: jb.w,
-          h: jb.h,
-          width: jb.w,
-          height: jb.h,
-          isProtected: true,
-        };
-      }
-      case 'left_step':
-        safeX = laneToScreenX(vx, vw * 0.35, 1.0);
-        safeRx = vw * 0.16;
-        safeRy = safeRx * 0.30;
-        break;
-      case 'right_step':
-        safeX = laneToScreenX(vx, -vw * 0.35, 1.0);
-        safeRx = vw * 0.16;
-        safeRy = safeRx * 0.30;
-        break;
-      case 'balance_left':
-        safeX = laneToScreenX(vx, -vw * 0.35, 1.0);
-        safeRx = vw * 0.18;
-        safeRy = safeRx * 0.28;
-        break;
-      case 'balance_right':
-        safeX = laneToScreenX(vx, vw * 0.35, 1.0);
-        safeRx = vw * 0.18;
-        safeRy = safeRx * 0.28;
-        break;
-    }
-
-    const x = safeX - safeRx;
-    const y = targetY - safeRy;
-    const w = safeRx * 2;
-    const h = safeRy * 2;
-
-    return {
-      x,
-      y,
-      w,
-      h,
-      width: w,
-      height: h,
-      isProtected: true,
-    };
+    return this.geometryCalculator.computeSafeZoneBounds(pattern, vw, vh, vanishingPoint);
   }
 
   isSlotLocked(slotId: string): boolean {
@@ -589,8 +409,8 @@ export class HazardZoneRenderer {
   ): void {
     if (!state.activePattern) return;
 
-    const vx = state.vanishingX;
-    const vy = state.vanishingY;
+    const vx = state.vanishingX ?? vw / 2;
+    const vy = state.vanishingY ?? vh * 0.24;
     const floorH = Math.max(1, vh - vy);
     const p = Math.max(0, Math.min(1.0, state.beatProgress));
     const frontY = this.computeHazardFrontY(p, vy, vh);
@@ -661,7 +481,7 @@ export class HazardZoneRenderer {
       ctx,
       [renderItem],
       { width: vw, height: vh },
-      { x: state.vanishingX, y: state.vanishingY },
+      { x: state.vanishingX ?? vw / 2, y: state.vanishingY ?? vh * 0.24 },
     );
 
     if (originalStrokeStyle) {
@@ -678,53 +498,19 @@ export class HazardZoneRenderer {
   private _renderTimingCircle(
     ctx: CanvasRenderingContext2D,
     vw: number,
-    _vh: number,
+    vh: number,
     vx: number,
     vy: number,
-    floorH: number,
+    _floorH: number,
     pattern: PhaseAHazardPattern,
     progress: number,
   ): void {
-    const targetY = vy + floorH * 0.92;
-    let targetX = vx;
-    let baseRx = vw * 0.40;
-    let baseRy = baseRx * 0.26;
-    let guideText = '지금 점프!';
-
-    switch (pattern) {
-      case 'jump':
-        targetX = vx;
-        baseRx = vw * 0.40;
-        baseRy = baseRx * 0.26;
-        guideText = '지금 점프!';
-        break;
-      case 'left_step':
-        targetX = laneToScreenX(vx, -vw * 0.35, 1.0);
-        baseRx = vw * 0.16;
-        baseRy = baseRx * 0.30;
-        guideText = '지금 스텝!';
-        break;
-      case 'right_step':
-        targetX = laneToScreenX(vx, vw * 0.35, 1.0);
-        baseRx = vw * 0.16;
-        baseRy = baseRx * 0.30;
-        guideText = '지금 스텝!';
-        break;
-      case 'balance_left':
-        // 안전 구역: 좌측(-0.35), 위험 구역: 우측(0.35)
-        targetX = laneToScreenX(vx, vw * 0.35, 1.0);
-        baseRx = vw * 0.18;
-        baseRy = baseRx * 0.28;
-        guideText = '지금 스텝!';
-        break;
-      case 'balance_right':
-        // 안전 구역: 우측(0.35), 위험 구역: 좌측(-0.35)
-        targetX = laneToScreenX(vx, -vw * 0.35, 1.0);
-        baseRx = vw * 0.18;
-        baseRy = baseRx * 0.28;
-        guideText = '지금 스텝!';
-        break;
-    }
+    const geom = this.geometryCalculator.getHazardTargetGeometry(pattern, vw, vh, { x: vx, y: vy });
+    const targetX = geom.targetX;
+    const targetY = geom.targetY;
+    const baseRx = geom.baseRx;
+    const baseRy = geom.baseRy;
+    let guideText = pattern === 'jump' ? '지금 점프!' : '지금 스텝!';
 
     if (this._presentationContext?.timingGuide?.text) {
       guideText = this._presentationContext.timingGuide.text;
@@ -761,14 +547,35 @@ export class HazardZoneRenderer {
 
     // 3. 80%~100% 구간: 직관적 타이밍 유도 가이드 텍스트
     if (isUrgent) {
-      ctx.font = 'bold 34px sans-serif';
+      const guideLayout = UI_LAYOUT.hazard?.timingGuide;
+      const textScale = Math.max(
+        0.5,
+        Math.min(3.0, guideLayout?.textScale ?? UI_LAYOUT.hazard?.textScale ?? 1.0),
+      );
+      const baseFontSize =
+        this._presentationContext?.timingGuide?.fontSize ?? (guideLayout?.fontSize ?? 34);
+      const fontSize = Math.round(baseFontSize * textScale);
+      ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle =
         this._presentationContext?.timingGuide?.color ?? '#FF4444';
       ctx.shadowColor = 'rgba(255, 68, 68, 0.9)';
       ctx.shadowBlur = 18;
-      ctx.fillText(guideText, targetX, targetY - baseRy - 28);
+      const scaleX = vw / 1080;
+      const scaleY = vh / 2160;
+      const offsetY = (guideLayout?.offsetY ?? 28) * scaleY;
+      const defaultX = targetX;
+      const defaultY = targetY - baseRy - offsetY;
+      const textX =
+        guideLayout?.x !== undefined && guideLayout.x !== 540
+          ? guideLayout.x * scaleX
+          : defaultX;
+      const textY =
+        guideLayout?.y !== undefined && guideLayout.y !== 1886
+          ? guideLayout.y * scaleY
+          : defaultY;
+      ctx.fillText(guideText, textX, textY);
     }
 
     ctx.restore();
@@ -783,9 +590,18 @@ export class HazardZoneRenderer {
     vh: number,
     override: HazardSlotOverride,
   ): void {
+    const bannerLayout = UI_LAYOUT.hazard?.warningBanner;
+    const textScale = Math.max(
+      0.5,
+      Math.min(3.0, bannerLayout?.textScale ?? UI_LAYOUT.hazard?.textScale ?? 1.0),
+    );
     const bounds = this.getWarningLabelBounds('jump', vw, vh);
     ctx.save();
-    const fontSize = override.fontSize ?? Math.round(36 * (vw / 1080));
+    const baseFontSize =
+      override.fontSize !== undefined
+        ? override.fontSize
+        : Math.round((bannerLayout?.fontSize ?? 36) * (vw / 1080));
+    const fontSize = Math.round(baseFontSize * textScale);
     ctx.font = `bold ${fontSize}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -892,21 +708,14 @@ export class HazardZoneRenderer {
       }
     }
 
-    // 레인 중심 X 오프셋 (전경 기준 화면 ±35% 위치)
-    const laneOffsetSign = isLeft ? -1 : 1;
-    const laneCenterOffset = laneOffsetSign * vw * 0.35;
-    const laneHalfWidth = vw * 0.16;
-
-    // 소실점 근처 시작 좌표
-    const topX1 = vx + laneOffsetSign * 10;
-    const topX2 = vx + laneOffsetSign * 40;
-    const topY = vy;
-
-    // 전방 진행 좌표
-    const botCenterX = laneToScreenX(vx, laneCenterOffset, depthRatio);
-    const botWidth = laneHalfWidth * depthRatio;
-    const botX1 = botCenterX - botWidth;
-    const botX2 = botCenterX + botWidth;
+    const quad = this.geometryCalculator.computeStepLaneQuad(
+      vw,
+      vx,
+      vy,
+      frontY,
+      depthRatio,
+      side,
+    );
 
     ctx.save();
     ctx.strokeStyle = mainColor;
@@ -916,10 +725,10 @@ export class HazardZoneRenderer {
 
     // 1. 위험 구역 사다리꼴 바닥면
     ctx.beginPath();
-    ctx.moveTo(topX1, topY);
-    ctx.lineTo(topX2, topY);
-    ctx.lineTo(botX2, frontY);
-    ctx.lineTo(botX1, frontY);
+    ctx.moveTo(quad.topX1, quad.topY);
+    ctx.lineTo(quad.topX2, quad.topY);
+    ctx.lineTo(quad.botX2, frontY);
+    ctx.lineTo(quad.botX1, frontY);
     ctx.closePath();
 
     ctx.fillStyle = `${baseRgba}${0.12 + 0.18 * depthRatio})`;
@@ -929,8 +738,8 @@ export class HazardZoneRenderer {
     // 2. 전방 충격파 림 (위험 구역 선두 테두리 강조)
     ctx.lineWidth = (8 + 6 * depthRatio) * (isResolved && !isEvaded ? 1.5 : 1.0);
     ctx.beginPath();
-    ctx.moveTo(botX1, frontY);
-    ctx.lineTo(botX2, frontY);
+    ctx.moveTo(quad.botX1, frontY);
+    ctx.lineTo(quad.botX2, frontY);
     ctx.stroke();
 
     ctx.restore();
@@ -951,25 +760,35 @@ export class HazardZoneRenderer {
     isResolved?: boolean,
     isEvaded?: boolean,
   ): void {
-    const isSafeLeft = safeSide === 'left';
     const mainColor = isResolved
       ? isEvaded
         ? 'rgb(77, 255, 170)'
         : 'rgb(255, 68, 68)'
       : 'rgb(200, 137, 255)'; // #C889FF
-    const dangerSide = isSafeLeft ? 'right' : 'left';
+
+    const platform = this.geometryCalculator.computeBalancePlatformGeometry(
+      vw,
+      vx,
+      frontY,
+      depthRatio,
+      safeSide,
+    );
 
     // 1. 위험한 반대편 레인에 가시형 위험 띠 드로잉
-    this._renderStepLaneHazard(ctx, vw, vh, vx, vy, frontY, depthRatio, dangerSide, isResolved, isEvaded);
+    this._renderStepLaneHazard(
+      ctx,
+      vw,
+      vh,
+      vx,
+      vy,
+      frontY,
+      depthRatio,
+      platform.dangerSide,
+      isResolved,
+      isEvaded,
+    );
 
     // 2. 안전한 지탱 측 발밑에 보라색 균형 유지 플랫폼 링 드로잉
-    const safeOffsetSign = isSafeLeft ? -1 : 1;
-    const safeCenterOffset = safeOffsetSign * vw * 0.35;
-    const safeCenterX = laneToScreenX(vx, safeCenterOffset, depthRatio);
-
-    const safeRx = vw * (0.08 + 0.12 * depthRatio);
-    const safeRy = safeRx * 0.28;
-
     ctx.save();
     ctx.strokeStyle = mainColor;
     ctx.lineWidth = 5 + 3 * depthRatio;
@@ -977,7 +796,7 @@ export class HazardZoneRenderer {
     ctx.shadowBlur = 18;
 
     ctx.beginPath();
-    ctx.ellipse(safeCenterX, frontY, safeRx, safeRy, 0, 0, Math.PI * 2);
+    ctx.ellipse(platform.safeCenterX, frontY, platform.safeRx, platform.safeRy, 0, 0, Math.PI * 2);
     ctx.stroke();
 
     ctx.fillStyle = isResolved && isEvaded ? 'rgba(77, 255, 170, 0.25)' : `rgba(200, 137, 255, ${0.15 + 0.15 * depthRatio})`;

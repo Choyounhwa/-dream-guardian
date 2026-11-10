@@ -230,4 +230,18 @@ describe('AppBootstrap (Issue #302)', () => {
       bootstrap.dispose();
     });
   });
+
+  describe('[Issue #633] REFACTOR-SRP-002 AppBattleEventBinder 분리 검증', () => {
+    it('AppBootstrap이 battleEventBinder 인스턴스를 정상적으로 소유하고 dispose 시 정리한다', async () => {
+      const bootstrap = new AppBootstrap({ canvas: mockCanvas, autoStartCamera: false, preloadAssets: false });
+      expect(bootstrap.battleEventBinder).toBeDefined();
+      expect(typeof bootstrap.battleEventBinder.handleSpellCast).toBe('function');
+      expect(typeof bootstrap.battleEventBinder.handleBossDefeated).toBe('function');
+      expect(typeof bootstrap.battleEventBinder.handlePlayerDefeated).toBe('function');
+
+      const disposeSpy = vi.spyOn(bootstrap.battleEventBinder, 'dispose');
+      bootstrap.dispose();
+      expect(disposeSpy).toHaveBeenCalled();
+    });
+  });
 });

@@ -105,8 +105,8 @@ describe('[UI-VIS-014 / Issue #444] 플레이 준비 화면 안전 표시 경계
       const countdownBounds = renderer.getCountdownBounds(W, H);
       expect(countdownBounds.w).toBeGreaterThan(0);
       expect(countdownBounds.h).toBeGreaterThan(0);
-      // 카운트다운은 화면 중앙 부근
-      expect(countdownBounds.y + countdownBounds.h / 2).toBeCloseTo(H * 0.46, 1);
+      // 카운트다운은 화면 중앙 부근 (UI_LAYOUT.ready 정수 반올림 좌표 정합성 보장)
+      expect(countdownBounds.y + countdownBounds.h / 2).toBeCloseTo(H * 0.46, 0);
 
       const skipBounds = renderer.getSkipNoticeBounds(W, H);
       expect(skipBounds.w).toBeGreaterThan(0);

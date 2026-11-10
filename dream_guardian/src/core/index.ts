@@ -9,7 +9,9 @@ export { SessionLifecycle } from './SessionLifecycle.js';
 export { GameSessionContext } from './GameSessionContext.js';
 export { AppBootstrap } from './AppBootstrap.js';
 export type { AppBootstrapOptions } from './AppBootstrap.js';
-export { SceneDirector, RENDER_LAYER_ORDER } from './SceneDirector.js';
+export { SceneDirector, RENDER_LAYER_ORDER, createMainGameDirector } from './SceneDirector.js';
+export { AssaultSceneHandler, type AssaultSceneHandlerOptions } from './director/AssaultSceneHandler.js';
+export { SceneRenderOrchestrator, type SceneRenderOrchestratorOptions } from './director/SceneRenderOrchestrator.js';
 export type {
   SceneId,
   SceneHandler,
@@ -29,4 +31,17 @@ export type {
   GameControllers,
   GameSessionContextOptions,
 } from './types.js';
+export {
+  BootstrapStateMachineBuilder,
+  type BootstrapStateMachineHost,
+  type ScreenMode,
+  type MenuMode,
+  type GamePhase,
+} from './bootstrap/BootstrapStateMachineBuilder.js';
+export {
+  BootstrapSubsystemFactory,
+  type BootstrapSubsystemFactoryOptions,
+  type BootstrapSubsystems,
+  createFallbackCanvas,
+} from './bootstrap/BootstrapSubsystemFactory.js';
 

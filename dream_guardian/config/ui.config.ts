@@ -126,31 +126,82 @@ export interface UILayoutSlot {
 export interface UILayoutConfig {
   hud: UILayoutSlot & {
     playerHpBar: UILayoutSlot;
+    /** 보스 HP바: 오른쪽 여백(1080 - (x + w))을 유지하는 우측 앵커 */
     bossHpBar: UILayoutSlot;
-    combo: { x: number; y: number; w?: number; h?: number };
+    /** 보스 이름 플레이트: 화면 중앙 기준 앵커 (x + (화면너비 - 1080) / 2) */
     bossName: UILayoutSlot;
     comboBadge?: { w: number; h: number; y: number; marginRight: number };
+    /** HP바 상한: w = 1080 가상 px 기준 반응형 너비 상한(화면너비 × w/1080), h = 접근성 확대 시 높이 상한 */
+    hpBarMax: { w: number; h: number };
+    /** HP 수치 라벨의 바 가장자리 안쪽 여백 */
+    hpLabelInset: { x: number };
+    /** 콤보 텍스트 기준선의 배지 중앙 대비 아래 오프셋 */
+    comboTextOffsetY: number;
+    /** 콤보 아이콘 크기와 텍스트 사이 간격 */
+    comboIcon: { w: number; h: number; gapX: number };
+    /** [LAYOUT-012] HUD 텍스트 요소별 크기 배율 */
+    playerHpText: { textScale: number };
+    bossHpText: { textScale: number };
+    bossNameText: { textScale: number };
+    comboText: { textScale: number };
   };
   menu: UILayoutSlot & {
-    title: UILayoutSlot;
+    title: UILayoutSlot & { textScale: number };
+    slogan: { textScale: number };
     locomotionBtn: UILayoutSlot;
     cardWidth: number;
     cardHeight: number;
     chapterCards: Array<{ chapter: number; x: number; y: number; w: number; h: number }>;
+    /** 타이틀 텍스트: 중심 y = title.y + title.h/2 - liftY, 슬로건은 중심 + sloganGapY */
+    titleText: { liftY: number; sloganGapY: number };
+    /** 타이틀 배너 이미지 높이 (타이틀 중심 기준) */
+    titleBanner: { h: number };
+    /** 챕터 카드 내부 텍스트 기준선 및 textScale */
+    cardText: {
+      chapterY: number;
+      nameY: number;
+      subY: number;
+      starsY: number;
+      chapter: { textScale: number };
+      name: { textScale: number };
+      sub: { textScale: number };
+      meta: { textScale: number };
+    };
   };
   subMenu: UILayoutSlot & {
-    title: UILayoutSlot;
-    cardWidth: number;
-    cardHeight: number;
+    title: UILayoutSlot & { textScale: number };
+    guide: { textScale: number };
+    /** 제목 텍스트: 중심 y = title.y + title.h/2 - liftY, 안내문은 중심 + captionGapY */
+    titleText: { liftY: number; captionGapY: number };
+    /** 제목 배너 이미지 높이 (제목 중심 기준) */
+    titleBanner: { h: number };
+    /** 단계 카드 내부 텍스트 기준선 및 textScale */
+    cardText: {
+      labelY: number;
+      subLabelY: number;
+      label: { textScale: number };
+      subLabel: { textScale: number };
+    };
     grid: { startX: number; startY: number; gapX: number; gapY: number; cols: number; w: number; h: number };
+    /** 뒤로가기 버튼: 하단 바 액션 슬롯. 그리기(SceneDirector.renderHUD)와 hit 가 같은 값을 쓴다 */
     backBtn: UILayoutSlot;
+    backButton: { textScale: number };
   };
   result: UILayoutSlot & {
     panel: UILayoutSlot;
-    title: { x: number; y: number };
-    stars: { x: number; y: number };
-    chapter: { x: number; y: number };
+    title: UILayoutSlot & { textScale: number };
+    stars: UILayoutSlot & { textScale?: number };
+    stamp: UILayoutSlot & { textScale?: number };
+    chapter: UILayoutSlot & { textScale: number };
+    stats: UILayoutSlot & {
+      victoryY: number;
+      defeatY: number;
+      label: { textScale: number };
+      value: { textScale: number };
+    };
     statLineHeight: number;
+    prompt?: UILayoutSlot & { textScale: number };
+    button?: { textScale: number };
   };
   bottomBar: UILayoutSlot & {
     height: number;
@@ -159,17 +210,219 @@ export interface UILayoutConfig {
     manaBar?: UILayoutSlot;
   };
   settings: UILayoutSlot & {
+    minModalH: number;
     modal: UILayoutSlot;
-    closeBtn: UILayoutSlot;
+    closeBtn: UILayoutSlot & { textScale?: number };
+    titleText: { textScale: number };
+    labelText: { textScale: number };
+    valueText: { textScale: number };
     buttons?: Record<
-      'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion' | 'fontScale' | 'highContrast',
-      UILayoutSlot
+      'camera' | 'fullscreen' | 'skeleton' | 'sound' | 'locomotion' | 'fontScale' | 'highContrast' | 'stickmanScale' | 'webcamVideo',
+      UILayoutSlot & { textScale?: number; valueTextScale?: number }
     >;
   };
   pause: UILayoutSlot & {
     modal: UILayoutSlot;
     resumeBtn: UILayoutSlot;
     quitBtn: UILayoutSlot;
+  };
+  locomotion: UILayoutSlot & {
+    modal: UILayoutSlot;
+    closeBtn: UILayoutSlot & { textScale?: number };
+    titleText: { textScale: number };
+    noticeText: { textScale: number };
+    cards: {
+      startX: number;
+      startY: number;
+      w: number;
+      h: number;
+      gapX: number;
+      gapY: number;
+    };
+    cardText: {
+      title: { textScale: number };
+      sub: { textScale: number };
+      desc: { textScale: number };
+      badge: { textScale: number };
+    };
+  };
+  ready: UILayoutSlot & {
+    headerMessage: UILayoutSlot & { textScale: number };
+    countdown: UILayoutSlot & { textScale: number };
+    skipNotice: UILayoutSlot & { textScale: number };
+    guideMessage?: UILayoutSlot & { textScale: number };
+  };
+  question: UILayoutSlot & {
+    board: UILayoutSlot & {
+      shapeW: number;
+      shapeH: number;
+      shapeOffsetY: number;
+      textOffsetY: number;
+      shapeTextOffsetY: number;
+      textScale: number;
+    };
+    panel: UILayoutSlot & {
+      cy: number;
+      vanishingY: number;
+    };
+    answerButtons: {
+      height: number;
+      gapY: number;
+      textScale: number;
+      badgeTextScale: number;
+      hintTextScale: number;
+      waitingTextScale: number;
+    };
+    timer: {
+      y: number;
+      maxYRatio: number;
+      textScale: number;
+    };
+  };
+  beatHud: UILayoutSlot & {
+    exerciseBadge: UILayoutSlot & {
+      titleOffsetY?: number;
+      subtitleOffsetY?: number;
+      textScale: number;
+      titleTextScale?: number;
+      subtitleTextScale?: number;
+    };
+    hazardGuide: UILayoutSlot & {
+      titleOffsetY?: number;
+      subtitleOffsetY?: number;
+      textScale: number;
+      titleTextScale?: number;
+      subtitleTextScale?: number;
+    };
+    beatDots: UILayoutSlot & {
+      dotSpacing: number;
+      dotRadius: number;
+      dotY?: number;
+      offsetY?: number;
+      textScale: number;
+    };
+    stepCounter: UILayoutSlot & {
+      offsetY?: number;
+      textOffsetY?: number;
+      textY?: number;
+      textScale: number;
+    };
+    cyRatio?: number;
+  };
+  runningMat: UILayoutSlot & {
+    header: {
+      x?: number;
+      y?: number;
+      w?: number;
+      h: number;
+      maxWidth: number;
+      offsetY: number;
+      textOffsetY: number;
+      textY?: number;
+      textScale: number;
+      badgeTextScale?: number;
+      countTextScale?: number;
+    };
+    upcomingPreview: {
+      x?: number;
+      y?: number;
+      w?: number;
+      h: number;
+      maxWidth: number;
+      offsetY: number;
+      textScale: number;
+    };
+    strikeLine: {
+      h: number;
+      height?: number;
+    };
+    arrow?: {
+      textScale?: number;
+    };
+    anchor?: {
+      textScale?: number;
+    };
+    footprint?: {
+      textScale?: number;
+    };
+    textScale?: number;
+  };
+  hazard: UILayoutSlot & {
+    warningBanner: UILayoutSlot & {
+      gapY: number;
+      minY: number;
+      fontSize: number;
+      textScale: number;
+    };
+    timingGuide: {
+      x?: number;
+      y?: number;
+      w?: number;
+      h?: number;
+      offsetY: number;
+      fontSize: number;
+      textScale: number;
+    };
+    textScale?: number;
+  };
+  feedback: UILayoutSlot & {
+    hint: UILayoutSlot & {
+      fontSize: number;
+      textScale: number;
+    };
+    pill: {
+      h: number;
+      minW?: number;
+      charW?: number;
+      padW?: number;
+      radius?: number;
+    };
+    adaptiveBadge: {
+      w?: number;
+      h?: number;
+      offsetY: number;
+      fontSize: number;
+      textScale: number;
+    };
+    textScale?: number;
+  };
+  boss: UILayoutSlot & {
+    radius: number;
+    maxRadius?: number;
+    radiusRatio?: number;
+    textScale?: number;
+  };
+  bossClimax: UILayoutSlot & {
+    gauge: UILayoutSlot & {
+      textScale: number;
+      enragedTextScale?: number;
+    };
+    guardian: UILayoutSlot & {
+      textScale: number;
+    };
+    jumpGuide: {
+      offsetY: number;
+      textScale: number;
+    };
+    stepGuide: {
+      targetY: number;
+      offsetY: number;
+      textScale: number;
+    };
+    feedback: {
+      offsetY: number;
+      textScale: number;
+    };
+    fever: UILayoutSlot & {
+      textScale: number;
+    };
+    troopBadge: UILayoutSlot & {
+      textScale: number;
+    };
+    stardustBadge: UILayoutSlot & {
+      textScale: number;
+    };
+    textScale?: number;
   };
 }
 
@@ -181,16 +434,24 @@ export const UI_LAYOUT: UILayoutConfig = {
     h: 200,
     playerHpBar: { x: 20, y: 20, w: 320, h: 32 },
     bossHpBar: { x: 740, y: 20, w: 320, h: 32 },
-    combo: { x: 540, y: 120, w: 200, h: 60 },
-    bossName: { x: 740, y: 60, w: 320, h: 30 },
+    bossName: { x: 340, y: 6, w: 400, h: 60 },
     comboBadge: { w: 160, h: 48, y: 48, marginRight: 24 },
+    hpBarMax: { w: 1080 * 0.28, h: 64 },
+    hpLabelInset: { x: 8 },
+    comboTextOffsetY: 4,
+    comboIcon: { w: 36, h: 36, gapX: 8 },
+    playerHpText: { textScale: 1.0 },
+    bossHpText: { textScale: 1.0 },
+    bossNameText: { textScale: 1.0 },
+    comboText: { textScale: 1.0 },
   },
   menu: {
     x: 0,
     y: 0,
     w: 1080,
     h: 1960,
-    title: { x: 140, y: 180, w: 800, h: 220 },
+    title: { x: 140, y: 180, w: 800, h: 220, textScale: 1.0 },
+    slogan: { textScale: 1.0 },
     locomotionBtn: { x: 290, y: 375, w: 500, h: 56 },
     cardWidth: 360,
     cardHeight: 380,
@@ -201,15 +462,34 @@ export const UI_LAYOUT: UILayoutConfig = {
       { chapter: 4, x: 600, y: 920, w: 360, h: 380 },
       { chapter: 5, x: 360, y: 1380, w: 360, h: 380 },
     ],
+    titleText: { liftY: 30, sloganGapY: 54 },
+    titleBanner: { h: 120 },
+    cardText: {
+      chapterY: 75,
+      nameY: 160,
+      subY: 225,
+      starsY: 305,
+      chapter: { textScale: 1.0 },
+      name: { textScale: 1.0 },
+      sub: { textScale: 1.0 },
+      meta: { textScale: 1.0 },
+    },
   },
   subMenu: {
     x: 0,
     y: 0,
     w: 1080,
     h: 1960,
-    title: { x: 80, y: 160, w: 920, h: 200 },
-    cardWidth: 420,
-    cardHeight: 380,
+    title: { x: 80, y: 160, w: 920, h: 200, textScale: 1.0 },
+    guide: { textScale: 1.0 },
+    titleText: { liftY: 20, captionGapY: 65 },
+    titleBanner: { h: 120 },
+    cardText: {
+      labelY: 140,
+      subLabelY: 230,
+      label: { textScale: 1.0 },
+      subLabel: { textScale: 1.0 },
+    },
     grid: {
       startX: 80,
       startY: 440,
@@ -220,6 +500,7 @@ export const UI_LAYOUT: UILayoutConfig = {
       h: 380,
     },
     backBtn: { x: 780, y: 1990, w: 270, h: 140 },
+    backButton: { textScale: 1.0 },
   },
   result: {
     x: 100,
@@ -227,10 +508,23 @@ export const UI_LAYOUT: UILayoutConfig = {
     w: 880,
     h: 1580,
     panel: { x: 100, y: 240, w: 880, h: 1580 },
-    title: { x: 540, y: 360 },
-    stars: { x: 540, y: 490 },
-    chapter: { x: 540, y: 580 },
+    title: { x: 240, y: 270, w: 600, h: 160, textScale: 1.0 },
+    stars: { x: 459, y: 488, w: 162, h: 54, textScale: 1.0 },
+    stamp: { x: 760, y: 280, w: 180, h: 180, textScale: 1.0 },
+    chapter: { x: 140, y: 415, w: 800, h: 50, textScale: 1.0 },
+    stats: {
+      x: 160,
+      y: 710,
+      w: 760,
+      h: 592,
+      victoryY: 710,
+      defeatY: 620,
+      label: { textScale: 1.0 },
+      value: { textScale: 1.0 },
+    },
     statLineHeight: 74,
+    prompt: { x: 100, y: 1750, w: 880, h: 40, textScale: 1.0 },
+    button: { textScale: 1.0 },
   },
   bottomBar: {
     x: 0,
@@ -247,8 +541,12 @@ export const UI_LAYOUT: UILayoutConfig = {
     y: 480,
     w: 800,
     h: 1080,
+    minModalH: 1340,
     modal: { x: 140, y: 480, w: 800, h: 1080 },
     closeBtn: { x: 850, y: 510, w: 60, h: 60 },
+    titleText: { textScale: 1.0 },
+    labelText: { textScale: 1.0 },
+    valueText: { textScale: 1.0 },
     buttons: {
       camera: { x: 200, y: 620, w: 680, h: 110 },
       fullscreen: { x: 200, y: 750, w: 680, h: 110 },
@@ -257,6 +555,8 @@ export const UI_LAYOUT: UILayoutConfig = {
       locomotion: { x: 200, y: 1140, w: 680, h: 110 },
       fontScale: { x: 200, y: 1270, w: 680, h: 110 },
       highContrast: { x: 200, y: 1400, w: 680, h: 110 },
+      stickmanScale: { x: 200, y: 1530, w: 680, h: 110 },
+      webcamVideo: { x: 200, y: 1660, w: 680, h: 110 },
     },
   },
   pause: {
@@ -267,6 +567,284 @@ export const UI_LAYOUT: UILayoutConfig = {
     modal: { x: 140, y: 720, w: 800, h: 720 },
     resumeBtn: { x: 200, y: 980, w: 680, h: 130 },
     quitBtn: { x: 200, y: 1160, w: 680, h: 130 },
+  },
+  locomotion: {
+    x: 80,
+    y: 380,
+    w: 920,
+    h: 1400,
+    modal: { x: 80, y: 380, w: 920, h: 1400 },
+    closeBtn: { x: 915, y: 415, w: 60, h: 60 },
+    titleText: { textScale: 1.0 },
+    noticeText: { textScale: 1.0 },
+    cards: {
+      startX: 110,
+      startY: 560,
+      w: 415,
+      h: 560,
+      gapX: 30,
+      gapY: 30,
+    },
+    cardText: {
+      title: { textScale: 1.0 },
+      sub: { textScale: 1.0 },
+      desc: { textScale: 1.0 },
+      badge: { textScale: 1.0 },
+    },
+  },
+  ready: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    headerMessage: { x: 140, y: 180, w: 800, h: 100, textScale: 1.0 },
+    countdown: { x: 340, y: 794, w: 400, h: 400, textScale: 1.0 },
+    skipNotice: { x: 140, y: 1861, w: 800, h: 80, textScale: 1.0 },
+  },
+  question: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    board: {
+      x: 100,
+      y: 320,
+      w: 880,
+      h: 280,
+      shapeW: 760,
+      shapeH: 200,
+      shapeOffsetY: -30,
+      textOffsetY: 220,
+      shapeTextOffsetY: 70,
+      textScale: 1.0,
+    },
+    panel: {
+      x: 300,
+      y: 480,
+      w: 480,
+      h: 340,
+      cy: 650,
+      vanishingY: 518.4,
+    },
+    answerButtons: {
+      height: 250,
+      gapY: 26,
+      textScale: 1.0,
+      badgeTextScale: 1.0,
+      hintTextScale: 1.0,
+      waitingTextScale: 1.0,
+    },
+    timer: {
+      y: 860,
+      maxYRatio: 0.4,
+      textScale: 1.0,
+    },
+  },
+  beatHud: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    exerciseBadge: {
+      x: 300,
+      y: 1043.2,
+      w: 480,
+      h: 100,
+      titleOffsetY: -60,
+      subtitleOffsetY: -5,
+      textScale: 1.0,
+      titleTextScale: 1.0,
+      subtitleTextScale: 1.0,
+    },
+    hazardGuide: {
+      x: 290,
+      y: 1043.2,
+      w: 500,
+      h: 120,
+      titleOffsetY: -60,
+      subtitleOffsetY: -5,
+      textScale: 1.0,
+      titleTextScale: 1.0,
+      subtitleTextScale: 1.0,
+    },
+    beatDots: {
+      x: 366,
+      y: 1363.2,
+      w: 348,
+      h: 40,
+      dotSpacing: 44,
+      dotRadius: 14,
+      dotY: 1383.2,
+      offsetY: 260,
+      textScale: 1.0,
+    },
+    stepCounter: {
+      x: 380,
+      y: 1407.2,
+      w: 320,
+      h: 40,
+      offsetY: 284,
+      textOffsetY: 60,
+      textY: 1443.2,
+      textScale: 1.0,
+    },
+    cyRatio: 0.52,
+  },
+  runningMat: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    header: {
+      maxWidth: 480,
+      offsetY: -48,
+      h: 40,
+      textOffsetY: -14,
+      textScale: 1.0,
+      badgeTextScale: 1.0,
+      countTextScale: 1.0,
+    },
+    upcomingPreview: {
+      maxWidth: 420,
+      offsetY: -48,
+      h: 30,
+      textScale: 1.0,
+    },
+    strikeLine: {
+      h: 40,
+      height: 40,
+    },
+    arrow: {
+      textScale: 1.0,
+    },
+    anchor: {
+      textScale: 1.0,
+    },
+    footprint: {
+      textScale: 1.0,
+    },
+    textScale: 1.0,
+  },
+  hazard: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    warningBanner: {
+      x: 324,
+      y: 1806,
+      w: 432,
+      h: 80,
+      gapY: 30,
+      minY: 20,
+      fontSize: 36,
+      textScale: 1.0,
+    },
+    timingGuide: {
+      x: 540,
+      y: 1886,
+      w: 400,
+      h: 60,
+      offsetY: 28,
+      fontSize: 34,
+      textScale: 1.0,
+    },
+    textScale: 1.0,
+  },
+  feedback: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    hint: {
+      x: 240,
+      y: 1280,
+      w: 600,
+      h: 80,
+      fontSize: 22,
+      textScale: 1.0,
+    },
+    pill: {
+      h: 56,
+      minW: 320,
+      charW: 36,
+      padW: 60,
+      radius: 16,
+    },
+    adaptiveBadge: {
+      w: 400,
+      h: 40,
+      offsetY: 14,
+      fontSize: 26,
+      textScale: 1.0,
+    },
+    textScale: 1.0,
+  },
+  boss: {
+    x: 540,
+    y: 1209.6,
+    w: 259.2,
+    h: 259.2,
+    radius: 129.6,
+    maxRadius: 180,
+    radiusRatio: 0.12,
+    textScale: 1.0,
+  },
+  bossClimax: {
+    x: 0,
+    y: 0,
+    w: 1080,
+    h: 2160,
+    gauge: {
+      x: 50,
+      y: 20,
+      w: 980,
+      h: 60,
+      textScale: 1.0,
+      enragedTextScale: 1.0,
+    },
+    guardian: {
+      x: 540,
+      y: 1814.4,
+      w: 80,
+      h: 80,
+      textScale: 1.0,
+    },
+    jumpGuide: {
+      offsetY: 28,
+      textScale: 1.0,
+    },
+    stepGuide: {
+      targetY: 1900.8,
+      offsetY: 50,
+      textScale: 1.0,
+    },
+    feedback: {
+      offsetY: 40,
+      textScale: 1.0,
+    },
+    fever: {
+      x: 140,
+      y: 100,
+      w: 200,
+      h: 50,
+      textScale: 1.0,
+    },
+    troopBadge: {
+      x: 40,
+      y: 1663.2,
+      w: 200,
+      h: 50,
+      textScale: 1.0,
+    },
+    stardustBadge: {
+      x: 840,
+      y: 1663.2,
+      w: 200,
+      h: 50,
+      textScale: 1.0,
+    },
+    textScale: 1.0,
   },
 };
 
@@ -437,7 +1015,14 @@ export interface QuestionAnswerTimeTokens {
 }
 
 export const QUESTION_ANSWER_TIME_TOKENS: QuestionAnswerTimeTokens = {
-  y: 860,
+  get y() {
+    return UI_LAYOUT.question?.timer?.y ?? 860;
+  },
+  set y(val: number) {
+    if (UI_LAYOUT.question?.timer) {
+      UI_LAYOUT.question.timer.y = val;
+    }
+  },
   primaryLabel: '기본',
   extensionLabel: '연장',
   primaryColor: '#28E6FF',

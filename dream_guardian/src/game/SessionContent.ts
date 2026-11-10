@@ -18,6 +18,8 @@ import type {
   CompiledStarNote,
 } from '../data/PublishedContentPack.js';
 import type { Keynote, KeynotePart, KeynoteInstrument } from '../types/keynote.js';
+import { deepFreeze } from '../utils/deepFreeze.js';
+export { deepFreeze };
 import type { BossHazardAttackType } from './BossHazardController.js';
 import {
   PHASE_A_ACTIVE_HAZARD_PATTERNS,
@@ -142,26 +144,6 @@ export interface CreateSessionStageParams {
     motionGuide?: readonly CompiledMotionCue[];
   } | null;
   bindings?: readonly SessionRoleBinding[];
-}
-
-/**
- * 객체 및 내부 중첩 속성을 재귀적으로 Object.freeze하는 순수 불변화 유틸리티
- */
-export function deepFreeze<T>(obj: T): T {
-  if (obj === null || typeof obj !== 'object') {
-    return obj;
-  }
-
-  Object.freeze(obj);
-
-  for (const key of Object.getOwnPropertyNames(obj)) {
-    const val = (obj as Record<string, unknown>)[key];
-    if (val && typeof val === 'object' && !Object.isFrozen(val)) {
-      deepFreeze(val);
-    }
-  }
-
-  return obj;
 }
 
 /**

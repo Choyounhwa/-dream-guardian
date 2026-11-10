@@ -11,13 +11,13 @@
 
 import type { GameState, IStateHandler } from '../types/index.js';
 
-/** 허용된 상태 전환 맵 (현행 14개 Canonical 상태 전이 계약) */
+/** 허용된 상태 전환 맵 (현행 14개 Canonical 상태 + ASSAULT_ROUND 전이 계약 / Issue #523) */
 const ALLOWED_TRANSITIONS: Record<GameState, readonly GameState[]> = {
   LOADING:         ['MENU_MAIN'],
   MENU_MAIN:       ['MENU_SUB', 'READY_POSITION', 'STORY_INTRO', 'RUN_QUESTION', 'LOADING'],
   MENU_SUB:        ['MENU_MAIN', 'READY_POSITION', 'STORY_INTRO', 'RUN_QUESTION'],
   STORY_INTRO:     ['READY_POSITION', 'RUN_QUESTION', 'MENU_MAIN'],
-  READY_POSITION:  ['RUN_QUESTION', 'MENU_MAIN'],
+  READY_POSITION:  ['RUN_QUESTION', 'MENU_MAIN', 'ASSAULT_ROUND'],
   RUN_QUESTION:    ['ANSWER_SELECT', 'ROUND_RESOLVE', 'GAMEOVER', 'MENU_MAIN'],
   ANSWER_SELECT:   ['STAR_COLLECT', 'HAZARD_EVADE', 'ROUND_RESOLVE', 'GAMEOVER', 'MENU_MAIN'],
   STAR_COLLECT:    ['ROUND_RESOLVE', 'GAMEOVER', 'MENU_MAIN'],
@@ -27,6 +27,7 @@ const ALLOWED_TRANSITIONS: Record<GameState, readonly GameState[]> = {
   RESULT:          ['MENU_MAIN', 'MENU_SUB', 'ENDING_CUTSCENE', 'RUN_QUESTION'],
   GAMEOVER:        ['MENU_MAIN', 'MENU_SUB', 'RUN_QUESTION'],
   ENDING_CUTSCENE: ['MENU_MAIN', 'RESULT'],
+  ASSAULT_ROUND:   ['RESULT', 'GAMEOVER', 'MENU_MAIN'],
 };
 
 export class StateMachine {
@@ -34,6 +35,7 @@ export class StateMachine {
   private _previousState: GameState | null = null;
   private _handlers = new Map<GameState, IStateHandler>();
   private _onTransition?: (from: GameState, to: GameState) => void;
+  private _devForceToken: symbol | null = null;
 
   constructor(initialState: GameState = 'LOADING') {
     this._currentState = initialState;
@@ -96,6 +98,36 @@ export class StateMachine {
     const nextHandler = this._handlers.get(to);
     nextHandler?.enter?.();
 
+    return true;
+  }
+
+  /**
+   * [DEVUI-003] (Issue #563) 개발 전용 강제 전환 토큰 등록.
+   * DevBootstrap이 발급한 토큰 1개만 등록할 수 있다 (다른 토큰 재등록 시 예외).
+   */
+  enableDevForce(token: symbol): void {
+    if (typeof token !== 'symbol') throw new Error('[StateMachine] 잘못된 개발 토큰');
+    if (this._devForceToken && this._devForceToken !== token) {
+      throw new Error('[StateMachine] 개발 토큰이 이미 등록됨');
+    }
+    this._devForceToken = token;
+  }
+
+  /**
+   * [DEVUI-003] (Issue #563) 개발 전용 강제 전환. 등록된 토큰이 있을 때만 전환 테이블 검사를 우회한다.
+   * 토큰이 없거나 일치하지 않으면 예외. 일반 changeState 검증은 변경하지 않는다.
+   */
+  forceState(to: GameState, token: symbol): boolean {
+    if (!this._devForceToken || token !== this._devForceToken) {
+      throw new Error('[StateMachine] forceState 거부: 개발 토큰 없음');
+    }
+    const from = this._currentState;
+    if (from === to) return false;
+    this._handlers.get(from)?.exit?.();
+    this._previousState = from;
+    this._currentState = to;
+    this._onTransition?.(from, to);
+    this._handlers.get(to)?.enter?.();
     return true;
   }
 
@@ -186,6 +218,11 @@ export class StateMachine {
   /** 스테이지 진입 준비(화각 정렬 및 카운트다운) 상태인지 여부 */
   isReadyPosition(): boolean {
     return this._currentState === 'READY_POSITION';
+  }
+
+  /** 보스 어설트 라운드 진행 중 여부 (Issue #523) */
+  isAssaultRound(): boolean {
+    return this._currentState === 'ASSAULT_ROUND';
   }
 
   /** 허용된 전환 목록의 읽기 전용 접근 (테스트용) */

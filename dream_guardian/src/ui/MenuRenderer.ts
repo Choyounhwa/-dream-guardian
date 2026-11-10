@@ -20,6 +20,15 @@ import type { UIPresentationDocument, UIPresentationPage } from '../data/UIPrese
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
 import { UI_LAYOUT } from '../../config/ui.config.js';
+import { MenuHitTester } from './menu/MenuHitTester.js';
+import { ChapterSelectView } from './menu/ChapterSelectView.js';
+
+export const MENU_CONTRAST_THEME = {
+  // WCAG AAA / Level AA 잠금 챕터 대비 색상 (tests/unit/a11y-contrast.test.ts)
+  lockedSubtitle: (locked: boolean) => (locked ? '#777777' : '#CCCCCC'),
+  lockedChapterName: (locked: boolean) => (locked ? '#888888' : '#FFFFFF'),
+  lockedChapterNumber: (locked: boolean, fallback: string) => (locked ? '#999999' : fallback),
+};
 
 export interface ChapterInfo {
   chapter: number;
@@ -204,11 +213,21 @@ export interface MenuPresentationContext {
 export class MenuRenderer {
   private _pulseTimer = 0;
   private _presentationContext?: MenuPresentationContext;
+  private readonly _hitTester: MenuHitTester = new MenuHitTester();
+  private readonly _chapterSelectView: ChapterSelectView = new ChapterSelectView();
 
   constructor(presentationContext?: MenuPresentationContext) {
     if (presentationContext) {
       this.setPresentationContext(presentationContext);
     }
+  }
+
+  get hitTester(): MenuHitTester {
+    return this._hitTester;
+  }
+
+  get chapterSelectView(): ChapterSelectView {
+    return this._chapterSelectView;
   }
 
   /**
@@ -451,12 +470,7 @@ export class MenuRenderer {
     const scaleX = w / 1080;
     const btn = this.getLocomotionButtonLayout(w, h, context);
     const pad = padding * scaleX;
-    return (
-      x >= btn.x - pad &&
-      x <= btn.x + btn.w + pad &&
-      y >= btn.y - pad &&
-      y <= btn.y + btn.h + pad
-    );
+    return this._hitTester.hitTestLocomotion(x, y, btn, pad);
   }
 
   /**
@@ -497,6 +511,7 @@ export class MenuRenderer {
 
   /**
    * 메인 챕터 선택 메뉴 렌더링 (2-2-1 와이드 다이아몬드 레이아웃)
+   * Issue #638 (REFACTOR-SRP-007): ChapterSelectView로 드로잉 전담 위임
    */
   render(
     ctx: CanvasRenderingContext2D,
@@ -505,221 +520,22 @@ export class MenuRenderer {
     state: MenuState,
     context?: MenuPresentationContext
   ): void {
-    const scaleX = w / 1080;
-    const scaleY = h / 2160;
     const resolved = this._resolveContext(context);
+    const chapterLayouts = this.getChapterLayouts(w, h, resolved);
+    const titleLayout = this.getTitleLayout(w, h, resolved);
+    const locomotionLayout = this.getLocomotionButtonLayout(w, h, resolved);
 
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    // 0. 배경 이미지 (설정 시)
-    const bgImg =
-      resolved?.background?.image ||
-      (resolved?.background?.assetId ? (resolved?.imageAssets?.[resolved.background.assetId] || resolved?.assetResolver?.(resolved.background.assetId)) : null) ||
-      resolved?.imageAssets?.['background'] ||
-      (resolved?.assetResolver ? resolved.assetResolver('background') : null) ||
-      imageLoader.get('menu', 'background');
-    if (bgImg) {
-      ctx.drawImage(bgImg, 0, 0, w, h);
-    }
-
-    // 1. 상단 타이틀 영역 (Red Box: x: 140, y: 180, w: 800, h: 220)
-    const titleSlot = this.getTitleLayout(w, h, resolved);
-    const titleCenterY = (titleSlot.y + titleSlot.h / 2 - 30) * scaleY;
-    const titleBgImg =
-      resolved?.title?.image ||
-      (resolved?.title?.assetId ? (resolved?.imageAssets?.[resolved.title.assetId] || resolved?.assetResolver?.(resolved.title.assetId)) : null) ||
-      resolved?.imageAssets?.['titleBg'] ||
-      resolved?.imageAssets?.['banner'] ||
-      (resolved?.assetResolver ? (resolved.assetResolver('titleBg') || resolved.assetResolver('banner')) : null) ||
-      imageLoader.get('menu', 'titleBg') ||
-      imageLoader.get('menu', 'banner');
-
-    if (titleBgImg) {
-      const bannerW = titleSlot.w;
-      const bannerH = 120 * scaleY;
-      ctx.drawImage(titleBgImg, titleSlot.x + (titleSlot.w - bannerW) / 2, titleCenterY - bannerH / 2, bannerW, bannerH);
-    } else {
-      ctx.font = UIText.getFont('title', scaleX, 'bold');
-      const titleColor = resolved?.title?.color ?? '#C889FF';
-      ctx.fillStyle = titleColor;
-      ctx.shadowColor = titleColor;
-      ctx.shadowBlur = 16 * scaleX;
-      const titleText = resolved?.title?.text ?? '꿈속 세계 탐험';
-      ctx.fillText(titleText, titleSlot.x + titleSlot.w / 2, titleCenterY);
-      ctx.shadowBlur = 0;
-
-      // 상단 슬로건 배너 텍스트 (Issue #216 / UI-STORY-001)
-      ctx.font = UIText.getFont('caption', scaleX, 'normal');
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('깨비와 함께 신비로운 꿈의 성역으로 다이빙!', titleSlot.x + titleSlot.w / 2, titleCenterY + 54 * scaleY);
-    }
-
-    // 1-1. 운동 모드 선택 버튼 (배지 형태)
-    const locomotionLabel = resolved?.locomotionBtn?.label ?? state.locomotionLabel;
-    if (locomotionLabel) {
-      const lBtn = this.getLocomotionButtonLayout(w, h, resolved);
-      ctx.fillStyle = 'rgba(40, 230, 255, 0.12)';
-      ctx.strokeStyle = '#28E6FF';
-      ctx.lineWidth = 2 * scaleX;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(lBtn.x, lBtn.y, lBtn.w, lBtn.h, 16 * scaleX);
-      } else {
-        ctx.rect(lBtn.x, lBtn.y, lBtn.w, lBtn.h);
-      }
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.font = UIText.getFont('badge', scaleX, 'bold');
-      ctx.fillStyle = '#FFFFFF';
-      const icon = resolved?.locomotionBtn?.icon ?? state.locomotionIcon ?? '🏃';
-      ctx.fillText(`${icon} 운동 모드: ${locomotionLabel} ⚙`, lBtn.x + lBtn.w / 2, lBtn.y + lBtn.h / 2);
-    }
-
-    // 2. 챕터 카드 5개 (2-2-1 와이드 다이아몬드)
-    const layouts = this.getChapterLayouts(w, h, resolved);
-
-    for (let i = 0; i < layouts.length; i++) {
-      const item = layouts[i];
-      const info = CHAPTER_INFO[i];
-      const ch = item.chapter;
-      const chOverride = resolved?.chapterCards?.[ch];
-      const locked = item.locked !== undefined ? item.locked : ch > state.unlockedChapter;
-      const selected = ch === state.selectedChapter;
-      const cardColor = item.color ?? chOverride?.color ?? info.color;
-
-      ctx.save();
-      if (locked) {
-        ctx.globalAlpha = 0.55;
-      }
-
-      const pulse = Math.sin((this._pulseTimer / 1.5) * Math.PI * 2) * 0.5 + 0.5;
-
-      // 카드 배경 및 테두리 (라운드 코너 24px)
-      const customImg =
-        chOverride?.image ||
-        (chOverride?.assetId ? (resolved?.imageAssets?.[chOverride.assetId] || resolved?.assetResolver?.(chOverride.assetId)) : null) ||
-        resolved?.imageAssets?.[`cardFrame_${ch}`] ||
-        (resolved?.assetResolver ? resolved.assetResolver(`cardFrame_${ch}`) : null) ||
-        resolved?.imageAssets?.['cardFrame'] ||
-        (resolved?.assetResolver ? resolved.assetResolver('cardFrame') : null);
-      const cardFrameImg = customImg || imageLoader.get('menu', 'cardFrame');
-
-      if (cardFrameImg) {
-        ctx.drawImage(cardFrameImg, item.x, item.y, item.w, item.h);
-        if (selected) {
-          ctx.strokeStyle = cardColor;
-          ctx.lineWidth = (3.5 + 1.5 * pulse) * scaleX;
-          ctx.shadowColor = cardColor;
-          ctx.shadowBlur = (12 + 12 * pulse) * scaleX;
-          ctx.beginPath();
-          if (ctx.roundRect) {
-            ctx.roundRect(item.x, item.y, item.w, item.h, 24 * scaleX);
-          } else {
-            ctx.rect(item.x, item.y, item.w, item.h);
-          }
-          ctx.stroke();
-          ctx.shadowBlur = 0;
-        }
-      } else {
-        const fillAlpha = selected ? 0.12 + 0.1 * pulse : 0.08;
-        const hexAlpha = Math.round(fillAlpha * 255)
-          .toString(16)
-          .padStart(2, '0');
-        ctx.fillStyle = locked ? 'rgba(255, 255, 255, 0.03)' : `${cardColor}${hexAlpha}`;
-        ctx.strokeStyle = locked ? 'rgba(255, 255, 255, 0.15)' : selected ? cardColor : `${cardColor}75`;
-        ctx.lineWidth = selected ? (3.5 + 1.5 * pulse) * scaleX : 2.5 * scaleX;
-        if (selected) {
-          ctx.shadowColor = cardColor;
-          ctx.shadowBlur = (12 + 12 * pulse) * scaleX;
-        }
-        ctx.beginPath();
-        if (ctx.roundRect) {
-          ctx.roundRect(item.x, item.y, item.w, item.h, 24 * scaleX);
-        } else {
-          ctx.rect(item.x, item.y, item.w, item.h);
-        }
-        ctx.fill();
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-      }
-
-      // 카드 내부 텍스트 (칸별 높이 1:1 매핑)
-      // 1) 챕터 번호 (Ch.X): bold 48px
-      ctx.fillStyle = locked ? '#999999' : cardColor;
-      ctx.font = UIText.getFont('subheading', scaleX, 'bold');
-      ctx.fillText(`Ch.${ch}`, item.x + item.w / 2, item.y + 75 * scaleY);
-
-      // 2) 챕터명 (꿈속 탐험 테마): bold 44px
-      ctx.fillStyle = locked ? '#888888' : '#FFFFFF';
-      ctx.font = UIText.getFont('subheading', scaleX, 'bold');
-      const cardTitle = item.title ?? chOverride?.title ?? (locked ? '???' : info.name);
-      ctx.fillText(cardTitle, item.x + item.w / 2, item.y + 160 * scaleY);
-
-      // 3) 학습 영역 / 테마 부제: 26px
-      ctx.fillStyle = locked ? '#777777' : '#BBBBBB';
-      ctx.font = UIText.getFont('label', scaleX, 'normal');
-      const lockReasonText = item.lockReason ?? chOverride?.lockReason ?? '미개방 성역';
-      const subTitleText = item.subtitle ?? chOverride?.subtitle ?? info.sub;
-      ctx.fillText(locked ? lockReasonText : subTitleText, item.x + item.w / 2, item.y + 225 * scaleY);
-
-      // 4) 별점 (★★★) 또는 잠금 (🔒)
-      if (!locked) {
-        const starCount = Math.max(0, Math.min(3, state.stars[ch] ?? 0));
-        const starFullImg =
-          resolved?.imageAssets?.['starFull'] ||
-          (resolved?.assetResolver ? resolved.assetResolver('starFull') : null) ||
-          imageLoader.get('menu', 'starFull');
-        const starEmptyImg =
-          resolved?.imageAssets?.['starEmpty'] ||
-          (resolved?.assetResolver ? resolved.assetResolver('starEmpty') : null) ||
-          imageLoader.get('menu', 'starEmpty');
-
-        if (starFullImg && starEmptyImg) {
-          const starSize = 36 * scaleX;
-          const gap = 8 * scaleX;
-          const totalW = 3 * starSize + 2 * gap;
-          const startX = item.x + (item.w - totalW) / 2;
-          const startY = item.y + 305 * scaleY - starSize / 2;
-          for (let s = 0; s < 3; s++) {
-            const sImg = s < starCount ? starFullImg : starEmptyImg;
-            ctx.drawImage(sImg, startX + s * (starSize + gap), startY, starSize, starSize);
-          }
-        } else {
-          const starStr = '★'.repeat(starCount) + '☆'.repeat(3 - starCount);
-          ctx.font = UIText.getFont('heading', scaleX, 'bold');
-          ctx.fillStyle = '#FFCB4D';
-          ctx.fillText(starStr, item.x + item.w / 2, item.y + 305 * scaleY);
-        }
-      } else {
-        const lockImg =
-          resolved?.imageAssets?.['lockIcon'] ||
-          resolved?.imageAssets?.['lock'] ||
-          (resolved?.assetResolver ? (resolved.assetResolver('lockIcon') || resolved.assetResolver('lock')) : null) ||
-          imageLoader.get('menu', 'lockIcon') ||
-          imageLoader.get('menu', 'lock');
-        if (lockImg) {
-          const lockSize = 40 * scaleX;
-          ctx.drawImage(
-            lockImg,
-            item.x + (item.w - lockSize) / 2,
-            item.y + 305 * scaleY - lockSize / 2,
-            lockSize,
-            lockSize
-          );
-        } else {
-          ctx.font = UIText.getFont('heading', scaleX, 'bold');
-          ctx.fillStyle = '#888888';
-          ctx.fillText('🔒', item.x + item.w / 2, item.y + 305 * scaleY);
-        }
-      }
-
-      ctx.restore();
-    }
-
-    ctx.restore();
+    this._chapterSelectView.render({
+      ctx,
+      w,
+      h,
+      state,
+      context: resolved,
+      chapterLayouts,
+      titleLayout,
+      locomotionLayout,
+      pulseTimer: this._pulseTimer,
+    });
   }
 
   /**
@@ -858,8 +674,10 @@ export class MenuRenderer {
     }
 
     // 1. 상단 헤더 영역 (Red Box: x: 80, y: 160, w: 920, h: 200)
+    // [LAYOUT-002] 제목 중심 y 는 subMenu.title 슬롯 기준 (기본값: 160 + 200/2 - 20 = 240)
+    const subLayout = UI_LAYOUT.subMenu;
     const titleSlot = this.getSubMenuTitleLayout(w, h, resolved);
-    const titleCenterY = 240 * scaleY;
+    const titleCenterY = titleSlot.y + titleSlot.h / 2 - subLayout.titleText.liftY * scaleY;
     const titleBgImg =
       resolved?.subMenuTitle?.image ||
       (resolved?.subMenuTitle?.assetId ? (resolved?.imageAssets?.[resolved.subMenuTitle.assetId] || resolved?.assetResolver?.(resolved.subMenuTitle.assetId)) : null) ||
@@ -871,10 +689,11 @@ export class MenuRenderer {
 
     if (titleBgImg) {
       const bannerW = titleSlot.w;
-      const bannerH = 120 * scaleY;
+      const bannerH = subLayout.titleBanner.h * scaleY;
       ctx.drawImage(titleBgImg, titleSlot.x + (titleSlot.w - bannerW) / 2, titleCenterY - bannerH / 2, bannerW, bannerH);
     } else {
-      ctx.font = UIText.getFont('heading', scaleX, 'bold');
+      const titleScale = subLayout.title?.textScale ?? 1.0;
+      ctx.font = UIText.getFont('heading', scaleX * titleScale, 'bold');
       const titleColor = resolved?.subMenuTitle?.color ?? chInfo.color;
       ctx.fillStyle = titleColor;
       ctx.shadowColor = titleColor;
@@ -884,9 +703,10 @@ export class MenuRenderer {
       ctx.shadowBlur = 0;
 
       // 안내 문구: 풀 테마명 및 학습 영역
-      ctx.font = UIText.getFont('label', scaleX, 'normal');
+      const guideScale = subLayout.guide?.textScale ?? 1.0;
+      ctx.font = UIText.getFont('label', scaleX * guideScale, 'normal');
       ctx.fillStyle = '#CCCCCC';
-      ctx.fillText(`${chInfo.fullName} (${chInfo.sub})`, titleSlot.x + titleSlot.w / 2, titleCenterY + 65 * scaleY);
+      ctx.fillText(`${chInfo.fullName} (${chInfo.sub})`, titleSlot.x + titleSlot.w / 2, titleCenterY + subLayout.titleText.captionGapY * scaleY);
     }
 
     // 2. 단계 카드 6개 (2열 3행)
@@ -949,15 +769,17 @@ export class MenuRenderer {
 
       // 텍스트 (칸별 높이 1:1 매핑)
       // 1) 단계명 (대형 38px)
+      const labelScale = subLayout.cardText?.label?.textScale ?? 1.0;
       ctx.fillStyle = locked ? '#888888' : isSelected ? baseColor : '#FFFFFF';
-      ctx.font = UIText.getFont('heading', scaleX, 'bold');
-      ctx.fillText(item.label, item.x + item.w / 2, item.y + 140 * scaleY);
+      ctx.font = UIText.getFont('heading', scaleX * labelScale, 'bold');
+      ctx.fillText(item.label, item.x + item.w / 2, item.y + subLayout.cardText.labelY * scaleY);
 
       // 2) 부제 (문항 수 또는 잠금 사유)
+      const subLabelScale = subLayout.cardText?.subLabel?.textScale ?? 1.0;
       ctx.fillStyle = locked ? '#777777' : '#BBBBBB';
-      ctx.font = UIText.getFont('subheading', scaleX, 'normal');
+      ctx.font = UIText.getFont('subheading', scaleX * subLabelScale, 'normal');
       const displaySubLabel = locked ? (item.lockReason ?? '도전 불가') : item.subLabel;
-      ctx.fillText(displaySubLabel, item.x + item.w / 2, item.y + 230 * scaleY);
+      ctx.fillText(displaySubLabel, item.x + item.w / 2, item.y + subLayout.cardText.subLabelY * scaleY);
 
       ctx.restore();
     }
@@ -970,17 +792,7 @@ export class MenuRenderer {
    */
   hitTest(x: number, y: number, w: number, h: number, padding = 0, context?: MenuPresentationContext): number {
     const layouts = this.getChapterLayouts(w, h, context);
-    for (const card of layouts) {
-      if (
-        x >= card.x - padding &&
-        x <= card.x + card.w + padding &&
-        y >= card.y - padding &&
-        y <= card.y + card.h + padding
-      ) {
-        return card.chapter;
-      }
-    }
-    return 0;
+    return this._hitTester.hitTestChapters(x, y, layouts, padding);
   }
 
   /**
@@ -1023,16 +835,6 @@ export class MenuRenderer {
     }
 
     const layouts = this.getSubMenuLayouts(w, h, chapter, subLevels, explicitCtx);
-    for (const item of layouts) {
-      if (
-        x >= item.x - padding &&
-        x <= item.x + item.w + padding &&
-        y >= item.y - padding &&
-        y <= item.y + item.h + padding
-      ) {
-        return item.subLevel;
-      }
-    }
-    return null;
+    return this._hitTester.hitTestSubLevels(x, y, layouts, padding);
   }
 }

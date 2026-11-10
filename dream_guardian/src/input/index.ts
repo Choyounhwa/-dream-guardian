@@ -17,6 +17,14 @@ export type {
   StarCollectionResult,
 } from './StarCollectionInput.js';
 export { ArmReachAnswerSelector } from './ArmReachAnswerSelector.js';
+export {
+  ArmReachGateEvaluator,
+  type ArmEvaluationResult,
+  type ArmGateEvaluationInput,
+  type ArmGateEvaluationOptions,
+  type CandidateArbitrationResult,
+  type ArmReachGateEvaluatorOptions,
+} from './arm/ArmReachGateEvaluator.js';
 export type {
   ArmHandType,
   ArmCandidateStatus,
@@ -24,3 +32,26 @@ export type {
   ArmReachAnswerState,
   ArmReachSelectCallback,
 } from './ArmReachAnswerSelector.js';
+export {
+  AssaultPunchAdapter,
+  type AssaultHand,
+  type HandPunchState,
+  type AssaultPunchHandInput,
+  type AssaultPunchFrameInput,
+  type AssaultPunchEvent,
+  type AssaultHandSnapshot,
+  type AssaultPunchAdapterOptions,
+} from './AssaultPunchAdapter.js';
+export {
+  AssaultFallbackAdapter,
+  DEFAULT_ASSAULT_FALLBACK_CONFIG,
+  type AssaultFallbackAction,
+  type FallbackKeyboardInput,
+  type FallbackTouchPointInput,
+  type FallbackTouchPoint,
+  type FallbackTouchInput,
+  type AssaultFallbackEvent,
+  type AssaultFallbackConfig,
+} from './AssaultFallbackAdapter.js';
+
+

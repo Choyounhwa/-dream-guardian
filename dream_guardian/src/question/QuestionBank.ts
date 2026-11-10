@@ -10,6 +10,24 @@
 
 import type { QuestionRecord, SubLevelInfo } from '../types/index.js';
 
+/** 문제 풀 출처 (정상 로드 데이터 vs Fallback 데이터) */
+export type QuestionPoolSource = 'loaded' | 'fallback';
+
+/** 스냅샷 문항 레코드 (원본 메타데이터 및 식별자 id 보존) */
+export interface QuestionPoolRecord extends QuestionRecord {
+  id?: string | number;
+}
+
+/** 선택 문항 풀 읽기 전용 스냅샷 (REC-01 / #589) */
+export interface QuestionPoolSnapshot {
+  readonly level: number;
+  readonly subLevel?: number;
+  readonly source: QuestionPoolSource;
+  readonly isFallback: boolean;
+  readonly questions: readonly Readonly<QuestionPoolRecord>[];
+  readonly totalAvailable: number;
+}
+
 /** 기본 안전 문제 (CSV 로드 실패 시 사용) */
 const FALLBACK_QUESTIONS: QuestionRecord[] = [
   {
@@ -37,12 +55,22 @@ export class QuestionBank {
   private _currentLevel = 1;
   private _currentSubLevel?: number;
   private _lastServed: QuestionRecord[] = [];
+  private _hasLoadedRecords = false;
+  private _isUsingFallback = true;
 
   /**
    * 전체 문제 데이터 로드
    */
   loadRecords(records: QuestionRecord[]): void {
-    this._allRecords = records.length > 0 ? records : [...FALLBACK_QUESTIONS];
+    if (records.length > 0) {
+      this._allRecords = records.map((r) => ({ ...r }));
+      this._hasLoadedRecords = true;
+      this._isUsingFallback = false;
+    } else {
+      this._allRecords = FALLBACK_QUESTIONS.map((r) => ({ ...r }));
+      this._hasLoadedRecords = false;
+      this._isUsingFallback = true;
+    }
   }
 
   /**
@@ -85,12 +113,93 @@ export class QuestionBank {
 
     // 풀이 비어있으면 fallback 사용
     if (this._pool.length === 0) {
-      this._pool = [...FALLBACK_QUESTIONS];
+      this._pool = FALLBACK_QUESTIONS.map((r) => ({ ...r }));
+      this._isUsingFallback = true;
+    } else {
+      this._isUsingFallback = !this._hasLoadedRecords;
     }
 
     this._queue = [];
     this._lastServed = [];
     this._shuffle();
+  }
+
+  /**
+   * 선택 문항 풀 읽기 전용 스냅샷 포트 (REC-01 / #589)
+   *
+   * 원본 메타데이터(id, level, subLevel, shapeCode, template, eval 등)를 보존하고
+   * 호출자의 배열/레코드 변형에 내부 _pool, _queue, _allRecords가 영향받지 않도록 불변 객체를 반환한다.
+   *
+   * @param overrideLevel 특정 레벨 임시 조회 (지정 시 현재 bank 상태 불변)
+   * @param overrideSubLevel 특정 서브레벨 임시 조회
+   */
+  getPoolSnapshot(overrideLevel?: number, overrideSubLevel?: number): QuestionPoolSnapshot {
+    if (overrideLevel !== undefined) {
+      let targetPool: QuestionRecord[] = [];
+      let isFallback = false;
+
+      if (!this._hasLoadedRecords || this._allRecords.length === 0) {
+        targetPool = FALLBACK_QUESTIONS.map((r) => ({ ...r }));
+        isFallback = true;
+      } else if (overrideLevel === 5) {
+        if (overrideSubLevel === 1) targetPool = this._allRecords.filter((r) => r.level === 5);
+        else if (overrideSubLevel === 2) targetPool = this._allRecords.filter((r) => r.level === 6);
+        else if (overrideSubLevel === 3) targetPool = this._allRecords.filter((r) => r.level === 7);
+        else if (overrideSubLevel === 4) targetPool = this._allRecords.filter((r) => r.level === 8);
+        else if (overrideSubLevel === 5) targetPool = this._allRecords.filter((r) => r.level === 9);
+        else targetPool = [...this._allRecords];
+      } else {
+        if (overrideSubLevel !== undefined && overrideSubLevel > 0) {
+          targetPool = this._allRecords.filter(
+            (r) => r.level === overrideLevel && r.subLevel === overrideSubLevel
+          );
+        } else {
+          targetPool = this._allRecords.filter((r) => r.level === overrideLevel);
+        }
+      }
+
+      if (targetPool.length === 0) {
+        targetPool = FALLBACK_QUESTIONS.map((r) => ({ ...r }));
+        isFallback = true;
+      }
+
+      const frozenQuestions = Object.freeze(
+        targetPool.map((r) => Object.freeze({ ...r }))
+      );
+
+      return Object.freeze({
+        level: overrideLevel,
+        subLevel: overrideSubLevel,
+        source: isFallback ? 'fallback' : 'loaded',
+        isFallback,
+        questions: frozenQuestions,
+        totalAvailable: frozenQuestions.length,
+      });
+    }
+
+    if (!this._hasLoadedRecords && this._pool.length === 0) {
+      return Object.freeze({
+        level: this._currentLevel,
+        subLevel: this._currentSubLevel,
+        source: 'fallback',
+        isFallback: true,
+        questions: Object.freeze([]),
+        totalAvailable: 0,
+      });
+    }
+
+    const frozenQuestions = Object.freeze(
+      this._pool.map((r) => Object.freeze({ ...r }))
+    );
+
+    return Object.freeze({
+      level: this._currentLevel,
+      subLevel: this._currentSubLevel,
+      source: this._isUsingFallback ? 'fallback' : 'loaded',
+      isFallback: this._isUsingFallback,
+      questions: frozenQuestions,
+      totalAvailable: frozenQuestions.length,
+    });
   }
 
   /**

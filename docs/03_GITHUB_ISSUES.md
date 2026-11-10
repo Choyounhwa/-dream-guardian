@@ -1,5 +1,81 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-10-19 등록: BOSS-ASSAULT 런타임 복구 독립 트랙 (DOC-16)
+
+- **카드 작성·등록만 승인. 신규 27개 #588~#614 모두 OPEN / 개별 구현 승인 대기. 코드/config/tests 수정·실행·서버·커밋/푸시 없음. 기존 SSOT/NEXT 불변.**
+- 상세 원장/실제 번호·URL·의존성·최대3파일 단일레이어·A01~A31 적용범위: [DOC-16](16_BOSS_ASSAULT_RUNTIME_RECOVERY_CARDS.md). 원격 본문 원본: [27개 표준 카드](assault-runtime-recovery/).
+- #588 정책/G4 승인 증거 결정, #589/#592 문항 공급·정규화, #593/#597 설정·보기 조립, #594/#591/#595/#614 Game 읽기·답쌍·재개·직립상태, #604/#606 입력시계·안전, #596/#598/#607 요약·정산·반복진행, #590/#599/#608 표시, #609 음향, #610 수명, #600~#603/#605/#611/#612 결전(별도 G4 승인 차단), #613 복구 QA.
+- #503 실제 MVP 결정 코멘트 확인(130ms/170ms·피해10/5 등). #588(REC-00)에서 목표 10라운드(단일 config SSOT)·읽기시간 누적가산(Additive) 확정, G4는 별도 승인 증거 부재로 차단 유지(BLOCKED) 결정 완료. G4 구현보고는 승인 증거로 대체하지 않는다.
+- 중복 조사: 열린/전체 이슈 및 #502/#503/#527~#532/#539/#587 대조. 기존 완료 코멘트/이력을 재완료하지 않고 신규 연결 복구 범위로 분리. **기존 #533~#537는 보상/계산/격리저장/실측 결과·보상 영수증/종료 포트 원래 범위로 보존**, 제목 변경·재사용·닫기·프로젝트 이동 없음. DOC-15의 과거 상태/완료 이력은 보존하며 현재 복구 상태는 DOC-16 참조.
+
+## 2026-10-10 등록: 보스 접근전 상세 계획 (BOSS-ASSAULT / DOC-14 v0.2)
+
+**문서·이슈 등록만 승인됨. 구현 미착수, 전 카드 OPEN / 계획 / 개별 승인 대기. 기존 SSOT 및 진행 순서는 변경하지 않는다.**
+- 관리: [BOSS-ASSAULT-TRACK #502](https://github.com/Choyounhwa/-dream-guardian/issues/502) — 소스/config 0개, 일괄 실행 승인 아님.
+- 상세 표준 카드·정확한 allowlist·테스트·데이터 입출력·직접 의존성·A01~A23 추적표: [DOC-15](15_BOSS_ASSAULT_WORK_CARDS.md).
+- 하위 **37개**, BOSS-ASSAULT-01~37 = **#503~#539**. 단일 책임을 지키기 위해 목표 범위보다 2개 추가; 기존 BossController HP 초기화 포트 부재는 game 카드 37로 분리했다.
+- 순서: 01~26 → 37 → 27~36. 단계별 별도 승인, 후보 수치 확정 금지. 수식/랭킹/편집기/기본 모드 전환은 미등록 후속 백로그.
+- 이번 세션 테스트·빌드·서버·구현·커밋/푸시 미실시. 등록 완료를 구현 완료 또는 테스트 통과로 해석하지 않는다.
+- 상세화 개정: 기존 #502~#539만 #470 규격으로 보강한다. ID/제목/상태/허용 파일/직접 의존성은 유지하며 DOC-15에 전체 상세 계약을 보관한다. #503은 MVP 부분 승인 증거로 MVP 게이트를 해제할 수 있어 OPEN 유지 가능하고, 결전/보상/저장 수치는 별도 승인 전 계속 차단한다.
+- API 차단 기록: QuestionSpeech의 공개 status만으로 완료/실패를 구분할 수 없다. #503에서 관찰/제한 대기 계약을 승인하거나 별도 API 확장을 승인하기 전 #524/#525가 존재하지 않는 콜백을 가정하지 않는다.
+
+| 카드 | 실제 이슈 | 단계 / 상태 |
+|---|---|---|
+| 01 계약·수치 결정 | [#503](https://github.com/Choyounhwa/-dream-guardian/issues/503) | G0 / DONE (MVP 결정 완료, G1 해제) |
+| 02 타입 계약 | [#504](https://github.com/Choyounhwa/-dream-guardian/issues/504) | G1 / DONE |
+| 03 MVP config | [#505](https://github.com/Choyounhwa/-dream-guardian/issues/505) | G1 / DONE |
+| 04 교대 콘텐츠 | [#506](https://github.com/Choyounhwa/-dream-guardian/issues/506) | G1 / DONE |
+| 05 사전 검증 | [#507](https://github.com/Choyounhwa/-dream-guardian/issues/507) | G1 / DONE |
+| 06 순수 계획 컴파일 | [#508](https://github.com/Choyounhwa/-dream-guardian/issues/508) | G1 / DONE |
+| 07 숫자 보기 공급 | [#509](https://github.com/Choyounhwa/-dream-guardian/issues/509) | G1 / DONE |
+| 08 활성 시각 | [#510](https://github.com/Choyounhwa/-dream-guardian/issues/510) | G2 / OPEN |
+| 09 펀치 입력 | [#511](https://github.com/Choyounhwa/-dream-guardian/issues/511) | G2 / OPEN |
+| 10 스쿼트 자세 | [#512](https://github.com/Choyounhwa/-dream-guardian/issues/512) | G2 / OPEN |
+| 11 폴백 입력 | [#513](https://github.com/Choyounhwa/-dream-guardian/issues/513) | G2 / OPEN |
+| 12 답 쌍 판정 | [#514](https://github.com/Choyounhwa/-dream-guardian/issues/514) | G2 / OPEN |
+| 13 스쿼트 판정 | [#515](https://github.com/Choyounhwa/-dream-guardian/issues/515) | G2 / OPEN |
+| 14 MotionNote 어댑터 | [#516](https://github.com/Choyounhwa/-dream-guardian/issues/516) | G2 / OPEN |
+| 15 라운드 진행 | [#517](https://github.com/Choyounhwa/-dream-guardian/issues/517) | G2 / OPEN |
+| 16 멱등 피해 정산 | [#518](https://github.com/Choyounhwa/-dream-guardian/issues/518) | G2 / OPEN |
+| 17 라운드 요약 | [#519](https://github.com/Choyounhwa/-dream-guardian/issues/519) | G2 / OPEN |
+| 18 접근·종료 의도 | [#520](https://github.com/Choyounhwa/-dream-guardian/issues/520) | G2 / OPEN |
+| 19 장면 렌더링 | [#521](https://github.com/Choyounhwa/-dream-guardian/issues/521) | G2 / OPEN |
+| 20 HUD | [#522](https://github.com/Choyounhwa/-dream-guardian/issues/522) | G2 / OPEN |
+| 21 모드·상태 계약 | [#523](https://github.com/Choyounhwa/-dream-guardian/issues/523) | G3 / OPEN |
+| 22 세션 조립 | [#524](https://github.com/Choyounhwa/-dream-guardian/issues/524) | G3 / OPEN |
+| 23 프레임 라우팅 | [#525](https://github.com/Choyounhwa/-dream-guardian/issues/525) | G3 / OPEN |
+| 24 수명주기 | [#526](https://github.com/Choyounhwa/-dream-guardian/issues/526) | G3 / OPEN |
+| 25 MVP 인수 게이트 | [#527](https://github.com/Choyounhwa/-dream-guardian/issues/527) | G3 / OPEN |
+| 26 결전 config | [#528](https://github.com/Choyounhwa/-dream-guardian/issues/528) | G4 / OPEN |
+| 37 보스 HP 주입 포트 | [#539](https://github.com/Choyounhwa/-dream-guardian/issues/539) | G4 / OPEN; 26 직후 |
+| 27 결전 콘텐츠 | [#529](https://github.com/Choyounhwa/-dream-guardian/issues/529) | G4 / OPEN |
+| 28 점프·저충격 | [#530](https://github.com/Choyounhwa/-dream-guardian/issues/530) | G4 / OPEN |
+| 29 결전 진행 | [#531](https://github.com/Choyounhwa/-dream-guardian/issues/531) | G4 / OPEN |
+| 30 결전 core 인계 | [#532](https://github.com/Choyounhwa/-dream-guardian/issues/532) | G4 / OPEN |
+| 31 보상 config | [#533](https://github.com/Choyounhwa/-dream-guardian/issues/533) | G5 / OPEN |
+| 32 순수 보상 정책 | [#534](https://github.com/Choyounhwa/-dream-guardian/issues/534) | G5 / OPEN |
+| 33 격리 저장 | [#535](https://github.com/Choyounhwa/-dream-guardian/issues/535) | G5 / OPEN |
+| 34 결과 화면 | [#536](https://github.com/Choyounhwa/-dream-guardian/issues/536) | G5 / OPEN |
+| 35 종료 포트 배선 | [#537](https://github.com/Choyounhwa/-dream-guardian/issues/537) | G5 / OPEN |
+| 36 최종 인수 | [#538](https://github.com/Choyounhwa/-dream-guardian/issues/538) | G6 / OPEN |
+
+### 2026-10-11 v0.3 보완 등록 (DOC-14 §15)
+
+현행 코드 대조 결함(A1~A8, B1~B8, C1~C10, D1~D4)을 반영했다. 기존 #503, #504, #505, #509, #510, #511, #514, #517, #518, #522~#527 본문에 "v0.3 보완 조항"을 append했고, 아래 신규 카드를 등록했다. 등록은 구현 승인이 아니다.
+
+| 카드 | 실제 이슈 | 단계 / 상태 |
+|---|---|---|
+| 38 펀치·스쿼트·지연 실측 스파이크 | [#541](https://github.com/Choyounhwa/-dream-guardian/issues/541) | G0 / DONE |
+| 39 문항 적격성·읽기 시간 분류 | [#542](https://github.com/Choyounhwa/-dream-guardian/issues/542) | G1 / DONE |
+| 40 ASSAULT_ROUND 동작 소유권 config | [#543](https://github.com/Choyounhwa/-dream-guardian/issues/543) | G1 / DONE |
+| 41 박자·연출 효과음 큐 | [#544](https://github.com/Choyounhwa/-dream-guardian/issues/544) | G2 / OPEN |
+| 42 접근 진행도 연출 렌더러 | [#545](https://github.com/Choyounhwa/-dream-guardian/issues/545) | G3 / OPEN |
+| 43 운동량 실측 집계 | [#546](https://github.com/Choyounhwa/-dream-guardian/issues/546) | G2 / OPEN |
+| 44 스쿼트 저충격 대체 | [#547](https://github.com/Choyounhwa/-dream-guardian/issues/547) | G2 / OPEN |
+| 45 3단계 튜토리얼 | [#548](https://github.com/Choyounhwa/-dream-guardian/issues/548) | G3 이후 / OPEN |
+| 46 (선택) TTS 완료 콜백 | [#549](https://github.com/Choyounhwa/-dream-guardian/issues/549) | 선택 / OPEN |
+
+
 ## 2026-10-08 등록: 답안 선택 후 2박 쉼표(Rest Delay) 도입 (ANSWER-REST)
 
 - **작업 카드**: [✔ 완료] [#498 ANSWER-REST-001](https://github.com/Choyounhwa/-dream-guardian/issues/498) 답안 선택 후 2박 쉼표(Rest Delay) 도입 및 분기 전이 완충

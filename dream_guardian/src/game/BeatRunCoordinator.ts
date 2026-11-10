@@ -34,46 +34,22 @@ import {
   type DifficultyBeatProfile,
 } from '../../config/beat-motion.config.js';
 import { DEFAULT_ARM_DIRECTION_ANSWER_CONFIG } from '../../config/judgment.config.js';
+import {
+  BeatTimelineSynchronizer,
+  type AnswerWindowPhase,
+  type AnswerTimeSnapshot,
+  type BranchClock,
+  type RunTimingSnapshot,
+} from './beat/BeatTimelineSynchronizer.js';
+
+export type {
+  AnswerWindowPhase,
+  AnswerTimeSnapshot,
+  BranchClock,
+  RunTimingSnapshot,
+};
 
 export type BeatRoutineMode = 'arm_reach' | 'legacy';
-
-export type AnswerWindowPhase = 'primary' | 'extension' | 'closed';
-
-export interface AnswerTimeSnapshot {
-  windowId: number;
-  phase: AnswerWindowPhase;
-  primaryBeats: number;
-  extensionBeats: number;
-  maxBeats: number;
-  elapsedBeats: number;
-  remainingBeats: number;
-  inputOpen: boolean;
-}
-
-export interface BranchClock {
-  bpm: number;
-  secondsPerBeat: number;
-  startElapsed: number;
-  elapsed: number;
-  endElapsed: number;
-  durationBeats: 8;
-}
-
-/**
- * 읽기 전용 러닝 타이밍 스냅샷
- * @see Issue #370 [RUN-MAT-001]
- */
-export interface RunTimingSnapshot {
-  readonly runId: number;
-  readonly active: boolean;
-  readonly paused: boolean;
-  readonly elapsedBeats: number;
-  readonly exerciseBeats: number;
-  readonly requiredExerciseCount: number;
-  readonly acceptedExerciseCount: number;
-  readonly prepareStartBeat: number | null;
-  readonly transitionBeat: number | null;
-}
 
 export type BeatPhase =
   | 'COUNT_IN'
@@ -116,6 +92,7 @@ export class BeatRunCoordinator {
   private readonly _options: BeatRunCoordinatorOptions;
   private readonly _routineMode: BeatRoutineMode;
   private readonly _answerRestBeats: number;
+  private readonly _timeline: BeatTimelineSynchronizer;
   private _trackConfig: MusicTrackConfig;
   private _difficultyProfile: DifficultyBeatProfile;
   private _playMetronome = true;
@@ -124,20 +101,7 @@ export class BeatRunCoordinator {
   private _currentQuestion: GeneratedQuestion | null = null;
   private _questionGeneratedCount = 0;
   private _totalSteps = 0;
-  private _completedExerciseBeats = 0;
-  private _lastExercisedSlot = -1;
-  private _targetSlotEndElapsed: number | null = null;
-  private _runElapsed = 0;
-  private _readyElapsed = 0;
-  private _performanceElapsed = 0;
-  private _answerSelectElapsed = 0;
-  private _isAnswerResting = false;
-  private _answerRestElapsed = 0;
-  private _branchElapsed = 0;
-  private _branchStartElapsed = 0;
   private _isTimedOut = false;
-  private _countInElapsed = 0;
-  private _countInCurrentBeat = 0;
   private _selectedChoiceIndex: number | null = null;
   private _roundResolveCount = 0;
   private _keynotes: readonly Keynote[] = [];
@@ -145,6 +109,7 @@ export class BeatRunCoordinator {
   constructor(options?: BeatRunCoordinatorOptions) {
     this._options = options ?? {};
     this._routineMode = options?.routineMode ?? (options?.armReachAnswerSelector ? 'arm_reach' : 'legacy');
+    this._timeline = new BeatTimelineSynchronizer();
     this._trackConfig = options?.trackConfig ?? DEFAULT_TRACK_CONFIG;
     if (options?.difficultyProfile) {
       this._difficultyProfile = { ...options.difficultyProfile };
@@ -196,7 +161,7 @@ export class BeatRunCoordinator {
    */
   isStrongBeat(beatIndex: number): boolean {
     const beatsPerBar = this._trackConfig.timeSignature?.[0] ?? 4;
-    return beatsPerBar > 0 ? beatIndex % beatsPerBar === 0 : beatIndex === 0;
+    return BeatTimelineSynchronizer.isStrongBeat(beatIndex, beatsPerBar);
   }
 
   private _handleBeat(event: BeatEvent): void {
@@ -219,11 +184,15 @@ export class BeatRunCoordinator {
   }
 
   get isAnswerResting(): boolean {
-    return this._isAnswerResting;
+    return this._timeline.isAnswerResting;
   }
 
   get answerRestElapsed(): number {
-    return this._answerRestElapsed;
+    return this._timeline.answerRestElapsed;
+  }
+
+  get timeline(): BeatTimelineSynchronizer {
+    return this._timeline;
   }
 
   get phase(): BeatPhase {
@@ -281,27 +250,23 @@ export class BeatRunCoordinator {
   }
 
   get countInCurrentBeat(): number {
-    return this._countInCurrentBeat;
+    return this._timeline.countInCurrentBeat;
   }
 
   get countInElapsed(): number {
-    return this._countInElapsed;
+    return this._timeline.countInElapsed;
   }
 
   get countInProgress(): number {
-    const totalBeats = this.countInBeats;
-    if (totalBeats <= 0) return 1.0;
-    const totalDuration = totalBeats * this._rhythmEngine.secondsPerBeat;
-    if (totalDuration <= 0) return 1.0;
-    return Math.min(1.0, Math.max(0, this._countInElapsed / totalDuration));
+    return this._timeline.getCountInProgress(this.countInBeats, this._rhythmEngine.secondsPerBeat);
   }
 
   get isAnswerOpen(): boolean {
     if (this._phase === 'ANSWER_SELECT') {
       return (
-        !this._isAnswerResting &&
+        !this._timeline.isAnswerResting &&
         this._selectedChoiceIndex === null &&
-        this._answerSelectElapsed < this._answerMaxSeconds() - 1e-9
+        this._timeline.answerSelectElapsed < this._answerMaxSeconds() - 1e-9
       );
     }
     if (this._phase === 'KEYNOTE_PERFORMANCE') {
@@ -345,43 +310,24 @@ export class BeatRunCoordinator {
 
   /** #309 읽기 전용 답안 시간. 매 호출 새 객체. */
   getAnswerSnapshot(): Readonly<AnswerTimeSnapshot> {
-    const policy = DEFAULT_ARM_DIRECTION_ANSWER_CONFIG;
-    const spb = this._rhythmEngine.secondsPerBeat || 0.5;
-    const elapsedBeats = this._answerSelectElapsed / spb;
-    const maxBeats = policy.answerMaxBeats;
-    const phase: AnswerWindowPhase =
-      this._phase !== 'ANSWER_SELECT' || this._selectedChoiceIndex !== null || elapsedBeats >= maxBeats - 1e-9
-        ? 'closed'
-        : policy.answerExtensionBeats > 0 && elapsedBeats >= policy.answerPrimaryBeats - 1e-9
-          ? 'extension'
-          : 'primary';
-    const remainingBeats = phase === 'closed' ? 0 : Math.max(0, maxBeats - elapsedBeats);
-    return {
+    return this._timeline.createAnswerSnapshot({
       windowId: this._questionGeneratedCount,
-      phase,
-      primaryBeats: policy.answerPrimaryBeats,
-      extensionBeats: policy.answerExtensionBeats,
-      maxBeats,
-      elapsedBeats: phase === 'closed' ? Math.min(elapsedBeats, maxBeats) : elapsedBeats,
-      remainingBeats,
-      inputOpen: phase !== 'closed' && !this.isPaused,
-    };
+      isAnswerSelectPhase: this._phase === 'ANSWER_SELECT',
+      selectedChoiceIndex: this._selectedChoiceIndex,
+      isPaused: this.isPaused,
+      spb: this._rhythmEngine.secondsPerBeat,
+      policy: DEFAULT_ARM_DIRECTION_ANSWER_CONFIG,
+    });
   }
 
   /** #310용 읽기 전용 분기 시계. 분기 시작 전 null. */
   getBranchClock(): Readonly<BranchClock> | null {
-    if (this._phase !== 'STAR_COLLECT' && this._phase !== 'HAZARD_EVADE' && this._phase !== 'ROUND_RESOLVE') {
-      return null;
-    }
-    const spb = this._rhythmEngine.secondsPerBeat;
-    return {
-      bpm: this._rhythmEngine.bpm,
-      secondsPerBeat: spb,
-      startElapsed: this._branchStartElapsed,
-      elapsed: this._branchElapsed,
-      endElapsed: this._branchStartElapsed + this.branchRoutineBeats * spb,
-      durationBeats: this.branchRoutineBeats as BranchClock['durationBeats'],
-    };
+    return this._timeline.createBranchClock(
+      this._phase,
+      this._rhythmEngine.bpm,
+      this._rhythmEngine.secondsPerBeat,
+      this.branchRoutineBeats,
+    );
   }
 
   /**
@@ -389,33 +335,14 @@ export class BeatRunCoordinator {
    * @see Issue #370 [RUN-MAT-001]
    */
   getRunTimingSnapshot(): RunTimingSnapshot {
-    const active = Boolean(this._rhythmEngine.running && this._phase === 'RUN_QUESTION');
-    const paused = this.isPaused;
-    const spb = this._rhythmEngine.secondsPerBeat || 0.5;
-    const elapsedBeats = spb > 0 ? this._runElapsed / spb : 0;
-    const exerciseBeats = this.exerciseBeats;
-    const requiredExerciseCount = this.approachStartBeat;
-    const acceptedExerciseCount = this._completedExerciseBeats;
-
-    let prepareStartBeat: number | null = null;
-    let transitionBeat: number | null = null;
-
-    if (active && this._targetSlotEndElapsed !== null && spb > 0) {
-      transitionBeat = this._targetSlotEndElapsed / spb;
-      const prepareLength = Math.max(0, exerciseBeats - requiredExerciseCount);
-      prepareStartBeat = transitionBeat - prepareLength;
-    }
-
-    return Object.freeze({
+    return this._timeline.createRunTimingSnapshot({
       runId: this._questionGeneratedCount,
-      active,
-      paused,
-      elapsedBeats,
-      exerciseBeats,
-      requiredExerciseCount,
-      acceptedExerciseCount,
-      prepareStartBeat,
-      transitionBeat,
+      active: Boolean(this._rhythmEngine.running && this._phase === 'RUN_QUESTION'),
+      paused: this.isPaused,
+      spb: this._rhythmEngine.secondsPerBeat,
+      exerciseBeats: this.exerciseBeats,
+      requiredExerciseCount: this.approachStartBeat,
+      acceptedExerciseCount: this._timeline.completedExerciseBeats,
     });
   }
 
@@ -466,23 +393,22 @@ export class BeatRunCoordinator {
 
   /** 현재 라운드에서 실제 운동으로 완료한 비트 수 (0~8) */
   get completedExerciseBeats(): number {
-    return this._completedExerciseBeats;
+    return this._timeline.completedExerciseBeats;
   }
 
   /** REST_READY 내 완료된 준비 박 수 (0~readyBeats) */
   get readyBeat(): number {
-    return Math.min(this.readyBeats, Math.floor(this._readyElapsed / this._rhythmEngine.secondsPerBeat));
+    return this._timeline.calculateReadyBeat(this.readyBeats, this._rhythmEngine.secondsPerBeat);
   }
 
   /** KEYNOTE_PERFORMANCE 또는 분기 루틴 내 현재 박 (1~performanceBeats, 비활성 시 0) */
   get performanceBeat(): number {
-    if (this._phase === 'KEYNOTE_PERFORMANCE') {
-      return Math.min(this.performanceBeats, Math.floor(this._performanceElapsed / this._rhythmEngine.secondsPerBeat) + 1);
-    }
-    if (this._phase === 'STAR_COLLECT' || this._phase === 'HAZARD_EVADE') {
-      return Math.min(this.performanceBeats, Math.floor(this._branchElapsed / this._rhythmEngine.secondsPerBeat) + 2);
-    }
-    return 0;
+    const isBranch = this._phase === 'STAR_COLLECT' || this._phase === 'HAZARD_EVADE';
+    return this._timeline.calculatePerformanceBeat(
+      this.performanceBeats,
+      this._rhythmEngine.secondsPerBeat,
+      isBranch,
+    );
   }
 
   /** ROUND_RESOLVE가 실행된 횟수 (라운드당 정확히 1회) */
@@ -503,12 +429,10 @@ export class BeatRunCoordinator {
     if (this._phase !== 'RUN_QUESTION') {
       return 1.0;
     }
-    const spb = this._rhythmEngine.secondsPerBeat || 0.5;
-    const approachDuration = 2 * spb;
-    if (approachDuration <= 0) return 1.0;
-    const timeProgress = this._runElapsed / approachDuration;
-    if (!Number.isFinite(timeProgress)) return 0;
-    return Math.min(1.0, Math.max(0, timeProgress));
+    return BeatTimelineSynchronizer.calculateQuestionApproachProgress(
+      this._timeline.runElapsed,
+      this._rhythmEngine.secondsPerBeat,
+    );
   }
 
   /**
@@ -526,19 +450,12 @@ export class BeatRunCoordinator {
     if (this._phase !== 'RUN_QUESTION') {
       return 1.0;
     }
-    const spb = this._rhythmEngine.secondsPerBeat || 0.5;
-    const startElapsed = this.approachStartBeat * spb;
-    const endElapsed = this.exerciseBeats * spb;
-    if (this._runElapsed <= startElapsed) {
-      return 0.0;
-    }
-    if (this._runElapsed >= endElapsed) {
-      return 1.0;
-    }
-    const duration = endElapsed - startElapsed;
-    if (duration <= 0) return 1.0;
-    const linear = Math.max(0, Math.min(1.0, (this._runElapsed - startElapsed) / duration));
-    return 1.0 - Math.pow(1.0 - linear, 2);
+    return BeatTimelineSynchronizer.calculateAnswerApproachProgress(
+      this._timeline.runElapsed,
+      this.approachStartBeat,
+      this.exerciseBeats,
+      this._rhythmEngine.secondsPerBeat,
+    );
   }
 
   /**
@@ -599,18 +516,7 @@ export class BeatRunCoordinator {
     this._rhythmEngine.reset();
     this._rhythmEngine.start({ emitFirstBeat: false });
     this._phase = 'COUNT_IN';
-    this._countInElapsed = 0;
-    this._countInCurrentBeat = 1;
-    this._completedExerciseBeats = 0;
-    this._lastExercisedSlot = -1;
-    this._targetSlotEndElapsed = null;
-    this._runElapsed = 0;
-    this._readyElapsed = 0;
-    this._performanceElapsed = 0;
-    this._answerSelectElapsed = 0;
-    this._isAnswerResting = false;
-    this._answerRestElapsed = 0;
-    this._branchElapsed = 0;
+    this._timeline.startCountIn(1);
     this._selectedChoiceIndex = null;
     this._roundResolveCount = 0;
 
@@ -626,16 +532,7 @@ export class BeatRunCoordinator {
     this._rhythmEngine.reset();
     this._rhythmEngine.start();
     this._phase = 'RUN_QUESTION';
-    this._completedExerciseBeats = 0;
-    this._lastExercisedSlot = -1;
-    this._targetSlotEndElapsed = null;
-    this._runElapsed = 0;
-    this._readyElapsed = 0;
-    this._performanceElapsed = 0;
-    this._answerSelectElapsed = 0;
-    this._isAnswerResting = false;
-    this._answerRestElapsed = 0;
-    this._branchElapsed = 0;
+    this._timeline.resetRunQuestion();
     this._selectedChoiceIndex = null;
     this._roundResolveCount = 0;
 
@@ -681,38 +578,18 @@ export class BeatRunCoordinator {
     if (this._phase === 'COUNT_IN') {
       const spb = this._rhythmEngine.secondsPerBeat;
       const totalBeats = this.countInBeats;
-      const totalDuration = totalBeats * spb;
 
-      while (this._phase === 'COUNT_IN' && remainingDt > 0) {
-        if (this._countInCurrentBeat < totalBeats) {
-          const nextBeatTime = this._countInCurrentBeat * spb;
-          const timeUntilNextBeat = nextBeatTime - this._countInElapsed;
-          if (remainingDt >= timeUntilNextBeat - 1e-9) {
-            const step = Math.max(0, timeUntilNextBeat);
-            this._countInElapsed += step;
-            remainingDt -= step;
-            this._countInCurrentBeat++;
-            this._options.onCountInBeat?.(this._countInCurrentBeat, totalBeats);
-            if (this._options.sfx && this._playMetronome && !this.isPaused) {
-              const isStrong = this._countInCurrentBeat === 1;
-              this._options.sfx.play(isStrong ? 'metronome_strong' : 'metronome_weak');
-            }
-          } else {
-            this._countInElapsed += remainingDt;
-            remainingDt = 0;
-          }
-        } else {
-          const timeUntilEnd = totalDuration - this._countInElapsed;
-          if (remainingDt >= timeUntilEnd - 1e-9) {
-            const step = Math.max(0, timeUntilEnd);
-            this._countInElapsed += step;
-            remainingDt -= step;
-            this._startRunQuestion();
-          } else {
-            this._countInElapsed += remainingDt;
-            remainingDt = 0;
-          }
+      const res = this._timeline.updateCountIn(remainingDt, spb, totalBeats, (currentBeat, total) => {
+        this._options.onCountInBeat?.(currentBeat, total);
+        if (this._options.sfx && this._playMetronome && !this.isPaused) {
+          const isStrong = currentBeat === 1;
+          this._options.sfx.play(isStrong ? 'metronome_strong' : 'metronome_weak');
         }
+      });
+
+      remainingDt = res.remainingDt;
+      if (res.completed) {
+        this._startRunQuestion();
       }
 
       if (this._phase === 'COUNT_IN') {
@@ -724,53 +601,41 @@ export class BeatRunCoordinator {
 
     // 0. RUN_QUESTION 페이즈 처리
     if (this._phase === 'RUN_QUESTION') {
-      if (this._targetSlotEndElapsed !== null) {
-        const timeUntilEnd = this._targetSlotEndElapsed - this._runElapsed;
-        if (timeUntilEnd <= remainingDt + 1e-9) {
-          const step = Math.max(0, timeUntilEnd);
-          this._runElapsed += step;
-          remainingDt -= step;
-          this._transitionFromRunQuestion();
-        } else {
-          this._runElapsed += remainingDt;
-          remainingDt = 0;
-        }
-      } else {
-        this._runElapsed += remainingDt;
-        remainingDt = 0;
+      const res = this._timeline.stepRun(remainingDt);
+      remainingDt = res.remainingDt;
+      if (res.reachedTarget) {
+        this._transitionFromRunQuestion();
       }
     }
 
     if (this._routineMode === 'arm_reach') {
       // 1. ANSWER_SELECT 페이즈 처리
       if (this._phase === 'ANSWER_SELECT') {
-        if (this._isAnswerResting) {
+        if (this._timeline.isAnswerResting) {
           if (this.isPaused) {
             return;
           }
           const restDuration = this._answerRestBeats * this._rhythmEngine.secondsPerBeat;
-          const remainingRest = restDuration - this._answerRestElapsed;
-          const step = Math.min(remainingDt, Math.max(0, remainingRest));
-          this._answerRestElapsed += step;
-          remainingDt -= step;
+          const res = this._timeline.stepAnswerRest(remainingDt, restDuration);
+          remainingDt = res.remainingDt;
 
-          if (this._answerRestElapsed >= restDuration - 1e-9) {
-            this._isAnswerResting = false;
+          if (res.finished) {
+            this._timeline.isAnswerResting = false;
             const correct =
               this._selectedChoiceIndex !== null &&
               this._selectedChoiceIndex === this._currentQuestion?.correctIndex;
             this._phase = correct ? 'STAR_COLLECT' : 'HAZARD_EVADE';
-            this._branchStartElapsed = this._answerSelectElapsed + this._answerRestElapsed;
-            this._branchElapsed = 0;
+            this._timeline.branchStartElapsed = this._timeline.answerSelectElapsed + this._timeline.answerRestElapsed;
+            this._timeline.branchElapsed = 0;
             this._options.onPhaseChange?.(this._phase);
           }
         } else {
           // #309: primary 2 + 미응답 연장 1회(총 4). readyBeats(4)와 구 max-2는 창 길이가 아니다.
           const maxAnswerTime = this._answerMaxSeconds();
-          const samplePastDeadline = this._answerSelectElapsed + remainingDt > maxAnswerTime + 1e-9;
+          const samplePastDeadline = this._timeline.answerSelectElapsed + remainingDt > maxAnswerTime + 1e-9;
           const windowAcceptsInput =
             this._selectedChoiceIndex === null &&
-            this._answerSelectElapsed <= maxAnswerTime + 1e-9 &&
+            this._timeline.answerSelectElapsed <= maxAnswerTime + 1e-9 &&
             !this.isPaused;
 
           if (windowAcceptsInput) {
@@ -791,23 +656,23 @@ export class BeatRunCoordinator {
             return;
           }
 
-          const remainingAnswerTime = maxAnswerTime - this._answerSelectElapsed;
+          const remainingAnswerTime = maxAnswerTime - this._timeline.answerSelectElapsed;
           const step = Math.min(remainingDt, Math.max(0, remainingAnswerTime));
-          this._answerSelectElapsed += step;
+          this._timeline.answerSelectElapsed += step;
           remainingDt -= step;
 
-          if (this._answerSelectElapsed >= maxAnswerTime - 1e-9 && this._selectedChoiceIndex === null) {
+          if (this._timeline.answerSelectElapsed >= maxAnswerTime - 1e-9 && this._selectedChoiceIndex === null) {
             this._isTimedOut = true;
             this._options.onTimeout?.();
             this._armReachAnswerSelector.closeWindow();
             this._selectedChoiceIndex = null;
             if (this._answerRestBeats > 0) {
-              this._isAnswerResting = true;
-              this._answerRestElapsed = 0;
+              this._timeline.isAnswerResting = true;
+              this._timeline.answerRestElapsed = 0;
             } else {
               this._phase = 'HAZARD_EVADE';
-              this._branchElapsed = 0;
-              this._branchStartElapsed = this._answerSelectElapsed;
+              this._timeline.branchElapsed = 0;
+              this._timeline.branchStartElapsed = this._timeline.answerSelectElapsed;
               this._options.onPhaseChange?.(this._phase);
             }
           }
@@ -817,12 +682,12 @@ export class BeatRunCoordinator {
       // 2. 분기 루틴 처리 (STAR_COLLECT 또는 HAZARD_EVADE)
       if (this._phase === 'STAR_COLLECT' || this._phase === 'HAZARD_EVADE') {
         const branchMaxTime = this.performanceBeats * this._rhythmEngine.secondsPerBeat;
-        const remainingBranch = branchMaxTime - this._branchElapsed;
+        const remainingBranch = branchMaxTime - this._timeline.branchElapsed;
         const step = Math.min(remainingDt, remainingBranch);
-        this._branchElapsed += step;
+        this._timeline.branchElapsed += step;
         remainingDt -= step;
 
-        if (this._branchElapsed >= branchMaxTime - 1e-9) {
+        if (this._timeline.branchElapsed >= branchMaxTime - 1e-9) {
           this._resolveRound();
         }
       }
@@ -832,24 +697,24 @@ export class BeatRunCoordinator {
     // ─── LEGACY ROUTINE (하위 호환 전용 시간 진행 루틴) ───
     while (remainingDt > 0 && this._phase !== 'RUN_QUESTION' && this._phase !== 'ROUND_RESOLVE') {
       if (this._phase === 'REST_READY') {
-        const remainingReady = this.readyBeats * this._rhythmEngine.secondsPerBeat - this._readyElapsed;
+        const remainingReady = this.readyBeats * this._rhythmEngine.secondsPerBeat - this._timeline.readyElapsed;
         const stepDt = Math.min(remainingDt, remainingReady);
-        this._readyElapsed += stepDt;
+        this._timeline.readyElapsed += stepDt;
         this._centerReturnGate.update(stepDt, landmarks);
         remainingDt -= stepDt;
 
-        if (this._readyElapsed >= this.readyBeats * this._rhythmEngine.secondsPerBeat - 1e-9) {
+        if (this._timeline.readyElapsed >= this.readyBeats * this._rhythmEngine.secondsPerBeat - 1e-9) {
           if (!this._centerReturnGate.isLocked) this._centerReturnGate.forceFallbackLock();
           this._phase = 'KEYNOTE_PERFORMANCE';
           this._options.onPhaseChange?.(this._phase);
         }
       } else if (this._phase === 'KEYNOTE_PERFORMANCE') {
-        const remainingPerformance = this.performanceBeats * this._rhythmEngine.secondsPerBeat - this._performanceElapsed;
+        const remainingPerformance = this.performanceBeats * this._rhythmEngine.secondsPerBeat - this._timeline.performanceElapsed;
         const stepDt = Math.min(remainingDt, remainingPerformance);
-        this._performanceElapsed += stepDt;
+        this._timeline.performanceElapsed += stepDt;
         remainingDt -= stepDt;
 
-        if (this._performanceElapsed >= this.performanceBeats * this._rhythmEngine.secondsPerBeat - 1e-9) {
+        if (this._timeline.performanceElapsed >= this.performanceBeats * this._rhythmEngine.secondsPerBeat - 1e-9) {
           this._resolveRound();
         }
       }
@@ -862,16 +727,18 @@ export class BeatRunCoordinator {
   private _transitionFromRunQuestion(): void {
     if (this._routineMode === 'arm_reach') {
       this._phase = 'ANSWER_SELECT';
-      this._answerSelectElapsed = 0;
-      this._isAnswerResting = false;
-      this._answerRestElapsed = 0;
-      this._branchElapsed = 0;
-      this._branchStartElapsed = 0;
+      this._timeline.answerSelectElapsed = 0;
+      this._timeline.isAnswerResting = false;
+      this._timeline.answerRestElapsed = 0;
+      this._timeline.branchElapsed = 0;
+      this._timeline.branchStartElapsed = 0;
+      this._timeline.targetSlotEndElapsed = null;
       this._armReachAnswerSelector.openWindow();
       this._options.onPhaseChange?.(this._phase);
     } else {
       this._phase = 'REST_READY';
-      this._readyElapsed = 0;
+      this._timeline.readyElapsed = 0;
+      this._timeline.targetSlotEndElapsed = null;
       this._centerReturnGate.open({ roundIndex: this._rhythmEngine.roundIndex });
       this._options.onPhaseChange?.(this._phase);
     }
@@ -893,27 +760,27 @@ export class BeatRunCoordinator {
 
     this._totalSteps++;
 
-    if (this._phase !== 'RUN_QUESTION' || this._completedExerciseBeats >= this.exerciseBeats) {
+    if (this._phase !== 'RUN_QUESTION' || this._timeline.completedExerciseBeats >= this.exerciseBeats) {
       return;
     }
 
     const spb = this._rhythmEngine.secondsPerBeat || 0.5;
-    const currentSlot = Math.floor(this._runElapsed / spb);
+    const currentSlot = Math.floor(this._timeline.runElapsed / spb);
 
-    if (this._lastExercisedSlot === currentSlot) {
+    if (this._timeline.lastExercisedSlot === currentSlot) {
       // 동일 슬롯 중복 입력 차단 (totalSteps만 증가하고 유효 박수는 유지)
       return;
     }
 
-    this._lastExercisedSlot = currentSlot;
-    this._completedExerciseBeats++;
+    this._timeline.lastExercisedSlot = currentSlot;
+    this._timeline.completedExerciseBeats++;
 
     // Issue #279 [BEAT-DIFFICULTY-001 / 사전 위험 1번 해결]:
     // N박 중 N-2박(approachStartBeat) 필수 운동 스텝 완료 인정
     // 마지막 2박은 선택 준비 구간으로 전환 목표 시점(exerciseBeats 슬롯 경계) 설정
-    if (this._completedExerciseBeats >= this.approachStartBeat && this._targetSlotEndElapsed === null) {
-      const remainingBeats = Math.max(0, this.exerciseBeats - this._completedExerciseBeats);
-      this._targetSlotEndElapsed = (currentSlot + 1 + remainingBeats) * spb;
+    if (this._timeline.completedExerciseBeats >= this.approachStartBeat && this._timeline.targetSlotEndElapsed === null) {
+      const remainingBeats = Math.max(0, this.exerciseBeats - this._timeline.completedExerciseBeats);
+      this._timeline.targetSlotEndElapsed = (currentSlot + 1 + remainingBeats) * spb;
     }
   }
 
@@ -936,13 +803,13 @@ export class BeatRunCoordinator {
       this._armReachAnswerSelector.closeWindow();
       this._selectedChoiceIndex = null;
       this._phase = 'HAZARD_EVADE';
-      this._branchElapsed = 0;
+      this._timeline.branchElapsed = 0;
       this._options.onPhaseChange?.(this._phase);
       return;
     }
     if (this._phase === 'REST_READY') {
       this._centerReturnGate.forceFallbackLock();
-      this._readyElapsed = this.readyBeats * this._rhythmEngine.secondsPerBeat;
+      this._timeline.readyElapsed = this.readyBeats * this._rhythmEngine.secondsPerBeat;
       this._phase = 'KEYNOTE_PERFORMANCE';
       this._options.onPhaseChange?.(this._phase);
     }
@@ -972,16 +839,22 @@ export class BeatRunCoordinator {
 
     if (this._routineMode === 'arm_reach') {
       if (this._answerRestBeats > 0) {
-        this._isAnswerResting = true;
-        this._answerRestElapsed = 0;
+        this._timeline.isAnswerResting = true;
+        this._timeline.answerRestElapsed = 0;
         return;
       }
       const correct = choiceIndex === this._currentQuestion.correctIndex;
       this._phase = correct ? 'STAR_COLLECT' : 'HAZARD_EVADE';
-      this._branchStartElapsed = this._answerSelectElapsed;
-      this._branchElapsed = 0;
+      this._timeline.branchStartElapsed = this._timeline.answerSelectElapsed;
+      this._timeline.branchElapsed = 0;
       this._options.onPhaseChange?.(this._phase);
       return;
+    }
+
+    // legacy
+    if (this.performanceBeat === 1) {
+      this._phase = 'KEYNOTE_PERFORMANCE';
+      this._options.onPhaseChange?.(this._phase);
     }
   }
 

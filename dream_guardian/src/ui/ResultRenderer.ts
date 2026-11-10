@@ -412,15 +412,12 @@ export class ResultRenderer {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
     const ctx = this._resolveContext(context);
-    const panel = this.getPanelBounds(w, h, ctx);
-    const titleY = panel.y + 110 * scaleY;
-    const bw = 600 * scaleX;
-    const bh = 160 * scaleY;
+    const slot = UI_LAYOUT.result.title;
 
-    const x = ctx?.title?.x !== undefined ? ctx.title.x * scaleX : (w - bw) / 2;
-    const y = ctx?.title?.y !== undefined ? ctx.title.y * scaleY : titleY - bh / 2;
-    const tw = ctx?.title?.w !== undefined ? ctx.title.w * scaleX : bw;
-    const th = ctx?.title?.h !== undefined ? ctx.title.h * scaleY : bh;
+    const x = ctx?.title?.x !== undefined ? ctx.title.x * scaleX : slot.x * scaleX;
+    const y = ctx?.title?.y !== undefined ? ctx.title.y * scaleY : slot.y * scaleY;
+    const tw = ctx?.title?.w !== undefined ? ctx.title.w * scaleX : slot.w * scaleX;
+    const th = ctx?.title?.h !== undefined ? ctx.title.h * scaleY : slot.h * scaleY;
 
     return { x, y, w: tw, h: th };
   }
@@ -432,15 +429,12 @@ export class ResultRenderer {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
     const ctx = this._resolveContext(context);
-    const panel = this.getPanelBounds(w, h, ctx);
-    const titleY = panel.y + 110 * scaleY;
-    const cy = titleY + 90 * scaleY;
-    const ch = 50 * scaleY;
+    const slot = UI_LAYOUT.result.chapter;
 
-    const x = ctx?.chapterTitle?.x !== undefined ? ctx.chapterTitle.x * scaleX : panel.x + 40 * scaleX;
-    const y = ctx?.chapterTitle?.y !== undefined ? ctx.chapterTitle.y * scaleY : cy - ch / 2;
-    const cw = ctx?.chapterTitle?.w !== undefined ? ctx.chapterTitle.w * scaleX : panel.w - 80 * scaleX;
-    const rh = ctx?.chapterTitle?.h !== undefined ? ctx.chapterTitle.h * scaleY : ch;
+    const x = ctx?.chapterTitle?.x !== undefined ? ctx.chapterTitle.x * scaleX : slot.x * scaleX;
+    const y = ctx?.chapterTitle?.y !== undefined ? ctx.chapterTitle.y * scaleY : slot.y * scaleY;
+    const cw = ctx?.chapterTitle?.w !== undefined ? ctx.chapterTitle.w * scaleX : slot.w * scaleX;
+    const rh = ctx?.chapterTitle?.h !== undefined ? ctx.chapterTitle.h * scaleY : slot.h * scaleY;
 
     return { x, y, w: cw, h: rh };
   }
@@ -452,17 +446,12 @@ export class ResultRenderer {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
     const ctx = this._resolveContext(context);
-    const panel = this.getPanelBounds(w, h, ctx);
-    const titleY = panel.y + 110 * scaleY;
-    const starSize = 54 * scaleX;
-    const gw = 3 * starSize;
-    const gh = starSize;
-    const gy = titleY + 165 * scaleY - starSize / 2;
+    const slot = UI_LAYOUT.result.stars;
 
-    const x = ctx?.grade?.x !== undefined ? ctx.grade.x * scaleX : (w - gw) / 2;
-    const y = ctx?.grade?.y !== undefined ? ctx.grade.y * scaleY : gy;
-    const rw = ctx?.grade?.w !== undefined ? ctx.grade.w * scaleX : gw;
-    const rh = ctx?.grade?.h !== undefined ? ctx.grade.h * scaleY : gh;
+    const x = ctx?.grade?.x !== undefined ? ctx.grade.x * scaleX : slot.x * scaleX;
+    const y = ctx?.grade?.y !== undefined ? ctx.grade.y * scaleY : slot.y * scaleY;
+    const rw = ctx?.grade?.w !== undefined ? ctx.grade.w * scaleX : slot.w * scaleX;
+    const rh = ctx?.grade?.h !== undefined ? ctx.grade.h * scaleY : slot.h * scaleY;
 
     return { x, y, w: rw, h: rh };
   }
@@ -474,19 +463,18 @@ export class ResultRenderer {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
     const ctx = this._resolveContext(context);
-    const panel = this.getPanelBounds(w, h, ctx);
-    const size = 180 * scaleX;
+    const slot = UI_LAYOUT.result.stamp;
 
     const x =
       ctx?.rankStamp?.x !== undefined
         ? ctx.rankStamp.x * scaleX
-        : panel.x + panel.w - size - 40 * scaleX;
+        : slot.x * scaleX;
     const y =
       ctx?.rankStamp?.y !== undefined
         ? ctx.rankStamp.y * scaleY
-        : panel.y + 40 * scaleY;
-    const rw = ctx?.rankStamp?.w !== undefined ? ctx.rankStamp.w * scaleX : size;
-    const rh = ctx?.rankStamp?.h !== undefined ? ctx.rankStamp.h * scaleY : size;
+        : slot.y * scaleY;
+    const rw = ctx?.rankStamp?.w !== undefined ? ctx.rankStamp.w * scaleX : slot.w * scaleX;
+    const rh = ctx?.rankStamp?.h !== undefined ? ctx.rankStamp.h * scaleY : slot.h * scaleY;
 
     return { x, y, w: rw, h: rh };
   }
@@ -505,14 +493,14 @@ export class ResultRenderer {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
     const ctx = this._resolveContext(context);
-    const panel = this.getPanelBounds(w, h, ctx);
-    const startY = ctx?.stats?.y !== undefined ? ctx.stats.y * scaleY : panel.y + 470 * scaleY;
+    const slot = UI_LAYOUT.result.stats;
     const lineH = ctx?.stats?.lineHeight !== undefined ? Math.round(ctx.stats.lineHeight * scaleY) : this.getStatLineHeight(h);
-    const totalH = ctx?.stats?.h !== undefined ? ctx.stats.h * scaleY : 8 * lineH;
+    const defaultTotalH = slot?.h !== undefined ? slot.h * scaleY : 8 * lineH;
+    const totalH = ctx?.stats?.h !== undefined ? ctx.stats.h * scaleY : defaultTotalH;
 
-    const x = ctx?.stats?.x !== undefined ? ctx.stats.x * scaleX : panel.x + 60 * scaleX;
-    const y = startY;
-    const sw = ctx?.stats?.w !== undefined ? ctx.stats.w * scaleX : panel.w - 120 * scaleX;
+    const x = ctx?.stats?.x !== undefined ? ctx.stats.x * scaleX : slot.x * scaleX;
+    const y = ctx?.stats?.y !== undefined ? ctx.stats.y * scaleY : slot.y * scaleY;
+    const sw = ctx?.stats?.w !== undefined ? ctx.stats.w * scaleX : slot.w * scaleX;
     const sh = totalH;
 
     return { x, y, w: sw, h: sh };
@@ -542,14 +530,12 @@ export class ResultRenderer {
     const scaleX = w / 1080;
     const scaleY = h / 2160;
     const ctx = this._resolveContext(context);
-    const panel = this.getPanelBounds(w, h, ctx);
-    const promptY = panel.y + panel.h - 50 * scaleY;
-    const ph = ctx?.bottomPrompt?.h !== undefined ? ctx.bottomPrompt.h * scaleY : 40 * scaleY;
+    const slot = UI_LAYOUT.result.prompt ?? { x: 100, y: 1750, w: 880, h: 40 };
 
-    const x = ctx?.bottomPrompt?.x !== undefined ? ctx.bottomPrompt.x * scaleX : panel.x;
-    const y = ctx?.bottomPrompt?.y !== undefined ? ctx.bottomPrompt.y * scaleY : promptY - ph / 2;
-    const pw = ctx?.bottomPrompt?.w !== undefined ? ctx.bottomPrompt.w * scaleX : panel.w;
-    const rh = ph;
+    const x = ctx?.bottomPrompt?.x !== undefined ? ctx.bottomPrompt.x * scaleX : slot.x * scaleX;
+    const y = ctx?.bottomPrompt?.y !== undefined ? ctx.bottomPrompt.y * scaleY : slot.y * scaleY;
+    const pw = ctx?.bottomPrompt?.w !== undefined ? ctx.bottomPrompt.w * scaleX : slot.w * scaleX;
+    const rh = ctx?.bottomPrompt?.h !== undefined ? ctx.bottomPrompt.h * scaleY : slot.h * scaleY;
 
     return { x, y, w: pw, h: rh };
   }
@@ -557,7 +543,7 @@ export class ResultRenderer {
   /**
    * 통계 1줄 높이 (2160 기준 74px, UI_LAYOUT.result.statLineHeight 연동)
    */
-  getStatLineHeight(h: number): number {
+  getStatLineHeight(h: number = 2160): number {
     return Math.round(UI_LAYOUT.result.statLineHeight * (h / 2160));
   }
 
@@ -565,7 +551,8 @@ export class ResultRenderer {
    * 통계 폰트 크기 (1080 기준 44px)
    */
   getStatFontSize(w: number): number {
-    return UIText.getFontSize('subheading', w / 1080);
+    const statScale = (UI_LAYOUT.result.stats?.label?.textScale ?? 1.0) * (UI_LAYOUT.result.stats?.value?.textScale ?? 1.0);
+    return Math.round(UIText.getFontSize('subheading', w / 1080) * statScale);
   }
 
   /**
@@ -667,7 +654,8 @@ export class ResultRenderer {
       const defaultColor = data.victory ? '#4DFFAA' : '#FF4444';
       const titleText = effectiveCtx?.title?.text ?? defaultTitle;
       const titleColor = effectiveCtx?.title?.color ?? defaultColor;
-      ctx.font = UIText.getFont('hero', scaleX, 'bold');
+      const titleScale = UI_LAYOUT.result.title?.textScale ?? 1.0;
+      ctx.font = UIText.getFont('hero', scaleX * titleScale, 'bold');
       ctx.fillStyle = titleColor;
       ctx.shadowColor = titleColor;
       ctx.shadowBlur = 20 * scaleX;
@@ -678,7 +666,8 @@ export class ResultRenderer {
     // 챕터명: bold 42px
     const chapterBounds = this.getChapterTitleBounds(w, h, effectiveCtx);
     const chapterText = effectiveCtx?.chapterTitle?.text ?? `Ch.${data.chapter} ${getBossName(data.chapter)}`;
-    ctx.font = UIText.getFont('body', scaleX, 'bold');
+    const chapterScale = UI_LAYOUT.result.chapter?.textScale ?? 1.0;
+    ctx.font = UIText.getFont('body', scaleX * chapterScale, 'bold');
     ctx.fillStyle = effectiveCtx?.chapterTitle?.color ?? '#FFCB4D';
     ctx.fillText(chapterText, chapterBounds.x + chapterBounds.w / 2, chapterBounds.y + chapterBounds.h / 2);
 
@@ -689,7 +678,7 @@ export class ResultRenderer {
       const starFilledImg = imageLoader.get('result', 'starFilled');
       const starEmptyImg = imageLoader.get('result', 'starEmpty');
       if (starFilledImg && starEmptyImg) {
-        const starSize = 54 * scaleX;
+        const starSize = Math.min(gradeBounds.w / 3, gradeBounds.h);
         const startX = gradeBounds.x;
         const starY = gradeBounds.y;
         for (let s = 0; s < 3; s++) {
@@ -697,7 +686,8 @@ export class ResultRenderer {
           ctx.drawImage(sImg, startX + s * starSize, starY, starSize, starSize);
         }
       } else {
-        ctx.font = UIText.getFont('heading', scaleX, 'bold');
+        const starScale = UI_LAYOUT.result.stars?.textScale ?? 1.0;
+        ctx.font = UIText.getFont('heading', scaleX * starScale, 'bold');
         ctx.fillStyle = '#FFCB4D';
         ctx.shadowColor = '#FFCB4D';
         ctx.shadowBlur = 14 * scaleX;
@@ -743,15 +733,17 @@ export class ResultRenderer {
       ctx.arc(cx, cy, r - 8 * scaleX, 0, Math.PI * 2);
       ctx.stroke();
 
+      const stampScale = UI_LAYOUT.result.stamp?.textScale ?? 1.0;
+
       // RANK 라벨
-      ctx.font = UIText.getFont('badge', scaleX, 'bold');
+      ctx.font = UIText.getFont('badge', scaleX * stampScale, 'bold');
       ctx.fillStyle = color;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('RANK', cx, cy - r + 20 * scaleY);
 
       // 중앙 랭크 등급 레터
-      ctx.font = UIText.getFont('title', scaleX, 'bold');
+      ctx.font = UIText.getFont('title', scaleX * stampScale, 'bold');
       ctx.fillText(rank, cx, cy + 8 * scaleY);
 
       ctx.restore();
@@ -764,14 +756,17 @@ export class ResultRenderer {
       : this.getStatLineHeight(h);
     const statStartY = effectiveCtx?.stats?.y !== undefined
       ? statsBounds.y
-      : panel.y + (data.victory ? 470 : 380) * scaleY;
+      : (data.victory
+          ? (UI_LAYOUT.result.stats?.victoryY ?? UI_LAYOUT.result.stats?.y ?? 710) * scaleY
+          : (UI_LAYOUT.result.stats?.defeatY ?? (UI_LAYOUT.result.stats?.y ? UI_LAYOUT.result.stats.y - 90 : 620)) * scaleY);
+    const statScale = (UI_LAYOUT.result.stats?.label?.textScale ?? 1.0) * (UI_LAYOUT.result.stats?.value?.textScale ?? 1.0);
     const statFontSize = effectiveCtx?.stats?.fontSize !== undefined
-      ? Math.round(effectiveCtx.stats.fontSize * scaleX)
+      ? Math.round(effectiveCtx.stats.fontSize * scaleX * statScale)
       : this.getStatFontSize(w);
 
     ctx.font = effectiveCtx?.stats?.fontSize !== undefined
       ? `bold ${statFontSize}px sans-serif`
-      : UIText.getFont('subheading', scaleX, 'bold');
+      : UIText.getFont('subheading', scaleX * statScale, 'bold');
     ctx.fillStyle = '#FFFFFF';
 
     const accuracy = data.totalQuestions > 0
@@ -857,7 +852,7 @@ export class ResultRenderer {
 
       const iconImg = item.iconKey ? imageLoader.get('result', item.iconKey) : null;
       if (iconImg) {
-        const iconX = panel.x + 70 * scaleX;
+        const iconX = (UI_LAYOUT.result.stats?.x !== undefined ? statsBounds.x + 10 * scaleX : panel.x + 70 * scaleX);
         const iconY = ly - iconSize / 2;
         ctx.drawImage(iconImg, iconX, iconY, iconSize, iconSize);
 
@@ -874,8 +869,9 @@ export class ResultRenderer {
     // 5. 하단 안내문
     const promptBounds = this.getBottomPromptBounds(w, h, effectiveCtx);
     const promptText = effectiveCtx?.bottomPrompt?.text ?? '양손을 모으거나 하단 [메뉴로] 버튼을 클릭하세요';
+    const promptScale = (UI_LAYOUT.result.prompt?.textScale ?? 1.0) * (UI_LAYOUT.result.button?.textScale ?? 1.0);
     ctx.textAlign = 'center';
-    ctx.font = UIText.getFont('label', scaleX, 'normal');
+    ctx.font = UIText.getFont('label', scaleX * promptScale, 'normal');
     ctx.fillStyle = '#BBBBBB';
     if (effectiveCtx?.bottomPrompt?.color) {
       ctx.fillStyle = effectiveCtx.bottomPrompt.color;

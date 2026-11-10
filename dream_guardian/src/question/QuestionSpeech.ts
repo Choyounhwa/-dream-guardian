@@ -17,11 +17,17 @@ export class QuestionSpeech {
   private _timeoutId: ReturnType<typeof setTimeout> | null = null;
   private _supported = false;
   private _enabled = true;
+  private _cachedVoice: SpeechSynthesisVoice | null = null;
+  private _speakQueue: string[] = [];
 
   // 저시력 모드 음성 피드백 중복 방지 제어
   private _lastLowHpTime = 0;
   private _lowHpCooldownMs = 8000;
   private _bossEnrageTriggered = false;
+
+  private _onVoicesChanged = (): void => {
+    this._cachedVoice = this._pickBestVoice();
+  };
 
   constructor() {
     this._supported =
@@ -31,6 +37,8 @@ export class QuestionSpeech {
 
     if (!this._supported) {
       this._status = 'unsupported';
+    } else {
+      this._initVoices();
     }
   }
 
@@ -60,16 +68,28 @@ export class QuestionSpeech {
   speak(mathText: string): void {
     if (!this._supported || !this._enabled) return;
 
+    this._speakQueue = [];
     const koreanText = mathToKorean(mathText);
     this._speakRaw(koreanText);
   }
 
   /**
-   * 게임 상태 피드백 음성 안내 (Issue #265 / A11Y-004)
-   * - correct: "정답입니다!"
-   * - wrong: "틀렸습니다!"
-   * - low_hp: "주의! 체력이 절반입니다!" (쿨다운 중복 방지)
-   * - boss_enrage: "보스가 광폭화했습니다!" (1회 트리거)
+   * 러닝페이즈(RUN_QUESTION) 낭독 (Issue #540 / TTS-VOICE-003)
+   * 1. "달려!" 먼저 발화
+   * 2. 발화 완료(onend) 시 수학 문제("3 더하기 5") 순차 발화
+   */
+  speakRunPhase(mathText: string): void {
+    if (!this._supported || !this._enabled) return;
+
+    const koreanQuestion = mathToKorean(mathText);
+    this._speakRawSequence(['달려!', koreanQuestion]);
+  }
+
+  /**
+   * 게임 상태 피드백 음성 안내 (Issue #265, #540)
+   * - low_hp: "HP 주의" (쿨다운 중복 방지)
+   * - boss_enrage: "보스 광폭화" (1회 트리거)
+   * - correct / wrong: 효과음(SFX)으로 충분히 전달되므로 음성 삭제 (no-op)
    */
   speakFeedback(type: SpeechFeedbackType): void {
     if (!this._supported || !this._enabled) return;
@@ -87,17 +107,93 @@ export class QuestionSpeech {
       this._lastLowHpTime = now;
     }
 
-    const messages: Record<SpeechFeedbackType, string> = {
-      correct: '정답입니다!',
-      wrong: '틀렸습니다!',
-      low_hp: '주의! 체력이 절반입니다!',
-      boss_enrage: '보스가 광폭화했습니다!',
+    const messages: Partial<Record<SpeechFeedbackType, string>> = {
+      low_hp: 'HP 주의',
+      boss_enrage: '보스 광폭화',
     };
 
     const text = messages[type];
     if (text) {
+      this._speakQueue = [];
       this._speakRaw(text);
     }
+  }
+
+  /** 음성 리스너 초기화 및 비동기 음성 로딩 대응 */
+  private _initVoices(): void {
+    this._cachedVoice = this._pickBestVoice();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      if ('onvoiceschanged' in window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = this._onVoicesChanged;
+      } else if (typeof (window.speechSynthesis as any).addEventListener === 'function') {
+        (window.speechSynthesis as any).addEventListener('voiceschanged', this._onVoicesChanged);
+      }
+    }
+  }
+
+  /**
+   * 한국어 음성 우선순위 스코어링 (Issue #501)
+   * - Edge의 Online (Natural) 음성은 브라우저 Web Speech API에서 pitch 변경을 무시하므로 최하위 점수 부여
+   * - 로컬 서비스(localService: true), Heami Desktop, Google 한국의 등 피치 조절 가능 음성을 최우선 매칭
+   */
+  private _scoreVoice(voice: SpeechSynthesisVoice): number {
+    const lang = voice.lang?.toLowerCase() ?? '';
+    if (lang !== 'ko-kr' && lang !== 'ko' && !lang.startsWith('ko')) {
+      return -1000;
+    }
+
+    let score = 10;
+    const name = voice.name?.toLowerCase() ?? '';
+
+    // Edge Natural/Online 음성은 Web Speech API 스펙상 pitch 변경 무시 -> 감점
+    if (name.includes('natural') || name.includes('online')) {
+      score -= 100;
+    }
+
+    // 로컬 음성 가산점 (피치 조절 지원 보장)
+    if (voice.localService) {
+      score += 50;
+    }
+
+    // 피치 변조가 잘 동작하는 한국어 대표 음성
+    if (name.includes('heami')) {
+      score += 40;
+    } else if (name.includes('google')) {
+      score += 30;
+    } else if (name.includes('yuna') || name.includes('sora')) {
+      score += 30;
+    }
+
+    return score;
+  }
+
+  /** 피치 변조를 완벽히 지원하는 최적 한국어 음성 탐색 */
+  private _pickBestVoice(): SpeechSynthesisVoice | null {
+    if (
+      !this._supported ||
+      typeof window === 'undefined' ||
+      typeof window.speechSynthesis.getVoices !== 'function'
+    ) {
+      return null;
+    }
+
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) {
+      return null;
+    }
+
+    let bestVoice: SpeechSynthesisVoice | null = null;
+    let bestScore = -999;
+
+    for (const voice of voices) {
+      const score = this._scoreVoice(voice);
+      if (score > bestScore) {
+        bestScore = score;
+        bestVoice = voice;
+      }
+    }
+
+    return bestVoice;
   }
 
   /** 피드백 발화 제어 상태 초기화 (새 게임 시작 시) */
@@ -107,25 +203,34 @@ export class QuestionSpeech {
   }
 
   /** 한국어 텍스트 직접 발화 내부 헬퍼 */
-  private _speakRaw(text: string): void {
+  private _speakRaw(text: string, onDone?: () => void): void {
     if (!this._supported || !this._enabled) return;
 
-    // 이전 음성 취소
-    this.cancel();
+    // 이전 발화 취소 (큐는 유지)
+    this._cancelCurrentUtterance();
 
     try {
       this._utterance = new SpeechSynthesisUtterance(text);
       this._utterance.lang = 'ko-KR';
-      this._utterance.rate = 1.0;
+      this._utterance.pitch = 1.35;
+      this._utterance.rate = 1.15;
+
+      const voice = this._cachedVoice ?? this._pickBestVoice();
+      if (voice) {
+        this._utterance.voice = voice;
+        this._cachedVoice = voice;
+      }
 
       this._utterance.onend = () => {
         this._status = 'idle';
         this._clearTimeout();
+        onDone?.();
       };
 
       this._utterance.onerror = () => {
         this._status = 'idle';
         this._clearTimeout();
+        this._speakQueue = [];
       };
 
       this._status = 'speaking';
@@ -140,8 +245,32 @@ export class QuestionSpeech {
     }
   }
 
-  /** 현재 음성 취소 */
+  /** 순차 음성 발화 큐잉 내부 헬퍼 */
+  private _speakRawSequence(texts: string[]): void {
+    if (!this._supported || !this._enabled) return;
+    this.cancel();
+    if (texts.length === 0) return;
+    this._speakQueue = [...texts];
+    this._playNextInQueue();
+  }
+
+  private _playNextInQueue(): void {
+    if (this._speakQueue.length === 0) return;
+    const nextText = this._speakQueue.shift()!;
+    this._speakRaw(nextText, () => {
+      if (this._speakQueue.length > 0) {
+        this._playNextInQueue();
+      }
+    });
+  }
+
+  /** 현재 발화 취소 및 큐 초기화 */
   cancel(): void {
+    this._speakQueue = [];
+    this._cancelCurrentUtterance();
+  }
+
+  private _cancelCurrentUtterance(): void {
     if (this._supported && typeof window !== 'undefined') {
       window.speechSynthesis.cancel();
     }
@@ -153,6 +282,15 @@ export class QuestionSpeech {
   destroy(): void {
     this.cancel();
     this._utterance = null;
+    this._cachedVoice = null;
+    if (this._supported && typeof window !== 'undefined' && window.speechSynthesis) {
+      if (window.speechSynthesis.onvoiceschanged === this._onVoicesChanged) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+      if (typeof (window.speechSynthesis as any).removeEventListener === 'function') {
+        (window.speechSynthesis as any).removeEventListener('voiceschanged', this._onVoicesChanged);
+      }
+    }
   }
 
   private _clearTimeout(): void {
@@ -167,10 +305,10 @@ export class QuestionSpeech {
  * 수학 표기를 한국어 음성 텍스트로 변환
  *
  * 예:
- *   "3 + 5 = ?"  → "3 더하기 5는?"
- *   "12 - 7 = ?" → "12 빼기 7은?"
- *   "4 × 6 = ?"  → "4 곱하기 6은?"
- *   "15 ÷ 3 = ?" → "15 나누기 3은?"
+ *   "3 + 5 = ?"  → "3 더하기 5"
+ *   "12 - 7 = ?" → "12 빼기 7"
+ *   "4 × 6 = ?"  → "4 곱하기 6"
+ *   "15 ÷ 3 = ?" → "15 나누기 3"
  *   "1/2 + 3"    → "2분의 1 더하기 3"
  */
 export function mathToKorean(text: string): string {
@@ -185,8 +323,11 @@ export function mathToKorean(text: string): string {
   result = result.replace(/[×\*]/g, ' 곱하기 ');
   result = result.replace(/[÷\/]/g, ' 나누기 ');
 
-  // "= ?" 또는 단독 "?" → "는?"
-  result = result.replace(/\s*=?\s*\?\s*$/, '는?');
+  // 수식 간결화: "= [?]", "= ?" 끝맺음 생략 (Issue #500)
+  result = result.replace(/=\s*\[\s*\?\s*\]/g, '');
+  result = result.replace(/=\s*\?/g, '');
+  result = result.replace(/\s*=?\s*\?\s*$/, '');
+  result = result.replace(/\s*=\s*$/, '');
 
   // 연속 공백 정리
   result = result.replace(/\s+/g, ' ').trim();

@@ -2,11 +2,14 @@
  * SFXSynth - Web Audio API 기반 절차적 사운드 효과 신디사이저
  *
  * Issue #136 (Card #67): [AUDIO-002]
+ * Issue #630: [REFACTOR-DRY-003]
  * - 체류 충전음 (Dwell Charge): 진행도 0.0~1.0에 따라 피치 상승(220Hz -> 880Hz)
  * - 자세 완성 화음 (Posture Complete): 맑은 3화음 (C5, E5, G5)
  * - 12종 기본 효과음(정답, 오답, 호버, 시작, 피격, 크리스털, 스텝 등) 절차적 합성
  * - 음소거 및 브라우저 AudioContext 자동 재개 안전 처리
  */
+
+import { createAudioContext } from './AudioContextFactory.js';
 
 export type SFXType =
   | 'correct'
@@ -47,15 +50,7 @@ export class SFXSynth {
   }
 
   private _initContext(): void {
-    if (typeof window === 'undefined') return;
-    try {
-      const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioCtxClass) {
-        this._audioCtx = new AudioCtxClass();
-      }
-    } catch {
-      // AudioContext 미지원 또는 제한 환경 무시
-    }
+    this._audioCtx = createAudioContext();
   }
 
   get audioContext(): AudioContext | null {
