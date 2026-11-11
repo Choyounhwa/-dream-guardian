@@ -186,6 +186,7 @@ describe('[QA-ANSWER-BRANCH-001 / Issue #314] AppBootstrap Runtime Answer-Branch
       canvas: createMockCanvas(),
       autoStartCamera: false,
       preloadAssets: false,
+      answerRestBeats: 0,
     });
     await app.init();
     loadTestQuestions(app);
@@ -281,11 +282,12 @@ describe('[QA-ANSWER-BRANCH-001 / Issue #314] AppBootstrap Runtime Answer-Branch
     const bpms = [110, 115, 120, 125, 135, 140];
 
     for (const bpm of bpms) {
-      const app = new AppBootstrap({
-        canvas: createMockCanvas(),
-        autoStartCamera: false,
-        preloadAssets: false,
-      });
+    const app = new AppBootstrap({
+      canvas: createMockCanvas(),
+      autoStartCamera: false,
+      preloadAssets: false,
+      answerRestBeats: 0,
+    });
       await app.init();
       loadTestQuestions(app);
 
@@ -322,6 +324,7 @@ describe('[QA-ANSWER-BRANCH-001 / Issue #314] AppBootstrap Runtime Answer-Branch
       canvas: createMockCanvas(),
       autoStartCamera: false,
       preloadAssets: false,
+      answerRestBeats: 0,
     });
     await app.init();
     loadTestQuestions(app);
@@ -380,6 +383,7 @@ describe('[QA-ANSWER-BRANCH-001 / Issue #314] AppBootstrap Runtime Answer-Branch
       canvas: createMockCanvas(),
       autoStartCamera: false,
       preloadAssets: false,
+      answerRestBeats: 0,
     });
     await app.init();
     loadTestQuestions(app);

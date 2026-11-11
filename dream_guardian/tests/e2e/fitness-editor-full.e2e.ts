@@ -331,6 +331,7 @@ describe('[Issue #404 / FITNESS-EDITOR-QA] 피트니스 에디터 통합 전체 
       canvas: createMockCanvas(),
       autoStartCamera: false,
       preloadAssets: false,
+      answerRestBeats: 0,
     });
     await app.init();
 

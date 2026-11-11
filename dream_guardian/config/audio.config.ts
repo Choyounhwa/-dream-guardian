@@ -176,3 +176,16 @@ export const DEFAULT_BGM_AUDIO_CONFIG: BGMAudioConfig = Object.freeze({
     ]),
   }),
 });
+
+/**
+ * 기본 레거시/스토리 BGM 설정 (하얘시니 샘플)
+ */
+export const DEFAULT_STORY_BGM_TRACK = '/audio/bgm/ch1_hayesini_rock_sample.wav';
+export const DEFAULT_STORY_BGM_BPM = 120;
+
+/**
+ * 보스 접근전(Boss Assault) 전용 BGM 설정
+ */
+export const DEFAULT_ASSAULT_BGM_TRACK = '/audio/bgm/115bpm-Precision Rhythm Quest.mp3';
+export const DEFAULT_ASSAULT_BGM_BPM = 115;
+

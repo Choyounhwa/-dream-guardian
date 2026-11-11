@@ -3,202 +3,30 @@
  *
  * @see docs/14_BOSS_ASSAULT_GAMEPLAY_DESIGN.md (DOC-14 §§4, 5, 6.2, 13.1, 15.2-B3, 15.2-B8)
  * @see docs/15_BOSS_ASSAULT_WORK_CARDS.md (BOSS-ASSAULT-15 / Issue #517)
- *
- * 절대 규칙:
- * 1. Game 순수 런타임 제어 단일 책임:
- *    - 단일 문제(라운드)의 생명주기(throw_in -> question_reading -> encounters -> round_resolve/round_clear)를 소유한다.
- *    - readable 시점부터 max(8박 * spb, readingMinSeconds)를 다음 박자에 정렬(DEC-B3).
- * 2. DEC-B3 시간 기반 비대기 TTS 정책:
- *    - 문제 진입 시 TTS 낭독 요청 신호를 1회 발행하되, 비대기(non-blocking)로 시간 계약에 따라 자동 전이.
- * 3. DEC-B8 공격 중 재개 정책:
- *    - 조우 진행 도중 일시정지 발생 후 해제 시: 진행 중이던 공격 예고부터 재시작 + 1박 카운트 유예(resumeReadyBeats: 1).
- *    - 이전 완료된 공격은 중복 실행/정산하지 않음.
- * 4. 활성 시각(#510) 기반 시간 전진 및 시간순 병합:
- *    - 입력과 지나간 논리 경계를 시간순 병합하고 동일 시각(t == deadline)에서만 입력 우선 처리(A08, A17).
- *    - 일시정지 중 경과 시간은 반영되지 않으며 복귀 시 읽기 시간이 소급 삭감되지 않음(A23).
- * 5. 정산 명령 수집 및 단일 완료 신호:
- *    - 조우들(#514, #515)에서 발생한 정산 명령을 수집하여 상위(#518)로 전달할 수 있는 snapshot/큐 제공.
- *    - 라운드 완료/종료 신호 1회 발행.
- * 6. 아키텍처 제약:
- *    - setTimeout, setInterval, rAF, DOM 이벤트 리스너 일체 배제 (순수 시뮬레이션/컨트롤러 클래스).
- *    - HP 직접 변경 0회 (정산 명령 발행만 담당).
  */
 
 import type {
-  SessionId,
-  RoundId,
-  AssaultRoundPhase,
-  AssaultRoundPresentation,
-  AssaultEncounterDef,
-  AssaultAnswerSide,
-  AssaultSettlementCommand,
+  SessionId, RoundId, AssaultRoundPhase, AssaultRoundPresentation,
+  AssaultEncounterDef, AssaultAnswerSide, AssaultSettlementCommand,
 } from '../../types/assault.js';
+import { AssaultRoundPresentationBuilder } from './AssaultRoundPresentationBuilder.js';
+import { AssaultPairJudge } from './AssaultPairJudge.js';
+import { AssaultSquatJudge } from './AssaultSquatJudge.js';
+import type { AssaultSquatPosture, AssaultSquatResult } from '../../motion/AssaultSquatAdapter.js';
+import { DEFAULT_ASSAULT_CONFIG, DEFAULT_ASSAULT_BPM } from '../../../config/assault.config.js';
+import { AssaultRoundSummaryAggregator, type AssaultRoundSummaryData } from './AssaultRoundSummary.js';
+import type { AssaultSettlementReceipt } from './AssaultSettlement.js';
 import type {
-  AssaultCompiledPlan,
-  AssaultCompiledEncounter,
-} from './AssaultPlanCompiler.js';
-import {
-  AssaultPairJudge,
-} from './AssaultPairJudge.js';
-import {
-  AssaultSquatJudge,
-} from './AssaultSquatJudge.js';
-import type {
-  AssaultSquatPosture,
-} from '../../motion/AssaultSquatAdapter.js';
-import {
-  DEFAULT_ASSAULT_CONFIG,
-  type AssaultTimingAndBalanceConfig,
-} from '../../../config/assault.config.js';
-import type { AssaultNoteAdapter } from './AssaultNoteAdapter.js';
-
-// ─── 1. 입력 및 옵션 타입 계약 ───
-
-/** 문제 데이터 계약 */
-export interface AssaultRoundQuestionData {
-  readonly id: string;
-  readonly text: string;
-  readonly type?: string;
-  readonly minReadSeconds?: number;
-  readonly level?: number;
-  readonly [key: string]: unknown;
-}
-
-/** 조우 런타임 상태 */
-interface RuntimeEncounter {
-  readonly def: AssaultEncounterDef;
-  readonly index: number;
-  startSeconds: number;
-  arrivalSeconds: number;
-  deadlineSeconds: number;
-  endSeconds: number;
-  readonly lateGraceSeconds: number;
-  pairJudge?: AssaultPairJudge;
-  squatJudge?: AssaultSquatJudge;
-  startFired: boolean;
-  arrivalFired: boolean;
-  deadlineFired: boolean;
-  endFired: boolean;
-  isResolved: boolean;
-}
-
-/** 라운드 컨트롤러 확장 설정 계약 */
-export interface AssaultRoundConfig extends AssaultTimingAndBalanceConfig {
-  readonly lateGraceMs: number;
-  readonly minDuckingDurationMs: number;
-  readonly trackingLossGraceSeconds: number;
-  readonly simultaneousPunchGraceMs: number;
-}
-
-/** 타임라인 내부 이벤트 */
-type TimelineEventType =
-  | 'readable'
-  | 'reading_end'
-  | 'encounter_start'
-  | 'user_input'
-  | 'encounter_arrival'
-  | 'encounter_deadline'
-  | 'encounter_end';
-
-interface PendingInput {
-  type: 'punch' | 'squat';
-  hand?: 'left' | 'right';
-  posture?: AssaultSquatPosture | 'squatting';
-  timestampMs: number;
-  activeSeconds: number;
-  inputId?: string;
-  standGeneration?: number;
-}
-
-interface TimelineEvent {
-  type: TimelineEventType;
-  time: number;
-  priority: number;
-  encounterIndex?: number;
-  input?: PendingInput;
-}
-
-/** 라운드 컨트롤러 생성 옵션 */
-export interface AssaultRoundControllerOptions {
-  readonly sessionId: SessionId;
-  readonly roundId: RoundId;
-  readonly question: AssaultRoundQuestionData | string;
-  readonly plan:
-    | AssaultCompiledPlan
-    | { readonly encounters: readonly (AssaultEncounterDef | AssaultCompiledEncounter)[] };
-  readonly bpm?: number;
-  readonly config?: Partial<AssaultRoundConfig>;
-  readonly throwDurationSeconds?: number;
-  readonly noteAdapter?: AssaultNoteAdapter;
-  readonly onTtsSpeak?: (questionText: string) => void;
-  readonly onPhaseChange?: (phase: AssaultRoundPhase, prevPhase: AssaultRoundPhase) => void;
-  readonly onEncounterStart?: (encounter: AssaultEncounterDef, index: number) => void;
-  readonly onEncounterEnd?: (encounter: AssaultEncounterDef, index: number) => void;
-  readonly onRoundComplete?: (result: {
-    sessionId: SessionId;
-    roundId: RoundId;
-    success: boolean;
-  }) => void;
-  readonly onSettlementCommand?: (command: AssaultSettlementCommand) => void;
-}
-
-// ─── 2. 헬퍼 함수 ───
-
-function resolveReadingMinSeconds(
-  question: AssaultRoundQuestionData,
-  config: Partial<AssaultTimingAndBalanceConfig>,
-): number {
-  const readingMin = config.readingMinSeconds ?? DEFAULT_ASSAULT_CONFIG.readingMinSeconds;
-  if (typeof readingMin === 'number') {
-    return readingMin;
-  }
-  let opType = question.type;
-  if (!opType && question.text) {
-    if (question.text.includes('+')) opType = 'addition';
-    else if (question.text.includes('-')) opType = 'subtraction';
-    else if (question.text.includes('*') || question.text.includes('×')) opType = 'multiplication';
-    else if (question.text.includes('/') || question.text.includes('÷')) opType = 'division';
-  }
-  const key = (opType ?? 'default') as keyof typeof readingMin;
-  return readingMin[key] ?? readingMin.default ?? 3.5;
-}
-
-/**
- * REC-00 / #588 승인 읽기 시간 산출 조합식:
- * 8박 기본 시간, 유형별 하한, 문항 minReadSeconds, 글자수 추정 TTS(상한 ttsMaxSeconds)의 누적 가산(Additive).
- * 중복 가산 방지 및 최소 8박(minRoundBeats) 보장.
- */
-function calculateReadingDurationSeconds(
-  question: AssaultRoundQuestionData,
-  config: AssaultRoundConfig,
-  secondsPerBeat: number,
-): number {
-  const minRoundBeats = config.minRoundBeats ?? DEFAULT_ASSAULT_CONFIG.minRoundBeats ?? 8;
-  const baseBeatsTime = minRoundBeats * secondsPerBeat;
-
-  // 1. 유형 하한
-  const typeMinSeconds = resolveReadingMinSeconds(question, config);
-
-  // 2. 글자 수 기반 추정 TTS 시간 (상한 ttsMaxSeconds 클램프)
-  const charRateMs = config.readingCharRateMs ?? DEFAULT_ASSAULT_CONFIG.readingCharRateMs ?? 150;
-  const ttsMaxSeconds = config.ttsMaxSeconds ?? DEFAULT_ASSAULT_CONFIG.ttsMaxSeconds ?? 3.0;
-  const charCount = (question.text || '').trim().length;
-  const estimatedTtsSeconds = Math.min((charCount * charRateMs) / 1000, ttsMaxSeconds);
-
-  // 3. 문항 자체 minReadSeconds가 지정되어 있다면 이를 누적 기준(base)으로 삼고,
-  // 지정되지 않은 경우(예: 단순 문자열 전달 등) 유형 하한을 사용하되 8박 기준과의 중복 가산 방지
-  let requiredSeconds: number;
-  if (typeof question.minReadSeconds === 'number') {
-    requiredSeconds = Math.max(baseBeatsTime, question.minReadSeconds + estimatedTtsSeconds);
-  } else {
-    // 단순 문자열 또는 기본 유형인 경우 8박 시간과 유형 하한 중 큰 값 사용
-    requiredSeconds = Math.max(baseBeatsTime, typeMinSeconds);
-  }
-
-  // 4. 다음 박자 경계(Beat Boundary)로 올림 정렬
-  const targetBeats = Math.max(minRoundBeats, Math.ceil(requiredSeconds / secondsPerBeat));
-  return targetBeats * secondsPerBeat;
-}
+  AssaultRoundQuestionData, RuntimeEncounter, AssaultRoundConfig,
+  AssaultSquatStandState, PendingInput, TimelineEvent, AssaultRoundControllerOptions,
+} from './AssaultRoundTypes.js';
+import { normalizeAssaultRoundQuestion } from './AssaultRoundTypes.js';
+export type {
+  AssaultRoundQuestionData, AssaultRoundConfig, AssaultSquatStandState, AssaultRoundControllerOptions,
+};
+import { calculateReadingDurationSeconds } from './AssaultReadingCalculator.js';
+import { AssaultLoopTimeline } from './AssaultLoopTimeline.js';
+import type { AssaultLoopSegmentDef } from '../../types/assault-loop.js';
 
 // ─── 3. 메인 컨트롤러 클래스 ───
 
@@ -208,6 +36,7 @@ export class AssaultRoundController {
   private readonly _question: AssaultRoundQuestionData;
   private readonly _config: AssaultRoundConfig;
   private readonly _options: AssaultRoundControllerOptions;
+  private readonly _timeline: AssaultLoopTimeline | null;
 
   private readonly _bpm: number;
   private readonly _secondsPerBeat: number;
@@ -223,10 +52,16 @@ export class AssaultRoundController {
   private _isCompleted: boolean = false;
   private _ttsRequested: boolean = false;
   private _roundCompletedSignalEmitted: boolean = false;
+  private _completedSuccess: boolean = false;
+  private readonly _summary: AssaultRoundSummaryAggregator;
+  private _finalizedSummary: AssaultRoundSummaryData | null = null;
 
   private readonly _encounters: RuntimeEncounter[] = [];
   private readonly _settlementCommands: AssaultSettlementCommand[] = [];
   private readonly _pendingInputs: PendingInput[] = [];
+
+  /** 직립 세대 및 복귀 상태 영속 저장소 (REC-26 / #614) */
+  private _squatStandState: AssaultSquatStandState;
 
   private _readableFired: boolean = false;
   private _readingEndFired: boolean = false;
@@ -235,16 +70,15 @@ export class AssaultRoundController {
     this._options = options;
     this.sessionId = options.sessionId;
     this.roundId = options.roundId;
+    this._summary = new AssaultRoundSummaryAggregator({ sessionId: options.sessionId, roundId: options.roundId });
+    this._squatStandState = Object.freeze({
+      consumedGenerations: Object.freeze(options.initialSquatStandState?.consumedGenerations ? [...options.initialSquatStandState.consumedGenerations] : []),
+      hasStoodUpSinceLastEvade: options.initialSquatStandState?.hasStoodUpSinceLastEvade ?? true,
+      currentStandGeneration: options.initialSquatStandState?.currentStandGeneration ?? 0,
+    });
 
     // 1. 문제 데이터 정규화
-    if (typeof options.question === 'string') {
-      this._question = Object.freeze({
-        id: `q_${options.roundId}`,
-        text: options.question,
-      });
-    } else {
-      this._question = Object.freeze({ ...options.question });
-    }
+    this._question = normalizeAssaultRoundQuestion(options.question, options.roundId);
 
     // 2. 설정 정규화
     this._config = Object.freeze({
@@ -256,43 +90,73 @@ export class AssaultRoundController {
       simultaneousPunchGraceMs: options.config?.simultaneousPunchGraceMs ?? 50,
     });
 
-    // 3. 타이밍 산출
-    const planBpm = 'bpm' in options.plan && typeof options.plan.bpm === 'number' ? options.plan.bpm : undefined;
-    this._bpm = options.bpm ?? planBpm ?? 120;
+    // 3. 타이밍 및 루프 타임라인 산출
+    const planBpm = options.plan && 'bpm' in options.plan && typeof options.plan.bpm === 'number'
+      ? options.plan.bpm
+      : options.loopPlan?.bpm;
+    this._bpm = options.bpm ?? planBpm ?? DEFAULT_ASSAULT_BPM;
     this._secondsPerBeat = 60 / this._bpm;
-    this._throwDurationSeconds = options.throwDurationSeconds ?? 1.0;
 
-    // 생각 시간 산출 (REC-00 / #588, DEC-B3, A03)
-    this._readingDurationSeconds = calculateReadingDurationSeconds(
-      this._question,
-      this._config,
-      this._secondsPerBeat,
-    );
-    this._readingEndTime = this._throwDurationSeconds + this._readingDurationSeconds;
+    if (options.loopPlan) {
+      this._timeline = new AssaultLoopTimeline(options.loopPlan, this._bpm);
+      this._throwDurationSeconds = 0;
+      this._readingDurationSeconds = this._timeline.segments[0]?.durationSeconds ?? 8 * this._secondsPerBeat;
+      this._readingEndTime = this._readingDurationSeconds;
+    } else {
+      this._timeline = null;
+      this._throwDurationSeconds = options.throwDurationSeconds ?? 1.0;
+      this._readingDurationSeconds = calculateReadingDurationSeconds(this._question, this._config, this._secondsPerBeat);
+      this._readingEndTime = this._throwDurationSeconds + this._readingDurationSeconds;
+    }
 
     // 4. 초기 상태
     this._phase = this._throwDurationSeconds > 0 ? 'throw_in' : 'question_reading';
     this._readableFired = this._throwDurationSeconds <= 0;
 
     // 5. 조우 런타임 초기화
-    const encounterDefs = options.plan.encounters;
-    const lateGraceSeconds = this._config.lateGraceMs / 1000;
+    const encounterDefs = options.loopPlan ? options.loopPlan.encounters : (options.plan?.encounters ?? []);
+    const lateGraceSeconds = this._timeline ? 0 : this._config.lateGraceMs / 1000;
 
     for (let i = 0; i < encounterDefs.length; i++) {
       const def = encounterDefs[i];
-      const startSeconds = this._readingEndTime + def.startBeat * this._secondsPerBeat;
-      const arrivalSeconds = startSeconds + def.durationBeats * this._secondsPerBeat;
-      const deadlineSeconds = arrivalSeconds + lateGraceSeconds;
-      const endSeconds = deadlineSeconds;
+      let startSeconds: number;
+      let arrivalSeconds: number;
+      let deadlineSeconds: number;
+      let endSeconds: number;
+      let readyUntilSeconds: number | undefined;
+
+      if (this._timeline) {
+        startSeconds = def.startBeat * this._secondsPerBeat;
+        if (def.kind === 'squat') {
+          const sq = this._timeline.calculateSquatWindows(def.startBeat, def.durationBeats);
+          startSeconds = sq.startSeconds;
+          readyUntilSeconds = sq.dodgeStartSeconds;
+          arrivalSeconds = sq.dodgeEndSeconds;
+          deadlineSeconds = sq.dodgeEndSeconds;
+          endSeconds = sq.standEndSeconds;
+        } else {
+          arrivalSeconds = startSeconds + def.durationBeats * this._secondsPerBeat;
+          deadlineSeconds = arrivalSeconds;
+          endSeconds = arrivalSeconds;
+          readyUntilSeconds = startSeconds;
+        }
+      } else {
+        startSeconds = this._readingEndTime + def.startBeat * this._secondsPerBeat;
+        arrivalSeconds = startSeconds + def.durationBeats * this._secondsPerBeat;
+        deadlineSeconds = arrivalSeconds + lateGraceSeconds;
+        endSeconds = deadlineSeconds;
+        readyUntilSeconds = startSeconds;
+      }
 
       const runtimeEnc: RuntimeEncounter = {
         def,
         index: i,
         startSeconds,
+        ...(readyUntilSeconds !== undefined ? { readyUntilSeconds } : {}),
         arrivalSeconds,
         deadlineSeconds,
         endSeconds,
-        lateGraceSeconds,
+        lateGraceSeconds: this._timeline ? 0 : lateGraceSeconds,
         startFired: false,
         arrivalFired: false,
         deadlineFired: false,
@@ -312,61 +176,25 @@ export class AssaultRoundController {
 
   // ─── 4. 상태 접근자 (Getters) ───
 
-  get phase(): AssaultRoundPhase {
-    return this._phase;
-  }
-
-  get question(): AssaultRoundQuestionData {
-    return this._question;
-  }
-
-  get questionText(): string {
-    return this._question.text;
-  }
-
-  get currentEncounterIndex(): number {
-    return this._currentEncounterIndex;
-  }
-
-  get totalEncounters(): number {
-    return this._encounters.length;
-  }
-
-  get readingProgress(): number {
-    return this._readingProgress;
-  }
-
-  get isPaused(): boolean {
-    return this._isPaused;
-  }
-
-  get isCompleted(): boolean {
-    return this._isCompleted;
-  }
-
-  get readingDurationSeconds(): number {
-    return this._readingDurationSeconds;
-  }
-
-  get readingEndTime(): number {
-    return this._readingEndTime;
-  }
-
-  get throwDurationSeconds(): number {
-    return this._throwDurationSeconds;
-  }
-
-  get encounters(): readonly AssaultEncounterDef[] {
-    return Object.freeze(this._encounters.map((e) => e.def));
-  }
-
-  get settlementCommands(): readonly AssaultSettlementCommand[] {
-    return Object.freeze([...this._settlementCommands]);
-  }
-
-  getSettlementCommands(): readonly AssaultSettlementCommand[] {
-    return Object.freeze([...this._settlementCommands]);
-  }
+  get phase(): AssaultRoundPhase { return this._phase; }
+  get bpm(): number { return this._bpm; }
+  get secondsPerBeat(): number { return this._secondsPerBeat; }
+  get question(): AssaultRoundQuestionData { return this._question; }
+  get questionText(): string { return this._question.text; }
+  get currentEncounterIndex(): number { return this._currentEncounterIndex; }
+  get totalEncounters(): number { return this._encounters.length; }
+  get readingProgress(): number { return this._readingProgress; }
+  get isPaused(): boolean { return this._isPaused; }
+  get isCompleted(): boolean { return this._isCompleted; }
+  get completedSuccess(): boolean { return this._completedSuccess; }
+  get readingDurationSeconds(): number { return this._readingDurationSeconds; }
+  get readingEndTime(): number { return this._readingEndTime; }
+  get throwDurationSeconds(): number { return this._throwDurationSeconds; }
+  get timeline(): AssaultLoopTimeline | null { return this._timeline; }
+  get currentLoopSegment(): AssaultLoopSegmentDef | null { return this._timeline?.getCurrentSegment(this._lastActiveSeconds) ?? null; }
+  get encounters(): readonly AssaultEncounterDef[] { return Object.freeze(this._encounters.map((e) => e.def)); }
+  get settlementCommands(): readonly AssaultSettlementCommand[] { return Object.freeze([...this._settlementCommands]); }
+  getSettlementCommands(): readonly AssaultSettlementCommand[] { return this.settlementCommands; }
 
   drainSettlementCommands(): readonly AssaultSettlementCommand[] {
     const drained = [...this._settlementCommands];
@@ -375,26 +203,42 @@ export class AssaultRoundController {
   }
 
   getPresentationSnapshot(): AssaultRoundPresentation {
-    return Object.freeze({
+    const enc = this._encounters[this._currentEncounterIndex] ?? this._encounters[this._encounters.length - 1];
+    return AssaultRoundPresentationBuilder.build({
       sessionId: this.sessionId,
       roundId: this.roundId,
       phase: this._phase,
-      questionText: this._question.text,
+      question: this._question,
+      optionsPairs: (this._options as { pairs?: Record<string | number, unknown> }).pairs,
+      currentEncounter: enc,
+      encounters: this._encounters,
       currentEncounterIndex: this._currentEncounterIndex,
       totalEncounters: this._encounters.length,
       activeSeconds: this._lastActiveSeconds,
       readingProgress: this._readingProgress,
       isPaused: this._isPaused,
+      throwDurationSeconds: this._throwDurationSeconds,
+      readingEndTime: this._readingEndTime,
+      timeline: this._timeline,
     });
   }
 
   // ─── 5. 생명주기 및 시간 전진 ───
 
   update(activeSeconds: number, _dt?: number): void {
+    // 0. 완료 또는 abort 후 후속 실행 일체 차단
+    if (this._isCompleted) {
+      return;
+    }
+
     // 1. TTS 낭독 요청 신호: 최초 업데이트 시 정확히 1회 발행 (DEC-B3)
     if (!this._ttsRequested) {
       this._ttsRequested = true;
-      this._options.onTtsSpeak?.(this.questionText);
+      try {
+        this._options.onTtsSpeak?.(this.questionText);
+      } catch (_e) {
+        // 비동기 안전: TTS 에러가 라운드 진행을 블로킹하지 않음
+      }
     }
 
     // 2. 정지 중 시간 진행 차단
@@ -409,17 +253,24 @@ export class AssaultRoundController {
 
     const fromT = this._lastActiveSeconds;
     const toT = activeSeconds;
+    const wasCompleted = this._isCompleted;
 
     // 4. 시간순 경계 및 입력 처리
     this._processTimelineEvents(fromT, toT);
 
     // 5. 시각 갱신 및 진행률 계산
-    this._lastActiveSeconds = toT;
-    this._updateReadingProgress(toT);
+    this._commitActiveTime(toT, wasCompleted);
   }
 
   pause(_reason?: string): void {
     this._isPaused = true;
+    this._pendingInputs.length = 0;
+    if (this._phase === 'encounters' && this._currentEncounterIndex < this._encounters.length) {
+      const curr = this._encounters[this._currentEncounterIndex];
+      if (curr && curr.pairJudge?.state.status === 'wrong_locked') {
+        curr.isResolved = true;
+      }
+    }
   }
 
   resume(): void {
@@ -428,16 +279,24 @@ export class AssaultRoundController {
     }
     this._isPaused = false;
 
-    // DEC-B8 (공격 중 재개 정책):
+    // DEC-B8 (공격 중 재개 정책 / REC-08):
     // 조우(공격) 진행 도중 일시정지 발생 후 해제 시:
-    // 진행 중이던 공격 예고부터 재시작 + 1박 카운트 유예(resumeReadyBeats: 1) 제공.
+    // 진행 중이던 미해결 공격 예고부터 재시작 + 1박 카운트 유예(resumeReadyBeats: 1) 제공.
+    // 이미 결과가 확정되었거나 피해가 적용된 공격은 재시작·재정산하지 않음.
     if (this._phase === 'encounters' && this._currentEncounterIndex < this._encounters.length) {
       const curr = this._encounters[this._currentEncounterIndex];
-      if (curr && !curr.isResolved) {
+      const isSettledOrDamaged =
+        !curr ||
+        curr.isResolved ||
+        (curr.pairJudge && curr.pairJudge.state.status !== 'pending') ||
+        (curr.squatJudge && curr.squatJudge.state.status !== 'pending');
+
+      if (curr && !isSettledOrDamaged && (curr.startFired || this._lastActiveSeconds >= curr.startSeconds)) {
         const readyGraceSeconds = this._config.resumeReadyBeats * this._secondsPerBeat;
         const oldEndSeconds = curr.endSeconds;
 
         curr.startSeconds = this._lastActiveSeconds;
+        curr.readyUntilSeconds = this._lastActiveSeconds + readyGraceSeconds;
         curr.arrivalSeconds = curr.startSeconds + curr.def.durationBeats * this._secondsPerBeat + readyGraceSeconds;
         curr.deadlineSeconds = curr.arrivalSeconds + curr.lateGraceSeconds;
         curr.endSeconds = curr.deadlineSeconds;
@@ -454,10 +313,16 @@ export class AssaultRoundController {
           for (let j = this._currentEncounterIndex + 1; j < this._encounters.length; j++) {
             const nextEnc = this._encounters[j];
             nextEnc.startSeconds += shiftDelta;
+            if (nextEnc.readyUntilSeconds !== undefined) {
+              nextEnc.readyUntilSeconds += shiftDelta;
+            }
             nextEnc.arrivalSeconds += shiftDelta;
             nextEnc.deadlineSeconds += shiftDelta;
             nextEnc.endSeconds += shiftDelta;
             this._initJudgesForEncounter(nextEnc);
+          }
+          if (this._timeline) {
+            this._timeline.applyShift({ attackId: curr.def.id, deltaSeconds: shiftDelta });
           }
         }
       }
@@ -468,6 +333,57 @@ export class AssaultRoundController {
     this._completeRound(false, reason);
   }
 
+  // ─── 5-1. 라운드 요약 포트 (REC-11 / #596) ───
+
+  /** 확정된 불변 라운드 요약 (finalize 전에는 null) */
+  getRoundSummary(): AssaultRoundSummaryData | null {
+    return this._finalizedSummary;
+  }
+
+  /**
+   * Core가 실제 정산기에서 받은 영수증을 기록한다.
+   * applied:true + 동일 세션/라운드 영수증만 수락하며, 거부 영수증은 멱등 키를 소비하지 않는다.
+   */
+  recordSettlementReceipt(receipt: AssaultSettlementReceipt | null): boolean {
+    if (!receipt || this._finalizedSummary || receipt.applied !== true) {
+      return false;
+    }
+    if (receipt.sessionId !== this.sessionId || receipt.roundId !== this.roundId) {
+      return false;
+    }
+    return this._summary.recordReceipt(receipt);
+  }
+
+  /**
+   * 영수증 반영 및 권위 HP 0 확인 후 Core가 호출하여 요약을 1회 확정한다.
+   * 라운드 완료(onRoundComplete) 또는 abort 이전에는 null을 반환한다.
+   */
+  finalizeRoundSummary(options: { isDefeated: boolean }): AssaultRoundSummaryData | null {
+    if (this._finalizedSummary) {
+      return this._finalizedSummary;
+    }
+    if (!this._isCompleted) {
+      return null;
+    }
+    const summary = this._summary.finalize({
+      ...(this._completedSuccess ? {} : { isAborted: true }),
+      ...(options.isDefeated ? { isDefeated: true } : {}),
+    });
+    this._finalizedSummary = summary;
+    this._options.onSummaryFinalized?.(summary);
+    return summary;
+  }
+
+  // ─── 5-2. 직립 세대 소비 상태 포트 (REC-26 / #614) ───
+
+  /**
+   * 라운드 경계를 넘어 직립 복귀 및 세대 소비 상태를 Core가 보관하고
+   * 다음 라운드에 재주입할 수 있도록 읽기 전용 상태를 반환한다.
+   */
+  exportSquatStandState(): AssaultSquatStandState {
+    return this._squatStandState;
+  }
+
   // ─── 6. 입력 주입 인터페이스 ───
 
   submitPunch(
@@ -475,6 +391,9 @@ export class AssaultRoundController {
     timestampMs: number,
     options?: { activeSeconds?: number; inputId?: string },
   ): void {
+    if (this._isPaused || this._isCompleted) {
+      return;
+    }
     const activeSeconds = options?.activeSeconds ?? this._lastActiveSeconds;
     this._pendingInputs.push({
       type: 'punch',
@@ -485,9 +404,9 @@ export class AssaultRoundController {
     });
 
     if (activeSeconds >= this._lastActiveSeconds) {
+      const wasCompleted = this._isCompleted;
       this._processTimelineEvents(this._lastActiveSeconds, activeSeconds);
-      this._lastActiveSeconds = activeSeconds;
-      this._updateReadingProgress(activeSeconds);
+      this._commitActiveTime(activeSeconds, wasCompleted);
     } else {
       this._processTimelineEvents(this._lastActiveSeconds, this._lastActiveSeconds);
     }
@@ -498,6 +417,9 @@ export class AssaultRoundController {
     timestampMs: number,
     options?: { activeSeconds?: number; standGeneration?: number },
   ): void {
+    if (this._isPaused || this._isCompleted) {
+      return;
+    }
     const activeSeconds = options?.activeSeconds ?? this._lastActiveSeconds;
     this._pendingInputs.push({
       type: 'squat',
@@ -508,9 +430,39 @@ export class AssaultRoundController {
     });
 
     if (activeSeconds >= this._lastActiveSeconds) {
+      const wasCompleted = this._isCompleted;
       this._processTimelineEvents(this._lastActiveSeconds, activeSeconds);
-      this._lastActiveSeconds = activeSeconds;
-      this._updateReadingProgress(activeSeconds);
+      this._commitActiveTime(activeSeconds, wasCompleted);
+    } else {
+      this._processTimelineEvents(this._lastActiveSeconds, this._lastActiveSeconds);
+    }
+  }
+
+  /**
+   * 모션 어댑터의 실제 평가 결과(AssaultSquatResult)를 직접 수신하는 가산(additive) 포트 (REC-26 / #614)
+   * isValid, deltaY, standGeneration 등 실제 자세 증거를 손실 없이 전달한다.
+   */
+  submitSquatResult(
+    result: AssaultSquatResult,
+    options?: { activeSeconds?: number },
+  ): void {
+    if (this._isPaused) {
+      return;
+    }
+    const activeSeconds = options?.activeSeconds ?? this._lastActiveSeconds;
+    this._pendingInputs.push({
+      type: 'squat',
+      posture: result.posture,
+      timestampMs: result.timestampMs,
+      activeSeconds,
+      standGeneration: result.standGeneration,
+      squatResult: result,
+    });
+
+    if (activeSeconds >= this._lastActiveSeconds) {
+      const wasCompleted = this._isCompleted;
+      this._processTimelineEvents(this._lastActiveSeconds, activeSeconds);
+      this._commitActiveTime(activeSeconds, wasCompleted);
     } else {
       this._processTimelineEvents(this._lastActiveSeconds, this._lastActiveSeconds);
     }
@@ -524,6 +476,7 @@ export class AssaultRoundController {
       readonly correctSide?: AssaultAnswerSide;
       readonly pairId?: string;
     };
+    const windowStartMs = Math.round((enc.readyUntilSeconds ?? enc.startSeconds) * 1000);
 
     if (def.kind === 'answer_pair') {
       const explicitSide =
@@ -540,35 +493,18 @@ export class AssaultRoundController {
       }
 
       enc.pairJudge = new AssaultPairJudge(
-        {
-          sessionId: this.sessionId,
-          roundId: this.roundId,
-          attackId: def.id,
-          pairId: def.pairId ?? def.id,
-          correctSide: explicitSide ?? 'left',
-          arrivalMs: Math.round(enc.arrivalSeconds * 1000),
-        },
+        { sessionId: this.sessionId, roundId: this.roundId, attackId: def.id, pairId: def.pairId ?? def.id, correctSide: explicitSide ?? 'left', arrivalMs: Math.round(enc.arrivalSeconds * 1000), windowStartMs },
         {
           lateGraceMs: Math.round(enc.lateGraceSeconds * 1000),
           simultaneousToleranceMs: this._config.simultaneousPunchGraceMs,
+          rhythmWindows: this._config.rhythmWindows,
         },
       );
     } else if (def.kind === 'squat') {
       enc.squatJudge = new AssaultSquatJudge(
-        {
-          sessionId: this.sessionId,
-          roundId: this.roundId,
-          attackId: def.id,
-          windowStartMs: Math.round(enc.startSeconds * 1000),
-          arrivalMs: Math.round(enc.arrivalSeconds * 1000),
-          startBeat: def.startBeat,
-          durationBeats: def.durationBeats,
-        },
-        {
-          lateGraceMs: Math.round(enc.lateGraceSeconds * 1000),
-          minDuckingDurationMs: this._config.minDuckingDurationMs,
-          emitEvadeSuccessCommand: true,
-        },
+        { sessionId: this.sessionId, roundId: this.roundId, attackId: def.id, windowStartMs, arrivalMs: Math.round(enc.arrivalSeconds * 1000), startBeat: def.startBeat, durationBeats: def.durationBeats },
+        { lateGraceMs: Math.round(enc.lateGraceSeconds * 1000), minDuckingDurationMs: this._config.minDuckingDurationMs, emitEvadeSuccessCommand: true },
+        { consumedGenerations: this._squatStandState.consumedGenerations, hasStoodUpSinceLastEvade: this._squatStandState.hasStoodUpSinceLastEvade, currentStandGeneration: this._squatStandState.currentStandGeneration },
       );
     }
   }
@@ -578,61 +514,50 @@ export class AssaultRoundController {
 
     // 1. readable 경계
     if (!this._readableFired && toT >= this._throwDurationSeconds) {
-      events.push({
-        type: 'readable',
-        time: this._throwDurationSeconds,
-        priority: 1,
-      });
+      events.push({ type: 'readable', time: this._throwDurationSeconds, priority: 1 });
     }
 
     // 2. reading_end 경계
     if (!this._readingEndFired && toT >= this._readingEndTime) {
-      events.push({
-        type: 'reading_end',
-        time: this._readingEndTime,
-        priority: 1,
-      });
+      events.push({ type: 'reading_end', time: this._readingEndTime, priority: 1 });
     }
 
     // 3. 조우 경계들
     for (let i = 0; i < this._encounters.length; i++) {
       const enc = this._encounters[i];
-
       if (!enc.startFired && toT >= enc.startSeconds) {
-        events.push({
-          type: 'encounter_start',
-          time: enc.startSeconds,
-          priority: 1,
-          encounterIndex: i,
-        });
+        events.push({ type: 'encounter_start', time: enc.startSeconds, priority: 1, encounterIndex: i });
       }
-
       if (!enc.arrivalFired && toT >= enc.arrivalSeconds) {
-        events.push({
-          type: 'encounter_arrival',
-          time: enc.arrivalSeconds,
-          priority: 3,
-          encounterIndex: i,
-        });
+        events.push({ type: 'encounter_arrival', time: enc.arrivalSeconds, priority: 3, encounterIndex: i });
       }
-
       if (!enc.deadlineFired && toT >= enc.deadlineSeconds) {
+        events.push({ type: 'encounter_deadline', time: enc.deadlineSeconds, priority: 3, encounterIndex: i });
+      }
+      // 조우 종료 시점: 루프 경로에서는 전체 슬롯(endSeconds) 유지, 레거시에서는 arrivalSeconds 또는 deadlineSeconds
+      const endTime = this._timeline ? enc.endSeconds : (enc.isResolved ? enc.arrivalSeconds : enc.deadlineSeconds);
+      if (!enc.endFired && toT >= endTime) {
+        events.push({ type: 'encounter_end', time: endTime, priority: 3, encounterIndex: i });
+      }
+    }
+
+    // 3.5. 루프 구간 전이 및 타임라인 완료 경계 (ASSAULT-LOOP-04, LOOP-05)
+    if (this._timeline) {
+      const transitions = this._timeline.getPendingTransitions(toT);
+      for (const tr of transitions) {
         events.push({
-          type: 'encounter_deadline',
-          time: enc.deadlineSeconds,
-          priority: 3,
-          encounterIndex: i,
+          type: 'loop_segment',
+          time: tr.time,
+          priority: this._timeline.getTransitionPriority(tr.segment),
+          loopSegment: tr.segment,
+          prevLoopSegment: tr.prevSegment,
         });
       }
-
-      // 조우 종료 시점: 이미 정산 완료된 경우 arrivalSeconds에 종료, 미정산 시 lateGrace를 포함한 deadlineSeconds에 종료
-      const endTime = enc.isResolved ? enc.arrivalSeconds : enc.deadlineSeconds;
-      if (!enc.endFired && toT >= endTime) {
+      if (this._timeline.isCompleted(toT)) {
         events.push({
-          type: 'encounter_end',
-          time: endTime,
-          priority: 3,
-          encounterIndex: i,
+          type: 'timeline_complete',
+          time: this._timeline.totalSeconds,
+          priority: 10,
         });
       }
     }
@@ -664,7 +589,25 @@ export class AssaultRoundController {
 
     // 6. 이벤트 순차 실행
     for (const event of events) {
+      if (this._isCompleted) {
+        break;
+      }
       switch (event.type) {
+        case 'loop_segment': {
+          if (event.prevLoopSegment?.kind === 'run_question') {
+            this._options.onRunEnd?.();
+          }
+          if (event.loopSegment) {
+            this._options.onLoopSegmentChange?.(event.loopSegment, event.prevLoopSegment);
+          }
+          break;
+        }
+
+        case 'timeline_complete': {
+          this._completeRound(true);
+          break;
+        }
+
         case 'readable': {
           this._readableFired = true;
           if (this._phase === 'throw_in') {
@@ -689,6 +632,9 @@ export class AssaultRoundController {
           if (enc) {
             enc.startFired = true;
             this._currentEncounterIndex = event.encounterIndex!;
+            if (enc.def.kind === 'squat' && enc.squatJudge) {
+              this._initJudgesForEncounter(enc);
+            }
             this._options.onEncounterStart?.(enc.def, enc.index);
           }
           break;
@@ -696,18 +642,68 @@ export class AssaultRoundController {
 
         case 'user_input': {
           const input = event.input!;
-          // 입력 시점과 일치하는 미정산 조우 검색 (창 내부 조우 우선)
+
+          // 스쿼트 프레임 입력(특히 standing 복귀 등)인 경우, 판정창 외부(휴식 구간)에서도
+          // 직립 상태 및 세대 갱신(_squatStandState)을 추적해야 한다.
+          const makeSquatFeed = (inp: PendingInput, gen: number): AssaultSquatResult => {
+            const isDuck = inp.posture === 'ducking' || (inp.posture as string) === 'squatting';
+            return inp.squatResult ?? {
+              timestampMs: inp.timestampMs, posture: isDuck ? 'ducking' : ((inp.posture as AssaultSquatPosture) ?? 'ducking'),
+              isDucking: isDuck, isStanding: inp.posture === 'standing', isValid: true, standGeneration: gen,
+              deltaY: isDuck ? 0.2 : 0.0, normalizedCurrentY: isDuck ? 0.7 : 0.5, normalizedBaselineY: 0.5,
+            };
+          };
+
+          if (input.type === 'squat') {
+            const feedResult = makeSquatFeed(input, input.standGeneration ?? 0);
+
+            // 직립 상태 및 세대 소비 상태 전역 동기화
+            let hasStoodUp = this._squatStandState.hasStoodUpSinceLastEvade;
+            let currentGen = this._squatStandState.currentStandGeneration;
+            let newConsumed = this._squatStandState.consumedGenerations;
+            if (feedResult.standGeneration !== undefined) {
+              currentGen = feedResult.standGeneration;
+            }
+            if (feedResult.isStanding || feedResult.posture === 'standing') {
+              hasStoodUp = true;
+            } else if (!input.squatResult && input.standGeneration === undefined) {
+              // 축약 입력(submitSquat)의 경우 프레임 간격마다 암묵적 새 세대 진입 허용
+              currentGen = currentGen + 1;
+              hasStoodUp = true;
+              // 이미 소비된 세대 목록에 현재 generation이 포함되어 있다면 해제하여 통과 허용
+              if (newConsumed.includes(currentGen)) {
+                newConsumed = Object.freeze(newConsumed.filter((g) => g !== currentGen));
+              }
+            }
+            this._squatStandState = Object.freeze({
+              consumedGenerations: newConsumed,
+              hasStoodUpSinceLastEvade: hasStoodUp,
+              currentStandGeneration: currentGen,
+            });
+          }
+
+          // 단일 활성 전투 조우 검색 (ASSAULT-LOOP-05)
+          // 4박 선택 및 스쿼트 회피창 내부의 미정산 조우 검색 (정각 포함, 종료 후 ε 제외)
           let enc = this._encounters.find(
             (e) =>
               !e.isResolved &&
-              event.time >= e.startSeconds &&
+              event.time >= e.startSeconds - 1e-6 &&
               event.time <= e.deadlineSeconds,
           );
-          if (!enc) {
+          if (!enc && !this._timeline) {
             enc = this._encounters[this._currentEncounterIndex];
           }
 
           if (enc && !enc.isResolved) {
+            // 준비박(resumeReadyBeats) 동안 입력 차단: 준비박 중에는 판정 불가 (REC-08)
+            // 루프 스쿼트의 경우 notice(예고) 구간의 조기 웅크림은 SquatJudge가 상태를 기록하므로 허용
+            const judgeWindowStart = (this._timeline && enc.def.kind === 'squat')
+              ? enc.startSeconds
+              : (enc.readyUntilSeconds ?? enc.startSeconds);
+            if (event.time < judgeWindowStart) {
+              break;
+            }
+
             if (input.type === 'punch' && enc.def.kind === 'answer_pair' && enc.pairJudge) {
               const cmds = enc.pairJudge.punch({
                 hand: input.hand!,
@@ -715,29 +711,26 @@ export class AssaultRoundController {
                 inputId: input.inputId ?? `input_${input.timestampMs}`,
               });
               this._collectCommands(cmds);
+              this._recordJudgeResult(enc, false);
               if (enc.pairJudge.state.status === 'correct') {
                 enc.isResolved = true;
               }
             } else if (input.type === 'squat' && enc.def.kind === 'squat' && enc.squatJudge) {
-              const isDucking =
-                input.posture === 'ducking' || (input.posture as string) === 'squatting';
-              const isStanding = input.posture === 'standing';
-              const normalizedPosture: AssaultSquatPosture =
-                (input.posture as string) === 'squatting'
-                  ? 'ducking'
-                  : ((input.posture as AssaultSquatPosture) ?? 'ducking');
-              const cmds = enc.squatJudge.feed({
-                timestampMs: input.timestampMs,
-                posture: normalizedPosture,
-                isDucking,
-                isStanding,
-                isValid: true,
-                standGeneration: input.standGeneration ?? 0,
-                deltaY: isDucking ? 0.2 : 0.0,
-                normalizedCurrentY: isDucking ? 0.7 : 0.5,
-                normalizedBaselineY: 0.5,
-              });
+              const defaultGen = input.standGeneration !== undefined
+                ? input.standGeneration
+                : (this._squatStandState.currentStandGeneration > 0 ? this._squatStandState.currentStandGeneration : 1);
+              const feedResult = makeSquatFeed(input, defaultGen);
+              if (!input.squatResult && input.standGeneration === undefined && enc.squatJudge.state.consumedGenerations.includes(feedResult.standGeneration)) {
+                enc.squatJudge = new AssaultSquatJudge(enc.squatJudge.plan, enc.squatJudge.config, {
+                  consumedGenerations: this._squatStandState.consumedGenerations,
+                  hasStoodUpSinceLastEvade: true,
+                  currentStandGeneration: this._squatStandState.currentStandGeneration,
+                });
+              }
+              const cmds = enc.squatJudge.feed(feedResult);
+              this._syncSquatStandStateFromJudge(enc.squatJudge);
               this._collectCommands(cmds);
+              this._recordJudgeResult(enc, false);
               if (enc.squatJudge.state.status === 'evaded') {
                 enc.isResolved = true;
               }
@@ -750,6 +743,14 @@ export class AssaultRoundController {
           const enc = this._encounters[event.encounterIndex!];
           if (enc) {
             enc.arrivalFired = true;
+            if (enc.def.kind === 'answer_pair' && enc.pairJudge) {
+              const cmds = enc.pairJudge.arrival(Math.round(enc.arrivalSeconds * 1000));
+              if (cmds.length > 0) {
+                this._collectCommands(cmds);
+                enc.isResolved = true;
+                this._recordJudgeResult(enc, true);
+              }
+            }
           }
           break;
         }
@@ -759,18 +760,13 @@ export class AssaultRoundController {
           if (enc) {
             enc.deadlineFired = true;
             if (!enc.isResolved) {
-              if (enc.def.kind === 'answer_pair' && enc.pairJudge) {
-                // wrong_locked 상태인 경우 이미 오답 피해가 발생했으므로 추가 tick/timeout을 발행하지 않음
-                if (enc.pairJudge.state.status === 'pending') {
-                  const cmds = enc.pairJudge.tick(Math.round(enc.deadlineSeconds * 1000) + 1);
-                  this._collectCommands(cmds);
-                }
-                enc.isResolved = true;
-              } else if (enc.def.kind === 'squat' && enc.squatJudge) {
-                const cmds = enc.squatJudge.tick(Math.round(enc.deadlineSeconds * 1000) + 1);
-                this._collectCommands(cmds);
+              const tickMs = Math.round(enc.deadlineSeconds * 1000) + 1;
+              const judge = enc.pairJudge ?? enc.squatJudge;
+              if (judge) {
+                this._collectCommands(judge.tick(tickMs));
                 enc.isResolved = true;
               }
+              this._recordJudgeResult(enc, true);
             }
           }
           break;
@@ -787,9 +783,11 @@ export class AssaultRoundController {
               this._currentEncounterIndex = Math.max(this._currentEncounterIndex, nextIndex);
             }
 
-            const allDone = this._encounters.every((e) => e.endFired);
-            if (allDone) {
-              this._completeRound(true);
+            if (!this._timeline) {
+              const allDone = this._encounters.every((e) => e.endFired);
+              if (allDone) {
+                this._completeRound(true);
+              }
             }
           }
           break;
@@ -797,14 +795,25 @@ export class AssaultRoundController {
       }
     }
 
-    if (!this._isCompleted && this._encounters.length > 0) {
+    if (!this._timeline && !this._isCompleted && this._encounters.length > 0) {
       const allDone = this._encounters.every(
         (e) => e.endFired || (e.isResolved && toT >= e.arrivalSeconds),
       );
       if (allDone) {
         this._completeRound(true);
       }
+    } else if (this._timeline && !this._isCompleted && this._timeline.isCompleted(toT)) {
+      this._completeRound(true);
     }
+  }
+
+  private _syncSquatStandStateFromJudge(judge: AssaultSquatJudge): void {
+    const exported = judge.exportStandState();
+    this._squatStandState = Object.freeze({
+      consumedGenerations: exported.consumedGenerations,
+      hasStoodUpSinceLastEvade: exported.hasStoodUpSinceLastEvade,
+      currentStandGeneration: exported.currentStandGeneration,
+    });
   }
 
   private _collectCommands(cmds: readonly AssaultSettlementCommand[]): void {
@@ -829,18 +838,65 @@ export class AssaultRoundController {
   }
 
   private _setPhase(nextPhase: AssaultRoundPhase): void {
-    if (this._phase === nextPhase) {
-      return;
-    }
+    if (this._phase === nextPhase) return;
     const prevPhase = this._phase;
     this._phase = nextPhase;
     this._options.onPhaseChange?.(nextPhase, prevPhase);
   }
 
-  private _completeRound(success: boolean, _reason?: string): void {
+  /**
+   * 판정기 실제 상태를 요약에 attackId당 1회 기록한다 (REC-11 / #596).
+   * wrong_locked는 동시 타격 롤백 가능성이 있어 확정 시점(isFinal: 마감/라운드 종료)에만 기록한다.
+   */
+  private _recordJudgeResult(enc: RuntimeEncounter, isFinal: boolean): void {
+    const attackId = enc.def.id;
+    if (enc.pairJudge) {
+      const { status, rhythmRating } = enc.pairJudge.state;
+      if (status === 'correct') {
+        this._summary.recordAnswerHit(attackId, { isCorrect: true, rating: rhythmRating });
+      } else if (status === 'timeout') {
+        this._summary.recordAnswerTimeout(attackId, { rating: rhythmRating });
+      } else if (status === 'wrong_locked' && isFinal) {
+        this._summary.recordAnswerHit(attackId, { isCorrect: false, rating: rhythmRating });
+      }
+    } else if (enc.squatJudge) {
+      const { status } = enc.squatJudge.state;
+      if (status === 'evaded') {
+        this._summary.recordSquatEvade(attackId);
+      } else if (status === 'miss') {
+        this._summary.recordSquatFail(attackId);
+      }
+    }
+  }
+
+  /** 활성 시간 축 전진: 라운드 완료 이전 구간만 활성 시간으로 측정 (일시정지 구간은 update에서 차단됨) */
+  private _commitActiveTime(toT: number, wasCompleted: boolean): void {
+    const clampedT = this._timeline ? Math.min(toT, this._timeline.totalSeconds) : toT;
+    this._lastActiveSeconds = clampedT;
+    this._updateReadingProgress(clampedT);
+    if (!wasCompleted) {
+      if (this._timeline) {
+        if (!this._isCompleted) {
+          this._summary.setActiveDuration(clampedT);
+        }
+      } else {
+        this._summary.setActiveDuration(toT);
+      }
+    }
+  }
+
+  private _completeRound(success: boolean, reason?: string): void {
     if (this._isCompleted) {
       return;
     }
+    if (this._timeline && success) {
+      this._summary.setActiveDuration(this._timeline.totalSeconds);
+      this._lastActiveSeconds = this._timeline.totalSeconds;
+    }
+    for (const enc of this._encounters) {
+      this._recordJudgeResult(enc, true);
+    }
+    this._completedSuccess = success;
     this._setPhase('round_resolve');
     this._setPhase(success ? 'round_clear' : 'round_failed');
     this._isCompleted = true;
@@ -851,6 +907,7 @@ export class AssaultRoundController {
         sessionId: this.sessionId,
         roundId: this.roundId,
         success,
+        ...(reason !== undefined ? { reason } : {}),
       });
     }
   }

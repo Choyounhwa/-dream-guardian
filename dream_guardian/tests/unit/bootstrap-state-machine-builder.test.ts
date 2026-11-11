@@ -4,6 +4,12 @@ import {
   BootstrapStateMachineBuilder,
   type BootstrapStateMachineHost,
 } from '../../src/core/bootstrap/BootstrapStateMachineBuilder.js';
+import {
+  DEFAULT_STORY_BGM_TRACK,
+  DEFAULT_STORY_BGM_BPM,
+  DEFAULT_ASSAULT_BGM_TRACK,
+  DEFAULT_ASSAULT_BGM_BPM,
+} from '../../config/audio.config.js';
 
 describe('BootstrapStateMachineBuilder (#617 / [REFACTOR-CORE-002])', () => {
   let stateMachine: StateMachine;
@@ -60,6 +66,7 @@ describe('BootstrapStateMachineBuilder (#617 / [REFACTOR-CORE-002])', () => {
       stop: vi.fn(),
       fadeOut: vi.fn(),
       setPhase: vi.fn(),
+      setTrack: vi.fn(),
     };
     mockStageBgm = {
       isPlaying: false,
@@ -231,8 +238,33 @@ describe('BootstrapStateMachineBuilder (#617 / [REFACTOR-CORE-002])', () => {
     stateMachine.changeState('READY_POSITION');
     expect(stateMap.questionVisible).toBe(false);
     expect(stateMap.answerLocked).toBe(true);
+    expect(mockBgmManager.setTrack).toHaveBeenCalledWith(DEFAULT_STORY_BGM_TRACK, DEFAULT_STORY_BGM_BPM);
     expect(mockBgmManager.fadeIn).toHaveBeenCalledWith(0.5);
     expect(mockStageBgm.start).toHaveBeenCalled();
+  });
+
+  it('READY_POSITION 상태 진입 시 어설트 모드면 DEFAULT_ASSAULT_BGM_TRACK으로 트랙을 전환해야 한다', () => {
+    (host as any).assaultWireHelper = { isAssaultMode: () => true };
+    const builder = new BootstrapStateMachineBuilder(host);
+    builder.registerReadyPositionState();
+
+    stateMachine.changeState('READY_POSITION');
+    expect(mockBgmManager.setTrack).toHaveBeenCalledWith(DEFAULT_ASSAULT_BGM_TRACK, DEFAULT_ASSAULT_BGM_BPM);
+    expect(mockBgmManager.fadeIn).toHaveBeenCalledWith(0.5);
+  });
+
+  it('ASSAULT_ROUND 상태 진입 시 DEFAULT_ASSAULT_BGM_TRACK으로 트랙을 전환하고 BGM을 재생해야 한다', () => {
+    const builder = new BootstrapStateMachineBuilder(host);
+    builder.registerReadyPositionState();
+    builder.registerAssaultRoundState();
+
+    stateMachine.changeState('READY_POSITION');
+    stateMachine.changeState('ASSAULT_ROUND');
+    expect(stateMap.questionVisible).toBe(false);
+    expect(stateMap.answerLocked).toBe(true);
+    expect(stateMap.feedbackTimer).toBe(0);
+    expect(mockBgmManager.setTrack).toHaveBeenCalledWith(DEFAULT_ASSAULT_BGM_TRACK, DEFAULT_ASSAULT_BGM_BPM);
+    expect(mockBgmManager.play).toHaveBeenCalled();
   });
 
   it('RUN_QUESTION 상태 진입 시 questionVisible=true, answerLocked=true 및 RUN_QUESTION BGM 페이즈를 설정해야 한다', () => {

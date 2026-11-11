@@ -27,6 +27,11 @@ import type {
   AssaultRoundPresentation,
   AssaultPresentationDTO,
 } from '../types/assault.js';
+import type {
+  AssaultLoopPresentation,
+  AssaultLoopSegmentKind,
+  AssaultPresentationWithLoop,
+} from '../types/assault-loop.js';
 
 export interface AssaultSquatHazardRenderData {
   readonly active: boolean;
@@ -51,12 +56,23 @@ export interface AssaultSceneSnapshot {
   readonly remainingTimeSeconds?: number;
   readonly warningActive?: boolean;
   readonly isPaused?: boolean;
+  readonly loop?: AssaultLoopPresentation;
 }
 
 export type AssaultAnyPresentationSnapshot =
   | AssaultSceneSnapshot
   | AssaultRoundPresentation
-  | AssaultPresentationDTO;
+  | AssaultPresentationDTO
+  | AssaultPresentationWithLoop;
+
+function getLoopSegmentKind(
+  snapshot: AssaultAnyPresentationSnapshot,
+): AssaultLoopSegmentKind | undefined {
+  if ('loop' in snapshot && snapshot.loop) {
+    return snapshot.loop.currentSegmentKind ?? snapshot.loop.currentSegment?.kind;
+  }
+  return undefined;
+}
 
 export interface QuestionPositionResult {
   readonly x: number;
@@ -104,8 +120,10 @@ export class AssaultSceneRenderer {
     const vw = viewport.width || 1280;
     const vh = viewport.height || 720;
 
+    const loopKind = getLoopSegmentKind(snapshot);
     const phase = snapshot.phase ?? 'question_reading';
-    const isThrowIn = phase === 'throw_in';
+    // 루프 모드에서는 투척 비행 대기 없이 즉시 상단 고정 가독성 확보 (A03 투척은 loop 없는 레거시만 적용)
+    const isThrowIn = !loopKind && phase === 'throw_in';
 
     if (isThrowIn) {
       const throwProgress =
@@ -177,16 +195,102 @@ export class AssaultSceneRenderer {
     // 1. 보스 앵커 및 텔레그래프 가이드 렌더링
     this._renderBossTelegraph(ctx, snapshot, vp, cfg);
 
-    // 2. 문제 수식 텍스트 렌더링 (A03: 투척 비행 / 상단 고정)
+    // 2. 문제 수식 텍스트 렌더링 (A03: 투척 비행 / 상단 고정, 루프에서는 즉시 가독성 확보)
     const qPos = this.computeQuestionPosition(snapshot, vp, cfg);
     this._renderQuestionHeader(ctx, snapshot.questionText, qPos, vp, cfg);
 
-    // 3. 답 쌍(Left/Right) 탄환 렌더링
-    this._renderAnswerPair(ctx, snapshot, vp, cfg);
+    const loopKind = getLoopSegmentKind(snapshot);
 
-    // 4. 스쿼트 회피 위험 경고(Squat hazard telegraph) 및 웅크리기 안내 렌더링
-    this._renderSquatHazard(ctx, snapshot, vp, cfg);
+    if (loopKind) {
+      // ASSAULT-LOOP-14: 루프 구간별 공격 표시 및 잔상 억제 분기
+      switch (loopKind) {
+        case 'run_question':
+          // 러닝 안내 렌더링 (답 쌍 0회, 스쿼트 위험 경고 0회)
+          this._renderRunGuidance(ctx, snapshot, vp, cfg);
+          break;
+        case 'answer':
+          // 답 쌍 4박 고정 카드 렌더링 (스쿼트 위험 경고 0회)
+          this._renderAnswerPair(ctx, snapshot, vp, cfg);
+          break;
+        case 'rest':
+          // 휴식/복귀 안내 렌더링 (답 쌍 0회, 스쿼트 위험 경고 0회, 이전 pair 잔상 0)
+          this._renderRestGuidance(ctx, snapshot, vp, cfg);
+          break;
+        case 'squat':
+          // 스쿼트 회피 위험 경고 렌더링 (답 쌍 0회)
+          this._renderSquatHazard(ctx, snapshot, vp, cfg);
+          break;
+      }
+    } else {
+      // 레거시 스냅샷 직접 전달 fixture 동등성 보존 (100% 회귀 0건)
+      // 3. 답 쌍(Left/Right) 탄환 렌더링
+      this._renderAnswerPair(ctx, snapshot, vp, cfg);
 
+      // 4. 스쿼트 회피 위험 경고(Squat hazard telegraph) 및 웅크리기 안내 렌더링
+      this._renderSquatHazard(ctx, snapshot, vp, cfg);
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * 루프 러닝 구간 안내 문구 렌더링 (ASSAULT-LOOP-14)
+   */
+  private _renderRunGuidance(
+    ctx: CanvasRenderingContext2D,
+    snapshot: AssaultAnyPresentationSnapshot,
+    vp: ViewportSize,
+    cfg: AssaultVisualConfig,
+  ): void {
+    const loop = 'loop' in snapshot ? snapshot.loop : undefined;
+    const prompt = loop?.actionPrompt ?? '문제를 읽으며 달리세요';
+    if (!prompt) {
+      return;
+    }
+
+    const vw = vp.width;
+    const vh = vp.height;
+    const centerX = vw * 0.5;
+    const centerY = vh * 0.55;
+
+    ctx.save();
+    ctx.font = `bold ${Math.max(16, Math.floor(vh * 0.035))}px 'Noto Sans KR', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = cfg.colors.leftChoice;
+    ctx.fillText(prompt, centerX, centerY);
+    ctx.restore();
+  }
+
+  /**
+   * 루프 휴식 구간 안내 문구 렌더링 (ASSAULT-LOOP-14)
+   */
+  private _renderRestGuidance(
+    ctx: CanvasRenderingContext2D,
+    snapshot: AssaultAnyPresentationSnapshot,
+    vp: ViewportSize,
+    cfg: AssaultVisualConfig,
+  ): void {
+    const loop = 'loop' in snapshot ? snapshot.loop : undefined;
+    const prompt =
+      (loop && 'restNotice' in loop && typeof loop.restNotice === 'string' && loop.restNotice)
+        ? loop.restNotice
+        : (loop?.actionPrompt ?? '호흡을 가다듬으세요');
+    if (!prompt) {
+      return;
+    }
+
+    const vw = vp.width;
+    const vh = vp.height;
+    const centerX = vw * 0.5;
+    const centerY = vh * 0.55;
+
+    ctx.save();
+    ctx.font = `bold ${Math.max(16, Math.floor(vh * 0.035))}px 'Noto Sans KR', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = cfg.colors.perfectGlow ?? '#00FFCC';
+    ctx.fillText(prompt, centerX, centerY);
     ctx.restore();
   }
 
@@ -245,7 +349,7 @@ export class AssaultSceneRenderer {
     questionText: string,
     qPos: QuestionPositionResult,
     vp: ViewportSize,
-    _cfg: AssaultVisualConfig,
+    cfg: AssaultVisualConfig,
   ): void {
     if (!questionText) {
       return;
@@ -255,6 +359,8 @@ export class AssaultSceneRenderer {
     ctx.globalAlpha = qPos.alpha;
 
     const scaleX = (vp.width / 1280) * qPos.scale;
+    const baseQuestionSize = cfg.questionFontSizePx ?? 100;
+    const scaledQuestionSize = Math.max(20, Math.round(baseQuestionSize * scaleX));
 
     // renderQuestionHeaderMath 호출을 통한 일관된 수식 렌더링
     try {
@@ -262,13 +368,13 @@ export class AssaultSceneRenderer {
         color: '#ffffff',
         shadowColor: 'rgba(40, 230, 255, 0.6)',
         shadowBlur: 14,
-        maxHeight: 120 * scaleX,
+        maxHeight: scaledQuestionSize * 1.3,
         maxWidth: 900 * scaleX,
+        textScale: baseQuestionSize / 132,
       });
     } catch {
       // 단위 테스트 환경 fallback
-      const fontSize = Math.max(20, Math.round(54 * scaleX));
-      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.font = `bold ${scaledQuestionSize}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#ffffff';

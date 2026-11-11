@@ -44,16 +44,32 @@ export const JOINED_HANDS_CURSOR = {
   shadowBlur: 20,          // 네온 링 발광 블러 (기존 15px -> 20px)
 } as const;
 
+/** 양손 모으기(합장) 제스처 판정 설정 (Issue #724 / FEAT-INPUT-JOIN-001) */
+export interface JoinedHandsGestureConfig {
+  /** 이 거리 이하일 때 체류시간 적분 (정규화 좌표 거리) */
+  readonly joinDistanceThreshold: number;
+  /** 활성 상태에서 이 거리를 초과하면 즉시 해제 (히스테리시스 상한) */
+  readonly releaseDistanceThreshold: number;
+  /** 활성화에 필요한 연속 체류 시간 (초) */
+  readonly requiredDwellSec: number;
+}
+
+export const DEFAULT_JOINED_HANDS_CONFIG: Readonly<JoinedHandsGestureConfig> = Object.freeze({
+  joinDistanceThreshold: 0.18,
+  releaseDistanceThreshold: 0.22,
+  requiredDwellSec: 0.30,
+});
+
 /** 커서 렌더링 형상 및 크기 설정 (픽셀 기준, Issue #117: Outline Only, Issue #144: 실사용 1080p 스케일업, Issue #201: 원거리 시인성 강화) */
 export const CURSOR_DIMENSIONS = {
   outlineOnly: true,
   lineWidth: 3,
   hand: {
-    defaultRadius: 60,
-    minRadius: 20,
-    maxRadius: 120,
-    pulseRingOffset: 10,
-    pulseRingAmplitude: 6,
+    defaultRadius: 42,
+    minRadius: 15,
+    maxRadius: 80,
+    pulseRingOffset: 7,
+    pulseRingAmplitude: 4,
     pulseLineWidth: 3,
   },
   head: {

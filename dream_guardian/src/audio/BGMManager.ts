@@ -85,6 +85,19 @@ export class BGMManager {
     return this._trackUrl;
   }
 
+  /**
+   * 동적 BGM 트랙 및 BPM 설정 (모드별 BGM 전환용)
+   */
+  setTrack(trackUrl: string, bpm?: number): void {
+    if (this._trackUrl !== trackUrl) {
+      this._trackUrl = trackUrl;
+      this._audioBuffer = null;
+    }
+    if (typeof bpm === 'number' && bpm > 0) {
+      this._bpm = bpm;
+    }
+  }
+
   get audioContext(): AudioContext | null {
     return this._audioCtx;
   }

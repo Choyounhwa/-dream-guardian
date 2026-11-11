@@ -23,5 +23,12 @@ export type {
   JudgmentFeedbackInput,
   JudgmentFeedbackState,
 } from './JudgmentFeedback.js';
+export {
+  CharacterSelectModal,
+  type ModalBounds,
+  type CharacterCardLayoutSlot,
+  type CharacterSelectAction,
+} from './CharacterSelectModal.js';
+
 
 

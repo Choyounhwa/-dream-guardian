@@ -6,7 +6,7 @@
  * 2. UI_ACCESSIBILITY: 전역 저시력 접근성 설정 (글씨 배율, 고대비 모드, 물리 픽셀 하한선)
  * 3. UI_COLOR_THEMES: default / highContrast 2개 색상 테마 토큰
  * 4. UI_LAYOUT: 1080x2160 가상 좌표계 기준 7개 화면 레이아웃 슬롯 (hud, menu, subMenu, result, bottomBar, settings, pause)
- * 5. UI_IMAGE_ASSETS: 6개 카테고리 이미지 경로 슬롯 (초기값 null = 프로시저럴 렌더링 유지)
+ * 5. UI_IMAGE_ASSETS: 이미지 경로 슬롯 (ui-image-assets.config.ts에서 재export, #677)
  */
 
 // ─── 1. UI Text Tokens ───
@@ -130,7 +130,7 @@ export interface UILayoutConfig {
     bossHpBar: UILayoutSlot;
     /** 보스 이름 플레이트: 화면 중앙 기준 앵커 (x + (화면너비 - 1080) / 2) */
     bossName: UILayoutSlot;
-    comboBadge?: { w: number; h: number; y: number; marginRight: number };
+    comboBadge?: { x?: number; w: number; h: number; y: number; marginRight: number };
     /** HP바 상한: w = 1080 가상 px 기준 반응형 너비 상한(화면너비 × w/1080), h = 접근성 확대 시 높이 상한 */
     hpBarMax: { w: number; h: number };
     /** HP 수치 라벨의 바 가장자리 안쪽 여백 */
@@ -850,159 +850,8 @@ export const UI_LAYOUT: UILayoutConfig = {
 
 // ─── 5. UI Image Assets (프로시저럴 / 이미지 전환 슬롯) ───
 
-export interface UIImageAssetsConfig {
-  menu: Record<string, string | null>;
-  hud: Record<string, string | null>;
-  result: Record<string, string | null>;
-  bottomBar: Record<string, string | null>;
-  settings: Record<string, string | null>;
-  battle: Record<string, string | null>;
-  pause: Record<string, string | null>;
-  boss: Record<string, string | null>;
-  guardian: Record<string, string | null>;
-  bg: Record<string, string | null>;
-  question?: Record<string, string | null>;
-  dialogue?: Record<string, string | null>;
-  modal?: Record<string, string | null>;
-  icon?: Record<string, string | null>;
-}
-
-export const UI_IMAGE_ASSETS: UIImageAssetsConfig = {
-  menu: {
-    background: null,
-    cardFrame: '/assets/ui/menu/chapter_card_frame.png',
-    banner: null,
-    titleBg: '/assets/ui/menu/title_bg.png',
-    lockIcon: '/assets/ui/menu/lock_icon.png',
-    starFull: '/assets/ui/menu/star_full.png',
-    starEmpty: '/assets/ui/menu/star_empty.png',
-    sublevelCardBg: '/assets/ui/menu/sublevel_card_bg.png',
-  },
-  question: {
-    questionBoardBg: '/assets/ui/question/question_board_bg.png',
-    answerBtnDefault: '/assets/ui/question/answer_btn_default.png',
-    answerBtnHover: '/assets/ui/question/answer_btn_hover.png',
-    answerBtnSelected: '/assets/ui/question/answer_btn_selected.png',
-  },
-  hud: {
-    playerHpBar: null,
-    bossHpBar: null,
-    manaFlask: null,
-    comboBadge: null,
-    hpBarFrame: '/assets/ui/hud/hp_bar_frame.png',
-    hpBarFillPlayer: '/assets/ui/hud/hp_bar_fill_player.png',
-    hpBarFillBoss: '/assets/ui/hud/hp_bar_fill_boss.png',
-    comboIcon: '/assets/ui/hud/combo_icon.png',
-    bossNameplate: '/assets/ui/hud/boss_nameplate.png',
-    beatDotActive: '/assets/ui/hud/beat_dot_active.png',
-    beatDotInactive: '/assets/ui/hud/beat_dot_inactive.png',
-    beatDotTarget: '/assets/ui/hud/beat_dot_target.png',
-  },
-  result: {
-    panelBg: '/assets/ui/result/panel_bg.png',
-    victoryTitle: '/assets/ui/result/victory_title.png',
-    defeatTitle: '/assets/ui/result/defeat_title.png',
-    victoryBadge: '/assets/ui/result/victory_title.png',
-    defeatBadge: '/assets/ui/result/defeat_title.png',
-    starFilled: '/assets/ui/result/star_filled.png',
-    starEmpty: '/assets/ui/result/star_empty.png',
-    statIcon_accuracy: '/assets/ui/result/stat_accuracy.png',
-    statIcon_combo: '/assets/ui/result/stat_combo.png',
-    statIcon_time: '/assets/ui/result/stat_time.png',
-    statIcon_run: '/assets/ui/result/stat_run.png',
-    statIcon_squat: '/assets/ui/result/stat_squat.png',
-    statIcon_jump: '/assets/ui/result/stat_jump.png',
-    statIcon_pose: '/assets/ui/result/stat_pose.png',
-    statIcon_calorie: '/assets/ui/result/stat_calorie.png',
-    rankStampS: '/assets/ui/result/rank_stamp_s.png',
-    rankStampA: '/assets/ui/result/rank_stamp_a.png',
-    rankStampB: '/assets/ui/result/rank_stamp_b.png',
-    rankStampC: '/assets/ui/result/rank_stamp_c.png',
-  },
-  bottomBar: {
-    barBg: '/assets/ui/bottombar/bar_bg.png',
-    settingsIcon: '/assets/ui/bottombar/settings_icon.png',
-    manaFrame: '/assets/ui/bottombar/mana_frame.png',
-    manaFill: '/assets/ui/bottombar/mana_fill.png',
-    actionButton: null,
-  },
-  settings: {
-    modalBg: '/assets/ui/settings/modal_bg.png',
-    dialogBg: '/assets/ui/settings/modal_bg.png',
-    toggleOn: '/assets/ui/settings/toggle_on.png',
-    toggleOff: '/assets/ui/settings/toggle_off.png',
-    closeIcon: null,
-  },
-  battle: {
-    bossFrame: null,
-    shieldAura: null,
-  },
-  pause: {
-    modalBg: '/assets/ui/pause/modal_bg.png',
-    resumeBtn: '/assets/ui/pause/resume_btn.png',
-    quitBtn: '/assets/ui/pause/quit_btn.png',
-  },
-  boss: {
-    ch1_idle: '/assets/boss/ch1/idle.png',
-    ch1_hit: '/assets/boss/ch1/hit.png',
-    ch1_enrage: '/assets/boss/ch1/enrage.png',
-    ch2_idle: '/assets/boss/ch2/idle.png',
-    ch2_hit: '/assets/boss/ch2/hit.png',
-    ch2_enrage: '/assets/boss/ch2/enrage.png',
-    ch3_idle: '/assets/boss/ch3/idle.png',
-    ch3_hit: '/assets/boss/ch3/hit.png',
-    ch3_enrage: '/assets/boss/ch3/enrage.png',
-    ch4_idle: '/assets/boss/ch4/idle.png',
-    ch4_hit: '/assets/boss/ch4/hit.png',
-    ch4_enrage: '/assets/boss/ch4/enrage.png',
-    ch5_idle: '/assets/boss/ch5/idle.png',
-    ch5_hit: '/assets/boss/ch5/hit.png',
-    ch5_enrage: '/assets/boss/ch5/enrage.png',
-    ch5_defeat: '/assets/boss/ch5/defeat.png',
-  },
-  guardian: {
-    stage1_idle: '/assets/guardian/stage1/idle.png',
-    stage1_cast: '/assets/guardian/stage1/cast.png',
-    stage2_idle: '/assets/guardian/stage2/idle.png',
-    stage2_cast: '/assets/guardian/stage2/cast.png',
-    stage3_idle: '/assets/guardian/stage3/idle.png',
-    stage3_cast: '/assets/guardian/stage3/cast.png',
-    stage3_shield: '/assets/guardian/stage3/shield.png',
-    stage4_idle: '/assets/guardian/stage4/idle.png',
-    stage4_cast: '/assets/guardian/stage4/cast.png',
-    stage4_shield: '/assets/guardian/stage4/shield.png',
-    stage4_ultimate: '/assets/guardian/stage4/ultimate.png',
-  },
-  bg: {
-    menu: '/assets/bg/menu_bg.png',
-    ch1: '/assets/bg/ch1_bg.png',
-    ch2: '/assets/bg/ch2_bg.png',
-    ch3: '/assets/bg/ch3_bg.png',
-    ch4: '/assets/bg/ch4_bg.png',
-    ch5: '/assets/bg/ch5_bg.png',
-  },
-  dialogue: {
-    boxBg: '/assets/ui/dialogue/dialogue_box_bg.png',
-    badgeKkebi: '/assets/ui/dialogue/speaker_badge_kkebi.png',
-    badgeBoss: '/assets/ui/dialogue/speaker_badge_boss.png',
-  },
-  modal: {
-    btnResume: '/assets/ui/modal/btn_resume.png',
-    btnQuit: '/assets/ui/modal/btn_quit.png',
-    btnCloseX: '/assets/ui/modal/btn_close_x.png',
-    iconCamera: '/assets/ui/modal/icon_camera.png',
-    iconSound: '/assets/ui/modal/icon_sound.png',
-    iconSkeleton: '/assets/ui/modal/icon_skeleton.png',
-    iconFullscreen: '/assets/ui/modal/icon_fullscreen.png',
-  },
-  icon: {
-    leftHand: '/assets/ui/icon/icon_hand_left.png',
-    rightHand: '/assets/ui/icon/icon_hand_right.png',
-    head: '/assets/ui/icon/icon_head.png',
-    hip: '/assets/ui/icon/icon_hip.png',
-    shoulder: '/assets/ui/icon/icon_shoulder.png',
-  },
-};
+// REFACTOR-SRP-013 (#677): 1,000줄 규칙 준수를 위해 별도 모듈로 분리. 기존 import 경로 호환을 위해 재export한다.
+export { UI_IMAGE_ASSETS, type UIImageAssetsConfig } from './ui-image-assets.config.js';
 
 // ─── 6. Question Answer Time Tokens (Issue #319 / REFACTOR-ASSEMBLY-CLOCK-001) ───
 

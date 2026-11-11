@@ -116,7 +116,7 @@ export interface AssaultRoundRuntimeState {
 export type AssaultHitResult = 'hit' | 'miss' | 'timeout' | 'evaded';
 
 /** 리듬 판정 등급 */
-export type AssaultRhythmRating = 'Perfect' | 'Good' | 'Late' | 'Miss';
+export type AssaultRhythmRating = 'Perfect' | 'Good' | 'Early' | 'Late' | 'Miss';
 
 /**
  * 단일 입력 판정 평가 결과
@@ -175,6 +175,106 @@ export interface AssaultPresentationDTO {
   readonly comboCount: number;
   readonly remainingTimeSeconds: number;
   readonly warningActive: boolean;
+  /** 보기 쌍 식별자 (선택) */
+  readonly pairId?: PairId;
+  /** 공격 식별자 (선택) */
+  readonly attackId?: AttackId;
+  /** 비행 진행률 (선택) */
+  readonly throwProgress?: number;
+  /** 답 쌍 읽기 전용 표시 DTO (선택) */
+  readonly pair?: AssaultPairPresentation;
+  /** 회피/기믹 위험 표시 DTO (선택) */
+  readonly hazard?: AssaultHazardPresentation;
+  /** 보조 문제 문구 (CH-16a 호환) */
+  readonly pairPromptText?: string;
+  /** 챌린지 계열 (CH-16a 호환) */
+  readonly challengeFamily?: string;
+}
+
+/**
+ * 답 쌍(Answer Pair) 표시 시각 상태
+ * 비행, 선택 잠금, 취소, 무력화, 도착 및 판정 완료 시각 상태를 포괄한다.
+ * Render 계층(AssaultPairVisualStatus)과의 구조적 호환성을 보장한다.
+ */
+export type AssaultPairPresentationStatus =
+  | 'pending'
+  | 'flying'
+  | 'inFlight'
+  | 'wrong_locked'
+  | 'cancelled'
+  | 'negated'
+  | 'disarmed'
+  | 'wrong_hit'
+  | 'timeout'
+  | 'hit'
+  | 'miss';
+
+/**
+ * 답 쌍(Answer Pair) 읽기 전용 표시 DTO
+ *
+ * 정답 위치(correctSide)나 채점 로직(isCorrect), HP 권위를 누출하지 않고,
+ * 렌더러가 비행 궤적, 텍스트, 락온 상태를 그리는 데 필요한 읽기 전용 정보만 담는다.
+ */
+export interface AssaultPairPresentation {
+  /** 보기 쌍 식별자 */
+  readonly pairId: PairId;
+  /** 연결된 공격/조우 식별자 */
+  readonly attackId: AttackId;
+  /** 좌측 보기 텍스트 */
+  readonly leftText: string;
+  /** 우측 보기 텍스트 */
+  readonly rightText: string;
+  /** 비행 진행률 (0.0: 발사 시점 ~ 1.0: 착지/판정 시점) */
+  readonly throwProgress: number;
+  /** 렌더러 호환 진행률 (throwProgress와 동의어, 선택적) */
+  readonly progress?: number;
+  /** 답 쌍 표시 상태 */
+  readonly status: AssaultPairPresentationStatus;
+  /** 플레이어가 선택/잠금한 방향 (미선택 시 null 또는 생략) */
+  readonly lockedSide?: AssaultAnswerSide | null;
+  /** 선택 잠금 시점의 라운드 상대 경과 시간(초) */
+  readonly lockedAtSeconds?: number;
+  /** 착지/판정 예정 시점의 라운드 상대 경과 시간(초) */
+  readonly arrivalSeconds?: number;
+  /** 오답 시 유예(Grace period) 마감 상대 시간(초) */
+  readonly graceDeadlineSeconds?: number;
+  /** 문제/쌍 보조 지시 문구 (CH-16a 호환) */
+  readonly pairPromptText?: string;
+  /** 챌린지 계열 (CH-16a 호환) */
+  readonly challengeFamily?: string;
+}
+
+/**
+ * 하향 회피(스쿼트) 및 기믹 위험 표시 시각 상태
+ */
+export type AssaultHazardPresentationStatus =
+  | 'telegraph'
+  | 'active'
+  | 'evaded'
+  | 'hit'
+  | 'cancelled';
+
+/**
+ * 하향 회피(스쿼트) 및 기믹 위험 읽기 전용 표시 DTO
+ * HP 감산이나 판정 로직을 포함하지 않고, 위험 진행도 및 회피 상태만 담는다.
+ */
+export interface AssaultHazardPresentation {
+  /** 공격/조우 식별자 */
+  readonly attackId: AttackId;
+  /** 조우 종류 ('squat' | 'jump') */
+  readonly kind: 'squat' | 'jump';
+  /** 위험 경고 활성화 여부 */
+  readonly active: boolean;
+  /** 위험 진행도 (0.0: 예고 시작 ~ 1.0: 충돌/판정 완료) */
+  readonly progress: number;
+  /** 회피/위험 표시 상태 */
+  readonly status: AssaultHazardPresentationStatus;
+  /** 회피 지시 안내 문구 */
+  readonly promptText?: string;
+  /** 충돌/판정 예정 상대 시간(초) */
+  readonly arrivalSeconds?: number;
+  /** 회피 인정 마감 상대 시간(초) */
+  readonly evasionDeadlineSeconds?: number;
 }
 
 /** 라운드 런타임 표시 DTO */
@@ -188,6 +288,30 @@ export interface AssaultRoundPresentation {
   readonly activeSeconds: number;
   readonly readingProgress: number;
   readonly isPaused: boolean;
+  /** 던지기/비행 진행률 (0.0 ~ 1.0, 선택) */
+  readonly throwProgress?: number;
+  /** 잔여 시간(초, 선택) */
+  readonly remainingSeconds?: number;
+  /** 보스 스케일 진행률 (선택) */
+  readonly bossScaleProgress?: number;
+  /** 현재 활성 답 쌍 식별자 (선택) */
+  readonly pairId?: PairId;
+  /** 현재 활성 공격 식별자 (선택) */
+  readonly attackId?: AttackId;
+  /** 좌측 선택지 텍스트 (선택) */
+  readonly leftChoiceText?: string;
+  /** 우측 선택지 텍스트 (선택) */
+  readonly rightChoiceText?: string;
+  /** 선택 잠금 방향 (선택) */
+  readonly lockedSide?: AssaultAnswerSide | null;
+  /** 현재 활성 답 쌍 읽기 전용 표시 DTO (선택) */
+  readonly pair?: AssaultPairPresentation;
+  /** 현재 활성 하향/기믹 위험 읽기 전용 표시 DTO (선택) */
+  readonly hazard?: AssaultHazardPresentation;
+  /** 문제/쌍 보조 안내 문구 (CH-16a 호환, 선택) */
+  readonly pairPromptText?: string;
+  /** 챌린지 계열 (CH-16a 호환, 선택) */
+  readonly challengeFamily?: string;
 }
 
 /** 표시 스냅샷 타입 별칭 */

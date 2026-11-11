@@ -9,6 +9,7 @@ import { BeatRunCoordinator } from '../../src/game/BeatRunCoordinator.js';
 import { QuestionBank } from '../../src/question/QuestionBank.js';
 import { BattleState } from '../../src/game/BattleState.js';
 import { MenuInput } from '../../src/input/MenuInput.js';
+import { DEFAULT_JOINED_HANDS_CONFIG } from '../../config/cursor.config.js';
 import type { GeneratedQuestion } from '../../src/question/QuestionEvaluator.js';
 
 function createMockCtx(): CanvasRenderingContext2D {
@@ -193,7 +194,7 @@ describe('Cleanup Answer View - [CLEANUP-ANSWER-VIEW-001 / #233]', () => {
       expect(menuInput.isActive).toBe(false);
 
       // 양손을 중앙에 합장 위치로 배치
-      menuInput.update(0.50, 0.60, 0.52, 0.60);
+      menuInput.update(0.50, 0.60, 0.52, 0.60, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
       expect(menuInput.isActive).toBe(true);
 
       menuInput.reset();

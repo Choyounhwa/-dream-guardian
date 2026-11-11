@@ -11,6 +11,7 @@
  */
 
 import type { ProfileId, RulesVersion } from '../src/types/assault.js';
+import { deepFreeze } from '../src/utils/deepFreeze.js';
 
 /** 결전 단일 동작 박자 정의 (예고, 판정창, 복귀) */
 export interface AssaultFinaleActionTiming {
@@ -65,15 +66,6 @@ export interface AssaultFinaleConfig {
   readonly lowImpact: AssaultFinaleLowImpactConfig;
   /** 리듬 판정 오차 허용창 (ms) */
   readonly rhythmWindows: AssaultFinaleRhythmWindows;
-}
-
-function deepFreeze<T extends object>(obj: T): Readonly<T> {
-  for (const value of Object.values(obj)) {
-    if (value && typeof value === 'object') {
-      deepFreeze(value);
-    }
-  }
-  return Object.freeze(obj);
 }
 
 /**

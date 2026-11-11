@@ -10,6 +10,12 @@
 import type { GameState } from '../../types/index.js';
 import type { ResultData } from '../../ui/ResultRenderer.js';
 import type { StateMachine } from '../StateMachine.js';
+import {
+  DEFAULT_STORY_BGM_TRACK,
+  DEFAULT_STORY_BGM_BPM,
+  DEFAULT_ASSAULT_BGM_TRACK,
+  DEFAULT_ASSAULT_BGM_BPM,
+} from '../../../config/audio.config.js';
 
 export type ScreenMode = 'menu' | 'game' | 'result';
 export type MenuMode = 'main' | 'sub';
@@ -144,8 +150,16 @@ export class BootstrapStateMachineBuilder {
         this._host.setQuestionVisible(false);
         this._host.setAnswerLocked(true);
         const bgmManager = this._resolve(this._host.bgmManager);
-        if (bgmManager && !bgmManager.isPlaying && !bgmManager.isPaused) {
-          bgmManager.fadeIn?.(0.5);
+        const isAssault = Boolean(this._host.assaultWireHelper?.isAssaultMode?.());
+        if (bgmManager) {
+          if (isAssault) {
+            bgmManager.setTrack?.(DEFAULT_ASSAULT_BGM_TRACK, DEFAULT_ASSAULT_BGM_BPM);
+          } else {
+            bgmManager.setTrack?.(DEFAULT_STORY_BGM_TRACK, DEFAULT_STORY_BGM_BPM);
+          }
+          if (!bgmManager.isPlaying && !bgmManager.isPaused) {
+            bgmManager.fadeIn?.(0.5);
+          }
         }
         const stageBgm = this._resolve(this._host.stageBgm);
         if (stageBgm && !stageBgm.isPlaying) {
@@ -335,6 +349,13 @@ export class BootstrapStateMachineBuilder {
         this._host.setQuestionVisible(false);
         this._host.setAnswerLocked(true);
         this._host.setFeedbackTimer(0);
+        const bgmManager = this._resolve(this._host.bgmManager);
+        if (bgmManager) {
+          bgmManager.setTrack?.(DEFAULT_ASSAULT_BGM_TRACK, DEFAULT_ASSAULT_BGM_BPM);
+          if (!bgmManager.isPlaying && !bgmManager.isPaused) {
+            bgmManager.play?.();
+          }
+        }
         console.log('[DG] ASSAULT_ROUND 진입 (보스 접근전 실행)');
       },
     });

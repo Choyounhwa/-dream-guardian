@@ -121,6 +121,31 @@ describe('AssaultSessionWireHelper [REFACTOR-CORE-001 / #616]', () => {
       expect(candidates[0].questionText).toBe('1 + 2 = ?');
       expect(candidates[0].correctAnswer).toBe(3);
     });
+
+    it('[BUG-ASSAULT-Q-001 / #727] extractQuestionCandidates should include template questions with numeric string correctAnswer', () => {
+      const stringNumberRecord = {
+        id: 'q_str_num',
+        level: 4,
+        subLevel: 2,
+        levelTitle: '소수 덧뺄셈',
+        subLevelTitle: '소수 한 자리',
+        questionText: '',
+        questionTemplate: '{A} + {B} = ?',
+        answerEval: '((A*10+B*10)/10).toFixed(1)',
+        wrongEval: '((A*10+B*10+1)/10).toFixed(1)',
+        varA: '1.2',
+        varB: '2.3',
+        varC: '0',
+        varD: '0',
+        shapeCode: '',
+        difficulty: 'medium',
+      };
+      questionBank.loadRecords([stringNumberRecord as any]);
+      const candidates = helper.extractQuestionCandidates(4, 2);
+      expect(candidates).toHaveLength(1);
+      expect(candidates[0].id).toBe('q_str_num');
+      expect(candidates[0].correctAnswer).toBe('3.5');
+    });
   });
 
   describe('2. Assault session assembly and round controller creation', () => {

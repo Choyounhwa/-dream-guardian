@@ -36,9 +36,10 @@ import {
   type AssaultValidationError,
 } from './AssaultPlanValidator.js';
 import { deepFreeze } from '../../utils/deepFreeze.js';
+import { DEFAULT_ASSAULT_BPM } from '../../../config/assault.config.js';
 
-/** 기본 표준 컴파일 BPM */
-export const DEFAULT_ASSAULT_BPM = 120;
+/** 기본 표준 컴파일 BPM (config/assault.config.ts 단일 SSOT 재내보내기) */
+export { DEFAULT_ASSAULT_BPM };
 
 /**
  * 컴파일 옵션 인터페이스
@@ -60,6 +61,8 @@ export interface AssaultCompileOptions {
   readonly minRecoveryBeats?: number;
   /** 사전 유효성 검증 수행 여부 (기본값 true) */
   readonly validate?: boolean;
+  /** 답안 체공/선택 박자 오버라이드 (미지정 시 패턴 정의값 유지) */
+  readonly answerBeats?: number;
 }
 
 /**
@@ -285,7 +288,10 @@ export function compileAssaultPlan(
     const enc = validatedPattern.encounters[index] as AssaultEncounterInput;
 
     const startBeat = enc.startBeat;
-    const durationBeats = enc.durationBeats;
+    const durationBeats =
+      enc.kind === 'answer_pair' && typeof options?.answerBeats === 'number' && options.answerBeats > 0
+        ? options.answerBeats
+        : enc.durationBeats;
     const endBeat = startBeat + durationBeats;
 
     // 하위 창 박자 계산 (미지정 시 안전 기본값 적용)

@@ -14,7 +14,11 @@ import type { MainSceneContext } from '../SceneDirector.js';
 
 export interface SceneMotionCoordinatorProcessOptions {
   isAssaultMode?: boolean;
-  assaultHandler?: { handlePose(landmarks: any[], ctx: MainSceneContext, dt?: number): void };
+  assaultHandler?: {
+    handlePose?(landmarks: any[], ctx: MainSceneContext, dt?: number): void;
+    handleStep?(stepped: boolean, ctx: MainSceneContext, dt?: number): void;
+    isAssaultMode?(ctx?: MainSceneContext): boolean;
+  };
 }
 
 export interface SceneMotionCoordinatorResult {
@@ -94,11 +98,12 @@ export class SceneMotionCoordinator {
           ? ctx.skeletonAnimation.smoothedLandmarks
           : (ctx.poseManager.virtualLandmarks ?? []);
 
+      const isRunning = ctx.state?.screenMode === 'game' && ctx.state?.gamePhase === 'running' && !ctx.pauseModal?.isOpen;
       ctx.stickmanRenderer?.update(
         dt,
         sourceLandmarks,
         ctx.skeletonAnimation?.breathScale ?? 1.0,
-        { virtualWidth: vw, virtualHeight: vh },
+        { virtualWidth: vw, virtualHeight: vh, isRunning },
       );
 
       // Issue #140: 모든 장면(메뉴·달리기·문제·결과)에서 4색 커서가 상시 유지되도록 매 프레임 커서 트래커 갱신
@@ -174,17 +179,29 @@ export class SceneMotionCoordinator {
         isPaused: ctx.pauseModal?.isOpen ?? false,
       });
 
-      // 공통 포즈 입력을 assault 세션 어댑터에 라우팅
-      if (options?.isAssaultMode) {
-        if (options.assaultHandler?.handlePose) {
-          options.assaultHandler.handlePose(sourceLandmarks, ctx, dt);
-        } else if ((ctx as any).assaultHandler?.handlePose) {
-          (ctx as any).assaultHandler.handlePose(sourceLandmarks, ctx, dt);
+      // 어설트 모드 확인: 옵션 플래그, 핸들러 확인, 세션 컨텍스트, 활성 어설트 세션
+      const isAssault = Boolean(
+        options?.isAssaultMode ||
+        options?.assaultHandler?.isAssaultMode?.(ctx) ||
+        (ctx as any)?.assaultHandler?.isAssaultMode?.(ctx) ||
+        (ctx as any)?.sessionContext?.sessionMode === 'boss_assault' ||
+        ((ctx as any)?.assaultSession && !(ctx as any).assaultSession.isDisposed)
+      );
+
+      // 공통 포즈 및 러닝 스텝 입력을 assault 세션 어댑터에 라우팅
+      if (isAssault) {
+        const assaultHandler = options?.assaultHandler ?? (ctx as any).assaultHandler;
+        if (assaultHandler?.handlePose) {
+          assaultHandler.handlePose(sourceLandmarks, ctx, dt);
+        }
+        if (stepped && assaultHandler?.handleStep) {
+          assaultHandler.handleStep(stepped, ctx, dt);
         }
       }
 
       if (
         stepped &&
+        !isAssault &&
         !options?.isAssaultMode &&
         ctx.state?.screenMode === 'game' &&
         ctx.state?.gamePhase === 'running' &&
@@ -251,7 +268,7 @@ export class SceneMotionCoordinator {
 
     // Issue #169 & #172: 전 화면 공통 매 프레임 양손 합장 제스처 갱신 및 문제선택/모달 일시정지 동기화
     if (leftHand && rightHand) {
-      ctx.menuInput?.update(leftHand.x, leftHand.y, rightHand.x, rightHand.y);
+      ctx.menuInput?.update(leftHand.x, leftHand.y, rightHand.x, rightHand.y, dt);
     } else {
       ctx.menuInput?.reset();
     }

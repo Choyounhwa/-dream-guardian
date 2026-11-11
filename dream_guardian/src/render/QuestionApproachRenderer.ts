@@ -47,6 +47,8 @@ export interface QuestionApproachTransform {
   y: number;
   scale: number;
   alpha: number;
+  blur: number;
+  brightness: number;
   easedProgress: number;
 }
 
@@ -156,6 +158,8 @@ export class QuestionApproachRenderer {
         y: targetY,
         scale: 1.0,
         alpha: 1.0,
+        blur: 0,
+        brightness: 1.0,
         easedProgress: 1.0,
       };
     }
@@ -167,12 +171,17 @@ export class QuestionApproachRenderer {
     const y = vanishingY + (targetY - vanishingY) * eased;
     const scale = this._config.minScale + (1.0 - this._config.minScale) * eased;
     const alpha = this._config.startAlpha + (1.0 - this._config.startAlpha) * eased;
+    const blur = (this._config.startBlur ?? 12) * (1.0 - eased);
+    const startBright = this._config.startBrightness ?? 0.40;
+    const brightness = startBright + (1.0 - startBright) * eased;
 
     return {
       x,
       y,
       scale,
       alpha,
+      blur,
+      brightness,
       easedProgress: eased,
     };
   }
@@ -220,9 +229,16 @@ export class QuestionApproachRenderer {
       return;
     }
 
-    // t < 1.0 접근 구간: 위치 이동 및 원근 축소/투명도 변환 적용
+    // t < 1.0 접근 구간: 위치 이동 및 원근 축소/투명도/블러/밝기 변환 적용
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1.0, t.alpha));
+
+    // Issue #711: 원거리 블러 및 점진적 브라이트닝 필터 적용
+    if (t.blur > 0.01 || t.brightness < 0.99) {
+      if ('filter' in ctx && typeof ctx.filter === 'string') {
+        ctx.filter = `blur(${t.blur.toFixed(1)}px) brightness(${t.brightness.toFixed(2)})`;
+      }
+    }
 
     // 중심점 기준 스케일 적용
     ctx.translate(t.x, t.y);

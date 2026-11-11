@@ -195,6 +195,7 @@ describe('[Issue #397 / BOOT-HAZARD-A-CONTENT] 게임 조립계층 오답 장판
       canvas: createMockCanvas(),
       autoStartCamera: false,
       preloadAssets: false,
+      answerRestBeats: 0,
     });
     await app.init();
 
@@ -232,6 +233,7 @@ describe('[Issue #397 / BOOT-HAZARD-A-CONTENT] 게임 조립계층 오답 장판
       canvas: createMockCanvas(),
       autoStartCamera: false,
       preloadAssets: false,
+      answerRestBeats: 0,
     });
     await app.init();
 
@@ -259,6 +261,7 @@ describe('[Issue #397 / BOOT-HAZARD-A-CONTENT] 게임 조립계층 오답 장판
       canvas: createMockCanvas(),
       autoStartCamera: false,
       preloadAssets: false,
+      answerRestBeats: 0,
     });
     await app.init();
 
@@ -287,6 +290,7 @@ describe('[Issue #397 / BOOT-HAZARD-A-CONTENT] 게임 조립계층 오답 장판
       canvas: createMockCanvas(),
       autoStartCamera: false,
       preloadAssets: false,
+      answerRestBeats: 0,
     });
     await app.init();
 
@@ -329,6 +333,7 @@ describe('[Issue #397 / BOOT-HAZARD-A-CONTENT] 게임 조립계층 오답 장판
       canvas: createMockCanvas(),
       autoStartCamera: false,
       preloadAssets: false,
+      answerRestBeats: 0,
     });
     await app.init();
 
@@ -355,6 +360,7 @@ describe('[Issue #397 / BOOT-HAZARD-A-CONTENT] 게임 조립계층 오답 장판
       canvas: createMockCanvas(),
       autoStartCamera: false,
       preloadAssets: false,
+      answerRestBeats: 0,
     });
     await app.init();
 
@@ -392,6 +398,7 @@ describe('[Issue #397 / BOOT-HAZARD-A-CONTENT] 게임 조립계층 오답 장판
       canvas: createMockCanvas(),
       autoStartCamera: false,
       preloadAssets: false,
+      answerRestBeats: 0,
     });
     await app.init();
 
@@ -435,6 +442,7 @@ describe('[Issue #397 / BOOT-HAZARD-A-CONTENT] 게임 조립계층 오답 장판
       canvas: createMockCanvas(),
       autoStartCamera: false,
       preloadAssets: false,
+      answerRestBeats: 0,
     });
     await app.init();
 

@@ -562,6 +562,21 @@ export class AssaultSquatJudge {
   }
 
   /**
+   * 외부(Core/RoundController) 보관 및 재주입을 위한 직립 상태 내보내기 (REC-26)
+   */
+  exportStandState(): {
+    readonly consumedGenerations: readonly number[];
+    readonly hasStoodUpSinceLastEvade: boolean;
+    readonly currentStandGeneration: number;
+  } {
+    return Object.freeze({
+      consumedGenerations: this._state.consumedGenerations,
+      hasStoodUpSinceLastEvade: this._state.hasStoodUpSinceLastEvade,
+      currentStandGeneration: this._state.currentStandGeneration,
+    });
+  }
+
+  /**
    * 판정기 리셋
    */
   reset(plan?: AssaultSquatPlan): void {

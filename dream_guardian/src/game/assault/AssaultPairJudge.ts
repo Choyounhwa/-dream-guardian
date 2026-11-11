@@ -39,6 +39,10 @@ import type {
   AssaultSettlementCommand,
 } from '../../types/assault.js';
 import type { AssaultHand } from '../../input/AssaultPunchAdapter.js';
+import {
+  DEFAULT_ASSAULT_CONFIG,
+  type AssaultRhythmWindows,
+} from '../../../config/assault.config.js';
 
 // ─── 1. 상태 및 옵션 타입 계약 ───
 
@@ -64,6 +68,10 @@ export interface AssaultPairState {
   readonly conflictCount: number;
   readonly lastConflictTimestampMs: number | null;
   readonly isSettled: boolean;
+  /** 직전 조기 미스 입력 시각 (FEAT-ASSAULT-RHYTHM-001). 미발생 시 undefined/null */
+  readonly lastEarlyMissTimestampMs?: number | null;
+  /** 조기 미스 누적 횟수 */
+  readonly earlyMissCount?: number;
 }
 
 /** 답 쌍 실행 계획 (불변) */
@@ -83,11 +91,7 @@ export interface AssaultPairJudgeConfig {
   /** 판정 마감 유예창 (기본값: 170ms, DEC-B6) */
   readonly lateGraceMs?: number;
   /** 리듬 판정 등급 유예창 (ms) */
-  readonly rhythmWindows?: {
-    readonly Perfect: number;
-    readonly Good: number;
-    readonly Late: number;
-  };
+  readonly rhythmWindows?: AssaultRhythmWindows;
   /** 양손 동시 타격 충돌 허용차 (ms, 기본값: 50ms) */
   readonly simultaneousToleranceMs?: number;
 }
@@ -96,9 +100,7 @@ export interface AssaultPairJudgeConfig {
 export const DEFAULT_PAIR_JUDGE_CONFIG: Required<AssaultPairJudgeConfig> = Object.freeze({
   lateGraceMs: 170,
   rhythmWindows: Object.freeze({
-    Perfect: 50,
-    Good: 120,
-    Late: 200,
+    ...DEFAULT_ASSAULT_CONFIG.rhythmWindows,
   }),
   simultaneousToleranceMs: 50,
 });
@@ -166,6 +168,8 @@ export function createInitialPairState(): AssaultPairState {
     conflictCount: 0,
     lastConflictTimestampMs: null,
     isSettled: false,
+    lastEarlyMissTimestampMs: null,
+    earlyMissCount: 0,
   });
 }
 
@@ -182,6 +186,11 @@ function resolvePairJudgeConfig(
         config.rhythmWindows?.Perfect ?? DEFAULT_PAIR_JUDGE_CONFIG.rhythmWindows.Perfect,
       Good: config.rhythmWindows?.Good ?? DEFAULT_PAIR_JUDGE_CONFIG.rhythmWindows.Good,
       Late: config.rhythmWindows?.Late ?? DEFAULT_PAIR_JUDGE_CONFIG.rhythmWindows.Late,
+      // 명시적 null/0은 비활성 계약 유지, undefined만 기본값(#745) 적용
+      EarlyMiss:
+        config.rhythmWindows?.EarlyMiss !== undefined
+          ? config.rhythmWindows.EarlyMiss
+          : (DEFAULT_PAIR_JUDGE_CONFIG.rhythmWindows.EarlyMiss ?? null),
     }),
     simultaneousToleranceMs:
       config.simultaneousToleranceMs ?? DEFAULT_PAIR_JUDGE_CONFIG.simultaneousToleranceMs,
@@ -217,7 +226,7 @@ function createPlayerDamageCommand(
 
 function calculateRhythmRating(
   deltaMs: number,
-  rhythmWindows: { readonly Perfect: number; readonly Good: number; readonly Late: number }
+  rhythmWindows: AssaultRhythmWindows
 ): AssaultRhythmRating {
   const absDelta = Math.abs(deltaMs);
   if (absDelta <= rhythmWindows.Perfect) {
@@ -226,7 +235,13 @@ function calculateRhythmRating(
   if (absDelta <= rhythmWindows.Good) {
     return 'Good';
   }
-  return 'Late';
+  if (deltaMs < 0) {
+    return 'Early';
+  }
+  if (deltaMs <= rhythmWindows.Late) {
+    return 'Late';
+  }
+  return 'Miss';
 }
 
 // ─── 4. 순수 판정 Reducer (reducePairState) ───
@@ -260,15 +275,34 @@ export function reducePairState(
         ? action.timestampMs
         : (action.timestampMs ?? currentPlan.arrivalMs);
 
-    // 이미 잠겼거나 정산 완료된 경우: 추가 정산 명령 0건
-    if (state.isLocked || state.status !== 'pending') {
+    // 1.1 오답 잠금(wrong_locked) 상태에서 도착/마감 경계 도달 시 지연 정산 1회 발행 (BUG-ASSAULT-003, DOC-14 §7.1)
+    if (state.status === 'wrong_locked' && !state.isSettled) {
+      if (action.type === 'arrival' || currentTimestampMs >= currentPlan.arrivalMs) {
+        const settledWrongState: AssaultPairState = Object.freeze({
+          ...state,
+          isSettled: true,
+        });
+        const damageCmd = createPlayerDamageCommand(currentPlan, 'miss');
+        return Object.freeze({
+          state: settledWrongState,
+          commands: Object.freeze([damageCmd]),
+        });
+      }
       return Object.freeze({
         state,
         commands: Object.freeze([]),
       });
     }
 
-    // 마감 시각 초과 검증 (deadline 초과 시 미선택 timeout 확정, A07)
+    // 1.2 이미 정산 완료되었거나 확정(correct/cancelled)된 경우: 추가 정산 명령 0건
+    if (state.isSettled || state.status === 'correct' || state.status === 'cancelled') {
+      return Object.freeze({
+        state,
+        commands: Object.freeze([]),
+      });
+    }
+
+    // 1.3 마감 시각 초과 검증 (deadline 초과 시 미선택 timeout 확정, A07)
     if (currentTimestampMs > deadlineMs) {
       const nextState: AssaultPairState = Object.freeze({
         ...state,
@@ -462,6 +496,20 @@ export function reducePairState(
   const chosenSide: AssaultAnswerSide = punch.hand;
   const isCorrect = chosenSide === currentPlan.correctSide;
   const deltaMs = punch.timestampMs - currentPlan.arrivalMs;
+
+  const earlyMissMs = resolvedConfig.rhythmWindows.EarlyMiss;
+  if (typeof earlyMissMs === 'number' && earlyMissMs > 0 && deltaMs < -earlyMissMs) {
+    return Object.freeze({
+      state: Object.freeze({
+        ...state,
+        processedInputIds: newProcessedInputIds,
+        lastEarlyMissTimestampMs: punch.timestampMs,
+        earlyMissCount: (state.earlyMissCount ?? 0) + 1,
+      }),
+      commands: Object.freeze([]),
+    });
+  }
+
   const rhythmRating = calculateRhythmRating(deltaMs, resolvedConfig.rhythmWindows);
 
   if (isCorrect) {
@@ -485,7 +533,7 @@ export function reducePairState(
       commands: Object.freeze([bossCmd]),
     });
   } else {
-    // 오답 선택 시: wrong_locked 잠금, player_damage 1건 (A06)
+    // 오답 선택 시: wrong_locked 상태만 잠그고 실제 player_damage는 도착/마감 시점에 발행 (BUG-ASSAULT-003, DOC-14 §7.1)
     const nextState: AssaultPairState = Object.freeze({
       ...state,
       status: 'wrong_locked',
@@ -497,12 +545,11 @@ export function reducePairState(
       resolvedTimestampMs: punch.timestampMs,
       inputId: punch.inputId,
       processedInputIds: newProcessedInputIds,
-      isSettled: true,
+      isSettled: false,
     });
-    const damageCmd = createPlayerDamageCommand(currentPlan, 'miss');
     return Object.freeze({
       state: nextState,
-      commands: Object.freeze([damageCmd]),
+      commands: Object.freeze([]),
     });
   }
   }
@@ -561,6 +608,13 @@ export class AssaultPairJudge {
   tick(timestampMs: number): readonly AssaultSettlementCommand[] {
     return this.dispatch({
       type: 'tick',
+      timestampMs,
+    });
+  }
+
+  arrival(timestampMs?: number): readonly AssaultSettlementCommand[] {
+    return this.dispatch({
+      type: 'arrival',
       timestampMs,
     });
   }

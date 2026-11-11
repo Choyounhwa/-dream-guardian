@@ -88,6 +88,11 @@ export type {
 } from './DialogueOverlayRenderer.js';
 export { ReadyPositionRenderer } from './ReadyPositionRenderer.js';
 export type { ReadyPositionRenderOptions } from './ReadyPositionRenderer.js';
+export { AssaultFloorMatAdapter } from './assault/AssaultFloorMatAdapter.js';
+export type {
+  AssaultFloorMatAdapterOptions,
+  AssaultFloorMatRenderOptions,
+} from './assault/AssaultFloorMatAdapter.js';
 
 
 

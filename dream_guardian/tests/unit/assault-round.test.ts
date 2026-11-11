@@ -321,8 +321,8 @@ describe('[BOSS-ASSAULT-15 / #517] 투척·생각·교대 라운드 순수 진�
       controller.update(5.0); // encounters 시작 (encounter 0: pair_01, correctAnswer: left, duration: 4 beats = 2.0s, arrival: 7.0s)
       expect(controller.currentEncounterIndex).toBe(0);
 
-      // t = 6.0s (arrival 7.0s 이전) 왼손 펀치 (정답)
-      controller.submitPunch('left', 6000, { activeSeconds: 6.0, inputId: 'punch_correct_01' });
+      // t = 6.9s (arrival 7.0s 100ms 이전, EarlyMiss 170ms 유효창 내) 왼손 펀치 (정답)
+      controller.submitPunch('left', 6900, { activeSeconds: 6.9, inputId: 'punch_correct_01' });
 
       // 정산 명령 확인
       const commands = controller.getSettlementCommands();
@@ -553,9 +553,9 @@ describe('[BOSS-ASSAULT-15 / #517] 투척·생각·교대 라운드 순수 진�
       controller.update(7.0);
       expect(controller.getSettlementCommands().filter((c) => c.effectType === 'player_damage').length).toBe(0);
 
-      // 유예된 시간 내에 정답 펀치 제출 가능
-      controller.submitPunch('left', 7200, { activeSeconds: 7.2, inputId: 'resumed_punch' });
-      controller.update(7.2);
+      // 유예된 시간 내에 정답 펀치 제출 가능 (재개 후 arrival = 5.8 + 2.0 + 0.5 = 8.3s, EarlyMiss 170ms 유효창 내 8.2s)
+      controller.submitPunch('left', 8200, { activeSeconds: 8.2, inputId: 'resumed_punch' });
+      controller.update(8.2);
 
       const negateCommand = controller.getSettlementCommands().find((c) => c.effectType === 'boss_negate');
       expect(negateCommand).toBeDefined();
@@ -576,11 +576,11 @@ describe('[BOSS-ASSAULT-15 / #517] 투척·생각·교대 라운드 순수 진�
       });
 
       controller.update(5.0); // encounter 0
-      controller.submitPunch('left', 6000, { activeSeconds: 6.0, inputId: 'p0' });
+      controller.submitPunch('left', 6900, { activeSeconds: 6.9, inputId: 'p0' }); // arrival 7.0s 100ms 전
       controller.update(7.0); // encounter 1
       controller.submitSquat('squatting', 7500, { activeSeconds: 7.5, standGeneration: 1 });
       controller.update(9.0); // encounter 2
-      controller.submitPunch('right', 10000, { activeSeconds: 10.0, inputId: 'p2' });
+      controller.submitPunch('right', 10900, { activeSeconds: 10.9, inputId: 'p2' }); // arrival 11.0s 100ms 전
 
       // 모든 조우 완료 (11.0s)
       controller.update(11.0);

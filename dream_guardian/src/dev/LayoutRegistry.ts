@@ -207,8 +207,15 @@ export function getLayoutCoordinates(
   root: any = UI_LAYOUT,
 ): { x: number; y: number } | null {
   const node = resolvePath(path, root);
-  if (node && typeof node.x === 'number' && typeof node.y === 'number') {
+  if (!node || typeof node !== 'object') {
+    return null;
+  }
+  if (typeof node.x === 'number' && typeof node.y === 'number') {
     return { x: node.x, y: node.y };
+  }
+  // comboBadge 등 x가 없고 marginRight가 있는 경우 가상 x 계산 지원
+  if (typeof node.marginRight === 'number' && typeof node.w === 'number' && typeof node.y === 'number') {
+    return { x: 1080 - node.marginRight - node.w, y: node.y };
   }
   return null;
 }
@@ -229,9 +236,18 @@ export function setLayoutCoordinates(
     return false;
   }
   let changed = false;
-  if (coords.x !== undefined && typeof node.x === 'number') {
-    node.x = coords.x;
-    changed = true;
+  if (coords.x !== undefined) {
+    if (typeof node.x === 'number') {
+      node.x = coords.x;
+      if (typeof node.marginRight === 'number' && typeof node.w === 'number') {
+        node.marginRight = Math.max(0, 1080 - coords.x - node.w);
+      }
+      changed = true;
+    } else if (typeof node.marginRight === 'number' && typeof node.w === 'number') {
+      node.x = coords.x;
+      node.marginRight = Math.max(0, 1080 - coords.x - node.w);
+      changed = true;
+    }
   }
   if (coords.y !== undefined && typeof node.y === 'number') {
     node.y = coords.y;
@@ -256,6 +272,8 @@ export function createFallbackElement(rawPath: string): InspectableElement | nul
           ? { x: node.x, y: node.y, w: node.w, h: node.h }
           : node.modal && typeof node.modal.x === 'number' && typeof node.modal.y === 'number' && typeof node.modal.w === 'number' && typeof node.modal.h === 'number'
           ? { x: node.modal.x, y: node.modal.y, w: node.modal.w, h: node.modal.h }
+          : typeof node.w === 'number' && typeof node.h === 'number' && typeof node.y === 'number' && typeof node.marginRight === 'number'
+          ? { x: node.x !== undefined ? node.x : 1080 - node.marginRight - node.w, y: node.y, w: node.w, h: node.h }
           : null;
 
       if (boundsSlot) {
@@ -541,15 +559,17 @@ export function getInspectableElements(
       id: 'hud.playerHpBar',
       label: '플레이어 HP바',
       path: 'hud.playerHpBar',
-      getBounds: (w, h) =>
-        app?.hudLayer?.getPlayerHpBarBounds
-          ? app.hudLayer.getPlayerHpBarBounds(w, h)
+      getBounds: (w, h) => {
+        const virtualBounds = app?.hudLayer?.getPlayerHpBarBounds
+          ? app.hudLayer.getPlayerHpBarBounds(1080, 2160)
           : {
               x: UI_LAYOUT.hud.playerHpBar.x,
               y: UI_LAYOUT.hud.playerHpBar.y,
-              w: Math.min(UI_LAYOUT.hud.playerHpBar.w, w * 0.28),
+              w: Math.min(UI_LAYOUT.hud.playerHpBar.w, 1080 * 0.28),
               h: UI_LAYOUT.hud.playerHpBar.h,
-            },
+            };
+        return virtualRectToScreen(virtualBounds, w, h);
+      },
     });
 
     add({
@@ -557,18 +577,15 @@ export function getInspectableElements(
       label: '보스 HP바',
       path: 'hud.bossHpBar',
       getBounds: (w, h) => {
-        if (app?.hudLayer?.getBossHpBarBounds) {
-          return app.hudLayer.getBossHpBarBounds(w, h);
-        }
-        const slot = UI_LAYOUT.hud.bossHpBar;
-        const barW = Math.min(slot.w, w * 0.28);
-        const marginRight = 1080 - slot.x - slot.w;
-        return {
-          x: w - marginRight - barW,
-          y: slot.y,
-          w: barW,
-          h: slot.h,
-        };
+        const virtualBounds = app?.hudLayer?.getBossHpBarBounds
+          ? app.hudLayer.getBossHpBarBounds(1080, 2160)
+          : {
+              x: UI_LAYOUT.hud.bossHpBar.x,
+              y: UI_LAYOUT.hud.bossHpBar.y,
+              w: Math.min(UI_LAYOUT.hud.bossHpBar.w, 1080 * 0.28),
+              h: UI_LAYOUT.hud.bossHpBar.h,
+            };
+        return virtualRectToScreen(virtualBounds, w, h);
       },
     });
 
@@ -576,15 +593,17 @@ export function getInspectableElements(
       id: 'hud.bossName',
       label: '보스 이름',
       path: 'hud.bossName',
-      getBounds: (w, h) =>
-        app?.hudLayer?.getBossNameBounds
-          ? app.hudLayer.getBossNameBounds(w, h)
+      getBounds: (w, h) => {
+        const virtualBounds = app?.hudLayer?.getBossNameBounds
+          ? app.hudLayer.getBossNameBounds(1080, 2160)
           : {
               x: UI_LAYOUT.hud.bossName.x,
               y: UI_LAYOUT.hud.bossName.y,
               w: UI_LAYOUT.hud.bossName.w,
               h: UI_LAYOUT.hud.bossName.h,
-            },
+            };
+        return virtualRectToScreen(virtualBounds, w, h);
+      },
     });
 
     add({
@@ -592,16 +611,21 @@ export function getInspectableElements(
       label: '콤보 배지',
       path: 'hud.comboBadge',
       getBounds: (w, h) => {
+        let virtualBounds: Bounds;
         if (app?.hudLayer?.getComboBounds) {
-          return app.hudLayer.getComboBounds(w, h);
+          virtualBounds = app.hudLayer.getComboBounds(1080, 2160);
+        } else {
+          const badge = (UI_LAYOUT.hud.comboBadge as any) ?? { w: 160, h: 48, y: 48, marginRight: 24 };
+          const bw = badge.w;
+          const bx = badge.x !== undefined ? badge.x : 1080 - (badge.marginRight ?? 24) - bw;
+          virtualBounds = {
+            x: bx,
+            y: badge.y,
+            w: bw,
+            h: badge.h,
+          };
         }
-        const badge = UI_LAYOUT.hud.comboBadge ?? { w: 160, h: 48, y: 48, marginRight: 24 };
-        return {
-          x: w - badge.marginRight - badge.w,
-          y: badge.y,
-          w: badge.w,
-          h: badge.h,
-        };
+        return virtualRectToScreen(virtualBounds, w, h);
       },
     });
 

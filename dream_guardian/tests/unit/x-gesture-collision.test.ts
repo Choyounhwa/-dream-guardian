@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { XGestureDetector } from '../../src/motion/XGestureDetector.js';
 import { MenuInput } from '../../src/input/MenuInput.js';
+import { DEFAULT_JOINED_HANDS_CONFIG } from '../../config/cursor.config.js';
 import { AnswerSelector } from '../../src/input/AnswerSelector.js';
 import { ArmCrossDetector } from '../../src/motion/ArmCrossDetector.js';
 import { RunDetector } from '../../src/motion/RunDetector.js';
@@ -43,7 +44,7 @@ describe('X-Gesture 타 시스템 상호작용 및 무충돌 정합성 검증', 
       landmarks[POSE_LANDMARKS.LEFT_WRIST] = { ...leftWrist, z: 0, visibility: 0.95 };
       landmarks[POSE_LANDMARKS.RIGHT_WRIST] = { ...rightWrist, z: 0, visibility: 0.95 };
 
-      const menuRes = menuInput.update(leftWrist.x, leftWrist.y, rightWrist.x, rightWrist.y);
+      const menuRes = menuInput.update(leftWrist.x, leftWrist.y, rightWrist.x, rightWrist.y, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
       const xRes = xDetector.update(landmarks, 0.4);
 
       expect(menuRes.active).toBe(true);

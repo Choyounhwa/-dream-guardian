@@ -410,8 +410,8 @@ describe('[BOSS-ASSAULT-17 / #519] 불변 라운드 요약 집계 (AssaultRoundS
     });
   });
 
-  describe('6. 콤보(Combo) 및 미선택(Timeout) 집계 검증', () => {
-    it('연속 성공 시 콤보가 증가하고 실패(오답/타임아웃/스쿼트실패) 시 0으로 리셋되며 maxCombo를 추적한다', () => {
+  describe('6. 콤보(Combo) 및 미선택(Timeout) 집계 검증 (DOC-14 §15.3-C4)', () => {
+    it('연속 정답 성공 시 콤보가 증가하고 실패(오답/타임아웃) 시 0으로 리셋되며 스쿼트는 콤보에 영향을 주지 않는다', () => {
       const aggregator = new AssaultRoundSummaryAggregator({
         sessionId: SESSION_ID,
         roundId: ROUND_ID,
@@ -419,23 +419,23 @@ describe('[BOSS-ASSAULT-17 / #519] 불변 라운드 요약 집계 (AssaultRoundS
 
       // 1: 정답 (+1 -> combo: 1)
       aggregator.recordAnswerHit('att_c1' as AttackId, { isCorrect: true });
-      // 2: 회피 성공 (+1 -> combo: 2)
+      // 2: 회피 성공 (스쿼트 무관 -> combo: 1)
       aggregator.recordSquatEvade('att_c2' as AttackId);
       // 3: 타임아웃 미선택 (리셋 -> combo: 0)
       aggregator.recordAnswerTimeout('att_c3' as AttackId);
       // 4: 정답 (+1 -> combo: 1)
       aggregator.recordAnswerHit('att_c4' as AttackId, { isCorrect: true });
-      // 5: 회피 성공 (+1 -> combo: 2)
+      // 5: 회피 성공 (스쿼트 무관 -> combo: 1)
       aggregator.recordSquatEvade('att_c5' as AttackId);
-      // 6: 정답 (+1 -> combo: 3)
+      // 6: 정답 (+1 -> combo: 2)
       aggregator.recordAnswerHit('att_c6' as AttackId, { isCorrect: true });
-      // 7: 스쿼트 실패 (리셋 -> combo: 0)
+      // 7: 스쿼트 실패 (스쿼트 무관 -> combo: 2)
       aggregator.recordSquatFail('att_c7' as AttackId);
 
       const summary = aggregator.finalize();
 
-      expect(summary.maxCombo).toBe(3);
-      expect(summary.endCombo).toBe(0);
+      expect(summary.maxCombo).toBe(2);
+      expect(summary.endCombo).toBe(2);
       expect(summary.timeoutCount).toBe(1);
       expect(summary.correctCount).toBe(3);
       expect(summary.evadeSuccessCount).toBe(2);
@@ -474,7 +474,7 @@ describe('[BOSS-ASSAULT-17 / #519] 불변 라운드 요약 집계 (AssaultRoundS
       expect(summary.roundId).toBe(ROUND_ID);
       expect(summary.correctCount).toBe(1);
       expect(summary.evadeSuccessCount).toBe(1);
-      expect(summary.maxCombo).toBe(2);
+      expect(summary.maxCombo).toBe(1);
       expect(summary.completedQuestions).toBe(1);
       expect(summary.activeDurationSeconds).toBe(4.2);
       expect(Object.isFrozen(summary)).toBe(true);

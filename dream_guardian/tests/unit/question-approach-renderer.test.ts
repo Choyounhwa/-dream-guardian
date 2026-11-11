@@ -48,6 +48,7 @@ function createMockContext(): CanvasRenderingContext2D {
     textAlign: 'center',
     textBaseline: 'middle',
     globalAlpha: 1.0,
+    filter: 'none',
     shadowColor: '',
     shadowBlur: 0,
   } as unknown as CanvasRenderingContext2D;
@@ -137,6 +138,8 @@ describe('QuestionApproachRenderer (Issue #212 - RENDER-QUESTION-APPROACH-001)',
         approachBeats: 3,
         minScale: 0.3,
         startAlpha: 0.2,
+        startBlur: 10,
+        startBrightness: 0.5,
         easePower: 3.0,
       };
       const customRenderer = new QuestionApproachRenderer(customConfig);
@@ -163,7 +166,7 @@ describe('QuestionApproachRenderer (Issue #212 - RENDER-QUESTION-APPROACH-001)',
       expect(ctx.scale).not.toHaveBeenCalled();
     });
 
-    it('t < 1.0일 때 translate, scale 및 alpha 변환을 적용하여 렌더링한다', () => {
+    it('t < 1.0일 때 translate, scale, alpha 변환 및 blur/brightness 필터를 적용하여 렌더링한다', () => {
       const state: QuestionApproachState = {
         progress: 0.4,
         vanishingX: 540,
@@ -178,23 +181,24 @@ describe('QuestionApproachRenderer (Issue #212 - RENDER-QUESTION-APPROACH-001)',
       expect(ctx.restore).toHaveBeenCalled();
       expect(ctx.globalAlpha).toBeGreaterThan(0);
       expect(ctx.globalAlpha).toBeLessThan(1.0);
+      expect(ctx.filter).toMatch(/blur\(\d+(\.\d+)?px\)\s+brightness\(\d+(\.\d+)?\)/);
     });
   });
 
   describe('3. BeatRunCoordinator 접근 진행도 (questionApproachProgress)', () => {
-    it('RUN_QUESTION 시작 시 진행도가 0이며 시간에 따라 2박(1.0s) 동안 1.0까지 증가한다', () => {
+    it('RUN_QUESTION 시작 시 진행도가 0이며 시간에 따라 4박(2.0s) 동안 1.0까지 증가한다', () => {
       const coordinator = createReadyCoordinator();
       coordinator.startRound();
 
       expect(coordinator.phase).toBe('RUN_QUESTION');
       expect(coordinator.questionApproachProgress).toBe(0);
 
-      // 1박(0.5s) 경과 시 약 0.5
-      coordinator.update(0.5);
+      // 2박(1.0s) 경과 시 약 0.5
+      coordinator.update(1.0);
       expect(coordinator.questionApproachProgress).toBeCloseTo(0.5, 2);
 
-      // 2박(1.0s) 경과 시 1.0 도달
-      coordinator.update(0.5);
+      // 4박(2.0s) 경과 시 1.0 도달
+      coordinator.update(1.0);
       expect(coordinator.questionApproachProgress).toBe(1.0);
 
       // 이후 시간 경과해도 1.0 유지
@@ -202,18 +206,29 @@ describe('QuestionApproachRenderer (Issue #212 - RENDER-QUESTION-APPROACH-001)',
       expect(coordinator.questionApproachProgress).toBe(1.0);
     });
 
-    it('스텝 입력을 통해 박자가 진행되어도 2박 완료 시 1.0에 도달한다', () => {
+    it('스텝 입력을 통해 박자가 진행되어도 4박 완료 시 1.0에 도달한다', () => {
       const coordinator = createReadyCoordinator();
       coordinator.startRound();
 
+      // 1박
       coordinator.recordStep();
       coordinator.update(0.5);
       expect(coordinator.completedExerciseBeats).toBe(1);
-      expect(coordinator.questionApproachProgress).toBeGreaterThanOrEqual(0.5);
 
+      // 2박
       coordinator.recordStep();
       coordinator.update(0.5);
       expect(coordinator.completedExerciseBeats).toBe(2);
+      expect(coordinator.questionApproachProgress).toBeCloseTo(0.5, 2);
+
+      // 3박
+      coordinator.recordStep();
+      coordinator.update(0.5);
+
+      // 4박
+      coordinator.recordStep();
+      coordinator.update(0.5);
+      expect(coordinator.completedExerciseBeats).toBe(4);
       expect(coordinator.questionApproachProgress).toBe(1.0);
     });
 

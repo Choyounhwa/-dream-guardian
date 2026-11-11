@@ -62,12 +62,12 @@ describe('Issue #201 [FEAT-CURSOR-005] 양손 선택 커서 3배 확대 및 원�
       expect(JOINED_HANDS_CURSOR.progressBlur).toBe(24);
     });
 
-    it('인게임 손 커서(hand)의 기본/최대 반경이 원거리 1m+ 시인성에 맞게 상향되어 있다', () => {
-      expect(CURSOR_DIMENSIONS.hand.defaultRadius).toBeGreaterThanOrEqual(60);
-      expect(CURSOR_DIMENSIONS.hand.maxRadius).toBeGreaterThanOrEqual(120);
-      expect(CURSOR_DIMENSIONS.hand.minRadius).toBeGreaterThanOrEqual(20);
-      expect(CURSOR_DIMENSIONS.hand.pulseRingOffset).toBeGreaterThanOrEqual(10);
-      expect(CURSOR_DIMENSIONS.hand.pulseRingAmplitude).toBeGreaterThanOrEqual(6);
+    it('인게임 손 커서(hand)의 기본/최대 반경이 규격(Issue #723 70% 축소 42px)에 맞게 설정되어 있다', () => {
+      expect(CURSOR_DIMENSIONS.hand.defaultRadius).toBe(42);
+      expect(CURSOR_DIMENSIONS.hand.maxRadius).toBe(80);
+      expect(CURSOR_DIMENSIONS.hand.minRadius).toBe(15);
+      expect(CURSOR_DIMENSIONS.hand.pulseRingOffset).toBe(7);
+      expect(CURSOR_DIMENSIONS.hand.pulseRingAmplitude).toBe(4);
       expect(CURSOR_DIMENSIONS.hand.pulseLineWidth).toBeGreaterThanOrEqual(3);
     });
   });

@@ -1,5 +1,994 @@
 # 꿈의 수호신 (Dream Guardian) - 신규 개발 GitHub 이슈카드 목록
 
+## 2026-11-09 등록: Boss Assault 답안 보기 난이도 A1~A3 (DOC-21 §13)
+
+- 근거: [DOC-21 §13](21_QUESTION_ANSWER_GENERATION_SPEC.md). 결정: A3 = 공격마다 보조 문구(`pairPromptText`), A3 = 각 챕터 마지막 SubLevel, boss_assault 전용, 카드 등록 우선. **카드 등록만 수행, 소스/config/CSV 변경 0, 각 카드 개별 승인 대기.**
+- **실경로 적용 검증 게이트(§13.7 G-A~G-F)**를 전 카드 본문에 공통 첨부: `AppBootstrap` + `?mode=boss_assault` 실경로 통합 테스트, 표시 스냅샷 관찰, 연결 전 Red 기록, `http://localhost:3000/?mode=boss_assault` 수동 플레이 기록, `[assault-tier]` 진단 로그. 미충족 시 DONE 금지.
+
+| 순서 | 이슈 | 작업 ID | 라벨 | 레이어 | 내용 |
+|---|---|---|---|---|---|
+| 1 | [#735](https://github.com/Choyounhwa/-dream-guardian/issues/735) | FEAT-ASSAULT-TIER-001 | feature, P2-medium | question + core/bootstrap | 후보에 vars 전달 |
+| 2 | [#736](https://github.com/Choyounhwa/-dream-guardian/issues/736) | FEAT-ASSAULT-TIER-002 | feature, P2-medium | question | `WrongEvalExpander` pick 전 분기 |
+| 3 | [#737](https://github.com/Choyounhwa/-dream-guardian/issues/737) | FEAT-ASSAULT-TIER-003 | feature, P2-medium | question | `ExpressionAnalyzer` 태그 |
+| 4 | [#738](https://github.com/Choyounhwa/-dream-guardian/issues/738) | FEAT-ASSAULT-TIER-004 | feature, P2-medium | question + config | `DistractorEngine` A1/A2 + `answer-tier.config` |
+| 5 | [#739](https://github.com/Choyounhwa/-dream-guardian/issues/739) | FEAT-ASSAULT-TIER-005 | feature, P1-high | core | A1/A2 실경로 연결 + 진단 로그 |
+| 6 | [#740](https://github.com/Choyounhwa/-dream-guardian/issues/740) | FEAT-ASSAULT-TIER-006 | feature, P2-medium | question | `ChainRule` 추출 + A3 쌍별 정답/문구 |
+| 7 | [#741](https://github.com/Choyounhwa/-dream-guardian/issues/741) | FEAT-ASSAULT-TIER-007 | feature, P1-high | core | A3 마지막 SubLevel 실경로 연결 |
+| 8 | [#742](https://github.com/Choyounhwa/-dream-guardian/issues/742) | FEAT-ASSAULT-TIER-008 | feature, P2-medium | render | `pairPromptText` 화면 표시 |
+| 9 | [#743](https://github.com/Choyounhwa/-dream-guardian/issues/743) | QA-ASSAULT-TIER-009 | test, P1-high | tests | 실경로·실플레이 최종 인수 (제품 수정 0) |
+
+- 선행 권장(미등록): DOC-21 §9 Q-IMP-1(세션당 숫자 고정), Q-IMP-3(seed 12345 고정).
+
+### 2026-11-09 #734 보류 및 임시 대체 카드 #744
+
+- **#734 [보류]** FEAT-ASSAULT-LOOP-018 동적 스쿼트: 결정 = 스쿼트 동적 발동 + 회피 성공 시 피해 감면. 착수 전 해결 사항(계획 불변 구조·정산 시점·#671 계약·1,000줄·가변 길이·실경로 게이트)을 [이슈 코멘트](https://github.com/Choyounhwa/-dream-guardian/issues/734#issuecomment-6742299587)에 기록. 재개 시 ①SRP 분리 ②동적 삽입 ③감면 정산 ④HUD/사운드/요약 ⑤실경로 인수로 분할.
+- **[#744](https://github.com/Choyounhwa/-dream-guardian/issues/744) FEAT-ASSAULT-LOOP-019** (feature, P1-high, config): 사전 배치 스쿼트 임시 제거 → run 8 + answer 4×4 = **24박(12초)**. `minSquatsPerRound/maxSquatsPerRound: 0` 설정 변경만, 스쿼트 판정기·빌더 삽입 코드 보존. 실경로 게이트 G-A~G-D 포함.
+
+## 2026-11-01 등록/보완: 졸라맨 펀치·팔 관절·두 손 모으기 판정 개선 (#724, #725, #726, #730)
+
+> 2026-11-01 설계 검토 반영본. 권장 진행 순서: #725 → #724 → #726 → #730 (#726은 #725 완료 후 착수). GitHub 이슈 본문과 동일.
+
+### [FEAT-SKEL-LIMIT-001] 메카 졸라맨 팔 관절 스냅 방지: 길이·가시성 신뢰도 가중, 굽힘 방향 유지, 소프트 가동 범위
+
+- **작업 ID**: FEAT-SKEL-LIMIT-001 (#725)
+- **라벨**: `feature`, `phase-2`, `P1-high`
+- **레이어**: Skeleton (`src/skeleton/pose/`) + Config (`config/skeleton.config.ts`) — 단일 시스템
+- **후행 카드**: #726 (이 카드의 `PoseFrame.armConfidence`를 사용)
+- **2026-11-01 보완**: 설계 검토 결과 반영. 원안의 "하드 클램프"만으로는 관절이 가까워질 때의 스냅이 해결되지 않아 원인별 대책으로 재작성
+
+#### 1. 목적
+관절 포인트가 가까워지거나(손목↔팔꿈치, 팔꿈치↔어깨), 손이 가려지거나, 팔을 끝까지 접을 때 졸라맨 팔이 휙 돌거나 반대로 뒤집히는(스냅) 부자연스러운 움직임을 없앤다. 팔을 정상적으로 뻗고 움직일 때의 반응 속도는 지금과 **동일**하게 유지한다.
+
+#### 2. 원인 분석 (현재 코드 사실)
+`src/skeleton/pose/PoseAngleSolver.ts` (320줄)
+| # | 원인 | 위치 |
+|---|---|---|
+| A | 각 뼈 각도를 `atan2(끝점 - 시작점)`로만 구하고 길이는 버린다. 졸라맨은 이 각도로 **고정 길이**(상완 100, 전완 90) 팔을 그리므로, 2D 거리가 몇 px뿐일 때 3px 노이즈만으로 각도가 수십~180° 튄다 → 긴 팔 전체가 휙 돈다 | L247-250, `StickmanRenderer.calculateFKPositions` L285-300 |
+| B | A와 같은 문제가 상완(팔꿈치↔어깨 근접: 정면 펀치, 가드 자세)에도 있다 | L247, L249 |
+| C | 팔을 끝까지 접으면 목표 각도가 현재 각도와 약 180° 차이가 되어 `diffAngle`의 최단경로 방향이 프레임마다 뒤바뀐다 → 반대로 휘두르듯 회전 | L294-297 |
+| D | 다리에는 visibility 검사 및 대체 각도가 있지만(L211-242) 팔에는 없다 → 손이 가려지면 MediaPipe 추정 좌표가 그대로 반영된다 | L247-250 |
+| E | 팔 각도는 화면 기준 **절대각**이다(관절 상대각 아님). 각 뼈를 독립적으로 스무딩한다 | L244-255, L289-297 |
+
+#### 3. 해결 설계 (원인 → 대책)
+| 원인 | 대책 |
+|---|---|
+| A, B | **길이 신뢰도 가중**: `w = smoothstep(minLen, fullLen, 마디길이/어깨너비) × smoothstep(minVis, fullVis, visibility)`. 각도 갱신량을 `angleSmoothing × w`로 줄인다. `w = 1`(정상 뻗기)이면 지금과 완전히 동일. 마디가 짧아질수록 직전 각도를 연속적으로 유지한다 (on/off 금지: 경계에서 2차 스냅 발생) |
+| C | **굽힘 방향 유지(unwrap)**: 상대각을 직전 프레임 상대각 기준으로 펼친 뒤(`unwrapNear`) 제한한다 → ±180° 경계를 넘어도 방향이 뒤집히지 않는다 |
+| C | **소프트 가동 범위**: 하드 클램프 대신 `tanh` 압축(`softLimitSymmetric`)을 쓴다 → 한계에 붙었다 풀리는 순간의 튐 방지 |
+| D | 가시성 가중치가 w에 포함되어 있어 가려지면 자동으로 유지된다 |
+| E | 팔은 **위팔 = 몸통 하방 기준 상대각**, **팔꿈치 = 위팔 기준 상대각**으로 계산·스무딩한 뒤 `전완 = 위팔 + 팔꿈치 상대각`으로 재구성한다 |
+
+**원안 수치 정정 사유**
+- 원안 "팔꿈치 -15°~165°": 2D 투영에서는 팔 회전에 따라 팔꿈치가 양쪽 방향으로 정상적으로 굽어 보이므로 부호로 과신전을 구분할 수 없다. → **굽힘 크기 |상대각| ≤ 165°** (소프트)로 정의한다.
+- 원안 "상완 ±160°(몸통 기준)": 몸통은 위쪽을 향하므로 팔을 내린 기본 자세가 몸통 기준 180°가 되어 차렷 자세가 막힌다. → **몸통 하방(torso + π) 기준 |상대각| ≤ 170°** (소프트)로 정의한다 (팔을 머리 위로 똑바로 들 때의 뒤집힘만 막음).
+
+#### 4. 수정 대상 (화이트리스트 — 이 목록 외 수정 금지)
+| 파일 | 변경 |
+|---|---|
+| `dream_guardian/config/skeleton.config.ts` | `StickmanArmStabilizerConfig` + `STICKMAN_ARM_STABILIZER_CONFIG` 추가 (기존 항목 변경 금지) |
+| `dream_guardian/src/utils/PoseGeometry.ts` | `smoothstep(edge0, edge1, x)` 추가 (343줄 → 약 355줄) |
+| `dream_guardian/src/skeleton/pose/angleMath.ts` | **신규**: `diffAngle`(PoseAngleSolver에서 이동), `unwrapNear`, `softLimitSymmetric` |
+| `dream_guardian/src/skeleton/pose/ArmAngleStabilizer.ts` | **신규**: `calcSegmentWeight`, `stabilizeArm` |
+| `dream_guardian/src/skeleton/pose/PoseAngleSolver.ts` | `diffAngle` 재export, 팔 4개 뼈를 일반 스무딩 루프에서 제외하고 `stabilizeArm` 호출, `armConfidence` 출력 |
+| `dream_guardian/src/types/pose-frame.ts` | `PoseFrame`에 **optional** `armConfidence` 추가 |
+| `dream_guardian/tests/unit/stickman-joint-limits.test.ts` | **신규** TDD 테스트 |
+
+#### 5. 구현 내용 (정확한 사양)
+**5.1 config** (`config/skeleton.config.ts` 맨 아래에 추가)
+```ts
+/** 팔 관절 스냅 방지 설정 (Issue #725 / FEAT-SKEL-LIMIT-001) */
+export interface StickmanArmStabilizerConfig {
+  /** 몸통 하방 기준 위팔 최대 회전 크기 (도) */
+  readonly upperArmMaxDeg: number;
+  /** 위팔 기준 팔꿈치 최대 굽힘 크기 (도) */
+  readonly elbowMaxFlexDeg: number;
+  /** 한계 직전 압축 시작 폭 (도) */
+  readonly softZoneDeg: number;
+  /** 마디길이/어깨너비 비율: 이 값 이하면 가중치 0 */
+  readonly minLengthRatio: number;
+  /** 마디길이/어깨너비 비율: 이 값 이상이면 가중치 1 */
+  readonly fullLengthRatio: number;
+  /** 두 끝점 visibility 최솟값: 이 값 이하면 가중치 0 */
+  readonly minVisibility: number;
+  /** 두 끝점 visibility 최솟값: 이 값 이상이면 가중치 1 */
+  readonly fullVisibility: number;
+}
+
+export const STICKMAN_ARM_STABILIZER_CONFIG: Readonly<StickmanArmStabilizerConfig> = Object.freeze({
+  upperArmMaxDeg: 170,
+  elbowMaxFlexDeg: 165,
+  softZoneDeg: 20,
+  minLengthRatio: 0.15,
+  fullLengthRatio: 0.40,
+  minVisibility: 0.25,
+  fullVisibility: 0.60,
+});
+```
+
+**5.2 `src/utils/PoseGeometry.ts`** (기존 `clamp01` 재사용)
+```ts
+/** Hermite smoothstep: edge0 이하 0, edge1 이상 1, 사이는 3t²-2t³ */
+export function smoothstep(edge0: number, edge1: number, x: number): number {
+  if (edge1 <= edge0) return x >= edge1 ? 1 : 0;
+  const t = clamp01((x - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+```
+`StardustEffect.ts`의 인라인 smoothstep은 이 카드에서 수정하지 않는다 (범위 밖).
+
+**5.3 `src/skeleton/pose/angleMath.ts`** (신규, 다른 모듈 import 금지 — 순환 참조 방지)
+```ts
+export function diffAngle(target: number, current: number): number { /* PoseAngleSolver L38-43 본문을 그대로 이동 */ }
+export function unwrapNear(angle: number, reference: number): number {
+  return reference + diffAngle(angle, reference);
+}
+/** |angle| <= maxAbs - softZone 이면 그대로, 그 이상은 tanh로 압축하여 maxAbs를 넘지 않음. softZone <= 0 이면 하드 클램프 */
+export function softLimitSymmetric(angle: number, maxAbs: number, softZone: number): number {
+  const sign = angle < 0 ? -1 : 1;
+  const a = Math.abs(angle);
+  if (softZone <= 0) return sign * Math.min(a, maxAbs);
+  const knee = maxAbs - softZone;
+  if (a <= knee) return angle;
+  return sign * (knee + softZone * Math.tanh((a - knee) / softZone));
+}
+```
+`PoseAngleSolver.ts`의 기존 `diffAngle` 함수 본문은 삭제하고 아래 두 줄로 교체 (기존 import 경로 `PoseBlender.ts`, `SecondaryMotion.ts`, `skeleton/index.ts`가 그대로 동작해야 함):
+```ts
+import { diffAngle } from './angleMath.js';
+export { diffAngle };
+```
+
+**5.4 `src/skeleton/pose/ArmAngleStabilizer.ts`** (신규)
+```ts
+import { smoothstep } from '../../utils/PoseGeometry.js';
+import { diffAngle, unwrapNear, softLimitSymmetric } from './angleMath.js';
+import type { StickmanArmStabilizerConfig } from '../../../config/skeleton.config.js';
+
+export interface ArmStabilizerInput {
+  readonly rawUpperArm: number;      // 이번 프레임 atan2 위팔 절대각 (rad)
+  readonly rawForearm: number;       // 이번 프레임 atan2 전완 절대각 (rad)
+  readonly torso: number;            // 이번 프레임 스무딩 완료 몸통각 (smoothedAngles.torso)
+  readonly prevUpperArm: number;     // 직전 프레임 출력 위팔 절대각
+  readonly prevForearm: number;      // 직전 프레임 출력 전완 절대각
+  readonly prevTorso: number;        // 직전 프레임 출력 몸통각
+  readonly upperLengthRatio: number; // |어깨-팔꿈치| / 어깨너비
+  readonly forearmLengthRatio: number; // |팔꿈치-손목| / 어깨너비
+  readonly upperVisibility: number;  // min(어깨.vis, 팔꿈치.vis)
+  readonly forearmVisibility: number; // min(팔꿈치.vis, 손목.vis)
+  readonly angleSmoothing: number;   // config.angleSmoothing (기본 0.35)
+}
+export interface ArmStabilizerOutput {
+  readonly upperArm: number;
+  readonly forearm: number;
+  readonly upperWeight: number;   // 0~1
+  readonly forearmWeight: number; // 0~1
+}
+export function calcSegmentWeight(lengthRatio: number, visibility: number, cfg: StickmanArmStabilizerConfig): number {
+  return smoothstep(cfg.minLengthRatio, cfg.fullLengthRatio, lengthRatio)
+       * smoothstep(cfg.minVisibility, cfg.fullVisibility, visibility);
+}
+```
+`stabilizeArm(input, cfg)` 알고리즘 (이 순서 그대로, deg→rad 변환은 `* Math.PI / 180`):
+```
+down      = torso + PI
+prevDown  = prevTorso + PI
+// 위팔
+upperRelTarget = softLimitSymmetric(
+                   unwrapNear(diffAngle(rawUpperArm, down), diffAngle(prevUpperArm, prevDown)),
+                   rad(upperArmMaxDeg), rad(softZoneDeg))
+targetUpper = down + upperRelTarget
+wU       = calcSegmentWeight(upperLengthRatio, upperVisibility, cfg)
+upperArm = prevUpperArm + diffAngle(targetUpper, prevUpperArm) * angleSmoothing * wU
+// 팔꿈치 (★ 안정화된 upperArm 기준 상대각 — rawUpperArm 사용 금지)
+prevElbowRel   = diffAngle(prevForearm, prevUpperArm)
+elbowRelTarget = softLimitSymmetric(
+                   unwrapNear(diffAngle(rawForearm, upperArm), prevElbowRel),
+                   rad(elbowMaxFlexDeg), rad(softZoneDeg))
+wF       = calcSegmentWeight(forearmLengthRatio, forearmVisibility, cfg)
+elbowRel = prevElbowRel + (elbowRelTarget - prevElbowRel) * angleSmoothing * wF
+forearm  = upperArm + elbowRel
+return { upperArm, forearm, upperWeight: wU, forearmWeight: wF }
+```
+- ★ 팔꿈치 기준을 `rawUpperArm`으로 하면, 위팔이 짧아 신뢰도가 0일 때 노이즈 섞인 raw 위팔각이 팔꿈치 목표에 섞여 전완이 튄다. 반드시 안정화된 `upperArm`을 기준으로 한다.
+- 수학적 성질 (테스트로 보장):
+  - 위팔: `wU = 1`, 한계 미도달이면 `upperArm`이 기존 공식 `prev + diffAngle(raw, prev) * angleSmoothing`과 같다 (오차 1e-9).
+  - 전완: 위 조건 + 위팔 입력이 직전과 같고(`rawUpperArm === prevUpperArm`) `wF = 1`, 한계 미도달이면 `forearm`도 기존 공식과 같다 (오차 1e-9). 위팔이 움직이면 전완이 부모(위팔)를 따라 함께 회전하는 계층 FK 동작이 추가되며, 이는 반응이 느려지는 것이 아니라 빨라지는 방향이다.
+
+**5.5 `PoseAngleSolver.ts` 변경**
+- `PoseAngleSolverConfig`에 `armStabilizer?: Partial<StickmanArmStabilizerConfig>;` 추가. 실제 설정 = `{ ...STICKMAN_ARM_STABILIZER_CONFIG, ...config?.armStabilizer }`.
+- L244-255 `targetAngles` 계산은 **그대로 둔다** (raw 팔 각도는 stabilizer 입력으로 사용).
+- L289-297 스무딩 루프에서 `leftUpperArm`, `leftForearm`, `rightUpperArm`, `rightForearm` 4개 키는 건너뛴다 (`const ARM_BONES: ReadonlySet<BoneId> = new Set([...])`). 나머지 뼈 스무딩은 변경 금지.
+- 루프 직후 좌/우 각각 `stabilizeArm` 호출 후 `smoothedAngles`의 팔 4개 값을 덮어쓴다.
+  - `prevUpperArm/prevForearm/prevTorso`: 기존 변수 `prevAngles`(L291, 미초기화 시 기본 자세)에서 가져온다.
+  - 어깨너비: `calcShoulderWidth(ls, rs)` (`utils/PoseGeometry.ts` 재사용, 좌표 단위는 입력 랜드마크와 동일 → 비율은 단위 무관)
+  - 길이: `calcDistance(ls, le)`, `calcDistance(le, lw)` 등 (`utils/PoseGeometry.ts` 재사용)
+  - visibility 누락(`undefined`)은 `0`으로 취급
+- 반환 객체에 `armConfidence: { left: Math.min(wU_L, wF_L), right: Math.min(wU_R, wF_R) }` 추가.
+- 랜드마크 없음/hasPose=false 경로(L95-129)는 변경하지 않는다 (`armConfidence` 미포함 = undefined).
+
+**5.6 `src/types/pose-frame.ts`**
+```ts
+/** 팔별 각도 신뢰도 0~1 (Issue #725). 미제공 시 소비자는 1로 간주 */
+armConfidence?: Readonly<{ left: number; right: number }>;
+```
+
+#### 6. 유지 사항
+- 고정 길이 FK(`StickmanRenderer.calculateFKPositions`) 및 캡슐 렌더링 유지
+- 다리/몸통/머리 각도 계산, 스쿼트·점프·러닝 보정 공식(L257-287) 불변
+- `diffAngle` 공개 API(이름, 시그니처, 결과) 불변
+- 팔을 정상적으로 뻗은 상태(w = 1)의 반응 속도 불변 (`angleSmoothing` 0.35 그대로, 추가 EMA 금지)
+
+#### 7. 변경 금지
+- `StickmanRenderer.ts`, `CharacterAvatarRenderer.ts`, `RigSolver.ts`, `SkeletonAnimation.ts`, `PoseBlender.ts`, `SecondaryMotion.ts`, `StardustEffect.ts` 수정 금지
+- `STICKMAN_CONFIG` 기존 값 변경 금지
+- 4절 화이트리스트 밖 파일 수정 금지, 단일 파일 1,000줄 초과 금지
+
+#### 8. 완료 조건
+- [ ] 손목을 팔꿈치 ±3px(정규화 ±0.003) 안에서 30프레임 흔들어도 전완 각도 프레임당 변화 ≤ 0.5°
+- [ ] 팔꿈치를 어깨 근처(±0.003)에서 흔들어도 위팔 각도 프레임당 변화 ≤ 0.5°
+- [ ] 정상 뻗은 팔(가중치 1)의 위팔 1프레임 응답이 기존 공식과 동일, 위팔 고정 시 전완도 동일 (오차 1e-9)
+- [ ] 팔꿈치 상대각을 150° → 200°(=-160°)로 넘기는 입력에서 굽힘 방향이 뒤집히지 않고 |상대각| ≤ 165°
+- [ ] 한계 근처를 1°씩 연속 통과할 때 출력 변화가 입력 변화 이하이며 불연속 점프 없음
+- [ ] 손목 visibility 0.1이면 전완 상대각이 직전 값 그대로 유지
+- [ ] `PoseFrame.armConfidence` 값이 0~1 범위로 출력
+- [ ] 기존 `pose-angle-solver.test.ts`, `stickman-renderer.test.ts`, `rig-solver.test.ts`, `skeleton.test.ts` 무수정 통과
+- [ ] `npm test` 전체 100% Pass, `npm run build` 성공
+
+#### 9. 테스트 (`tests/unit/stickman-joint-limits.test.ts`, 최소 12케이스)
+공통 픽스처: `tests/unit/pose-angle-solver.test.ts`의 `createSampleLandmarks()`와 같은 정면 포즈(어깨 0.42/0.58, y 0.32, 어깨너비 0.16, visibility 0.9)를 이 테스트 파일 안에 로컬 함수로 작성한다. 무작위 노이즈는 **고정 시드 LCG**로 생성한다 (`Math.random` 금지).
+1. `smoothstep` 경계값 (0, 0.5, 1, edge 역전)
+2. `softLimitSymmetric`: knee 이하 항등, 한계 초과 입력도 `maxAbs` 미만, 부호 대칭, 단조 증가
+3. `unwrapNear`: (π-0.1)과 기준 (π-0.2) → 연속값, (-π+0.1)과 기준 (π-0.1) → π+0.1
+4. `calcSegmentWeight`: 길이 0.10 → 0, 0.50 → 1, visibility 0.1 → 0
+5. `stabilizeArm` 가중치 1 등가성 (각 변화 ±60° 이내, 한계 미도달 입력 3개): (a) 위팔이 기존 공식과 1e-9 일치, (b) `rawUpperArm === prevUpperArm`일 때 전완도 기존 공식과 1e-9 일치
+6. 전완 지터: 정상 포즈 30프레임 수렴 → 손목 = 팔꿈치 + 노이즈(±0.003) 30프레임 → 전완 프레임당 |Δ| ≤ 0.5°
+7. 위팔 지터: 팔꿈치 = 어깨 + 노이즈(±0.003) → 위팔 프레임당 |Δ| ≤ 0.5°
+8. 접힘 방향 유지: 팔꿈치 상대각 150°에서 수렴 → 200° 입력 20프레임 → 상대각 부호 유지 및 |상대각| ≤ 165°
+9. 연속성: 상대각 100°→200°를 1°씩 입력 → 출력 상대각 단조 비감소, 프레임당 증가 ≤ 1°
+10. 가림: 손목 visibility 0.1 → 전완 상대각 직전과 동일
+11. `PoseAngleSolver.solve` 결과의 `armConfidence.left/right`가 정상 포즈에서 1, 손목 가림 시 < 0.01
+12. `config.armStabilizer` 부분 주입이 기본값과 병합됨
+
+#### 10. 실행 순서 (AI 작업자 필수 준수)
+1. Baseline: `npm test` 전체 Pass 확인 (실패 시 중단)
+2. Red: `stickman-joint-limits.test.ts` 작성 → `npx vitest run tests/unit/stickman-joint-limits.test.ts` 실패 확인
+3. Green 순서: config → `PoseGeometry.smoothstep` → `angleMath.ts` → `PoseAngleSolver`의 `diffAngle` 재export → `ArmAngleStabilizer.ts` → `PoseAngleSolver` 연동 → `pose-frame.ts`
+4. 각 단계마다 `npx vitest run tests/unit/stickman-joint-limits.test.ts tests/unit/pose-angle-solver.test.ts tests/unit/stickman-renderer.test.ts`
+5. `npm run build`, `npm test` 전체 Pass
+6. 커밋: `feat(skeleton): stabilize stickman arm angles near joint overlap (#725)` → `gh issue comment 725`
+
+#### 11. 중단 조건
+- 8절의 "기존 테스트 무수정 통과" 대상이 실패하면 기대값을 고치지 말고 중단한다 (반응성 회귀 신호).
+- 순환 import 경고/오류 발생 시 중단한다.
+- 위 경우 `git reset --hard HEAD` 후 실패 파일/케이스/에러 메시지를 보고한다.
+
+#### 12. 리스크 및 후속
+- 카메라 정면으로 팔을 뻗으면 2D 마디가 짧아져 가중치가 0에 가까워지고, 졸라맨 팔은 직전 각도를 유지한다 (의도된 동작). #726 펀치 판정은 `armConfidence`로 이 상태를 걸러낸다.
+- `PoseAngleSolver.ts` L108 `minVis = 0.25` 하드코딩은 다리 로직이므로 이 카드에서 변경하지 않는다 (별도 DRY 카드 후보).
+- 수치(`minLengthRatio`, `fullLengthRatio`, `softZoneDeg`)는 실기 테스트 후 config만 조정한다.
+
+#### 13. 관련 파일
+`config/skeleton.config.ts`, `src/utils/PoseGeometry.ts`, `src/skeleton/pose/angleMath.ts`, `src/skeleton/pose/ArmAngleStabilizer.ts`, `src/skeleton/pose/PoseAngleSolver.ts`, `src/types/pose-frame.ts`, `tests/unit/stickman-joint-limits.test.ts`
+
+---
+
+### [FEAT-INPUT-JOIN-001] 두 손 모으기(합장) 임계치 0.18 / 해제 0.22 히스테리시스 및 최소 체류시간 0.3초 설정 분리
+
+- **작업 ID**: FEAT-INPUT-JOIN-001 (#724)
+- **라벨**: `feature`, `phase-3`, `P1-high`
+- **레이어**: Input (`src/input/`) + Config (`config/`) — 단일 시스템
+- **선행 카드**: 없음 (독립 진행 가능)
+- **2026-11-01 보완**: 설계 검토 결과 반영 (회귀 테스트 이전 목록, 히스테리시스 구간 동작, 상수 중복 제거, dt 단위 명시)
+
+#### 1. 목적
+복싱 가드(가슴 앞 주먹)나 빠른 펀치 회수 동작에서 두 손이 잠깐 가까워질 때 합장 커서가 오발동하여 펀치/문제 선택이 차단되는 결함을 막는다. 임계치를 `0.22 → 0.18`로 줄이고, 0.3초 이상 유지해야 발동되는 체류시간(dwell) 필터와 해제 임계치 `0.22` 히스테리시스를 도입한다. 수치는 `config/cursor.config.ts`에서 SSOT로 관리한다.
+
+#### 2. 현재 코드 사실 (작업 전 확인용)
+- `src/input/MenuInput.ts` (70줄)
+  - L22 `export const DEFAULT_JOIN_DISTANCE_THRESHOLD = 0.22;` (이 파일 밖에서 사용처 없음, `src/input/index.ts`에서도 export 안 함)
+  - L30 `constructor(joinThreshold = DEFAULT_JOIN_DISTANCE_THRESHOLD)` — 실제 호출부는 모두 `new MenuInput()` (인자 없음)
+  - L45 `update(leftX, leftY, rightX, rightY)` — 단일 프레임 거리 `< 0.22`면 즉시 `active = true`
+  - 거리 단위: 캔버스 정규화 좌표(0~1)의 유클리드 거리
+- 유일한 프로덕션 호출부: `src/core/director/SceneMotionCoordinator.ts` L271 `ctx.menuInput?.update(leftHand.x, leftHand.y, rightHand.x, rightHand.y);` (같은 메서드 `process(dt, ctx, options)`의 `dt`는 **초 단위**, `GameEngine.ts` L186 `dt = deltaMs / 1000`)
+
+#### 3. 수정 대상 (화이트리스트 — 이 목록 외 파일 수정 금지)
+| 파일 | 변경 |
+|---|---|
+| `dream_guardian/config/cursor.config.ts` | `JoinedHandsGestureConfig` 인터페이스 + `DEFAULT_JOINED_HANDS_CONFIG` 상수 추가 |
+| `dream_guardian/src/input/MenuInput.ts` | dwell + 히스테리시스 상태머신, `DEFAULT_JOIN_DISTANCE_THRESHOLD` 삭제 |
+| `dream_guardian/src/core/director/SceneMotionCoordinator.ts` | L271 호출에 `dt` 5번째 인자 전달 (1줄) |
+| `dream_guardian/tests/unit/menu-input-dwell.test.ts` | 신규 TDD 테스트 |
+| `dream_guardian/tests/unit/input-system.test.ts` | 기존 즉시활성 기대 호출에 dwell 인자 추가 (아래 7절) |
+| `dream_guardian/tests/unit/ui-system.test.ts` | 동일 |
+| `dream_guardian/tests/unit/x-gesture-collision.test.ts` | 동일 |
+| `dream_guardian/tests/integration/cleanup-answer-view.test.ts` | 동일 |
+
+#### 4. 구현 내용 (정확한 사양)
+**4.1 `config/cursor.config.ts`** (기존 `JOINED_HANDS_CURSOR`는 렌더 규격이므로 건드리지 않는다)
+```ts
+/** 양손 모으기(합장) 제스처 판정 설정 (Issue #724 / FEAT-INPUT-JOIN-001) */
+export interface JoinedHandsGestureConfig {
+  /** 이 거리 이하일 때 체류시간 적분 (정규화 좌표 거리) */
+  readonly joinDistanceThreshold: number;
+  /** 활성 상태에서 이 거리를 초과하면 즉시 해제 (히스테리시스 상한) */
+  readonly releaseDistanceThreshold: number;
+  /** 활성화에 필요한 연속 체류 시간 (초) */
+  readonly requiredDwellSec: number;
+}
+
+export const DEFAULT_JOINED_HANDS_CONFIG: Readonly<JoinedHandsGestureConfig> = Object.freeze({
+  joinDistanceThreshold: 0.18,
+  releaseDistanceThreshold: 0.22,
+  requiredDwellSec: 0.30,
+});
+```
+
+**4.2 `src/input/MenuInput.ts`**
+- `DEFAULT_JOIN_DISTANCE_THRESHOLD` 상수와 생성자 인자 `joinThreshold`를 삭제하고 아래로 교체:
+  ```ts
+  constructor(config: Partial<JoinedHandsGestureConfig> = {}) {
+    this._config = Object.freeze({ ...DEFAULT_JOINED_HANDS_CONFIG, ...config });
+  }
+  ```
+- 시그니처: `update(leftX: number, leftY: number, rightX: number, rightY: number, dt = 0): MenuCursorResult`
+  - **기본값은 `0`** (dt 미전달 시 dwell이 쌓이지 않음 = 활성화되지 않음). `0.016` 같은 매직 넘버 기본값 금지.
+  - `dt`가 `NaN`/음수/`Infinity`이면 `0`으로 취급한다.
+- 상태: `_active: boolean`, `_dwellSec: number`
+- 판정 규칙 (`distance = Math.hypot(leftX - rightX, leftY - rightY)`):
+  | 구간 | `_active === false`일 때 | `_active === true`일 때 |
+  |---|---|---|
+  | `distance <= join (0.18)` | `_dwellSec += dt`; `_dwellSec >= requiredDwellSec`이면 `_active = true` | 활성 유지 |
+  | `join < distance <= release (0.22)` | **`_dwellSec` 유지 (증가도 리셋도 안 함)** | 활성 유지 (히스테리시스) |
+  | `distance > release` | `_dwellSec = 0` | `_active = false`, `_dwellSec = 0` |
+- 커서 좌표 `_x/_y`는 기존과 동일하게 **`_active === true`인 프레임에서만** 중점으로 갱신한다.
+- `reset()`은 기존 동작 + `_dwellSec = 0`.
+- `MenuCursorResult` 인터페이스는 변경하지 않는다 (필드 추가/삭제 금지).
+- 읽기 전용 getter 추가 허용: `get dwellSec(): number` (테스트용).
+
+**4.3 `SceneMotionCoordinator.ts` L271**
+```ts
+ctx.menuInput?.update(leftHand.x, leftHand.y, rightHand.x, rightHand.y, dt);
+```
+그 외 줄 변경 금지.
+
+#### 5. 유지 사항
+- `PauseModal`, 메뉴 호버 0.8초 체류(`menuHoverTimer`), `answerSelector.paused` 연동 계약 유지
+- 합장 커서 렌더링(`JOINED_HANDS_CURSOR`) 형상/효과 유지
+- `MenuCursorResult` 구조 유지
+
+#### 6. 변경 금지
+- `AnswerSelector.ts`, `CursorTracker.ts`, 렌더러 파일 수정 금지
+- 3절 화이트리스트 밖 파일 수정 금지
+- 단일 파일 1,000줄 초과 금지, 수치 하드코딩 금지 (모두 `DEFAULT_JOINED_HANDS_CONFIG` 참조)
+
+#### 7. 기존 테스트 이전 (Red 단계에서 반드시 깨지는 테스트 — 테스트 의도는 유지하고 dwell 인자만 추가)
+`update()` 1회 호출 직후 `active === true`를 기대하는 호출에 **5번째 인자 `DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec`** 를 추가한다 (1회 호출로 dwell 0.30 도달). 분리(먼 거리) 호출은 그대로 둔다.
+- `tests/unit/input-system.test.ts`: L167, L181, L189, L206, L233, L434, L450, L480, L706, L722, L743, L768, L793 부근 (`mi.update(...)` / `menuInput.update(...)` 중 합장 기대 호출)
+- `tests/unit/ui-system.test.ts`: L478 부근
+- `tests/unit/x-gesture-collision.test.ts`: L46 부근
+- `tests/integration/cleanup-answer-view.test.ts`: L196 부근
+- `tests/unit/scene-motion-coordinator.test.ts`: `menuInput`이 `vi.fn()` mock이므로 **수정 불필요** (깨지면 원인 보고 후 중단)
+- 줄 번호는 참고용이다. `npx vitest run` 실패 목록을 기준으로 위 4개 파일에서만 수정한다.
+
+#### 8. 완료 조건
+- [ ] dt 누적 0.3초 미만(예: 0.016 × 18프레임 = 0.288초)으로 모으면 `active === false`
+- [ ] 거리 0.18 이하 0.3초 이상 유지 시 `active === true`
+- [ ] 활성 상태에서 거리 0.20(히스테리시스 구간)이면 활성 유지
+- [ ] 비활성 상태에서 0.20 구간 진입 시 dwell 유지(리셋 안 됨), 다시 0.18 이하로 들어오면 이어서 적분
+- [ ] 거리 0.22 초과 시 즉시 `active === false` 및 dwell 0
+- [ ] `dt` 미전달/NaN/음수 시 활성화되지 않음
+- [ ] 생성자 부분 설정 주입(`new MenuInput({ requiredDwellSec: 0.5 })`)이 동작
+- [ ] `npm test` 전체 100% Pass, `npm run build` 성공
+
+#### 9. 테스트 (`tests/unit/menu-input-dwell.test.ts`, 최소 10케이스)
+1. config 기본값 0.18 / 0.22 / 0.30 및 `Object.isFrozen`
+2. 0.016초 × 18프레임 (거리 0.04) → 비활성
+3. 0.016초 × 19프레임 (누적 0.304) → 활성
+4. 활성 후 거리 0.20 → 활성 유지
+5. 활성 후 거리 0.23 → 즉시 비활성 + `dwellSec === 0`
+6. 비활성 적분 중 0.20 구간 진입 → `dwellSec` 값 동일 유지 → 0.04 복귀 후 이어서 활성
+7. 비활성 적분 중 0.30 이탈 → `dwellSec === 0`
+8. `dt` 미전달 / `NaN` / `-1` → 비활성
+9. 활성 프레임에서만 커서 중점 갱신, 비활성 적분 중에는 `cursorX/Y` 불변(0.5)
+10. `reset()` 후 `dwellSec === 0`, 비활성
+11. 커스텀 config 주입
+
+#### 10. 실행 순서 (AI 작업자 필수 준수)
+1. Baseline: `dream_guardian`에서 `npm test` → 전체 Pass 확인 (실패 시 작업 중단, 보고)
+2. Red: `menu-input-dwell.test.ts` 작성 → `npx vitest run tests/unit/menu-input-dwell.test.ts` 실패 확인
+3. Green: config → MenuInput → SceneMotionCoordinator 순으로 구현 → 신규 테스트 Pass
+4. 이전: `npx vitest run` 실행 → 7절 목록의 실패 테스트에만 dwell 인자 추가
+5. Refactor/검증: `npm run build`, `npm test` 전체 Pass
+6. 커밋: `feat(input): add joined-hands dwell and hysteresis config (#724)` → `gh issue comment 724`
+
+#### 11. 중단 조건 (임의 수정 금지)
+- 7절 목록 밖의 테스트가 실패하는 경우
+- `tsc` 오류가 화이트리스트 밖 파일에서 발생하는 경우
+- 위 경우 `git reset --hard HEAD` 후 실패 파일/케이스/에러 메시지를 보고한다.
+
+#### 12. 실기 검증 메모 (리스크)
+- 웹캠 1.5m 기준 어깨너비는 정규화 약 0.18, 복싱 가드 시 두 손 커서 간격은 0.10~0.18 수준이다. 따라서 **가드 자세를 0.3초 이상 유지하면 합장이 발동될 수 있다** (dwell은 짧은 접촉만 걸러준다).
+- 기획 결정으로 0.18 / 0.22를 유지한다. 실기 테스트에서 오발동이 확인되면 `DEFAULT_JOINED_HANDS_CONFIG` 수치만 조정하는 별도 밸런스 카드로 처리한다 (코드 변경 불필요).
+
+#### 13. 관련 파일
+`config/cursor.config.ts`, `src/input/MenuInput.ts`, `src/core/director/SceneMotionCoordinator.ts`, `tests/unit/menu-input-dwell.test.ts`
+
+---
+
+### [FEAT-ASSAULT-PUNCH-002] 졸라맨 팔 뻗기 방향·신전율 기반 동적 찌르기(Stroke) 펀치 인식 (Input 전용)
+
+- **작업 ID**: FEAT-ASSAULT-PUNCH-002 (#726)
+- **라벨**: `feature`, `phase-5`, `P1-high`
+- **레이어**: Input (`src/input/`) + Config (`config/assault-input.config.ts`) + 배선 2줄 (`src/core/bootstrap/`)
+- **선행 카드**: #725 (`PoseFrame.armConfidence`, 안정화된 팔 각도) — **#725 완료 후 착수**
+- **2026-11-01 보완**: 설계 검토 결과 반영. 원안의 리듬 판정(Perfect/Good/Miss) 부분은 Game 레이어 별도 카드로 분리했다 (#730 FEAT-ASSAULT-RHYTHM-001). 이 카드는 **펀치 이벤트 발생 시점과 좌/우 방향만** 책임진다.
+
+#### 1. 목적
+웹캠 2D 손목 좌표가 화면 사각 박스(`targetBoxes`) 안에 있는지로 판정하던 방식을, **화면 속 졸라맨이 팔을 뻗은 방향과 신전율**로 판정하도록 바꾼다. 팔이 펴지는 순간(edge)에만 1회 발화하고, 미리 뻗고 멈춰 있는 경우는 발화하지 않고 튜토리얼용 이벤트(`onPreExtendedHold`)만 낸다.
+
+#### 2. 현재 코드 사실 (작업 전 확인용)
+- `src/input/AssaultPunchAdapter.ts` (595줄): `_evaluateHand`(L425~)가 `inTargetBox && reachRatio >= 1.00 && elbowAngle >= 135°`로 발화. 회수는 `reachRatio <= 0.85 || wrist.y > targetBox.yMax`. 상태 `IDLE | READY | EXTENDED | RETRACTED`. IDLE에서 바로 완전 신전이면 1회 발화(#722).
+- 유일한 프로덕션 호출: `src/core/bootstrap/AssaultInputRouter.ts` L163-166 `adapters.punchAdapter.update({ timestampMs, landmarks: normalizedLandmarks })`. 입력 랜드마크는 0~1 정규화, 1회 미러링(왼손 = 화면 왼쪽).
+- 라우터는 `src/core/bootstrap/AssaultSessionWireHelper.ts` 생성자(L76 부근 `new AssaultInputRouter({...})`)에서 만들어진다. `this._host.mainSceneContext.stickmanRenderer`가 졸라맨이다 (`StickmanRenderer.lastPoseFrame` getter 존재, L118).
+- 같은 프레임에서 `SceneMotionCoordinator`가 졸라맨 갱신(L102) **후** 접근전 `handlePose`(L195)를 호출하므로 `lastPoseFrame`은 현재 프레임 값이다.
+- `PoseFrame.boneAngles`의 팔 각도는 **화면 좌표 절대각**(rad, y축 아래 방향)이다. 졸라맨 왼팔을 화면 왼쪽으로 뻗으면 `cos(leftUpperArm) < 0` (`tests/unit/stickman-renderer.test.ts` L276).
+- 졸라맨 팔 길이 SSOT: `STICKMAN_CONFIG.limbLengths.upperArm = 100`, `forearm = 90` (`config/skeleton.config.ts`).
+
+#### 3. 판정 모델 (정확한 수식)
+팔 하나의 졸라맨 자세 `ArmPose = { upperArm: rad, forearm: rad, confidence: 0~1 }`에 대해:
+```
+L1 = STICKMAN_CONFIG.limbLengths.upperArm, L2 = STICKMAN_CONFIG.limbLengths.forearm
+vx = L1*cos(upperArm) + L2*cos(forearm)
+vy = L1*sin(upperArm) + L2*sin(forearm)      // 화면 y 아래 방향 +
+len = hypot(vx, vy)
+extension = len / (L1 + L2)                  // 0.053(완전 접힘) ~ 1.0(일직선)
+side = vx < 0 ? 'left' : 'right'
+directionValid = len > 1e-6
+              && |vx| / len >= strokeMinLateralRatio      // 거의 수직인 팔 제외
+              && vy / len <= strokeMaxDownwardRatio       // 아래로 내지른 팔 제외
+```
+참고 값: 팔꿈치 90° 굽힘 → extension ≈ 0.71, 일직선 → 1.0.
+
+**ArmPose 입력 우선순위**
+1. `input.poseFrame`이 있고 `hasPose === true` → `boneAngles.leftUpperArm/leftForearm`(왼손), `right*`(오른손), `confidence = poseFrame.armConfidence?.left ?? 1` (오른손은 `.right`)
+2. 없으면 손 좌표(`leftHand/rightHand` 또는 `landmarks`에서 추출된 shoulder/elbow/wrist)로 계산: `upperArm = atan2(elbow.y - shoulder.y, elbow.x - shoulder.x)`, `forearm = atan2(wrist.y - elbow.y, wrist.x - elbow.x)`, `confidence = (두 마디 길이 모두 > GEOM_EPSILON) ? min(각 점 visibility, 미지정은 1) : 0`
+3. shoulder 또는 elbow가 없으면 해당 손은 이번 프레임 판정 보류 (상태 변화 없음)
+
+#### 4. 상태머신 (`punchDetectionMode === 'stickman_stroke'`일 때, 손별 독립)
+기존 상태 타입 `HandPunchState`를 재사용한다 (`READY` = 장전됨). `RETRACTED`는 사용하지 않는다.
+| 현재 상태 | 조건 | 다음 상태 | 펀치 이벤트 |
+|---|---|---|---|
+| 모든 상태 | `confidence < strokeMinArmConfidence` | 유지 | 없음 (hold 타이머도 정지) |
+| `IDLE` | `extension <= strokeRecoverRatio` | `READY` | 없음 |
+| `IDLE` | `extension >= strokeTriggerRatio` | `EXTENDED` | **없음** (미리 뻗은 상태로 시작 → 자동 선택 금지) |
+| `READY` | `extension >= strokeTriggerRatio` && `directionValid` && `side === hand` | `EXTENDED` | **1회 발화** |
+| `READY` | `extension >= strokeTriggerRatio` && (방향 무효 또는 `side !== hand`) | `EXTENDED` | 없음 (교차/수직 펀치 소진, DEC-A4 유지) |
+| `EXTENDED` | `extension <= strokeRecoverRatio` | `READY` | 없음 (재장전) |
+| 그 외 | — | 유지 | 없음 |
+- 추적 복구 직후(`justRecovered`, 기존 로직 재사용): `extension <= strokeRecoverRatio`면 `READY`, 아니면 `EXTENDED` (발화 없음).
+- `READY ↔ EXTENDED` 사이(0.65 < e < 0.80)는 히스테리시스 구간이다. 이 구간에서는 상태를 바꾸지 않는다.
+
+**미리 뻗고 멈춤 감지 (`onPreExtendedHold`)**
+- **평가 순서**: (1) 위 표로 상태 전이 → (2) 전이 후 상태로 hold 계산 → (3) `prevExtension/prevTimestampMs` 갱신.
+- 손별로 직전 프레임 `extension`과 `timestampMs`를 저장한다. `rate = |e - prevE| / ((t - prevT) / 1000)`. `prevE/prevT`가 `null`(첫 프레임)이거나 `t - prevT <= 0`이면 이번 프레임은 `holdMs`를 **변경하지 않는다** (증가도 리셋도 없음).
+- `state === 'EXTENDED'` && `extension >= strokeTriggerRatio` && `directionValid` && `rate <= preExtendedHoldMaxRatePerSec`이면 `holdMs += (t - prevT)`, 아니면 `holdMs = 0`.
+- `holdMs >= preExtendedHoldMs`가 되는 순간 **1회** `AssaultPreExtendedHoldEvent`를 리스너에 통지한다. 이후 `READY`로 재장전될 때까지 다시 통지하지 않는다.
+- 펀치 이벤트 배열(`update()` 반환값)에는 넣지 않는다 (기존 반환 계약 유지).
+
+#### 5. 수정 대상 (화이트리스트 — 이 목록 외 수정 금지)
+| 파일 | 변경 |
+|---|---|
+| `dream_guardian/config/assault-input.config.ts` | 6절 필드 추가, `LEGACY_BOX_ASSAULT_INPUT_CONFIG` export |
+| `dream_guardian/src/input/StickmanPunchStroke.ts` | **신규** 순수 모듈: `calcStickmanArmReach`, `armPoseFromPoints`, `evaluateStrokeHand` |
+| `dream_guardian/src/input/AssaultPunchAdapter.ts` | 모드 분기, `poseFrame` 입력, `onPreExtendedHold`, 이벤트 생성 헬퍼 |
+| `dream_guardian/src/input/index.ts` | 신규 타입/함수 export 추가 |
+| `dream_guardian/src/core/bootstrap/AssaultInputRouter.ts` | deps에 `getPoseFrame` 추가, `punchAdapter.update` payload에 `poseFrame` 전달 |
+| `dream_guardian/src/core/bootstrap/AssaultSessionWireHelper.ts` | 라우터 생성 deps에 `getPoseFrame` 1줄 추가 |
+| `dream_guardian/tests/unit/stickman-punch-stroke.test.ts` | **신규** TDD 테스트 |
+| `dream_guardian/tests/unit/assault-punch.test.ts` | adapter 생성자에 `LEGACY_BOX_ASSAULT_INPUT_CONFIG` 주입 (9절) |
+| `dream_guardian/tests/unit/assault-punch-chest-guard.test.ts` | 동일 (3번 describe의 adapter만) |
+| `dream_guardian/tests/unit/bug-assault-004-punch-edge.test.ts` | 동일 |
+
+#### 6. 구현 내용 (정확한 사양)
+**6.1 `config/assault-input.config.ts`**
+- `AssaultInputConfig` 인터페이스에 추가:
+  ```ts
+  /** 펀치 판정 방식 (#726). legacy_box는 롤백/회귀 테스트용 */
+  readonly punchDetectionMode: 'stickman_stroke' | 'legacy_box';
+  /** 졸라맨 팔 신전율 발화 임계 (0~1) */
+  readonly strokeTriggerRatio: number;
+  /** 졸라맨 팔 신전율 재장전 임계 (0~1, trigger보다 작아야 함) */
+  readonly strokeRecoverRatio: number;
+  /** |vx|/len 최소값 (좌/우 방향성) */
+  readonly strokeMinLateralRatio: number;
+  /** vy/len 최대값 (아래로 내지르기 제외, 화면 y 아래 +) */
+  readonly strokeMaxDownwardRatio: number;
+  /** 팔 각도 신뢰도 최소값 (#725 armConfidence) */
+  readonly strokeMinArmConfidence: number;
+  /** 미리 뻗고 멈춤 판정 시간 (ms) */
+  readonly preExtendedHoldMs: number;
+  /** 멈춤으로 간주하는 최대 신전율 변화 속도 (1/s) */
+  readonly preExtendedHoldMaxRatePerSec: number;
+  ```
+- `DEFAULT_ASSAULT_INPUT_CONFIG`에 값 추가: `'stickman_stroke'`, `0.80`, `0.65`, `0.35`, `0.50`, `0.50`, `400`, `0.5`
+- 아래 상수 추가 (기존 `deepFreeze` 사용):
+  ```ts
+  export const LEGACY_BOX_ASSAULT_INPUT_CONFIG: Readonly<AssaultInputConfig> = deepFreeze({
+    ...DEFAULT_ASSAULT_INPUT_CONFIG,
+    punchDetectionMode: 'legacy_box',
+  });
+  ```
+- 기존 필드(`targetBoxes`, `punchReachRatio` 1.00, `punchRetractRatio` 0.85, `elbowExtensionAngleDeg` 135 등) 값 변경 금지 (`assault-config.test.ts`가 검증함).
+
+**6.2 `src/input/StickmanPunchStroke.ts`** (신규, 순수 함수만. 클래스/전역 상태/DOM 금지)
+```ts
+import { STICKMAN_CONFIG } from '../../config/skeleton.config.js';
+import { GEOM_EPSILON, type Point2D } from '../utils/PoseGeometry.js';
+import type { AssaultInputConfig } from '../../config/assault-input.config.js';
+import type { HandPunchState, AssaultHand } from './AssaultPunchAdapter.js'; // type-only import만 허용
+
+export interface StickmanArmPose { readonly upperArm: number; readonly forearm: number; readonly confidence: number; }
+export interface StickmanArmReach { readonly extension: number; readonly side: AssaultHand; readonly directionValid: boolean; readonly vx: number; readonly vy: number; }
+export interface StrokeHandMemory { readonly state: HandPunchState; readonly prevExtension: number | null; readonly prevTimestampMs: number | null; readonly holdMs: number; readonly holdNotified: boolean; }
+export interface StrokeHandResult { readonly memory: StrokeHandMemory; readonly fire: boolean; readonly holdReached: boolean; readonly reach: StickmanArmReach | null; }
+
+export function calcStickmanArmReach(pose: StickmanArmPose, cfg: AssaultInputConfig): StickmanArmReach;
+export function armPoseFromPoints(shoulder: Point2D, elbow: Point2D, wrist: Point2D, visibility?: number): StickmanArmPose;
+export function createStrokeHandMemory(): StrokeHandMemory; // { state: 'IDLE', prevExtension: null, prevTimestampMs: null, holdMs: 0, holdNotified: false }
+export function evaluateStrokeHand(params: {
+  memory: StrokeHandMemory; hand: AssaultHand; pose: StickmanArmPose | null;
+  timestampMs: number; justRecovered: boolean; cfg: AssaultInputConfig;
+}): StrokeHandResult;
+```
+- `calcStickmanArmReach`는 3절 수식 그대로. 팔 길이는 반드시 `STICKMAN_CONFIG.limbLengths`에서 읽는다 (숫자 100/90 하드코딩 금지).
+- `evaluateStrokeHand`는 4절 표 그대로. `pose === null` 또는 `confidence < strokeMinArmConfidence`이면 `memory`를 그대로 반환(`fire: false`, `holdReached: false`, `reach: null`).
+- `holdReached`는 `holdNotified`가 false → true로 바뀌는 프레임에서만 true. `READY` 전이 시 `holdMs = 0`, `holdNotified = false`.
+- 순환 참조 방지: `AssaultPunchAdapter.ts`에서 이 모듈을 import하고, 이 모듈은 Adapter에서 **type만** import한다.
+
+**6.3 `src/input/AssaultPunchAdapter.ts`**
+- `AssaultPunchFrameInput`에 `readonly poseFrame?: PoseFrame | null;` 추가 (`import type { PoseFrame } from '../types/pose-frame.js'`).
+- 신규 타입 export:
+  ```ts
+  export interface AssaultPreExtendedHoldEvent { readonly hand: AssaultHand; readonly side: AssaultHand; readonly timestampMs: number; readonly holdMs: number; readonly pairId?: PairId; }
+  ```
+- 신규 메서드: `public onPreExtendedHold(listener: (e: AssaultPreExtendedHoldEvent) => void): () => void` (기존 `onPunch`와 동일한 Set 패턴, 리스너 예외는 기존처럼 `console.error`로 격리).
+- 손별 `StrokeHandMemory` 필드 2개(`_leftStroke`, `_rightStroke`). `reset()`에서 `createStrokeHandMemory()`로 초기화.
+- `_evaluateHand` 진입부 분기 (기존 `if (!handInput) { ...TrackingLost = true; return null; }` 처리(L445-452)는 **두 모드 공통으로 먼저** 실행한다 — 손목 visibility 부족 시 판정 보류 및 복구 감지 유지):
+  - `this._config.punchDetectionMode === 'legacy_box'` → **기존 코드 그대로** 실행 (한 줄도 동작 변경 금지)
+  - `'stickman_stroke'` → ArmPose 결정(3절 우선순위) → `evaluateStrokeHand` → 결과로 `_leftState/_rightState` 및 스냅샷 갱신 → `fire`면 펀치 이벤트, `holdReached`면 hold 리스너 통지
+- 펀치 이벤트 객체 생성은 private 헬퍼 `_buildPunchEvent(...)` 하나로 만든다. 기존 IDLE/READY 분기에 있는 동일한 이벤트 리터럴 2곳도 이 헬퍼 호출로 교체한다 (필드/값 동일, 동작 변경 없음).
+- stroke 모드 이벤트 필드:
+  - `reachRatio`: `extension` 값
+  - `elbowAngleDeg`: `180 - |diffAngle(forearm, upperArm)| × 180/π` (`diffAngle`은 `src/skeleton/pose/angleMath.ts`의 것을 import — #725 산출물, 재구현 금지)
+  - `wristPoint`: 손 좌표 wrist가 있으면 그 값, 없으면 해당 쪽 `targetBoxes` 중심
+  - `targetBox`: 해당 쪽 `this._config.targetBoxes[hand]` (필드 호환용. JSDoc에 `@deprecated stickman_stroke 모드에서는 판정에 사용되지 않음` 추가)
+  - 나머지(`inputId`, `hand`, `targetSide`, `rawTimestampMs`, `compensatedTimestampMs`, `activeTimestampSeconds`, `pairId`)는 기존과 동일 규칙
+- stroke 모드 스냅샷: `{ state, reachRatio: extension, inTargetBox: false, elbowAngleDeg }`. `AssaultHandSnapshot`의 `inTargetBox` JSDoc에 `@deprecated` 추가.
+- `triggerFallbackPunch` / `releaseFallbackPunch`: 동작 변경 금지. 단, `releaseFallbackPunch` 시 해당 손 `StrokeHandMemory`도 `{ ...createStrokeHandMemory(), state: 'READY' }`로 맞춘다.
+- 파일 길이 900줄 이하 유지 (초과 예상 시 중단하고 보고).
+
+**6.4 `src/core/bootstrap/AssaultInputRouter.ts`**
+- `AssaultInputAdapters.punchAdapter.update` payload 타입에 `poseFrame?: unknown` 추가.
+- `AssaultInputRouterDependencies`에 `readonly getPoseFrame?: () => unknown;` 추가.
+- L163 호출을 아래로 교체 (poseFrame이 없으면 키 자체를 넣지 않는다):
+  ```ts
+  const poseFrame = this._deps.getPoseFrame?.();
+  const punchEvents = adapters.punchAdapter.update({
+    timestampMs,
+    landmarks: normalizedLandmarks,
+    ...(poseFrame ? { poseFrame } : {}),
+  });
+  ```
+- 그 외 라우팅 로직(submitPunch 시각, finale 분기, normalizeInput) 변경 금지.
+
+**6.5 `src/core/bootstrap/AssaultSessionWireHelper.ts`** — 라우터 생성 객체에 1줄 추가:
+```ts
+getPoseFrame: () => (this._host.mainSceneContext as any)?.stickmanRenderer?.lastPoseFrame,
+```
+
+#### 7. 유지 사항
+- 키보드(1, 2번 키)/캔버스 터치 Fallback 펀치 경로 및 이벤트 계약 유지
+- `AssaultPunchEvent` 필드 구성 유지 (삭제 금지), `update()` 반환 타입 유지
+- 추적 상실/복구(A10, A19) 정책 유지, 양손 독립 상태머신 유지, inputId 전역 고유 채번 유지
+- `legacy_box` 모드는 기존 동작 100% 유지 (롤백 스위치)
+
+#### 8. 변경 금지
+- `AssaultPairJudge.ts`, `AssaultRoundController.ts`, `AssaultClockAdapter.ts`, 스켈레톤/렌더러 파일 수정 금지
+- `config/assault.config.ts` 수정 금지 (리듬 판정은 #730 FEAT-ASSAULT-RHYTHM-001 카드 범위)
+- 5절 화이트리스트 밖 파일 수정 금지, 단일 파일 1,000줄 초과 금지
+
+#### 9. 기존 테스트 이전 (Red 단계에서 깨지는 테스트 — 기대값은 고치지 않는다)
+기본 모드가 `stickman_stroke`로 바뀌므로 박스 판정을 검증하는 기존 테스트는 **adapter 생성만** 레거시 모드로 바꾼다.
+- `tests/unit/assault-punch.test.ts`: `beforeEach`의 `new AssaultPunchAdapter()` → `new AssaultPunchAdapter(LEGACY_BOX_ASSAULT_INPUT_CONFIG)`
+- `tests/unit/assault-punch-chest-guard.test.ts`: 3번 describe(L101~)의 adapter 생성 → 동일
+- `tests/unit/bug-assault-004-punch-edge.test.ts`: `beforeEach` → 동일
+- import 추가: `import { LEGACY_BOX_ASSAULT_INPUT_CONFIG } from '../../config/assault-input.config.js';`
+- 이 3개 파일 외 테스트가 실패하면 수정하지 말고 중단한다 (11절).
+
+#### 10. 완료 조건
+- [ ] 졸라맨 팔을 좌(우)로 굽힘 → 뻗음(extension 0.6 → 0.9) 하는 프레임에서 해당 손 이벤트 1회 발화
+- [ ] 뻗은 채 유지 시 추가 발화 0회, 0.65 이하로 당긴 뒤 다시 뻗으면 재발화
+- [ ] 0.65 < e < 0.80 사이 흔들림으로는 재장전/발화되지 않음
+- [ ] 세션 첫 프레임부터 뻗어 있으면 발화 0회 (박자 마감 시 기존 timeout = Miss 경로로 처리됨)
+- [ ] 미리 뻗고 멈춤 0.4초 이상 → `onPreExtendedHold` 1회, 재장전 전까지 재통지 없음
+- [ ] 왼손이 화면 오른쪽(교차)으로, 또는 위/아래 수직으로 뻗으면 발화 0회
+- [ ] `armConfidence < 0.5` 프레임에서는 상태 변화/발화 없음
+- [ ] `poseFrame` 미제공 시 손 좌표로 동일 판정 (Fallback 경로)
+- [ ] `legacy_box` 모드에서 기존 테스트 3개 파일 기대값 무수정 통과
+- [ ] `npm test` 전체 100% Pass, `npm run build` 성공
+
+#### 11. 테스트 (`tests/unit/stickman-punch-stroke.test.ts`, 최소 16케이스)
+헬퍼: `armAt(extensionTarget, side)`처럼 각도를 직접 만드는 대신, **명시 각도**를 쓴다. 예) 왼팔 수평 일직선 `{ upperArm: Math.PI, forearm: Math.PI }`(e = 1.0, vx < 0), 왼팔 90° 굽힘 `{ upperArm: Math.PI, forearm: Math.PI / 2 }`(e ≈ 0.71), 완전 접힘 `{ upperArm: Math.PI, forearm: 0 }`(e ≈ 0.053).
+1. `calcStickmanArmReach`: 일직선 e = 1.0 (±1e-9), 완전 접힘 e = 10/190, 90° 굽힘 e = hypot(100, 90)/190
+2. side: 왼쪽 수평 → 'left', 오른쪽 수평(`upperArm = 0, forearm = 0`) → 'right'
+3. directionValid: 수직 위(`-π/2, -π/2`) → false, 수직 아래(`π/2, π/2`) → false, 대각 위 바깥(`-3π/4`) → true
+4. `armPoseFromPoints`: 수평 점 3개 → 각도 일치, 길이 0 마디 → confidence 0
+5. 상태머신: IDLE + 접힘 → READY
+6. READY + 왼쪽 일직선 → fire 1회, 상태 EXTENDED
+7. EXTENDED 유지 10프레임 → fire 0회
+8. EXTENDED → e = 0.70(히스테리시스) → 상태 유지 → 다시 1.0 → fire 0회
+9. EXTENDED → 접힘(≤ 0.65) → READY → 일직선 → fire 1회
+10. IDLE + 첫 프레임 일직선 → fire 0회, 상태 EXTENDED
+11. 교차: 왼손 + 오른쪽 일직선 → fire 0회, EXTENDED
+12. confidence 0.3 → memory 불변, fire 0회
+13. hold: IDLE 첫 프레임부터 왼쪽 일직선 고정, 16.7ms 간격 30프레임 → 24번째 프레임(누적 23구간 = 384.1ms)까지 `holdReached` 0회, 25번째 프레임(400.8ms)에서 1회, 30프레임까지 총 1회
+14. hold: 프레임마다 e가 0.85 ↔ 1.0 왕복(속도 큼) → `holdReached` 0회
+15. Adapter 통합: `poseFrame`(`boneAngles` + `armConfidence`) 입력으로 이벤트 발화, `onPreExtendedHold` 리스너 1회 호출
+16. Adapter 통합: `poseFrame` 없이 `leftHand` 좌표 입력으로 동일 판정
+17. Adapter: `LEGACY_BOX_ASSAULT_INPUT_CONFIG` 주입 시 `punchDetectionMode === 'legacy_box'`
+18. Router: `getPoseFrame` 제공 시 `punchAdapter.update`가 `poseFrame` 포함 payload로 호출됨, 미제공 시 `poseFrame` 키 없음
+
+#### 12. 실행 순서 (AI 작업자 필수 준수)
+1. 선행 확인: `src/types/pose-frame.ts`에 `armConfidence`, `src/skeleton/pose/angleMath.ts`가 있는지 확인 (#725 완료). 없으면 **착수하지 말고 보고**
+2. Baseline: `npm test` 전체 Pass 확인
+3. Red: `stickman-punch-stroke.test.ts` 작성 → `npx vitest run tests/unit/stickman-punch-stroke.test.ts` 실패 확인
+4. Green 순서: config → `StickmanPunchStroke.ts` → Adapter → index export → Router → WireHelper
+5. `npx vitest run` → 9절 3개 파일 이전 → 재실행
+6. `npm run build`, `npm test` 전체 Pass
+7. 커밋: `feat(input): stickman stroke-based punch detection (#726)` → `gh issue comment 726`
+
+#### 13. 중단 조건
+- 9절 3개 파일 외 테스트 실패, `AssaultPunchAdapter.ts` 900줄 초과 예상, 순환 import 발생 시 즉시 중단
+- `git reset --hard HEAD` 후 실패 파일/케이스/에러 메시지 보고
+
+#### 14. 리스크 및 후속
+- 졸라맨 팔 각도는 `angleSmoothing 0.35` EMA를 거치므로 실제 동작보다 2~4프레임(약 30~65ms) 늦게 0.80을 넘는다. 리듬 판정 지연 보정·늦은 쪽 판정 마감은 후속 타이밍 보정 카드(미등록, 기획 결정 필요)에서 다룬다.
+- 카메라 정면으로 찌르면 2D 신전율이 낮아 발화되지 않는다 (의도된 동작: 좌/우 대각선 위로 뻗기가 펀치 동작). 튜토리얼 안내 문구는 별도 UI 카드.
+- 실기 검증 후 `legacy_box` 모드와 박스 테스트를 제거하는 정리 카드를 별도 등록한다.
+
+#### 15. 관련 파일
+`config/assault-input.config.ts`, `src/input/StickmanPunchStroke.ts`, `src/input/AssaultPunchAdapter.ts`, `src/input/index.ts`, `src/core/bootstrap/AssaultInputRouter.ts`, `src/core/bootstrap/AssaultSessionWireHelper.ts`, `tests/unit/stickman-punch-stroke.test.ts`
+
+---
+
+### [FEAT-ASSAULT-RHYTHM-001] 접근전 답안 조기 타격 Early Miss 판정 (config 옵트인, 기본 비활성)
+
+- **작업 ID**: FEAT-ASSAULT-RHYTHM-001 (#730)
+- **라벨**: `feature`, `phase-5`, `P2-medium`
+- **레이어**: Game (`src/game/assault/AssaultPairJudge.ts`) + Config (`config/assault.config.ts`) — 단일 시스템
+- **분리 출처**: #726 원안의 "리듬 타이밍 판정" 부분 (2026-11-01 설계 검토로 Input/Game 분리)
+- **선행 카드**: 없음 (#726과 독립. 코드 의존 없음)
+
+#### 1. 목적
+정박(`arrivalMs`)보다 너무 이르게 들어온 펀치를 **잠금/피해 없이 "Early Miss"로만 표시**하고, 같은 선택 시간 안에 다시 치면 정상 Perfect/Good 판정을 받을 수 있게 한다. 기능은 config로 켜고 끄며 **기본값은 비활성(null)** 이다. 이 카드 머지 후에도 게임 동작은 바뀌지 않는다. 활성화 여부와 수치는 실기 테스트 후 별도 밸런스 카드에서 결정한다.
+
+#### 2. 기획 결정 (2026-11-01, 변경 금지)
+- 리듬 윈도우 값은 **기존값 유지**: `Perfect 50ms / Good 120ms / Late 170ms` (`DEFAULT_ASSAULT_CONFIG.rhythmWindows`)
+- 조기 미스: **Miss 표시만** 하고 잠그지 않는다. 시간 안에 다시 치면 Perfect/Good 판정
+- 기본 비활성: 현재는 4박 선택 구간 어디서든 정답 펀치가 유효하다 (`tests/unit/assault-loop-input-windows.test.ts` 등 다수 테스트가 정박 -2000ms 정답을 기대). `-250ms` 컷오프를 켜면 난이도가 크게 바뀌므로 옵트인으로만 제공한다
+- 늦은 쪽 판정 마감(루프 모드 `lateGrace = 0`) 및 입력 지연 보정(`activeSeconds*1000` 제출) 문제는 **이 카드 범위가 아니다** (후속 타이밍 보정 카드)
+
+#### 3. 현재 코드 사실
+- `src/game/assault/AssaultPairJudge.ts` (551줄)
+  - L84-94 `AssaultPairJudgeConfig` (`lateGraceMs?`, `rhythmWindows?`, `simultaneousToleranceMs?`)
+  - L97-101 `DEFAULT_PAIR_JUDGE_CONFIG: Required<AssaultPairJudgeConfig>` (`lateGraceMs: 170` 하드코딩 — 이 카드에서는 건드리지 않음)
+  - L169-187 `resolvePairJudgeConfig()`
+  - L215-233 `calculateRhythmRating()` → `'Perfect' | 'Good' | 'Early' | 'Late' | 'Miss'`
+  - L391-536 단일 `punch` 처리: inputId 멱등 → 동시타격 롤백 → 잠금 무시 → 마감 초과 timeout → 교차 차단 → `deltaMs = punch.timestampMs - arrivalMs` → 정답/오답 잠금
+  - `punch_batch`(L318-388)는 충돌 아니면 단일 `punch`로 위임하므로 별도 처리 불필요
+- `config/assault.config.ts`: L24 `AssaultRhythmWindows { Perfect; Good; Late }`, L111 기본값 50/120/170
+- `src/game/assault/AssaultRoundController.ts` L497-501: `rhythmWindows: this._config.rhythmWindows`를 judge에 전달 (이 카드는 RoundController를 수정하지 않는다 → 아래 4.1처럼 `rhythmWindows` 안에 필드를 넣어 자동 전달되게 한다)
+- `AssaultRhythmRating` 타입(`src/types/assault.ts` L119)에 이미 `'Early'`가 있다 → 타입 추가 불필요
+- `AssaultPairState` 리터럴 생성 위치: `AssaultPairJudge.ts`(createInitialPairState L151, 롤백 L417), `AssaultNoteAdapter.ts` L420(cancelPair), `tests/unit/assault-note-adapter.test.ts` L79
+
+#### 4. 수정 대상 (화이트리스트)
+| 파일 | 변경 |
+|---|---|
+| `dream_guardian/config/assault.config.ts` | `AssaultRhythmWindows`에 optional `EarlyMiss` 추가 (기본값 객체에는 **넣지 않음**) |
+| `dream_guardian/src/game/assault/AssaultPairJudge.ts` | early miss 분기, 상태 필드 2개, config 병합 |
+| `dream_guardian/tests/unit/assault-pair-judge-early-miss.test.ts` | **신규** TDD 테스트 |
+
+`AssaultNoteAdapter.ts`, 테스트 mock은 새 상태 필드를 **optional**로 정의하므로 수정하지 않는다.
+
+#### 5. 구현 내용
+**5.1 `config/assault.config.ts`**
+```ts
+export interface AssaultRhythmWindows {
+  readonly Perfect: number;
+  readonly Good: number;
+  readonly Late: number;
+  /**
+   * 조기 미스 기준 (ms, 양수). deltaMs < -EarlyMiss 인 펀치는 잠금/피해 없이 Early Miss로만 기록.
+   * undefined 또는 null이면 비활성(기본). (FEAT-ASSAULT-RHYTHM-001)
+   */
+  readonly EarlyMiss?: number | null;
+}
+```
+`DEFAULT_ASSAULT_CONFIG.rhythmWindows` 값(50/120/170)은 변경하지 않는다. `EarlyMiss` 키를 추가하지 않는다 (`assault-config.test.ts` 회귀 방지).
+
+**5.2 `AssaultPairJudge.ts`**
+- `AssaultPairJudgeConfig.rhythmWindows` 타입을 `AssaultRhythmWindows`(config에서 type import)로 바꾼다. 인라인 `{ Perfect; Good; Late }` 타입 중복을 제거한다 (L87-91, L217).
+- `resolvePairJudgeConfig()`의 rhythmWindows 병합에 `EarlyMiss: config.rhythmWindows?.EarlyMiss ?? DEFAULT_PAIR_JUDGE_CONFIG.rhythmWindows.EarlyMiss ?? null` 추가.
+- `AssaultPairState`에 optional 필드 2개 추가:
+  ```ts
+  /** 직전 조기 미스 입력 시각 (FEAT-ASSAULT-RHYTHM-001). 미발생 시 undefined/null */
+  readonly lastEarlyMissTimestampMs?: number | null;
+  /** 조기 미스 누적 횟수 */
+  readonly earlyMissCount?: number;
+  ```
+  `createInitialPairState()`에는 `lastEarlyMissTimestampMs: null, earlyMissCount: 0`을 넣는다.
+- 단일 `punch` 처리에서 **교차 차단 검사 직후, `deltaMs` 계산 위치**에 분기 추가:
+  ```ts
+  const earlyMissMs = resolvedConfig.rhythmWindows.EarlyMiss;
+  if (typeof earlyMissMs === 'number' && earlyMissMs > 0 && deltaMs < -earlyMissMs) {
+    return Object.freeze({
+      state: Object.freeze({
+        ...state,
+        processedInputIds: newProcessedInputIds,
+        lastEarlyMissTimestampMs: punch.timestampMs,
+        earlyMissCount: (state.earlyMissCount ?? 0) + 1,
+      }),
+      commands: Object.freeze([]),
+    });
+  }
+  ```
+  - `status`, `isLocked`, `rhythmRating`, `deltaMs`, `lockedChoice`는 **변경하지 않는다** (pending 유지 → 재타격 가능)
+  - 정답/오답 쪽 모두 같은 규칙 (오답 쪽 조기 타격도 잠그지 않음)
+- `calculateRhythmRating()` 로직은 변경하지 않는다 (시그니처의 타입만 `AssaultRhythmWindows`로).
+
+#### 6. 유지 사항
+- `EarlyMiss` 미설정 시 기존 동작과 100% 동일 (전체 기존 테스트 무수정 통과)
+- 정산 커맨드(`boss_negate`, `player_damage`) 생성 규칙, 멱등성 키, 동시타격 롤백 규칙 유지
+- `AssaultRoundController.ts`의 타임라인/입력창 구조 유지
+
+#### 7. 변경 금지
+- `AssaultRoundController.ts`, `AssaultInputRouter.ts`, `AssaultClockAdapter.ts`, `AssaultNoteAdapter.ts`, `AssaultRoundSummary.ts`, `assault-finale.config.ts` 수정 금지
+- `DEFAULT_ASSAULT_CONFIG` 기존 값 변경 금지, `lateGraceMs` 관련 상수 정리 금지 (별도 DRY 카드)
+- 화면 표시(EffectManager 판정 텍스트, HUD) 연동 금지 → 별도 UI 카드
+
+#### 8. 완료 조건
+- [ ] `EarlyMiss` 미설정: `deltaMs = -2000` 정답 펀치 → 기존처럼 `correct` + `boss_negate` 1건
+- [ ] `EarlyMiss: 250`: `deltaMs = -300` 정답 펀치 → 커맨드 0건, `status === 'pending'`, `earlyMissCount === 1`, `lastEarlyMissTimestampMs` 기록
+- [ ] 위 이후 `deltaMs = -30` 정답 재타격 → `correct`, `rhythmRating === 'Perfect'`, `boss_negate` 1건
+- [ ] 위 이후 `deltaMs = -100` 재타격 → `rhythmRating === 'Good'`
+- [ ] `EarlyMiss: 250`, `deltaMs = -250`(경계) → 조기 미스 아님 (정상 판정, `rhythmRating === 'Early'`)
+- [ ] `EarlyMiss: 250`: 오답 쪽 `deltaMs = -400` → 잠금 없음, 피해 0건, 이후 정답 재타격 가능
+- [ ] 조기 미스 후 재타격 없이 마감 → 기존 timeout 경로(`Miss` + `player_damage`)
+- [ ] 같은 inputId 재전달 → 멱등 (카운트 증가 없음)
+- [ ] `EarlyMiss: 0` 또는 `null` → 비활성
+- [ ] `npm test` 전체 100% Pass, `npm run build` 성공
+
+#### 9. 테스트 (`tests/unit/assault-pair-judge-early-miss.test.ts`)
+- `tests/unit/assault-pair-judge.test.ts` L13-31의 `defaultPlan`(arrivalMs 2000, correctSide 'left')·`customConfig` 패턴을 **로컬로 복제**해 사용한다 (기존 파일 수정 금지).
+- `reducePairState`와 `AssaultPairJudge` 클래스 경로 각각 1회 이상 검증
+- 8절 항목별 1케이스 이상 (최소 10케이스)
+
+#### 10. 실행 순서
+1. Baseline `npm test` → 2. Red: 신규 테스트 작성 후 `npx vitest run tests/unit/assault-pair-judge-early-miss.test.ts` 실패 확인 → 3. Green: config → judge → 4. `npm run build`, `npm test` → 5. 커밋 `feat(game): opt-in early miss for assault pair judge (FEAT-ASSAULT-RHYTHM-001)` → 이슈 코멘트
+
+#### 11. 중단 조건
+- 기존 테스트가 하나라도 실패하면 기대값을 고치지 말고 중단 → `git reset --hard HEAD` → 실패 파일/케이스/에러 보고
+
+#### 12. 후속 (이 카드 범위 밖, 기획 결정 필요)
+- `EarlyMiss` 활성화 여부와 값(예: 250ms) 결정 → 밸런스 카드
+- 루프 모드 늦은 쪽 판정창(`lateGrace = 0`) 및 라우터 지연 보정 미적용 → 타이밍 보정 카드
+- Early Miss 화면 표시(판정 텍스트/효과음) → UI 카드
+
+---
+
+
+## 2026-11-01 등록: 웹캠 거리 비례 손 커서 최대 확대율 1.5배 제한 및 기본 크기 70% 축소 (FEAT-CURSOR-007)
+
+### [#723 / FEAT-CURSOR-007] 웹캠 거리 비례 손 커서 최대 확대율 1.5배 제한 및 기본 크기 70% 축소
+
+- **작업 ID**: #723 (FEAT-CURSOR-007)
+- **라벨**: `feature`, `phase-3`, `P1-high`
+- **제목**: 웹캠 거리 비례 손 커서 최대 확대율 1.5배 제한 및 기본 크기 70% 축소
+- **목적**:
+  사용자가 카메라에 다가올 때 손 커서가 화면을 과도하게 가리는 현상을 방지하기 위해 어깨 너비 기반 최대 확대 배율을 2.0배에서 1.5배로 제한하고, 멀어질 때의 최소 축소율 0.70배를 유지하며, 손 커서 기본 크기를 기존 대비 70% 수준으로 축소하여 쾌적한 시야와 조작감을 확보한다.
+- **수정 대상**:
+  1. `dream_guardian/config/cursor.config.ts`: `CURSOR_DIMENSIONS.hand` 기본 반지름 및 최소/최대 반경 조정
+  2. `dream_guardian/src/input/CursorTracker.ts`: `scaleFactor` 상한을 2.0에서 1.5로 변경 (`clamp(..., 0.70, 1.5)`)
+  3. `dream_guardian/tests/unit/cursor-tracker-recipe.test.ts` & `tests/unit/joined-hands-cursor.test.ts`: 반경 및 스케일 검증값 정합화
+- **구현 내용**:
+  1. `CursorTracker.ts`:
+     - `scaleFactor = clamp(shoulderDist / baselineShoulder, 0.70, 1.5);` (최대 확대 1.5배 제한)
+  2. `cursor.config.ts`:
+     - `CURSOR_DIMENSIONS.hand.defaultRadius`: 기존 60px -> 42px (70% 수준으로 축소)
+     - `CURSOR_DIMENSIONS.hand.maxRadius`: 기존 120px -> 80px (비례 조정)
+     - `CURSOR_DIMENSIONS.hand.minRadius`: 기존 20px -> 15px (비례 조정)
+     - 펄스 오프셋/진폭 축소 비율 반영 (`pulseRingOffset: 7`, `pulseRingAmplitude: 4`)
+  3. 테스트 코드:
+     - 관련 단위 테스트 기대값을 새 규격에 맞춰 정합화하고 전체 테스트 100% Pass 검증
+- **유지 사항**:
+  - 카메라 원거리 최소 축소율 0.70배 유지
+  - 손바닥/손목 관절 기반 손 길이 추정 및 우선순위 체계 유지
+  - 합장 메뉴 커서(`JOINED_HANDS_CURSOR`) 규격 유지
+  - 답안 선택 및 피트니스 존 판정 로직 불변
+- **변경 금지**:
+  - `src/input/AnswerSelector.ts` 판정 알고리즘 변경 금지
+  - 단일 파일 1,000줄 이하 엄격 준수
+- **완료 조건**:
+  - [ ] 근거리에서 `scaleFactor`가 최대 1.5를 초과하지 않음
+  - [ ] 원거리에서 `scaleFactor`가 최소 0.70으로 유지됨
+  - [ ] 손 커서 기본 반지름이 42px(70% 축소)로 적용됨
+  - [ ] 단위 테스트 100% Pass 및 `npm run build` 성공
+
+---
+
+## 2026-10-30 등록: 가슴 대기 자세(Chest Guard) 기반 펀치 인식 및 needsMotionReprep 영구 락 해제 결함 수정 (BUG-ASSAULT-PUNCH-001)
+
+### [#722 / BUG-ASSAULT-PUNCH-001] 가슴 대기 자세(Chest Guard) 기반 펀치 인식 및 needsMotionReprep 영구 락 해제 결함 수정
+
+- **작업 ID**: #722 (BUG-ASSAULT-PUNCH-001)
+- **라벨**: `bug`, `P0-critical`
+- **제목**: 가슴 대기 자세(Chest Guard) 기반 펀치 인식 및 needsMotionReprep 영구 락 해제 결함 수정
+- **목적**:
+  보스 접근전(`Boss Assault`)에서 웹캠 펀치로 답안 선택이 되지 않는 근본 원인(프레임 스파이크에 의한 `needsMotionReprep` 영구 락, 타깃 박스 대비 지나치게 높은 `punchReachRatio = 1.25` 기하학적 임계치 모순, `IDLE` 상태 전이 유실)을 해결하고, 가슴 앞 복싱 가드 대기 자세를 기준으로 한 100% 신뢰성 있는 펀치 정답 선택을 보장한다.
+- **수정 대상**:
+  1. `dream_guardian/config/assault-input.config.ts`
+  2. `dream_guardian/src/input/AssaultPunchAdapter.ts`
+  3. `dream_guardian/src/core/bootstrap/AssaultInputRouter.ts`
+  4. `dream_guardian/tests/unit/assault-punch-chest-guard.test.ts` (신규 TDD 테스트)
+- **구현 내용**:
+  1. `AssaultInputRouter.ts`: `handlePose` 호출 시 `!clock.isFrozen && !isTrackingLost`이고 `clock.needsMotionReprep`가 켜져 있다면 즉시 `clock.acknowledgeResume()`를 호출하여 정상 프레임에서 카메라 파이프라인 자동 개통.
+  2. `assault-input.config.ts`: `punchReachRatio`를 1.25에서 1.00으로 현실화하고 `elbowExtensionAngleDeg`를 140도에서 135도로 완화하여 가슴 대기 자세에서 타깃 박스(Zone 4/5) 도달 시 자연스러운 펀치 신전이 인정되도록 조정.
+  3. `AssaultPunchAdapter.ts`: 손목이 타깃 박스 하단 바깥에 위치하거나 가슴에 모인 상태를 회수 상태로 인정하여 `READY` 전이를 보장하고, `case 'IDLE'`에서 즉시 완전 신전 시 타격 이벤트를 1회 정상 발화하도록 상태 전이 보강.
+- **유지 사항**:
+  - `AssaultGuardAdapter`(양팔 가드 스쿼트 회피)와의 완전 호환 유지
+  - 키보드(`1`, `2`, `A`, `D`) 및 캔버스 클릭 폴백 동작 100% 유지
+  - `AssaultPairJudge`의 4박 리듬 판정 및 보스/플레이어 HP 데미지 정산 불변
+- **변경 금지**:
+  - `AssaultLoopPlanBuilder`의 24/28/32박 비트 루프 구조 변경 금지
+  - 단일 파일 1,000줄 이하 제한 엄격 준수
+- **완료 조건**:
+  - [x] `clock.needsMotionReprep = true` 상태에서 정상 포즈 수신 시 자동 락 해제 및 펀치 입력 정상 전달
+  - [x] 가슴 대기 자세(`reachRatio ≈ 0.55`)에서 타깃 박스로 펀치 신전 시 `AssaultPunchEvent` 1회 정상 발화
+  - [x] 타깃 박스 내 체류 중 중복 발화 0회 및 가슴 회수 후 재신전 시 연속 타격 정상 동작
+  - [x] `tests/unit/assault-punch-chest-guard.test.ts` TDD 테스트 선작성 및 100% Pass
+  - [x] `npm test` 전체 6,800+건 테스트 100% Pass 및 `npm run build` 컴파일 검증
+
+
+## 2026-11-01 등록: Boss Assault 문항 미출제 결함/정책 (DOC-21)
+
+- 근거: [DOC-21 §8](21_QUESTION_ANSWER_GENERATION_SPEC.md) — Ch.2~4 135행 중 약 77행 미출제 원인(A~D) 행 단위 분석. 카드 등록만 수행, 소스/config/CSV 변경 0. **각 카드 개별 승인 대기.**
+
+| 이슈 | 작업 ID | 라벨 | 레이어 | 내용 |
+|---|---|---|---|---|
+| [#727](https://github.com/Choyounhwa/-dream-guardian/issues/727) | BUG-ASSAULT-Q-001 | bug, P1-high | core/bootstrap | `extractQuestionCandidates` `typeof number` 사전 필터 제거 → 판정을 `checkQuestionEligibility`로 단일화 (4-2/4-5 0~2→10, 4-1 2.5→9.7, 4-3 0→5) |
+| [#728](https://github.com/Choyounhwa/-dream-guardian/issues/728) | BUG-QUESTION-FLOAT-001 | bug, P2-medium | question | `generateQuestion` 정답/오답/템플릿 부동소수점 오차 정규화 (4-1 L138 `0.30000000000000004`) |
+| [#729](https://github.com/Choyounhwa/-dream-guardian/issues/729) | POL-ASSAULT-FRACTION-001 | question, P2-medium | 정책 | Ch.3 분수 `allowedLevels` ↔ `fraction_answer` 모순 해소안(①제외 ②분수 보기쌍 ③챌린지) 결정 |
+
+- 권장 순서: #727 → #728 → #729 결정 후 구현 카드 분리.
+
+### 2026-11-01 #729 결정: ② 분수 전용 보기쌍 허용 채택 (#729 Close)
+
+| 순서 | 이슈 | 작업 ID | 레이어 | 내용 |
+|---|---|---|---|---|
+| 1 | [#731](https://github.com/Choyounhwa/-dream-guardian/issues/731) | FEAT-ASSAULT-FRAC-001 | question | `AssaultAnswerPairFactory` 분수 경로 (`Rational` 재사용, 수치 동치 오답 제외, `preferredWrong`은 분수 경로에서만 적용) |
+| 2 | [#732](https://github.com/Choyounhwa/-dream-guardian/issues/732) | FEAT-ASSAULT-FRAC-002 | question + config | 적격성 단순 분수 허용 (`allowSimpleFraction` 플래그) |
+| 3 | [#733](https://github.com/Choyounhwa/-dream-guardian/issues/733) | FEAT-ASSAULT-FRAC-003 | core/bootstrap | CSV 오답을 `preferredWrong`으로 전달 (비교형 분수 문항 정합성) |
+
+- 선행: #727. 머지 순서 #727 → #731 → #732 → #733 고정 (#732가 #731보다 먼저 머지되면 보기쌍 생성 예외).
+- 기대 효과: Ch.3 Assault 적격 N 4 → 약 50 (3-1 10, 3-2 10, 3-3 9, 3-4 12, 3-5 10, 4-3 12).
+
+
+## 2026-10-27 등록: boss_assault 러닝·4회 선택·휴식 루프 (DOC-19)
+
+- **카드 작성·등록·문서 동기화만 수행. #694~#710 총17개 OPEN / 개별 구현 승인 대기.** 본 에이전트 구현완료0, src/config/tests/CSV 변경0, 테스트/빌드/커밋/푸시/PR/서버 미실행. 종료확인중 외부동시소스·테스트변경발견/보존(DOC-19 §6). 기존 HANDOVER NEXT 불변.
+- 루프: 문제당run8 1회+(answer4+rest2)×4, 동일문제/정답4기회, 휴식무공격/무선택/무피해. 후보gap3곳에서seed+round로중복없이squat1~2회×4박을 **휴식뒤추가**, 총36/40박(120BPM18/20초). 읽기/TTS1회는run8내, 별도투척1초/읽기재가산0. 마지막휴식후완료문제+1, 사망우선·HP100/10/5·목표10 유지.
+- **기본진입 정정**: `http://localhost:3000/?mode=boss_assault`만으로 UI 시작/restart에서 새루프를 Core 기본주입(#705), 추가 loop URL 불필요. #710은 수동 loopProfile/추가 loop URL 없는 실경로 인수 필수. 보존은 패턴데이터·비boss legacy·범용 Factory 직접호출이며 boss_assault UI 구형루프 유지가 아님. 관련 #697/#700/#702/#705~710 9카드 본문 보정, 기존 경계코멘트 정정. 신규이슈/제품변경 없음.
+- 상세 설계/소스 정합성/직접선행/승인경계/검증/Project권한제약: [DOC-19 원장](19_BOSS_ASSAULT_LOOP_CARDS.md). 표준 원본본문: [docs/assault-loop/](assault-loop/).
+- #694 계약 → #695 계획 → #696 Controller표시제한추출 → #697 시간 → #698 입력 → #699 요약 → #700 실측러닝 → #701 Wire입력제한추출 → #702 numeric_repeat조립 → #703 휴식관찰배선 → #704 러닝전달 → #705 진입/restart → #706 표시snapshot → #707 Render → #708 HUD → #709 실제Core표시전달 → #710 QA. **각카드개별승인**, 최대3소스/설정단일책임. 996/997줄파일은제한추출선행.
+- 기존 #651 answer4+squat4 고정32박/#680 챌린지CSV4쌍완료는이번루프완료아님. #658~665 챌린지연결·보상/저장실연결#537·결전/마나는보류. 기존REC공급/시계/요약/직립/수명포트재사용, 추정버그는재현후조건부수정. 기존기본패턴/legacy/SSOT NEXT 변경0.
+- Issues 생성성공. GitHub Project 조회는 `read:project` 권한부족으로실패하여 **Project편입미완료**; 권한임의변경없음.
+
+## 2026-10-24 등록: 보스 접근전 답안 선택 불가 결함 수정 (BUG-ASSAULT-008)
+
+### [#679 / BUG-ASSAULT-008] 보스 접근전 답안 선택 불가 결함 수정 (타임스탬프 불일치, 숫자키 1/2 매핑 및 캔버스 클릭 누락)
+
+- **작업 ID**: #679 (BUG-ASSAULT-008)
+- **라벨**: `bug`, `P0-critical`
+- **제목**: 보스 접근전 답안 선택 불가 결함 수정 (타임스탬프 불일치, 숫자키 1/2 매핑 및 캔버스 클릭 누락)
+- **목적**:
+  http://localhost:3000/?mode=boss_assault (보스 접근전 모드)에서 답안 선택이 정상 동작하지 않고 무조건 타임아웃 오답으로 처리되거나 키/클릭 입력이 누락되는 문제를 해결한다.
+- **수정 대상**:
+  1. `dream_guardian/src/core/bootstrap/AssaultSessionWireHelper.ts`
+  2. `dream_guardian/src/input/AssaultFallbackAdapter.ts`
+  3. `dream_guardian/src/core/bootstrap/AppEventListenerManager.ts`
+- **구현 내용**:
+  1. `AssaultSessionWireHelper.ts`: `handleKeyboard` 및 `handlePose`에서 `submitPunch` 호출 시 `timestampMs`를 라운드 상대 밀리초(`Math.round(activeSeconds * 1000)`)로 변환하여 주입. 캔버스 클릭 핸들러(`handleClick`) 추가.
+  2. `AssaultFallbackAdapter.ts`: `resolveKeyAction`에 '1' / 'digit1' (left_punch), '2' / 'digit2' (right_punch) 매핑 추가.
+  3. `AppEventListenerManager.ts`: `handleCanvasClick`에서 `currentState === 'ASSAULT_ROUND'`일 때 좌/우 클릭을 `assaultWireHelper`로 라우팅.
+- **유지 사항**:
+  - 기존 ArrowLeft/A, ArrowRight/D, ArrowDown/S, Space/ArrowUp/W 키보드 매핑 유지
+  - `AssaultPairJudge` 및 `AssaultRoundController`의 불변 Reducer 및 타임라인 로직 유지
+- **변경 금지**:
+  - 일반 모드(`BeatRunCoordinator`, `ArmReachAnswerSelector`) 판정 로직
+  - 보스 HP/스펠 데미지 등 밸런스 수치
+- **완료 조건**:
+  - [ ] 숫자 키 '1', '2' 입력 시 각각 left_punch, right_punch로 정상 변환
+  - [ ] 라운드 진행 중 펀치 입력 시 라운드 상대 밀리초가 전달되어 `deadlineMs` 초과 오판정 없이 정상 정답/오답 정산
+  - [ ] `ASSAULT_ROUND` 상태에서 캔버스 좌/우 클릭 시 펀치 동작 연동
+  - [ ] 단위 테스트(`tests/unit/assault-fallback.test.ts`) 및 통합 테스트 통과
+  - [ ] 전체 빌드(`npm run build`) 및 전체 테스트(`npm test`) 100% Pass
+
+## 2026-10-23 등록: 스켈레톤 하체 역학 및 스쿼트·점프 모션 시각화 개선 (SKEL-LEGS)
+
+- **카드 등록만 수행. 신규 #678 (FEAT-SKEL-007) OPEN / 개별 구현 승인 대기. src/config/tests 수정·실행·서버·커밋 없음. 기존 SSOT/NEXT 불변.**
+- 대상: `StickmanRenderer.ts`, `skeleton.config.ts`, `SceneMotionCoordinator.ts`, `stickman-renderer.test.ts`.
+
+### [#678 / FEAT-SKEL-007] 상위 본 추종 기반 하체 기하학 재설계 및 스쿼트·점프 모션 시각화 개선
+
+- **작업 ID**: #678 (FEAT-SKEL-007)
+- **라벨**: `feature`, `skeleton`, `motion`
+- **제목**: 상위 본 추종 기반 하체 기하학 재설계 및 스쿼트·점프 모션 시각화 개선
+- **목적**:
+  웹캠 화각 제한으로 인해 무릎 아래(종아리, 발목)가 잘려 다리가 1자로 굳는 현상을 해결하고,
+  상체(팔/손)와 동일하게 상위 본(골반·허벅지)의 회전과 위치를 기반으로 종아리 각도를 계층적으로 유도 계산한다.
+  또한 스쿼트 시 무릎 굴곡과 충분한 수직 변위를 제공하고, 점프 시 지면 그림자 분리(Decoupling) 및 체공 실루엣을 완성한다.
+- **수정 대상**:
+  1. `dream_guardian/src/skeleton/StickmanRenderer.ts`
+  2. `dream_guardian/config/skeleton.config.ts`
+  3. `dream_guardian/src/core/director/SceneMotionCoordinator.ts`
+  4. `dream_guardian/tests/unit/stickman-renderer.test.ts`
+- **구현 내용**:
+  1. 상위 본(골반-허벅지) 추종 기반 계층적 종아리 각도 계산 (Hierarchical Leg Kinematics)
+     - 발목 랜드마크가 화면 밖으로 잘리거나 신뢰도가 낮을 때, 무조건 90도 수직 1자로 고정하지 않음.
+     - 허벅지 각도($\theta_{\text{thigh}}$)와 골반 변위량에 비례하여 종아리가 자연스럽게 연동 굴곡되도록 상대 각도 함수 구현.
+  2. 스쿼트 무릎 굴곡(Flexion) 및 수직 변위 개선
+     - 골반 하강량(`normalizedHipDiff`)에 비례하여 무릎이 외측/전방으로 굽혀지는 절차적 스쿼트 각도 가산.
+     - 수직 이동 감도(`squatSensitivity`) 상향 조정 및 스쿼트 유지 시 기준선이 끌려 내려가는 현상(Baseline Creep) 방지.
+  3. 점프 체공 실루엣 및 지면 그림자/마법진 디커플링 (Ground Decoupling)
+     - 점프 상승 시 무릎을 가슴 쪽으로 살짝 접는 체공 턱(Tuck) 각도 적용.
+     - 지면 그림자와 접지 마법진 링이 발목을 따라 공중으로 뜨지 않고 기준 지면(`groundBaseY`)에 잔류하도록 분리.
+     - 체공 높이에 비례하여 지면 그림자 반경 축소 및 페이드아웃 효과 적용.
+  4. 제자리 달리기 상태(`isRunning`) 연동 다리 스윙 합성
+     - 포즈 인식 상태에서도 달리기 중(`isRunning`)일 경우 허벅지/종아리에 위상차 스윙 모션 가산.
+- **유지 사항**:
+  - 기존 고정 비례 순운동학(Fixed-Length FK) 파라미터 및 캡슐/조인트 렌더링 스타일
+  - 가로축 유저 위치 동기화(`currentAnchorXRatio`) 및 EMA 스무딩
+  - 팔/손목 4색 네온 커서 추적 및 헬멧/코어 비주얼 연출
+- **변경 금지**:
+  - PoseManager, JumpDetector, AssaultSquatAdapter 등 기존 모션 판정 레이어의 판정 로직 및 threshold 값
+  - AnswerSelector 및 4색 커서의 판정 영역 계산식
+  - UI 렌더링 레이어
+- **완료 조건**:
+  - [ ] 웹캠에 발목/무릎이 잘려도 상체 및 골반 움직임에 따라 다리가 자연스럽게 반응
+  - [ ] 스쿼트 동작 시 골반 하강과 함께 무릎이 굽혀지는 시각적 실루엣 연출
+  - [ ] 점프 동작 시 캐릭터가 위로 솟구치고 지면 그림자는 바닥에 축소되어 남아 체공감 형성
+  - [ ] 달리기 중일 때 하체가 굳지 않고 앞뒤로 교차 스윙
+  - [ ] 단위 테스트(`stickman-renderer.test.ts`) 신규 요구사항 케이스 100% 통과
+  - [ ] 전체 빌드(`npm run build`) 및 회귀 테스트 100% Pass
+- **테스트**:
+  - 단위 테스트: `tests/unit/stickman-renderer.test.ts`
+    - 발목 랜드마크 누락 시 허벅지 각도 추종 종아리 굴곡 검증
+    - 스쿼트 시 골반 변위 및 무릎 각도 변화 검증
+    - 점프 시 그림자 Y좌표가 발목과 분리되어 지면에 유지되는지 검증
+    - 달리기 플래그 전달 시 다리 각도 스윙 발생 검증
+  - 브라우저 실기 테스트:
+    - 일반 화각(상반신) 웹캠 앞에서 서기, 스쿼트, 점프, 제자리 달리기 수행 시 졸라맨 아바타 동작 확인
+
+
+
+## 2026-10-21 등록: 보스 접근전 챌린지 출제 시스템 (DOC-18)
+
+- **카드 등록만 수행. 신규 21개 #645~#665 (CH-01a~CH-19) 모두 OPEN / 개별 구현 승인 대기. src/config/tests 수정·실행·서버·커밋 없음. 기존 SSOT/NEXT 불변.**
+- 상세 설계·번호 표·allowlist·선행·충돌 점검: [DOC-18](18_ASSAULT_CHALLENGE_QUESTION_SYSTEM.md) §§6~8. 라벨: `feature` + 우선순위(+CH-19 `test`).
+- **v0.2 데이터 우선 방침(2026-10-21)**: 신규 #666 CH-20(CSV 내보내기 스크립트), #667 CH-21(CSV 행 검증기), #668 CH-22(280행 생성·검수) 등록. #652 CH-07 라벨 안전 파서 범위 확장 코멘트. **보류 코멘트**: #646, #651, #658~#665(게임 연결 단계까지). 진행 순서 CH-01a→02→03→04→05→07→08→09→10→11→12→20→21→22. DOC-18 §11.
+- (v0.1 기록) 즉시 착수 가능(선행 없음): #645 CH-01a, #647 CH-02, #648 CH-03, #651 CH-06. REC 선행 대기: #660 CH-15(REC-04 #597, REC-12 #607), #661 CH-16a(REC-13 #590), #662 CH-16b(REC-14 #599), #663 CH-17(REC-15 #608), #664 CH-18(REC-11 #596).
+
+
 ## 2026-10-19 등록: BOSS-ASSAULT 런타임 복구 독립 트랙 (DOC-16)
 
 - **카드 작성·등록만 승인. 신규 27개 #588~#614 모두 OPEN / 개별 구현 승인 대기. 코드/config/tests 수정·실행·서버·커밋/푸시 없음. 기존 SSOT/NEXT 불변.**
@@ -191,7 +1180,7 @@
 | G | UI-VIS-039 | [#469 추출·불변 게시본 선택 UI](https://github.com/Choyounhwa/-dream-guardian/issues/469) | 3 | #467, #468 |
 | H | UI-VIS-040 | [#470 UI 전용 적용본 로더](https://github.com/Choyounhwa/-dream-guardian/issues/470) | 1 | #431, #468 |
 | H | UI-VIS-041 | [#471 런타임 주입·입력 일치·롤백](https://github.com/Choyounhwa/-dream-guardian/issues/471) | 2 | #439~#449, #470 |
-| I | UI-VIS-042 | [#472 실제 브라우저 시각·복구 인수](https://github.com/Choyounhwa/-dream-guardian/issues/472) | 0 | #450~#459, #461, #462, #465, #467, #469, #471 |
+| I | UI-VIS-042 | [#472 실제 브라우저 시각·복구 인수](https://github.com/Choyounhwa/-dream-guardian/issues/472) | 0 | #450~#459, #461, #462, #465, #467, #469, #471 (사용자 결정으로 보류) |
 
 - **실행 순서는 선행 DAG 기준**이다. UI-VIS-035(#464) 저장 모델을 UI-VIS-034(#465) 이미지 UI보다 먼저 진행한다. 신규 트랙 첫 제안은 #431이며 기존 SSOT/다른 트랙 NEXT를 대체하지 않는다.
 - **조사 관찰**: `preview/main.ts`는 factory만 export, `UIPreviewAdapter.draw`는 메타데이터 반환, `UIPropertyPanel`은 메뉴/운동버튼 및 unknown ID 첫 카드 fallback, 브라우저 `main.ts`는 InMemoryDatabasePort를 사용한다. registry의 홈/답안4개/pause restart는 실제 5챕터/2답안/resume·quit와 불일치한다. 이는 정적 소스 관찰이며 실패 테스트나 픽셀 실측을 주장하지 않는다.
@@ -5891,6 +6880,276 @@ BEAT-SPEC-001
   - `dream_guardian/src/render/DreamGrid.ts`
   - `dream_guardian/src/core/SceneDirector.ts`
   - `dream_guardian/tests/unit/dream-grid.test.ts`
+
+---
+
+### Issue #693: [BUG-DEVUI-003] HUD 계열 UI 요소 좌표 스케일링 누락으로 인한 Dev 인스펙터 점선 위치 불일치 수정
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/693
+- **Labels**: `bug`, `P1-high`, `phase-6`
+- **작업 ID**: `[BUG-DEVUI-003]`
+- **상태**: `[ ] 대기 (승인 대기)`
+- **제목**: HUD 계열 UI 요소 좌표 스케일링 누락으로 인한 Dev 인스펙터 점선 위치 불일치 수정
+- **목적**:
+  1. `?dev=ui` 개발 환경에서 HUD 요소(`comboBadge`, `playerHpBar`, `bossHpBar`, `bossName`) 위치 수정/호버 시 점선 박스가 실제 게임 UI 렌더링 위치 및 크기와 일치하도록 가상 해상도(1080×2160)와 물리 화면 픽셀 간의 스케일링 동기화.
+  2. `comboBadge` 우측 앵커링(`marginRight`) 및 명시적 `x` 좌표 처리 일원화로 캔버스 위치 조작 정확도 확보.
+- **수정 대상**:
+  - `dream_guardian/src/ui/HUDLayer.ts`
+  - `dream_guardian/src/dev/LayoutRegistry.ts`
+  - `dream_guardian/config/ui.config.ts`
+  - `dream_guardian/tests/unit/bug-devui-003.test.ts`
+- **구현 내용**:
+  1. `HUDLayer.ts`의 `getPlayerHpBarBounds`, `getBossHpBarBounds`, `getBossNameBounds`, `getComboBounds`가 항상 순수 1080×2160 가상 해상도 기준 바운딩 박스를 반환하도록 정규화.
+  2. `LayoutRegistry.ts`의 HUD 4개 항목에 `virtualRectToScreen(bounds, w, h)` 변환을 일관되게 적용하여 물리 뷰포트에 맞춘 정확한 점선 렌더링 보장.
+  3. `UI_LAYOUT.hud.comboBadge`에 명시적 `x` 및 앵커 연산 지원.
+  4. 다중 해상도(540×960, 1080×2160 등)에서 점선 좌표와 실제 렌더링 가상 좌표의 스케일 일치성을 검증하는 TDD 단위 테스트 작성.
+- **유지 사항**:
+  - 기존 `HUDLayer.render`의 인게임 UI 렌더링 정상 동작 및 비주얼 유지
+  - `public/layouts/ui-layout.json`의 저장 및 오버라이드 호환성 유지
+- **변경 금지**:
+  - 다른 게임 상태 머신 및 모션/전투 판정 로직
+  - `ASSAULT_VISUAL` 및 타 레이어 컴포넌트
+- **완료 조건**:
+  - [ ] `http://localhost:3000/?dev=ui&screen=boss_assault` 및 모바일/PC 해상도에서 `hud.*` 4개 요소의 점선 위치가 실제 UI와 정확히 일치
+  - [ ] `tests/unit/bug-devui-003.test.ts` 신규 작성 및 통과
+  - [ ] 전체 단위 테스트 100% Pass 및 `npm run build` 성공
+- **테스트**:
+  - `npx vitest run tests/unit/bug-devui-003.test.ts`
+  - `npm test`
+  - `npm run build`
+- **관련 파일**:
+  - `dream_guardian/src/ui/HUDLayer.ts`
+  - `dream_guardian/src/dev/LayoutRegistry.ts`
+  - `dream_guardian/config/ui.config.ts`
+  - `dream_guardian/tests/unit/bug-devui-003.test.ts`
+
+---
+
+### Issue #711: [RENDER-QUESTION-APPROACH-002] 러닝+문제(8) 4박 원근 포커싱·블러 감쇠 및 점진적 브라이트닝 출현 효과 구현
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/711
+- **Labels**: `feature`, `P2-medium`, `phase-6`
+- **작업 ID**: `[RENDER-QUESTION-APPROACH-002]`
+- **상태**: `[✔] 완료`
+- **제목**: 러닝+문제(8) 4박 원근 포커싱·블러 감쇠 및 점진적 브라이트닝 출현 효과 구현
+- **목적**:
+  - 러닝+문제(`RUN_QUESTION`, 8박) 루프 시작 시 문제가 소실점 원거리에서 흐릿하고 어둡게 출현하여 점진적으로 밝아지고 또렷해지며, 4박 시점에 정면 목표 위치에 100% 선명하게 안착되도록 시각적 몰입감과 가독성을 대폭 개선한다.
+- **수정 대상 (Scope Guard)**:
+  - `dream_guardian/config/beat-motion.config.ts`
+  - `dream_guardian/src/game/beat/BeatTimelineSynchronizer.ts`
+  - `dream_guardian/src/render/QuestionApproachRenderer.ts`
+  - `dream_guardian/src/render/QuestionRenderer.ts`
+- **유지 사항**:
+  - 4박 이후(4~8박) 정면 132px 수식 고정 렌더링 유지
+  - 6박 이후 답안 카드 원근 접근 프리뷰 및 8박 전환 호환성 유지
+  - 복합 수식 MathRenderer 지원
+- **변경 금지**:
+  - 피트니스 판정 존(1~11) 및 4색 커서 시스템
+  - 전투(HP, 마나, 보스 공격) 로직
+- **완료 조건**:
+  - [x] 4박(approachBeats = 4) 기준 진행도 계산 (2박 시점 0.5, 4박 시점 1.0)
+  - [x] 원거리 출현 시 blur(12px -> 0px) 및 brightness(0.4 -> 1.0) 감쇠 적용 및 1.0 도달 시 해제
+  - [x] 단위 테스트 100% 통과 (80/80 passed)
+  - [x] 전체 회귀 검증 100% 통과 (463 test files, 6,477 tests passed)
+  - [x] npm run build 성공 (0 오류)
+- **테스트**:
+  - `npx vitest run tests/unit/question-approach-renderer.test.ts`
+  - `npx vitest run tests/unit/beat-timeline-synchronizer.test.ts`
+  - `npx vitest run tests/unit/question-renderer.test.ts`
+  - `npx vitest run tests/unit/beat-clock-slot.test.ts`
+  - `npx vitest run tests/unit/music-track-config.test.ts`
+  - `npm test`
+  - `npm run build`
+
+---
+
+### [BUG-ASSAULT-009] 리듬 판정 고정(무조건 PERFECT) 버그 수정 및 시간 전/후 오답 Miss 처리와 재선택 보장
+
+- **작업 ID**: #745 (BUG-ASSAULT-009)
+- **라벨**: `bug`, `P1-high`
+- **제목**: 리듬 판정 고정(무조건 PERFECT) 버그 수정 및 시간 전/후 오답 Miss 처리와 재선택 보장
+- **질문 기록 (사용자 피드백 원문)**:
+  - "지금 다 perfect가 나오고 있는 문제 확인"
+  - "miss의 경우 오답에도 적용되어야 함 (시간전,시간후 오답 선택시 재선택이 안되는 문제)"
+- **수정 원인 및 버그 분석**:
+  1. **모든 타격에서 무조건 PERFECT만 표출되는 결함**:
+     - `AssaultImpactWireHelper.ts`: 정답 타격 시 `vfx.triggerCorrect()`를 호출할 때 실제 리듬 등급(`pairJudge.state.rhythmRating`)을 전달하지 않고 누락함.
+     - `AssaultImpactVFX.ts`: 옵션 미전달 시 기본값 `options?.badgeText ?? 'PERFECT'`가 적용되어, 실제 타이밍 오차(Good, Early, Late)와 무관하게 항상 황금색 "PERFECT" 배지가 화면에 표출됨.
+     - `AssaultNoteAdapter.ts`: `rating: (state.rhythmRating as MotionRating) ?? 'Perfect'`로 기본 치환됨.
+     - `config/assault.config.ts`: `EarlyMiss`가 null(비활성)로 되어 있어 정박 1~2초 전 타격도 무조건 인정되어 연계됨.
+  2. **시간 전/시간 후 오답 선택 시 Miss 미적용 및 영구 잠금(재선택 불가) 결함**:
+     - `AssaultPairJudge.ts`: 정박(`arrivalMs`)보다 훨씬 이른 시점(시간 전) 또는 타이밍 윈도우가 지난 시점(시간 후)에 오답 타격이 발생하면 즉시 `isLocked: true`, `status: 'wrong_locked'`로 영구 잠금됨.
+     - 잠금 상태에서는 이후 정박 시점에 정답을 올바르게 쳐도 `if (state.isLocked) return state;`에 의해 차단되어 재선택이 불가능함.
+     - 유효 타이밍 창 밖의 입력은 빗나감(`Miss`)으로 처리되어야 하며, 상태를 잠그지 않고(`isLocked: false`, `status: 'pending'`) 유지하여 유효 구간 내 정답 재타격(재선택)을 허용해야 함.
+- **수정 대상 (화이트리스트)**:
+  1. `dream_guardian/config/assault.config.ts`
+  2. `dream_guardian/src/game/assault/AssaultPairJudge.ts`
+  3. `dream_guardian/src/core/bootstrap/AssaultImpactWireHelper.ts`
+  4. `dream_guardian/src/render/assault/AssaultImpactVFX.ts`
+  5. `dream_guardian/tests/unit/assault-pair-judge-early-miss.test.ts`
+- **구현 내용**:
+  1. **타이밍 판정 및 Miss 상태 전이 (`AssaultPairJudge.ts`)**:
+     - 유효 타이밍 윈도우 밖(시간 전: `deltaMs < -rhythmWindows.Late` 또는 시간 후: `deltaMs > rhythmWindows.Late`)의 타격은 `rhythmRating: 'Miss'`로 처리.
+     - Miss 판정 시 `isLocked: false` 및 `status: 'pending'`을 유지하여 정박 도달 시 정답 재타격 허용.
+  2. **실제 등급 배지 연동 (`AssaultImpactWireHelper.ts` & `AssaultImpactVFX.ts`)**:
+     - `state.rhythmRating`을 `badgeText`로 정확히 전달하여 PERFECT, GOOD, EARLY, LATE, MISS가 각각 알맞게 표출되도록 연결.
+- **유지 사항**:
+  - 기존 11개 피트니스 존 및 4색 신체 커서 좌표계 불변
+  - 정박 내 정상 오답 선택 시(유효 타이밍 창 내 오답 펀치)의 데미지 정산 로직 유지
+- **변경 금지**:
+  - 일반 모드(`BeatRunCoordinator`, `ArmReachAnswerSelector`) 판정 로직
+  - 보스 HP/스펠 데미지 등 기본 밸런스 수치
+- **완료 조건**:
+  - [ ] 정답 타격 시 실제 타이밍에 맞춰 PERFECT, GOOD, EARLY, LATE 등급 배지가 올바르게 표출
+  - [ ] 시간 전/시간 후 오답 타격 시 영구 잠금되지 않고 Miss 처리되며, 이후 정박 시점에 정답 재선택 가능
+  - [ ] 단위 테스트(`tests/unit/assault-pair-judge-early-miss.test.ts` 등) 100% 통과
+  - [ ] 전체 빌드(`npm run build`) 및 전체 단위 테스트(`npm test`) 100% 통과
+- **테스트**:
+  - `npx vitest run tests/unit/assault-pair-judge-early-miss.test.ts`
+  - `npx vitest run tests/unit/assault-impact-wire-helper.test.ts`
+  - `npm test`
+  - `npm run build`
+
+---
+
+### Issue #758: [REFACTOR-BRANCH-001] boss-assault 브랜치 100% Green 베이스라인 고정 및 미커밋 자산 정리
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/758
+- **Labels**: `refactor`, `P1-high`, `phase-1`
+- **작업 ID**: `[REFACTOR-BRANCH-001]`
+- **상태**: ⚪ **대기 (Open)**
+- **목적**:
+  - 거대화된 `boss-assault` 브랜치 분할에 앞서, 현재 워킹 트리의 BGMManager 동적 트랙 설정, audio.config, 오디오 에셋 등 미커밋 변경사항을 정리하고 전체 500개 파일 6,907개 테스트 100% Green 통과 및 빌드 성공 상태를 안정적 체크포인트로 보존한다.
+- **수정 대상**:
+  - `dream_guardian/config/audio.config.ts`
+  - `dream_guardian/src/audio/BGMManager.ts`
+  - `dream_guardian/src/core/bootstrap/BootstrapStateMachineBuilder.ts`
+  - `dream_guardian/tests/unit/bgm-manager.test.ts`
+  - `dream_guardian/HANDOVER.md`
+- **구현 내용**:
+  1. `BGMManager`의 `setTrack()` 모드별 동적 트랙 전환 기능 안정화
+  2. `config/audio.config.ts`의 기본 어설트 BGM 상수 설정 정리
+  3. 전체 테스트 및 빌드 검증 후 단일 체크포인트 커밋
+- **유지 사항**: 기존 BGM 재생 및 볼륨 페이드 기능 정상 작동
+- **변경 금지**: 판정 로직(`AssaultPairJudge`), 게임 루프 타임라인
+- **완료 조건**:
+  - [ ] `npm test` 전체 500개 파일 / 6,907개 테스트 100% Pass (실패 0건)
+  - [ ] `npm run build` 성공
+  - [ ] 변경 사항 커밋 완료
+- **테스트**:
+  - `npx vitest run tests/unit/bgm-manager.test.ts`
+  - `npm test`
+  - `npm run build`
+
+---
+
+### Issue #759: [REFACTOR-BRANCH-002] [PR-1] Core/Architecture 모놀리스 분할 및 공통 인프라 독립 브랜치 분리
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/759
+- **Labels**: `refactor`, `P1-high`, `phase-1`
+- **작업 ID**: `[REFACTOR-BRANCH-002]`
+- **상태**: ⚪ **대기 (Open)**
+- **목적**:
+  - `boss-assault` 브랜치에서 진행된 순수 아키텍처 리팩터링 및 공통 인프라(SRP 준수 모놀리스 분리, deepFreeze 단일화 등)를 `main` 브랜치에 안전하게 선병합할 수 있도록 독립 PR 브랜치(`pr/assault-core-arch`)로 분리한다.
+- **분리 대상**:
+  - `dream_guardian/src/core/bootstrap/*` (AppEventListenerManager, AppCombatAnimationBinder 등)
+  - `dream_guardian/src/core/director/*` (SceneDirector 및 하위 코디네이터)
+  - `dream_guardian/src/editor/*` (모놀리스 분할 모듈)
+  - `dream_guardian/src/utils/deepFreeze.ts`
+  - 관련 단위 테스트 슈트
+- **구현 내용**:
+  1. `main` 브랜치 기반 신규 분기 브랜치 `pr/assault-core-arch` 생성
+  2. 아키텍처/모놀리스 분할 커밋(DOC-17 계열)만 체리픽 또는 파일 추출
+  3. 게임플레이 로직에 일체 영향 없이 `main`에 즉시 병합 가능한 상태 확보
+- **유지 사항**: 기존 게임 엔진 진입점 및 에디터 기능 100% 동일 동작
+- **변경 금지**: 어설트 게임플레이 규칙, 수식 판정 로직
+- **완료 조건**:
+  - [ ] `main` 브랜치와 충돌 없이 병합 가능한 PR 생성
+  - [ ] 해당 브랜치에서 `npm test` 100% Pass 및 `npm run build` 통과
+- **테스트**:
+  - `npm test`
+  - `npm run build`
+
+---
+
+### Issue #760: [REFACTOR-BRANCH-003] [PR-2] Question Challenge 수학 엔진 & Stickman Character Rig 독립 브랜치 분리
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/760
+- **Labels**: `refactor`, `P1-high`, `phase-4`
+- **작업 ID**: `[REFACTOR-BRANCH-003]`
+- **상태**: 🟢 **완료 (Closed)**
+- **목적**:
+  - 어설트 전용 챌린지 문제 출제 엔진(DOC-18, DOC-21)과 스틱맨 캐릭터 리그 및 물리 애니메이션 시스템(DOC-20)을 2차 독립 PR 브랜치(`pr/assault-math-rig`)로 분리한다.
+- **분리 대상**:
+  - `dream_guardian/src/question/challenge/*` (Rational 연산, 4대 챌린지 생성기, 쌍 생성 팩토리)
+  - `assault_challenges.csv`
+  - `dream_guardian/src/skeleton/rig/*` (CharacterRig, RigSolver, 스프링 물리)
+  - `dream_guardian/src/skeleton/anim/*` (ClipPlayer, 모션 블렌딩)
+  - `dream_guardian/src/input/StickmanPunchStroke.ts`
+  - 관련 단위 테스트 슈트
+- **구현 내용**:
+  1. PR-1 완료 후 기반 브랜치에서 `pr/assault-math-rig` 분기
+  2. 수학 엔진 및 캐릭터 리그 관련 커밋 및 소스 분리 집약
+  3. 독립 서브시스템으로서의 인터페이스 무결성 검증
+- **유지 사항**: 기존 questions.csv 및 기존 스켈레톤 렌더러 호환성 유지
+- **변경 금지**: 어설트 씬 렌더링 파이프라인
+- **완료 조건**:
+  - [ ] 수학 챌린지 및 스틱맨 리그 단위 테스트 전건 통과
+  - [ ] `npm test` 100% Pass 및 `npm run build` 통과
+  - [ ] PR-1 대상 베이스에서 깔끔한 병합 보장
+- **테스트**:
+  - `npx vitest run tests/unit/challenge-*.test.ts`
+  - `npx vitest run tests/unit/character-rig-*.test.ts`
+  - `npm test`
+  - `npm run build`
+
+---
+
+### Issue #761: [REFACTOR-BRANCH-004] [PR-3] Boss Assault 24박 루프, 타이밍 판정, Audio/VFX 및 UI 정산 브랜치 분리
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/761
+- **Labels**: `refactor`, `P1-high`, `phase-5`
+- **작업 ID**: `[REFACTOR-BRANCH-004]`
+- **상태**: ⚪ **대기 (Open)**
+- **목적**:
+  - 24박 루프 게임플레이(8박 러닝 + 16박 답안), AssaultPairJudge 타이밍 판정, 동적 BGM/SFX, AssaultHUD 및 정산 화면/저장 포트를 3차 최종 PR 브랜치(`pr/assault-gameplay-loop`)로 통합 분리한다.
+- **분리 대상**:
+  - `dream_guardian/src/game/assault/*` (AssaultLoopRunner, AssaultPairJudge, AssaultResultStore 등)
+  - `dream_guardian/config/assault.config.ts`, `dream_guardian/config/assault-loop.config.ts`
+  - `dream_guardian/src/ui/AssaultHUD.ts`, `dream_guardian/src/ui/AssaultResultView.ts`
+  - `dream_guardian/src/effects/assault/*`
+  - `dream_guardian/src/audio/BGMManager.ts` 및 어설트 BGM 에셋
+  - 관련 통합/단위 테스트 슈트
+- **구현 내용**:
+  1. PR-2 기반에서 `pr/assault-gameplay-loop` 분기
+  2. 24박 루프, 판정기, VFX/HUD, 결과 정산 최종 연동
+  3. `?mode=boss_assault` 실경로 게임플레이 루프 무결성 보장
+- **유지 사항**: 플레이어 HP 100, 오답/미스 피해 규칙, 정답 수집 규칙
+- **변경 금지**: 스토리 모드 및 메인 게임 루프 상태 머신
+- **완료 조건**:
+  - [ ] `tests/integration/assault-loop.test.ts` 등 어설트 통합 테스트 전건 통과
+  - [ ] `?mode=boss_assault` 실경로 플레이 100% 정상 작동
+  - [ ] `npm test` 100% Pass 및 `npm run build` 성공
+- **테스트**:
+  - `npx vitest run tests/integration/assault-loop.test.ts`
+  - `npm test`
+  - `npm run build`
+
+---
+
+### Issue #762: [QA-BRANCH-005] [QA] main 병합 단계별 회귀 검증 및 후속 트랙 격리 환경 검증 (제품 수정 0)
+- **GitHub URL**: https://github.com/Choyounhwa/-dream-guardian/issues/762
+- **Labels**: `test`, `P1-high`, `phase-9`
+- **작업 ID**: `[QA-BRANCH-005]`
+- **상태**: ⚪ **대기 (Open)**
+- **목적**:
+  - PR 1~3이 `main` 브랜치에 순차적으로 병합된 후, `main` 브랜치의 상시 안정성(Rule 11)을 증명하고, 대기 중인 후속 트랙(#735~#743 A1~A3 난이도, #746~#757 달리기 시각 가이드)이 개별 독립 브랜치에서 안전하게 진행될 수 있는 베이스라인을 최종 승인한다.
+- **수정 대상**:
+  - 제품 코드(`src/`, `config/`, `CSV`) 수정 0
+- **완료 조건**:
+  - [ ] `main` 브랜치에서 `npm test` 100% Pass (500+ 파일, 6,900+ 테스트 실패 0건)
+  - [ ] `main` 브랜치에서 `npm run build` 무오류 통과
+  - [ ] `http://localhost:3000/` 스토리 모드 및 `?mode=boss_assault` 모드 실플레이 정상 가동 확인
+  - [ ] 향후 작업 시 단일 기능/단일 브랜치 격리 원칙 확립
+- **테스트**:
+  - `npm test`
+  - `npm run build`
+  - `http://localhost:3000/` 브라우저 수동 검증
+
 
 
 

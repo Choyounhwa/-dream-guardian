@@ -24,6 +24,9 @@ import type {
 } from '../../src/types/assault.js';
 
 function createMockContext(): CanvasRenderingContext2D {
+  const fontHistory: string[] = [];
+  let currentFont = '';
+
   return {
     save: vi.fn(),
     restore: vi.fn(),
@@ -57,7 +60,14 @@ function createMockContext(): CanvasRenderingContext2D {
     fillStyle: '',
     strokeStyle: '',
     lineWidth: 1,
-    font: '',
+    get font() {
+      return currentFont;
+    },
+    set font(val: string) {
+      currentFont = val;
+      fontHistory.push(val);
+    },
+    __fontHistory: fontHistory,
     textAlign: 'center',
     textBaseline: 'middle',
     shadowColor: '',
@@ -464,4 +474,56 @@ describe('[BOSS-ASSAULT-19 / #521] 읽기 전용 공격 장면 렌더링 (Assaul
       }).not.toThrow();
     });
   });
+
+  describe('7. 정답 선택지 글자 크기: 100px 폰트 크기 적용', () => {
+    it('DEFAULT_ASSAULT_VISUAL_CONFIG에 선택지 기준 폰트 크기 100px가 정의되어야 한다', () => {
+      expect((DEFAULT_ASSAULT_VISUAL_CONFIG as any).choiceBaseFontSizePx).toBe(100);
+    });
+
+    it('AssaultPairPainter: 착지(progress=1.0, 1280x720) 시 선택지 폰트 크기가 100px이어야 한다', () => {
+      const painter = new AssaultPairPainter();
+      const viewport = { width: 1280, height: 720 };
+
+      const pairSnapshot: AssaultPairRenderSnapshot = {
+        pairId: 'pair_font_test',
+        leftText: '24',
+        rightText: '26',
+        progress: 1.0,
+        status: 'inFlight',
+      };
+
+      painter.render(ctx, pairSnapshot, viewport);
+
+      const fontHistory: string[] = (ctx as any).__fontHistory;
+      expect(fontHistory.length).toBeGreaterThan(0);
+
+      // 선택지 라벨 폰트 검증: bold 100px sans-serif
+      const choiceFonts = fontHistory.filter((f) => f.includes('100px'));
+      expect(choiceFonts.length).toBeGreaterThanOrEqual(2); // 좌/우 2개 카드
+    });
+
+    it('AssaultSceneRenderer: 전체 장면 렌더링 시 선택지 폰트 크기(100px)가 적용되어야 한다', () => {
+      const renderer = new AssaultSceneRenderer();
+      const viewport = { width: 1280, height: 720 };
+      const snapshot: AssaultSceneSnapshot = {
+        questionText: '8단 숫자를 쳐라!',
+        leftChoiceText: '48',
+        rightChoiceText: '50',
+        phase: 'choice_window',
+        pair: {
+          leftText: '48',
+          rightText: '50',
+          progress: 1.0,
+          status: 'inFlight',
+        },
+      };
+
+      renderer.render(ctx, snapshot, viewport);
+
+      const fontHistory: string[] = (ctx as any).__fontHistory;
+      const has100pxChoice = fontHistory.some((f) => f.includes('100px'));
+      expect(has100pxChoice).toBe(true);
+    });
+  });
 });
+

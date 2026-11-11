@@ -1,5 +1,7 @@
 # 꿈의 수호신 (Dream Guardian) - 작업 목차 및 구현 목록 (WBS)
 
+> **2026-10-27 별도 승인대기 트랙**: [DOC-19 보스 접근전 루프 카드 원장](19_BOSS_ASSAULT_LOOP_CARDS.md), ASSAULT-LOOP-01~16 및15a **#694~#710 17개** 등록. `http://localhost:3000/?mode=boss_assault`만으로 UI 시작/restart에서 새루프 기본선택(#705), 추가 loop URL 불필요(#710 필수인수). run8+(answer4+rest2)×4에휴식뒤squat4박1~2회삽입(36/40박), numeric_repeat먼저. 제한추출→시간/입력/요약→조립/관찰/러닝/재시작→Game표시/Render/UI/Core전달→QA의단일책임분할. **카드등록·명세정정만완료/구현미착수**, 기존WBS/SSOT NEXT·기본패턴데이터·범용Factory직접호출·비boss legacy·챌린지/G4/G5보류불변.
+
 > **프로젝트**: Dream Guardian 재설계
 > **작성일**: 2026-09-20
 > **현황**: 모놀리식 index.html(2,801줄) + 모듈 6개 → 재구조화 대상
@@ -194,6 +196,8 @@ tests/
 - [ ] `SquatDetector.ts`: 어깨 Y 0.065 하강 감지 (index.html:1088-1106)
 - [ ] `JumpDetector.ts`: 어깨 Y 0.065 상승 + 속도 > 0.22/dt, 0.8초 쿨다운 (index.html:1108-1122)
 - [ ] `CalibrationHelper.ts`: 코 가이드 박스 2초 보정
+- [ ] `PoseAngleSolver.ts` & `StickmanRenderer.ts`: 메카 졸라맨 관절 스냅 방지 및 소프트 가동 범위 제한 (`FEAT-SKEL-LIMIT-001` / #725)
+- [ ] `AssaultPunchAdapter.ts`: 졸라맨 팔 뻗기 방향 벡터 및 신전율 80% 찌르기(Stroke 엣지 트리거) 펀치 판정 (`FEAT-ASSAULT-PUNCH-002` / #726)
 - [ ] 카메라 실패 시 fallback (키보드/터치)
 - [ ] 단위 테스트
 
@@ -274,7 +278,7 @@ tests/
 - [ ] `MenuScreen.ts`: 5챕터 버튼 (잠금은 "???"), 누적 운동 통계
 - [ ] `SubMenuScreen.ts`: 챕터 내 서브레벨 선택, 뒤로가기
 - [ ] `MenuInput.ts`: 양손 합장 커서 (menu-input.js 포팅)
-  - 양 손목 거리 < 어깨 폭 80%, visibility >= 0.5
+  - [FEAT-INPUT-JOIN-001 / #724] 거리 <= 0.18, 0.3초 최소 체류시간 필터, 0.22 해제 히스테리시스 (복싱 가드 오간섭 방지)
   - 0.8초 드웰 선택
 - [ ] 터치/클릭 fallback
 - [ ] 기존 menu-input.test.cjs 포팅

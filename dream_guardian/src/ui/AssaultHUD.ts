@@ -12,6 +12,12 @@
  * 5. [DEC-A7] MVP 미지원 요소 숨김: 마나 게이지, 별가루, 수호신 스펠, 보스 HP바 표시 0회 (임의 0 위조 금지).
  */
 
+import type {
+  AssaultLoopPresentation,
+  AssaultLoopSegmentKind,
+  AssaultLoopSquatSubSegmentKind,
+} from '../types/assault-loop.js';
+
 export interface AssaultValidationErrorObj {
   readonly reason: string;
   readonly code?: string;
@@ -37,45 +43,67 @@ export interface AssaultHUDSnapshot {
   readonly validationError?: string | AssaultValidationErrorObj;
   readonly isAborted?: boolean;
   readonly isDefeated?: boolean;
+  readonly loop?: AssaultLoopPresentation | null;
 }
 
 export class AssaultHUD {
   private _snapshot: AssaultHUDSnapshot | null = null;
+  private _loopSnapshot: AssaultLoopPresentation | null = null;
 
-  constructor(snapshot?: AssaultHUDSnapshot) {
+  constructor(snapshot?: AssaultHUDSnapshot, loopSnapshot?: AssaultLoopPresentation) {
     if (snapshot) {
       this._snapshot = snapshot;
+      if (snapshot.loop) {
+        this._loopSnapshot = snapshot.loop;
+      }
+    }
+    if (loopSnapshot) {
+      this._loopSnapshot = loopSnapshot;
     }
   }
 
   public setSnapshot(snapshot: AssaultHUDSnapshot): void {
     this._snapshot = snapshot;
+    if (snapshot.loop !== undefined) {
+      this._loopSnapshot = snapshot.loop;
+    }
+  }
+
+  public setLoopSnapshot(loopSnapshot: AssaultLoopPresentation | null): void {
+    this._loopSnapshot = loopSnapshot;
   }
 
   public getSnapshot(): AssaultHUDSnapshot | null {
     return this._snapshot;
   }
 
+  public getLoopSnapshot(): AssaultLoopPresentation | null {
+    return this._loopSnapshot;
+  }
+
   /**
    * HUD를 Canvas에 렌더링한다.
    * 유연한 인자 패턴을 지원:
-   * - render(ctx, width, height, snapshot?)
-   * - render(ctx, snapshot, width, height)
-   * - render(ctx, snapshot, { width, height })
+   * - render(ctx, width, height, snapshot?, loopSnapshot?)
+   * - render(ctx, snapshot, width, height, loopSnapshot?)
+   * - render(ctx, snapshot, { width, height }, configOverride?, loopSnapshot?)
    */
-  public render(ctx: CanvasRenderingContext2D, width: number, height: number, snapshot?: AssaultHUDSnapshot): void;
-  public render(ctx: CanvasRenderingContext2D, snapshot: AssaultHUDSnapshot, width?: number, height?: number): void;
+  public render(ctx: CanvasRenderingContext2D, width: number, height: number, snapshot?: AssaultHUDSnapshot, loopSnapshot?: AssaultLoopPresentation | null): void;
+  public render(ctx: CanvasRenderingContext2D, snapshot: AssaultHUDSnapshot, width?: number, height?: number, loopSnapshot?: AssaultLoopPresentation | null): void;
+  public render(ctx: CanvasRenderingContext2D, snapshot: AssaultHUDSnapshot, viewport: { width: number; height: number }, configOverride?: unknown, loopSnapshot?: AssaultLoopPresentation | null): void;
   public render(ctx: CanvasRenderingContext2D, snapshot: AssaultHUDSnapshot, viewport: { width: number; height: number }): void;
   public render(ctx: CanvasRenderingContext2D, width: number, height: number): void;
   public render(
     ctx: CanvasRenderingContext2D,
     arg2?: number | AssaultHUDSnapshot,
     arg3?: number | { width: number; height: number } | AssaultHUDSnapshot,
-    arg4?: number | AssaultHUDSnapshot
+    arg4?: number | AssaultHUDSnapshot | unknown,
+    arg5?: AssaultLoopPresentation | null
   ): void {
     let width = 1080;
     let height = 720;
     let snapshot: AssaultHUDSnapshot | null = this._snapshot;
+    let loopSnapshot: AssaultLoopPresentation | null = this._loopSnapshot;
 
     // 인자 역직렬화
     if (typeof arg2 === 'number') {
@@ -84,9 +112,12 @@ export class AssaultHUD {
         height = arg3;
       }
       if (arg4 && typeof arg4 === 'object') {
-        snapshot = arg4;
+        snapshot = arg4 as AssaultHUDSnapshot;
       } else if (arg3 && typeof arg3 === 'object' && !('width' in arg3)) {
         snapshot = arg3 as AssaultHUDSnapshot;
+      }
+      if (arg5 && typeof arg5 === 'object') {
+        loopSnapshot = arg5 as AssaultLoopPresentation;
       }
     } else if (arg2 && typeof arg2 === 'object') {
       snapshot = arg2;
@@ -95,10 +126,22 @@ export class AssaultHUD {
         if (typeof arg4 === 'number') {
           height = arg4;
         }
+        if (arg5 && typeof arg5 === 'object') {
+          loopSnapshot = arg5 as AssaultLoopPresentation;
+        }
       } else if (arg3 && typeof arg3 === 'object' && 'width' in arg3) {
         width = arg3.width;
         height = arg3.height;
+        if (arg5 && typeof arg5 === 'object') {
+          loopSnapshot = arg5 as AssaultLoopPresentation;
+        } else if (arg4 && typeof arg4 === 'object' && 'currentSegmentKind' in arg4) {
+          loopSnapshot = arg4 as AssaultLoopPresentation;
+        }
       }
+    }
+
+    if (snapshot?.loop !== undefined) {
+      loopSnapshot = snapshot.loop;
     }
 
     if (!snapshot) {
@@ -118,7 +161,10 @@ export class AssaultHUD {
       // 3. 콤보 및 리듬 판정 피드백
       this._renderComboAndJudgment(ctx, snapshot, width, height, scale);
 
-      // 4. 안전 및 상태 표시기 (일시정지, 추적 상실, 재준비, 진입 오류)
+      // 4. 루프 구간·기회·러닝 폴백 안내 표시 (LOOP-15)
+      this._renderLoopGuidance(ctx, snapshot, loopSnapshot, width, height, scale);
+
+      // 5. 안전 및 상태 표시기 (일시정지, 추적 상실, 재준비, 진입 오류)
       this._renderStatusAndWarnings(ctx, snapshot, width, height, scale);
     } finally {
       ctx.restore();
@@ -389,5 +435,122 @@ export class AssaultHUD {
     }
 
     ctx.restore();
+  }
+
+  /**
+   * 5. 보스 접근전 루프 구간·기회·행동 및 폴백 안내 표시 (LOOP-15 / #708)
+   */
+  private _renderLoopGuidance(
+    ctx: CanvasRenderingContext2D,
+    _snapshot: AssaultHUDSnapshot,
+    loop: AssaultLoopPresentation | null | undefined,
+    width: number,
+    _height: number,
+    scale: number
+  ): void {
+    if (!loop) {
+      return;
+    }
+
+    const kind = loop.currentSegmentKind;
+    if (!kind) {
+      return;
+    }
+
+    const segmentLabel = this._getSegmentKindLabel(kind);
+    const remainingBeats = Number.isInteger(loop.segmentRemainingBeats)
+      ? loop.segmentRemainingBeats
+      : Math.max(0, loop.segmentRemainingBeats).toFixed(1);
+
+    const oppIndex =
+      loop.currentOpportunity ??
+      (loop as any).currentOpportunityIndex ??
+      (loop as any).opportunityIndex ??
+      1;
+    const totalOpp = loop.totalOpportunities ?? 4;
+    const oppText = `기회 ${oppIndex} / ${totalOpp}`;
+
+    const actionGuide = this._getActionGuideText(kind, loop.currentSquatSubSegment);
+
+    ctx.save();
+    try {
+      const centerX = width / 2;
+      const boxW = Math.min(width * 0.85, 540 * scale);
+      const boxH = 50 * scale;
+      const boxX = centerX - boxW / 2;
+      const boxY = 74 * scale;
+
+      // 반투명 배경 패널 (시인성 확보)
+      ctx.fillStyle = 'rgba(12, 18, 36, 0.72)';
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(boxX, boxY, boxW, boxH, 8 * scale);
+      } else {
+        ctx.rect(boxX, boxY, boxW, boxH);
+      }
+      ctx.fill();
+
+      // 상단 라인: [구간명] 잔여 n박 (좌측) / 기회 n / 4 (우측)
+      const textY1 = boxY + 18 * scale;
+      ctx.textBaseline = 'middle';
+      ctx.font = `bold ${Math.round(15 * scale)}px 'Pretendard', sans-serif`;
+
+      // 구간 및 잔여 박 (좌측)
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#00E5FF';
+      ctx.fillText(`[${segmentLabel}] 잔여 ${remainingBeats}박`, boxX + 16 * scale, textY1);
+
+      // 선택 기회 (우측 - 완료문제 10개 목표와 혼동 방지 분리)
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#FFB300';
+      ctx.fillText(oppText, boxX + boxW - 16 * scale, textY1);
+
+      // 하단 라인: 행동 및 폴백 안내 (중앙)
+      if (actionGuide) {
+        const textY2 = boxY + 37 * scale;
+        ctx.textAlign = 'center';
+        ctx.font = `${Math.round(13 * scale)}px 'Pretendard', sans-serif`;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(actionGuide, centerX, textY2);
+      }
+    } finally {
+      ctx.restore();
+    }
+  }
+
+  private _getSegmentKindLabel(kind: AssaultLoopSegmentKind): string {
+    switch (kind) {
+      case 'run_question':
+        return '달리기';
+      case 'answer':
+        return '답안 선택';
+      case 'rest':
+        return '휴식';
+      case 'squat':
+        return '스쿼트 회피';
+      default:
+        return kind;
+    }
+  }
+
+  private _getActionGuideText(
+    kind: AssaultLoopSegmentKind,
+    subKind?: AssaultLoopSquatSubSegmentKind
+  ): string {
+    switch (kind) {
+      case 'run_question':
+        return '러닝 중 (키보드 A/D, 좌/우 방향키 또는 터치로도 발걸음 가능)';
+      case 'answer':
+        return '좌/우 펀치로 정답 선택!';
+      case 'squat':
+        if (subKind === 'stand') {
+          return '직립 복귀! (스쿼트로 공격 회피!)';
+        }
+        return '스쿼트로 공격 회피!';
+      case 'rest':
+        return '잠시 휴식 및 바른 자세 준비';
+      default:
+        return '';
+    }
   }
 }

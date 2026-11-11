@@ -256,7 +256,8 @@ export class AssaultRoundSummaryAggregator {
 
     // 리듬 판정 등급 집계
     if (record.rating && record.rating in this._ratingCounts) {
-      this._ratingCounts[record.rating]++;
+      const ratingKey = record.rating as keyof typeof this._ratingCounts;
+      this._ratingCounts[ratingKey]++;
     }
 
     // 종류 추론 및 결과 분기
@@ -272,10 +273,8 @@ export class AssaultRoundSummaryAggregator {
 
       if (isEvadeSuccess) {
         this._evadeSuccessCount++;
-        this._onSuccess();
       } else {
         this._squatFailCount++;
-        this._onFail();
       }
     } else {
       // answer_pair
@@ -379,6 +378,8 @@ export class AssaultRoundSummaryAggregator {
   public recordReceipt(receipt: AssaultSettlementReceipt): boolean {
     if (this._isFinalized) return false;
     if (!receipt) return false;
+    // 거부(applied:false) 영수증은 멱등 키를 소비하지 않고 무시 (REC-11 / #596)
+    if (receipt.applied === false) return false;
 
     // 중복 체크: receiptId, idempotencyKey, attackId
     if (receipt.receiptId && this._processedReceiptIds.has(receipt.receiptId)) {
@@ -444,7 +445,11 @@ export class AssaultRoundSummaryAggregator {
   /**
    * 최종 불변 요약 DTO 발행 (1회 생성 및 deepFreeze)
    */
-  public finalize(options?: { isAborted?: boolean; isDefeated?: boolean }): AssaultRoundSummary {
+  public finalize(options?: {
+    isAborted?: boolean;
+    isDefeated?: boolean;
+    completedQuestions?: number;
+  }): AssaultRoundSummary {
     if (this._isFinalized && this._cachedSummary) {
       return this._cachedSummary;
     }
@@ -460,7 +465,9 @@ export class AssaultRoundSummaryAggregator {
     }
 
     const isAborted = this._isAborted || this._isDefeated;
-    const completedQuestions = isAborted ? 0 : 1;
+    const completedQuestions = options?.completedQuestions !== undefined
+      ? options.completedQuestions
+      : (isAborted ? 0 : 1);
     const totalEncounters =
       this._correctCount +
       this._wrongCount +

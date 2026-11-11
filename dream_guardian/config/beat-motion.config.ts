@@ -218,20 +218,26 @@ export interface BeatMotionConfig {
 }
 
 export interface QuestionApproachConfig {
-  /** 문제 원근 접근에 소요되는 박자 수 (기본 2박) */
+  /** 문제 원근 접근에 소요되는 박자 수 (기본 4박, Issue #711) */
   approachBeats: number;
   /** 소실점 시작 최소 크기 배율 (기본 0.15) */
   minScale: number;
   /** 소실점 시작 최소 불투명도 (기본 0.10) */
   startAlpha: number;
+  /** 소실점 시작 블러 강도(px, 기본 12) */
+  startBlur: number;
+  /** 소실점 시작 밝기 비율 (기본 0.4 = 40%) */
+  startBrightness: number;
   /** 접근 감속 ease-out 차수 (기본 2.0 = quadratic ease out) */
   easePower: number;
 }
 
 export const DEFAULT_QUESTION_APPROACH_CONFIG: QuestionApproachConfig = {
-  approachBeats: 2,
+  approachBeats: 4,
   minScale: 0.15,
   startAlpha: 0.10,
+  startBlur: 12,
+  startBrightness: 0.40,
   easePower: 2.0,
 };
 
