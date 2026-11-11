@@ -212,9 +212,9 @@ describe('AppBootstrap (Issue #302)', () => {
     });
   });
 
-  describe('[ANSWER-REST-001 / #498] AppBootstrap 답안 선택 후 2박 쉼표 주입 검증', () => {
-    it('기본 인스턴스(브라우저 실행 환경) 생성 시 answerRestBeats가 2로 주입된다', async () => {
-      const bootstrap = new AppBootstrap({ autoStartCamera: false, preloadAssets: false });
+  describe('[ANSWER-REST-001 / #498 / #719] AppBootstrap 답안 선택 후 2박 쉼표 주입 검증', () => {
+    it('기본 인스턴스(브라우저 실행 환경) 생성 시 canvas가 있어도 answerRestBeats가 2로 기본 주입된다', async () => {
+      const bootstrap = new AppBootstrap({ canvas: mockCanvas, autoStartCamera: false, preloadAssets: false });
       expect(bootstrap.beatCoordinator.answerRestBeats).toBe(2);
       bootstrap.dispose();
     });
@@ -224,9 +224,21 @@ describe('AppBootstrap (Issue #302)', () => {
         canvas: mockCanvas,
         autoStartCamera: false,
         preloadAssets: false,
-        answerRestBeats: 2,
+        answerRestBeats: 4,
       });
-      expect(bootstrap.beatCoordinator.answerRestBeats).toBe(2);
+      expect(bootstrap.beatCoordinator.answerRestBeats).toBe(4);
+      bootstrap.dispose();
+    });
+
+    it('gameState(stateRef)에 feedbackCustomText 및 feedbackCustomColor 접근자가 정의되어 있다', async () => {
+      const bootstrap = new AppBootstrap({ canvas: mockCanvas, autoStartCamera: false, preloadAssets: false });
+      const state = (bootstrap as any).mainSceneContext.state;
+      expect('feedbackCustomText' in state).toBe(true);
+      expect('feedbackCustomColor' in state).toBe(true);
+      state.feedbackCustomText = '테스트 피드백';
+      state.feedbackCustomColor = '#FFAA33';
+      expect(state.feedbackCustomText).toBe('테스트 피드백');
+      expect(state.feedbackCustomColor).toBe('#FFAA33');
       bootstrap.dispose();
     });
   });

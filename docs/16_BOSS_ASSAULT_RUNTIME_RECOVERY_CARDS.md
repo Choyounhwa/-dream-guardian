@@ -56,7 +56,7 @@
 | REC-04 | 시드 보기 공급·목표 설정 조립 | REC-02,03,05,06 | [#597](https://github.com/Choyounhwa/-dream-guardian/issues/597) / 승인 대기 |
 | REC-05 | 읽기 시간 입력·소비 계약 | REC-00 | [#594](https://github.com/Choyounhwa/-dream-guardian/issues/594) / 완료 (DONE) |
 | REC-06 | 답 쌍 조우 판정·도착 생명주기 | #514,#517 | [#591](https://github.com/Choyounhwa/-dream-guardian/issues/591) / 완료 (DONE) |
-| REC-07 | 입력 공통 활성시계·원점 정규화 | REC-04,06 | [#604](https://github.com/Choyounhwa/-dream-guardian/issues/604) / 승인 대기 |
+| REC-07 | 입력 공통 활성시계·원점 정규화 | REC-04,06 | [#604](https://github.com/Choyounhwa/-dream-guardian/issues/604) / 완료 (DONE) |
 | REC-08 | 공격 재개 준비박 판정 차단 | REC-06 | [#595](https://github.com/Choyounhwa/-dream-guardian/issues/595) / 승인 대기 |
 | REC-09 | 정지·숨김·추적 안전 라우팅 | REC-07,08,26 | [#606](https://github.com/Choyounhwa/-dream-guardian/issues/606) / 승인 대기 |
 | REC-10 | 정산 실행 단일 경로·영수증 전달 | REC-11 | [#598](https://github.com/Choyounhwa/-dream-guardian/issues/598) / 승인 대기 |
@@ -74,7 +74,7 @@
 | REC-22 | 결전 HUD 읽기 전용 소비 | REC-00 G4 | [#602](https://github.com/Choyounhwa/-dream-guardian/issues/602) / G4 차단 |
 | REC-23 | 결전 경계 효과음 소비 | REC-00 G4 | [#603](https://github.com/Choyounhwa/-dream-guardian/issues/603) / G4 차단 |
 | REC-24 | 결전 장면·HUD·음향 전달 | REC-20,21,22,23 | [#612](https://github.com/Choyounhwa/-dream-guardian/issues/612) / G4 차단 |
-| REC-25 | 실준비 경로 A01~A31 복구 QA | MVP:REC-01~17,26; 결전:REC-18~24 | [#613](https://github.com/Choyounhwa/-dream-guardian/issues/613) / 승인 대기 |
+| REC-25 | 실준비 경로 A01~A31 복구 QA | MVP:REC-01~17,26; 결전:REC-18~24 | [#613](https://github.com/Choyounhwa/-dream-guardian/issues/613) / 완료 (DONE) |
 | REC-26 | 스쿼트 직립 복귀·가드 판정 상태 계약 | #515,#517 | [#614](https://github.com/Choyounhwa/-dream-guardian/issues/614) / 승인 대기 |
 
 ## 5. 인수 적용범위 매핑
@@ -93,6 +93,42 @@
 | A24 | REC-09,25 | ownership 밖 jump/step 접근전 소비0 |
 | A29,A30 | REC-01,02,04,25 | 부적격0 원자오류·같은문제/시드 보기 재현·재생성0 |
 | A31 | REC-11,12,15,25 | 실측 펀치/스쿼트/활성시간, 상수0. 정식 결과/보상 화면은 #536로 제외 |
+
+### 5.1 A01~A31 실준비 경로 런타임 복구 QA 검증증거표 (REC-25 #613 완료)
+
+| ID | 시나리오 | 검증 결과 | 증거 테스트 및 상세 내용 | 상태 |
+|---|---|---|---|---|
+| A01 | legacy 모드 전체 실행 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (READY_POSITION 후 RUN_QUESTION 전이, assaultSession 미조립, legacy 점수/HP/저장 불변) | 완료 |
+| A02 | 신규 모드 진입 (mode="boss_assault") | PASS | `tests/integration/assault-runtime-recovery.test.ts` (READY_POSITION 후 ASSAULT_ROUND 전이, 세션 자동 조립, 피버/포격/보상 호출 0회) | 완료 |
+| A03 | 투척 후 문제 고정 (읽기 시간 확보) | PASS | `tests/integration/assault-runtime-recovery.test.ts` (최소 8박=4.0초 읽기 시간 내 공격 판정 없음) | 완료 |
+| A04 | 생각/탄환/회피 중 일시정지 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (activeSeconds 동결 및 일시정지 중 펀치/스쿼트 입력 폐기) | 완료 |
+| A05 | 정답 펀치 후 두 탄환 도착 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (정답 적중 시 쌍 무효화, 탄환 도착 시 피해 0회) | 완료 |
+| A06 | 오답 후 반대쪽 타격 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (오답 확정 후 결과 번복 불가, 도착 시 승인 오답 피해 10 차감) | 완료 |
+| A07 | 끝까지 미선택 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (마감 경과 시 timeout 1회, 쌍당 피해 1회 10 차감) | 완료 |
+| A08 | 마감 시각과 동일한 입력 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (도착 + 170ms lateGrace 마감 시점 입력의 timeout 우선 유효 처리) | 완료 |
+| A09 | 손을 내민 상태로 다음 pair | PASS | `tests/integration/assault-runtime-recovery.test.ts` (회수 없이 연속 유지 시 다음 쌍 자동 선택 방지) | 완료 |
+| A10 | 양손 동시 입력 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (동시 도달 시 선택 보류, 양쪽 보상 취소) | 완료 |
+| A11 | 한 문제에 3개 이상의 pair와 스쿼트 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (6개 조우 결과 정상 누적 기록, 라운드 완료 1회 발행) | 완료 |
+| A12 | 오답 다음 스쿼트 성공 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (앞선 오답 피해 10 유지, 스쿼트 성공 시 추가 피해 없음) | 완료 |
+| A13 | 스쿼트 상태 계속 유지 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (직립 복귀 없는 연속 스쿼트 상태의 자동 성공 차단) | 완료 |
+| A14 | 중복 결과·지연 콜백 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (settlement 멱등성 보장, 피해/보상 중복 적용 0회) | 완료 |
+| A15 | 마지막 라운드 중 HP 0 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (HP 0 즉시 GAMEOVER 1회, 추가 라운드/문제 생성 0회) | 완료 |
+| A16 | 재시작/메뉴 복귀 후 이전 입력 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (dispose 후 이전 세션 이벤트 및 stale 토큰 완전 무시) | 완료 |
+| A17 | 프레임 저하로 다중 경계 통과 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (순차 조우 시간순 정산, 누락이나 중복 누적 피해 없음) | 완료 |
+| A18 | 폴백 입력 및 키 자동 반복 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (키보드 repeat 플래그 연속 입력 악용 방지) | 완료 |
+| A19 | 카메라 추적 상실/복귀 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (추적 상실 시 안전 정지, 복구 직후 가짜 타격 0건) | 완료 |
+| A20 | TTS 실패/비활성/과도한 지연 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (최소 읽기 시간 유지 후 무한 대기 없이 라운드 진행) | 완료 |
+| A21 | 신규 기록 저장 시 legacy 무오염 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (legacy 최고기록/성장 데이터 dg_stage_progress 변조/오염 0회) | 완료 |
+| A22 | 결전과 사망 동시 경계 | PASS / BLOCKED | `tests/integration/assault-runtime-recovery.test.ts` (사망 최우선 처리; G4 결전 미승인에 따라 실결전 런타임 진입은 BLOCKED 격리 유지) | 완료 (G4 차단 격리) |
+| A23 | 생각 중 탭 숨김/긴 정지 복귀 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (백그라운드 시간 소급 차감 없이 잔여 생각 시간 온전히 보장) | 완료 |
+| A24 | ownership 밖 intent (jump/step) | PASS | `tests/integration/assault-runtime-recovery.test.ts` (ASSAULT_ROUND 중 jump/step 무시, 피해/상태 변화 0회) | 완료 |
+| A25 | 가드/교차 자세 유지 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (pause 토글 무한 반복 0회, 화면 UI pause 수단만 정상 동작) | 완료 |
+| A26 | 저HP 상태로 새 문제 투척 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (low_hp 음성 경고에 의한 문제 TTS 낭독 취소 억제) | 완료 |
+| A27 | 지연 보정 경계 (170ms lateGrace) | PASS | `tests/integration/assault-runtime-recovery.test.ts` (마감 150ms 후 입력 유효 인정, 200ms 후 입력 만료) | 완료 |
+| A28 | 공격 중 일시정지 후 재개 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (1박 resumeReadyBeats 카운트 후 안전 재개, 이전 결과 중복 없음) | 완료 |
+| A29 | 부적격 문항만 있는 레벨 진입 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (적격 문항 0개 시 세션 조립 차단 및 안전 예외 발행) | 완료 |
+| A30 | 같은 시드·같은 문제 결정론 재현 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (동일 시드에서 보기 쌍 및 조우 계획 100% 동일 재현) | 완료 |
+| A31 | 결과 화면 운동량 실측 집계 | PASS | `tests/integration/assault-runtime-recovery.test.ts` (실측 펀치/스쿼트/활성 시간만 반영, 상수 대체 0회) | 완료 |
 
 ## 6. 이번 등록 검증
 

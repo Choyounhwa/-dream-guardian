@@ -250,6 +250,10 @@ export class SceneDirector<TContext = any> {
     return this._motionCoordinator;
   }
 
+  public get assaultHandler(): AssaultSceneHandler {
+    return this._assaultHandler;
+  }
+
   public get renderOrchestrator(): SceneRenderOrchestrator {
     return this._renderOrchestrator;
   }
@@ -696,6 +700,21 @@ export class SceneDirector<TContext = any> {
 
   /** 보스 접근전(Boss Assault) 전용 씬 루프 업데이트 (DEC-B1) */
   updateAssaultGameScene(dt: number, ctx: MainSceneContext): void {
+    const session = this._assaultHandler.getAssaultSession(ctx);
+    if (session) {
+      const isPaused = Boolean(ctx.pauseModal?.isOpen);
+      if (session.clock) {
+        session.clock.setPaused(isPaused);
+      }
+      const activeRound = session.activeRoundController;
+      if (activeRound && !activeRound.isCompleted) {
+        if (isPaused && !activeRound.isPaused) {
+          activeRound.pause('pause_modal');
+        } else if (!isPaused && activeRound.isPaused && !session.clock?.isFrozen) {
+          activeRound.resume();
+        }
+      }
+    }
     this._assaultHandler.update(dt, ctx);
   }
 

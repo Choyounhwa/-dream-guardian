@@ -204,6 +204,28 @@ describe('AssaultSceneHandler (#619)', () => {
         2160
       );
     });
+
+    it('[BUG-AVATAR-002] 어설트 씬 렌더 시 stickmanRenderer 가 존재하면 alwaysRender: true 옵션으로 render 를 호출해야 한다', () => {
+      const mockStickmanRenderer = { render: vi.fn() };
+      mockContext.stickmanRenderer = mockStickmanRenderer;
+
+      handler.render(mockContext);
+
+      expect(mockStickmanRenderer.render).toHaveBeenCalledWith(
+        mockContext.canvasManager.ctx,
+        1080,
+        2160,
+        expect.objectContaining({ alwaysRender: true }),
+      );
+    });
+
+    it('[BUG-AVATAR-002] stickmanRenderer 가 없거나 undefined 여도 에러 없이 안전하게 렌더링되어야 한다', () => {
+      mockContext.stickmanRenderer = undefined;
+
+      expect(() => {
+        handler.render(mockContext);
+      }).not.toThrow();
+    });
   });
 
   describe('renderHUD & handlePose', () => {
@@ -222,14 +244,14 @@ describe('AssaultSceneHandler (#619)', () => {
       );
     });
 
-    it('session.handlePose 가 존재하면 transformedLandmarks 를 전달한다', () => {
+    it('session.handlePose 가 존재하면 transformedLandmarks 및 정규화 랜드마크를 전달한다', () => {
       const session = { handlePose: vi.fn() };
       mockContext.assaultSession = session;
       const landmarks = [{ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }];
 
       const handled = handler.handlePose(landmarks, mockContext, 0.016);
       expect(handled).toBe(true);
-      expect(session.handlePose).toHaveBeenCalledWith(landmarks, undefined, 0.016);
+      expect(session.handlePose).toHaveBeenCalledWith(landmarks, landmarks, 0.016);
     });
   });
 

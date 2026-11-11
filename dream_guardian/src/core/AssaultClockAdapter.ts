@@ -13,7 +13,7 @@
  */
 
 import { DEFAULT_ASSAULT_INPUT_CONFIG } from '../../config/assault-input.config.js';
-import { DEFAULT_ASSAULT_CONFIG } from '../../config/assault.config.js';
+import { DEFAULT_ASSAULT_CONFIG, DEFAULT_ASSAULT_BPM } from '../../config/assault.config.js';
 
 /** 안전 정지 요인 */
 export type AssaultPauseReason =
@@ -27,13 +27,17 @@ export type AssaultInputDiscardReason =
   | AssaultPauseReason
   | 'clock_frozen'
   | 'backwards_timestamp'
-  | 'duplicate_timestamp';
+  | 'duplicate_timestamp'
+  | 'stale_round_input';
 
 /** 모션/폴백 원본 입력 계약 */
 export interface AssaultRawInput {
   readonly timestampMs: number;
+  readonly compensatedTimestampMs?: number;
   readonly inputId?: string;
   readonly hand?: 'left' | 'right';
+  readonly source?: 'camera' | 'keyboard' | 'touch' | 'fallback' | string;
+  readonly roundId?: string;
   readonly [key: string]: unknown;
 }
 
@@ -43,9 +47,12 @@ export interface AssaultNormalizedInput {
   readonly rawTimestampMs: number;
   readonly compensatedTimestampMs: number;
   readonly activeTimestampSeconds: number;
+  readonly roundRelativeSeconds?: number;
   readonly latencyMs: number;
   readonly inputId?: string;
   readonly hand?: 'left' | 'right';
+  readonly source?: string;
+  readonly roundId?: string;
   readonly originalInput?: AssaultRawInput;
 }
 
@@ -57,6 +64,8 @@ export interface AssaultRejectedInput {
   readonly reason: AssaultInputDiscardReason;
   readonly inputId?: string;
   readonly hand?: 'left' | 'right';
+  readonly source?: string;
+  readonly roundId?: string;
 }
 
 /** 정규화 입력 판정 유니온 */
@@ -101,6 +110,12 @@ export class AssaultClockAdapter {
   private _needsMotionReprep = false;
   private _justResumed = false;
 
+  private _roundOriginSeconds = 0;
+  private _currentRoundId: string | null = null;
+  private _lastAcceptedBatch: {
+    timestampMs: number;
+    keys: Set<string>;
+  } | null = null;
   private _lastAcceptedRawTimestampMs: number | null = null;
   private _lastEngineTimestampMs: number | null = null;
 
@@ -111,7 +126,7 @@ export class AssaultClockAdapter {
     this._isFallbackMode = options.isFallbackMode ?? false;
     this._resumeReadyBeats =
       options.resumeReadyBeats ?? DEFAULT_ASSAULT_CONFIG.resumeReadyBeats;
-    this._bpm = options.bpm ?? 100;
+    this._bpm = options.bpm ?? DEFAULT_ASSAULT_BPM;
   }
 
   // ─── Getters ───
@@ -132,18 +147,65 @@ export class AssaultClockAdapter {
     return this._bpm;
   }
 
+  public get secondsPerBeat(): number {
+    return 60 / this._bpm;
+  }
+
   public get isFallbackMode(): boolean {
     return this._isFallbackMode;
+  }
+
+  public get isPaused(): boolean {
+    return this._isPaused;
+  }
+
+  public get isHidden(): boolean {
+    return this._isHidden;
+  }
+
+  public get isTrackingLost(): boolean {
+    return this._isTrackingLost;
+  }
+
+  public get isFrameDeltaExceeded(): boolean {
+    return this._isFrameDeltaExceeded;
   }
 
   public get activeSeconds(): number {
     return this._activeSeconds;
   }
 
+  public get roundOriginSeconds(): number {
+    return this._roundOriginSeconds;
+  }
+
+  public get lastAcceptedRawTimestampMs(): number | null {
+    return this._lastAcceptedRawTimestampMs;
+  }
+
+  public get currentRoundId(): string | null {
+    return this._currentRoundId;
+  }
+
+  public setRoundOrigin(originSeconds: number, roundId?: string): void {
+    this._roundOriginSeconds = Math.max(0, originSeconds);
+    if (roundId !== undefined) {
+      this._currentRoundId = roundId;
+    }
+  }
+
+  public toRoundRelativeSeconds(sessionActiveSeconds?: number): number {
+    const sec = sessionActiveSeconds !== undefined ? sessionActiveSeconds : this.activeSeconds;
+    return Math.max(0, sec - this._roundOriginSeconds);
+  }
+
+  public toRoundRelativeMs(sessionActiveSeconds?: number): number {
+    return Math.round(this.toRoundRelativeSeconds(sessionActiveSeconds) * 1000);
+  }
+
   public get isFrozen(): boolean {
     if (this._isPaused) return true;
     if (this._isHidden) return true;
-    if (this._isTrackingLost && !this._isFallbackMode) return true;
     if (this._isFrameDeltaExceeded) return true;
     return false;
   }
@@ -152,7 +214,6 @@ export class AssaultClockAdapter {
     const reasons: AssaultPauseReason[] = [];
     if (this._isPaused) reasons.push('pause');
     if (this._isHidden) reasons.push('hidden');
-    if (this._isTrackingLost && !this._isFallbackMode) reasons.push('tracking_lost');
     if (this._isFrameDeltaExceeded) reasons.push('frame_delta_exceeded');
     return reasons;
   }
@@ -239,6 +300,9 @@ export class AssaultClockAdapter {
 
   public reset(initialActiveSeconds = 0): void {
     this._activeSeconds = initialActiveSeconds;
+    this._roundOriginSeconds = initialActiveSeconds;
+    this._currentRoundId = null;
+    this._lastAcceptedBatch = null;
     this._lastAcceptedRawTimestampMs = null;
     this._lastEngineTimestampMs = null;
     this._isPaused = false;
@@ -326,11 +390,35 @@ export class AssaultClockAdapter {
     const rawTimestampMs = isObject ? rawInput.timestampMs : rawInput;
     const inputId = isObject ? rawInput.inputId : undefined;
     const hand = isObject ? rawInput.hand : undefined;
+    const source = isObject ? rawInput.source : undefined;
+    const roundId = isObject ? rawInput.roundId : undefined;
 
-    const compensatedTimestampMs = Math.max(
-      0,
-      rawTimestampMs - this._inputLatencyMs
-    );
+    const isFallbackInput =
+      this._isFallbackMode ||
+      source === 'keyboard' ||
+      source === 'touch' ||
+      source === 'fallback';
+
+    let effectiveLatencyMs = this._inputLatencyMs;
+    let compensatedTimestampMs: number;
+
+    if (isFallbackInput) {
+      effectiveLatencyMs = 0;
+      compensatedTimestampMs = rawTimestampMs;
+    } else if (
+      isObject &&
+      typeof rawInput.compensatedTimestampMs === 'number' &&
+      rawInput.compensatedTimestampMs !== rawTimestampMs
+    ) {
+      // 이미 선행 어댑터에서 130ms 등이 1회 적용된 경우 (이중 차감 금지)
+      compensatedTimestampMs = Math.max(0, rawInput.compensatedTimestampMs);
+      effectiveLatencyMs = Math.max(0, rawTimestampMs - compensatedTimestampMs) || this._inputLatencyMs;
+    } else {
+      compensatedTimestampMs = Math.max(
+        0,
+        rawTimestampMs - effectiveLatencyMs
+      );
+    }
 
     // 1. 동결 상태 확인
     if (this.isFrozen) {
@@ -341,12 +429,15 @@ export class AssaultClockAdapter {
         reason: this.primaryPauseReason ?? 'clock_frozen',
         inputId,
         hand,
+        source,
+        roundId,
       };
     }
 
-    // 2. 단조 증가성 확인 (역행 / 중복 차단)
-    if (this._lastAcceptedRawTimestampMs !== null) {
-      if (rawTimestampMs < this._lastAcceptedRawTimestampMs) {
+    // 2. 단조 증가성 및 동시손/inputId batch 확인
+    const batchKey = inputId ?? (hand ? `hand_${hand}` : `input_${source ?? 'default'}`);
+    if (this._lastAcceptedBatch !== null) {
+      if (rawTimestampMs < this._lastAcceptedBatch.timestampMs) {
         return {
           accepted: false,
           rawTimestampMs,
@@ -354,23 +445,27 @@ export class AssaultClockAdapter {
           reason: 'backwards_timestamp',
           inputId,
           hand,
+          source,
+          roundId,
         };
       }
-      if (rawTimestampMs === this._lastAcceptedRawTimestampMs) {
-        return {
-          accepted: false,
-          rawTimestampMs,
-          compensatedTimestampMs,
-          reason: 'duplicate_timestamp',
-          inputId,
-          hand,
-        };
+      if (rawTimestampMs === this._lastAcceptedBatch.timestampMs) {
+        if (this._lastAcceptedBatch.keys.has(batchKey)) {
+          return {
+            accepted: false,
+            rawTimestampMs,
+            compensatedTimestampMs,
+            reason: 'duplicate_timestamp',
+            inputId,
+            hand,
+            source,
+            roundId,
+          };
+        }
       }
     }
 
-    // 3. 입력 승인 및 활성 시각 산출
-    this._lastAcceptedRawTimestampMs = rawTimestampMs;
-
+    // 3. 입력 승인 및 활성 시각 산출 (절대 원점 독립성 보장)
     let activeTimestampSeconds: number;
     if (
       this._lastEngineTimestampMs !== null &&
@@ -384,18 +479,51 @@ export class AssaultClockAdapter {
     } else {
       activeTimestampSeconds = Math.max(
         0,
-        this._activeSeconds - this._inputLatencyMs / 1000
+        this._activeSeconds - effectiveLatencyMs / 1000
       );
     }
+
+    // 4. 이전 라운드 stale 입력 차단
+    if (
+      (roundId && this._currentRoundId && roundId !== this._currentRoundId) ||
+      (this._roundOriginSeconds > 0 && activeTimestampSeconds < this._roundOriginSeconds - 0.05)
+    ) {
+      return {
+        accepted: false,
+        rawTimestampMs,
+        compensatedTimestampMs,
+        reason: 'stale_round_input',
+        inputId,
+        hand,
+        source,
+        roundId,
+      };
+    }
+
+    // 5. 배치 상태 갱신 및 최종 승인
+    if (this._lastAcceptedBatch !== null && rawTimestampMs === this._lastAcceptedBatch.timestampMs) {
+      this._lastAcceptedBatch.keys.add(batchKey);
+    } else {
+      this._lastAcceptedBatch = {
+        timestampMs: rawTimestampMs,
+        keys: new Set([batchKey]),
+      };
+    }
+    this._lastAcceptedRawTimestampMs = rawTimestampMs;
+
+    const roundRelativeSeconds = Math.max(0, activeTimestampSeconds - this._roundOriginSeconds);
 
     return {
       accepted: true,
       rawTimestampMs,
       compensatedTimestampMs,
       activeTimestampSeconds,
-      latencyMs: this._inputLatencyMs,
+      roundRelativeSeconds,
+      latencyMs: effectiveLatencyMs,
       inputId,
       hand,
+      source,
+      roundId,
       originalInput: isObject ? rawInput : undefined,
     };
   }

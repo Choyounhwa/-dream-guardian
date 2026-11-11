@@ -9,6 +9,12 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BGMManager } from '../../src/audio/BGMManager.js';
+import {
+  DEFAULT_STORY_BGM_TRACK,
+  DEFAULT_STORY_BGM_BPM,
+  DEFAULT_ASSAULT_BGM_TRACK,
+  DEFAULT_ASSAULT_BGM_BPM,
+} from '../../config/audio.config.js';
 
 interface MockAudioParam {
   value: number;
@@ -241,6 +247,68 @@ describe('BGMManager (Issue #223 - AUDIO-SAMPLE-001)', () => {
         silentManager.pause();
         silentManager.stop();
       }).not.toThrow();
+    });
+  });
+
+  describe('9. 동적 트랙 전환 (setTrack)', () => {
+    it('setTrack() 호출 시 trackUrl과 bpm이 정상 갱신되어야 한다', () => {
+      expect(bgmManager.trackUrl).toBe('/audio/bgm/ch1_hayesini_rock_sample.wav');
+      expect(bgmManager.bpm).toBe(120);
+
+      bgmManager.setTrack('/audio/bgm/115bpm-Precision Rhythm Quest.mp3', 115);
+
+      expect(bgmManager.trackUrl).toBe('/audio/bgm/115bpm-Precision Rhythm Quest.mp3');
+      expect(bgmManager.bpm).toBe(115);
+    });
+
+    it('재생 중 다른 트랙으로 setTrack() 호출 시 기존 버퍼가 초기화되어야 한다', async () => {
+      await bgmManager.play();
+      expect(bgmManager.isPlaying).toBe(true);
+      expect((bgmManager as any)._audioBuffer).not.toBeNull();
+
+      bgmManager.setTrack('/audio/bgm/115bpm-Precision Rhythm Quest.mp3', 115);
+      expect(bgmManager.trackUrl).toBe('/audio/bgm/115bpm-Precision Rhythm Quest.mp3');
+      expect((bgmManager as any)._audioBuffer).toBeNull();
+    });
+
+    it('동일한 트랙으로 setTrack() 호출 시에는 버퍼를 불필요하게 초기화하지 않아야 한다', async () => {
+      await bgmManager.play();
+      const currentTrack = bgmManager.trackUrl;
+      const prevBuffer = (bgmManager as any)._audioBuffer;
+      expect(prevBuffer).not.toBeNull();
+
+      bgmManager.setTrack(currentTrack);
+      expect(bgmManager.trackUrl).toBe(currentTrack);
+      expect((bgmManager as any)._audioBuffer).toBe(prevBuffer);
+    });
+
+    it('잘못되거나 누락된 BPM 전달 시 기존 bpm이 유지되어야 한다', () => {
+      expect(bgmManager.bpm).toBe(120);
+
+      // BPM 누락 시 기존 bpm 유지
+      bgmManager.setTrack('/audio/bgm/new-track-1.mp3');
+      expect(bgmManager.trackUrl).toBe('/audio/bgm/new-track-1.mp3');
+      expect(bgmManager.bpm).toBe(120);
+
+      // 음수, 0, NaN 전달 시 기존 bpm 유지
+      bgmManager.setTrack('/audio/bgm/new-track-2.mp3', -10);
+      expect(bgmManager.bpm).toBe(120);
+
+      bgmManager.setTrack('/audio/bgm/new-track-3.mp3', 0);
+      expect(bgmManager.bpm).toBe(120);
+
+      bgmManager.setTrack('/audio/bgm/new-track-4.mp3', Number.NaN);
+      expect(bgmManager.bpm).toBe(120);
+    });
+
+    it('audio.config.ts의 기본 스토리 및 어설트 BGM 설정과 연동되어야 한다', () => {
+      bgmManager.setTrack(DEFAULT_STORY_BGM_TRACK, DEFAULT_STORY_BGM_BPM);
+      expect(bgmManager.trackUrl).toBe('/audio/bgm/ch1_hayesini_rock_sample.wav');
+      expect(bgmManager.bpm).toBe(120);
+
+      bgmManager.setTrack(DEFAULT_ASSAULT_BGM_TRACK, DEFAULT_ASSAULT_BGM_BPM);
+      expect(bgmManager.trackUrl).toBe('/audio/bgm/115bpm-Precision Rhythm Quest.mp3');
+      expect(bgmManager.bpm).toBe(115);
     });
   });
 });

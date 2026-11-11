@@ -293,6 +293,7 @@ export class AppBootstrap {
   get roundEventBinder(): AppRoundEventBinder { return this._roundEventBinder; }
   get sessionFlowCoordinator(): AppSessionFlowCoordinator { return this._sessionFlowCoordinator; }
   get uiPresentationSyncManager(): AppUIPresentationSyncManager { return this._uiPresentationSyncManager; }
+  get assaultImpactVFX() { return this.sceneDirector?.assaultHandler?.assaultImpactVFX; }
 
   public isAssaultMode(): boolean {
     return this._assaultWireHelper?.isAssaultMode?.() ?? false;
@@ -319,6 +320,22 @@ export class AppBootstrap {
   ): boolean {
     return this._assaultWireHelper.handleAssaultIntent(intent, snapshot, sessionToken, options);
   }
+  public get assaultResultSnapshot() {
+    return this._assaultWireHelper?.lastAssaultResultSnapshot ?? null;
+  }
+  public get lastAssaultResultSnapshot() {
+    return this._assaultWireHelper?.lastAssaultResultSnapshot ?? null;
+  }
+
+  public handleAssaultSessionTermination(options: {
+    outcome: 'completed' | 'aborted' | 'defeated';
+    roundSummaries?: readonly any[];
+    isTestSession?: boolean;
+    recordResults?: boolean;
+  }): boolean {
+    return this._assaultWireHelper.handleAssaultSessionTermination(options);
+  }
+
   public restartAssaultSession(options?: Partial<AssaultSessionOptions>): AssaultSession {
     return this._assaultWireHelper.restartAssaultSession(options);
   }
@@ -511,7 +528,7 @@ export class AppBootstrap {
       questionBank,
       battle,
       armReachAnswerSelector: subsystems.armReachAnswerSelector,
-      answerRestBeats: this._options.answerRestBeats ?? (this._options.canvas ? 0 : 2),
+      answerRestBeats: this._options.answerRestBeats ?? 2,
       sfx: subsystems.sfx,
     });
     roundEventBinder.bindFootKeynote(subsystems.footKeynoteInput);
@@ -561,6 +578,8 @@ export class AppBootstrap {
       get answerLocked() { return answerLocked; }, set answerLocked(v) { answerLocked = v; },
       get feedbackTimer() { return feedbackTimer; }, set feedbackTimer(v) { feedbackTimer = v; },
       get feedbackCorrect() { return feedbackCorrect; }, set feedbackCorrect(v) { feedbackCorrect = v; },
+      get feedbackCustomText() { return feedbackCustomText; }, set feedbackCustomText(v) { feedbackCustomText = v; },
+      get feedbackCustomColor() { return feedbackCustomColor; }, set feedbackCustomColor(v) { feedbackCustomColor = v; },
       get menuHoverItem() { return menuHoverItem; }, set menuHoverItem(v) { menuHoverItem = v; },
       get menuHoverTimer() { return menuHoverTimer; }, set menuHoverTimer(v) { menuHoverTimer = v; },
       get resultReturnTimer() { return resultReturnTimer; }, set resultReturnTimer(v) { resultReturnTimer = v; },

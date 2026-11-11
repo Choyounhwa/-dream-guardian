@@ -85,8 +85,8 @@ describe('[BOSS-ASSAULT-11 / #513] 동작형 키보드·터치 폴백 어댑터 
   });
 
   describe('2. 키보드 신호 정규화 및 동작 변환', () => {
-    it('왼쪽 펀치 키(ArrowLeft, KeyA, a, A)를 left_punch 동작으로 변환한다', () => {
-      const keys = ['ArrowLeft', 'KeyA', 'a', 'A'];
+    it('왼쪽 펀치 키(ArrowLeft, KeyA, a, A, 1, Digit1, Numpad1)를 left_punch 동작으로 변환한다', () => {
+      const keys = ['ArrowLeft', 'KeyA', 'a', 'A', '1', 'Digit1', 'Numpad1'];
       for (const k of keys) {
         adapter.reset();
         const event = adapter.handleKeyDown({ key: k, timestampMs: 1234, sessionId: 's1', pairId: 'p1' });
@@ -100,8 +100,8 @@ describe('[BOSS-ASSAULT-11 / #513] 동작형 키보드·터치 폴백 어댑터 
       }
     });
 
-    it('오른쪽 펀치 키(ArrowRight, KeyD, d, D)를 right_punch 동작으로 변환한다', () => {
-      const keys = ['ArrowRight', 'KeyD', 'd', 'D'];
+    it('오른쪽 펀치 키(ArrowRight, KeyD, d, D, 2, Digit2, Numpad2)를 right_punch 동작으로 변환한다', () => {
+      const keys = ['ArrowRight', 'KeyD', 'd', 'D', '2', 'Digit2', 'Numpad2'];
       for (const k of keys) {
         adapter.reset();
         const event = adapter.handleKeyDown({ key: k, timestampMs: 2000 });

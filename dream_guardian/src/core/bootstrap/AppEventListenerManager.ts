@@ -58,7 +58,12 @@ export interface AppEventListenerHost {
   engine?: { elapsedTime: number };
   bossHazardController?: { recordAction(action: string): void };
   phaseAHazardController?: { activePattern: string | null; recordAction(action: string): void };
-  assaultWireHelper?: { handleKeyDown(e: KeyboardEvent): boolean; handleKeyUp(e: KeyboardEvent): void; handleVisibilityChange?(hidden?: boolean): void };
+  assaultWireHelper?: {
+    handleKeyDown(e: KeyboardEvent): boolean;
+    handleKeyUp(e: KeyboardEvent): void;
+    handleClick?(normX: number, normY: number): boolean;
+    handleVisibilityChange?(hidden?: boolean): void;
+  };
   readyPositionController?: { isActive: boolean; skip(): void };
   runningMatRenderer?: { triggerMotionHit(): void };
   effectManager?: { playBurst(options: any): void };
@@ -401,6 +406,15 @@ export class AppEventListenerManager {
         host.readyPositionController.skip();
         return;
       }
+
+      // 보스 접근전(ASSAULT_ROUND) 캔버스 좌/우 클릭 연동
+      if (currentState === 'ASSAULT_ROUND' && !host.pauseModal?.isOpen && host.assaultWireHelper?.handleClick) {
+        if (host.assaultWireHelper.handleClick(normX, normY)) {
+          host.sfx?.play('hover');
+          return;
+        }
+      }
+
       // running 중 클릭 -> 스텝 입력
       if (host.gamePhase === 'running' && !host.pauseModal?.isOpen) {
         host.beatCoordinator?.recordStep();

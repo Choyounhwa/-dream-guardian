@@ -57,6 +57,7 @@ import type {
 import type {
   AssaultJumpPosture,
   AssaultJumpResult,
+  AssaultJumpMotionKind,
 } from '../../motion/AssaultJumpAdapter.js';
 
 // ─── 1. 결전 페이즈 및 인계/스냅샷 계약 ───
@@ -116,6 +117,7 @@ export interface AssaultFinaleJumpInput {
   readonly posture?: AssaultJumpPosture | 'jumping';
   readonly isJumping?: boolean;
   readonly isLowImpact?: boolean;
+  readonly motionKind?: AssaultJumpMotionKind;
   readonly timestampMs: number;
   readonly activeSeconds?: number;
   readonly landGeneration?: number;
@@ -384,15 +386,19 @@ export class AssaultFinaleController {
   }
 
   handleJump(input: AssaultFinaleJumpInput | AssaultJumpResult): AssaultFinaleInputResult {
+    const rawMotionKind = (input as any).motionKind as AssaultJumpMotionKind | undefined;
+    const isLowImpact = (input as any).isLowImpact === true || rawMotionKind === 'low_impact';
     const isJumping =
       (input as any).isJumping === true ||
-      (input as any).posture === 'jumping';
-    const isLowImpact = (input as any).isLowImpact === true;
+      (input as any).posture === 'jumping' ||
+      isLowImpact;
+    const motionKind: AssaultJumpMotionKind = rawMotionKind ?? (isLowImpact ? 'low_impact' : 'real_jump');
 
     return this.handleMotionInput({
       kind: 'jump',
       isJumping,
       isLowImpact,
+      motionKind,
       posture: (input as any).posture,
       timestampMs: input.timestampMs,
       activeSeconds: (input as any).activeSeconds,

@@ -7,15 +7,17 @@
 
 ## 1. 버그 현황 요약 (Overview)
 
-### 1.1 미해결 재현 가능 버그 (OPEN)
+### 1.1 미해결 재현 가능 버그 (OPEN 및 보류)
+
+> **참고**: 인게임 UI 개발 패널(DEVUI/LAYOUT) 도입 및 사용자 결정에 따라 UI Editor 관련 버그(#556~#560)는 현재 **[보류]** 상태로 전환되었습니다.
 
 | 이슈 번호 | 버그 ID | 우선순위 | 영역 | 결함 요약 | 상태 |
 |:---:|:---:|:---:|:---:|:---|:---:|
-| [#556](https://github.com/Choyounhwa/-dream-guardian/issues/556) | `BUG-UI-EDITOR-008` | **P0-Critical** | UI Editor | 미리보기 snapshot payload가 빈 객체로 전송되어 속성 편집이 미리보기에 미반영 | OPEN |
-| [#557](https://github.com/Choyounhwa/-dream-guardian/issues/557) | `BUG-UI-EDITOR-009` | **P0-Critical** | UI Editor | 브라우저 진입점에서 `UISelectionOverlay` 미생성으로 캔버스 클릭 선택·드래그 불가 | OPEN |
-| [#558](https://github.com/Choyounhwa/-dream-guardian/issues/558) | `BUG-UI-EDITOR-010` | **P1-High** | UI Editor | 미리보기 캔버스에서 조작한 결과가 에디터 상태로 역방향 동기화되지 않음 | OPEN |
-| [#559](https://github.com/Choyounhwa/-dream-guardian/issues/559) | `BUG-UI-EDITOR-011` | **P2-Medium** | UI Editor | 정상 미리보기 응답이 상태줄에 "미리보기 거부: stale-document"로 오표시됨 | OPEN |
-| [#560](https://github.com/Choyounhwa/-dream-guardian/issues/560) | `BUG-UI-EDITOR-012` | **P1-High** | UI Editor | 에디터 기본 문서의 페이지별 요소 구성이 실제 게임 화면(Ch.1~5 등)과 불일치 | OPEN |
+| [#556](https://github.com/Choyounhwa/-dream-guardian/issues/556) | `BUG-UI-EDITOR-008` | **P0-Critical** | UI Editor | 미리보기 snapshot payload가 빈 객체로 전송되어 속성 편집이 미리보기에 미반영 | 보류 |
+| [#557](https://github.com/Choyounhwa/-dream-guardian/issues/557) | `BUG-UI-EDITOR-009` | **P0-Critical** | UI Editor | 브라우저 진입점에서 `UISelectionOverlay` 미생성으로 캔버스 클릭 선택·드래그 불가 | 보류 |
+| [#558](https://github.com/Choyounhwa/-dream-guardian/issues/558) | `BUG-UI-EDITOR-010` | **P1-High** | UI Editor | 미리보기 캔버스에서 조작한 결과가 에디터 상태로 역방향 동기화되지 않음 | 보류 |
+| [#559](https://github.com/Choyounhwa/-dream-guardian/issues/559) | `BUG-UI-EDITOR-011` | **P2-Medium** | UI Editor | 정상 미리보기 응답이 상태줄에 "미리보기 거부: stale-document"로 오표시됨 | 보류 |
+| [#560](https://github.com/Choyounhwa/-dream-guardian/issues/560) | `BUG-UI-EDITOR-012` | **P1-High** | UI Editor | 에디터 기본 문서의 페이지별 요소 구성이 실제 게임 화면(Ch.1~5 등)과 불일치 | 보류 |
 
 ---
 

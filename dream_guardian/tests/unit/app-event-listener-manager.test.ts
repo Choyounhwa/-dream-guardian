@@ -367,6 +367,21 @@ describe('AppEventListenerManager (Issue #632 / REFACTOR-SRP-001)', () => {
       expect(mockHost.beatCoordinator.confirmAnswerByFallback).toHaveBeenCalledWith(1);
     });
 
+    it('ASSAULT_ROUND 상태에서 캔버스 클릭 시 assaultWireHelper.handleClick을 호출한다', () => {
+      const manager = new AppEventListenerManager(mockHost);
+      mockHost.screenMode = 'game';
+      mockHost.stateMachine.currentState = 'ASSAULT_ROUND';
+      mockHost.assaultWireHelper = {
+        handleKeyDown: vi.fn(),
+        handleKeyUp: vi.fn(),
+        handleClick: vi.fn().mockReturnValue(true),
+      };
+
+      manager.handleCanvasClick({ clientX: 200, clientY: 300 } as MouseEvent);
+      expect(mockHost.assaultWireHelper.handleClick).toHaveBeenCalled();
+      expect(mockHost.sfx.play).toHaveBeenCalledWith('hover');
+    });
+
     it('결과 화면에서 클릭 시 goToMenu()를 호출한다', () => {
       const manager = new AppEventListenerManager(mockHost);
       mockHost.screenMode = 'result';

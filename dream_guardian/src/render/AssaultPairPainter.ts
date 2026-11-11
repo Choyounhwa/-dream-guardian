@@ -16,6 +16,7 @@ import {
   DEFAULT_ASSAULT_VISUAL_CONFIG,
   type AssaultVisualConfig,
 } from '../../config/assault-visual.config.js';
+import type { AssaultImpactVFX } from './assault/AssaultImpactVFX.js';
 import {
   resolveAnchor,
   type ViewportSize,
@@ -55,11 +56,38 @@ export interface AssaultPairAnchors {
   readonly rightLaunch: { x: number; y: number };
 }
 
+export interface AssaultPairPainterOptions {
+  impactVFX?: AssaultImpactVFX;
+}
+
 export class AssaultPairPainter {
   private readonly _config: AssaultVisualConfig;
+  private _impactVFX?: AssaultImpactVFX;
 
-  constructor(config?: AssaultVisualConfig) {
+  constructor(config?: AssaultVisualConfig, options?: AssaultPairPainterOptions) {
     this._config = config ?? DEFAULT_ASSAULT_VISUAL_CONFIG;
+    this._impactVFX = options?.impactVFX;
+  }
+
+  public get impactVFX(): AssaultImpactVFX | undefined {
+    return this._impactVFX;
+  }
+
+  public setImpactVFX(impactVFX?: AssaultImpactVFX): void {
+    this._impactVFX = impactVFX;
+  }
+
+  /**
+   * 답안 카드의 최종 착지 반지름 산출 (단일 진실 공급원 SSOT)
+   */
+  getFinalChoiceRadius(viewport: ViewportSize, configOverride?: AssaultVisualConfig): number {
+    const cfg = configOverride ?? this._config;
+    const vw = viewport.width || 1280;
+    const vh = viewport.height || 720;
+    const cardWidth = cfg.choiceCard.widthRatio * vw;
+    const cardHeight = cfg.choiceCard.heightRatio * vh;
+    const circleRatio = cfg.choiceCardCircleRatio ?? 0.46;
+    return Math.min(cardWidth, cardHeight) * circleRatio;
   }
 
   /**
@@ -82,16 +110,18 @@ export class AssaultPairPainter {
       y: cfg.projectileLaunchRatios.right.y * vh,
     };
 
+    const finalRadius = this.getFinalChoiceRadius(viewport, cfg);
+
     return {
       leftTarget: {
         x: leftTargetAnchor.x,
         y: leftTargetAnchor.y,
-        radius: leftTargetAnchor.radius,
+        radius: finalRadius,
       },
       rightTarget: {
         x: rightTargetAnchor.x,
         y: rightTargetAnchor.y,
-        radius: rightTargetAnchor.radius,
+        radius: finalRadius,
       },
       leftLaunch,
       rightLaunch,
@@ -120,6 +150,10 @@ export class AssaultPairPainter {
     const progress = Math.max(0, Math.min(1.0, rawProgress));
     const status: AssaultPairVisualStatus = pair.status ?? 'inFlight';
 
+    const minScale = (cfg as any)?.projectileMinScale ?? 0.45;
+    const maxScale = (cfg as any)?.projectileMaxScale ?? 1.0;
+    const easingExponent = (cfg as any)?.projectileEasingExponent ?? 2.0;
+
     // 투영 계산 (NoteProjection 공용 모듈 소비)
     const flightLeft = projectFlight(
       anchors.leftLaunch.x,
@@ -127,7 +161,7 @@ export class AssaultPairPainter {
       anchors.leftTarget.x,
       anchors.leftTarget.y,
       progress,
-      { minScale: 0.45, maxScale: 1.0, easingExponent: 2.0 },
+      { minScale, maxScale, easingExponent },
     );
 
     const flightRight = projectFlight(
@@ -136,7 +170,7 @@ export class AssaultPairPainter {
       anchors.rightTarget.x,
       anchors.rightTarget.y,
       progress,
-      { minScale: 0.45, maxScale: 1.0, easingExponent: 2.0 },
+      { minScale, maxScale, easingExponent },
     );
 
     const choiceCard = (cfg as any).choiceCard ?? (cfg as any).choiceCardLayout;
@@ -148,12 +182,15 @@ export class AssaultPairPainter {
     ctx.save();
 
     // ─── 1. 타깃 착지 영역 가이드 및 어프로치 링 ───
-    this._renderTargetZones(ctx, anchors, baseCardWidth, baseCardHeight, progress, status, colors);
+    this._renderTargetZones(ctx, anchors, baseCardWidth, baseCardHeight, progress, status, colors, cfg);
 
     // ─── 2. 좌우 연결 선 (하나의 논리 조우임을 나타냄) ───
     this._renderPairConnection(ctx, flightLeft, flightRight, status, colors);
 
-    // ─── 3. 좌측 답안 카드/탄환 렌더링 ───
+    // ─── 2.5 원형 답안 줌인 비행 원근 속도감 Trail (고스트 잔상) (ASSAULT-TRAIL-001) ───
+    this._renderApproachTrail(ctx, anchors, baseCardWidth, baseCardHeight, progress, status, colors, cfg);
+
+    // ─── 3. 좌측 답안 원형 카드 렌더링 ───
     this._renderChoiceCard(
       ctx,
       pair.leftText,
@@ -167,9 +204,11 @@ export class AssaultPairPainter {
       colors,
       choiceCard.widthRatio,
       vw,
+      cfg,
+      progress,
     );
 
-    // ─── 4. 우측 답안 카드/탄환 렌더링 ───
+    // ─── 4. 우측 답안 원형 카드 렌더링 ───
     this._renderChoiceCard(
       ctx,
       pair.rightText,
@@ -183,6 +222,8 @@ export class AssaultPairPainter {
       colors,
       choiceCard.widthRatio,
       vw,
+      cfg,
+      progress,
     );
 
     ctx.restore();
@@ -199,69 +240,77 @@ export class AssaultPairPainter {
     progress: number,
     status: AssaultPairVisualStatus,
     colors: any,
+    cfg?: AssaultVisualConfig,
   ): void {
     const isNegated = status === 'negated' || status === 'disarmed' || status === 'cancelled';
     if (isNegated) {
       return;
     }
 
-    const approachScale = computeApproachScale(progress, 1.8, 1.0);
+    const maxScale = (cfg as any)?.approachRingMaxScale ?? 2.0;
+    const approachScale = computeApproachScale(progress, maxScale, 1.0);
 
     ctx.save();
-    ctx.setLineDash?.([6, 6]);
-    ctx.lineWidth = 2;
 
-    // 좌측 타깃 박스
-    ctx.strokeStyle = colors.leftChoice;
-    this._drawRectOrRoundRect(
-      ctx,
-      anchors.leftTarget.x - cardWidth / 2,
-      anchors.leftTarget.y - cardHeight / 2,
-      cardWidth,
-      cardHeight,
-      8,
-    );
+    const targetScale = cfg?.targetReceptorScale ?? 1.0;
+    const circleRatio = cfg?.choiceCardCircleRatio ?? 0.46;
+
+    const baseRadiusL =
+      anchors.leftTarget.radius > 0
+        ? anchors.leftTarget.radius
+        : Math.min(cardWidth, cardHeight) * circleRatio;
+    const baseRadiusR =
+      anchors.rightTarget.radius > 0
+        ? anchors.rightTarget.radius
+        : Math.min(cardWidth, cardHeight) * circleRatio;
+
+    const radiusL = baseRadiusL * targetScale;
+    const radiusR = baseRadiusR * targetScale;
+
+    // ─── 1. 고정 기준 판정 링 (Hit Receptor) ───
+    // 착지 직전(progress >= 0.88)에는 저스트 타이밍 플래시(백색 강렬한 발광) 적용!
+    const isJustTiming = progress >= 0.88 && progress <= 1.0;
+    const flashColor = '#FFFFFF';
+
+    ctx.lineWidth = isJustTiming ? 3.5 : 2.0;
+    ctx.setLineDash?.([]); // 네모난 점선 틀 제거: 세련된 실선 네온 링
+
+    // 좌측 기준 링
+    ctx.strokeStyle = isJustTiming ? flashColor : colors.leftChoice;
+    ctx.shadowColor = isJustTiming ? flashColor : colors.leftChoice;
+    ctx.shadowBlur = isJustTiming ? 16 : 8;
+    ctx.beginPath();
+    ctx.arc?.(anchors.leftTarget.x, anchors.leftTarget.y, radiusL, 0, Math.PI * 2);
     ctx.stroke();
 
-    // 우측 타깃 박스
-    ctx.strokeStyle = colors.rightChoice;
-    this._drawRectOrRoundRect(
-      ctx,
-      anchors.rightTarget.x - cardWidth / 2,
-      anchors.rightTarget.y - cardHeight / 2,
-      cardWidth,
-      cardHeight,
-      8,
-    );
+    // 우측 기준 링
+    ctx.strokeStyle = isJustTiming ? flashColor : colors.rightChoice;
+    ctx.shadowColor = isJustTiming ? flashColor : colors.rightChoice;
+    ctx.shadowBlur = isJustTiming ? 16 : 8;
+    ctx.beginPath();
+    ctx.arc?.(anchors.rightTarget.x, anchors.rightTarget.y, radiusR, 0, Math.PI * 2);
     ctx.stroke();
 
-    // 어프로치 링 (진행도에 따라 수축)
+    // ─── 2. 수축 어프로치 링 (Shrinking Approach Ring / 핵심 타이밍 게이지) ───
+    // 2.0배에서 시작하여 progress 1.0일 때 기준 링과 1:1로 정확히 포개어짐
     if (progress > 0.05 && progress < 0.98) {
-      ctx.lineWidth = 1.5;
-      const ringW_L = cardWidth * approachScale;
-      const ringH_L = cardHeight * approachScale;
+      ctx.lineWidth = 2.0;
+      ctx.setLineDash?.([]);
+
+      const ringRadiusL = radiusL * approachScale;
       ctx.strokeStyle = colors.leftChoice;
-      this._drawRectOrRoundRect(
-        ctx,
-        anchors.leftTarget.x - ringW_L / 2,
-        anchors.leftTarget.y - ringH_L / 2,
-        ringW_L,
-        ringH_L,
-        8,
-      );
+      ctx.shadowColor = colors.leftChoice;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc?.(anchors.leftTarget.x, anchors.leftTarget.y, ringRadiusL, 0, Math.PI * 2);
       ctx.stroke();
 
-      const ringW_R = cardWidth * approachScale;
-      const ringH_R = cardHeight * approachScale;
+      const ringRadiusR = radiusR * approachScale;
       ctx.strokeStyle = colors.rightChoice;
-      this._drawRectOrRoundRect(
-        ctx,
-        anchors.rightTarget.x - ringW_R / 2,
-        anchors.rightTarget.y - ringH_R / 2,
-        ringW_R,
-        ringH_R,
-        8,
-      );
+      ctx.shadowColor = colors.rightChoice;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc?.(anchors.rightTarget.x, anchors.rightTarget.y, ringRadiusR, 0, Math.PI * 2);
       ctx.stroke();
     }
 
@@ -286,28 +335,117 @@ export class AssaultPairPainter {
     ctx.moveTo(leftPos.x, leftPos.y);
     ctx.lineTo(rightPos.x, rightPos.y);
 
-    if (isNegated) {
-      ctx.strokeStyle = colors.perfectGlow;
-      ctx.globalAlpha = 0.2;
-      ctx.lineWidth = 1;
-      ctx.setLineDash?.([4, 8]);
-    } else if (isWrong) {
-      ctx.strokeStyle = colors.hazardRed;
-      ctx.globalAlpha = 0.7;
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash?.([8, 4]);
-    } else {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash?.([4, 4]);
-    }
-
+    // [ASSAULT-VIS-CARD-001]: 투박한 점선 대신 은은한 극저투명도(0.12) 소프트 연결선 적용
+    ctx.setLineDash?.([]);
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.12;
+    ctx.strokeStyle = isNegated ? colors.perfectGlow : (isWrong ? colors.hazardRed : 'rgba(255, 255, 255, 0.2)');
     ctx.stroke();
     ctx.restore();
   }
 
   /**
-   * 개별 선택지 카드(탄환) 렌더링
+   * 원형 답안 줌인 비행 원근 속도감 Trail(고스트 잔상) 효과 렌더링 (ASSAULT-TRAIL-001)
+   */
+  private _renderApproachTrail(
+    ctx: CanvasRenderingContext2D,
+    anchors: AssaultPairAnchors,
+    baseCardWidth: number,
+    baseCardHeight: number,
+    progress: number,
+    status: AssaultPairVisualStatus,
+    colors: any,
+    cfg?: AssaultVisualConfig,
+    side?: 'left' | 'right',
+  ): void {
+    // 착지 완료(progress >= 1.0) 또는 대기 중(progress <= 0), 또는 비행 상태가 아닐 때 연산 및 드로잉 0회 (Zero Overhead)
+    if (progress <= 0 || progress >= 1.0) {
+      return;
+    }
+    const isNonFlight =
+      status === 'negated' ||
+      status === 'disarmed' ||
+      status === 'cancelled' ||
+      status === 'hit' ||
+      status === 'miss' ||
+      status === 'timeout' ||
+      status === 'pending';
+    if (isNonFlight) {
+      return;
+    }
+
+    const ghostCfg = (cfg as any)?.ghostTrail ?? DEFAULT_ASSAULT_VISUAL_CONFIG.ghostTrail;
+    if (ghostCfg?.enabled === false) {
+      return;
+    }
+
+    const stepOffsets: readonly number[] = ghostCfg?.stepOffsets ?? [0.035, 0.070, 0.105];
+    const alphas: readonly number[] = ghostCfg?.alphas ?? [0.28, 0.20, 0.12];
+
+    const minScale = (cfg as any)?.projectileMinScale ?? 0.45;
+    const maxScale = (cfg as any)?.projectileMaxScale ?? 1.0;
+    const easingExponent = (cfg as any)?.projectileEasingExponent ?? 2.0;
+    const circleRatio = cfg?.choiceCardCircleRatio ?? 0.46;
+
+    ctx.save();
+
+    for (let i = 0; i < stepOffsets.length; i++) {
+      const offset = stepOffsets[i];
+      const ghostProgress = progress - offset;
+      if (ghostProgress <= 0) {
+        continue;
+      }
+      const alpha = alphas[i] ?? 0.15;
+      ctx.globalAlpha = alpha;
+
+      // 좌측 답안 잔상 (시안 고스트 펄스 링)
+      if (!side || side === 'left') {
+        const flightLeft = projectFlight(
+          anchors.leftLaunch.x,
+          anchors.leftLaunch.y,
+          anchors.leftTarget.x,
+          anchors.leftTarget.y,
+          ghostProgress,
+          { minScale, maxScale, easingExponent },
+        );
+        const radiusL = Math.min(baseCardWidth * flightLeft.scale, baseCardHeight * flightLeft.scale) * circleRatio;
+
+        ctx.lineWidth = 2.0;
+        ctx.strokeStyle = colors.leftChoice;
+        ctx.shadowColor = colors.leftChoice;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc?.(flightLeft.x, flightLeft.y, radiusL, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // 우측 답안 잔상 (보라 고스트 펄스 링)
+      if (!side || side === 'right') {
+        const flightRight = projectFlight(
+          anchors.rightLaunch.x,
+          anchors.rightLaunch.y,
+          anchors.rightTarget.x,
+          anchors.rightTarget.y,
+          ghostProgress,
+          { minScale, maxScale, easingExponent },
+        );
+        const radiusR = Math.min(baseCardWidth * flightRight.scale, baseCardHeight * flightRight.scale) * circleRatio;
+
+        ctx.lineWidth = 2.0;
+        ctx.strokeStyle = colors.rightChoice;
+        ctx.shadowColor = colors.rightChoice;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc?.(flightRight.x, flightRight.y, radiusR, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * 개별 선택지 카드(원형 펄스 탄환) 렌더링
    */
   private _renderChoiceCard(
     ctx: CanvasRenderingContext2D,
@@ -322,8 +460,23 @@ export class AssaultPairPainter {
     colors: any,
     widthRatio: number,
     viewportWidth: number,
+    cfg?: AssaultVisualConfig,
+    progress: number = 1.0,
   ): void {
     ctx.save();
+
+    // 점진적 투명도(Fade-in) 출현 (10% -> 100%)
+    // 정답 활성화(착지) 전까지 투명도 0.10에서 차츰 짙어지도록 설정
+    const clampedProgress = Math.max(0, Math.min(1, progress));
+    const fadeAlpha = 0.10 + 0.90 * clampedProgress;
+    ctx.globalAlpha = fadeAlpha;
+
+    const poppingScale = this._impactVFX?.getPoppingScale(side) ?? 1.0;
+    if (poppingScale !== 1.0) {
+      ctx.translate(cx, cy);
+      ctx.scale(poppingScale, poppingScale);
+      ctx.translate(-cx, -cy);
+    }
 
     const isNegated = status === 'negated' || status === 'disarmed' || status === 'cancelled';
     const isWrongSide = (status === 'wrong_locked' || status === 'wrong_hit') &&
@@ -335,39 +488,68 @@ export class AssaultPairPainter {
     let textColor = '#ffffff';
 
     if (isNegated) {
-      ctx.globalAlpha = 0.3;
+      const isPopping = poppingScale > 1.02;
+      ctx.globalAlpha = isPopping
+        ? ctx.globalAlpha * Math.min(1.0, 0.4 + (poppingScale - 1.0) * 1.5)
+        : ctx.globalAlpha * 0.3;
       strokeColor = colors.perfectGlow;
-      fillColor = 'rgba(0, 255, 136, 0.15)';
-      textColor = 'rgba(255, 255, 255, 0.5)';
+      fillColor = isPopping ? 'rgba(0, 255, 136, 0.35)' : 'rgba(0, 255, 136, 0.15)';
+      textColor = isPopping ? '#00FF88' : 'rgba(255, 255, 255, 0.5)';
+      if (isPopping) {
+        ctx.shadowColor = colors.perfectGlow;
+        ctx.shadowBlur = Math.min(32, 16 + (poppingScale - 1.0) * 30);
+      }
     } else if (isWrongSide) {
+      const isPopping = poppingScale > 1.02;
       strokeColor = colors.hazardRed;
-      fillColor = 'rgba(255, 77, 77, 0.3)';
+      fillColor = isPopping ? 'rgba(255, 77, 77, 0.5)' : 'rgba(255, 77, 77, 0.3)';
       textColor = colors.hazardRed;
       ctx.shadowColor = colors.hazardRed;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = isPopping ? Math.min(32, 20 + (poppingScale - 1.0) * 30) : 16;
     } else if (isTimeout) {
       strokeColor = colors.hazardRed;
       fillColor = 'rgba(40, 20, 20, 0.8)';
       textColor = 'rgba(255, 100, 100, 0.8)';
     }
 
-    // 카드 배경 및 테두리
+    // ─── 원형 두꺼운 펄스 테두리 드로잉 ───
+    const circleRatio = cfg?.choiceCardCircleRatio ?? 0.46;
+    const circleRadius = Math.min(width, height) * circleRatio;
+    const pulseFactor = (Math.sin(clampedProgress * Math.PI * 4) + 1) * 0.5; // 0.0 ~ 1.0
+    const borderWidth = isWrongSide ? 5.5 : 4.5 + pulseFactor * 1.5; // 항상 4.5 ~ 6.0px 두꺼운 펄스
+
     ctx.fillStyle = fillColor;
     ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = isWrongSide ? 3.5 : 2.5;
+    ctx.lineWidth = borderWidth;
+    ctx.shadowColor = strokeColor;
+    ctx.shadowBlur = isWrongSide ? 16 : 14;
 
-    const x = cx - width / 2;
-    const y = cy - height / 2;
-    const radius = Math.min(12, height * 0.2);
-
-    this._drawRectOrRoundRect(ctx, x, y, width, height, radius);
+    ctx.beginPath();
+    ctx.arc?.(cx, cy, Math.max(1, circleRadius), 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // 텍스트 라벨 렌더링
+    // 텍스트 라벨 렌더링 (원형 내부에 맞춘 폰트 크기 적용)
     const scaleFactor = viewportWidth / 1280;
-    const fontSize = Math.max(14, Math.round(28 * scaleFactor * (width / (widthRatio * viewportWidth))));
+    const baseQuestionSize = (cfg as any)?.questionFontSizePx ?? 100;
+    const fontScaleRatio = (cfg as any)?.choiceFontScaleRatio ?? (100 / 100);
+    const baseChoiceFontSize = (cfg as any)?.choiceBaseFontSizePx ?? Math.round(baseQuestionSize * fontScaleRatio);
+    const minFontSize = (cfg as any)?.labelMinFontSizePx ?? 20;
+
+    const flightScale = width / (widthRatio * viewportWidth);
+    let fontSize = Math.max(minFontSize, Math.round(baseChoiceFontSize * scaleFactor * flightScale));
+
+    // 원형 경계 대비 텍스트 폭 안전 수용
+    const maxAllowedWidth = circleRadius * 1.6;
     ctx.font = `bold ${fontSize}px sans-serif`;
+    if (typeof ctx.measureText === 'function') {
+      const measured = ctx.measureText(text).width;
+      if (measured > maxAllowedWidth && measured > 0) {
+        fontSize = Math.max(minFontSize, Math.round(fontSize * (maxAllowedWidth / measured)));
+        ctx.font = `bold ${fontSize}px sans-serif`;
+      }
+    }
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = textColor;
@@ -377,28 +559,9 @@ export class AssaultPairPainter {
     if (isNegated) {
       ctx.font = `bold ${Math.max(10, Math.round(12 * scaleFactor))}px sans-serif`;
       ctx.fillStyle = colors.perfectGlow;
-      ctx.fillText('DISARMED', cx, cy + height * 0.35);
+      ctx.fillText('DISARMED', cx, cy + circleRadius * 0.5);
     }
 
     ctx.restore();
-  }
-
-  /**
-   * roundRect 지원 여부에 따른 안전한 사각형 드로잉
-   */
-  private _drawRectOrRoundRect(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    r: number,
-  ): void {
-    ctx.beginPath();
-    if (typeof ctx.roundRect === 'function') {
-      ctx.roundRect(x, y, w, h, r);
-    } else {
-      ctx.rect(x, y, w, h);
-    }
   }
 }

@@ -79,8 +79,8 @@ describe('[BOSS-ASSAULT-REC-06 / #591] Pair Encounter & Arrival Lifecycle in Rou
       });
 
       const readingEnd = controller.readingEndTime;
-      // 조우 시작 이후 (도착 전)
-      const encounterMid = readingEnd + 1.0;
+      // 조우 시작 이후 (도착 readingEnd + 2.0s 100ms 전, EarlyMiss 170ms 유효창 내)
+      const encounterMid = readingEnd + 1.9;
       controller.update(encounterMid);
 
       // 오른손 펀치 제출
@@ -125,7 +125,7 @@ describe('[BOSS-ASSAULT-REC-06 / #591] Pair Encounter & Arrival Lifecycle in Rou
       });
 
       const readingEnd = controller.readingEndTime;
-      const punchTime = readingEnd + 1.0;
+      const punchTime = readingEnd + 1.9; // 도착 100ms 전 (EarlyMiss 170ms 유효창 내)
       controller.update(punchTime);
       controller.submitPunch('left', Math.round(punchTime * 1000), { activeSeconds: punchTime });
       controller.update(punchTime + 0.1);
@@ -155,23 +155,27 @@ describe('[BOSS-ASSAULT-REC-06 / #591] Pair Encounter & Arrival Lifecycle in Rou
       });
 
       const readingEnd = controller.readingEndTime;
-      const punchTime = readingEnd + 1.0;
+      const punchTime = readingEnd + 1.85; // 도착 150ms 전 (EarlyMiss 170ms 유효창 내)
       controller.update(punchTime);
       controller.submitPunch('right', Math.round(punchTime * 1000), { activeSeconds: punchTime, inputId: 'p_wrong' });
-      controller.update(punchTime + 0.1);
+      controller.update(punchTime + 0.06);
 
-      // 오답 피해 1건 발행
+      // BUG-ASSAULT-003: 오답 입력 순간에는 피해 0건
+      expect(commands.length).toBe(0);
+
+      // 반대 손(정답 손) 펀치 시도 (100ms 후, 동시 허용차 50ms 초과 · 도착 전) -> wrong_locked 상태이므로 무시 (여전히 0건)
+      controller.submitPunch('left', Math.round((punchTime + 0.1) * 1000), {
+        activeSeconds: punchTime + 0.1,
+        inputId: 'p_late_left',
+      });
+      controller.update(punchTime + 0.12);
+      expect(commands.length).toBe(0);
+
+      // 도착 시점(arrival: readingEnd + 2.0s)에 오답 피해 1건 발행
+      controller.update(readingEnd + 2.0);
       expect(commands.length).toBe(1);
       expect(commands[0].effectType).toBe('player_damage');
       expect(commands[0].resultKind).toBe('miss');
-
-      // 반대 손(정답 손) 펀치 시도 -> wrong_locked 상태이므로 무시
-      controller.submitPunch('left', Math.round((punchTime + 0.5) * 1000), {
-        activeSeconds: punchTime + 0.5,
-        inputId: 'p_late_left',
-      });
-      controller.update(punchTime + 0.6);
-      expect(commands.length).toBe(1);
 
       // deadline 초과 -> 추가 timeout 중복 발행 0건
       controller.update(readingEnd + 2.5);
@@ -236,7 +240,7 @@ describe('[BOSS-ASSAULT-REC-06 / #591] Pair Encounter & Arrival Lifecycle in Rou
       });
 
       const readingEnd = controller.readingEndTime;
-      const baseT = readingEnd + 0.5;
+      const baseT = readingEnd + 1.85; // 도착 150ms 전 (EarlyMiss 170ms 유효창 내)
       controller.update(baseT);
 
       const baseMs = Math.round(baseT * 1000);
@@ -247,9 +251,9 @@ describe('[BOSS-ASSAULT-REC-06 / #591] Pair Encounter & Arrival Lifecycle in Rou
       controller.update(baseT + 0.03);
 
       // 양손 충돌로 보류되었으므로 오답 정산이 확정되지 않고 pending 상태로 롤백
-      // 200ms 후 재시도로 왼손(정답) 단독 펀치
-      controller.submitPunch('left', baseMs + 200, { activeSeconds: baseT + 0.2, inputId: 'p_retry_left' });
-      controller.update(baseT + 0.21);
+      // 100ms 후(도착 전) 재시도로 왼손(정답) 단독 펀치
+      controller.submitPunch('left', baseMs + 100, { activeSeconds: baseT + 0.1, inputId: 'p_retry_left' });
+      controller.update(baseT + 0.11);
 
       // 최종적으로 정답 boss_negate 명령이 발행되어야 함
       const bossNegate = commands.find((c) => c.effectType === 'boss_negate');
@@ -269,7 +273,7 @@ describe('[BOSS-ASSAULT-REC-06 / #591] Pair Encounter & Arrival Lifecycle in Rou
       });
 
       const readingEnd = controller.readingEndTime;
-      const punchTime = readingEnd + 0.5;
+      const punchTime = readingEnd + 1.9; // 도착 100ms 전 (EarlyMiss 170ms 유효창 내)
       controller.update(punchTime);
       controller.submitPunch('left', Math.round(punchTime * 1000), { activeSeconds: punchTime, inputId: 'same_input_id' });
       controller.submitPunch('left', Math.round(punchTime * 1000), { activeSeconds: punchTime, inputId: 'same_input_id' }); // 중복

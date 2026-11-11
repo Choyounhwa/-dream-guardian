@@ -1,11 +1,112 @@
 {
-  "menu": {
-    "h": 2160,
-    "title": {
-      "x": 6,
-      "y": 200,
-      "w": 1027,
-      "h": 1
+  "version": 1,
+  "ui": {
+    "hud": {
+      "h": 642,
+      "playerHpBar": {
+        "x": 110,
+        "h": 502
+      },
+      "bossHpBar": {
+        "x": 638,
+        "h": 290
+      },
+      "bossName": {
+        "x": 450,
+        "y": 34,
+        "w": 181,
+        "h": 56
+      },
+      "comboBadge": {
+        "h": 126,
+        "y": 407,
+        "marginRight": 227
+      }
+    },
+    "menu": {
+      "h": 2160,
+      "title": {
+        "x": 6,
+        "y": 200,
+        "w": 1027,
+        "h": 1
+      }
+    },
+    "bottomBar": {
+      "y": 1967
+    },
+    "question": {
+      "board": {
+        "y": 290,
+        "w": 931,
+        "h": 431,
+        "shapeOffsetY": 0,
+        "textOffsetY": 219,
+        "shapeTextOffsetY": 196,
+        "textScale": 1.08
+      },
+      "panel": {
+        "cy": 900,
+        "vanishingY": 594.4
+      },
+      "answerButtons": {
+        "height": 243,
+        "textScale": 1.79,
+        "badgeTextScale": 1.1300000000000001,
+        "hintTextScale": 1.08,
+        "waitingTextScale": 0.97
+      },
+      "timer": {
+        "y": 665,
+        "maxYRatio": 0.43
+      }
+    },
+    "beatHud": {
+      "exerciseBadge": {
+        "titleOffsetY": 0,
+        "subtitleOffsetY": 0
+      },
+      "hazardGuide": {
+        "titleOffsetY": 0,
+        "subtitleOffsetY": 0
+      }
+    },
+    "runningMat": {
+      "w": 802,
+      "header": {
+        "offsetY": 0,
+        "textOffsetY": 0
+      },
+      "upcomingPreview": {
+        "offsetY": 0,
+        "textScale": 0.89
+      },
+      "strikeLine": {
+        "h": 455,
+        "height": 642
+      },
+      "arrow": {
+        "textScale": 3
+      },
+      "anchor": {
+        "textScale": 3
+      },
+      "footprint": {
+        "textScale": 1.61
+      }
+    },
+    "hazard": {
+      "warningBanner": {
+        "gapY": 141
+      }
+    },
+    "feedback": {
+      "pill": {
+        "radius": 830
+      }
     }
+  },
+  "assault": {
+    "choiceFontScaleRatio": 0.9977777777777777
   }
 }

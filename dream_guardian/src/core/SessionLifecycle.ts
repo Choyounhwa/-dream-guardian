@@ -54,6 +54,18 @@ export class SessionLifecycle {
     this._activeAssaultSessionToken = token;
   }
 
+  /**
+   * 활성 assault 세션 토큰 해제 (특정 토큰 또는 전체)
+   * 토큰이 지정된 경우 현재 활성 토큰과 일치할 때만 해제하여 레이스 컨디션 방지
+   */
+  clearActiveAssaultSessionToken(token?: string | number | null): void {
+    if (token === undefined || token === null) {
+      this._activeAssaultSessionToken = null;
+    } else if (this._activeAssaultSessionToken === token) {
+      this._activeAssaultSessionToken = null;
+    }
+  }
+
   /** 보관된 최근 결전 인계 스냅샷 */
   get lastHandoverSnapshot(): AssaultHandoverSnapshot | null {
     return this._lastHandoverSnapshot;

@@ -231,7 +231,7 @@ describe('MusicTrackConfig & Variable Beat Architecture (Issue #204 / BEAT-TRACK
       // 0.5초 남은 상태에서 0.7초 dt 전달 -> 0.5초로 카운트인 완료 후 나머지 0.2초가 RUN_QUESTION 진행
       coordinator.update(0.7);
       expect(coordinator.phase).toBe('RUN_QUESTION');
-      expect(coordinator.questionApproachProgress).toBeCloseTo(0.2 / (2 * 0.5), 2);
+      expect(coordinator.questionApproachProgress).toBeCloseTo(0.2 / (4 * 0.5), 2);
     });
 
     it('키보드/터치 비상 fallback(triggerFallbackAdvance) 호출 시 카운트인을 즉시 스킵하고 RUN_QUESTION으로 전이된다', () => {

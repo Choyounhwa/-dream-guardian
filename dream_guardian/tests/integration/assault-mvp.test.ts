@@ -917,25 +917,24 @@ describe('[BOSS-ASSAULT-25 / #527] MVP Core Loop 통합 게이트 인수 검증'
       expect(dispatchSpy).toHaveBeenCalledTimes(1); // 카운트 증가 0회
     });
 
-    it('A19: 추적 상실(trackingLost) 시 안전 정지 상태에 진입하고 복구 직후 가짜 타격이 발생하지 않는다', () => {
+    it('A19: 추적 상실(trackingLost) 시에도 시계가 동결되지 않고 연속 플레이가 유지된다', () => {
       const clock = new AssaultClockAdapter({ bpm: 120 });
       clock.advance(0.5);
       expect(clock.activeSeconds).toBe(0.5);
 
       // 추적 상실 발생
       clock.setTrackingLost(true);
-      expect(clock.isFrozen).toBe(true);
-      expect(clock.primaryPauseReason).toBe('tracking_lost');
+      expect(clock.isTrackingLost).toBe(true);
+      expect(clock.isFrozen).toBe(false);
+      expect(clock.pauseReasons).not.toContain('tracking_lost');
 
-      // 추적 상실 중 입력 거부
-      const rejected = clock.normalizeInput({ timestampMs: 3000, hand: 'left' });
-      expect(rejected.accepted).toBe(false);
-      expect((rejected as any).reason).toBe('tracking_lost');
+      // 시간 진행 시 정상 가산
+      clock.update(0.05);
+      expect(clock.activeSeconds).toBeCloseTo(0.55, 5);
 
       // 추적 복구
       clock.setTrackingLost(false);
-      const resumeSignal = clock.acknowledgeResume();
-      expect(resumeSignal.needsMotionReprep).toBe(true);
+      expect(clock.isTrackingLost).toBe(false);
       expect(clock.isFrozen).toBe(false);
     });
   });

@@ -163,16 +163,16 @@ describe('[BOSS-ASSAULT-08 / #510] 공통 활성 시각 및 안전 정지 어댑
       expect(clock.activeSeconds).toBeCloseTo(0.5, 5);
     });
 
-    it('모션 모드에서 추적 상실(tracking lost) 시 활성 시각이 동결되어야 한다', () => {
+    it('모션 모드에서 추적 상실(tracking lost)이 발생해도 시계가 동결되지 않고 활성 시간이 계속 흐른다', () => {
       clock.advance(0.5);
       clock.setTrackingLost(true);
 
-      expect(clock.isFrozen).toBe(true);
-      expect(clock.primaryPauseReason).toBe('tracking_lost');
-      expect(clock.pauseReasons).toContain('tracking_lost');
+      expect(clock.isTrackingLost).toBe(true);
+      expect(clock.isFrozen).toBe(false);
+      expect(clock.pauseReasons).not.toContain('tracking_lost');
 
       clock.update(0.05);
-      expect(clock.activeSeconds).toBeCloseTo(0.5, 5);
+      expect(clock.activeSeconds).toBeCloseTo(0.55, 5);
     });
 
     it('폴백 모드(fallback mode)에서는 추적 상실이 발생해도 동결되지 않고 계속 누적되어야 한다', () => {

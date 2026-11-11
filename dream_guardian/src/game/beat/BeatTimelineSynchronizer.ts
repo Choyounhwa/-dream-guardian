@@ -9,6 +9,8 @@
  * @see Issue #310 [BEAT-BRANCH-001]
  */
 
+import { DEFAULT_QUESTION_APPROACH_CONFIG } from '../../../config/beat-motion.config.js';
+
 export type AnswerWindowPhase = 'primary' | 'extension' | 'closed';
 
 export interface AnswerTimeSnapshot {
@@ -171,11 +173,16 @@ export class BeatTimelineSynchronizer {
   }
 
   /**
-   * 문제 소실점 원근 접근 진행도 (첫 2박 동안 0.0 -> 1.0 선형 진행)
+   * 문제 소실점 원근 접근 진행도 (기본 4박 동안 0.0 -> 1.0 선형 진행, Issue #711)
    */
-  static calculateQuestionApproachProgress(runElapsed: number, secondsPerBeat: number): number {
+  static calculateQuestionApproachProgress(
+    runElapsed: number,
+    secondsPerBeat: number,
+    approachBeats: number = DEFAULT_QUESTION_APPROACH_CONFIG.approachBeats,
+  ): number {
     const spb = secondsPerBeat || 0.5;
-    const approachDuration = 2 * spb;
+    const beats = approachBeats > 0 ? approachBeats : DEFAULT_QUESTION_APPROACH_CONFIG.approachBeats;
+    const approachDuration = beats * spb;
     if (approachDuration <= 0) return 1.0;
     const timeProgress = runElapsed / approachDuration;
     if (!Number.isFinite(timeProgress)) return 0;

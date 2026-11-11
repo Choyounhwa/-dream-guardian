@@ -427,7 +427,7 @@ export class CursorTracker {
 
     // 신체 크기 및 거리(깊이) 추정: 양 어깨 간격 (#11, #12)
     // Issue #144: PC 1.5m 표준 거리 기준 baselineShoulder = 350px (정규화 0.18)
-    // scaleFactor 하한 0.70으로 상향하여 PC 원거리에서도 최소 70% 크기 보장
+    // Issue #723 (FEAT-CURSOR-007): 원거리 최소 0.70배 유지, 근접 시야 확보를 위해 최대 1.5배로 상한 제한
     const leftShoulder = landmarks[11];
     const rightShoulder = landmarks[12];
     const baselineShoulder = isVirtual ? 350 : 0.18;
@@ -440,7 +440,7 @@ export class CursorTracker {
     ) {
       shoulderDist = calcDistance(leftShoulder, rightShoulder);
     }
-    const scaleFactor = clamp(shoulderDist / baselineShoulder, 0.70, 2.0);
+    const scaleFactor = clamp(shoulderDist / baselineShoulder, 0.70, 1.5);
 
     // 1. 머리/얼굴 커서 (코 #0 → 양 눈 중점 → 양 귀 중점 → 양 어깨 중점 4단계 Fallback)
     const nose = landmarks[0];

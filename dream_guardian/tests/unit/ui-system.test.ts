@@ -6,6 +6,7 @@ import { AnswerSelectionRenderer } from '../../src/render/AnswerSelectionRendere
 import { PartIconRenderer } from '../../src/render/PartIconRenderer.js';
 import { CursorTracker } from '../../src/input/CursorTracker.js';
 import { MenuInput } from '../../src/input/MenuInput.js';
+import { DEFAULT_JOINED_HANDS_CONFIG } from '../../config/cursor.config.js';
 import { TutorialOverlay } from '../../src/ui/TutorialOverlay.js';
 
 describe('HUDLayer', () => {
@@ -475,7 +476,7 @@ describe('결과 화면 합장 제스처 메뉴 복귀 (Issue #134 / FEAT-RESULT
     let menuTriggered = false;
 
     // 양손 합장 상태 (거리 < 0.22)
-    const res = mi.update(0.48, 0.5, 0.52, 0.5);
+    const res = mi.update(0.48, 0.5, 0.52, 0.5, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     expect(res.active).toBe(true);
 
     for (let f = 0; f < 55; f++) {

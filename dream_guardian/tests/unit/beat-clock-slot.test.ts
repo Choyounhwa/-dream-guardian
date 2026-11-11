@@ -207,20 +207,20 @@ describe('BeatRunCoordinator - [BUG-BEAT-CLOCK-001 / #230] 실제 8박 시계 �
       coordinator.update(0.2);
       coordinator.recordStep('run');
 
-      // 0.2초 시점에서 questionApproachProgress는 0.2 / 1.0 = 0.2 수준이어야 하며 절대 1.0이 될 수 없음
-      expect(coordinator.questionApproachProgress).toBeCloseTo(0.2, 2);
+      // 0.2초 시점에서 questionApproachProgress는 0.2 / 2.0 = 0.1 수준이어야 하며 절대 1.0이 될 수 없음
+      expect(coordinator.questionApproachProgress).toBeCloseTo(0.1, 2);
       expect(coordinator.questionApproachProgress).toBeLessThan(1.0);
 
       // 0.5초 경과 (t=0.5s)
       coordinator.update(0.3);
-      expect(coordinator.questionApproachProgress).toBeCloseTo(0.5, 2);
+      expect(coordinator.questionApproachProgress).toBeCloseTo(0.25, 2);
       expect(coordinator.questionApproachProgress).toBeLessThan(1.0);
 
-      // 0.999초 경과 (t=0.999s)
-      coordinator.update(0.499);
+      // 1.999초 경과 (t=1.999s)
+      coordinator.update(1.499);
       expect(coordinator.questionApproachProgress).toBeLessThan(1.0);
 
-      // 1.000초 도달 (t=1.000s) -> 비로소 1.0에 도달
+      // 2.000초 도달 (t=2.000s) -> 4박 시점에 비로소 1.0에 도달
       coordinator.update(0.001);
       expect(coordinator.questionApproachProgress).toBeCloseTo(1.0, 2);
     });
@@ -228,7 +228,7 @@ describe('BeatRunCoordinator - [BUG-BEAT-CLOCK-001 / #230] 실제 8박 시계 �
     it('일시정지(pause) 중에는 경과 시간이 누적되지 않아 문제 접근 진행도가 멈춘다', () => {
       coordinator.startRound({ chapter: 1 });
 
-      coordinator.update(0.5);
+      coordinator.update(1.0);
       expect(coordinator.questionApproachProgress).toBeCloseTo(0.5, 2);
 
       // 일시정지
@@ -241,8 +241,8 @@ describe('BeatRunCoordinator - [BUG-BEAT-CLOCK-001 / #230] 실제 8박 시계 �
 
       // 재개
       coordinator.resume();
-      coordinator.update(0.5);
-      // 0.5s + 0.5s = 1.0s 도달하여 1.0
+      coordinator.update(1.0);
+      // 1.0s + 1.0s = 2.0s 도달하여 1.0
       expect(coordinator.questionApproachProgress).toBeCloseTo(1.0, 2);
     });
   });

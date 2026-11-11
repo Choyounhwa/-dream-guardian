@@ -37,7 +37,8 @@ describe('[BOSS-ASSAULT-12 / #514] 답 쌍 순수 판정 reducer (AssaultPairJud
       expect(DEFAULT_PAIR_JUDGE_CONFIG.simultaneousToleranceMs).toBe(50);
       expect(DEFAULT_PAIR_JUDGE_CONFIG.rhythmWindows.Perfect).toBe(50);
       expect(DEFAULT_PAIR_JUDGE_CONFIG.rhythmWindows.Good).toBe(120);
-      expect(DEFAULT_PAIR_JUDGE_CONFIG.rhythmWindows.Late).toBe(200);
+      expect(DEFAULT_PAIR_JUDGE_CONFIG.rhythmWindows.Late).toBe(170);
+      expect(DEFAULT_PAIR_JUDGE_CONFIG.rhythmWindows.EarlyMiss).toBe(170);
       expect(Object.isFrozen(DEFAULT_PAIR_JUDGE_CONFIG)).toBe(true);
     });
 
@@ -203,7 +204,7 @@ describe('[BOSS-ASSAULT-12 / #514] 답 쌍 순수 판정 reducer (AssaultPairJud
   });
 
   describe('4. 오답 선택 시 잠금 및 플레이어 피해 정산 (A06)', () => {
-    it('오답 side를 타격하면 wrong_locked로 잠기고 player_damage 명령 1건을 반환해야 한다', () => {
+    it('오답 side를 타격하면 wrong_locked로 잠기고 player_damage 명령은 arrival 시점에 1건 반환해야 한다 (A06)', () => {
       const initialState = createInitialPairState();
       // defaultPlan.correctSide는 'left'이므로 'right'는 오답
       const action: AssaultPairAction = {
@@ -219,11 +220,20 @@ describe('[BOSS-ASSAULT-12 / #514] 답 쌍 순수 판정 reducer (AssaultPairJud
       expect(result.state.lockedChoice).toBe('right');
       expect(result.state.isCorrect).toBe(false);
       expect(result.state.isLocked).toBe(true);
-      expect(result.state.isSettled).toBe(true);
+      expect(result.state.isSettled).toBe(false);
+      // BUG-ASSAULT-003: 입력 순간 피해 명령 0건
+      expect(result.commands).toHaveLength(0);
 
-      // 명령 검증: player_damage 1건
-      expect(result.commands).toHaveLength(1);
-      const cmd = result.commands[0];
+      // 도착 시점(arrival) 도달 시 피해 1건 발행
+      const arrivalAction: AssaultPairAction = {
+        type: 'arrival',
+        timestampMs: 2000,
+      };
+      const arrivalResult = reducePairState(result.state, arrivalAction, customConfig, defaultPlan);
+      expect(arrivalResult.state.status).toBe('wrong_locked');
+      expect(arrivalResult.state.isSettled).toBe(true);
+      expect(arrivalResult.commands).toHaveLength(1);
+      const cmd = arrivalResult.commands[0];
       expect(cmd.target).toBe('player');
       expect(cmd.resultKind).toBe('miss');
       expect(cmd.effectType).toBe('player_damage');
@@ -243,7 +253,7 @@ describe('[BOSS-ASSAULT-12 / #514] 답 쌍 순수 판정 reducer (AssaultPairJud
       };
 
       const lockedRes = reducePairState(initialState, wrongPunch, customConfig, defaultPlan);
-      expect(lockedRes.commands).toHaveLength(1);
+      expect(lockedRes.commands).toHaveLength(0);
 
       // 이후 정답 방향인 왼손으로 재타격
       const retryPunch: AssaultPairAction = {
@@ -257,6 +267,10 @@ describe('[BOSS-ASSAULT-12 / #514] 답 쌍 순수 판정 reducer (AssaultPairJud
       expect(retryRes.state.status).toBe('wrong_locked');
       expect(retryRes.state.lockedChoice).toBe('right');
       expect(retryRes.commands).toHaveLength(0);
+
+      // 도착 시 피해 1회만 발행
+      const arrivalRes = reducePairState(retryRes.state, { type: 'arrival', timestampMs: 2000 }, customConfig, defaultPlan);
+      expect(arrivalRes.commands).toHaveLength(1);
     });
 
     it('오답 잠금 후 arrival tick이나 후속 tick에서 중복 피해 명령이 발생하지 않아야 한다 (A14)', () => {
@@ -269,6 +283,7 @@ describe('[BOSS-ASSAULT-12 / #514] 답 쌍 순수 판정 reducer (AssaultPairJud
       };
 
       const lockedRes = reducePairState(initialState, wrongPunch, customConfig, defaultPlan);
+      expect(lockedRes.commands).toHaveLength(0);
 
       const arrivalTick: AssaultPairAction = {
         type: 'tick',
@@ -276,7 +291,15 @@ describe('[BOSS-ASSAULT-12 / #514] 답 쌍 순수 판정 reducer (AssaultPairJud
       };
 
       const arrivalRes = reducePairState(lockedRes.state, arrivalTick, customConfig, defaultPlan);
-      expect(arrivalRes.commands).toHaveLength(0);
+      expect(arrivalRes.commands).toHaveLength(1);
+
+      // 이후 후속 tick에서 중복 피해 0건
+      const postTick: AssaultPairAction = {
+        type: 'tick',
+        timestampMs: 2100,
+      };
+      const postRes = reducePairState(arrivalRes.state, postTick, customConfig, defaultPlan);
+      expect(postRes.commands).toHaveLength(0);
     });
   });
 
@@ -435,12 +458,12 @@ describe('[BOSS-ASSAULT-12 / #514] 답 쌍 순수 판정 reducer (AssaultPairJud
 
     it('동시 타격 보류 후 남은 유효 시간 내에 유효한 단일 펀치로 재시도 시 정상 잠금되어야 한다', () => {
       const initialState = createInitialPairState();
-      // 1. 동시 입력 발생 (t = 1000)
+      // 1. 동시 입력 발생 (t = 1850, 도착 150ms 전 — EarlyMiss 170ms 유효창 내)
       const batchAction: AssaultPairAction = {
         type: 'punch_batch',
         punches: [
-          { hand: 'left', timestampMs: 1000, inputId: 'p_l_simul' },
-          { hand: 'right', timestampMs: 1000, inputId: 'p_r_simul' },
+          { hand: 'left', timestampMs: 1850, inputId: 'p_l_simul' },
+          { hand: 'right', timestampMs: 1850, inputId: 'p_r_simul' },
         ],
       };
       const conflictRes = reducePairState(initialState, batchAction, customConfig, defaultPlan);
@@ -450,7 +473,7 @@ describe('[BOSS-ASSAULT-12 / #514] 답 쌍 순수 판정 reducer (AssaultPairJud
       const retryAction: AssaultPairAction = {
         type: 'punch',
         hand: 'left',
-        timestampMs: 1500,
+        timestampMs: 1950,
         inputId: 'p_l_retry_single',
       };
       const retryRes = reducePairState(conflictRes.state, retryAction, customConfig, defaultPlan);
@@ -463,20 +486,20 @@ describe('[BOSS-ASSAULT-12 / #514] 답 쌍 순수 판정 reducer (AssaultPairJud
 
     it('동시 허용차(simultaneousToleranceMs=50ms) 이내의 순차 유입도 충돌로 판정되어 잠금을 취소해야 한다', () => {
       const initialState = createInitialPairState();
-      // t = 1000ms left
+      // t = 1850ms left (도착 150ms 전 — EarlyMiss 170ms 유효창 내)
       const punch1: AssaultPairAction = {
         type: 'punch',
         hand: 'left',
-        timestampMs: 1000,
+        timestampMs: 1850,
         inputId: 'p1',
       };
       const res1 = reducePairState(initialState, punch1, customConfig, defaultPlan);
 
-      // t = 1020ms right (20ms 차이 <= 50ms)
+      // t = 1870ms right (20ms 차이 <= 50ms)
       const punch2: AssaultPairAction = {
         type: 'punch',
         hand: 'right',
-        timestampMs: 1020,
+        timestampMs: 1870,
         inputId: 'p2',
       };
       const res2 = reducePairState(res1.state, punch2, customConfig, defaultPlan);

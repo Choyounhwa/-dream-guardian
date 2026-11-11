@@ -14,6 +14,7 @@ import { ShapeRenderer, deriveShapeFromQuestion } from './ShapeRenderer.js';
 import { UIText } from '../utils/UIText.js';
 import { imageLoader } from '../utils/UIImageLoader.js';
 import { QUESTION_ANSWER_TIME_TOKENS, UI_LAYOUT } from '../../config/ui.config.js';
+import { DEFAULT_QUESTION_APPROACH_CONFIG } from '../../config/beat-motion.config.js';
 import type { UIPresentationDocument, UIPresentationPageId } from '../data/UIPresentation.js';
 
 function clampTextScale(scale: number | undefined): number {
@@ -92,73 +93,13 @@ export const PROTECTED_QUESTION_SLOT_IDS = [
   'zone_5_action_geometry',
 ] as const;
 
-export const DEFAULT_QUESTION_FIXTURE: QuestionFixtureDTO = Object.freeze({
-  questionText: '12 + 15 = [ ? ]',
-  choices: ['27', '25'] as [string, string],
-  answer: '27',
-  shapeCode: null,
-  level: 1,
-  chapter: 1,
-  selectedChoiceIndex: null,
-  activeHoverIndex: null,
-  choiceProgress: [0, 0] as [number, number],
-  questionApproachProgress: 1.0,
-  answerApproachProgress: 1.0,
-  answerSelectable: true,
-  buttonsOnly: false,
-  headerOnly: false,
-});
-
-export const LONG_FORMULA_QUESTION_FIXTURE: QuestionFixtureDTO = Object.freeze({
-  questionText: '124 × 7 - 28 ÷ 4 + 50 = [ ? ]',
-  choices: ['840', '820'] as [string, string],
-  answer: '840',
-  shapeCode: null,
-  level: 4,
-  chapter: 2,
-  selectedChoiceIndex: null,
-  activeHoverIndex: null,
-  choiceProgress: [0, 0] as [number, number],
-  questionApproachProgress: 1.0,
-  answerApproachProgress: 1.0,
-  answerSelectable: true,
-  buttonsOnly: false,
-  headerOnly: false,
-});
-
-export const FRACTION_QUESTION_FIXTURE: QuestionFixtureDTO = Object.freeze({
-  questionText: '3/4 + 2/4 = [ ? ]',
-  choices: ['5/4', '6/4'] as [string, string],
-  answer: '5/4',
-  shapeCode: null,
-  level: 3,
-  chapter: 3,
-  selectedChoiceIndex: null,
-  activeHoverIndex: null,
-  choiceProgress: [0, 0] as [number, number],
-  questionApproachProgress: 1.0,
-  answerApproachProgress: 1.0,
-  answerSelectable: true,
-  buttonsOnly: false,
-  headerOnly: false,
-});
-
-export const GEOMETRY_QUESTION_FIXTURE: QuestionFixtureDTO = Object.freeze({
-  questionText: '[모양 A] 위에서 본 모양으로 알맞은 것은?',
-  choices: ['2개', '3개'] as [string, string],
-  answer: '2개',
-  shapeCode: "{type:'stack_cubes',grid:[[2,1],[1,0]],view:'top',shapeName:'모양 A'}",
-  level: 9,
-  chapter: 4,
-  selectedChoiceIndex: null,
-  activeHoverIndex: null,
-  choiceProgress: [0, 0] as [number, number],
-  questionApproachProgress: 1.0,
-  answerApproachProgress: 1.0,
-  answerSelectable: true,
-  buttonsOnly: false,
-  headerOnly: false,
-});
+export {
+  DEFAULT_QUESTION_FIXTURE,
+  LONG_FORMULA_QUESTION_FIXTURE,
+  FRACTION_QUESTION_FIXTURE,
+  GEOMETRY_QUESTION_FIXTURE,
+  DECIMAL_QUESTION_FIXTURE,
+} from './QuestionFixtures.js';
 
 export const APPROACH_QUESTION_FIXTURE: QuestionFixtureDTO = Object.freeze({
   questionText: '8 × 9 = [ ? ]',
@@ -615,7 +556,7 @@ export class QuestionRenderer {
 
       ctx.save();
 
-      // Issue #322: 러닝 페이즈 첫 2박 동안 소실점(보스)에서 목표 정면으로 원근 접근 연출
+      // Issue #322 & #711: 러닝 페이즈 4박 동안 소실점(보스)에서 목표 정면으로 원근 접근 연출 (블러 및 브라이트닝)
       if (qProgress < 1.0) {
         const panelLayout = UI_LAYOUT.question?.panel;
         const defaultVy = panelLayout?.vanishingY !== undefined ? panelLayout.vanishingY * scaleY : (h * 0.24);
@@ -623,13 +564,25 @@ export class QuestionRenderer {
         const vy = state.vanishingY ?? defaultVy;
         const headerCenterY = shape ? boxY + shapeTextOffsetY : boxY + (board?.h ?? 280) / 2 * scaleY;
 
-        const eased = 1.0 - Math.pow(1.0 - qProgress, 2.0);
+        const cfg = DEFAULT_QUESTION_APPROACH_CONFIG;
+        const eased = 1.0 - Math.pow(1.0 - qProgress, cfg.easePower);
         const curX = vx + (cx - vx) * eased;
         const curY = vy + (headerCenterY - vy) * eased;
-        const scale = 0.15 + (1.0 - 0.15) * eased;
-        const alpha = 0.10 + (1.0 - 0.10) * eased;
+        const scale = cfg.minScale + (1.0 - cfg.minScale) * eased;
+        const alpha = cfg.startAlpha + (1.0 - cfg.startAlpha) * eased;
+        const blur = (cfg.startBlur ?? 12) * (1.0 - eased);
+        const startBright = cfg.startBrightness ?? 0.40;
+        const brightness = startBright + (1.0 - startBright) * eased;
 
         ctx.globalAlpha = Math.max(0, Math.min(1.0, ctx.globalAlpha * alpha));
+
+        // Issue #711: 원거리 블러 및 점진적 브라이트닝 필터 적용
+        if (blur > 0.01 || brightness < 0.99) {
+          if ('filter' in ctx && typeof ctx.filter === 'string') {
+            ctx.filter = `blur(${blur.toFixed(1)}px) brightness(${brightness.toFixed(2)})`;
+          }
+        }
+
         ctx.translate(curX, curY);
         ctx.scale(scale, scale);
         ctx.translate(-cx, -headerCenterY);
@@ -710,6 +663,7 @@ export class QuestionRenderer {
       const curCenterY = isApproaching ? vy + (targetCenterY - vy) * eased : targetCenterY;
 
       // Issue #285 (UI-ANSWER-002): 조준 시 미세 확대 (Magnet Hover State: 1.05x)
+      const isSelected = state.selectedChoiceIndex === i;
       const isHovered = state.activeHoverIndex === i;
       const hoverScale = isHovered ? 1.05 : 1.0;
       const effectiveScale = scale * hoverScale;
@@ -729,7 +683,6 @@ export class QuestionRenderer {
       }
 
       // Issue #290 (UI-ASSET-009): 사전 렌더링된 버튼 프레임 비트맵 이미지 에셋 연동
-      const isSelected = state.selectedChoiceIndex === i;
       const assetKey = isHovered ? 'answerBtnHover' : (isSelected ? 'answerBtnSelected' : 'answerBtnDefault');
       const btnImg = imageLoader.get('question', assetKey) ?? imageLoader.get('question', 'answerBtnDefault');
 
@@ -830,13 +783,21 @@ export class QuestionRenderer {
 
       ctx.shadowBlur = 0;
 
-      // Issue #200 & #285 (UI-ANSWER-002): 확정 즉시 체결 및 판정 스탬프 (Confirm Stamp)
-      if (state.selectedChoiceIndex === i) {
+      // Issue #200 & #285 (UI-ANSWER-002), #719 (BUG-FEEDBACK-002): 정답/오답 체결 및 판정 스탬프
+      const isChosen = state.selectedChoiceIndex === i;
+      const isActualCorrect = state.question?.correctIndex === i;
+      const hasChosen = state.selectedChoiceIndex !== null && state.selectedChoiceIndex !== undefined;
+      const chosenIsCorrect = hasChosen && state.question?.correctIndex === state.selectedChoiceIndex;
+
+      if (isChosen) {
         ctx.save();
-        // 강력한 녹색 테두리 (#00FF88)
-        ctx.strokeStyle = '#00FF88';
+        const stampColor = isActualCorrect ? '#00FF88' : '#FF4444';
+        const stampBg = isActualCorrect ? 'rgba(16, 40, 24, 0.95)' : 'rgba(40, 16, 16, 0.95)';
+        const badgeText = isActualCorrect ? '정답! [O]' : '오답! [X]';
+
+        ctx.strokeStyle = stampColor;
         ctx.lineWidth = 10 * scaleX * effectiveScale;
-        ctx.shadowColor = '#00FF88';
+        ctx.shadowColor = stampColor;
         ctx.shadowBlur = 24 * scale;
         ctx.beginPath();
         if (typeof ctx.roundRect === 'function') {
@@ -852,8 +813,6 @@ export class QuestionRenderer {
         }
         ctx.stroke();
 
-        // 버튼 중앙 '선택 완료! [V]' 네온 뱃지/스탬프
-        const badgeText = '선택 완료! [V]';
         const btnConfig = UI_LAYOUT.question?.answerButtons;
         const badgeTextScale = clampTextScale(btnConfig?.badgeTextScale);
         ctx.font = UIText.getFont('badge', scaleX * effectiveScale * badgeTextScale, 'bold');
@@ -863,10 +822,10 @@ export class QuestionRenderer {
         const badgeX = curCenterX - badgeW / 2;
         const badgeY = curCenterY - badgeH / 2;
 
-        ctx.fillStyle = 'rgba(16, 40, 24, 0.95)';
-        ctx.strokeStyle = '#00FF88';
+        ctx.fillStyle = stampBg;
+        ctx.strokeStyle = stampColor;
         ctx.lineWidth = 2 * scaleX * effectiveScale;
-        ctx.shadowColor = '#00FF88';
+        ctx.shadowColor = stampColor;
         ctx.shadowBlur = 14 * scale;
         ctx.beginPath();
         if (typeof ctx.roundRect === 'function') {
@@ -877,10 +836,25 @@ export class QuestionRenderer {
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = '#00FF88';
+        ctx.fillStyle = stampColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(badgeText, curCenterX, badgeY + badgeH / 2);
+        ctx.restore();
+      } else if (hasChosen && !chosenIsCorrect && isActualCorrect) {
+        // [BUG-FEEDBACK-002 / #719] 오답 선택 시 실제 정답 보기에 은은한 유도 하이라이트
+        ctx.save();
+        ctx.strokeStyle = '#00FF88';
+        ctx.lineWidth = 4 * scaleX * effectiveScale;
+        ctx.shadowColor = '#00FF88';
+        ctx.shadowBlur = 16 * scale;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(bx, btnY, curW, curH, 20 * scaleX * effectiveScale);
+        } else {
+          ctx.rect(bx, btnY, curW, curH);
+        }
+        ctx.stroke();
         ctx.restore();
       }
 

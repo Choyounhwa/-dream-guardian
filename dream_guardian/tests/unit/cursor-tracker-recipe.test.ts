@@ -756,12 +756,12 @@ describe('AnswerSelectionRenderer (Issue #104)', () => {
     expect(JOINED_HANDS_CURSOR.progressLineWidth).toBe(16);
     expect(JOINED_HANDS_CURSOR.progressBlur).toBe(24);
 
-    // 2. 인게임 양손 커서 원거리 시인성 상향 규격
-    expect(CURSOR_DIMENSIONS.hand.defaultRadius).toBeGreaterThanOrEqual(60);
-    expect(CURSOR_DIMENSIONS.hand.maxRadius).toBeGreaterThanOrEqual(120);
-    expect(CURSOR_DIMENSIONS.hand.minRadius).toBeGreaterThanOrEqual(20);
-    expect(CURSOR_DIMENSIONS.hand.pulseRingOffset).toBeGreaterThanOrEqual(10);
-    expect(CURSOR_DIMENSIONS.hand.pulseRingAmplitude).toBeGreaterThanOrEqual(6);
+    // 2. 인게임 양손 커서 규격 (Issue #723 70% 축소 규격)
+    expect(CURSOR_DIMENSIONS.hand.defaultRadius).toBe(42);
+    expect(CURSOR_DIMENSIONS.hand.maxRadius).toBe(80);
+    expect(CURSOR_DIMENSIONS.hand.minRadius).toBe(15);
+    expect(CURSOR_DIMENSIONS.hand.pulseRingOffset).toBe(7);
+    expect(CURSOR_DIMENSIONS.hand.pulseRingAmplitude).toBe(4);
     expect(CURSOR_DIMENSIONS.hand.pulseLineWidth).toBeGreaterThanOrEqual(3);
   });
 });

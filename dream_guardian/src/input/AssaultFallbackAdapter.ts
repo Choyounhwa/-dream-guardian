@@ -107,8 +107,13 @@ function resolveKeyAction(
     normKey === 'arrowleft' ||
     normKey === 'a' ||
     normKey === 'keya' ||
+    normKey === '1' ||
+    normKey === 'digit1' ||
+    normKey === 'numpad1' ||
     normCode === 'arrowleft' ||
-    normCode === 'keya'
+    normCode === 'keya' ||
+    normCode === 'digit1' ||
+    normCode === 'numpad1'
   ) {
     return 'left_punch';
   }
@@ -117,8 +122,13 @@ function resolveKeyAction(
     normKey === 'arrowright' ||
     normKey === 'd' ||
     normKey === 'keyd' ||
+    normKey === '2' ||
+    normKey === 'digit2' ||
+    normKey === 'numpad2' ||
     normCode === 'arrowright' ||
-    normCode === 'keyd'
+    normCode === 'keyd' ||
+    normCode === 'digit2' ||
+    normCode === 'numpad2'
   ) {
     return 'right_punch';
   }

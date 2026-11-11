@@ -58,6 +58,7 @@ function createMockCtx(): CanvasRenderingContext2D {
     textBaseline: '',
     shadowColor: '',
     shadowBlur: 0,
+    filter: 'none',
   } as unknown as CanvasRenderingContext2D;
 }
 
@@ -265,7 +266,7 @@ describe('QuestionRenderer (Issue #209 / REFACTOR-RENDER-001)', () => {
       expect(maxRecordedBlur).toBeGreaterThanOrEqual(20);
     });
 
-    it('selectedChoiceIndex가 지정되었을 때 강력한 녹색 테두리(#00FF88)와 선택 완료! [V] 스탬프를 렌더링한다', () => {
+    it('selectedChoiceIndex가 정답일 때 강력한 녹색 테두리(#00FF88)와 정답! [O] 스탬프를 렌더링한다 [BUG-FEEDBACK-002 / #719]', () => {
       const renderer = new QuestionRenderer();
       const ctx = createMockCtx();
       const strokes: string[] = [];
@@ -278,9 +279,9 @@ describe('QuestionRenderer (Issue #209 / REFACTOR-RENDER-001)', () => {
       });
 
       const state: QuestionRenderState = {
-        question: mockQuestion,
+        question: mockQuestion, // correctIndex: 0
         questionVisible: true,
-        selectedChoiceIndex: 1,
+        selectedChoiceIndex: 0, // 정답 선택
       };
 
       renderer.render(ctx, 1080, 2160, state);
@@ -288,9 +289,40 @@ describe('QuestionRenderer (Issue #209 / REFACTOR-RENDER-001)', () => {
       // 녹색 테두리(#00FF88) 적용 검증
       expect(strokes.some((s) => s.toUpperCase() === '#00FF88' || s.includes('0, 255, 136'))).toBe(true);
 
-      // '선택 완료! [V]' 네온 뱃지/스탬프 텍스트 렌더링 검증
+      // '정답! [O]' 네온 뱃지/스탬프 텍스트 렌더링 검증
       const textCalls = (ctx.fillText as any).mock.calls.map((c: any) => c[0]);
-      expect(textCalls.some((t: string) => t.includes('선택 완료! [V]'))).toBe(true);
+      expect(textCalls.some((t: string) => t.includes('정답! [O]'))).toBe(true);
+    });
+
+    it('selectedChoiceIndex가 오답일 때 붉은색 테두리(#FF4444)와 오답! [X] 스탬프, 정답 유도 하이라이트를 렌더링한다 [BUG-FEEDBACK-002 / #719]', () => {
+      const renderer = new QuestionRenderer();
+      const ctx = createMockCtx();
+      const strokes: string[] = [];
+      Object.defineProperty(ctx, 'strokeStyle', {
+        get: () => strokes[strokes.length - 1] || '',
+        set: (v: string) => {
+          strokes.push(v);
+        },
+        configurable: true,
+      });
+
+      const state: QuestionRenderState = {
+        question: mockQuestion, // correctIndex: 0
+        questionVisible: true,
+        selectedChoiceIndex: 1, // 오답 선택
+      };
+
+      renderer.render(ctx, 1080, 2160, state);
+
+      // 오답 버튼 붉은색 테두리(#FF4444) 적용 검증
+      expect(strokes.some((s) => s.toUpperCase() === '#FF4444' || s.includes('255, 68, 68'))).toBe(true);
+
+      // '오답! [X]' 네온 뱃지/스탬프 텍스트 렌더링 검증
+      const textCalls = (ctx.fillText as any).mock.calls.map((c: any) => c[0]);
+      expect(textCalls.some((t: string) => t.includes('오답! [X]'))).toBe(true);
+
+      // 실제 정답(0번) 보기에 유도 하이라이트(초록 계열) 스트로크 적용 검증
+      expect(strokes.some((s) => s.toUpperCase() === '#00FF88' || s.includes('0, 255, 136'))).toBe(true);
     });
 
     it('choiceProgress 진행도에 비례하여 하단 프로그레스 바 너비가 증가한다 (0%, 50%, 100%)', () => {
@@ -571,7 +603,7 @@ describe('QuestionRenderer answer time status (Issue #311 / RENDER-ANSWER-STATUS
       expect(texts.some((t) => t === '27' || t === '25')).toBe(false);
     });
 
-    it('questionApproachProgress < 1.0일 때 원근 접근 transform(scale, alpha, translate)을 적용하여 목판+수식을 렌더링한다', () => {
+    it('questionApproachProgress < 1.0일 때 원근 접근 transform(scale, alpha, translate) 및 blur/brightness 필터를 적용하여 목판+수식을 렌더링한다', () => {
       const renderer = new QuestionRenderer();
       const ctx = createMockCtx();
 
@@ -594,6 +626,9 @@ describe('QuestionRenderer answer time status (Issue #311 / RENDER-ANSWER-STATUS
 
       // translate 호출 검증
       expect(ctx.translate).toHaveBeenCalled();
+
+      // blur 및 brightness 필터 적용 검증
+      expect(ctx.filter).toMatch(/blur\(\d+(\.\d+)?px\)\s+brightness\(\d+(\.\d+)?\)/);
     });
 
     it('러닝 페이즈(원근 접근 완료)와 답 선택 페이즈에서 목판 패널 위치/크기 및 수식 렌더링 기준 좌표가 동일하여 시각적 튐이 없다', () => {

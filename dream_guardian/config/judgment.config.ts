@@ -256,6 +256,7 @@ export const PHASE_INTENT_OWNERSHIP: Record<string, MotionIntentType[]> = {
   STAR_COLLECT: ['reachLeft', 'reachRight', 'jump'],
   BOSS_CLIMAX: ['jump', 'stepLeft', 'stepRight'],
   ASSAULT_ROUND: ['reachLeft', 'reachRight', 'squat'],
+  ASSAULT_FINALE: ['reachLeft', 'reachRight', 'squat', 'jump'],
   default: ['reachLeft', 'reachRight', 'jump', 'stepLeft', 'stepRight', 'squat'],
 };
 

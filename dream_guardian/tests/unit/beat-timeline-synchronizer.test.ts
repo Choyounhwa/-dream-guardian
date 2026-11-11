@@ -92,12 +92,19 @@ describe('BeatTimelineSynchronizer Unit Tests (#640 / REFACTOR-SRP-009)', () => 
       expect(BeatTimelineSynchronizer.calculateCycleProgress(-1.0, totalBeats, spb)).toBe(0);
     });
 
-    it('문제 소실점 접근 진행도(첫 2박 동안 0->1 진행)를 계산한다', () => {
-      const spb = 0.5; // 2박 = 1.0s
+    it('문제 소실점 접근 진행도(첫 4박 동안 0->1 진행)를 계산한다', () => {
+      const spb = 0.5; // 4박 = 2.0s
       expect(BeatTimelineSynchronizer.calculateQuestionApproachProgress(0, spb)).toBe(0);
-      expect(BeatTimelineSynchronizer.calculateQuestionApproachProgress(0.5, spb)).toBe(0.5);
-      expect(BeatTimelineSynchronizer.calculateQuestionApproachProgress(1.0, spb)).toBe(1.0);
+      expect(BeatTimelineSynchronizer.calculateQuestionApproachProgress(0.5, spb)).toBe(0.25);
+      expect(BeatTimelineSynchronizer.calculateQuestionApproachProgress(1.0, spb)).toBe(0.5);
       expect(BeatTimelineSynchronizer.calculateQuestionApproachProgress(2.0, spb)).toBe(1.0);
+      expect(BeatTimelineSynchronizer.calculateQuestionApproachProgress(3.0, spb)).toBe(1.0);
+    });
+
+    it('인자로 커스텀 approachBeats를 넘겨 진행도를 유연하게 제어할 수 있다', () => {
+      const spb = 0.5;
+      expect(BeatTimelineSynchronizer.calculateQuestionApproachProgress(0.5, spb, 2)).toBe(0.5);
+      expect(BeatTimelineSynchronizer.calculateQuestionApproachProgress(1.0, spb, 2)).toBe(1.0);
     });
 
     it('답안 소실점 원근 접근 진행도(approachStartBeat~exerciseBeats)를 quadratic ease-out으로 계산한다', () => {

@@ -67,6 +67,15 @@ export interface AssaultAlternativeRecord {
   readonly activeTimestampSeconds?: number;
 }
 
+/** 러닝 실측 입력 기록 (#700 / ASSAULT-LOOP-07) */
+export interface AssaultRunStepRecord {
+  readonly inputId: InputId;
+  readonly roundId?: string;
+  readonly isValid?: boolean;
+  readonly timestampMs?: number;
+  readonly activeTimestampSeconds?: number;
+}
+
 /** 칼로리 세부 보고 정보 */
 export interface AssaultKcalDetails {
   readonly supported: boolean;
@@ -88,6 +97,11 @@ export interface AssaultExerciseSummary {
   readonly partialSquatKcal: number;
   readonly kcalDetails: AssaultKcalDetails;
   readonly processedInputIds: readonly InputId[];
+}
+
+/** 루프 실측 운동량 요약 DTO (runStepCount 포함 - #700 / ASSAULT-LOOP-07) */
+export interface AssaultLoopExerciseSummary extends AssaultExerciseSummary {
+  readonly runStepCount: number;
 }
 
 /** 결과 화면 호환 레거시 패치 DTO (하드코딩 상수 squats: 0, elapsedTime: 60 대체용) */
@@ -113,6 +127,7 @@ export class AssaultExerciseTally {
   private _rightPunchCount = 0;
   private _squatCount = 0;
   private _guardCount = 0;
+  private _runStepCount = 0;
   private _activeDurationSeconds = 0;
 
   private readonly _processedInputIds = new Set<InputId>();
@@ -204,6 +219,28 @@ export class AssaultExerciseTally {
   }
 
   /**
+   * 러닝 실측 걸음(#700 / ASSAULT-LOOP-07) 기록 집계
+   *
+   * @param record 러닝 걸음 입력 정보
+   * @returns 신규 집계 성공 여부 (중복 inputId이거나 유효하지 않으면 false)
+   */
+  public recordRunStep(record: AssaultRunStepRecord): boolean {
+    if (!record || !record.inputId) {
+      return false;
+    }
+    if (this._processedInputIds.has(record.inputId)) {
+      return false;
+    }
+    if (record.isValid === false) {
+      return false;
+    }
+
+    this._processedInputIds.add(record.inputId);
+    this._runStepCount++;
+    return true;
+  }
+
+  /**
    * #510 활성 시각축 기반 절대 활성 시간 설정
    *
    * @param seconds 활성 초 (음수는 0으로 클램핑)
@@ -266,6 +303,19 @@ export class AssaultExerciseTally {
   }
 
   /**
+   * 루프 실측 운동량 요약 스냅샷 반환 (deepFreeze 불변 DTO - #700 / ASSAULT-LOOP-07)
+   * runStepCount를 포함하며, 기존 getSummary()의 저장소 호환성을 훼손하지 않는 독립 공개 포트.
+   */
+  public getLoopExerciseSummary(): Readonly<AssaultLoopExerciseSummary> {
+    const summary = this.getSummary();
+    const loopSummary: AssaultLoopExerciseSummary = {
+      ...summary,
+      runStepCount: this._runStepCount,
+    };
+    return deepFreeze(loopSummary);
+  }
+
+  /**
    * getSummary의 불변 스냅샷 별칭
    */
   public snapshot(): Readonly<AssaultExerciseSummary> {
@@ -292,6 +342,13 @@ export class AssaultExerciseTally {
   }
 
   /**
+   * toLegacyResultPatch 별칭 (#700)
+   */
+  public getLegacyResultPatch(): Readonly<AssaultLegacyResultPatch> {
+    return this.toLegacyResultPatch();
+  }
+
+  /**
    * 집계 상태 초기화
    */
   public reset(): void {
@@ -299,6 +356,7 @@ export class AssaultExerciseTally {
     this._rightPunchCount = 0;
     this._squatCount = 0;
     this._guardCount = 0;
+    this._runStepCount = 0;
     this._activeDurationSeconds = 0;
     this._processedInputIds.clear();
   }

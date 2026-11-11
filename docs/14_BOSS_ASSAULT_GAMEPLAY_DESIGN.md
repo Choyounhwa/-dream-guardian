@@ -6,7 +6,7 @@
 - **v0.3 변경 요약**: 현행 코드 대조 결함 분석(A1~A8 카드 결함, B1~B8 런타임 충돌, C1~C10 누락 설계, D1~D4 절차) 결과를 §15에 보완 계약으로 추가했다. §5·§7·§8의 해당 조항은 §15 참조 표시만 추가하고 원문 의미는 유지한다. §15의 수치는 모두 후보이며 #503에서 결정한다.
 - **관련 작업 카드**: `15_BOSS_ASSAULT_WORK_CARDS.md`의 등록 목록 참조. 카드 등록은 구현 승인이 아니다.
 - **대상**: 문제 생각 시간, 반복 답 펀치, 스쿼트 교대 공격, 접근 진행도, 근접 보스 결전
-- **참조**: `01_GAME_DESIGN_DOCUMENT.md`, `12_UNIFIED_MOTION_RHYTHM_ARCHITECTURE.md`, `Dream_Guardian_개발_규칙.md`, `../dream_guardian/HANDOVER.md`
+- **참조**: `01_GAME_DESIGN_DOCUMENT.md`, `12_UNIFIED_MOTION_RHYTHM_ARCHITECTURE.md`, `15_BOSS_ASSAULT_WORK_CARDS.md`, `16_BOSS_ASSAULT_DISCUSSION_RECORD.md`, `Dream_Guardian_개발_규칙.md`, `../dream_guardian/HANDOVER.md`
 
 ## 0. 문서의 효력과 용어
 
@@ -355,6 +355,11 @@ pending -> timeout -> impacted
 - 회수 임계값과 타격 임계값을 분리하여 경계 떨림을 억제한다.
 - 기존 커서 좌표·미러링을 유지하고 신규 경로에서 다시 반전하지 않는다.
 - v0.3: 2D 카메라에서 정면(z축) 펀치는 신뢰할 수 없다. "펀치"의 화면상 판정 정의는 §15.1-A3을 따른다.
+- **v0.4 개편 (#726, #730)**:
+  - 2D 정적 사각 박스 의존도를 완전히 폐기하고, 화면 속 **메카 졸라맨 아바타의 팔 뻗기 방향 벡터($\vec{v}.x$)와 신전율($Ratio$)**을 기준으로 펀치를 판정한다.
+  - **동적 찌르기(Stroke 엣지 트리거)**: 신전율 $60\% \rightarrow 80\%$ 도달 순간에만 1회 발화하며, 미리 뻗은 채 정지해 있는 손은 무효 처리한다.
+  - **연타/잽 회수 완화**: $65\%$ 이하로만 팔을 살짝 당겨도 즉시 재장전되어 경쾌한 연속 타격이 가능하다.
+  - **조기 타격(Early Miss, #730)**: 정박보다 너무 이른 시점($<-250\text{ms}$)에 들어온 펀치는 잠금/피해 없이 Miss로만 처리하고 유효 시간 내 재타격을 허용한다.
 
 ### 8.2 스쿼트
 
@@ -575,9 +580,10 @@ pending -> timeout -> impacted
 |---|---|---|---|---|
 | A1 | 상태 전환 카드의 수정 대상이 실제 정의 위치와 다르다 | `GameState`는 `src/types/index.ts:4`, `src/core/types.ts`에는 `GameMode`/`SessionPhase`만 있음 | 모드 타입은 02의 `src/types/assault.ts`에 두고 21의 수정 대상을 `src/types/index.ts`·`StateMachine.ts`·`GameSessionContext.ts` 3개로 교체 | 21을 타입/전환표로 분리 |
 | A2 | 신규 상태의 동작 소유권 부재 | `config/judgment.config.ts:253` `PHASE_INTENT_OWNERSHIP`에 없는 상태는 `default`(모든 intent 허용) | `ASSAULT_ROUND: reachLeft/reachRight/squat` 명시 (카드 40) | 신규 어댑터가 IntentBus를 우회하고 23에서 기존 소비자 차단 |
-| A3 | "펀치" 화면 판정 미정의 | 2D 카메라, MediaPipe z 불안정. 기존 `ArmReachAnswerSelector`는 측면 뻗기 | 2D 목표 영역 뻗기: 손목이 보기 영역 진입 + 팔 신전(팔꿈치 각 ≥ 임계) + 손목–어깨 거리 ≥ 어깨너비×k. 보기는 화면 상단 좌/우에 배치 | 손목 속도 기반(급가속 후 감속) |
+| A3 | "펀치" 화면 판정 미정의 | 2D 카메라, MediaPipe z 불안정. 기존 `ArmReachAnswerSelector`는 측면 뻗기 | **[확정/개편 #726]** 졸라맨 방향 벡터 + 신전율 80% 찌르기(Stroke). 정적 박스 진입 의존 완전 폐기, 팔을 찌르는 순간 1회 발화 및 65% 이하 회수 | 손목 속도 기반(급가속 후 감속) 또는 구형 2D 박스 |
 | A4 | 손–답 매핑 미정 | §7.1에 정의 없음 | MVP: 같은 쪽 손만 해당 쪽 답 선택(왼손→왼쪽). 교차 팔 동작을 요구하지 않아 X자 제스처 오발도 줄인다 | 영역 기준(어느 손이든), 양 영역 동시 진입은 보류 |
 | A5 | 반복 보기 쌍의 재현 불가 | `generateQuestion`은 오답 1개, `rand/pick`/정답 위치가 `Math.random`(`QuestionEvaluator.ts:18-23,219`). 재호출 시 변수가 다시 뽑혀 다른 문제 | 문제 1회 생성 후 정답값만 사용. 오답은 시드 RNG 주입 순수 함수(±1, ±2, ±10, 자릿수 교환, 연산 실수형 규칙, config로 관리)로 생성 | 기존 평가기에 RNG 주입(legacy 영향 → 별도 리팩터 카드) |
+| A5-확장 (2026-11-09) | 오답이 정답 숫자만 보고 생성되어 연산 오개념과 무관 | 위 A5 권장안의 오프셋 규칙 | **DOC-21 §13**: 보기 난이도 A1(어림)/A2(정밀, 오개념 재계산)/A3(연쇄, 쌍별 규칙)로 확장. boss_assault 전용, tier 미지정 시 본 A5 경로 그대로 유지 | — |
 | A6 | 숫자 외 문항·챕터 범위 미정 | CSV 685문항 중 비교 기호/분수 문자열/도형 다수(L7 shape 41, L9 shape 205) | MVP: Ch.1~2, 유한 숫자 정답, shapeCode 없음, 라벨 길이 상한 이하만 허용하는 적격성 필터(카드 39). 풀 0개면 진입 오류 | 분수·소수를 표시 문자열+정규화 값으로 후속 지원 |
 | A7 | MVP 정답 타격의 보스 효과 미정 | DOC-14는 "무효화"만 정의, 16은 `BossController.takeDamage` 재사용 언급 | MVP 보스 HP 불변. 접근 진행도·보스 경직 연출로 피드백, 신규 HUD에서 보스 HP 바 숨김 | 정답당 `takeNonLethalDamage` 소량(밸런스 결정 필요) |
 | A8 | 플레이어 HP 주입 경로 없음 | `BattleState` constructor는 `DEFAULT_CONFIG` 사용, 앱 단일 인스턴스 | MVP는 기존 maxHp 100 유지, 피해량만 신규 config | `BattleState` maxHp 재설정 옵션(선택 카드 47) |

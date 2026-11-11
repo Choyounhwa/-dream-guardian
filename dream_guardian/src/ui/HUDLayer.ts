@@ -190,7 +190,7 @@ export class HUDLayer {
   /**
    * 플레이어 HP바 바운딩 박스 조회
    */
-  getPlayerHpBarBounds(w: number, _h?: number): { x: number; y: number; w: number; h: number } {
+  getPlayerHpBarBounds(w: number = VIRTUAL_WIDTH, _h?: number): { x: number; y: number; w: number; h: number } {
     const resolved = this._resolveContext();
     const hpSlot = UI_LAYOUT.hud.playerHpBar;
     const defaultW = Math.min(hpSlot.w, this._hpBarMaxWidth(w));
@@ -209,7 +209,7 @@ export class HUDLayer {
   /**
    * 보스 HP바 바운딩 박스 조회
    */
-  getBossHpBarBounds(w: number, _h?: number): { x: number; y: number; w: number; h: number } {
+  getBossHpBarBounds(w: number = VIRTUAL_WIDTH, _h?: number): { x: number; y: number; w: number; h: number } {
     const resolved = this._resolveContext();
     const bossSlot = UI_LAYOUT.hud.bossHpBar;
     const defaultW = Math.min(bossSlot.w, this._hpBarMaxWidth(w));
@@ -232,7 +232,7 @@ export class HUDLayer {
    */
   getHpBarBounds(
     target: 'player' | 'boss',
-    w: number,
+    w: number = VIRTUAL_WIDTH,
     h?: number
   ): { x: number; y: number; w: number; h: number } {
     return target === 'player' ? this.getPlayerHpBarBounds(w, h) : this.getBossHpBarBounds(w, h);
@@ -241,7 +241,7 @@ export class HUDLayer {
   /**
    * 보스 이름 플레이트 바운딩 박스 조회
    */
-  getBossNameBounds(w: number, _h?: number): { x: number; y: number; w: number; h: number } {
+  getBossNameBounds(w: number = VIRTUAL_WIDTH, _h?: number): { x: number; y: number; w: number; h: number } {
     const resolved = this._resolveContext();
     const nameSlot = UI_LAYOUT.hud.bossName;
     const plateW = nameSlot.w;
@@ -261,12 +261,12 @@ export class HUDLayer {
   /**
    * 콤보 배지 바운딩 박스 조회
    */
-  getComboBounds(w: number, _h?: number): { x: number; y: number; w: number; h: number } {
+  getComboBounds(w: number = VIRTUAL_WIDTH, _h?: number): { x: number; y: number; w: number; h: number } {
     const resolved = this._resolveContext();
-    const badgeSlot = UI_LAYOUT.hud.comboBadge ?? { w: 160, h: 48, y: 48, marginRight: 24 };
+    const badgeSlot = (UI_LAYOUT.hud.comboBadge as any) ?? { w: 160, h: 48, y: 48, marginRight: 24 };
     const defaultW = badgeSlot.w;
     const defaultH = badgeSlot.h;
-    const defaultX = w - defaultW - badgeSlot.marginRight;
+    const defaultX = badgeSlot.x !== undefined ? badgeSlot.x : w - defaultW - (badgeSlot.marginRight ?? 24);
     const defaultY = badgeSlot.y;
 
     return {

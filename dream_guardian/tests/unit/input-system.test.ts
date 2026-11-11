@@ -8,6 +8,7 @@ import {
   RESERVED_BANDS,
 } from '../../config/zone.config.js';
 import { MenuInput } from '../../src/input/MenuInput.js';
+import { DEFAULT_JOINED_HANDS_CONFIG } from '../../config/cursor.config.js';
 import { KeyboardInput } from '../../src/input/KeyboardInput.js';
 import { MenuRenderer } from '../../src/ui/MenuRenderer.js';
 import { AnswerSelectionRenderer } from '../../src/render/AnswerSelectionRenderer.js';
@@ -164,7 +165,7 @@ describe('AnswerSelector', () => {
 describe('MenuInput', () => {
   it('양손이 가까우면 합장이 감지된다', () => {
     const mi = new MenuInput();
-    const result = mi.update(0.5, 0.5, 0.52, 0.51);
+    const result = mi.update(0.5, 0.5, 0.52, 0.51, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     expect(result.active).toBe(true);
     expect(mi.isActive).toBe(true);
   });
@@ -178,7 +179,7 @@ describe('MenuInput', () => {
 
   it('합장 시 중점이 커서 좌표가 된다', () => {
     const mi = new MenuInput();
-    const result = mi.update(0.4, 0.6, 0.42, 0.62);
+    const result = mi.update(0.4, 0.6, 0.42, 0.62, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     expect(result.active).toBe(true);
     expect(result.x).toBeCloseTo(0.41);
     expect(result.y).toBeCloseTo(0.61);
@@ -186,7 +187,7 @@ describe('MenuInput', () => {
 
   it('reset()이 상태를 초기화한다', () => {
     const mi = new MenuInput();
-    mi.update(0.5, 0.5, 0.52, 0.51);
+    mi.update(0.5, 0.5, 0.52, 0.51, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     mi.reset();
     expect(mi.isActive).toBe(false);
   });
@@ -203,7 +204,7 @@ describe('MenuInput', () => {
     const targetY = (chLayouts[0].y + chLayouts[0].h / 2) / vh;
 
     // 양손을 Ch.1 카드 위치에서 합장
-    const res = mi.update(targetX - 0.02, targetY, targetX + 0.02, targetY);
+    const res = mi.update(targetX - 0.02, targetY, targetX + 0.02, targetY, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     expect(res.active).toBe(true);
 
     const mx = res.x * vw;
@@ -230,7 +231,7 @@ describe('MenuInput', () => {
   it('합장 해제 시 호버 체류가 중단된다 (Issue #119)', () => {
     const mi = new MenuInput();
     // 1. 합장 상태
-    const res1 = mi.update(0.5, 0.5, 0.52, 0.5);
+    const res1 = mi.update(0.5, 0.5, 0.52, 0.5, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     expect(res1.active).toBe(true);
 
     // 2. 양손 분리
@@ -431,7 +432,7 @@ describe('Card #119 완료 조건 검증 테스트 Suite ([BUG-MENU-001])', () =
     // 3. 양손이 가까워지면 MenuInput이 합장 상태로 활성화
     const left = cursors.get('leftHand')!;
     const right = cursors.get('rightHand')!;
-    const menuResult = menuInput.update(left.x, left.y, right.x, right.y);
+    const menuResult = menuInput.update(left.x, left.y, right.x, right.y, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     expect(menuResult.active).toBe(true);
     expect(menuInput.isActive).toBe(true);
     expect(menuResult.x).toBeCloseTo((left.x + right.x) / 2);
@@ -447,7 +448,7 @@ describe('Card #119 완료 조건 검증 테스트 Suite ([BUG-MENU-001])', () =
     const chLayouts = menuRenderer.getChapterLayouts(vw, vh);
     const ch1X = (chLayouts[0].x + chLayouts[0].w / 2) / vw;
     const ch1Y = (chLayouts[0].y + chLayouts[0].h / 2) / vh;
-    const ch1Result = menuInput.update(ch1X - 0.01, ch1Y, ch1X + 0.01, ch1Y);
+    const ch1Result = menuInput.update(ch1X - 0.01, ch1Y, ch1X + 0.01, ch1Y, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     expect(ch1Result.active).toBe(true);
     const hitCh = menuRenderer.hitTest(ch1Result.x * vw, ch1Result.y * vh, vw, vh);
     expect(hitCh).toBe(1);
@@ -477,7 +478,7 @@ describe('Card #119 완료 조건 검증 테스트 Suite ([BUG-MENU-001])', () =
     const allCardNormX = (allCard.x + allCard.w / 2) / vw;
     const allCardNormY = (allCard.y + allCard.h / 2) / vh;
 
-    const subResult = menuInput.update(allCardNormX - 0.01, allCardNormY, allCardNormX + 0.01, allCardNormY);
+    const subResult = menuInput.update(allCardNormX - 0.01, allCardNormY, allCardNormX + 0.01, allCardNormY, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     expect(subResult.active).toBe(true);
     const hitSub = menuRenderer.hitTestSub(subResult.x * vw, subResult.y * vh, vw, vh, 1, mockSubLevels);
     expect(hitSub).toBe(0);
@@ -703,7 +704,7 @@ describe('인게임 문제 스테이지 양손 합장 제스처 메뉴 연동 (I
     expect(menuInput.isActive).toBe(false);
 
     // 2. 인게임 문제 풀이 중 양손을 가슴 앞 중앙(0.5, 0.7)으로 모음
-    const joinResult = menuInput.update(0.48, 0.7, 0.52, 0.7);
+    const joinResult = menuInput.update(0.48, 0.7, 0.52, 0.7, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     expect(joinResult.active).toBe(true);
     expect(menuInput.isActive).toBe(true);
     expect(joinResult.x).toBeCloseTo(0.5);
@@ -719,7 +720,7 @@ describe('인게임 문제 스테이지 양손 합장 제스처 메뉴 연동 (I
     // A. 하단 바 설정 버튼(좌측: x: 100, y: 2060) 위치로 양손 합장
     const settingsNormX = 100 / vw;
     const settingsNormY = 2060 / vh;
-    const joinSettings = menuInput.update(settingsNormX - 0.01, settingsNormY, settingsNormX + 0.01, settingsNormY);
+    const joinSettings = menuInput.update(settingsNormX - 0.01, settingsNormY, settingsNormX + 0.01, settingsNormY, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     expect(joinSettings.active).toBe(true);
 
     const hitSettings = bottomBar.hitTestSettings(joinSettings.x * vw, joinSettings.y * vh, vw, vh, 15);
@@ -740,7 +741,7 @@ describe('인게임 문제 스테이지 양손 합장 제스처 메뉴 연동 (I
     // B. 하단 바 일시정지(정지) 버튼(우측: x: 930, y: 2060) 위치로 양손 합장
     const actionNormX = 930 / vw;
     const actionNormY = 2060 / vh;
-    const joinAction = menuInput.update(actionNormX - 0.01, actionNormY, actionNormX + 0.01, actionNormY);
+    const joinAction = menuInput.update(actionNormX - 0.01, actionNormY, actionNormX + 0.01, actionNormY, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     expect(joinAction.active).toBe(true);
 
     const hitAction = bottomBar.hitTestAction(joinAction.x * vw, joinAction.y * vh, vw, vh, 15);
@@ -765,7 +766,7 @@ describe('인게임 문제 스테이지 양손 합장 제스처 메뉴 연동 (I
 
     // 합장 감지 시뮬레이션
     const menuInput = new MenuInput();
-    menuInput.update(0.49, 0.6, 0.51, 0.6);
+    menuInput.update(0.49, 0.6, 0.51, 0.6, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     expect(menuInput.isActive).toBe(true);
 
     // 합장에 따라 selector.paused 활성화
@@ -790,7 +791,7 @@ describe('인게임 문제 스테이지 양손 합장 제스처 메뉴 연동 (I
     const menuInput = new MenuInput();
 
     // 1. 합장 시작
-    menuInput.update(0.49, 0.6, 0.51, 0.6);
+    menuInput.update(0.49, 0.6, 0.51, 0.6, DEFAULT_JOINED_HANDS_CONFIG.requiredDwellSec);
     selector.paused = menuInput.isActive;
     expect(selector.paused).toBe(true);
 
